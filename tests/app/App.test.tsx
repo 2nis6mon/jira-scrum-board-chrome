@@ -237,6 +237,26 @@ describe("App", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
+  it("filtres rapides du board Jira : des boutons comme dans Jira, évalués par Jira", async () => {
+    const jira = boardSiteJira({
+      quickFilters: [{ id: 5, name: "Mes tickets", jql: "assignee = currentUser()", position: 0 }],
+    }).on("GET", "/rest/agile/1.0/board/7/issue", (request) => {
+      const jql = request.url.searchParams.get("jql");
+      const issues =
+        jql === null ? SPRINT_ISSUES : SPRINT_ISSUES.filter((issue) => issue.key === "ABC-103");
+      return { status: 200, json: { issues, total: issues.length } };
+    });
+    await connectedBoard(jira);
+    const chip = button("Mes tickets");
+    expect(chip.getAttribute("aria-pressed")).toBe("false");
+    expect(chip.title).toContain("assignee = currentUser()");
+
+    chip.click();
+    await expect.poll(() => cardKeys()).toEqual(["ABC-103"]);
+    expect(button("Mes tickets").getAttribute("aria-pressed")).toBe("true");
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+  });
+
   it("le diagnostic reste accessible depuis l'en-tête", async () => {
     const jira = new FakeJira().on("GET", "/rest/api/3/myself", { status: 401 });
     const model = new AppModel(fakePlatform(jira));

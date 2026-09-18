@@ -4,10 +4,11 @@ Pilote un sprint Jira Cloud par ses objectifs, depuis un onglet Chrome. Jira res
 vérité. Projet distinct de l'app macOS du même nom, dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.6.0 — les quatre écritures.** Board du sprint actif organisé par Goals Atlassian
-> (lus par l'API GraphQL), Build et RUN ; filtres et recherche ; glisser-déposer qui écrit dans
-> Jira : transition, rang, et lien natif ticket↔Goal ; épinglage de Goals au sprint. Repli
-> automatique et expliqué sur le texte du sprint si les Goals ne répondent pas.
+> **État : 0.7.0 — premiers réglages locaux.** Board du sprint actif organisé par Goals Atlassian
+> (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides du board Jira ;
+> glisser-déposer qui écrit dans Jira : transition, rang, et lien natif ticket↔Goal ; épinglage
+> de Goals au sprint ; ordre, repli, couleur et masquage des swimlanes. Repli automatique et
+> expliqué sur le texte du sprint si les Goals ne répondent pas.
 
 ## Installer l'extension (mode développeur)
 
@@ -78,6 +79,10 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
 - **Filtres** : recherche (clé, résumé, personne, type, label, parent), *Bloqués*, *Ajoutés*,
   et menus Personne, Objectif, Type, Priorité, Statut, Label, Composant, Parent. Un clic sur le
   titre d'un objectif n'affiche que lui ; un second clic rétablit tout.
+- **Filtres rapides Jira** : ceux définis sur le board Jira, en boutons (leur JQL au survol).
+  Jira évalue lui-même leur JQL, restreint aux sprints actifs ; plusieurs filtres actifs se
+  combinent, comme dans Jira. Un JQL que Jira refuse désactive les filtres rapides, et le bandeau
+  le dit. Lecture seule.
 - **Colonnes** : celles du board Jira, avec leur limite WIP (en rouge au-delà, filtres ou non).
 - **Swimlanes** : la flèche de l'en-tête replie ou déplie ; le menu *⋯* de chaque swimlane la
   monte ou la descend, replie ou déplie tout, change la couleur d'un objectif ou le masque (ses
@@ -171,7 +176,7 @@ développement, jamais inclus dans `dist/`.
 
 ### ✅ Vérifié sur cette machine
 
-- Types, lint, 521 tests, construction.
+- Types, lint, 567 tests, construction.
 - Chargement réel dans Chrome 153 (sans interface, profil temporaire vierge) : manifest accepté,
   identifiant conforme, permissions `storage` et `declarativeNetRequestWithHostAccess` seules,
   aucun hôte accordé à l'installation, formulaire de connexion sans erreur, hôte hors
@@ -197,6 +202,10 @@ développement, jamais inclus dans `dist/`.
   clés inconnues conservés, rien d'écrit si la relecture échoue ou si la sélection a changé
   entre-temps, refus de droits, issue incertaine, limite de 32 Ko ; fenêtre essayée dans Chrome
   sur le banc d'essai (`board-epingle`).
+- Réglages de swimlanes (0.7.0) et filtres rapides Jira contre le faux Jira : lecture paginée des
+  filtres, JQL restreint aux sprints actifs, intersection, refus de Jira ; rendu vérifié dans
+  Chrome sur le banc d'essai. Endpoint `GET /rest/agile/1.0/board/{id}/quickfilter` vérifié dans
+  la spécification OpenAPI de Jira Software.
 
 ### ✅ Constaté par l'utilisateur sur son instance (0.2.0, 0.2.1)
 
@@ -216,4 +225,6 @@ développement, jamais inclus dans `dist/`.
   constatées sur le Mac, jamais émises depuis l'extension).
 - L'épinglage (0.6.0) : liste des Goals de votre site, écriture de la propriété du sprint, et
   lecture croisée avec l'app Mac (un Goal épinglé d'un côté visible de l'autre).
+- Les filtres rapides de votre board (0.7.0) : leur lecture, et l'évaluation de leur JQL
+  restreint aux sprints actifs (`currentUser()`, champs personnalisés…).
 - Les volumes réels (pagination au-delà de 100 tickets, plusieurs sprints actifs).

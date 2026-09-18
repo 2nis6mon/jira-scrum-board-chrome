@@ -99,6 +99,8 @@ export function boardSiteJira(
     sprintIssues?: unknown[];
     myself?: Reply;
     graphql?: Reply | ((request: RecordedRequest) => Reply);
+    /** Filtres rapides du board Jira ; aucun par défaut. */
+    quickFilters?: unknown[];
   } = {},
 ) {
   const issues = options.sprintIssues ?? SPRINT_ISSUES;
@@ -115,6 +117,10 @@ export function boardSiteJira(
     .on("GET", "/rest/agile/1.0/board/7", {
       status: 200,
       json: { id: 7, name: "Équipe Paiement", type: "scrum", location: { projectKey: "ABC" } },
+    })
+    .on("GET", "/rest/agile/1.0/board/7/quickfilter", {
+      status: 200,
+      json: { isLast: true, values: options.quickFilters ?? [] },
     })
     .on("GET", "/rest/agile/1.0/board/7/configuration", {
       status: 200,

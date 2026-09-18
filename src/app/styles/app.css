@@ -1388,3 +1388,35 @@ details.lane-menu[open] > summary {
   font-size: 11px;
   white-space: normal;
 }
+
+/* ─── Filtres rapides du board Jira ──────────────────────────────────────── */
+
+.jira-quick-filters {
+  margin: 0;
+  padding: 0 0 0 10px;
+  border: none;
+  border-left: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.jira-quick-filters legend {
+  float: left;
+  margin-right: 2px;
+  padding: 0;
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.chip-jira[aria-pressed="true"] {
+  border-color: var(--jira-filter);
+  background: var(--jira-filter);
+  color: #fff;
+}
+
+.jira-quick-filters-busy {
+  color: var(--ink-3);
+  font-size: 12px;
+}

@@ -95,6 +95,7 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 | `core/boardWrites.ts` | `BoardController.moveIssue`, `rankIssue`, `assignGoal` (mode texte), `SprintGoalStore.saveAtlassianSelection` (épinglage) |
 | `jira/goals.ts` | `GoalsClient.swift` |
 | `core/atlassianGoals.ts` | `BoardController.loadAtlassianSprintGoals` |
+| `core/jiraQuickFilters.ts`, `core/jql.ts` | `BoardController.refreshQuickFilterSelection`, `JiraClient.quickFilters`, `CardColorResolver.queries` |
 | `core/boardPreferences.ts` | `BoardController.setBlockOrder`, `moveBlock`, `setBlockCollapsed`, `setGoalHidden`, `setGoalColor` |
 
 Écarts voulus : `SprintGoalText.render` n'est pas porté (il ne servait qu'à réécrire le champ du
@@ -108,7 +109,8 @@ sélection lue n'est plus celle affichée. Et dans `atlassianGoals.ts`, les Goal
 interrogés dès qu'aucun Goal n'est associé au board ni déclaré par les tickets, épinglés ou non
 (le Mac ne le faisait que sans aucun candidat : un épinglé masquait les autres). Dans
 `boardPreferences.ts`, un bloc absent de l'affichage garde sa place relative quand on réordonne
-(le Mac le renvoyait en fin de liste, sous Build).
+(le Mac le renvoyait en fin de liste, sous Build). Les filtres rapides Jira sont évalués sur les
+seuls sprints actifs (`jql.ts`), pas sur tout le board comme le Mac : même résultat affiché.
 
 Garde-fous à connaître avant de toucher au réseau :
 
@@ -151,7 +153,14 @@ le diagnostic mémorise par site la variante acceptée (`graphqlOrigin.v1`).
 REFUS explicite, jamais après une issue incertaine.
 
 0.6.0 : épinglage de Goals au sprint (`pinAtlassianGoals`, fenêtre `PinGoalsDialog`, menu « ⋯ »),
-qui termine l'étape 4. Reste du Mac non porté : garder localement une sélection refusée par Jira
+qui termine l'étape 4.
+
+0.7.0 : étape 5a (ordre, repli, couleur, masquage des swimlanes) et filtres rapides du board
+Jira, demandés par Denis. `GET /rest/agile/1.0/board/{id}/quickfilter` n'est pas dans
+ATLASSIAN-API-CAPABILITIES.md : forme vérifiée dans la spécification OpenAPI de Jira Software
+(`developer.atlassian.com/cloud/jira/software/swagger.v3.json`) le 18/09/2026. Reste de l'étape 5 :
+page Réglages (colonnes, types, affichage, source des objectifs, champs des cartes, règles de
+couleur), évaluation des règles de couleur, rafraîchissement automatique. Reste du Mac non porté : garder localement une sélection refusée par Jira
 (`keepSelectionLocally`), à faire avec les réglages locaux de l'étape 5.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec

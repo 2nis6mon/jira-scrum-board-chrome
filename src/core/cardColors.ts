@@ -1,3 +1,5 @@
+import { inActiveSprints, withoutOrderBy } from "./jql";
+
 /**
  * Couleur de fond appliquée aux cartes qui satisfont une requête JQL.
  *
@@ -55,14 +57,13 @@ export function withBuiltInRules(rules: readonly CardColorRule[]): CardColorRule
 
 /** JQL prêt à être combiné : sans clause `ORDER BY`, que Jira refuserait entre parenthèses. */
 export function scopedJql(rule: CardColorRule): string {
-  return rule.jql.trim().replace(/\s+order\s+by\s+.*$/is, "");
+  return withoutOrderBy(rule.jql);
 }
 
 /** Requête à soumettre à Jira pour une règle, restreinte aux sprints actifs. */
 export function colorRuleQueries(rule: CardColorRule, sprintIds: readonly number[]): string[] {
-  const base = scopedJql(rule);
-  if (rule.kind !== null || base === "" || sprintIds.length === 0) return [];
-  return [`(${base}) AND sprint in (${sprintIds.join(",")})`];
+  const query = rule.kind === null ? inActiveSprints(rule.jql, sprintIds) : null;
+  return query === null ? [] : [query];
 }
 
 /**

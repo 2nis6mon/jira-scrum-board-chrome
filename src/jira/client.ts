@@ -29,6 +29,15 @@ export interface JiraField {
   readonly schemaCustom: string | null;
 }
 
+/** Filtre rapide défini sur le board Jira. Son JQL est évalué par Jira, jamais interprété ici. */
+export interface JiraQuickFilter {
+  readonly id: number;
+  readonly name: string;
+  readonly jql: string;
+  readonly description: string | null;
+  readonly position: number;
+}
+
 /** Ce que Jira déclare d'un board : `board/{id}` et `board/{id}/configuration` réunis. */
 export interface JiraBoardStructure {
   readonly boardId: number;
@@ -116,6 +125,7 @@ const SPRINT_PAGE_SIZE = 50;
 const ISSUE_PAGE_SIZE = 100;
 /** Garde-fous de pagination : on s'arrête plutôt que de boucler sur une réponse incohérente. */
 const MAX_SPRINTS = 2000;
+const MAX_QUICK_FILTERS = 500;
 const MAX_ISSUES = 5000;
 
 /**
@@ -205,6 +215,34 @@ export class JiraClient {
       if (startAt > MAX_SPRINTS) break;
     }
     return result;
+  }
+
+  /**
+   * Filtres rapides du board, dans l'ordre de Jira. `GET /rest/agile/1.0/board/{id}/quickfilter`
+   * est absent de ATLASSIAN-API-CAPABILITIES.md ; forme vérifiée dans la spécification OpenAPI de
+   * Jira Software (`values[]` : `id`, `name`, `jql`, `description`, `position`).
+   */
+  async quickFilters(boardId: number): Promise<JiraQuickFilter[]> {
+    assertEntityId(boardId, "board");
+    const result: JiraQuickFilter[] = [];
+    let startAt = 0;
+    for (;;) {
+      const { body } = await this.#transport.get(`/rest/agile/1.0/board/${boardId}/quickfilter`, {
+        query: { startAt: String(startAt), maxResults: String(SPRINT_PAGE_SIZE) },
+        resource: `les filtres rapides du board ${boardId}`,
+      });
+      if (!isRecord(body) || !Array.isArray(body.values))
+        decodingFailure("quickfilter", "values absent");
+      for (const value of body.values) {
+        const filter = decodeQuickFilter(value);
+        if (filter) result.push(filter);
+      }
+      if (body.isLast === true || body.values.length === 0) break;
+      startAt += body.values.length;
+      if (typeof body.total === "number" && startAt >= body.total) break;
+      if (startAt > MAX_QUICK_FILTERS) break;
+    }
+    return result.sort((a, b) => a.position - b.position);
   }
 
   sprintIssues(sprintId: number, query: IssueQuery): Promise<JiraIssue[]> {
@@ -343,6 +381,23 @@ function decodeBoardStructure(
     projectKey: typeof location.projectKey === "string" ? location.projectKey : null,
     columns,
     estimationFieldId: typeof estimationField.fieldId === "string" ? estimationField.fieldId : null,
+  };
+}
+
+/** Un filtre sans identifiant ni nom est ignoré : on ne saurait ni l'afficher ni l'appliquer. */
+function decodeQuickFilter(value: unknown): JiraQuickFilter | null {
+  if (!isRecord(value) || typeof value.id !== "number" || typeof value.name !== "string") {
+    return null;
+  }
+  return {
+    id: value.id,
+    name: value.name,
+    jql: typeof value.jql === "string" ? value.jql : "",
+    description:
+      typeof value.description === "string" && value.description.trim() !== ""
+        ? value.description
+        : null,
+    position: typeof value.position === "number" ? value.position : 0,
   };
 }
 

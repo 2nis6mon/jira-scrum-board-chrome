@@ -28,8 +28,9 @@ import {
 } from "../../core/boardWrites";
 import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/dropPlan";
 import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../../core/filters";
+import { quickFilterKeys } from "../../core/jiraQuickFilters";
 import { goalColorName, type SprintGoal } from "../../core/sprintGoals";
-import { JiraClient } from "../../jira/client";
+import { JiraClient, type JiraQuickFilter } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import { GoalsClient } from "../../jira/goals";
 import type { AtlassianGoal, JiraTransition, JiraUser } from "../../jira/models";
@@ -126,6 +127,11 @@ export class BoardModel {
   readonly siteGoalsLoading = signal(false);
   readonly siteGoalsError = signal<UserMessage | null>(null);
 
+  /** Filtres rapides définis sur le board Jira, dans l'ordre de Jira. */
+  readonly jiraQuickFilters = signal<readonly JiraQuickFilter[]>([]);
+  /** Jira évalue le JQL des filtres rapides actifs. */
+  readonly applyingQuickFilters = signal(false);
+
   /** L'épinglage n'a de sens qu'en mode Goals Atlassian, sur un sprint dont la propriété est lue. */
   readonly canPinGoals = computed(() => {
     const snapshot = this.snapshot.value;
@@ -178,6 +184,9 @@ export class BoardModel {
   #resyncRequested = false;
   /** Enregistrements locaux enchaînés : le dernier demandé est le dernier écrit. */
   #saveQueue: Promise<unknown> = Promise.resolve();
+  /** Board dont les filtres rapides ont été lus. */
+  #quickFiltersBoardId: number | null = null;
+  #quickFilterRun = 0;
 
   constructor(site: JiraSite, platform: Platform, options: BoardModelOptions = {}) {
     this.site = site;
@@ -222,6 +231,8 @@ export class BoardModel {
       this.configuration.value = configuration;
       this.snapshot.value = null;
       this.filters.value = NO_FILTERS;
+      this.jiraQuickFilters.value = [];
+      this.#quickFiltersBoardId = null;
       this.syncProblem.value = null;
       this.pinEditor.value = null;
       this.editingBoard.value = false;
@@ -243,6 +254,7 @@ export class BoardModel {
       const configuration = await refreshBoardStructure(this.#client, current.boardId, current);
       await this.#persist(configuration);
       this.configuration.value = configuration;
+      this.#quickFiltersBoardId = null; // relus avec la structure
     } catch (error) {
       this.syncProblem.value = { ...toMessage(error), sessionLost: isSessionLost(error) };
       return;
@@ -320,6 +332,28 @@ export class BoardModel {
       const sessionLost = isSessionLost(error);
       if (sessionLost) this.#currentUser = null;
       this.syncProblem.value = { ...toMessage(error), sessionLost };
+      return;
+    }
+
+    await this.#loadJiraQuickFilters(configuration.boardId);
+    if (isStale()) return;
+    // Le contenu des sprints a pu changer : les filtres rapides actifs sont réévalués par Jira.
+    if (this.filters.value.jiraQuickFilterIds.size > 0) await this.#applyJiraQuickFilters();
+  }
+
+  /**
+   * Filtres rapides du board Jira, lus une fois par board (et à « Relire colonnes et types »).
+   * Un board peut n'en avoir aucun, ou l'instance ne pas les exposer : ce n'est pas une erreur,
+   * les boutons n'apparaissent simplement pas.
+   */
+  async #loadJiraQuickFilters(boardId: number): Promise<void> {
+    if (this.#quickFiltersBoardId === boardId) return;
+    this.#quickFiltersBoardId = boardId;
+    try {
+      const filters = await this.#client.quickFilters(boardId);
+      if (this.configuration.value?.boardId === boardId) this.jiraQuickFilters.value = filters;
+    } catch {
+      if (this.configuration.value?.boardId === boardId) this.jiraQuickFilters.value = [];
     }
   }
 
@@ -340,6 +374,62 @@ export class BoardModel {
     if (next.has(quick)) next.delete(quick);
     else next.add(quick);
     this.filters.value = { ...this.filters.value, quickFilters: next };
+  }
+
+  /** Active ou désactive un filtre rapide du board Jira. Son JQL est évalué par Jira. */
+  async toggleJiraQuickFilter(id: number): Promise<void> {
+    const ids = new Set(this.filters.value.jiraQuickFilterIds);
+    if (ids.has(id)) ids.delete(id);
+    else ids.add(id);
+    this.filters.value = { ...this.filters.value, jiraQuickFilterIds: ids };
+    await this.#applyJiraQuickFilters();
+  }
+
+  /**
+   * Demande à Jira les tickets retenus par les filtres rapides actifs. Lecture seule. Un filtre
+   * que Jira refuse n'est pas appliqué plutôt que de l'être à moitié, et on le dit.
+   */
+  async #applyJiraQuickFilters(): Promise<void> {
+    const configuration = this.configuration.value;
+    const ids = this.filters.value.jiraQuickFilterIds;
+    const active = this.jiraQuickFilters.value.filter((filter) => ids.has(filter.id));
+    const run = ++this.#quickFilterRun;
+    // Seul le dernier calcul compte, et seulement si les filtres actifs n'ont pas changé depuis.
+    const current = () =>
+      run === this.#quickFilterRun && sameIds(this.filters.value.jiraQuickFilterIds, ids);
+
+    if (!configuration || active.length === 0) {
+      this.filters.value = { ...this.filters.value, jiraQuickFilterKeys: null };
+      this.applyingQuickFilters.value = false;
+      return;
+    }
+    this.applyingQuickFilters.value = true;
+    try {
+      const keys = await quickFilterKeys(this.#client, {
+        boardId: configuration.boardId,
+        filters: active,
+        sprintIds: this.snapshot.value?.activeSprints.map((sprint) => sprint.id) ?? [],
+      });
+      if (current()) this.filters.value = { ...this.filters.value, jiraQuickFilterKeys: keys };
+    } catch (error) {
+      if (!current()) return;
+      this.filters.value = {
+        ...this.filters.value,
+        jiraQuickFilterIds: new Set(),
+        jiraQuickFilterKeys: null,
+      };
+      const message = toMessage(error);
+      this.writeNotice.value = {
+        tone: "error",
+        text: `Filtre rapide Jira inapplicable : ${message.text}`,
+        suggestion:
+          `${message.suggestion ?? ""} Les filtres rapides Jira ont été désactivés.`.trim(),
+        sessionLost: isSessionLost(error),
+        issueKey: null,
+      };
+    } finally {
+      if (run === this.#quickFilterRun) this.applyingQuickFilters.value = false;
+    }
   }
 
   focusGoal(goalId: string): void {
@@ -991,6 +1081,10 @@ export class BoardModel {
 
 function isSessionLost(error: unknown): boolean {
   return error instanceof JiraError && error.isAuthenticationFailure;
+}
+
+function sameIds(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
+  return a.size === b.size && [...a].every((id) => b.has(id));
 }
 
 function sameIndex(a: Readonly<Record<string, number>>, b: Readonly<Record<string, number>>) {

@@ -294,6 +294,7 @@ function FilterBar({ board }: { board: BoardModel }) {
           {QUICK_FILTER_LABEL[quick]}
         </button>
       ))}
+      <JiraQuickFilters board={board} />
       <FilterMenu
         label="Personne"
         options={options.assignees}
@@ -379,6 +380,42 @@ function FilterBar({ board }: { board: BoardModel }) {
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * Filtres rapides définis sur le board Jira, comme au-dessus du board dans Jira. Leur JQL est
+ * évalué par Jira ; plusieurs filtres actifs se combinent, comme dans Jira.
+ */
+function JiraQuickFilters({ board }: { board: BoardModel }) {
+  const quickFilters = board.jiraQuickFilters.value;
+  if (quickFilters.length === 0) return null;
+  const active = board.filters.value.jiraQuickFilterIds;
+  const applying = board.applyingQuickFilters.value;
+  return (
+    <fieldset class="jira-quick-filters" aria-busy={applying}>
+      <legend>Filtres rapides Jira</legend>
+      {quickFilters.map((quick) => (
+        <button
+          key={quick.id}
+          type="button"
+          class="chip chip-jira"
+          aria-pressed={active.has(quick.id)}
+          title={[quick.description, `JQL évalué par Jira : ${quick.jql}`]
+            .filter((line) => line !== null && line !== "")
+            .join("\n")}
+          disabled={applying}
+          onClick={() => void board.toggleJiraQuickFilter(quick.id)}
+        >
+          {quick.name}
+        </button>
+      ))}
+      {applying && (
+        <span class="jira-quick-filters-busy" aria-live="polite">
+          Jira filtre…
+        </span>
+      )}
+    </fieldset>
   );
 }
 

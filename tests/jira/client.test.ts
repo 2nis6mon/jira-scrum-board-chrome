@@ -234,3 +234,75 @@ describe("JiraClient", () => {
     expect(jira.requests[1]?.url.searchParams.has("state")).toBe(false);
   });
 });
+
+describe("filtres rapides du board", () => {
+  const PATH = "/rest/agile/1.0/board/7/quickfilter";
+  const quick = (id: number, name: string, position: number, extra: object = {}) => ({
+    id,
+    boardId: 7,
+    name,
+    jql: `assignee = u${id}`,
+    position,
+    ...extra,
+  });
+
+  it("lit toutes les pages, dans l'ordre de Jira, sans écrire", async () => {
+    const jira = new FakeJira().on(
+      "GET",
+      PATH,
+      {
+        status: 200,
+        json: {
+          isLast: false,
+          total: 3,
+          values: [quick(12, "Mes tickets", 1), quick(11, "Bugs", 0)],
+        },
+      },
+      { status: 200, json: { isLast: true, total: 3, values: [quick(13, "Urgent", 2)] } },
+    );
+    const filters = await clientFor(jira).quickFilters(7);
+
+    expect(filters.map((filter) => [filter.id, filter.name])).toEqual([
+      [11, "Bugs"],
+      [12, "Mes tickets"],
+      [13, "Urgent"],
+    ]);
+    expect(jira.sent("GET", PATH).map((r) => r.url.searchParams.get("startAt"))).toEqual([
+      "0",
+      "2",
+    ]);
+    expect(jira.requests.every((request) => request.method === "GET")).toBe(true);
+  });
+
+  it("garde description et JQL ; écarte un filtre sans identifiant ni nom", async () => {
+    const jira = new FakeJira().on("GET", PATH, {
+      status: 200,
+      json: {
+        isLast: true,
+        values: [
+          quick(1, "Bloqués", 0, { description: "Liens « est bloqué par »" }),
+          { name: "sans identifiant", jql: "x = 1" },
+          { id: 3, jql: "sans nom" },
+          { id: 4, name: "Sans JQL", position: 1, description: "  " },
+        ],
+      },
+    });
+    expect(await clientFor(jira).quickFilters(7)).toEqual([
+      {
+        id: 1,
+        name: "Bloqués",
+        jql: "assignee = u1",
+        description: "Liens « est bloqué par »",
+        position: 0,
+      },
+      { id: 4, name: "Sans JQL", jql: "", description: null, position: 1 },
+    ]);
+  });
+
+  it("réponse inattendue : erreur de décodage", async () => {
+    const jira = new FakeJira().on("GET", PATH, { status: 200, json: { filtres: [] } });
+    await expect(clientFor(jira).quickFilters(7)).rejects.toMatchObject({
+      info: { kind: "decoding" },
+    });
+  });
+});

@@ -69,9 +69,27 @@ async function simulateDrop(
 
 if (scenario.startsWith("board")) {
   const withGoals = scenario === "board-goals" || scenario === "board-epingle";
+  // Filtres rapides FICTIFS du board ; le faux Jira « évalue » leur JQL par table.
+  const quickFilters = [
+    { id: 1, name: "Mes tickets", jql: "assignee = currentUser()", position: 0 },
+    {
+      id: 2,
+      name: "Priorité haute",
+      jql: "priority in (High, Highest)",
+      description: "Priorités hautes et critiques",
+      position: 1,
+    },
+    { id: 3, name: "Sans estimation", jql: '"Story Points" is EMPTY', position: 2 },
+  ];
+  const quickFilterAnswers: Record<string, string[]> = {
+    "(assignee = currentUser()) AND sprint in (42)": ["ABC-101", "RUN-7"],
+    "(priority in (High, Highest)) AND sprint in (42)": ["ABC-101", "RUN-7"],
+    '("Story Points" is EMPTY) AND sprint in (42)': ["ABC-104", "RUN-7"],
+  };
   const jira = boardSiteJira(
     withGoals
       ? {
+          quickFilters,
           graphql: goalsGateway({
             goals: [
               {
@@ -106,8 +124,17 @@ if (scenario.startsWith("board")) {
             ],
           }),
         }
-      : {},
+      : { quickFilters },
   );
+  jira.on("GET", "/rest/agile/1.0/board/7/issue", (request) => {
+    const jql = request.url.searchParams.get("jql");
+    const keys = jql === null ? null : quickFilterAnswers[jql];
+    const issues =
+      keys === undefined
+        ? []
+        : SPRINT_ISSUES.filter((issue) => keys === null || keys.includes(issue.key as string));
+    return { status: 200, json: { issues, total: issues.length } };
+  });
   if (scenario === "board-epingle") {
     // Propriété du sprint qui garde ce qu'on y écrit, comme Jira.
     const goalsProperty = `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.goals}`;
