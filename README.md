@@ -4,10 +4,10 @@ Pilote un sprint Jira Cloud par ses objectifs, depuis un onglet Chrome. Jira res
 vérité. Projet distinct de l'app macOS du même nom, dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : étape 1 — connexion et diagnostic.** L'extension se connecte à un site
-> `*.atlassian.net` avec la session Jira du navigateur et propose un diagnostic : trois lectures,
-> puis, sur demande, un test d'écriture sur une propriété technique du sprint. Le board n'existe
-> pas encore.
+> **État : étapes 1 et 2.** L'extension se connecte à un site `*.atlassian.net` avec la session
+> Jira du navigateur et propose un diagnostic : trois lectures, puis, sur demande, un test
+> d'écriture sur une propriété technique du sprint. La logique métier de l'app Mac est portée et
+> testée (`src/core/`), mais pas encore branchée : le board n'existe pas encore.
 
 ## Installer l'extension (mode développeur)
 
@@ -84,7 +84,7 @@ réservé au développement, jamais inclus dans `dist/`.
 
 ### ✅ Vérifié sur cette machine
 
-- Types, lint, 106 tests, construction.
+- Types, lint, 297 tests, construction.
 - Chargement réel dans Chrome 153 (sans interface, profil temporaire vierge) : manifest accepté,
   identifiant conforme à la clé, service worker enregistré, formulaire de connexion rendu sans
   erreur, hôte hors `*.atlassian.net` refusé à la saisie sans rien enregistrer, aucune permission
@@ -94,6 +94,11 @@ réservé au développement, jamais inclus dans `dist/`.
   refus XSRF et refus de droits, aucune écriture rejouée, déroulé du test d'écriture dans tous
   ses cas, rapport sans donnée identifiante.
 - Rendu des vues dans cinq scénarios, par capture d'écran du banc d'essai (données fictives).
+- Logique métier portée de l'app Mac, avec ses cas de test transcrits : découpage du texte du
+  sprint, réconciliation des objectifs, ordre des swimlanes, filtres, plan de dépôt et rang,
+  règles de couleur, détection « bloqué » et drapeau, champs des cartes, bugs liés, changement de
+  périmètre, transitions. Vérifiée sur des données fictives calquées sur la forme des réponses
+  Jira documentées — pas sur des réponses réelles.
 
 ### ⚠️ Non vérifié — nécessite votre instance Jira
 

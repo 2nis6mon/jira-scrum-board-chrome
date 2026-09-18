@@ -67,7 +67,9 @@ describe("code de production", () => {
 
   it("n'importe rien depuis tests/ et n'embarque aucune donnée fictive", () => {
     expect(filesMatching(/from\s+["'][^"']*tests\//)).toEqual([]);
-    expect(filesMatching(/acme\.atlassian|fakeJira|Lorem ipsum|TODO|FIXME/i)).toEqual([]);
+    expect(filesMatching(/acme\.atlassian|fakeJira|jiraFixtures|Lorem ipsum/i)).toEqual([]);
+    // Mot exact : le compteur `toDo` des indicateurs n'est pas un marqueur de travail inachevé.
+    expect(filesMatching(/\b(TODO|FIXME|XXX)\b/)).toEqual([]);
   });
 
   it("garde jira/ indépendant de chrome.* et du DOM", () => {

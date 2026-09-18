@@ -56,14 +56,33 @@ src/app/              interface Preact
 src/app/platform/     seul endroit qui touche chrome.* (permissions, stockage)
 src/app/model/        état de l'interface (signals), plateforme injectée
 src/background/       service worker (ouvre la page, rien d'autre)
-src/jira/             site, erreurs, transport HTTP, inventaire des écritures, diagnostic
-src/core/             logique métier pure                           (à venir)
-tests/                tests Vitest ; tests/support = faux Jira et fausse plateforme
+src/jira/             site, erreurs, transport HTTP, inventaire des écritures, diagnostic,
+                      modèles Jira et leur décodage, planificateur de transitions
+src/core/             logique métier pure, portée de l'app Mac (voir ci-dessous)
+tests/                tests Vitest ; tests/support = faux Jira, fausse plateforme, fabriques
 tests/harness/        banc d'essai visuel (données fictives), jamais dans dist/
 scripts/              outillage de développement
 ```
 
 `src/jira/` et `src/core/` n'utilisent ni `chrome.*` ni le DOM : ils se testent sous Node.
+
+Correspondance avec l'app Mac (les tests Swift de même nom sont la référence) :
+
+| Extension | App Mac |
+|---|---|
+| `core/sprintGoals.ts` | `SprintGoalText`, `SprintGoalReconciler`, `SprintGoalDocument`, `GoalPalette` |
+| `core/boardBlocks.ts` | `BoardBlock`, `BoardBlockLayout` |
+| `core/boardConfiguration.ts` | `BoardConfiguration`, `BoardDiscovery` |
+| `core/boardIssue.ts` | `BoardIssue`, `BoardAssembler`, `GoalProgress`, `BoardSnapshot` |
+| `core/filters.ts` | `BoardFilters`, `BoardFilterEngine`, `AtlassianGoalFilter` |
+| `core/dropPlan.ts` | `BoardDropPlan`, `RankChange` |
+| `core/cardColors.ts`, `core/cardFields.ts` | `CardColorRule`, `CardColorResolver`, `CardField` |
+| `jira/models.ts`, `jira/transitionPlanner.ts` | `Models.swift`, `TransitionPlanner` |
+
+Écarts voulus : `SprintGoalText.render` n'est pas porté (il ne servait qu'à réécrire le champ du
+sprint) ; le mode de compatibilité « Build et RUN restent en bas » des ordres enregistrés avant la
+2.2 du Mac n'existe pas ; les champs « optionnels pour d'anciennes configurations » ont ici une
+valeur par défaut. Le format de `SprintGoalDocument` est PARTAGÉ avec le Mac : ne pas le changer.
 
 Garde-fous à connaître avant de toucher au réseau :
 
