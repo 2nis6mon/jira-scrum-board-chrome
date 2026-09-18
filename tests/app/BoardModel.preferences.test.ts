@@ -50,6 +50,42 @@ describe("BoardModel — réglages d'affichage locaux", () => {
     expect(jiraWrites()).toBe(0);
   });
 
+  it("glisser-déposer une swimlane : elle prend la place visée, rien n'est écrit dans Jira", async () => {
+    const { board, stored, jiraWrites } = await preferencesBoard();
+    board.startLaneDrag("run");
+    board.setLaneDropTarget(`goal:${PAIEMENT}`);
+    expect(board.laneDropTarget.value).toBe(`goal:${PAIEMENT}`);
+
+    await board.dropLane("run", `goal:${PAIEMENT}`);
+    expect(laneIds(board)).toEqual(["run", `goal:${PAIEMENT}`, `goal:${STABILITE}`, "build"]);
+    expect((await stored())?.blockOrder).toEqual([
+      "run",
+      `goal:${PAIEMENT}`,
+      `goal:${STABILITE}`,
+      "build",
+    ]);
+    expect(board.draggingLane.value).toBeNull();
+    expect(jiraWrites()).toBe(0);
+  });
+
+  it("glisser une swimlane en dernier, puis à sa propre place : seule la première compte", async () => {
+    const { board } = await preferencesBoard();
+    board.startLaneDrag(`goal:${PAIEMENT}`);
+    board.setLaneDropTarget(null);
+    expect(board.laneDropTarget.value).toBeNull();
+    await board.dropLane(`goal:${PAIEMENT}`, null);
+    expect(laneIds(board)).toEqual([`goal:${STABILITE}`, "build", "run", `goal:${PAIEMENT}`]);
+
+    // Juste avant la suivante, ou sur elle-même : l'ordre ne changerait pas, aucune ligne.
+    board.startLaneDrag("build");
+    board.setLaneDropTarget("build");
+    expect(board.laneDropTarget.value).toBeUndefined();
+    board.setLaneDropTarget("run");
+    expect(board.laneDropTarget.value).toBeUndefined();
+    board.endLaneDrag();
+    expect(board.draggingLane.value).toBeNull();
+  });
+
   it("monter la première swimlane ne change rien", async () => {
     const { board, stored } = await preferencesBoard();
     await board.moveLane(`goal:${PAIEMENT}`, -1);

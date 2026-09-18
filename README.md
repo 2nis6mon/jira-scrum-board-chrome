@@ -4,7 +4,7 @@ Pilote un sprint Jira Cloud par ses objectifs, depuis un onglet Chrome. Jira res
 vérité. Projet distinct de l'app macOS du même nom, dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.7.0 — premiers réglages locaux.** Board du sprint actif organisé par Goals Atlassian
+> **État : 0.7.1 — premiers réglages locaux.** Board du sprint actif organisé par Goals Atlassian
 > (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides du board Jira ;
 > glisser-déposer qui écrit dans Jira : transition, rang, et lien natif ticket↔Goal ; épinglage
 > de Goals au sprint ; ordre, repli, couleur et masquage des swimlanes. Repli automatique et
@@ -25,6 +25,9 @@ non empaquetée** → choisir le dossier `dist/`. Un clic sur l'icône de l'exte
 dans un onglet (ou y revient s'il est déjà ouvert).
 
 Après une reconstruction, cliquer sur la flèche de rechargement de la carte de l'extension.
+
+L'icône est celle de l'app Mac (`public/icons/`, tirée de `ScrumBoard.iconset` en 16, 32, 48,
+64 et 128 px).
 
 L'identifiant de l'extension est figé (`efhpkdoiimdggndnfcgdoaniobdcmokb`) par le champ `key` du
 manifest : déplacer le dossier ne fait pas perdre les réglages locaux.
@@ -84,8 +87,9 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
   combinent, comme dans Jira. Un JQL que Jira refuse désactive les filtres rapides, et le bandeau
   le dit. Lecture seule.
 - **Colonnes** : celles du board Jira, avec leur limite WIP (en rouge au-delà, filtres ou non).
-- **Swimlanes** : la flèche de l'en-tête replie ou déplie ; le menu *⋯* de chaque swimlane la
-  monte ou la descend, replie ou déplie tout, change la couleur d'un objectif ou le masque (ses
+- **Swimlanes** : la poignée (⠿) à gauche de l'en-tête se glisse pour placer la swimlane
+  (objectif, Build ou RUN) où l'on veut ; la flèche replie ou déplie ; le menu *⋯* la monte ou la
+  descend (alternative au clavier), replie ou déplie tout, change la couleur d'un objectif ou le masque (ses
   tickets passent dans *Build* ; un rappel permet de le réafficher). Ces réglages restent dans ce
   navigateur et ne changent rien dans Jira.
 - **Épingler des Goals au sprint** (menu *⋯*) : choisir, parmi les Goals du site, ceux qui
@@ -116,8 +120,7 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
   la machine ; l'extension ne le fait pas encore.
 - Déplacer une carte se fait à la souris uniquement pour l'instant.
 - Un seul board à la fois. Colonnes, types de tickets, champs des cartes et règles de couleur
-  ne sont pas encore réglables depuis l'interface. Réordonner les swimlanes se fait par leur menu,
-  pas encore par glisser-déposer.
+  ne sont pas encore réglables depuis l'interface.
 
 ## Ce que l'extension écrit dans Jira
 
@@ -176,7 +179,7 @@ développement, jamais inclus dans `dist/`.
 
 ### ✅ Vérifié sur cette machine
 
-- Types, lint, 567 tests, construction.
+- Types, lint, 570 tests, construction.
 - Chargement réel dans Chrome 153 (sans interface, profil temporaire vierge) : manifest accepté,
   identifiant conforme, permissions `storage` et `declarativeNetRequestWithHostAccess` seules,
   aucun hôte accordé à l'installation, formulaire de connexion sans erreur, hôte hors

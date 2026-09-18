@@ -1,6 +1,6 @@
 import { batch, computed, signal } from "@preact/signals";
 import { loadAtlassianSprintGoals } from "../../core/atlassianGoals";
-import { type BoardBlock, blockIdentifier, shiftBlock } from "../../core/boardBlocks";
+import { type BoardBlock, blockIdentifier, moveBlock, shiftBlock } from "../../core/boardBlocks";
 import {
   type BoardConfiguration,
   displayedGoalId,
@@ -120,6 +120,13 @@ export class BoardModel {
   readonly transitionChoice = signal<TransitionChoice | null>(null);
   readonly dragging = signal<DragState | null>(null);
   readonly dropTarget = signal<DropTarget | null>(null);
+  /** Swimlane en cours de glisser-déposer (identifiant de bloc). */
+  readonly draggingLane = signal<string | null>(null);
+  /**
+   * Place visée par la swimlane glissée : avant cette swimlane, `null` = en dernier. Absente
+   * (`undefined`) quand le dépôt ne changerait rien.
+   */
+  readonly laneDropTarget = signal<string | null | undefined>(undefined);
 
   readonly pinEditor = signal<PinEditor | null>(null);
   /** Goals du site, chargés à la première ouverture de la fenêtre d'épinglage. */
@@ -451,10 +458,43 @@ export class BoardModel {
 
   /** Monte (`-1`) ou descend (`+1`) une swimlane d'un cran. */
   moveLane(identifier: string, offset: number): Promise<void> {
+    return this.#reorderLanes(shiftBlock(identifier, offset, this.laneOrder.value));
+  }
+
+  startLaneDrag(identifier: string): void {
+    if (!this.laneOrder.value.includes(identifier)) return;
+    batch(() => {
+      this.draggingLane.value = identifier;
+      this.laneDropTarget.value = undefined;
+    });
+  }
+
+  /** Place visée pendant le glissé ; ignorée si le dépôt laisserait l'ordre inchangé. */
+  setLaneDropTarget(before: string | null): void {
+    const dragged = this.draggingLane.value;
+    if (dragged === null) return;
     const order = this.laneOrder.value;
-    const moved = shiftBlock(identifier, offset, order);
-    if (moved.every((id, index) => id === order[index])) return Promise.resolve();
-    return this.#updatePreferences((current) => withBlockOrder(current, moved));
+    const unchanged = sameOrder(moveBlock(dragged, before, order), order);
+    const target = unchanged ? undefined : before;
+    if (this.laneDropTarget.value !== target) this.laneDropTarget.value = target;
+  }
+
+  endLaneDrag(): void {
+    batch(() => {
+      this.draggingLane.value = null;
+      this.laneDropTarget.value = undefined;
+    });
+  }
+
+  /** Dépôt d'une swimlane : elle se place juste avant `before` (`null` = en dernier). */
+  dropLane(identifier: string, before: string | null): Promise<void> {
+    this.endLaneDrag();
+    return this.#reorderLanes(moveBlock(identifier, before, this.laneOrder.value));
+  }
+
+  #reorderLanes(order: readonly string[]): Promise<void> {
+    if (sameOrder(order, this.laneOrder.value)) return Promise.resolve();
+    return this.#updatePreferences((current) => withBlockOrder(current, order));
   }
 
   setGoalHidden(goalId: string, hidden: boolean): Promise<void> {
@@ -1081,6 +1121,10 @@ export class BoardModel {
 
 function isSessionLost(error: unknown): boolean {
   return error instanceof JiraError && error.isAuthenticationFailure;
+}
+
+function sameOrder(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id, index) => id === b[index]);
 }
 
 function sameIds(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {

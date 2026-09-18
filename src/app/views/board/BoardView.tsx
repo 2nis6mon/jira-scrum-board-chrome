@@ -121,6 +121,7 @@ function SprintHeader(props: {
 
   return (
     <header class="sprint-header">
+      <img class="sprint-icon" src="/icons/icon-64.png" alt="" width="36" height="36" />
       <div class="sprint-title">
         <span class="sprint-board">{configuration.boardName}</span>
         <h2>
@@ -295,80 +296,85 @@ function FilterBar({ board }: { board: BoardModel }) {
         </button>
       ))}
       <JiraQuickFilters board={board} />
-      <FilterMenu
-        label="Personne"
-        options={options.assignees}
-        selected={filters.assigneeIds}
-        onToggle={(value) => set({ ...filters, assigneeIds: toggled(filters.assigneeIds, value) })}
-        extra={{
-          label: "Non assigné",
-          count: options.unassignedCount,
-          checked: filters.includeUnassigned,
-          onToggle: () => set({ ...filters, includeUnassigned: !filters.includeUnassigned }),
-        }}
-      />
-      <FilterMenu
-        label="Objectif"
-        options={options.goals}
-        selected={filters.goalIds}
-        onToggle={(value) => set({ ...filters, goalIds: toggled(filters.goalIds, value) })}
-        extra={{
-          label: "Sans objectif",
-          count: options.withoutGoalCount,
-          checked: filters.includeWithoutGoal,
-          onToggle: () => set({ ...filters, includeWithoutGoal: !filters.includeWithoutGoal }),
-        }}
-      />
-      <FilterMenu
-        label="Type"
-        options={options.issueTypes}
-        selected={filters.issueTypeIds}
-        onToggle={(value) =>
-          set({ ...filters, issueTypeIds: toggled(filters.issueTypeIds, value) })
-        }
-      />
-      <FilterMenu
-        label="Priorité"
-        options={options.priorities}
-        selected={filters.priorityNames}
-        onToggle={(value) =>
-          set({ ...filters, priorityNames: toggled(filters.priorityNames, value) })
-        }
-      />
-      <FilterMenu
-        label="Statut"
-        options={options.statuses}
-        selected={filters.statusIds}
-        onToggle={(value) => set({ ...filters, statusIds: toggled(filters.statusIds, value) })}
-      />
-      <FilterMenu
-        label="Label"
-        options={options.labels}
-        selected={filters.labels}
-        onToggle={(value) => set({ ...filters, labels: toggled(filters.labels, value) })}
-      />
-      {options.components.length > 0 && (
+      <div class="filter-group">
         <FilterMenu
-          label="Composant"
-          options={options.components}
-          selected={filters.componentNames}
+          label="Personne"
+          options={options.assignees}
+          selected={filters.assigneeIds}
           onToggle={(value) =>
-            set({ ...filters, componentNames: toggled(filters.componentNames, value) })
+            set({ ...filters, assigneeIds: toggled(filters.assigneeIds, value) })
+          }
+          extra={{
+            label: "Non assigné",
+            count: options.unassignedCount,
+            checked: filters.includeUnassigned,
+            onToggle: () => set({ ...filters, includeUnassigned: !filters.includeUnassigned }),
+          }}
+        />
+        <FilterMenu
+          label="Objectif"
+          options={options.goals}
+          selected={filters.goalIds}
+          onToggle={(value) => set({ ...filters, goalIds: toggled(filters.goalIds, value) })}
+          extra={{
+            label: "Sans objectif",
+            count: options.withoutGoalCount,
+            checked: filters.includeWithoutGoal,
+            onToggle: () => set({ ...filters, includeWithoutGoal: !filters.includeWithoutGoal }),
+          }}
+        />
+        <FilterMenu
+          label="Type"
+          options={options.issueTypes}
+          selected={filters.issueTypeIds}
+          onToggle={(value) =>
+            set({ ...filters, issueTypeIds: toggled(filters.issueTypeIds, value) })
           }
         />
-      )}
-      <FilterMenu
-        label="Parent"
-        options={options.parents}
-        selected={filters.parentKeys}
-        onToggle={(value) => set({ ...filters, parentKeys: toggled(filters.parentKeys, value) })}
-        extra={{
-          label: "Sans parent",
-          count: options.withoutParentCount,
-          checked: filters.includeWithoutParent,
-          onToggle: () => set({ ...filters, includeWithoutParent: !filters.includeWithoutParent }),
-        }}
-      />
+        <FilterMenu
+          label="Priorité"
+          options={options.priorities}
+          selected={filters.priorityNames}
+          onToggle={(value) =>
+            set({ ...filters, priorityNames: toggled(filters.priorityNames, value) })
+          }
+        />
+        <FilterMenu
+          label="Statut"
+          options={options.statuses}
+          selected={filters.statusIds}
+          onToggle={(value) => set({ ...filters, statusIds: toggled(filters.statusIds, value) })}
+        />
+        <FilterMenu
+          label="Label"
+          options={options.labels}
+          selected={filters.labels}
+          onToggle={(value) => set({ ...filters, labels: toggled(filters.labels, value) })}
+        />
+        {options.components.length > 0 && (
+          <FilterMenu
+            label="Composant"
+            options={options.components}
+            selected={filters.componentNames}
+            onToggle={(value) =>
+              set({ ...filters, componentNames: toggled(filters.componentNames, value) })
+            }
+          />
+        )}
+        <FilterMenu
+          label="Parent"
+          options={options.parents}
+          selected={filters.parentKeys}
+          onToggle={(value) => set({ ...filters, parentKeys: toggled(filters.parentKeys, value) })}
+          extra={{
+            label: "Sans parent",
+            count: options.withoutParentCount,
+            checked: filters.includeWithoutParent,
+            onToggle: () =>
+              set({ ...filters, includeWithoutParent: !filters.includeWithoutParent }),
+          }}
+        />
+      </div>
       {count > 0 && (
         <>
           <span class="filter-result">
@@ -571,6 +577,12 @@ function BoardGrid(props: {
 
   const snapshot = board.snapshot.value;
   const load = snapshot ? columnLoad(snapshot) : new Map<string, number>();
+  // Ligne d'insertion de la swimlane glissée, à la couleur de son objectif.
+  const draggedLane = layout.lanes.find((lane) => lane.id === board.draggingLane.value);
+  const laneTarget = board.draggingLane.value === null ? undefined : board.laneDropTarget.value;
+  const laneDropLine = (
+    <div class="lane-drop-line" data-goal-color={draggedLane?.goal?.color} aria-hidden="true" />
+  );
   return (
     <div class="board" style={{ "--column-count": String(layout.columns.length) }}>
       <div class="board-row column-band">
@@ -591,15 +603,19 @@ function BoardGrid(props: {
           );
         })}
       </div>
-      {layout.lanes.map((lane) => (
-        <LaneView
-          key={lane.id}
-          board={board}
-          configuration={configuration}
-          layout={layout}
-          lane={lane}
-        />
+      {layout.lanes.map((lane, index) => (
+        <Fragment key={lane.id}>
+          {laneTarget === lane.id && laneDropLine}
+          <LaneView
+            board={board}
+            configuration={configuration}
+            layout={layout}
+            lane={lane}
+            nextLaneId={layout.lanes[index + 1]?.id ?? null}
+          />
+        </Fragment>
       ))}
+      {laneTarget === null && laneDropLine}
     </div>
   );
 }
@@ -609,8 +625,10 @@ function LaneView(props: {
   configuration: BoardConfiguration;
   layout: BoardLayout;
   lane: Lane;
+  /** Swimlane affichée juste en dessous : un dépôt sur la moitié basse se place avant elle. */
+  nextLaneId: string | null;
 }) {
-  const { board, configuration, layout, lane } = props;
+  const { board, configuration, layout, lane, nextLaneId } = props;
   const goal = lane.goal;
   const progress = lane.progress;
   const focused = goal !== null && isGoalFocused(board.filters.value, goal.id);
@@ -621,11 +639,46 @@ function LaneView(props: {
 
   return (
     <section
-      class={`lane lane-${lane.block.kind}`}
+      class={`lane lane-${lane.block.kind}${board.draggingLane.value === lane.id ? " lane-dragging" : ""}`}
       data-goal-color={goal?.color}
       aria-label={lane.title}
+      onDragOver={(event) => {
+        // Seul le glissé d'une swimlane est traité ici ; celui des cartes l'est par les cases.
+        if (board.draggingLane.value === null) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+        const box = event.currentTarget.getBoundingClientRect();
+        board.setLaneDropTarget(event.clientY < box.top + box.height / 2 ? lane.id : nextLaneId);
+      }}
+      onDrop={(event) => {
+        const dragged = board.draggingLane.value;
+        if (dragged === null) return;
+        event.preventDefault();
+        const target = board.laneDropTarget.value;
+        // Seule la swimlane dont le glissé a commencé sur ce board est acceptée.
+        if (event.dataTransfer?.getData(LANE_DRAG_TYPE) !== dragged || target === undefined) {
+          board.endLaneDrag();
+          return;
+        }
+        void board.dropLane(dragged, target);
+      }}
     >
       <header class="lane-header">
+        <span
+          class="lane-grip"
+          draggable
+          aria-hidden="true"
+          title="Glisser pour déplacer la swimlane (ou menu ⋯ : Monter, Descendre)"
+          onDragStart={(event) => {
+            if (!event.dataTransfer) return;
+            event.dataTransfer.setData(LANE_DRAG_TYPE, lane.id);
+            event.dataTransfer.effectAllowed = "move";
+            const header = event.currentTarget.closest(".lane-header");
+            if (header instanceof HTMLElement) event.dataTransfer.setDragImage?.(header, 12, 12);
+            board.startLaneDrag(lane.id);
+          }}
+          onDragEnd={() => board.endLaneDrag()}
+        />
         <button
           type="button"
           class="lane-toggle"
@@ -873,6 +926,8 @@ function LaneMenu({ board, lane }: { board: BoardModel; lane: Lane }) {
 
 /** Type de donnée du glisser-déposer : propre à l'extension, il ne porte qu'une clé de ticket. */
 const DRAG_TYPE = "application/x-scrum-board-issue";
+/** Type propre au glissé des swimlanes : une case ne l'accepte jamais, ni une swimlane une carte. */
+const LANE_DRAG_TYPE = "application/x-scrum-board-lane";
 
 /** Carte devant laquelle déposer, d'après la position du pointeur ; `null` = à la fin. */
 function insertionPoint(cell: HTMLElement, clientY: number, draggedKey: string): string | null {

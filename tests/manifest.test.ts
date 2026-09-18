@@ -47,6 +47,22 @@ describe("manifest", () => {
     expect(manifest.declarative_net_request).toBeUndefined();
   });
 
+  it("icônes : des fichiers PNG de l'extension elle-même, présents dans public/", () => {
+    const icons = manifest.icons as Record<string, string>;
+    const action = (manifest.action as { default_icon: Record<string, string> }).default_icon;
+    expect(Object.keys(icons)).toEqual(["16", "32", "48", "128"]);
+    for (const [size, path] of [...Object.entries(icons), ...Object.entries(action)]) {
+      expect(path).toBe(`icons/icon-${size}.png`);
+      const bytes = readFileSync(new URL(`../public/${path}`, import.meta.url));
+      // Signature PNG, puis largeur et hauteur de l'en-tête IHDR.
+      expect(bytes.subarray(1, 4).toString("ascii")).toBe("PNG");
+      expect([bytes.readUInt32BE(16), bytes.readUInt32BE(20)]).toEqual([
+        Number(size),
+        Number(size),
+      ]);
+    }
+  });
+
   it("fige l'identifiant de l'extension par une clé publique", () => {
     expect(manifest.key).toMatch(/^[A-Za-z0-9+/]{300,}={0,2}$/);
   });

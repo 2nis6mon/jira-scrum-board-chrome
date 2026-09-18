@@ -160,7 +160,12 @@ Jira, demandés par Denis. `GET /rest/agile/1.0/board/{id}/quickfilter` n'est pa
 ATLASSIAN-API-CAPABILITIES.md : forme vérifiée dans la spécification OpenAPI de Jira Software
 (`developer.atlassian.com/cloud/jira/software/swagger.v3.json`) le 18/09/2026. Reste de l'étape 5 :
 page Réglages (colonnes, types, affichage, source des objectifs, champs des cartes, règles de
-couleur), évaluation des règles de couleur, rafraîchissement automatique. Reste du Mac non porté : garder localement une sélection refusée par Jira
+couleur), évaluation des règles de couleur, rafraîchissement automatique.
+
+0.7.1 (demandes de Denis) : glisser-déposer des swimlanes par une poignée (type de données propre,
+`application/x-scrum-board-lane`, distinct de celui des cartes) ; icône de l'app Mac dans le
+manifest (`icons`, `action.default_icon`), l'onglet et l'en-tête du sprint ; séparateur avant les
+filtres standard. Reste du Mac non porté : garder localement une sélection refusée par Jira
 (`keepSelectionLocally`), à faire avec les réglages locaux de l'étape 5.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec

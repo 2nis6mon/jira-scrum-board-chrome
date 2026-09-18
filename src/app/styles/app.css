@@ -1420,3 +1420,52 @@ details.lane-menu[open] > summary {
   color: var(--ink-3);
   font-size: 12px;
 }
+
+/* Séparation des filtres standard (menus), comme celle des filtres rapides Jira. */
+.filter-group {
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sprint-icon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  margin-right: -16px;
+}
+
+/* ─── Glisser-déposer des swimlanes ──────────────────────────────────────── */
+
+.lane-grip {
+  flex: none;
+  width: 10px;
+  height: 16px;
+  cursor: grab;
+  opacity: 0.45;
+  background-image: radial-gradient(circle, var(--ink-3) 1.3px, transparent 1.6px);
+  background-size: 5px 5px;
+  background-position: 0 0;
+}
+
+.lane-header:hover .lane-grip {
+  opacity: 1;
+}
+
+.lane-grip:active {
+  cursor: grabbing;
+}
+
+.lane-dragging {
+  opacity: 0.45;
+}
+
+.lane-drop-line {
+  height: 3px;
+  margin: 8px 0 -11px;
+  border-radius: 2px;
+  background: var(--goal-ring, var(--ink-3));
+}
