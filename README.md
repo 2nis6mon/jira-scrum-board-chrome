@@ -4,11 +4,12 @@ Pilote un sprint Jira Cloud par ses objectifs, depuis un onglet Chrome. Jira res
 vérité. Projet distinct de l'app macOS du même nom, dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.7.1 — premiers réglages locaux.** Board du sprint actif organisé par Goals Atlassian
-> (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides du board Jira ;
+> **État : 0.8.0 — page Réglages.** Board du sprint actif organisé par Goals Atlassian (lus par
+> l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides du board Jira ;
 > glisser-déposer qui écrit dans Jira : transition, rang, et lien natif ticket↔Goal ; épinglage
-> de Goals au sprint ; ordre, repli, couleur et masquage des swimlanes. Repli automatique et
-> expliqué sur le texte du sprint si les Goals ne répondent pas.
+> de Goals au sprint ; ordre, repli, couleur et masquage des swimlanes ; page Réglages (colonnes,
+> types, affichage, rafraîchissement automatique, source des objectifs, champs des cartes). Repli
+> automatique et expliqué sur le texte du sprint si les Goals ne répondent pas.
 
 ## Installer l'extension (mode développeur)
 
@@ -95,6 +96,15 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
 - **Épingler des Goals au sprint** (menu *⋯*) : choisir, parmi les Goals du site, ceux qui
   s'affichent même sans ticket rattaché. La sélection se compose dans la fenêtre (filtre local,
   sans requête pendant la frappe) et n'est écrite qu'au clic sur *Enregistrer dans Jira*.
+- **Réglages** (en-tête), propres à ce navigateur et à ce board, jamais écrits dans Jira :
+  - *Board* : colonnes Scrum et RUN (affichées, nom, limite WIP), types de tickets (Scrum, RUN,
+    ignoré ; « bug »), section RUN, nom du bloc Build, seuil « vieillissant », labels de blocage,
+    rafraîchissement automatique (1, 2 ou 5 min, lecture seule, suspendu pendant un geste),
+    réinitialisation de l'ordre des swimlanes. Modifications en brouillon, puis *Appliquer*.
+  - *Objectifs* : source (Goals Atlassian ou texte du sprint), Goals associés au board, accès à
+    l'épinglage, couleur et visibilité de chaque objectif.
+  - *Champs des cartes* : jusqu'à trois champs sous le titre (versions, labels, composants, ou
+    champ personnalisé cherché parmi ceux de votre Jira).
 - **Diagnostic** (en-tête) : ce que Jira répond réellement aux requêtes de l'extension.
 
 ## Objectifs
@@ -119,8 +129,7 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
 - Si Jira refuse d'enregistrer l'épinglage (droits), l'app Mac propose de garder la sélection sur
   la machine ; l'extension ne le fait pas encore.
 - Déplacer une carte se fait à la souris uniquement pour l'instant.
-- Un seul board à la fois. Colonnes, types de tickets, champs des cartes et règles de couleur
-  ne sont pas encore réglables depuis l'interface.
+- Un seul board à la fois. Les règles de couleur des cartes (JQL) ne sont pas encore réglables.
 
 ## Ce que l'extension écrit dans Jira
 
@@ -179,7 +188,7 @@ développement, jamais inclus dans `dist/`.
 
 ### ✅ Vérifié sur cette machine
 
-- Types, lint, 570 tests, construction.
+- Types, lint, 589 tests, construction.
 - Chargement réel dans Chrome 153 (sans interface, profil temporaire vierge) : manifest accepté,
   identifiant conforme, permissions `storage` et `declarativeNetRequestWithHostAccess` seules,
   aucun hôte accordé à l'installation, formulaire de connexion sans erreur, hôte hors
@@ -209,6 +218,10 @@ développement, jamais inclus dans `dist/`.
   filtres, JQL restreint aux sprints actifs, intersection, refus de Jira ; rendu vérifié dans
   Chrome sur le banc d'essai. Endpoint `GET /rest/agile/1.0/board/{id}/quickfilter` vérifié dans
   la spécification OpenAPI de Jira Software.
+- Page Réglages (0.8.0) contre le faux Jira : brouillon validé puis appliqué, brouillon périmé
+  refusé, types ignorés, source des objectifs, champs de cartes demandés à Jira, rafraîchissement
+  automatique (intervalle, pause pendant un geste, arrêt) ; rendu vérifié dans Chrome sur le banc
+  d'essai.
 
 ### ✅ Constaté par l'utilisateur sur son instance (0.2.0, 0.2.1)
 

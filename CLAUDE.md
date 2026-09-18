@@ -65,7 +65,8 @@ src/app/platform/     seul endroit qui touche chrome.* (permissions, stockage)
 src/app/model/        état de l'interface (signals), plateforme injectée : AppModel (connexion,
                       vue), BoardModel (board, synchro, filtres, glisser-déposer), DiagnosticModel,
                       boardStore, auditLog (journal des écritures), graphqlOrigin (règle Origin)
-src/app/views/        vues Preact ; views/board/ = en-tête, filtres, swimlanes, cartes
+src/app/views/        vues Preact ; views/board/ = en-tête, filtres, swimlanes, cartes ;
+                      views/settings/ = page Réglages
 src/background/       service worker (ouvre la page, rien d'autre)
 src/jira/             site, erreurs, transport HTTP, inventaire des écritures, diagnostic,
                       modèles Jira et leur décodage, client REST (lectures), transitions
@@ -96,6 +97,7 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 | `jira/goals.ts` | `GoalsClient.swift` |
 | `core/atlassianGoals.ts` | `BoardController.loadAtlassianSprintGoals` |
 | `core/jiraQuickFilters.ts`, `core/jql.ts` | `BoardController.refreshQuickFilterSelection`, `JiraClient.quickFilters`, `CardColorResolver.queries` |
+| `core/boardSettings.ts`, `views/settings/` | `AdminView` (section Board), `GoalsAdminView` (source, Goals du board, couleurs), `CardFieldsAdminView` |
 | `core/boardPreferences.ts` | `BoardController.setBlockOrder`, `moveBlock`, `setBlockCollapsed`, `setGoalHidden`, `setGoalColor` |
 
 Écarts voulus : `SprintGoalText.render` n'est pas porté (il ne servait qu'à réécrire le champ du
@@ -165,7 +167,13 @@ couleur), évaluation des règles de couleur, rafraîchissement automatique.
 0.7.1 (demandes de Denis) : glisser-déposer des swimlanes par une poignée (type de données propre,
 `application/x-scrum-board-lane`, distinct de celui des cartes) ; icône de l'app Mac dans le
 manifest (`icons`, `action.default_icon`), l'onglet et l'en-tête du sprint ; séparateur avant les
-filtres standard. Reste du Mac non porté : garder localement une sélection refusée par Jira
+filtres standard.
+
+0.8.0 : étape 5b, page Réglages (onglet de l'en-tête). Section Board en brouillon appliqué d'un
+coup (`applyBoardSection` refuse un brouillon dont les colonnes ou types ont été relus depuis) ;
+rafraîchissement automatique branché (`BoardModel`, suspendu pendant un geste). Reste de l'étape
+5 (lot 5c) : règles de couleur des cartes (éditeur et évaluation JQL par Jira), sélection
+d'épinglage gardée localement quand Jira refuse. Reste du Mac non porté : garder localement une sélection refusée par Jira
 (`keepSelectionLocally`), à faire avec les réglages locaux de l'étape 5.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec

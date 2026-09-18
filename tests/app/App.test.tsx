@@ -257,6 +257,47 @@ describe("App", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
+  it("Réglages : renommer une colonne et limiter son WIP, appliqué au board, rien écrit dans Jira", async () => {
+    const { jira } = await connectedBoard();
+    button("Réglages").click();
+    await tick();
+    expect(document.querySelector(".settings")).not.toBeNull();
+    expect(button("Appliquer").disabled).toBe(true);
+
+    const name = document.querySelector<HTMLInputElement>(
+      "[aria-label='Nom de la colonne À faire (Scrum)']",
+    );
+    if (!name) throw new Error("champ du nom attendu");
+    name.value = "À prendre";
+    name.dispatchEvent(new Event("input", { bubbles: true }));
+    const wip = document.querySelector<HTMLInputElement>(
+      "[aria-label='Limite WIP de À faire (Scrum)']",
+    );
+    if (!wip) throw new Error("champ WIP attendu");
+    wip.value = "abc";
+    wip.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+
+    button("Appliquer").click();
+    await tick();
+    expect(document.querySelector("[role=alert]")?.textContent).toContain("limite WIP");
+
+    wip.value = "1";
+    wip.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    button("Appliquer").click();
+    await expect.poll(() => button("Appliquer").disabled).toBe(true);
+
+    button("Board").click();
+    await tick();
+    const heads = [...document.querySelectorAll(".column-band .column-name")].map(
+      (head) => head.textContent,
+    );
+    expect(heads[0]).toBe("À prendre");
+    expect(document.querySelector(".column-over .column-count")?.textContent).toBe("2 / 1");
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+  });
+
   it("le diagnostic reste accessible depuis l'en-tête", async () => {
     const jira = new FakeJira().on("GET", "/rest/api/3/myself", { status: 401 });
     const model = new AppModel(fakePlatform(jira));

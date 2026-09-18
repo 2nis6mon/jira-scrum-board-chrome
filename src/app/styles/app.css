@@ -1469,3 +1469,263 @@ details.lane-menu[open] > summary {
   border-radius: 2px;
   background: var(--goal-ring, var(--ink-3));
 }
+
+/* ─── Page Réglages ──────────────────────────────────────────────────────── */
+
+.settings {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.settings-nav {
+  padding: 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--sidebar);
+  border-right: 1px solid var(--line);
+}
+
+.settings-tab {
+  height: 30px;
+  border-color: transparent;
+  background: none;
+  text-align: left;
+}
+
+.settings-tab[aria-pressed="true"] {
+  border-color: var(--line);
+  background: var(--surface);
+  font-weight: 600;
+}
+
+.settings-board {
+  margin: 0 0 8px;
+  padding: 0 12px;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.settings-local {
+  margin-top: 12px;
+  padding: 0 12px;
+  font-size: 11px;
+}
+
+.settings-content {
+  overflow-y: auto;
+  padding: 20px 24px 48px;
+}
+
+.settings-section {
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.settings-table caption {
+  padding: 6px 0;
+  text-align: left;
+  font-weight: 600;
+}
+
+.settings-table th,
+.settings-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.settings-table th {
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.settings-table input[type="text"] {
+  height: 28px;
+  width: 100%;
+  max-width: 240px;
+}
+
+.settings-number,
+.settings-table input.settings-number {
+  width: 64px;
+}
+
+select {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  font: inherit;
+}
+
+.settings-warning {
+  color: var(--run);
+  font-size: 12px;
+}
+
+.settings-done,
+.settings-tag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: #e3f5e9;
+  color: var(--done);
+  font-size: 11px;
+}
+
+.settings-tag {
+  background: var(--column);
+  color: var(--ink-3);
+}
+
+.settings-check,
+.settings-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.settings-choice > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-choices {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-choices legend {
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-field input[type="text"],
+.settings-field input[type="search"] {
+  height: 30px;
+  max-width: 460px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.settings-inline {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-actions .hint {
+  margin-right: auto;
+}
+
+.settings-goals,
+.settings-card-fields,
+.settings-field-results {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--column);
+}
+
+.settings-goal-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-swatches {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  gap: 6px;
+}
+
+.settings-swatches .swatch {
+  width: 16px;
+  height: 16px;
+}
+
+.settings-count {
+  margin-left: 6px;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-wrap {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .settings {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+/* La barre « Annuler / Appliquer » d'une section reste visible pendant le défilement. */
+.settings-section > .settings-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  background: var(--background);
+}

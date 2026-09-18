@@ -17,6 +17,7 @@ import {
   withGoalColor,
   withGoalHidden,
 } from "../../core/boardPreferences";
+import { customFieldChoices } from "../../core/boardSettings";
 import { detectBoard, loadSnapshot, refreshBoardStructure } from "../../core/boardSync";
 import {
   linkToTextGoal,
@@ -30,7 +31,7 @@ import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/d
 import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../../core/filters";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
 import { goalColorName, type SprintGoal } from "../../core/sprintGoals";
-import { JiraClient, type JiraQuickFilter } from "../../jira/client";
+import { JiraClient, type JiraField, type JiraQuickFilter } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import { GoalsClient } from "../../jira/goals";
 import type { AtlassianGoal, JiraTransition, JiraUser } from "../../jira/models";
@@ -139,6 +140,11 @@ export class BoardModel {
   /** Jira évalue le JQL des filtres rapides actifs. */
   readonly applyingQuickFilters = signal(false);
 
+  /** Champs personnalisés de l'instance, proposés comme champs de carte (page Réglages). */
+  readonly customFields = signal<readonly JiraField[] | null>(null);
+  readonly customFieldsLoading = signal(false);
+  readonly customFieldsError = signal<UserMessage | null>(null);
+
   /** L'épinglage n'a de sens qu'en mode Goals Atlassian, sur un sprint dont la propriété est lue. */
   readonly canPinGoals = computed(() => {
     const snapshot = this.snapshot.value;
@@ -194,6 +200,7 @@ export class BoardModel {
   /** Board dont les filtres rapides ont été lus. */
   #quickFiltersBoardId: number | null = null;
   #quickFilterRun = 0;
+  #autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(site: JiraSite, platform: Platform, options: BoardModelOptions = {}) {
     this.site = site;
@@ -212,6 +219,7 @@ export class BoardModel {
     const configuration = await loadActiveBoard(this.#platform.store, this.site.origin);
     this.configuration.value = configuration;
     this.loaded.value = true;
+    this.#restartAutoRefresh();
     if (configuration) await this.sync();
   }
 
@@ -243,6 +251,7 @@ export class BoardModel {
       this.syncProblem.value = null;
       this.pinEditor.value = null;
       this.editingBoard.value = false;
+      this.#restartAutoRefresh();
     } catch (error) {
       this.setupError.value = toMessage(error);
       return;
@@ -1077,7 +1086,60 @@ export class BoardModel {
 
   dispose(): void {
     this.#generation += 1;
+    this.#stopAutoRefresh();
     this.images.dispose();
+  }
+
+  // ─── Page Réglages (réglages locaux) ──────────────────────────────────────
+
+  /**
+   * Applique un réglage de la page Réglages. `resync` : le board est relu dans Jira, quand le
+   * réglage change ce qu'il faut lire ou comment le répartir (types, source, champs des cartes).
+   */
+  async applySettings(
+    change: (configuration: BoardConfiguration) => BoardConfiguration,
+    options: { resync: boolean },
+  ): Promise<void> {
+    await this.#updatePreferences(change);
+    this.#restartAutoRefresh();
+    if (options.resync) await this.sync();
+  }
+
+  /** Lit la liste des champs de l'instance, pour choisir un champ personnalisé de carte. */
+  async loadCustomFields(): Promise<void> {
+    if (this.customFieldsLoading.value) return;
+    this.customFieldsLoading.value = true;
+    this.customFieldsError.value = null;
+    try {
+      this.customFields.value = customFieldChoices(await this.#client.fields());
+    } catch (error) {
+      this.customFieldsError.value = toMessage(error);
+    } finally {
+      this.customFieldsLoading.value = false;
+    }
+  }
+
+  /**
+   * Rafraîchissement automatique (lecture seule), réglé par board. Il saute son tour pendant un
+   * geste en cours — glisser-déposer, écriture, épinglage — pour ne rien bouger sous le curseur.
+   */
+  #restartAutoRefresh(): void {
+    this.#stopAutoRefresh();
+    const seconds = this.configuration.value?.autoRefreshSeconds ?? null;
+    if (seconds === null) return;
+    this.#autoRefreshTimer = setInterval(() => {
+      const busy =
+        this.dragging.value !== null ||
+        this.draggingLane.value !== null ||
+        this.pendingKeys.value.size > 0 ||
+        this.pinEditor.value?.saving === true;
+      if (!busy) void this.sync();
+    }, seconds * 1000);
+  }
+
+  #stopAutoRefresh(): void {
+    if (this.#autoRefreshTimer !== null) clearInterval(this.#autoRefreshTimer);
+    this.#autoRefreshTimer = null;
   }
 
   #persist(configuration: BoardConfiguration): Promise<void> {

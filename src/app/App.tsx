@@ -4,6 +4,7 @@ import { BoardSetupView } from "./views/BoardSetupView";
 import { BoardView } from "./views/board/BoardView";
 import { ConnectionView } from "./views/ConnectionView";
 import { DiagnosticView } from "./views/DiagnosticView";
+import { SettingsView } from "./views/settings/SettingsView";
 
 /** Racine de l'interface. Sans site Jira connecté, elle n'affiche aucune donnée. */
 export function App({ model }: { model: AppModel }) {
@@ -24,6 +25,13 @@ export function App({ model }: { model: AppModel }) {
                 onClick={() => model.showBoard()}
               >
                 Board
+              </button>
+              <button
+                type="button"
+                aria-pressed={view === "settings"}
+                onClick={() => model.showSettings()}
+              >
+                Réglages
               </button>
               <button
                 type="button"
@@ -49,6 +57,9 @@ export function App({ model }: { model: AppModel }) {
       {connection.state === "connected" && view === "board" && (
         <BoardScreen board={connection.board} />
       )}
+      {connection.state === "connected" && view === "settings" && (
+        <SettingsScreen board={connection.board} onShowBoard={() => model.showBoard()} />
+      )}
       {connection.state === "connected" && view === "diagnostic" && (
         <DiagnosticView diagnostic={connection.diagnostic} />
       )}
@@ -61,4 +72,24 @@ function BoardScreen({ board }: { board: BoardModel }) {
   const configuration = board.configuration.value;
   if (!configuration || board.editingBoard.value) return <BoardSetupView board={board} />;
   return <BoardView board={board} configuration={configuration} />;
+}
+
+function SettingsScreen({ board, onShowBoard }: { board: BoardModel; onShowBoard: () => void }) {
+  if (!board.loaded.value) return <main class="centered" aria-busy="true" />;
+  const configuration = board.configuration.value;
+  if (!configuration) {
+    return (
+      <main class="centered">
+        <div class="panel">
+          <p>Aucun board n'est encore choisi : les réglages portent sur un board.</p>
+          <div class="row">
+            <button type="button" class="primary" onClick={onShowBoard}>
+              Choisir un board
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+  return <SettingsView board={board} configuration={configuration} />;
 }

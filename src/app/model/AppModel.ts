@@ -16,7 +16,7 @@ export type Connection =
   | { state: "disconnected"; lastInput: string }
   | { state: "connected"; site: JiraSite; board: BoardModel; diagnostic: DiagnosticModel };
 
-export type View = "board" | "diagnostic";
+export type View = "board" | "settings" | "diagnostic";
 
 /** Racine de l'état de l'interface : connexion à un site, puis board ou diagnostic. */
 export class AppModel {
@@ -111,6 +111,11 @@ export class AppModel {
 
   showBoard(): void {
     this.view.value = "board";
+  }
+
+  /** Réglages locaux du board : colonnes, types, affichage, objectifs, champs des cartes. */
+  showSettings(): void {
+    this.view.value = "settings";
   }
 
   /** Ouvre le diagnostic ; ses lectures sont lancées à la première ouverture. */
