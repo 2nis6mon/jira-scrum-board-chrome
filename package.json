@@ -1,6 +1,6 @@
 {
   "name": "jira-scrum-board-chrome",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Extension Chrome : Scrum Board Jira piloté par les objectifs du sprint",
   "type": "module",
@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
-    "verify:load": "npm run build && node scripts/verify-load.mjs"
+    "verify:load": "npm run build && node scripts/verify-load.mjs",
+    "harness": "vite --config vite.harness.config.ts"
   },
   "dependencies": {
     "@preact/signals": "2.11.2",

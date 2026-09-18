@@ -7,7 +7,6 @@
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
     "types": ["chrome", "vite/client"],
-
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -19,9 +18,8 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
-
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src", "tests", "vite.config.ts"]
+  "include": ["src", "tests", "vite.config.ts", "vite.harness.config.ts"]
 }

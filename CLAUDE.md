@@ -53,14 +53,27 @@ fige l'identifiant de l'extension). Elle est ignorée par git : ne jamais la com
 ```
 board.html            page plein onglet de l'extension
 src/app/              interface Preact
+src/app/platform/     seul endroit qui touche chrome.* (permissions, stockage)
+src/app/model/        état de l'interface (signals), plateforme injectée
 src/background/       service worker (ouvre la page, rien d'autre)
-src/jira/             client REST + GraphQL, modèles, erreurs      (à venir)
+src/jira/             site, erreurs, transport HTTP, inventaire des écritures, diagnostic
 src/core/             logique métier pure                           (à venir)
-tests/                tests Vitest et données de test
+tests/                tests Vitest ; tests/support = faux Jira et fausse plateforme
+tests/harness/        banc d'essai visuel (données fictives), jamais dans dist/
 scripts/              outillage de développement
 ```
 
 `src/jira/` et `src/core/` n'utilisent ni `chrome.*` ni le DOM : ils se testent sous Node.
+
+Garde-fous à connaître avant de toucher au réseau :
+
+- `src/jira/transport.ts` est le seul fichier qui appelle `fetch`. Session du navigateur
+  (`credentials: "include"`), un seul hôte, redirections jamais suivies, GET rejouable sur erreur
+  transitoire, **écritures jamais rejouées**.
+- `src/jira/writes.ts` est l'inventaire exhaustif des écritures REST : ajouter une écriture, c'est
+  ajouter un cas au type `JiraWrite` ET une ligne dans `tests/jira/writes.test.ts`.
+- `tests/guards/sources.test.ts` balaie `src/` : `fetch`, méthodes HTTP d'écriture, mutations
+  GraphQL, `storage.sync`, données fictives, imports depuis `tests/`.
 
 ## Commandes
 
@@ -68,6 +81,7 @@ scripts/              outillage de développement
 npm run check         # types + lint + tests + construction
 npm run verify:load   # construit puis charge dist/ dans un Chrome temporaire sans interface
 npm run watch         # reconstruit dist/ à chaque modification
+npm run harness       # banc d'essai visuel, données fictives, http://localhost:5199/?scenario=ok
 ```
 
 Dépendances en versions exactes (`.npmrc` : `save-exact`, `ignore-scripts`). Toute nouvelle

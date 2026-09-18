@@ -1,0 +1,139 @@
+import { useState } from "preact/hooks";
+import { type ProbeResult, writeConclusion } from "../../jira/diagnostics";
+import type { JiraSite } from "../../jira/site";
+import { SPRINT_PROPERTY_KEYS } from "../../jira/writes";
+import type { AppModel } from "../model/AppModel";
+import { ErrorMessage } from "./Message";
+
+const MARK = { ok: "✓", failed: "✗", skipped: "–" } as const;
+const STATUS_LABEL = { ok: "réussi", failed: "échec", skipped: "non lancé" } as const;
+
+function ProbeList({ probes }: { probes: readonly ProbeResult[] }) {
+  return (
+    <ul class="probes">
+      {probes.map((probe) => (
+        <li key={probe.id} class={`probe probe-${probe.status}`}>
+          <span class="probe-mark" role="img" aria-label={STATUS_LABEL[probe.status]}>
+            {MARK[probe.status]}
+          </span>
+          <span class="probe-label">{probe.label}</span>
+          {probe.httpStatus !== null && <span class="probe-code">{probe.httpStatus}</span>}
+          <span class="probe-detail">{probe.detail}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function DiagnosticView({ model, site }: { model: AppModel; site: JiraSite }) {
+  const [boardUrl, setBoardUrl] = useState("");
+  const read = model.read.value;
+  const write = model.write.value;
+  const sprint = model.sprint.value;
+
+  return (
+    <main class="page">
+      <section class="panel">
+        <header class="panel-header">
+          <h2>1 · Lectures</h2>
+          <button
+            type="button"
+            onClick={() => void model.runReads()}
+            disabled={model.readRunning.value}
+          >
+            {model.readRunning.value ? "En cours…" : "Relancer"}
+          </button>
+        </header>
+        <p class="hint">
+          Trois requêtes en lecture seule : votre compte, l'analyse d'un JQL par POST, l'identifiant
+          du site par GraphQL. Rien n'est modifié dans Jira.
+        </p>
+        {read ? <ProbeList probes={read.probes} /> : <p class="hint">En cours…</p>}
+        {read?.displayName && <p class="hint">Compte reconnu : {read.displayName}</p>}
+        {read && !read.sessionRecognized && (
+          <p class="hint">
+            <a href={site.origin} target="_blank" rel="noopener noreferrer">
+              Ouvrir {site.host}
+            </a>{" "}
+            pour vous y connecter, puis relancez.
+          </p>
+        )}
+      </section>
+
+      <section class="panel">
+        <header class="panel-header">
+          <h2>2 · Test d'écriture</h2>
+        </header>
+        <p class="hint">
+          Seul un essai réel dit si Jira accepte une écriture venant de l'extension. Le test écrit
+          la propriété technique <code>{SPRINT_PROPERTY_KEYS.diagnostic}</code> sur le sprint actif,
+          la relit, puis la supprime. Cette propriété est invisible dans Jira. Aucun ticket, aucun
+          champ du sprint n'est touché. Si Jira refuse le premier essai pour cause d'origine (XSRF),
+          un second est fait avec l'en-tête <code>X-Atlassian-Token: no-check</code>.
+        </p>
+
+        <form
+          class="row"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void model.findSprint(boardUrl);
+          }}
+        >
+          <input
+            type="text"
+            inputMode="url"
+            autocomplete="off"
+            spellcheck={false}
+            aria-label="Adresse du board Jira"
+            placeholder={`${site.origin}/jira/software/c/projects/ABC/boards/123`}
+            value={boardUrl}
+            onInput={(event) => setBoardUrl(event.currentTarget.value)}
+          />
+          <button type="submit" disabled={model.sprintLoading.value || boardUrl.trim() === ""}>
+            {model.sprintLoading.value ? "Recherche…" : "Trouver le sprint actif"}
+          </button>
+        </form>
+        <ErrorMessage message={model.sprintError.value} />
+
+        {sprint && (
+          <div class="row">
+            <p class="sprint">
+              Sprint actif : <strong>{sprint.name}</strong>
+            </p>
+            <button
+              type="button"
+              class="primary"
+              onClick={() => void model.runWriteTest()}
+              disabled={model.writeRunning.value || !read?.sessionRecognized}
+            >
+              {model.writeRunning.value ? "Test en cours…" : "Tester l'écriture sur ce sprint"}
+            </button>
+          </div>
+        )}
+        {write && (
+          <>
+            <ProbeList probes={write.probes} />
+            <p class={`conclusion ${write.acceptedWith ? "conclusion-ok" : "conclusion-failed"}`}>
+              {writeConclusion(write)}
+            </p>
+          </>
+        )}
+      </section>
+
+      <section class="panel">
+        <header class="panel-header">
+          <h2>3 · Rapport</h2>
+          <button type="button" onClick={() => void model.copyReport()} disabled={!read}>
+            {model.reportCopied.value ? "Copié" : "Copier le rapport"}
+          </button>
+        </header>
+        <p class="hint">
+          Le rapport ne contient ni l'adresse du site, ni votre nom, ni le nom du sprint : seulement
+          les sondes, les codes HTTP et les messages renvoyés par Jira. Relisez-le avant de le
+          transmettre.
+        </p>
+        {read && <pre class="report">{model.report()}</pre>}
+      </section>
+    </main>
+  );
+}

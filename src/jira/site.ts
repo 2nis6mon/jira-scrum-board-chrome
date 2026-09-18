@@ -1,0 +1,121 @@
+import { JiraError } from "./errors";
+
+/** Site Jira Cloud auquel l'extension est autorisée à parler. */
+export interface JiraSite {
+  /** `https://societe.atlassian.net`, sans chemin ni barre finale. */
+  readonly origin: string;
+  readonly host: string;
+  /** Motif de permission d'hôte à demander à Chrome : ce site, et lui seul. */
+  readonly permissionPattern: string;
+}
+
+/**
+ * Seul domaine admis. Il doit rester aligné sur `optional_host_permissions` du manifest :
+ * Chrome refuserait de toute façon la permission pour un autre hôte.
+ * (L'app Mac admet aussi `*.jira.com` et les domaines personnalisés sur confirmation ;
+ * l'extension ne les gère pas.)
+ */
+const TRUSTED_SUFFIX = ".atlassian.net";
+
+export function isTrustedHost(host: string): boolean {
+  const lowered = host.toLowerCase();
+  // Comparaison sur frontière de libellé DNS : « evilatlassian.net » et « atlassian.net » sont refusés.
+  return lowered.endsWith(TRUSTED_SUFFIX) && lowered.length > TRUSTED_SUFFIX.length;
+}
+
+/**
+ * Normalise une saisie en site Jira. Accepte « societe.atlassian.net » comme
+ * « https://societe.atlassian.net/jira/… ». Refuse, AVANT toute requête et toute demande de
+ * permission, ce qui n'est pas du HTTPS vers `*.atlassian.net`.
+ */
+export function normalizeSiteUrl(raw: string): JiraSite {
+  let text = raw.trim();
+  if (text === "") throw new JiraError({ kind: "invalidSiteUrl", input: raw });
+
+  if (!/^https?:\/\//i.test(text)) text = `https://${text}`;
+
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    throw new JiraError({ kind: "invalidSiteUrl", input: raw });
+  }
+  if (!url.hostname.includes(".")) throw new JiraError({ kind: "invalidSiteUrl", input: raw });
+  // Jira Cloud impose HTTPS ; on refuse le clair plutôt que de le corriger en silence.
+  if (url.protocol !== "https:") throw new JiraError({ kind: "invalidSiteUrl", input: raw });
+  if (!isTrustedHost(url.hostname)) {
+    throw new JiraError({ kind: "untrustedSiteHost", host: url.hostname });
+  }
+  // Pas de port exotique : le motif de permission ne le couvrirait pas.
+  if (url.port !== "") throw new JiraError({ kind: "invalidSiteUrl", input: raw });
+
+  // Identifiants embarqués, chemin, requête et fragment sont abandonnés.
+  const host = url.hostname.toLowerCase();
+  return siteFromHost(host);
+}
+
+function siteFromHost(host: string): JiraSite {
+  return { origin: `https://${host}`, host, permissionPattern: `https://${host}/*` };
+}
+
+/** Résultat de l'analyse d'une URL de board Jira collée par l'utilisateur. */
+export interface ParsedBoardUrl {
+  readonly site: JiraSite;
+  readonly boardId: number;
+  readonly projectKey: string | null;
+}
+
+/**
+ * Extrait le site et l'identifiant du board depuis une URL Jira.
+ *
+ * Formats reconnus (vérifiés sur Jira Cloud par l'app Mac) :
+ * - `https://site.atlassian.net/jira/software/c/projects/ABC/boards/123`
+ * - `https://site.atlassian.net/jira/software/projects/ABC/boards/123/backlog`
+ * - `https://site.atlassian.net/secure/RapidBoard.jspa?rapidView=123&projectKey=ABC`
+ *
+ * Retourne `null` si aucun identifiant de board n'est présent : on ne devine pas.
+ */
+export function parseBoardUrl(raw: string): ParsedBoardUrl | null {
+  const text = raw.trim();
+  if (text === "") return null;
+
+  let url: URL;
+  let site: JiraSite;
+  try {
+    url = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`);
+    site = normalizeSiteUrl(url.origin);
+  } catch {
+    return null;
+  }
+
+  const param = (name: string): string | null => {
+    for (const [key, value] of url.searchParams) {
+      if (key.toLowerCase() === name) return value;
+    }
+    return null;
+  };
+  const projectFromQuery = param("projectkey");
+
+  // Format moderne : …/boards/{id}
+  const segments = url.pathname.split("/").filter((segment) => segment !== "");
+  const lowered = segments.map((segment) => segment.toLowerCase());
+  const boardsIndex = Math.max(lowered.lastIndexOf("boards"), lowered.lastIndexOf("board"));
+  const boardId = boardsIndex >= 0 ? toBoardId(segments[boardsIndex + 1]) : null;
+  if (boardId !== null) {
+    const projectsIndex = lowered.indexOf("projects");
+    const projectFromPath = projectsIndex >= 0 ? segments[projectsIndex + 1] : undefined;
+    return { site, boardId, projectKey: projectFromPath ?? projectFromQuery };
+  }
+
+  // Format classique : ?rapidView={id}
+  const rapidView = toBoardId(param("rapidview") ?? undefined);
+  if (rapidView !== null) return { site, boardId: rapidView, projectKey: projectFromQuery };
+
+  return null;
+}
+
+function toBoardId(text: string | undefined): number | null {
+  if (text === undefined || !/^\d+$/.test(text)) return null;
+  const id = Number(text);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}

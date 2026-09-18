@@ -121,6 +121,35 @@ try {
   );
   check("aucun script en ligne", inlineScripts === 0);
 
+  check(
+    "sans site enregistré, le formulaire de connexion s'affiche",
+    text.includes("Connexion à Jira"),
+  );
+
+  // Saisie d'un hôte qui n'est pas *.atlassian.net : refus attendu, sans demande d'accès à
+  // Chrome ni requête. (La demande d'accès elle-même est une fenêtre native de Chrome : elle
+  // ne se pilote pas sans interface et reste à valider à la main.)
+  const refusal = await evaluate(
+    sessionId,
+    `(async () => {
+      const input = document.querySelector("#site");
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, "jira.acme.example");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      input.form.requestSubmit();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      return document.querySelector('[role="alert"]')?.innerText ?? "";
+    })()`,
+  );
+  check(
+    "hôte hors *.atlassian.net refusé à la saisie",
+    refusal.includes("jira.acme.example"),
+    JSON.stringify(refusal.slice(0, 70)),
+  );
+
+  const stored = await evaluate(sessionId, "chrome.storage.local.get(null).then(JSON.stringify)");
+  check("rien n'est enregistré après un refus", stored === "{}", stored);
+
   const pageProblems = events.filter(
     (e) =>
       e.sessionId === sessionId &&
