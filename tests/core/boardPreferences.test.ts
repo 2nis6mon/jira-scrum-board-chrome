@@ -37,6 +37,7 @@ function snapshot(run: JiraIssue[] = []): BoardSnapshot {
     currentUser: null,
     goalsReadOnly: false,
     pinnedGoalIds: [],
+    localPinnedGoalIds: null,
   };
 }
 

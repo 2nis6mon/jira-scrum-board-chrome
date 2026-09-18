@@ -61,6 +61,13 @@ export function PinGoalsDialog({ board }: { board: BoardModel }) {
           Les objectifs du board sont déduits des tickets du sprint : un Goal apparaît dès qu'un
           ticket lui est rattaché. Épinglez un Goal pour l'afficher aussi sans ticket.
         </p>
+        {editor.fromLocal && (
+          <p class="notice notice-info">
+            Cette sélection est gardée dans ce navigateur seulement : Jira avait refusé de
+            l'enregistrer. « Enregistrer dans Jira » la partagera avec l'équipe si vos droits le
+            permettent désormais.
+          </p>
+        )}
 
         <section class="pin-section" aria-labelledby="pin-selected-title">
           <h3 id="pin-selected-title">Épinglés ({editor.selection.length})</h3>
@@ -157,6 +164,13 @@ export function PinGoalsDialog({ board }: { board: BoardModel }) {
               <strong>{editor.notice.text}</strong>
               {editor.notice.suggestion && ` ${editor.notice.suggestion}`}
             </p>
+            {editor.canKeepLocally && (
+              <div class="row">
+                <button type="button" onClick={() => void board.keepPinnedLocally()}>
+                  Garder cette sélection dans ce navigateur
+                </button>
+              </div>
+            )}
           </div>
         )}
 

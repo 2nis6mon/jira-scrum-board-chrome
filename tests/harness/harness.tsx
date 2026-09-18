@@ -4,7 +4,7 @@
 //
 //   npm run harness   puis   http://localhost:5199/?scenario=board|board-filtre|board-session|
 //                            board-vide|board-dnd|board-choix|board-erreur|board-goals|
-//                            board-epingle|ok|xsrf|refuse|session|deconnecte
+//                            board-epingle|board-epingle-refus|ok|xsrf|refuse|session|deconnecte
 import { render } from "preact";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
@@ -68,7 +68,8 @@ async function simulateDrop(
 }
 
 if (scenario.startsWith("board")) {
-  const withGoals = scenario === "board-goals" || scenario === "board-epingle";
+  const pinning = scenario === "board-epingle" || scenario === "board-epingle-refus";
+  const withGoals = scenario === "board-goals" || pinning;
   // Filtres rapides FICTIFS du board ; le faux Jira « évalue » leur JQL par table.
   const quickFilters = [
     { id: 1, name: "Mes tickets", jql: "assignee = currentUser()", position: 0 },
@@ -135,13 +136,17 @@ if (scenario.startsWith("board")) {
         : SPRINT_ISSUES.filter((issue) => keys === null || keys.includes(issue.key as string));
     return { status: 200, json: { issues, total: issues.length } };
   });
-  if (scenario === "board-epingle") {
+  if (pinning) {
     // Propriété du sprint qui garde ce qu'on y écrit, comme Jira.
     const goalsProperty = `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.goals}`;
     let stored: unknown = { atlassianGoalIds: [] };
     jira
       .on("GET", goalsProperty, () => ({ status: 200, json: { value: stored } }))
       .on("PUT", goalsProperty, (request) => {
+        // Refus de droits (permission « Gérer les sprints » absente) : repli local proposé.
+        if (scenario === "board-epingle-refus") {
+          return { status: 403, json: { errorMessages: ["Manage Sprints requis"] } };
+        }
         stored = request.body;
         return { status: 200 };
       });
@@ -207,7 +212,7 @@ if (scenario.startsWith("board")) {
   if (connection.state === "connected") {
     await connection.board.detect(BOARD_URL);
     if (scenario === "board-filtre") connection.board.toggleQuickFilter("blocked");
-    if (scenario === "board-epingle") connection.board.openPinEditor();
+    if (pinning) connection.board.openPinEditor();
     if (["board-dnd", "board-choix", "board-erreur"].includes(scenario)) {
       await new Promise((resolve) => setTimeout(resolve, 100));
       await simulateDrop("ABC-102", "Finaliser le parcours de paiement", "En cours", null);

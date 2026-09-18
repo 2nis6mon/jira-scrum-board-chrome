@@ -129,6 +129,7 @@ export function makeConfiguration(parts: Partial<BoardConfiguration> = {}): Boar
     goalColorIndex: {},
     cardFields: [],
     cardColorRules: [],
+    localPinnedGoalIds: {},
     ...parts,
   };
 }

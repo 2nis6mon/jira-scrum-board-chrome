@@ -99,6 +99,12 @@ export interface BoardConfiguration {
   readonly cardFields: readonly CardField[];
   /** Règles de couleur des cartes, hors règle intégrée. */
   readonly cardColorRules: readonly CardColorRule[];
+  /**
+   * Goals épinglés gardés dans ce navigateur quand Jira a refusé de les enregistrer sur le sprint
+   * (par identifiant de sprint). Choix explicite de l'utilisateur ; ils ne servent que si Jira
+   * n'a aucune sélection pour ce sprint, et ne sont partagés avec personne.
+   */
+  readonly localPinnedGoalIds: Readonly<Record<string, readonly string[]>>;
 }
 
 export const DEFAULT_BUILD_LABEL = "Build";
@@ -246,6 +252,7 @@ export function buildConfiguration(input: {
     goalColorIndex: {},
     cardFields: [],
     cardColorRules: [],
+    localPinnedGoalIds: {},
   };
 }
 
@@ -289,6 +296,7 @@ export function mergeConfiguration(
     goalColorIndex: existing.goalColorIndex,
     cardFields: existing.cardFields,
     cardColorRules: existing.cardColorRules,
+    localPinnedGoalIds: existing.localPinnedGoalIds,
   };
 }
 
@@ -364,7 +372,18 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
     goalColorIndex: decodeColorIndex(value.goalColorIndex),
     cardFields: decodeList(value.cardFields, decodeCardField) ?? [],
     cardColorRules: decodeList(value.cardColorRules, decodeColorRule) ?? [],
+    localPinnedGoalIds: decodeLocalPins(value.localPinnedGoalIds),
   };
+}
+
+function decodeLocalPins(value: unknown): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  if (!isObject(value)) return result;
+  for (const [sprintId, ids] of Object.entries(value)) {
+    const goals = strings(ids);
+    if (/^\d+$/.test(sprintId) && goals.length > 0) result[sprintId] = goals;
+  }
+  return result;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

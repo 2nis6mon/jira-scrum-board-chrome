@@ -3,15 +3,17 @@ import type { BoardConfiguration } from "../../../core/boardConfiguration";
 import type { BoardModel } from "../../model/BoardModel";
 import { PinGoalsDialog } from "../board/PinGoalsDialog";
 import { BoardSettings } from "./BoardSettings";
+import { CardColorSettings } from "./CardColorSettings";
 import { CardFieldSettings } from "./CardFieldSettings";
 import { GoalSettings } from "./GoalSettings";
 
-type Section = "board" | "goals" | "cardFields";
+type Section = "board" | "goals" | "cardFields" | "cardColors";
 
 const SECTIONS: readonly { id: Section; label: string }[] = [
   { id: "board", label: "Board" },
   { id: "goals", label: "Objectifs" },
   { id: "cardFields", label: "Champs des cartes" },
+  { id: "cardColors", label: "Couleurs des cartes" },
 ];
 
 /**
@@ -52,6 +54,9 @@ export function SettingsView({
         {section === "goals" && <GoalSettings board={board} configuration={configuration} />}
         {section === "cardFields" && (
           <CardFieldSettings board={board} configuration={configuration} />
+        )}
+        {section === "cardColors" && (
+          <CardColorSettings board={board} configuration={configuration} />
         )}
       </div>
       <PinGoalsDialog board={board} />

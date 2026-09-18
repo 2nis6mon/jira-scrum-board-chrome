@@ -126,3 +126,19 @@ export function withGoalColor(
     goalColorIndex: { ...configuration.goalColorIndex, [goalId]: normalized },
   };
 }
+
+/**
+ * Sélection d'épinglage gardée dans ce navigateur pour un sprint, quand Jira a refusé de
+ * l'enregistrer. Une liste vide l'oublie. Portage de `setLocalGoalSelection` (Mac).
+ */
+export function withLocalPins(
+  configuration: BoardConfiguration,
+  sprintId: number,
+  goalIds: readonly string[],
+): BoardConfiguration {
+  const localPinnedGoalIds = { ...configuration.localPinnedGoalIds };
+  const ids = [...new Set(goalIds)];
+  if (ids.length === 0) delete localPinnedGoalIds[String(sprintId)];
+  else localPinnedGoalIds[String(sprintId)] = ids;
+  return { ...configuration, localPinnedGoalIds };
+}

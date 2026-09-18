@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { BoardModel } from "../../src/app/model/BoardModel";
+import { loadActiveBoard } from "../../src/app/model/boardStore";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { BOARD_URL, boardSiteJira, GOALS_DOCUMENT } from "../support/boardFixture";
@@ -221,5 +222,106 @@ describe("BoardModel — épinglage de Goals au sprint", () => {
     expect(board.snapshot.value?.goalsOrigin).toBe("atlassianGoals");
     expect(board.snapshot.value?.pinnedGoalIds).toBeNull();
     expect(board.canPinGoals.value).toBe(false);
+  });
+});
+
+describe("BoardModel — épinglage gardé dans ce navigateur quand Jira refuse", () => {
+  /** Board dont la propriété refuse l'écriture tant que `refuse` est vrai (droits manquants). */
+  async function refusingBoard() {
+    const property = sprintProperty({ ...GOALS_DOCUMENT });
+    const rights = { refuse: true };
+    const jira = boardSiteJira({ graphql: goalsGateway({ goals: GOALS }) })
+      .on("GET", PROPERTY, () => property.get())
+      .on("PUT", PROPERTY, (request) =>
+        rights.refuse
+          ? { status: 403, json: { errorMessages: ["Manage Sprints requis"] } }
+          : property.put(request),
+      );
+    const platform = fakePlatform(jira);
+    const board = new BoardModel(SITE, platform, { now: () => new Date("2026-09-18T10:00:00Z") });
+    await board.load();
+    await board.detect(BOARD_URL);
+    return { board, jira, property, rights, platform };
+  }
+
+  const laneTitles = (board: BoardModel) => board.layout.value?.lanes.map((lane) => lane.title);
+
+  it("refus de droits : la sélection peut être gardée localement, sans rien écrire de plus", async () => {
+    const { board, jira, platform } = await refusingBoard();
+    await openWithSiteGoals(board);
+    board.togglePinned(SECURITE);
+    await board.savePinnedGoals();
+    expect(board.pinEditor.value?.canKeepLocally).toBe(true);
+    const puts = jira.sent("PUT", PROPERTY).length;
+
+    await board.keepPinnedLocally();
+
+    expect(jira.sent("PUT", PROPERTY)).toHaveLength(puts);
+    expect(board.pinEditor.value).toBeNull();
+    expect(board.snapshot.value?.pinnedGoalIds).toEqual([]);
+    expect(board.snapshot.value?.localPinnedGoalIds).toEqual([SECURITE]);
+    expect(laneTitles(board)?.[0]).toBe("Sécurité des comptes");
+    const stored = await loadActiveBoard(platform.store, SITE.origin);
+    expect(stored?.localPinnedGoalIds).toEqual({ "42": [SECURITE] });
+  });
+
+  it("la sélection de Jira fait foi : la sélection locale ne sert que si Jira n'en a aucune", async () => {
+    const { board, property } = await refusingBoard();
+    await openWithSiteGoals(board);
+    board.togglePinned(SECURITE);
+    await board.savePinnedGoals();
+    await board.keepPinnedLocally();
+
+    property.state.value = { ...GOALS_DOCUMENT, atlassianGoalIds: [STABILITE] };
+    await board.sync();
+    expect(board.snapshot.value?.localPinnedGoalIds).toBeNull();
+    expect(board.snapshot.value?.pinnedGoalIds).toEqual([STABILITE]);
+    expect(laneTitles(board)).not.toContain("Sécurité des comptes");
+  });
+
+  it("réessayer : la fenêtre repart de la sélection locale ; enregistrée dans Jira, elle est oubliée", async () => {
+    const { board, rights, platform } = await refusingBoard();
+    await openWithSiteGoals(board);
+    board.togglePinned(SECURITE);
+    await board.savePinnedGoals();
+    await board.keepPinnedLocally();
+
+    rights.refuse = false;
+    board.openPinEditor();
+    expect(board.pinEditor.value).toMatchObject({
+      base: [],
+      selection: [SECURITE],
+      fromLocal: true,
+    });
+    await board.savePinnedGoals();
+
+    expect(board.pinEditor.value).toBeNull();
+    expect(board.snapshot.value?.pinnedGoalIds).toEqual([SECURITE]);
+    expect(board.snapshot.value?.localPinnedGoalIds).toBeNull();
+    expect((await loadActiveBoard(platform.store, SITE.origin))?.localPinnedGoalIds).toEqual({});
+  });
+
+  it("oublier la sélection locale : l'objectif épinglé sans ticket disparaît", async () => {
+    const { board } = await refusingBoard();
+    await openWithSiteGoals(board);
+    board.togglePinned(SECURITE);
+    await board.savePinnedGoals();
+    await board.keepPinnedLocally();
+    expect(laneTitles(board)).toContain("Sécurité des comptes");
+
+    await board.forgetLocalPins();
+    expect(board.snapshot.value?.localPinnedGoalIds).toBeNull();
+    expect(laneTitles(board)).not.toContain("Sécurité des comptes");
+  });
+
+  it("issue incertaine : pas de repli local proposé", async () => {
+    const { board } = await pinBoard({ put: { networkError: "Failed to fetch" } });
+    await openWithSiteGoals(board);
+    board.togglePinned(SECURITE);
+    await board.savePinnedGoals();
+    expect(board.pinEditor.value?.canKeepLocally).toBe(false);
+    await board.keepPinnedLocally();
+    expect(board.pinEditor.value).not.toBeNull();
+    expect(board.snapshot.value?.localPinnedGoalIds).toBeNull();
   });
 });

@@ -1729,3 +1729,129 @@ select {
   border-top: 1px solid var(--line);
   background: var(--background);
 }
+
+/* ─── Couleurs des cartes (règles, réglage local) ────────────────────────── */
+
+[data-card-color="blue"] {
+  --card-tint: #2563eb;
+}
+[data-card-color="teal"] {
+  --card-tint: #0d9488;
+}
+[data-card-color="green"] {
+  --card-tint: #15803d;
+}
+[data-card-color="yellow"] {
+  --card-tint: #ca8a04;
+}
+[data-card-color="orange"] {
+  --card-tint: #ea580c;
+}
+[data-card-color="red"] {
+  --card-tint: #dc2626;
+}
+[data-card-color="pink"] {
+  --card-tint: #db2777;
+}
+[data-card-color="purple"] {
+  --card-tint: #7c3aed;
+}
+[data-card-color="gray"] {
+  --card-tint: #6b7280;
+}
+
+/* La bordure gauche reste libre : c'est celle qui signale un ticket bloqué. */
+.card[data-card-color] {
+  --card-tint-border: color-mix(in srgb, var(--card-tint, #6b7280) 30%, var(--line));
+  background: color-mix(in srgb, var(--card-tint, #6b7280) 14%, var(--surface));
+  border-top-color: var(--card-tint-border);
+  border-right-color: var(--card-tint-border);
+  border-bottom-color: var(--card-tint-border);
+}
+
+/* Éditeur des règles de couleur */
+.color-rules {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.color-rule {
+  gap: 8px;
+  border-left: 4px solid var(--card-tint, var(--line));
+}
+
+.color-rule-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.color-rule-rank {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--column);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.color-rule-name {
+  width: 240px;
+}
+
+input.color-rule-name {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.color-rule-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.color-rule-jql {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font:
+    12px ui-monospace,
+    "SF Mono",
+    Menlo,
+    monospace;
+  resize: vertical;
+}
+
+.card-swatch {
+  background: var(--card-tint);
+}
+
+.color-rule-error {
+  color: var(--blocked);
+  font-size: 12px;
+}
+
+.color-rule-ok {
+  color: var(--done);
+  font-size: 12px;
+}
+
+/* Dans une fenêtre, un bandeau et ses boutons s'empilent : le texte garde toute la largeur. */
+.dialog .notice {
+  margin: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}

@@ -35,6 +35,7 @@ function snapshot(
     currentUser: null,
     goalsReadOnly: false,
     pinnedGoalIds: [],
+    localPinnedGoalIds: null,
   };
 }
 

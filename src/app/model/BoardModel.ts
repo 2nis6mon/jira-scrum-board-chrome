@@ -3,11 +3,12 @@ import { loadAtlassianSprintGoals } from "../../core/atlassianGoals";
 import { type BoardBlock, blockIdentifier, moveBlock, shiftBlock } from "../../core/boardBlocks";
 import {
   type BoardConfiguration,
+  colorRules,
   displayedGoalId,
   isBlockCollapsed,
   isGoalHidden,
 } from "../../core/boardConfiguration";
-import { type BoardIssue, type BoardSnapshot, findIssue } from "../../core/boardIssue";
+import { allIssues, type BoardIssue, type BoardSnapshot, findIssue } from "../../core/boardIssue";
 import { buildBoardLayout, filterOptions } from "../../core/boardLayout";
 import {
   laneOrder,
@@ -16,6 +17,7 @@ import {
   withBlockOrder,
   withGoalColor,
   withGoalHidden,
+  withLocalPins,
 } from "../../core/boardPreferences";
 import { customFieldChoices } from "../../core/boardSettings";
 import { detectBoard, loadSnapshot, refreshBoardStructure } from "../../core/boardSync";
@@ -27,6 +29,12 @@ import {
   pinAtlassianGoals,
   rankIssue,
 } from "../../core/boardWrites";
+import {
+  type CardColorRule,
+  evaluateColorRules,
+  resolveCardColors,
+  SCOPE_CHANGE_RULE_ID,
+} from "../../core/cardColors";
 import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/dropPlan";
 import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../../core/filters";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
@@ -86,6 +94,10 @@ export interface PinEditor {
   readonly selection: readonly string[];
   readonly saving: boolean;
   readonly notice: (UserMessage & { readonly tone: "error" | "warning" }) | null;
+  /** La sélection de départ est celle gardée dans ce navigateur, Jira n'en ayant aucune. */
+  readonly fromLocal: boolean;
+  /** Jira vient de refuser l'enregistrement faute de droits : on peut la garder localement. */
+  readonly canKeepLocally: boolean;
 }
 
 export interface BoardModelOptions {
@@ -145,6 +157,13 @@ export class BoardModel {
   readonly customFieldsLoading = signal(false);
   readonly customFieldsError = signal<UserMessage | null>(null);
 
+  /** Couleur de fond de chaque carte (clé du ticket → nom de couleur), d'après les règles. */
+  readonly cardColors = signal<Readonly<Record<string, string>>>({});
+  /** Refus de Jira par règle de couleur (identifiant de règle → message). */
+  readonly colorRuleIssues = signal<Readonly<Record<string, string>>>({});
+  /** Tickets affichés retenus par chaque règle, à la dernière évaluation. */
+  readonly colorRuleCounts = signal<Readonly<Record<string, number>>>({});
+
   /** L'épinglage n'a de sens qu'en mode Goals Atlassian, sur un sprint dont la propriété est lue. */
   readonly canPinGoals = computed(() => {
     const snapshot = this.snapshot.value;
@@ -201,6 +220,9 @@ export class BoardModel {
   #quickFiltersBoardId: number | null = null;
   #quickFilterRun = 0;
   #autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
+  /** Derniers tickets retenus par règle, pour colorer sans attendre la réévaluation. */
+  #colorMatches: Record<string, ReadonlySet<string>> = {};
+  #colorRun = 0;
 
   constructor(site: JiraSite, platform: Platform, options: BoardModelOptions = {}) {
     this.site = site;
@@ -247,6 +269,10 @@ export class BoardModel {
       this.snapshot.value = null;
       this.filters.value = NO_FILTERS;
       this.jiraQuickFilters.value = [];
+      this.#colorMatches = {};
+      this.cardColors.value = {};
+      this.colorRuleIssues.value = {};
+      this.colorRuleCounts.value = {};
       this.#quickFiltersBoardId = null;
       this.syncProblem.value = null;
       this.pinEditor.value = null;
@@ -355,6 +381,8 @@ export class BoardModel {
     if (isStale()) return;
     // Le contenu des sprints a pu changer : les filtres rapides actifs sont réévalués par Jira.
     if (this.filters.value.jiraQuickFilterIds.size > 0) await this.#applyJiraQuickFilters();
+    if (isStale()) return;
+    await this.#refreshCardColors();
   }
 
   /**
@@ -653,15 +681,47 @@ export class BoardModel {
   openPinEditor(): void {
     const snapshot = this.snapshot.value;
     if (!this.canPinGoals.value || !snapshot?.sprint || snapshot.pinnedGoalIds === null) return;
+    const local = snapshot.localPinnedGoalIds;
     this.pinEditor.value = {
       sprintId: snapshot.sprint.id,
       sprintName: snapshot.sprint.name,
       base: [...snapshot.pinnedGoalIds],
-      selection: [...snapshot.pinnedGoalIds],
+      // Une sélection gardée localement repart d'ici : l'enregistrer la partage enfin dans Jira.
+      selection: [...(local ?? snapshot.pinnedGoalIds)],
       saving: false,
       notice: null,
+      fromLocal: local !== null,
+      canKeepLocally: false,
     };
     if (this.siteGoals.value === null) void this.loadSiteGoals();
+  }
+
+  /**
+   * Garde la sélection refusée par Jira dans ce navigateur seulement. Choix explicite, après un
+   * refus de droits : elle n'est partagée avec personne et ne sert que tant que Jira n'a aucune
+   * sélection pour ce sprint. Rien n'est écrit dans Jira.
+   */
+  async keepPinnedLocally(): Promise<void> {
+    const editor = this.pinEditor.value;
+    if (!editor || editor.saving || !editor.canKeepLocally) return;
+    this.pinEditor.value = null;
+    await this.applySettings(
+      (current) => withLocalPins(current, editor.sprintId, editor.selection),
+      { resync: true },
+    );
+  }
+
+  /** Oublie la sélection gardée dans ce navigateur pour le sprint affiché. */
+  async forgetLocalPins(): Promise<void> {
+    const sprint = this.snapshot.value?.sprint;
+    if (!sprint) return;
+    await this.#forgetLocalPins(sprint.id);
+    await this.sync();
+  }
+
+  async #forgetLocalPins(sprintId: number): Promise<void> {
+    if (!this.configuration.value?.localPinnedGoalIds[String(sprintId)]) return;
+    await this.#updatePreferences((current) => withLocalPins(current, sprintId, []));
   }
 
   /** Épingle ou désépingle un Goal dans la fenêtre. Rien n'est écrit avant « Enregistrer ». */
@@ -721,9 +781,12 @@ export class BoardModel {
         case "pinned":
           settle(null);
           await this.#record({ ...entry, outcome: "réussi", detail: "propriété du sprint" });
+          // Enregistré dans Jira : la copie locale de repli devient inutile.
+          await this.#forgetLocalPins(editor.sprintId);
           break;
         case "unchanged":
           settle(null);
+          await this.#forgetLocalPins(editor.sprintId);
           break;
         case "conflict":
           // Rien n'est écrasé : la fenêtre repart de ce que Jira porte maintenant.
@@ -731,6 +794,7 @@ export class BoardModel {
             ...editor,
             base: outcome.current,
             selection: outcome.current,
+            canKeepLocally: false,
             notice: {
               tone: "warning",
               text: "Les Goals épinglés ont été modifiés dans Jira pendant votre sélection.",
@@ -749,8 +813,10 @@ export class BoardModel {
       const jiraError = error instanceof JiraError ? error : null;
       const uncertain = jiraError?.isOutcomeUnknown ?? false;
       const message = toMessage(error);
+      const forbidden = jiraError?.info.kind === "forbidden";
       settle({
         ...editor,
+        canKeepLocally: forbidden,
         notice: uncertain
           ? {
               tone: "warning",
@@ -761,10 +827,9 @@ export class BoardModel {
           : {
               tone: "error",
               text: message.text,
-              suggestion:
-                jiraError?.info.kind === "forbidden"
-                  ? "Épingler un Goal au sprint exige en général la permission Jira de gérer les sprints."
-                  : message.suggestion,
+              suggestion: forbidden
+                ? "Épingler un Goal au sprint exige en général la permission Jira de gérer les sprints. Vous pouvez garder cette sélection dans ce navigateur, sans la partager."
+                : message.suggestion,
             },
       });
       await this.#record({
@@ -1103,6 +1168,50 @@ export class BoardModel {
     await this.#updatePreferences(change);
     this.#restartAutoRefresh();
     if (options.resync) await this.sync();
+  }
+
+  /** Enregistre les règles de couleur des cartes, puis les fait évaluer par Jira. */
+  async applyColorRules(rules: readonly CardColorRule[]): Promise<void> {
+    await this.applySettings((current) => ({ ...current, cardColorRules: [...rules] }), {
+      resync: false,
+    });
+    await this.#refreshCardColors();
+  }
+
+  /**
+   * Couleurs des cartes. La règle intégrée « ajouté en cours de sprint » s'applique tout de
+   * suite ; les règles JQL gardent leur dernier résultat le temps que Jira les réévalue.
+   */
+  async #refreshCardColors(): Promise<void> {
+    const snapshot = this.snapshot.value;
+    const configuration = this.configuration.value;
+    const run = ++this.#colorRun;
+    if (!snapshot || !configuration || snapshot.activeSprints.length === 0) {
+      this.cardColors.value = {};
+      return;
+    }
+    const rules = colorRules(configuration);
+    const issues = allIssues(snapshot);
+    const added = new Set(
+      issues.filter((issue) => issue.addedAfterSprintStart === true).map((i) => i.issue.key),
+    );
+    this.cardColors.value = resolveCardColors(rules, this.#colorMatches, added);
+
+    const evaluation = await evaluateColorRules(this.#client, {
+      boardId: configuration.boardId,
+      rules,
+      sprintIds: snapshot.activeSprints.map((sprint) => sprint.id),
+      displayedKeys: new Set(issues.map((issue) => issue.issue.key)),
+    });
+    if (run !== this.#colorRun || this.configuration.value?.boardId !== configuration.boardId) {
+      return;
+    }
+    this.#colorMatches = evaluation.matches;
+    this.cardColors.value = resolveCardColors(rules, evaluation.matches, added);
+    this.colorRuleIssues.value = evaluation.issues;
+    const counts: Record<string, number> = { [SCOPE_CHANGE_RULE_ID]: added.size };
+    for (const [id, keys] of Object.entries(evaluation.matches)) counts[id] = keys.size;
+    this.colorRuleCounts.value = counts;
   }
 
   /** Lit la liste des champs de l'instance, pour choisir un champ personnalisé de carte. */

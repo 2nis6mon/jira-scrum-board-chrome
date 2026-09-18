@@ -201,6 +201,11 @@ export interface BoardSnapshot {
    * cette propriété n'a pas pu être lue : l'épinglage n'est alors pas connu, ni modifiable.
    */
   readonly pinnedGoalIds: readonly string[] | null;
+  /**
+   * Goals épinglés gardés dans ce navigateur, affichés faute de sélection dans Jira pour ce sprint.
+   * `null` : la sélection affichée est celle de Jira (ou il n'y en a aucune).
+   */
+  readonly localPinnedGoalIds: readonly string[] | null;
 }
 
 export function allIssues(snapshot: BoardSnapshot): BoardIssue[] {

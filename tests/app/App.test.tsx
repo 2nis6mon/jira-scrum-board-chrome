@@ -298,6 +298,48 @@ describe("App", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
+  it("couleurs des cartes : une règle JQL ajoutée dans Réglages colore la carte que Jira désigne", async () => {
+    const jira = boardSiteJira().on("GET", "/rest/agile/1.0/board/7/issue", (request) => {
+      const jql = request.url.searchParams.get("jql");
+      const issues =
+        jql === null
+          ? SPRINT_ISSUES
+          : jql === "(priority = High) AND sprint in (42)"
+            ? SPRINT_ISSUES.filter((issue) => issue.key === "ABC-101")
+            : [];
+      return { status: 200, json: { issues, total: issues.length } };
+    });
+    await connectedBoard(jira);
+    button("Réglages").click();
+    await tick();
+    button("Couleurs des cartes").click();
+    await tick();
+    button("Ajouter une règle").click();
+    await tick();
+
+    const jql = document.querySelector<HTMLTextAreaElement>(".color-rule-jql");
+    if (!jql) throw new Error("champ JQL attendu");
+    jql.value = "priority = High";
+    jql.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    expect(document.querySelector(".color-rule")?.textContent).toContain("Non appliquée");
+
+    button("Appliquer").click();
+    await expect
+      .poll(() => document.querySelector(".color-rule-ok")?.textContent)
+      .toContain("1 ticket affiché satisfait");
+
+    button("Board").click();
+    await tick();
+    const colored = [...document.querySelectorAll<HTMLElement>("[data-card-color]")].map((card) => [
+      card.dataset.issueKey,
+      card.dataset.cardColor,
+    ]);
+    // Le bleu est pris par la règle intégrée : la nouvelle règle prend la première couleur libre.
+    expect(colored).toEqual([["ABC-101", "teal"]]);
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+  });
+
   it("le diagnostic reste accessible depuis l'en-tête", async () => {
     const jira = new FakeJira().on("GET", "/rest/api/3/myself", { status: 401 });
     const model = new AppModel(fakePlatform(jira));

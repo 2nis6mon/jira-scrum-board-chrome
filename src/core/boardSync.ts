@@ -226,10 +226,16 @@ export async function loadSnapshot(input: {
   let goalsOrigin: GoalSource = "sprintText";
   let goalsWarnings: readonly string[] = [];
 
+  // La sélection enregistrée dans Jira fait foi ; à défaut, celle gardée dans ce navigateur quand
+  // Jira a refusé de l'enregistrer (même règle que le Mac).
+  const localPins = configuration.localPinnedGoalIds[String(sprint.id)] ?? [];
+  const localPinnedGoalIds =
+    (pinnedGoalIds ?? []).length === 0 && localPins.length > 0 ? [...localPins] : null;
+
   if (configuration.goalSource === "atlassianGoals" && input.goalsLoader) {
     try {
       const resolved = await input.goalsLoader.load({
-        pinnedGoalIds: document?.atlassianGoalIds ?? [],
+        pinnedGoalIds: localPinnedGoalIds ?? document?.atlassianGoalIds ?? [],
         issues: sprintIssues,
         configuration,
       });
@@ -301,6 +307,7 @@ export async function loadSnapshot(input: {
       currentUser: input.currentUser,
       goalsReadOnly,
       pinnedGoalIds,
+      localPinnedGoalIds: goalsOrigin === "atlassianGoals" ? localPinnedGoalIds : null,
     },
     document,
     goalsIssue,
@@ -321,6 +328,7 @@ function emptySnapshot(now: Date, currentUser: JiraUser | null): BoardSnapshot {
     currentUser,
     goalsReadOnly: false,
     pinnedGoalIds: null,
+    localPinnedGoalIds: null,
   };
 }
 

@@ -48,10 +48,19 @@ describe("stockage local des boards", () => {
       ],
       goalSource: "sprintText",
       autoRefreshSeconds: 120,
+      localPinnedGoalIds: { "42": ["ari:goal/1", "ari:goal/2"] },
     });
     // Passage par JSON, comme chrome.storage.local.
     const roundTrip = decodeStoredConfiguration(JSON.parse(JSON.stringify(configuration)));
     expect(roundTrip).toEqual(configuration);
+  });
+
+  it("sélection d'épinglage locale : entrées illisibles écartées", () => {
+    const stored = JSON.parse(JSON.stringify(makeConfiguration()));
+    stored.localPinnedGoalIds = { "42": ["ari:goal/1", 3], abc: ["x"], "43": [], "44": "texte" };
+    expect(decodeStoredConfiguration(stored)?.localPinnedGoalIds).toEqual({ "42": ["ari:goal/1"] });
+    delete stored.localPinnedGoalIds;
+    expect(decodeStoredConfiguration(stored)?.localPinnedGoalIds).toEqual({});
   });
 
   it("une configuration incomplète est ignorée ; une préférence illisible reprend son défaut", () => {

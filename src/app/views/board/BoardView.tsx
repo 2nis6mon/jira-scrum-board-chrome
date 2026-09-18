@@ -533,6 +533,36 @@ function Notices(props: {
           </div>
         </div>
       )}
+      {snapshot?.localPinnedGoalIds && (
+        <div class="notice notice-info">
+          <p>
+            {snapshot.localPinnedGoalIds.length > 1 ? (
+              <>
+                <strong>
+                  {snapshot.localPinnedGoalIds.length} Goals épinglés dans ce navigateur seulement.
+                </strong>{" "}
+                Jira a refusé de les enregistrer sur le sprint : ils ne sont pas partagés avec votre
+                équipe.
+              </>
+            ) : (
+              <>
+                <strong>1 Goal épinglé dans ce navigateur seulement.</strong> Jira a refusé de
+                l'enregistrer sur le sprint : il n'est pas partagé avec votre équipe.
+              </>
+            )}
+          </p>
+          <div class="row">
+            {board.canPinGoals.value && (
+              <button type="button" onClick={() => board.openPinEditor()}>
+                Réessayer dans Jira…
+              </button>
+            )}
+            <button type="button" onClick={() => void board.forgetLocalPins()}>
+              Oublier cette sélection
+            </button>
+          </div>
+        </div>
+      )}
       {snapshot?.goalsReadOnly && (
         <p class="notice notice-info">
           Votre compte ne peut pas lire la propriété du sprint qui porte les objectifs épinglés et
@@ -633,7 +663,8 @@ function LaneView(props: {
   const progress = lane.progress;
   const focused = goal !== null && isGoalFocused(board.filters.value, goal.id);
   const goalsById = new Map(board.snapshot.value?.goals.map((g) => [g.id, g]) ?? []);
-  const pinned = new Set(board.snapshot.value?.pinnedGoalIds ?? []);
+  const localPins = board.snapshot.value?.localPinnedGoalIds ?? null;
+  const pinned = new Set(localPins ?? board.snapshot.value?.pinnedGoalIds ?? []);
   const cardFields = displayedCardFields(configuration);
   const ownColumns = lane.block.kind === "run" && !sameColumns(layout.runColumns, layout.columns);
 
@@ -704,7 +735,14 @@ function LaneView(props: {
           <span class="lane-title">{lane.title}</span>
         )}
         {goal?.atlassianGoalId && pinned.has(goal.atlassianGoalId) && (
-          <span class="goal-pinned" title="Épinglé au sprint : affiché même sans ticket rattaché">
+          <span
+            class="goal-pinned"
+            title={
+              localPins
+                ? "Épinglé dans ce navigateur seulement : non partagé avec l'équipe"
+                : "Épinglé au sprint : affiché même sans ticket rattaché"
+            }
+          >
             épinglé
           </span>
         )}
@@ -819,6 +857,7 @@ function LaneView(props: {
                           agingThresholdDays={configuration.agingThresholdDays}
                           goalTitle={hiddenGoal}
                           pending={board.pendingKeys.value.has(key)}
+                          tint={board.cardColors.value[key] ?? null}
                           dragging={drag?.issueKey === key}
                           onDragStart={(event) => {
                             if (!event.dataTransfer) return;

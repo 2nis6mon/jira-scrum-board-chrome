@@ -9,11 +9,12 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.8.1 — page Réglages.** Board du sprint actif organisé par Goals Atlassian (lus par
-> l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides du board Jira ;
-> glisser-déposer qui écrit dans Jira : transition, rang, et lien natif ticket↔Goal ; épinglage
-> de Goals au sprint ; ordre, repli, couleur et masquage des swimlanes ; page Réglages (colonnes,
-> types, affichage, rafraîchissement automatique, source des objectifs, champs des cartes). Repli
+> **État : 0.9.0 — réglages locaux terminés (étape 5).** Board du sprint actif organisé par
+> Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
+> du board Jira ; glisser-déposer qui écrit dans Jira : transition, rang, et lien natif
+> ticket↔Goal ; épinglage de Goals au sprint, gardé dans le navigateur si Jira le refuse ; ordre,
+> repli, couleur et masquage des swimlanes ; page Réglages (colonnes, types, affichage,
+> rafraîchissement automatique, source des objectifs, champs et couleurs des cartes). Repli
 > automatique et expliqué sur le texte du sprint si les Goals ne répondent pas.
 
 ## Installer l'extension (mode développeur)
@@ -110,6 +111,10 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
     l'épinglage, couleur et visibilité de chaque objectif.
   - *Champs des cartes* : jusqu'à trois champs sous le titre (versions, labels, composants, ou
     champ personnalisé cherché parmi ceux de votre Jira).
+  - *Couleurs des cartes* : des règles « un JQL, une couleur de fond », par ordre de priorité, et
+    la règle intégrée « Ajouté en cours de sprint ». Jira évalue chaque JQL à chaque actualisation,
+    restreint aux sprints actifs ; un JQL refusé est signalé sous sa règle, sans bloquer les
+    autres. Lecture seule.
 - **Diagnostic** (en-tête) : ce que Jira répond réellement aux requêtes de l'extension.
 
 ## Objectifs
@@ -131,10 +136,11 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
   `Origin: chrome-extension://…` que Chrome ajoute, et aussi son absence. Sur l'instance essayée,
   elle n'accepte que l'adresse du site : c'est la variante posée par défaut, pour les seules
   requêtes de l'extension vers la passerelle. L'onglet *Diagnostic* re-teste les variantes.
-- Si Jira refuse d'enregistrer l'épinglage (droits), l'app Mac propose de garder la sélection sur
-  la machine ; l'extension ne le fait pas encore.
+- Si Jira refuse d'enregistrer l'épinglage faute de droits, la sélection peut être gardée dans ce
+  navigateur : elle n'est partagée avec personne, et ne sert que tant que Jira n'a aucune
+  sélection pour ce sprint. Un bandeau le rappelle, avec « Réessayer dans Jira » et « Oublier ».
 - Déplacer une carte se fait à la souris uniquement pour l'instant.
-- Un seul board à la fois. Les règles de couleur des cartes (JQL) ne sont pas encore réglables.
+- Un seul board à la fois.
 
 ## Ce que l'extension écrit dans Jira
 
@@ -193,7 +199,7 @@ développement, jamais inclus dans `dist/`.
 
 ### ✅ Vérifié sur cette machine
 
-- Types, lint, 590 tests, construction.
+- Types, lint, 608 tests, construction.
 - Chargement réel dans Chrome 153 (sans interface, profil temporaire vierge) : manifest accepté,
   identifiant conforme, permissions `storage` et `declarativeNetRequestWithHostAccess` seules,
   aucun hôte accordé à l'installation, formulaire de connexion sans erreur, hôte hors
@@ -227,6 +233,10 @@ développement, jamais inclus dans `dist/`.
   refusé, types ignorés, source des objectifs, champs de cartes demandés à Jira, rafraîchissement
   automatique (intervalle, pause pendant un geste, arrêt) ; rendu vérifié dans Chrome sur le banc
   d'essai.
+- Couleurs des cartes et épinglage local (0.9.0) contre le faux Jira : JQL restreint aux sprints
+  actifs, priorité des règles, JQL refusé, réévaluation à chaque actualisation ; sélection gardée
+  après un refus de droits, prioritaire seulement sans sélection dans Jira, oubliée dès que Jira
+  l'enregistre ; rendu vérifié dans Chrome sur le banc d'essai (`board-epingle-refus`).
 
 ### ✅ Constaté par l'utilisateur sur son instance (0.2.0, 0.2.1)
 
@@ -246,6 +256,6 @@ développement, jamais inclus dans `dist/`.
   constatées sur le Mac, jamais émises depuis l'extension).
 - L'épinglage (0.6.0) : liste des Goals de votre site, écriture de la propriété du sprint, et
   lecture croisée avec l'app Mac (un Goal épinglé d'un côté visible de l'autre).
-- Les filtres rapides de votre board (0.7.0) : leur lecture, et l'évaluation de leur JQL
-  restreint aux sprints actifs (`currentUser()`, champs personnalisés…).
+- Les filtres rapides de votre board (0.7.0) et les règles de couleur (0.9.0) : l'évaluation de
+  leur JQL restreint aux sprints actifs (`currentUser()`, champs personnalisés…).
 - Les volumes réels (pagination au-delà de 100 tickets, plusieurs sprints actifs).

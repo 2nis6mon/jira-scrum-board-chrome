@@ -60,6 +60,7 @@ function snapshot(scrumIssues: BoardIssue[], runIssues: BoardIssue[] = []): Boar
     currentUser: null,
     goalsReadOnly: false,
     pinnedGoalIds: [],
+    localPinnedGoalIds: null,
   };
 }
 

@@ -21,6 +21,8 @@ interface Props {
   goalTitle: string | null;
   /** Une écriture est en cours sur ce ticket : il attend la réponse de Jira. */
   pending?: boolean;
+  /** Couleur de fond donnée par une règle de couleur (nom de la palette). */
+  tint?: string | null;
   dragging?: boolean;
   onDragStart?: (event: DragEvent) => void;
   onDragEnd?: () => void;
@@ -43,6 +45,7 @@ export function IssueCard(props: Props) {
       target="_blank"
       rel="noopener noreferrer"
       data-issue-key={issue.issue.key}
+      data-card-color={props.tint ?? undefined}
       draggable={props.onDragStart !== undefined && !props.pending}
       onDragStart={props.onDragStart}
       onDragEnd={props.onDragEnd}

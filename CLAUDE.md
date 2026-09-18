@@ -90,7 +90,7 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 | `core/boardIssue.ts` | `BoardIssue`, `BoardAssembler`, `GoalProgress`, `BoardSnapshot` |
 | `core/filters.ts` | `BoardFilters`, `BoardFilterEngine`, `AtlassianGoalFilter` |
 | `core/dropPlan.ts` | `BoardDropPlan`, `RankChange` |
-| `core/cardColors.ts`, `core/cardFields.ts` | `CardColorRule`, `CardColorResolver`, `CardField` |
+| `core/cardColors.ts`, `core/cardFields.ts` | `CardColorRule`, `CardColorResolver`, `CardField`, `BoardController.refreshCardColors`, `CardColorsAdminView` |
 | `jira/models.ts`, `jira/transitionPlanner.ts` | `Models.swift`, `TransitionPlanner` |
 | `jira/client.ts` | lectures de `JiraClient.swift` (board, sprints, tickets, champs, propriété) |
 | `core/boardSync.ts` | `BoardController.detectBoard` et `performSync` (lecture seule) |
@@ -173,10 +173,13 @@ filtres standard.
 
 0.8.0 : étape 5b, page Réglages (onglet de l'en-tête). Section Board en brouillon appliqué d'un
 coup (`applyBoardSection` refuse un brouillon dont les colonnes ou types ont été relus depuis) ;
-rafraîchissement automatique branché (`BoardModel`, suspendu pendant un geste). Reste de l'étape
-5 (lot 5c) : règles de couleur des cartes (éditeur et évaluation JQL par Jira), sélection
-d'épinglage gardée localement quand Jira refuse. Reste du Mac non porté : garder localement une sélection refusée par Jira
-(`keepSelectionLocally`), à faire avec les réglages locaux de l'étape 5.
+rafraîchissement automatique branché (`BoardModel`, suspendu pendant un geste).
+
+0.9.0 : lot 5c, qui termine l'étape 5. Règles de couleur des cartes (section Réglages, JQL évalué
+par Jira sur les sprints actifs, `evaluateColorRules` dans `cardColors.ts`) ; sélection
+d'épinglage gardée dans le navigateur après un refus de droits (`localPinnedGoalIds` de la
+configuration, par sprint ; portage de `keepSelectionLocally`), qui ne sert que si Jira n'a
+aucune sélection et s'efface dès que Jira enregistre. Prochaine étape : 6 (compléments).
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.

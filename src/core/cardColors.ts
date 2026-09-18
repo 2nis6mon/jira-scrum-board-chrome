@@ -1,3 +1,4 @@
+import type { JiraClient } from "../jira/client";
 import { inActiveSprints, withoutOrderBy } from "./jql";
 
 /**
@@ -31,6 +32,19 @@ export const CARD_COLOR_PALETTE = [
   "purple",
   "gray",
 ] as const;
+
+/** Noms affichés des couleurs, repris du Mac. */
+export const CARD_COLOR_LABEL: Record<string, string> = {
+  blue: "Bleu",
+  teal: "Turquoise",
+  green: "Vert",
+  yellow: "Jaune",
+  orange: "Orange",
+  red: "Rouge",
+  pink: "Rose",
+  purple: "Violet",
+  gray: "Gris",
+};
 
 /** Même identifiant que l'app Mac, pour que la règle intégrée se reconnaisse d'une app à l'autre. */
 export const SCOPE_CHANGE_RULE_ID = "5C0DE000-0000-4000-8000-000000000001";
@@ -84,4 +98,65 @@ export function resolveCardColors(
     for (const key of keys ?? []) colors[key] ??= rule.color;
   }
   return colors;
+}
+
+// ─── Évaluation par Jira ─────────────────────────────────────────────────────
+
+/** Lecture dont les règles ont besoin. `JiraClient` la fournit. */
+export type ColorRuleReader = Pick<JiraClient, "boardIssues">;
+
+export interface ColorRuleEvaluation {
+  /** Tickets AFFICHÉS retenus par Jira pour chaque règle JQL active, par identifiant de règle. */
+  readonly matches: Record<string, Set<string>>;
+  /** Refus de Jira, par règle : cette règle est ignorée, les autres restent appliquées. */
+  readonly issues: Record<string, string>;
+}
+
+/**
+ * Demande à Jira quels tickets affichés satisfont chaque règle active. Lecture seule. Portage de
+ * `BoardController.refreshCardColors` (Mac) : chaque JQL, restreint aux sprints actifs, est évalué
+ * par Jira ; un JQL refusé est signalé sous sa règle sans empêcher les autres.
+ */
+export async function evaluateColorRules(
+  reader: ColorRuleReader,
+  input: {
+    boardId: number;
+    rules: readonly CardColorRule[];
+    sprintIds: readonly number[];
+    displayedKeys: ReadonlySet<string>;
+  },
+): Promise<ColorRuleEvaluation> {
+  const matches: Record<string, Set<string>> = {};
+  const issues: Record<string, string> = {};
+  for (const rule of input.rules) {
+    if (!rule.enabled || rule.kind !== null) continue;
+    try {
+      const keys = new Set<string>();
+      for (const jql of colorRuleQueries(rule, input.sprintIds)) {
+        const found = await reader.boardIssues(input.boardId, jql, {
+          estimationFieldId: null,
+          includeChangelog: false,
+          onlyFields: ["issuetype", "status"],
+        });
+        for (const issue of found) if (input.displayedKeys.has(issue.key)) keys.add(issue.key);
+      }
+      matches[rule.id] = keys;
+    } catch (error) {
+      issues[rule.id] = error instanceof Error ? error.message : String(error);
+    }
+  }
+  return { matches, issues };
+}
+
+/** Règles à enregistrer : noms et JQL nettoyés ; une règle JQL sans requête n'a pas de sens. */
+export function cleanedColorRules(rules: readonly CardColorRule[]): CardColorRule[] {
+  return rules
+    .map((rule) => ({ ...rule, name: rule.name.trim(), jql: rule.jql.trim() }))
+    .filter((rule) => rule.kind !== null || rule.jql !== "");
+}
+
+/** Couleur proposée pour une nouvelle règle : la première que n'utilise aucune autre. */
+export function nextRuleColor(rules: readonly CardColorRule[]): string {
+  const used = new Set(rules.map((rule) => rule.color));
+  return CARD_COLOR_PALETTE.find((color) => !used.has(color)) ?? "orange";
 }
