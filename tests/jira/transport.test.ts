@@ -280,3 +280,56 @@ describe("JiraTransport — POST", () => {
     expect(isReadOnlyGraphql("# pas une mutation\nquery A { a }")).toBe(true);
   });
 });
+
+describe("JiraTransport — images", () => {
+  const ICON = "/rest/api/2/universal_avatar/view/type/issuetype/avatar/10315";
+
+  it("télécharge une icône du site avec la session", async () => {
+    const jira = new FakeJira().on("GET", ICON, {
+      status: 200,
+      text: "<svg/>",
+      headers: { "Content-Type": "image/svg+xml" },
+    });
+    const blob = await transportFor(jira).transport.fetchImage(
+      `https://acme.atlassian.net${ICON}?size=medium`,
+    );
+
+    expect(await blob.text()).toBe("<svg/>");
+    expect(jira.requests[0]?.init.credentials).toBe("include");
+    expect(jira.requests[0]?.init.redirect).toBe("manual");
+    expect(jira.requests[0]?.url.searchParams.get("size")).toBe("medium");
+  });
+
+  it.each([
+    "https://secure.gravatar.com/avatar/x",
+    "http://acme.atlassian.net/icone.png",
+    "https://acme.atlassian.net.evil.example/icone.png",
+    "pas une adresse",
+  ])("ne demande jamais une image hors du site : %s", async (url) => {
+    const jira = new FakeJira();
+    await expect(transportFor(jira).transport.fetchImage(url)).rejects.toThrowError();
+    expect(jira.requests).toHaveLength(0);
+  });
+
+  it("refuse ce qui n'est pas une image, ou une image trop lourde", async () => {
+    const jira = new FakeJira().on(
+      "GET",
+      ICON,
+      { status: 200, text: "<html>", headers: { "Content-Type": "text/html" } },
+      { status: 200, text: "x".repeat(300 * 1024), headers: { "Content-Type": "image/png" } },
+    );
+    const { transport } = transportFor(jira);
+    const url = `https://acme.atlassian.net${ICON}`;
+    await expect(transport.fetchImage(url)).rejects.toThrowError(JiraError);
+    await expect(transport.fetchImage(url)).rejects.toThrowError(JiraError);
+  });
+
+  it("ne suit pas une redirection et remonte un refus", async () => {
+    const jira = new FakeJira().on("GET", ICON, { redirect: true }, { status: 401 });
+    const { transport } = transportFor(jira);
+    const url = `https://acme.atlassian.net${ICON}`;
+    await expect(transport.fetchImage(url)).rejects.toThrowError(JiraError);
+    await expect(transport.fetchImage(url)).rejects.toThrowError(JiraError);
+    expect(jira.requests).toHaveLength(2);
+  });
+});

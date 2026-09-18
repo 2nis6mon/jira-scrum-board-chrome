@@ -33,3 +33,46 @@
 
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
+
+/* Identité des objectifs (Theme.swift) : anneau et barre, teinte et bord de la swimlane.
+   Les trois dernières couleurs n'ont pas de teinte dédiée : elle est dérivée de l'anneau. */
+[data-goal-color="goal1"] {
+  --goal-ring: #2563eb;
+  --goal-tint: #e7eefd;
+  --goal-border: #c3d6fa;
+}
+[data-goal-color="goal2"] {
+  --goal-ring: #15803d;
+  --goal-tint: #e3f5e9;
+  --goal-border: #bce0c9;
+}
+[data-goal-color="goal3"] {
+  --goal-ring: #7c3aed;
+  --goal-tint: #efe8fd;
+  --goal-border: #d6c4fa;
+}
+[data-goal-color="goal4"] {
+  --goal-ring: #c2410c;
+  --goal-tint: #fbebe0;
+  --goal-border: #f2cfb4;
+}
+[data-goal-color="goal5"] {
+  --goal-ring: #0d9488;
+  --goal-tint: #e1f5f2;
+  --goal-border: #b3e2da;
+}
+[data-goal-color="goal6"] {
+  --goal-ring: #4f46e5;
+  --goal-tint: #4f46e51a;
+  --goal-border: #4f46e54d;
+}
+[data-goal-color="goal7"] {
+  --goal-ring: #be185d;
+  --goal-tint: #be185d1a;
+  --goal-border: #be185d4d;
+}
+[data-goal-color="goal8"] {
+  --goal-ring: #a16207;
+  --goal-tint: #a162071a;
+  --goal-border: #a162074d;
+}

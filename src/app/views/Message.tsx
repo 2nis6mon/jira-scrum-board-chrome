@@ -1,4 +1,4 @@
-import type { UserMessage } from "../model/AppModel";
+import type { UserMessage } from "../model/messages";
 
 export function ErrorMessage({ message }: { message: UserMessage | null }) {
   if (!message) return null;

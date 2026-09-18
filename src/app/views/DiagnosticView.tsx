@@ -1,8 +1,7 @@
 import { useState } from "preact/hooks";
 import { type ProbeResult, writeConclusion } from "../../jira/diagnostics";
-import type { JiraSite } from "../../jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../jira/writes";
-import type { AppModel } from "../model/AppModel";
+import type { DiagnosticModel } from "../model/DiagnosticModel";
 import { ErrorMessage } from "./Message";
 
 const MARK = { ok: "✓", failed: "✗", skipped: "–" } as const;
@@ -25,11 +24,12 @@ function ProbeList({ probes }: { probes: readonly ProbeResult[] }) {
   );
 }
 
-export function DiagnosticView({ model, site }: { model: AppModel; site: JiraSite }) {
+export function DiagnosticView({ diagnostic }: { diagnostic: DiagnosticModel }) {
+  const site = diagnostic.site;
   const [boardUrl, setBoardUrl] = useState("");
-  const read = model.read.value;
-  const write = model.write.value;
-  const sprint = model.sprint.value;
+  const read = diagnostic.read.value;
+  const write = diagnostic.write.value;
+  const sprint = diagnostic.sprint.value;
 
   return (
     <main class="page">
@@ -38,10 +38,10 @@ export function DiagnosticView({ model, site }: { model: AppModel; site: JiraSit
           <h2>1 · Lectures</h2>
           <button
             type="button"
-            onClick={() => void model.runReads()}
-            disabled={model.readRunning.value}
+            onClick={() => void diagnostic.runReads()}
+            disabled={diagnostic.readRunning.value}
           >
-            {model.readRunning.value ? "En cours…" : "Relancer"}
+            {diagnostic.readRunning.value ? "En cours…" : "Relancer"}
           </button>
         </header>
         <p class="hint">
@@ -76,7 +76,7 @@ export function DiagnosticView({ model, site }: { model: AppModel; site: JiraSit
           class="row"
           onSubmit={(event) => {
             event.preventDefault();
-            void model.findSprint(boardUrl);
+            void diagnostic.findSprint(boardUrl);
           }}
         >
           <input
@@ -89,11 +89,11 @@ export function DiagnosticView({ model, site }: { model: AppModel; site: JiraSit
             value={boardUrl}
             onInput={(event) => setBoardUrl(event.currentTarget.value)}
           />
-          <button type="submit" disabled={model.sprintLoading.value || boardUrl.trim() === ""}>
-            {model.sprintLoading.value ? "Recherche…" : "Trouver le sprint actif"}
+          <button type="submit" disabled={diagnostic.sprintLoading.value || boardUrl.trim() === ""}>
+            {diagnostic.sprintLoading.value ? "Recherche…" : "Trouver le sprint actif"}
           </button>
         </form>
-        <ErrorMessage message={model.sprintError.value} />
+        <ErrorMessage message={diagnostic.sprintError.value} />
 
         {sprint && (
           <div class="row">
@@ -103,10 +103,10 @@ export function DiagnosticView({ model, site }: { model: AppModel; site: JiraSit
             <button
               type="button"
               class="primary"
-              onClick={() => void model.runWriteTest()}
-              disabled={model.writeRunning.value || !read?.sessionRecognized}
+              onClick={() => void diagnostic.runWriteTest()}
+              disabled={diagnostic.writeRunning.value || !read?.sessionRecognized}
             >
-              {model.writeRunning.value ? "Test en cours…" : "Tester l'écriture sur ce sprint"}
+              {diagnostic.writeRunning.value ? "Test en cours…" : "Tester l'écriture sur ce sprint"}
             </button>
           </div>
         )}
@@ -123,8 +123,8 @@ export function DiagnosticView({ model, site }: { model: AppModel; site: JiraSit
       <section class="panel">
         <header class="panel-header">
           <h2>3 · Rapport</h2>
-          <button type="button" onClick={() => void model.copyReport()} disabled={!read}>
-            {model.reportCopied.value ? "Copié" : "Copier le rapport"}
+          <button type="button" onClick={() => void diagnostic.copyReport()} disabled={!read}>
+            {diagnostic.reportCopied.value ? "Copié" : "Copier le rapport"}
           </button>
         </header>
         <p class="hint">
@@ -132,7 +132,7 @@ export function DiagnosticView({ model, site }: { model: AppModel; site: JiraSit
           les sondes, les codes HTTP et les messages renvoyés par Jira. Relisez-le avant de le
           transmettre.
         </p>
-        {read && <pre class="report">{model.report()}</pre>}
+        {read && <pre class="report">{diagnostic.report()}</pre>}
       </section>
     </main>
   );

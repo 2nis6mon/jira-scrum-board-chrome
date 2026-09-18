@@ -147,6 +147,21 @@ try {
     JSON.stringify(refusal.slice(0, 70)),
   );
 
+  // Le board règle le nombre de colonnes par une variable CSS posée par script (CSSOM) : la CSP
+  // « style-src 'self' » doit la laisser passer, alors qu'elle bloquerait un attribut style.
+  const cssom = await evaluate(
+    sessionId,
+    `(() => {
+      const probe = document.createElement("div");
+      probe.style.setProperty("--column-count", "3");
+      document.body.append(probe);
+      const value = getComputedStyle(probe).getPropertyValue("--column-count").trim();
+      probe.remove();
+      return value;
+    })()`,
+  );
+  check("variable CSS posée par script acceptée par la CSP", cssom === "3", JSON.stringify(cssom));
+
   const stored = await evaluate(sessionId, "chrome.storage.local.get(null).then(JSON.stringify)");
   check("rien n'est enregistré après un refus", stored === "{}", stored);
 

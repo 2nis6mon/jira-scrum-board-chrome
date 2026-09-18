@@ -54,7 +54,9 @@ fige l'identifiant de l'extension). Elle est ignorée par git : ne jamais la com
 board.html            page plein onglet de l'extension
 src/app/              interface Preact
 src/app/platform/     seul endroit qui touche chrome.* (permissions, stockage)
-src/app/model/        état de l'interface (signals), plateforme injectée
+src/app/model/        état de l'interface (signals), plateforme injectée : AppModel (connexion,
+                      vue), BoardModel (board, synchro, filtres), DiagnosticModel, boardStore
+src/app/views/        vues Preact ; views/board/ = en-tête, filtres, swimlanes, cartes
 src/background/       service worker (ouvre la page, rien d'autre)
 src/jira/             site, erreurs, transport HTTP, inventaire des écritures, diagnostic,
                       modèles Jira et leur décodage, client REST (lectures), transitions
@@ -80,6 +82,7 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 | `jira/models.ts`, `jira/transitionPlanner.ts` | `Models.swift`, `TransitionPlanner` |
 | `jira/client.ts` | lectures de `JiraClient.swift` (board, sprints, tickets, champs, propriété) |
 | `core/boardSync.ts` | `BoardController.detectBoard` et `performSync` (lecture seule) |
+| `core/boardLayout.ts` | répartition en swimlanes et colonnes des vues SwiftUI du board |
 
 Écarts voulus : `SprintGoalText.render` n'est pas porté (il ne servait qu'à réécrire le champ du
 sprint) ; le mode de compatibilité « Build et RUN restent en bas » des ordres enregistrés avant la
@@ -110,11 +113,19 @@ dépendance d'exécution se justifie : il y en a deux aujourd'hui (`preact`, `@p
 
 ## Étapes
 
-Constat sur l'instance de Denis (18/09/2026, extension 0.2.0) : la session du navigateur est
-reconnue ; les POST de lecture REST et les écritures REST (PUT/DELETE de propriété de sprint)
-passent SANS en-tête particulier — le transport garde donc `X-Atlassian-Token` absent par défaut.
-La passerelle GraphQL (`/gateway/api/graphql`) répond 403 sans message : cause à établir avec le
-diagnostic 0.2.1 avant de choisir une parade. Toute parade touchant au manifest se propose d'abord.
+Constats sur l'instance de Denis (18/09/2026) : la session du navigateur est reconnue ; les POST
+de lecture REST et les écritures REST (PUT/DELETE de propriété de sprint) passent SANS en-tête
+particulier — le transport garde `X-Atlassian-Token` absent par défaut. La passerelle GraphQL
+(`/gateway/api/graphql`, API Goals) répond `403 {"message":"Invalid CORS request"}`,
+`x-failure-category: FAILURE_CLIENT_CORS`, avec ou sans `no-check` : elle rejette l'en-tête
+`Origin: chrome-extension://…`. Un essai local (Chrome 153) a montré qu'une règle de session
+`declarativeNetRequest` limitée par `initiatorDomains: [id de l'extension]` retire ou remplace cet
+en-tête pour les seules requêtes de l'extension, sans toucher celles des pages web. Parade
+**proposée à Denis, non codée** : elle ajoute la permission `declarativeNetRequestWithHostAccess`.
+Tant qu'il n'a pas tranché, `BoardModel` passe `goalsLoader: null` et affiche la limitation.
+
+Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
+`npx vite build --outDir <scratchpad>`.
 
 Plan validé le 18/09/2026 : 0 socle · 1 connexion et diagnostic (essai XSRF par Denis) ·
 2 logique métier · 3 board en lecture seule · 4 les quatre écritures · 5 réglages locaux ·

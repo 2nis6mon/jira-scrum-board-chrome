@@ -313,3 +313,153 @@ function applyColumnPreferences(
     };
   });
 }
+
+// ─── Relecture d'une configuration enregistrée localement ────────────────────
+
+/**
+ * Relit une configuration enregistrée dans `chrome.storage.local`. Seule l'extension y écrit,
+ * mais le format peut avoir évolué d'une version à l'autre : la structure lue dans Jira doit être
+ * complète, sinon `null` (le board sera relu dans Jira) ; une préférence absente ou illisible
+ * reprend sa valeur par défaut.
+ */
+export function decodeStoredConfiguration(value: unknown): BoardConfiguration | null {
+  if (!isObject(value)) return null;
+  if (
+    !isPositiveInteger(value.boardId) ||
+    typeof value.boardName !== "string" ||
+    typeof value.siteOrigin !== "string"
+  ) {
+    return null;
+  }
+  const scrumColumns = decodeColumns(value.scrumColumns);
+  const runColumns = decodeColumns(value.runColumns);
+  const issueTypes = decodeList(value.issueTypes, decodeIssueTypeConfiguration);
+  if (scrumColumns === null || runColumns === null || issueTypes === null) return null;
+
+  return {
+    boardId: value.boardId,
+    boardName: value.boardName,
+    boardType: textOr(value.boardType, ""),
+    projectKeys: strings(value.projectKeys),
+    siteOrigin: value.siteOrigin,
+    estimationFieldId: textOrNull(value.estimationFieldId),
+    estimationFieldName: textOrNull(value.estimationFieldName),
+    goalsFieldId: textOrNull(value.goalsFieldId),
+    flaggedFieldId: textOrNull(value.flaggedFieldId),
+    scrumColumns,
+    runColumns,
+    issueTypes,
+    blockedLabels: strings(value.blockedLabels),
+    agingThresholdDays: isPositiveInteger(value.agingThresholdDays) ? value.agingThresholdDays : 3,
+    autoRefreshSeconds: isPositiveInteger(value.autoRefreshSeconds)
+      ? value.autoRefreshSeconds
+      : null,
+    showRunSection: typeof value.showRunSection === "boolean" ? value.showRunSection : true,
+    hiddenGoalIds: strings(value.hiddenGoalIds),
+    blockOrder: strings(value.blockOrder),
+    collapsedBlockIds: strings(value.collapsedBlockIds),
+    buildSectionLabel: textOr(value.buildSectionLabel, DEFAULT_BUILD_LABEL),
+    goalSource: value.goalSource === "sprintText" ? "sprintText" : "atlassianGoals",
+    boardGoalIds: strings(value.boardGoalIds),
+    goalColorIndex: decodeColorIndex(value.goalColorIndex),
+    cardFields: decodeList(value.cardFields, decodeCardField) ?? [],
+    cardColorRules: decodeList(value.cardColorRules, decodeColorRule) ?? [],
+  };
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+
+function textOr(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function textOrNull(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function strings(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+/** `null` si ce n'est pas un tableau ; les éléments illisibles sont écartés. */
+function decodeList<T>(value: unknown, decode: (item: unknown) => T | null): T[] | null {
+  if (!Array.isArray(value)) return null;
+  return value.map(decode).filter((item): item is T => item !== null);
+}
+
+function decodeColumns(value: unknown): ColumnConfiguration[] | null {
+  return decodeList(value, (item) => {
+    if (!isObject(item) || typeof item.id !== "string" || typeof item.name !== "string")
+      return null;
+    return {
+      id: item.id,
+      name: item.name,
+      statusIds: strings(item.statusIds),
+      position: typeof item.position === "number" ? item.position : 0,
+      hidden: item.hidden === true,
+      wipLimit: isPositiveInteger(item.wipLimit) ? item.wipLimit : null,
+      isDone: item.isDone === true,
+    };
+  });
+}
+
+function decodeIssueTypeConfiguration(item: unknown): IssueTypeConfiguration | null {
+  if (!isObject(item) || typeof item.id !== "string" || typeof item.name !== "string") return null;
+  const category: IssueCategory =
+    item.category === "RUN" || item.category === "IGNORED" ? item.category : "SCRUM";
+  return {
+    id: item.id,
+    name: item.name,
+    iconUrl: textOrNull(item.iconUrl),
+    category,
+    countsAsBug: typeof item.countsAsBug === "boolean" ? item.countsAsBug : null,
+  };
+}
+
+function decodeColorIndex(value: unknown): Record<string, number> {
+  const result: Record<string, number> = {};
+  if (!isObject(value)) return result;
+  for (const [goalId, index] of Object.entries(value)) {
+    if (typeof index === "number" && Number.isInteger(index) && index >= 0) result[goalId] = index;
+  }
+  return result;
+}
+
+function decodeCardField(item: unknown): CardField | null {
+  if (!isObject(item)) return null;
+  if (item.kind === "custom") {
+    return typeof item.customFieldId === "string"
+      ? {
+          kind: "custom",
+          customFieldId: item.customFieldId,
+          customFieldName: textOrNull(item.customFieldName),
+        }
+      : null;
+  }
+  return item.kind === "fixVersions" ||
+    item.kind === "affectsVersions" ||
+    item.kind === "labels" ||
+    item.kind === "components"
+    ? { kind: item.kind }
+    : null;
+}
+
+function decodeColorRule(item: unknown): CardColorRule | null {
+  if (!isObject(item) || typeof item.id !== "string" || typeof item.color !== "string") return null;
+  return {
+    id: item.id,
+    name: textOr(item.name, ""),
+    jql: textOr(item.jql, ""),
+    color: item.color,
+    enabled: item.enabled !== false,
+    kind: item.kind === "addedAfterSprintStart" ? "addedAfterSprintStart" : null,
+  };
+}

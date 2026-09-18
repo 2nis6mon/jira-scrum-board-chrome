@@ -4,10 +4,11 @@ Pilote un sprint Jira Cloud par ses objectifs, depuis un onglet Chrome. Jira res
 vérité. Projet distinct de l'app macOS du même nom, dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : étapes 1 et 2.** L'extension se connecte à un site `*.atlassian.net` avec la session
-> Jira du navigateur et propose un diagnostic : trois lectures, puis, sur demande, un test
-> d'écriture sur une propriété technique du sprint. La logique métier de l'app Mac est portée et
-> testée (`src/core/`), mais pas encore branchée : le board n'existe pas encore.
+> **État : étape 3 — board en lecture seule.** Connexion à un site `*.atlassian.net` avec la
+> session Jira du navigateur ; board du sprint actif par objectifs, Build et RUN ; filtres et
+> recherche ; diagnostic de connexion. Les objectifs viennent du **texte du sprint** : les Goals
+> Atlassian ne sont pas encore lus (voir *Limites*). Aucune écriture dans Jira hors du test
+> d'écriture du diagnostic.
 
 ## Installer l'extension (mode développeur)
 
@@ -39,6 +40,41 @@ manifest : déplacer le dossier ne fait pas perdre les réglages locaux.
 | Absents | Scripts injectés dans les pages, permissions `cookies`, `tabs`, `scripting`, `webRequest` |
 
 Ces droits sont verrouillés par [`tests/manifest.test.ts`](tests/manifest.test.ts).
+
+## Utiliser
+
+1. Clic sur l'icône de l'extension : le board s'ouvre dans un onglet.
+2. Saisir l'adresse du site (`societe.atlassian.net`) et accepter la demande d'accès de Chrome.
+   Il faut être connecté à Jira dans un onglet de ce navigateur.
+3. Coller l'adresse du board Jira (celle de la barre d'adresse quand le board est ouvert).
+
+Le board affiche les tickets des **sprints actifs**, regroupés par objectif, puis *Build*
+(tickets sans objectif) et *RUN* (types classés RUN, présents dans le sprint). Un clic sur une
+carte ouvre le ticket dans Jira, dans un nouvel onglet. *Actualiser* relit Jira ; rien n'est
+modifié.
+
+- **Cartes** : type, clé, drapeau Jira (⚑), priorité, résumé, parent, story points, initiales de
+  l'assigné ; badges *Bloqué* (lien « est bloqué par », détail au survol), bugs liés, *Ajouté*
+  en cours de sprint, jours dans la colonne au-delà du seuil. Les icônes de type et de priorité
+  sont téléchargées depuis le site avec la session ; les avatars ne le sont pas (ils sont
+  hébergés hors du site) : on affiche les initiales.
+- **En-tête** : sprint, dates, jours restants, avancement en tickets et en points, compteurs
+  *bloqués*, *ajoutés*, *sans objectif* (cliquables : ils filtrent), RUN.
+- **Filtres** : recherche (clé, résumé, personne, type, label, parent), *Bloqués*, *Ajoutés*,
+  et menus Personne, Objectif, Type, Priorité, Statut, Label, Composant, Parent. Un clic sur le
+  titre d'un objectif n'affiche que lui ; un second clic rétablit tout.
+- **Colonnes** : celles du board Jira, avec leur limite WIP (en rouge au-delà, filtres ou non).
+- **Diagnostic** (en-tête) : ce que Jira répond réellement aux requêtes de l'extension.
+
+## Limites
+
+- **Goals Atlassian non lus.** Leur API passe par la passerelle GraphQL d'Atlassian, qui refuse
+  les requêtes de l'extension : `{"code":403,"message":"Invalid CORS request"}` (constaté sur
+  instance réelle, extension 0.2.1). La cause est l'en-tête `Origin: chrome-extension://…` que
+  Chrome ajoute ; l'API REST de Jira, elle, l'accepte. Tant que ce point n'est pas réglé, les
+  objectifs sont les lignes du champ « Objectif » du sprint, en lecture seule, et le board le dit.
+- Un seul board à la fois ; réglages (ordre des swimlanes, couleurs, champs des cartes, règles
+  de couleur) pas encore modifiables depuis l'interface.
 
 ## Ce que l'extension écrit dans Jira
 
@@ -84,31 +120,28 @@ réservé au développement, jamais inclus dans `dist/`.
 
 ### ✅ Vérifié sur cette machine
 
-- Types, lint, 297 tests, construction.
+- Types, lint, 378 tests, construction.
 - Chargement réel dans Chrome 153 (sans interface, profil temporaire vierge) : manifest accepté,
-  identifiant conforme à la clé, service worker enregistré, formulaire de connexion rendu sans
-  erreur, hôte hors `*.atlassian.net` refusé à la saisie sans rien enregistrer, aucune permission
-  d'hôte, `fetch` vers un hôte tiers bloqué par la CSP.
-- Contre un **faux Jira de test** : forme des requêtes (session du navigateur, aucun en-tête
-  d'identification, redirections jamais suivies), correspondance des erreurs, distinction entre
-  refus XSRF et refus de droits, aucune écriture rejouée, déroulé du test d'écriture dans tous
-  ses cas, rapport sans donnée identifiante.
-- Rendu des vues dans cinq scénarios, par capture d'écran du banc d'essai (données fictives).
-- Logique métier portée de l'app Mac, avec ses cas de test transcrits : découpage du texte du
-  sprint, réconciliation des objectifs, ordre des swimlanes, filtres, plan de dépôt et rang,
-  règles de couleur, détection « bloqué » et drapeau, champs des cartes, bugs liés, changement de
-  périmètre, transitions. Vérifiée sur des données fictives calquées sur la forme des réponses
-  Jira documentées — pas sur des réponses réelles.
+  identifiant conforme, service worker, formulaire de connexion sans erreur, hôte hors
+  `*.atlassian.net` refusé sans rien enregistrer, aucune permission d'hôte à l'installation,
+  `fetch` vers un hôte tiers bloqué par la CSP, variable CSS posée par script acceptée par la CSP.
+- Contre un **faux Jira de test** : requêtes émises (session, un seul hôte, pas de redirection,
+  aucune écriture rejouée), décodage des réponses, découverte du board, synchronisation (sprints
+  actifs réunis, Scrum / RUN, objectifs du texte du sprint et liens de la propriété de sprint),
+  mise en page, filtres, WIP, perte de session et coupure réseau, stockage local.
+- Rendu du board, des filtres et des bandeaux par captures d'écran du banc d'essai (données
+  fictives), en 1440 et 900 px de large.
+- Logique métier portée de l'app Mac avec ses cas de test transcrits.
+
+### ✅ Constaté par l'utilisateur sur son instance (extension 0.2.0 et 0.2.1)
+
+- Session du navigateur reconnue par Jira pour les requêtes de l'extension.
+- POST de lecture REST, puis PUT / relecture / DELETE d'une propriété de sprint : acceptés sans
+  en-tête particulier.
+- Passerelle GraphQL : refus `Invalid CORS request`, avec ou sans `X-Atlassian-Token: no-check`.
 
 ### ⚠️ Non vérifié — nécessite votre instance Jira
 
-Aucune requête n'a jamais été émise vers un vrai Jira pendant le développement.
-
-- La demande d'accès au site par Chrome (fenêtre native, non pilotable sans interface).
-- **Que Jira reconnaisse la session du navigateur** pour une requête émise par la page de
-  l'extension (sonde 1 du diagnostic).
-- **Que Jira accepte un POST puis une écriture venant d'une origine `chrome-extension://`**,
-  sans en-tête ou avec `X-Atlassian-Token: no-check` (sondes 2 et 3, puis test d'écriture).
-  C'est le risque n°1 du projet ; le diagnostic existe pour le lever.
-- Le test d'écriture exige la permission Jira de gestion des sprints : sans elle, Jira répond
-  403 et le diagnostic le distingue d'un refus XSRF.
+- Le board 0.3.0 lui-même : découverte de votre board, affichage de votre sprint, repérage du
+  champ drapeau, icônes de type et de priorité, texte du sprint découpé en objectifs.
+- Les volumes réels (pagination au-delà de 100 tickets, plusieurs sprints actifs).

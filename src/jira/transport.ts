@@ -42,6 +42,9 @@ export type ReadPostPath = (typeof READ_POST_PATHS)[number];
 
 export const GRAPHQL_PATH = "/gateway/api/graphql";
 
+/** Au-delà, une « icône » n'en est pas une : elle n'est pas chargée. */
+export const MAX_IMAGE_BYTES = 256 * 1024;
+
 /**
  * Couche HTTP unique de l'extension : le seul endroit qui appelle `fetch`.
  *
@@ -121,6 +124,60 @@ export class JiraTransport {
       resource: request.resource,
       ...(options?.atlassianToken ? { atlassianToken: options.atlassianToken } : {}),
     });
+  }
+
+  /**
+   * Télécharge une image du site Jira (icône de type, de priorité). Ces adresses exigent la
+   * session : chargées sans elle, l'icône n'apparaît jamais. Seules les URL du site lui-même sont
+   * acceptées ; une image d'un autre hôte (avatar externe, par exemple) n'est jamais demandée.
+   */
+  async fetchImage(url: string): Promise<Blob> {
+    let target: URL;
+    try {
+      target = new URL(url);
+    } catch {
+      throw new Error(`Adresse d'image invalide : ${url}`);
+    }
+    if (target.origin !== this.site.origin) {
+      throw new Error(`Image hors du site Jira refusée : ${target.origin}`);
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.#timeoutMs);
+    let response: Response;
+    let blob: Blob;
+    try {
+      response = await this.#fetch(target.toString(), {
+        method: "GET",
+        headers: { Accept: "image/*" },
+        credentials: "include",
+        redirect: "manual",
+        referrerPolicy: "no-referrer",
+        signal: controller.signal,
+      });
+      if (response.type === "opaqueredirect" || response.status < 200 || response.status >= 300) {
+        throw new JiraError({ kind: "unexpected", status: response.status, bodyExcerpt: "" });
+      }
+      blob = await response.blob();
+    } catch (error) {
+      if (error instanceof JiraError) throw error;
+      if (controller.signal.aborted) throw new JiraError({ kind: "timeout" });
+      throw new JiraError({
+        kind: "offline",
+        underlying: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+
+    const type = (response.headers.get("Content-Type") ?? "").toLowerCase();
+    if (!type.startsWith("image/")) {
+      throw new JiraError({ kind: "decoding", context: "image", detail: type || "type absent" });
+    }
+    if (blob.size > MAX_IMAGE_BYTES) {
+      throw new JiraError({ kind: "decoding", context: "image", detail: `${blob.size} octets` });
+    }
+    return blob;
   }
 
   async #send(
