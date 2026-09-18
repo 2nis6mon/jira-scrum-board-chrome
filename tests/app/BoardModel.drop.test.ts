@@ -229,7 +229,8 @@ describe("glisser-déposer — rattachement à un objectif du texte du sprint", 
       columnId: DOING,
       beforeKey: null,
     });
-    const links = (writes()[0]?.body as { links: Record<string, string> }).links;
+    const body = writes()[0]?.body as { links: Record<string, string> } | undefined;
+    const links = body?.links;
     expect(links).not.toHaveProperty("ABC-101");
     expect(links).toHaveProperty("ABC-102", "g-paiement");
   });

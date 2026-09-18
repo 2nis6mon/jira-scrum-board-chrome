@@ -6,6 +6,7 @@ import { AuditLog } from "./auditLog";
 import { BoardModel } from "./BoardModel";
 import { forgetSite } from "./boardStore";
 import { DiagnosticModel } from "./DiagnosticModel";
+import { GraphqlOrigin } from "./graphqlOrigin";
 import { toMessage, type UserMessage } from "./messages";
 
 const CONNECTION_KEY = "connection.v1";
@@ -98,6 +99,7 @@ export class AppModel {
     const current = this.connection.value;
     if (current.state !== "connected") return;
     current.board.dispose();
+    await new GraphqlOrigin(this.#platform, current.site).forget().catch(() => {});
     await this.#platform.permissions.remove(current.site.permissionPattern);
     await this.#platform.store.remove(CONNECTION_KEY);
     await forgetSite(this.#platform.store, current.site.origin);
@@ -121,8 +123,12 @@ export class AppModel {
   }
 
   async #enter(site: JiraSite): Promise<void> {
+    // Règle `Origin` du site (passerelle GraphQL). Un échec (permission absente, par exemple
+    // si l'extension n'a pas été rechargée) n'empêche pas le board : le diagnostic le montrera.
+    const origin = new GraphqlOrigin(this.#platform, site);
+    await origin.restore().catch(() => {});
     const board = new BoardModel(site, this.#platform, { audit: this.#audit });
-    const diagnostic = new DiagnosticModel(site, this.#platform, this.#audit);
+    const diagnostic = new DiagnosticModel(site, this.#platform, this.#audit, origin);
     this.connection.value = { state: "connected", site, board, diagnostic };
     await board.load();
   }

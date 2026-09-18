@@ -76,7 +76,11 @@ function TransitionChoiceDialog({ board }: { board: BoardModel }) {
         <ul class="transition-list">
           {choice.available.map((transition) => (
             <li key={transition.id}>
-              <button type="button" onClick={() => void board.chooseTransition(transition)}>
+              <button
+                type="button"
+                class="transition-option"
+                onClick={() => void board.chooseTransition(transition)}
+              >
                 <strong>{transition.name}</strong> → {transition.to.name}
               </button>
             </li>

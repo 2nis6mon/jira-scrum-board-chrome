@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { AuditLog } from "../../src/app/model/auditLog";
 import { DiagnosticModel } from "../../src/app/model/DiagnosticModel";
+import { GraphqlOrigin } from "../../src/app/model/graphqlOrigin";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { FakeJira } from "../support/fakeJira";
-import { fakePlatform } from "../support/fakePlatform";
+import { activeOriginOperation, fakePlatform } from "../support/fakePlatform";
 
 const PROPERTY = `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.diagnostic}`;
 const SITE = normalizeSiteUrl("acme.atlassian.net");
@@ -92,5 +93,46 @@ describe("DiagnosticModel", () => {
     for (const secret of ["acme", "Personne Test", "Sprint de test", "cloud-test"]) {
       expect(report).not.toContain(secret);
     }
+  });
+});
+
+describe("DiagnosticModel — règle Origin", () => {
+  it("retient la variante acceptée par la passerelle, puis la repose", async () => {
+    const jira = new FakeJira()
+      .on("GET", "/rest/api/3/myself", { status: 200, json: { displayName: "Personne Test" } })
+      .on("POST", "/rest/api/3/jql/parse", { status: 200, json: {} });
+    const platform = fakePlatform(jira);
+    // Passerelle qui n'accepte QUE l'en-tête remplacé par l'adresse du site.
+    jira.on("POST", "/gateway/api/graphql", () =>
+      activeOriginOperation(platform) === "set"
+        ? { status: 200, json: { data: { tenantContexts: [{ cloudId: "cloud-test" }] } } }
+        : { status: 403, json: { code: 403, message: "Invalid CORS request" } },
+    );
+    const origin = new GraphqlOrigin(platform, SITE);
+    const model = new DiagnosticModel(SITE, platform, new AuditLog(platform.store), origin);
+
+    await model.runReads();
+
+    expect(model.read.value?.graphqlOrigin).toBe("site");
+    expect(await origin.preferred()).toBe("site");
+    expect(activeOriginOperation(platform)).toBe("set");
+  });
+
+  it("aucune variante acceptée : la variante précédente reste en place", async () => {
+    const jira = new FakeJira()
+      .on("GET", "/rest/api/3/myself", { status: 200, json: {} })
+      .on("POST", "/rest/api/3/jql/parse", { status: 200, json: {} })
+      .on("POST", "/gateway/api/graphql", {
+        status: 403,
+        json: { message: "Invalid CORS request" },
+      });
+    const platform = fakePlatform(jira);
+    const origin = new GraphqlOrigin(platform, SITE);
+    const model = new DiagnosticModel(SITE, platform, new AuditLog(platform.store), origin);
+
+    await model.runReads();
+
+    expect(model.read.value?.graphqlOrigin).toBeNull();
+    expect(activeOriginOperation(platform)).toBe("remove");
   });
 });

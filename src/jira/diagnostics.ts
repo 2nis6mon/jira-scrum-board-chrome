@@ -26,7 +26,26 @@ export interface ReadDiagnostics {
   readonly displayName: string | null;
   /** La session du navigateur est-elle reconnue par Jira ? */
   readonly sessionRecognized: boolean;
+  /**
+   * Variante de l'en-tête `Origin` acceptée par la passerelle GraphQL, quand elle a été testée :
+   * `null` si aucune ne passe ou si le test n'a pas eu lieu.
+   */
+  readonly graphqlOrigin: "remove" | "site" | null;
 }
+
+/**
+ * Pilotage de la règle `Origin` pendant le diagnostic : `keep` (aucune règle), `remove`, `site`.
+ * Fourni par l'interface ; le module Jira ne connaît pas Chrome.
+ */
+export interface OriginControl {
+  use(mode: "keep" | "remove" | "site"): Promise<void>;
+}
+
+const ORIGIN_LABEL = {
+  keep: "en-tête Origin de l'extension conservé",
+  remove: "en-tête Origin retiré",
+  site: "en-tête Origin remplacé par l'adresse du site",
+} as const;
 
 export interface ActiveSprint {
   readonly id: number;
@@ -46,7 +65,10 @@ const TOKEN_LABEL: Record<AtlassianTokenHeader, string> = {
 
 // ─── Lectures ────────────────────────────────────────────────────────────────
 
-export async function runReadProbes(transport: JiraTransport): Promise<ReadDiagnostics> {
+export async function runReadProbes(
+  transport: JiraTransport,
+  origin: OriginControl | null = null,
+): Promise<ReadDiagnostics> {
   const probes: ProbeResult[] = [];
   let displayName: string | null = null;
 
@@ -61,7 +83,7 @@ export async function runReadProbes(transport: JiraTransport): Promise<ReadDiagn
     probes.push(failed("session", "Session Jira du navigateur (GET)", error));
     probes.push(skipped("post-rest", "Lecture REST par POST", "session non reconnue"));
     probes.push(skipped("post-graphql", "Lecture GraphQL par POST", "session non reconnue"));
-    return { probes, displayName, sessionRecognized: false };
+    return { probes, displayName, sessionRecognized: false, graphqlOrigin: null };
   }
 
   // 2. Un POST REST passe-t-il le contrôle XSRF ? Analyse d'un JQL : aucune donnée lue ni écrite.
@@ -76,22 +98,60 @@ export async function runReadProbes(transport: JiraTransport): Promise<ReadDiagn
   );
 
   // 3. La passerelle GraphQL (API Goals) accepte-t-elle la session ? Requête documentée
-  //    `tenantContexts`, la même que l'app Mac.
-  probes.push(
-    await probeWithFallback(
-      "post-graphql",
-      "Lecture GraphQL par POST",
-      (atlassianToken) =>
-        transport.graphqlQuery(
-          "query siteCloudId($hosts: [String!]!) { tenantContexts(hostNames: $hosts) { cloudId } }",
-          { hosts: [transport.site.host] },
-          { resource: "l'identifiant du site", atlassianToken },
-        ),
-      (response) => (readCloudId(response) ? "identifiant du site lu" : null),
-    ),
-  );
+  //    `tenantContexts`, la même que l'app Mac. Lecture seule.
+  const cloudIdQuery = (atlassianToken: AtlassianTokenHeader) =>
+    transport.graphqlQuery(
+      "query siteCloudId($hosts: [String!]!) { tenantContexts(hostNames: $hosts) { cloudId } }",
+      { hosts: [transport.site.host] },
+      { resource: "l'identifiant du site", atlassianToken },
+    );
+  const validCloudId = (response: JiraResponse) =>
+    readCloudId(response) ? "identifiant du site lu" : null;
 
-  return { probes, displayName, sessionRecognized: true };
+  if (origin === null) {
+    probes.push(
+      await probeWithFallback(
+        "post-graphql",
+        "Lecture GraphQL par POST",
+        cloudIdQuery,
+        validCloudId,
+      ),
+    );
+    return { probes, displayName, sessionRecognized: true, graphqlOrigin: null };
+  }
+
+  // La passerelle rejette l'Origin `chrome-extension://…` : chaque variante de la règle est
+  // essayée, dans cet ordre, et rapportée telle que la passerelle l'a reçue.
+  const accepted = new Set<"keep" | "remove" | "site">();
+  for (const mode of ["keep", "remove", "site"] as const) {
+    const label = `Lecture GraphQL par POST, ${ORIGIN_LABEL[mode]}`;
+    try {
+      await origin.use(mode);
+    } catch (error) {
+      probes.push(failed(`post-graphql-${mode}`, label, error));
+      continue;
+    }
+    try {
+      const response = await cloudIdQuery("absent");
+      const summary = validCloudId(response);
+      if (summary === null) {
+        probes.push({
+          id: `post-graphql-${mode}`,
+          label,
+          status: "failed",
+          httpStatus: response.status,
+          detail: `réponse ${response.status} au contenu inattendu`,
+        });
+      } else {
+        accepted.add(mode);
+        probes.push(ok(`post-graphql-${mode}`, label, response, summary));
+      }
+    } catch (error) {
+      probes.push(failed(`post-graphql-${mode}`, label, error));
+    }
+  }
+  const graphqlOrigin = accepted.has("remove") ? "remove" : accepted.has("site") ? "site" : null;
+  return { probes, displayName, sessionRecognized: true, graphqlOrigin };
 }
 
 function readCloudId(response: JiraResponse): boolean {
@@ -346,8 +406,21 @@ export function formatReport(input: ReportInput): string {
     lines.push("");
   };
 
-  if (input.read) section("Lectures", input.read.probes);
-  else lines.push("Lectures : non lancées", "");
+  if (input.read) {
+    section("Lectures", input.read.probes);
+    if (input.read.probes.some((probe) => probe.id === "post-graphql-remove")) {
+      lines.push(
+        `GraphQL : ${
+          input.read.graphqlOrigin === null
+            ? "refusé dans toutes les variantes de l'en-tête Origin."
+            : `accepté, ${ORIGIN_LABEL[input.read.graphqlOrigin]} (variante retenue).`
+        }`,
+        "",
+      );
+    }
+  } else {
+    lines.push("Lectures : non lancées", "");
+  }
   if (input.write) {
     section("Écriture (propriété de diagnostic du sprint)", input.write.probes);
     lines.push(`Conclusion : ${writeConclusion(input.write)}`);

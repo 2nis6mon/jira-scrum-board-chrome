@@ -8,7 +8,7 @@ import {
 } from "../../src/jira/diagnostics";
 import { JiraTransport } from "../../src/jira/transport";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
-import { ACME, FakeJira, XSRF_REFUSAL } from "../support/fakeJira";
+import { ACME, FakeJira, type Reply, XSRF_REFUSAL } from "../support/fakeJira";
 
 const MYSELF = "/rest/api/3/myself";
 const JQL_PARSE = "/rest/api/3/jql/parse";
@@ -119,6 +119,93 @@ describe("runReadProbes", () => {
 
     const result = await runReadProbes(transportFor(jira));
     expect(result.probes[2]?.status).toBe("failed");
+  });
+});
+
+describe("runReadProbes — variantes de l'en-tête Origin (passerelle GraphQL)", () => {
+  const CORS: Reply = {
+    status: 403,
+    json: { code: 403, message: "Invalid CORS request" },
+    headers: { "Content-Type": "application/json", "X-Failure-Category": "FAILURE_CLIENT_CORS" },
+  };
+
+  /** Passerelle simulée : sa réponse dépend de la règle posée au moment de la requête. */
+  function gatewayJira(accepts: ReadonlySet<string>) {
+    let mode = "keep";
+    const control = {
+      modes: [] as string[],
+      use: async (next: "keep" | "remove" | "site") => {
+        mode = next;
+        control.modes.push(next);
+      },
+    };
+    const jira = new FakeJira()
+      .on("GET", MYSELF, { status: 200, json: {} })
+      .on("POST", JQL_PARSE, { status: 200, json: {} })
+      .on("POST", GRAPHQL, () => (accepts.has(mode) ? CLOUD_ID : CORS));
+    return { jira, control };
+  }
+
+  it("essaie les trois variantes et retient « en-tête retiré » quand il passe", async () => {
+    const { jira, control } = gatewayJira(new Set(["remove", "site"]));
+    const read = await runReadProbes(transportFor(jira), control);
+
+    expect(control.modes).toEqual(["keep", "remove", "site"]);
+    expect(read.graphqlOrigin).toBe("remove");
+    expect(read.probes.map((p) => [p.id, p.status])).toEqual([
+      ["session", "ok"],
+      ["post-rest", "ok"],
+      ["post-graphql-keep", "failed"],
+      ["post-graphql-remove", "ok"],
+      ["post-graphql-site", "ok"],
+    ]);
+    // Aucune variante n'ajoute l'en-tête no-check : il n'y change rien.
+    expect(
+      jira.sent("POST", GRAPHQL).every((r) => r.headers["X-Atlassian-Token"] === undefined),
+    ).toBe(true);
+  });
+
+  it("retient « adresse du site » si seule cette variante passe", async () => {
+    const { jira, control } = gatewayJira(new Set(["site"]));
+    expect((await runReadProbes(transportFor(jira), control)).graphqlOrigin).toBe("site");
+  });
+
+  it("aucune variante ne passe : le rapport le dit, avec la réponse de la passerelle", async () => {
+    const { jira, control } = gatewayJira(new Set());
+    const read = await runReadProbes(transportFor(jira), control);
+    const report = formatReport({ extensionVersion: "9.9.9", userAgent: "UA", read, write: null });
+
+    expect(read.graphqlOrigin).toBeNull();
+    expect(report).toContain("GraphQL : refusé dans toutes les variantes de l'en-tête Origin.");
+    expect(report).toContain("Invalid CORS request");
+  });
+
+  it("règle impossible à poser (permission absente) : sonde en échec, sans requête", async () => {
+    const { jira } = gatewayJira(new Set(["remove"]));
+    const failing = {
+      use: async () => {
+        throw new Error("declarativeNetRequest indisponible");
+      },
+    };
+    const read = await runReadProbes(transportFor(jira), failing);
+
+    expect(read.graphqlOrigin).toBeNull();
+    expect(read.probes.filter((p) => p.id.startsWith("post-graphql")).map((p) => p.detail)).toEqual(
+      [
+        "declarativeNetRequest indisponible",
+        "declarativeNetRequest indisponible",
+        "declarativeNetRequest indisponible",
+      ],
+    );
+    expect(jira.sent("POST", GRAPHQL)).toEqual([]);
+  });
+
+  it("le rapport annonce la variante retenue", async () => {
+    const { jira, control } = gatewayJira(new Set(["remove"]));
+    const read = await runReadProbes(transportFor(jira), control);
+    expect(
+      formatReport({ extensionVersion: "9.9.9", userAgent: "UA", read, write: null }),
+    ).toContain("GraphQL : accepté, en-tête Origin retiré (variante retenue).");
   });
 });
 

@@ -27,8 +27,11 @@ describe("manifest", () => {
     expect(manifest.version).toBe(pkg.version);
   });
 
-  it("ne demande à l'installation que le stockage local", () => {
-    expect(manifest.permissions).toEqual(["storage"]);
+  it("ne demande à l'installation que le stockage local et la règle d'en-tête", () => {
+    // declarativeNetRequestWithHostAccess : n'agit que sur les hôtes déjà accordés (un seul site
+    // *.atlassian.net), et seulement par la règle de session de originRule.ts. Validée par Denis
+    // le 18/09/2026.
+    expect(manifest.permissions).toEqual(["storage", "declarativeNetRequestWithHostAccess"]);
     expect(manifest.host_permissions).toBeUndefined();
   });
 

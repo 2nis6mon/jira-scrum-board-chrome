@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AppModel } from "../../src/app/model/AppModel";
 import { saveBoard } from "../../src/app/model/boardStore";
 import { FakeJira } from "../support/fakeJira";
-import { fakePlatform } from "../support/fakePlatform";
+import { activeOriginOperation, fakePlatform } from "../support/fakePlatform";
 import { makeConfiguration } from "../support/jiraFixtures";
 
 const PATTERN = "https://acme.atlassian.net/*";
@@ -59,6 +59,27 @@ describe("AppModel — connexion", () => {
     expect(jira.requests).toEqual([]);
   });
 
+  it("pose la règle Origin du site à la connexion, et la retire à la déconnexion", async () => {
+    const platform = fakePlatform(new FakeJira());
+    const model = new AppModel(platform);
+    await model.connect("acme.atlassian.net");
+    expect(activeOriginOperation(platform)).toBe("remove");
+    expect(platform.appliedRules.at(-1)?.condition.urlFilter).toBe(
+      "|https://acme.atlassian.net/gateway/api/graphql|",
+    );
+
+    await model.disconnect();
+    expect(platform.appliedRules.at(-1)).toBeNull();
+  });
+
+  it("repose la règle à la réouverture (les règles de session ne survivent pas au navigateur)", async () => {
+    const platform = fakePlatform(new FakeJira());
+    platform.stored.set("connection.v1", { origin: "https://acme.atlassian.net" });
+    platform.granted.add(PATTERN);
+    await new AppModel(platform).start();
+    expect(activeOriginOperation(platform)).toBe("remove");
+  });
+
   it("accès refusé dans Chrome : reste déconnecté, n'enregistre rien, n'émet rien", async () => {
     const jira = new FakeJira();
     const platform = fakePlatform(jira);
@@ -69,6 +90,7 @@ describe("AppModel — connexion", () => {
     expect(model.connection.value.state).toBe("loading");
     expect(model.connectionError.value?.text).toContain("n'a pas accordé l'accès");
     expect(platform.stored.size).toBe(0);
+    expect(platform.appliedRules).toEqual([]);
     expect(jira.requests).toEqual([]);
   });
 

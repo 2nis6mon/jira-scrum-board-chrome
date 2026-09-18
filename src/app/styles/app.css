@@ -1077,7 +1077,7 @@ fieldset.filter-menu-panel {
   color: #713f12;
 }
 
-.notice .row button {
+.notice .row > button {
   flex: none;
 }
 
@@ -1107,7 +1107,7 @@ fieldset.filter-menu-panel {
   gap: 6px;
 }
 
-.transition-list button {
+.transition-option {
   width: 100%;
   height: auto;
   padding: 9px 12px;

@@ -45,8 +45,10 @@ export function DiagnosticView({ diagnostic }: { diagnostic: DiagnosticModel }) 
           </button>
         </header>
         <p class="hint">
-          Trois requêtes en lecture seule : votre compte, l'analyse d'un JQL par POST, l'identifiant
-          du site par GraphQL. Rien n'est modifié dans Jira.
+          Requêtes en lecture seule : votre compte, l'analyse d'un JQL par POST, puis l'identifiant
+          du site par la passerelle GraphQL d'Atlassian (API des Goals), essayé avec l'en-tête
+          Origin de l'extension, sans lui, puis remplacé par l'adresse du site. La variante acceptée
+          est retenue pour ce site. Rien n'est modifié dans Jira.
         </p>
         {read ? <ProbeList probes={read.probes} /> : <p class="hint">En cours…</p>}
         {read?.displayName && <p class="hint">Compte reconnu : {read.displayName}</p>}

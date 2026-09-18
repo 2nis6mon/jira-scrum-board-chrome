@@ -184,6 +184,41 @@ try {
     granted.origins.length === 0,
     JSON.stringify(granted),
   );
+  check(
+    "permissions : stockage et règle d'en-tête, rien d'autre",
+    JSON.stringify([...granted.permissions].sort()) ===
+      JSON.stringify(["declarativeNetRequestWithHostAccess", "storage"]),
+    JSON.stringify(granted.permissions),
+  );
+
+  // Règle Origin : Chrome doit accepter sa forme exacte (celle de graphqlOriginRule(), vérifiée par
+  // tests/app/originRule.test.ts), pour un site fictif. Elle est retirée aussitôt.
+  const ruleCheck = await evaluate(
+    sessionId,
+    `(async () => {
+      const rule = {
+        id: 1,
+        priority: 1,
+        action: { type: "modifyHeaders", requestHeaders: [{ header: "origin", operation: "remove" }] },
+        condition: {
+          urlFilter: "|https://verification.atlassian.net/gateway/api/graphql|",
+          requestMethods: ["post"],
+          resourceTypes: ["xmlhttprequest"],
+          initiatorDomains: [chrome.runtime.id],
+        },
+      };
+      try {
+        await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [1], addRules: [rule] });
+        const count = (await chrome.declarativeNetRequest.getSessionRules()).length;
+        await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [1] });
+        const after = (await chrome.declarativeNetRequest.getSessionRules()).length;
+        return count === 1 && after === 0 ? "acceptée puis retirée" : "compte inattendu " + count + "/" + after;
+      } catch (error) {
+        return "refusée : " + error.message;
+      }
+    })()`,
+  );
+  check("règle Origin acceptée par Chrome", ruleCheck === "acceptée puis retirée", ruleCheck);
 
   // Sonde volontaire : la CSP doit refuser tout hôte hors *.atlassian.net.
   const probe = await evaluate(

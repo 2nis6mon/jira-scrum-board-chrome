@@ -42,8 +42,16 @@ connectée à Jira Cloud. Projet **distinct** de l'app Mac, qui reste maintenue 
 
 Le manifest (`public/manifest.json`) est gardé par `tests/manifest.test.ts`. Toute permission
 supplémentaire, tout hôte supplémentaire, tout assouplissement de la CSP doit être **proposé à
-Denis avant d'être codé**. État actuel : `storage` seul à l'installation ; accès à un site
-`https://*.atlassian.net` demandé à l'exécution ; CSP `connect-src https://*.atlassian.net`.
+Denis avant d'être codé**. État actuel : `storage` et `declarativeNetRequestWithHostAccess`
+(validée par Denis le 18/09/2026) à l'installation ; accès à un site `https://*.atlassian.net`
+demandé à l'exécution ; CSP `connect-src https://*.atlassian.net`.
+
+`declarativeNetRequestWithHostAccess` ne sert qu'à UNE règle de session
+(`src/app/platform/originRule.ts`) : en-tête `Origin` retiré ou remplacé par l'adresse du site,
+pour les seuls POST émis par l'extension (`initiatorDomains: [id]`) vers l'adresse exacte
+`|https://<site>/gateway/api/graphql|`. Sans `initiatorDomains`, la règle toucherait aussi les
+requêtes des pages web vers la passerelle et affaiblirait sa protection : ne jamais l'élargir. Un
+garde-fou (`tests/guards/sources.test.ts`) confine `declarativeNetRequest` à `platform/chrome.ts`.
 
 `.secrets/extension-key.pem` est la clé privée qui correspond au champ `key` du manifest (elle
 fige l'identifiant de l'extension). Elle est ignorée par git : ne jamais la committer.
@@ -55,7 +63,8 @@ board.html            page plein onglet de l'extension
 src/app/              interface Preact
 src/app/platform/     seul endroit qui touche chrome.* (permissions, stockage)
 src/app/model/        état de l'interface (signals), plateforme injectée : AppModel (connexion,
-                      vue), BoardModel (board, synchro, filtres), DiagnosticModel, boardStore
+                      vue), BoardModel (board, synchro, filtres, glisser-déposer), DiagnosticModel,
+                      boardStore, auditLog (journal des écritures), graphqlOrigin (règle Origin)
 src/app/views/        vues Preact ; views/board/ = en-tête, filtres, swimlanes, cartes
 src/background/       service worker (ouvre la page, rien d'autre)
 src/jira/             site, erreurs, transport HTTP, inventaire des écritures, diagnostic,
@@ -83,6 +92,7 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 | `jira/client.ts` | lectures de `JiraClient.swift` (board, sprints, tickets, champs, propriété) |
 | `core/boardSync.ts` | `BoardController.detectBoard` et `performSync` (lecture seule) |
 | `core/boardLayout.ts` | répartition en swimlanes et colonnes des vues SwiftUI du board |
+| `core/boardWrites.ts` | `BoardController.moveIssue`, `rankIssue`, `assignGoal` (mode texte) |
 
 Écarts voulus : `SprintGoalText.render` n'est pas porté (il ne servait qu'à réécrire le champ du
 sprint) ; le mode de compatibilité « Build et RUN restent en bas » des ordres enregistrés avant la
@@ -118,11 +128,10 @@ de lecture REST et les écritures REST (PUT/DELETE de propriété de sprint) pas
 particulier — le transport garde `X-Atlassian-Token` absent par défaut. La passerelle GraphQL
 (`/gateway/api/graphql`, API Goals) répond `403 {"message":"Invalid CORS request"}`,
 `x-failure-category: FAILURE_CLIENT_CORS`, avec ou sans `no-check` : elle rejette l'en-tête
-`Origin: chrome-extension://…`. Un essai local (Chrome 153) a montré qu'une règle de session
-`declarativeNetRequest` limitée par `initiatorDomains: [id de l'extension]` retire ou remplace cet
-en-tête pour les seules requêtes de l'extension, sans toucher celles des pages web. Parade
-**proposée à Denis, non codée** : elle ajoute la permission `declarativeNetRequestWithHostAccess`.
-Tant qu'il n'a pas tranché, `BoardModel` passe `goalsLoader: null` et affiche la limitation.
+`Origin: chrome-extension://…`. Parade validée par Denis et livrée en 0.4.0 : la règle `Origin`
+ci-dessus ; le diagnostic essaie « conservé / retiré / adresse du site » et mémorise par site la
+variante acceptée (`graphqlOrigin.v1`). La lecture des Goals (port de `GoalsClient.swift`) attend
+le rapport de ce diagnostic ; `BoardModel` passe encore `goalsLoader: null`.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.

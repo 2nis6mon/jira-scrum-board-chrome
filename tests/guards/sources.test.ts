@@ -72,6 +72,14 @@ describe("code de production", () => {
     expect(filesMatching(/\b(TODO|FIXME|XXX)\b/)).toEqual([]);
   });
 
+  it("ne touche aux en-têtes réseau qu'à un endroit : la règle Origin de la passerelle", () => {
+    expect(filesMatching(/declarativeNetRequest/)).toEqual(["src/app/platform/chrome.ts"]);
+    expect(filesMatching(/modifyHeaders|requestHeaders/)).toEqual([
+      "src/app/platform/originRule.ts",
+    ]);
+    expect(filesMatching(/webRequest|responseHeaders/)).toEqual([]);
+  });
+
   it("garde jira/ indépendant de chrome.* et du DOM", () => {
     const jira = sources.filter(({ file }) => file.startsWith("src/jira/"));
     for (const { file, code } of jira) {

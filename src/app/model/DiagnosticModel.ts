@@ -12,6 +12,7 @@ import { type JiraSite, parseBoardUrl } from "../../jira/site";
 import { JiraTransport } from "../../jira/transport";
 import type { Platform } from "../platform/types";
 import type { AuditEntry, AuditLog } from "./auditLog";
+import type { GraphqlOrigin } from "./graphqlOrigin";
 import { toMessage, type UserMessage } from "./messages";
 
 /**
@@ -39,11 +40,18 @@ export class DiagnosticModel {
   readonly #platform: Platform;
   readonly #transport: JiraTransport;
   readonly #audit: AuditLog;
+  readonly #origin: GraphqlOrigin | null;
 
-  constructor(site: JiraSite, platform: Platform, audit: AuditLog) {
+  constructor(
+    site: JiraSite,
+    platform: Platform,
+    audit: AuditLog,
+    origin: GraphqlOrigin | null = null,
+  ) {
     this.site = site;
     this.#platform = platform;
     this.#audit = audit;
+    this.#origin = origin;
     // Une seule tentative par requête : le diagnostic doit rapporter ce que Jira répond,
     // pas ce qu'il finit par répondre.
     this.#transport = new JiraTransport({ site, fetch: platform.fetch, maxGetAttempts: 1 });
@@ -53,9 +61,15 @@ export class DiagnosticModel {
     if (this.readRunning.value) return;
     this.readRunning.value = true;
     this.reportCopied.value = false;
+    const origin = this.#origin;
     try {
-      this.read.value = await runReadProbes(this.#transport);
+      const read = await runReadProbes(this.#transport, origin);
+      // La variante que la passerelle a acceptée devient celle du site.
+      if (origin && read.graphqlOrigin) await origin.remember(read.graphqlOrigin);
+      this.read.value = read;
     } finally {
+      // Les sondes ont changé la règle : on repose celle retenue pour le site.
+      await origin?.restore().catch(() => {});
       this.readRunning.value = false;
     }
   }
