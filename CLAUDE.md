@@ -95,6 +95,7 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 | `core/boardWrites.ts` | `BoardController.moveIssue`, `rankIssue`, `assignGoal` (mode texte), `SprintGoalStore.saveAtlassianSelection` (épinglage) |
 | `jira/goals.ts` | `GoalsClient.swift` |
 | `core/atlassianGoals.ts` | `BoardController.loadAtlassianSprintGoals` |
+| `core/boardPreferences.ts` | `BoardController.setBlockOrder`, `moveBlock`, `setBlockCollapsed`, `setGoalHidden`, `setGoalColor` |
 
 Écarts voulus : `SprintGoalText.render` n'est pas porté (il ne servait qu'à réécrire le champ du
 sprint) ; le mode de compatibilité « Build et RUN restent en bas » des ordres enregistrés avant la
@@ -105,7 +106,9 @@ n'est écrit (le Mac écrivait un document vidé) ; une valeur qui n'est pas un 
 écrasée ; les clés inconnues sont réécrites telles quelles ; l'épinglage est refusé si la
 sélection lue n'est plus celle affichée. Et dans `atlassianGoals.ts`, les Goals du site sont
 interrogés dès qu'aucun Goal n'est associé au board ni déclaré par les tickets, épinglés ou non
-(le Mac ne le faisait que sans aucun candidat : un épinglé masquait les autres).
+(le Mac ne le faisait que sans aucun candidat : un épinglé masquait les autres). Dans
+`boardPreferences.ts`, un bloc absent de l'affichage garde sa place relative quand on réordonne
+(le Mac le renvoyait en fin de liste, sous Build).
 
 Garde-fous à connaître avant de toucher au réseau :
 

@@ -4,6 +4,7 @@ import type { BoardConfiguration } from "../../../core/boardConfiguration";
 import { displayedCardFields, displayedGoalId } from "../../../core/boardConfiguration";
 import { type BoardSnapshot, browseUrl, sprintMetrics } from "../../../core/boardIssue";
 import { type BoardLayout, columnLoad, daysRemaining, type Lane } from "../../../core/boardLayout";
+import { GOAL_COLOR_NAMES } from "../../../core/boardPreferences";
 import {
   activeFilterCount,
   isGoalFocused,
@@ -11,6 +12,7 @@ import {
   QUICK_FILTER_LABEL,
   QUICK_FILTERS,
 } from "../../../core/filters";
+import { goalColorName } from "../../../core/sprintGoals";
 import type { BoardModel } from "../../model/BoardModel";
 import { formatDay, formatPoints, formatTime, goalStatusLabel, plural, toggled } from "../format";
 import { FilterMenu } from "./FilterMenu";
@@ -224,6 +226,16 @@ function SprintHeader(props: {
             <button type="button" onClick={() => board.editBoard()}>
               Changer de board
             </button>
+            {snapshot?.sprint && (
+              <>
+                <button type="button" onClick={() => void board.setAllLanesCollapsed(true)}>
+                  Replier toutes les swimlanes
+                </button>
+                <button type="button" onClick={() => void board.setAllLanesCollapsed(false)}>
+                  Déplier toutes les swimlanes
+                </button>
+              </>
+            )}
           </div>
         </details>
       </div>
@@ -457,6 +469,27 @@ function Notices(props: {
           )}
         </div>
       )}
+      {board.hiddenGoals.value.length > 0 && (
+        <div class="notice notice-info">
+          <p>
+            {board.hiddenGoals.value.length > 1
+              ? `${board.hiddenGoals.value.length} objectifs sont masqués du board (réglage de ce navigateur) : leurs tickets`
+              : "Un objectif est masqué du board (réglage de ce navigateur) : ses tickets"}{" "}
+            sont affichés dans {board.configuration.value?.buildSectionLabel || "Build"}.
+          </p>
+          <div class="row">
+            {board.hiddenGoals.value.map((goal) => (
+              <button
+                key={goal.id}
+                type="button"
+                onClick={() => void board.setGoalHidden(goal.id, false)}
+              >
+                Réafficher « {goal.title} »
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {snapshot?.goalsReadOnly && (
         <p class="notice notice-info">
           Votre compte ne peut pas lire la propriété du sprint qui porte les objectifs épinglés et
@@ -556,6 +589,16 @@ function LaneView(props: {
       aria-label={lane.title}
     >
       <header class="lane-header">
+        <button
+          type="button"
+          class="lane-toggle"
+          aria-expanded={!lane.collapsed}
+          aria-label={`${lane.collapsed ? "Déplier" : "Replier"} ${lane.title}`}
+          title={lane.collapsed ? "Déplier" : "Replier"}
+          onClick={() => void board.toggleLaneCollapsed(lane.block)}
+        >
+          <span class="chevron" aria-hidden="true" />
+        </button>
         {goal ? (
           <button
             type="button"
@@ -608,8 +651,9 @@ function LaneView(props: {
           </span>
         )}
         {progress?.state === "empty" && <span class="lane-progress">Aucun ticket rattaché</span>}
+        <LaneMenu board={board} lane={lane} />
       </header>
-      {ownColumns && (
+      {!lane.collapsed && ownColumns && (
         <div class="board-row column-band column-band-run">
           {layout.runColumns.map((column) => (
             <div key={column.id} class="column-head">
@@ -618,91 +662,175 @@ function LaneView(props: {
           ))}
         </div>
       )}
-      <div class="board-row lane-cells">
-        {lane.cells.map((cell) => {
-          const drag = board.dragging.value;
-          const droppable = drag !== null && board.accepts(lane.block, drag.lane);
-          const target = board.dropTarget.value;
-          const targeted =
-            droppable && target?.laneId === lane.id && target.columnId === cell.column.id;
-          const dropLine = <li class="drop-line" aria-hidden="true" />;
-          return (
-            <ul
-              key={cell.column.id}
-              aria-label={`${lane.title} — ${cell.column.name}`}
-              class={`lane-cell${droppable ? " lane-cell-droppable" : ""}${targeted ? " lane-cell-target" : ""}`}
-              onDragOver={(event) => {
-                const current = board.dragging.value;
-                if (!current || !board.accepts(lane.block, current.lane)) return;
-                event.preventDefault();
-                if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-                board.setDropTarget({
-                  laneId: lane.id,
-                  columnId: cell.column.id,
-                  beforeKey: insertionPoint(event.currentTarget, event.clientY, current.issueKey),
-                });
-              }}
-              onDragLeave={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                  board.setDropTarget(null);
-                }
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                const current = board.dragging.value;
-                const key = event.dataTransfer?.getData(DRAG_TYPE) ?? "";
-                const beforeKey = board.dropTarget.value?.beforeKey ?? null;
-                board.endDrag();
-                // Seule la carte dont le glissement a commencé sur ce board est acceptée.
-                if (!current || key !== current.issueKey) return;
-                void board.dropIssue({
-                  issueKey: key,
-                  block: lane.block,
-                  columnId: cell.column.id,
-                  beforeKey,
-                });
-              }}
-            >
-              {cell.issues.map((issue) => {
-                const shownUnder = lane.block.kind === "goal" ? lane.block.goalId : null;
-                const hiddenGoal =
-                  issue.goalId !== null &&
-                  displayedGoalId(configuration, issue.goalId) !== shownUnder
-                    ? (goalsById.get(issue.goalId)?.title ?? null)
-                    : null;
-                const key = issue.issue.key;
-                return (
-                  <Fragment key={issue.issue.id}>
-                    {targeted && target?.beforeKey === key && dropLine}
-                    <li class="lane-item">
-                      <IssueCard
-                        issue={issue}
-                        siteOrigin={board.site.origin}
-                        images={board.images}
-                        cardFields={cardFields}
-                        showStatus={cell.column.statusIds.length > 1}
-                        agingThresholdDays={configuration.agingThresholdDays}
-                        goalTitle={hiddenGoal}
-                        pending={board.pendingKeys.value.has(key)}
-                        dragging={drag?.issueKey === key}
-                        onDragStart={(event) => {
-                          if (!event.dataTransfer) return;
-                          event.dataTransfer.setData(DRAG_TYPE, key);
-                          event.dataTransfer.effectAllowed = "move";
-                          board.startDrag(key, issue.category === "RUN" ? "run" : "scrum");
-                        }}
-                        onDragEnd={() => board.endDrag()}
-                      />
-                    </li>
-                  </Fragment>
-                );
-              })}
-              {targeted && target?.beforeKey === null && dropLine}
-            </ul>
-          );
-        })}
-      </div>
+      {!lane.collapsed && (
+        <div class="board-row lane-cells">
+          {lane.cells.map((cell) => {
+            const drag = board.dragging.value;
+            const droppable = drag !== null && board.accepts(lane.block, drag.lane);
+            const target = board.dropTarget.value;
+            const targeted =
+              droppable && target?.laneId === lane.id && target.columnId === cell.column.id;
+            const dropLine = <li class="drop-line" aria-hidden="true" />;
+            return (
+              <ul
+                key={cell.column.id}
+                aria-label={`${lane.title} — ${cell.column.name}`}
+                class={`lane-cell${droppable ? " lane-cell-droppable" : ""}${targeted ? " lane-cell-target" : ""}`}
+                onDragOver={(event) => {
+                  const current = board.dragging.value;
+                  if (!current || !board.accepts(lane.block, current.lane)) return;
+                  event.preventDefault();
+                  if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+                  board.setDropTarget({
+                    laneId: lane.id,
+                    columnId: cell.column.id,
+                    beforeKey: insertionPoint(event.currentTarget, event.clientY, current.issueKey),
+                  });
+                }}
+                onDragLeave={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                    board.setDropTarget(null);
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const current = board.dragging.value;
+                  const key = event.dataTransfer?.getData(DRAG_TYPE) ?? "";
+                  const beforeKey = board.dropTarget.value?.beforeKey ?? null;
+                  board.endDrag();
+                  // Seule la carte dont le glissement a commencé sur ce board est acceptée.
+                  if (!current || key !== current.issueKey) return;
+                  void board.dropIssue({
+                    issueKey: key,
+                    block: lane.block,
+                    columnId: cell.column.id,
+                    beforeKey,
+                  });
+                }}
+              >
+                {cell.issues.map((issue) => {
+                  const shownUnder = lane.block.kind === "goal" ? lane.block.goalId : null;
+                  const hiddenGoal =
+                    issue.goalId !== null &&
+                    displayedGoalId(configuration, issue.goalId) !== shownUnder
+                      ? (goalsById.get(issue.goalId)?.title ?? null)
+                      : null;
+                  const key = issue.issue.key;
+                  return (
+                    <Fragment key={issue.issue.id}>
+                      {targeted && target?.beforeKey === key && dropLine}
+                      <li class="lane-item">
+                        <IssueCard
+                          issue={issue}
+                          siteOrigin={board.site.origin}
+                          images={board.images}
+                          cardFields={cardFields}
+                          showStatus={cell.column.statusIds.length > 1}
+                          agingThresholdDays={configuration.agingThresholdDays}
+                          goalTitle={hiddenGoal}
+                          pending={board.pendingKeys.value.has(key)}
+                          dragging={drag?.issueKey === key}
+                          onDragStart={(event) => {
+                            if (!event.dataTransfer) return;
+                            event.dataTransfer.setData(DRAG_TYPE, key);
+                            event.dataTransfer.effectAllowed = "move";
+                            board.startDrag(key, issue.category === "RUN" ? "run" : "scrum");
+                          }}
+                          onDragEnd={() => board.endDrag()}
+                        />
+                      </li>
+                    </Fragment>
+                  );
+                })}
+                {targeted && target?.beforeKey === null && dropLine}
+              </ul>
+            );
+          })}
+        </div>
+      )}
     </section>
+  );
+}
+
+/**
+ * Réglages d'affichage d'une swimlane : ordre, repli, couleur, masquage. Tous restent dans ce
+ * navigateur ; aucun n'écrit dans Jira.
+ */
+function LaneMenu({ board, lane }: { board: BoardModel; lane: Lane }) {
+  const order = board.laneOrder.value;
+  const position = order.indexOf(lane.id);
+  const goal = lane.goal;
+  // Un choix fait, le menu se referme.
+  const act = (event: Event, action: () => Promise<void>) => {
+    (event.currentTarget as HTMLElement).closest("details")?.removeAttribute("open");
+    void action();
+  };
+  return (
+    <details class="menu lane-menu" name="lane-menu">
+      <summary aria-label={`Affichage de la swimlane ${lane.title}`} title="Affichage">
+        ⋯
+      </summary>
+      <div class="menu-panel">
+        <button
+          type="button"
+          disabled={position <= 0}
+          onClick={(event) => act(event, () => board.moveLane(lane.id, -1))}
+        >
+          Monter
+        </button>
+        <button
+          type="button"
+          disabled={position < 0 || position >= order.length - 1}
+          onClick={(event) => act(event, () => board.moveLane(lane.id, 1))}
+        >
+          Descendre
+        </button>
+        <button
+          type="button"
+          onClick={(event) => act(event, () => board.toggleLaneCollapsed(lane.block))}
+        >
+          {lane.collapsed ? "Déplier" : "Replier"}
+        </button>
+        <button
+          type="button"
+          onClick={(event) => act(event, () => board.setAllLanesCollapsed(true))}
+        >
+          Tout replier
+        </button>
+        <button
+          type="button"
+          onClick={(event) => act(event, () => board.setAllLanesCollapsed(false))}
+        >
+          Tout déplier
+        </button>
+        {goal && (
+          <>
+            <fieldset class="menu-colors">
+              <legend>Couleur de l'objectif</legend>
+              {GOAL_COLOR_NAMES.map((name, index) => (
+                <button
+                  key={name}
+                  type="button"
+                  class="swatch"
+                  data-goal-color={goalColorName(index)}
+                  aria-label={name}
+                  title={name}
+                  aria-pressed={goal.color === goalColorName(index)}
+                  onClick={(event) => act(event, () => board.setGoalColor(goal.id, index))}
+                />
+              ))}
+            </fieldset>
+            <button
+              type="button"
+              onClick={(event) => act(event, () => board.setGoalHidden(goal.id, true))}
+            >
+              Masquer cet objectif du board
+            </button>
+          </>
+        )}
+        <p class="menu-note">Réglages de ce navigateur. Rien n'est écrit dans Jira.</p>
+      </div>
+    </details>
   );
 }
 

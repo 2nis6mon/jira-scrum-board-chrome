@@ -195,6 +195,48 @@ describe("App", () => {
     expect(document.querySelector(".goal-pinned")?.textContent).toBe("épinglé");
   });
 
+  it("menu d'une swimlane : descendre, replier, masquer, sans rien écrire dans Jira", async () => {
+    const { jira } = await connectedBoard();
+    const laneTitles = () =>
+      [...document.querySelectorAll<HTMLElement>("section.lane")].map((lane) =>
+        lane.getAttribute("aria-label"),
+      );
+    const menuButton = (lane: string, label: string) => {
+      const section = [...document.querySelectorAll<HTMLElement>("section.lane")].find(
+        (candidate) => candidate.getAttribute("aria-label") === lane,
+      );
+      const found = [...(section?.querySelectorAll(".lane-menu button") ?? [])].find(
+        (b) => b.textContent?.trim() === label,
+      );
+      if (!found) throw new Error(`« ${label} » introuvable dans ${lane}`);
+      return found as HTMLButtonElement;
+    };
+    expect(laneTitles()).toEqual([
+      "Finaliser le parcours de paiement",
+      "Améliorer la stabilité",
+      "Build",
+      "RUN",
+    ]);
+    expect(menuButton("Finaliser le parcours de paiement", "Monter").disabled).toBe(true);
+
+    menuButton("Finaliser le parcours de paiement", "Descendre").click();
+    await tick();
+    expect(laneTitles()[0]).toBe("Améliorer la stabilité");
+
+    document.querySelector<HTMLButtonElement>("[aria-label='Replier Build']")?.click();
+    await tick();
+    expect(document.querySelector("[aria-label='Déplier Build']")).not.toBeNull();
+    expect(cardKeys()).not.toContain("ABC-104");
+
+    menuButton("Améliorer la stabilité", "Masquer cet objectif du board").click();
+    await tick();
+    expect(text()).toContain("Un objectif est masqué du board");
+    button("Réafficher « Améliorer la stabilité »").click();
+    await tick();
+    expect(laneTitles()).toContain("Améliorer la stabilité");
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+  });
+
   it("le diagnostic reste accessible depuis l'en-tête", async () => {
     const jira = new FakeJira().on("GET", "/rest/api/3/myself", { status: 401 });
     const model = new AppModel(fakePlatform(jira));

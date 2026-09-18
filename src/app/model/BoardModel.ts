@@ -1,9 +1,22 @@
 import { batch, computed, signal } from "@preact/signals";
 import { loadAtlassianSprintGoals } from "../../core/atlassianGoals";
-import { type BoardBlock, blockIdentifier } from "../../core/boardBlocks";
-import { type BoardConfiguration, displayedGoalId } from "../../core/boardConfiguration";
+import { type BoardBlock, blockIdentifier, shiftBlock } from "../../core/boardBlocks";
+import {
+  type BoardConfiguration,
+  displayedGoalId,
+  isBlockCollapsed,
+  isGoalHidden,
+} from "../../core/boardConfiguration";
 import { type BoardIssue, type BoardSnapshot, findIssue } from "../../core/boardIssue";
 import { buildBoardLayout, filterOptions } from "../../core/boardLayout";
+import {
+  laneOrder,
+  withAllBlocksCollapsed,
+  withBlockCollapsed,
+  withBlockOrder,
+  withGoalColor,
+  withGoalHidden,
+} from "../../core/boardPreferences";
 import { detectBoard, loadSnapshot, refreshBoardStructure } from "../../core/boardSync";
 import {
   linkToTextGoal,
@@ -15,6 +28,7 @@ import {
 } from "../../core/boardWrites";
 import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/dropPlan";
 import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../../core/filters";
+import { goalColorName, type SprintGoal } from "../../core/sprintGoals";
 import { JiraClient } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import { GoalsClient } from "../../jira/goals";
@@ -136,6 +150,21 @@ export class BoardModel {
     return snapshot ? filterOptions(snapshot) : null;
   });
 
+  /** Swimlanes de haut en bas, filtres ignorés : l'ordre dans lequel on les monte et descend. */
+  readonly laneOrder = computed(() => {
+    const snapshot = this.snapshot.value;
+    const configuration = this.configuration.value;
+    return snapshot && configuration ? laneOrder(snapshot, configuration) : [];
+  });
+
+  /** Objectifs du sprint masqués du board, pour pouvoir les réafficher. */
+  readonly hiddenGoals = computed((): readonly SprintGoal[] => {
+    const snapshot = this.snapshot.value;
+    const configuration = this.configuration.value;
+    if (!snapshot || !configuration) return [];
+    return snapshot.goals.filter((goal) => isGoalHidden(configuration, goal.id));
+  });
+
   readonly images: ImageCache;
   readonly audit: AuditLog;
 
@@ -147,6 +176,8 @@ export class BoardModel {
   #currentUser: JiraUser | null = null;
   #generation = 0;
   #resyncRequested = false;
+  /** Enregistrements locaux enchaînés : le dernier demandé est le dernier écrit. */
+  #saveQueue: Promise<unknown> = Promise.resolve();
 
   constructor(site: JiraSite, platform: Platform, options: BoardModelOptions = {}) {
     this.site = site;
@@ -186,7 +217,7 @@ export class BoardModel {
     try {
       const existing = await this.#existingFor(urlText);
       const configuration = await detectBoard(this.#client, urlText, existing);
-      await saveBoard(this.#platform.store, configuration);
+      await this.#persist(configuration);
       this.#generation += 1; // une synchronisation en cours appartient à l'ancien board
       this.configuration.value = configuration;
       this.snapshot.value = null;
@@ -210,7 +241,7 @@ export class BoardModel {
     this.setupBusy.value = true;
     try {
       const configuration = await refreshBoardStructure(this.#client, current.boardId, current);
-      await saveBoard(this.#platform.store, configuration);
+      await this.#persist(configuration);
       this.configuration.value = configuration;
     } catch (error) {
       this.syncProblem.value = { ...toMessage(error), sessionLost: isSessionLost(error) };
@@ -263,7 +294,17 @@ export class BoardModel {
       });
       if (isStale()) return;
 
-      this.snapshot.value = result.snapshot;
+      // Couleurs des objectifs : mémorisées localement pour rester stables d'un sprint à l'autre.
+      // Une couleur choisie PENDANT la lecture l'emporte sur celle connue à son début.
+      const latest = this.configuration.value ?? configuration;
+      const colors = { ...result.goalColorIndex, ...latest.goalColorIndex };
+      this.snapshot.value = {
+        ...result.snapshot,
+        goals: result.snapshot.goals.map((goal) => ({
+          ...goal,
+          color: goalColorName(colors[goal.id] ?? 0),
+        })),
+      };
       this.goalsNotice.value =
         result.goalsIssue === null
           ? null
@@ -271,12 +312,8 @@ export class BoardModel {
       this.goalsWarnings.value = result.goalsWarnings;
       this.syncProblem.value = null;
 
-      // Couleurs des objectifs : mémorisées localement pour rester stables d'un sprint à l'autre.
-      const latest = this.configuration.value ?? configuration;
-      if (!sameIndex(latest.goalColorIndex, result.goalColorIndex)) {
-        const updated = { ...latest, goalColorIndex: result.goalColorIndex };
-        this.configuration.value = updated;
-        await saveBoard(this.#platform.store, updated);
+      if (!sameIndex(latest.goalColorIndex, colors)) {
+        await this.#updatePreferences((current) => ({ ...current, goalColorIndex: colors }));
       }
     } catch (error) {
       if (isStale()) return;
@@ -307,6 +344,47 @@ export class BoardModel {
 
   focusGoal(goalId: string): void {
     this.filters.value = focusGoal(this.filters.value, goalId);
+  }
+
+  // ─── Réglages d'affichage (locaux, jamais écrits dans Jira) ───────────────
+
+  toggleLaneCollapsed(block: BoardBlock): Promise<void> {
+    return this.#updatePreferences((current) =>
+      withBlockCollapsed(current, block, !isBlockCollapsed(current, block)),
+    );
+  }
+
+  setAllLanesCollapsed(collapsed: boolean): Promise<void> {
+    const lanes = this.laneOrder.value;
+    return this.#updatePreferences((current) => withAllBlocksCollapsed(current, lanes, collapsed));
+  }
+
+  /** Monte (`-1`) ou descend (`+1`) une swimlane d'un cran. */
+  moveLane(identifier: string, offset: number): Promise<void> {
+    const order = this.laneOrder.value;
+    const moved = shiftBlock(identifier, offset, order);
+    if (moved.every((id, index) => id === order[index])) return Promise.resolve();
+    return this.#updatePreferences((current) => withBlockOrder(current, moved));
+  }
+
+  setGoalHidden(goalId: string, hidden: boolean): Promise<void> {
+    return this.#updatePreferences((current) => withGoalHidden(current, goalId, hidden));
+  }
+
+  setGoalColor(goalId: string, index: number): Promise<void> {
+    const update = this.#updatePreferences((current) => withGoalColor(current, goalId, index));
+    // La couleur change tout de suite à l'écran, sans attendre de relire Jira.
+    const snapshot = this.snapshot.value;
+    const chosen = this.configuration.value?.goalColorIndex[goalId];
+    if (snapshot && chosen !== undefined) {
+      this.snapshot.value = {
+        ...snapshot,
+        goals: snapshot.goals.map((goal) =>
+          goal.id === goalId ? { ...goal, color: goalColorName(chosen) } : goal,
+        ),
+      };
+    }
+    return update;
   }
 
   // ─── Glisser-déposer et écritures ─────────────────────────────────────────
@@ -870,6 +948,36 @@ export class BoardModel {
   dispose(): void {
     this.#generation += 1;
     this.images.dispose();
+  }
+
+  #persist(configuration: BoardConfiguration): Promise<void> {
+    const next = this.#saveQueue.then(() => saveBoard(this.#platform.store, configuration));
+    this.#saveQueue = next.catch(() => {});
+    return next;
+  }
+
+  /**
+   * Applique un réglage local : à l'écran tout de suite, puis enregistré dans ce navigateur. Un
+   * échec d'enregistrement est dit, sans défaire ce qui est affiché.
+   */
+  async #updatePreferences(
+    change: (configuration: BoardConfiguration) => BoardConfiguration,
+  ): Promise<void> {
+    const current = this.configuration.value;
+    if (!current) return;
+    const next = change(current);
+    this.configuration.value = next;
+    try {
+      await this.#persist(next);
+    } catch (error) {
+      this.writeNotice.value = {
+        tone: "warning",
+        text: `Réglage appliqué, mais pas enregistré dans ce navigateur (${toMessage(error).text.replace(/\.$/, "")}).`,
+        suggestion: "Il sera perdu à la fermeture de l'onglet. Rien n'a été écrit dans Jira.",
+        sessionLost: false,
+        issueKey: null,
+      };
+    }
   }
 
   /** Réglages locaux déjà enregistrés pour ce board, s'il l'a déjà été. */

@@ -3,6 +3,7 @@ import {
   type BoardConfiguration,
   type ColumnConfiguration,
   displayedGoalId,
+  isBlockCollapsed,
   isGoalHidden,
   visibleColumns,
 } from "./boardConfiguration";
@@ -29,6 +30,8 @@ export interface Lane {
   readonly visibleCount: number;
   /** Tickets de la swimlane, filtres ignorés. */
   readonly totalCount: number;
+  /** Swimlane repliée : seul son en-tête s'affiche (réglage local). */
+  readonly collapsed: boolean;
 }
 
 export interface BoardLayout {
@@ -116,6 +119,7 @@ export function buildBoardLayout(
       cells,
       visibleCount: placed,
       totalCount: allIssuesOf(block).length,
+      collapsed: isBlockCollapsed(configuration, block),
     };
   });
 

@@ -79,6 +79,10 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
   et menus Personne, Objectif, Type, Priorité, Statut, Label, Composant, Parent. Un clic sur le
   titre d'un objectif n'affiche que lui ; un second clic rétablit tout.
 - **Colonnes** : celles du board Jira, avec leur limite WIP (en rouge au-delà, filtres ou non).
+- **Swimlanes** : la flèche de l'en-tête replie ou déplie ; le menu *⋯* de chaque swimlane la
+  monte ou la descend, replie ou déplie tout, change la couleur d'un objectif ou le masque (ses
+  tickets passent dans *Build* ; un rappel permet de le réafficher). Ces réglages restent dans ce
+  navigateur et ne changent rien dans Jira.
 - **Épingler des Goals au sprint** (menu *⋯*) : choisir, parmi les Goals du site, ceux qui
   s'affichent même sans ticket rattaché. La sélection se compose dans la fenêtre (filtre local,
   sans requête pendant la frappe) et n'est écrite qu'au clic sur *Enregistrer dans Jira*.
@@ -106,8 +110,9 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
 - Si Jira refuse d'enregistrer l'épinglage (droits), l'app Mac propose de garder la sélection sur
   la machine ; l'extension ne le fait pas encore.
 - Déplacer une carte se fait à la souris uniquement pour l'instant.
-- Un seul board à la fois ; réglages (ordre des swimlanes, couleurs, champs des cartes, règles
-  de couleur) pas encore modifiables depuis l'interface.
+- Un seul board à la fois. Colonnes, types de tickets, champs des cartes et règles de couleur
+  ne sont pas encore réglables depuis l'interface. Réordonner les swimlanes se fait par leur menu,
+  pas encore par glisser-déposer.
 
 ## Ce que l'extension écrit dans Jira
 

@@ -1289,3 +1289,102 @@ ul.lane-cell {
 .pin-selected .pin-name {
   flex: 1;
 }
+
+/* ─── Réglages d'affichage des swimlanes ─────────────────────────────────── */
+
+.lane-toggle {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: none;
+  color: var(--ink-3);
+}
+
+.lane-toggle:hover {
+  color: var(--ink);
+}
+
+.chevron {
+  width: 7px;
+  height: 7px;
+  margin-top: -3px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.12s ease;
+}
+
+.lane-toggle[aria-expanded="false"] .chevron {
+  margin-top: 0;
+  margin-left: -3px;
+  transform: rotate(-45deg);
+}
+
+details.lane-menu {
+  margin-left: auto;
+}
+
+.lane-progress ~ details.lane-menu {
+  margin-left: 0;
+}
+
+details.lane-menu > summary {
+  height: 24px;
+  width: 26px;
+  background: none;
+  border-color: transparent;
+  color: var(--ink-3);
+}
+
+details.lane-menu > summary:hover,
+details.lane-menu[open] > summary {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.menu-colors {
+  margin: 4px 0;
+  padding: 6px 10px 8px;
+  border: none;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.menu-colors legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--goal-ring);
+}
+
+.swatch[aria-pressed="true"] {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.menu-note {
+  margin: 4px 0 0;
+  padding: 6px 10px 2px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 11px;
+  white-space: normal;
+}
