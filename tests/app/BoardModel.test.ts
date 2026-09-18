@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { BoardModel, GOALS_UNAVAILABLE_NOTICE } from "../../src/app/model/BoardModel";
+import { BoardModel } from "../../src/app/model/BoardModel";
 import { loadActiveBoard, saveBoard } from "../../src/app/model/boardStore";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { BOARD_URL, boardSiteJira } from "../support/boardFixture";
-import type { FakeJira } from "../support/fakeJira";
+import { type FakeJira, isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 import { makeConfiguration } from "../support/jiraFixtures";
 
@@ -54,7 +54,7 @@ describe("BoardModel — mise en place", () => {
       "Améliorer la stabilité",
     ]);
     expect(snapshot?.scrumIssues.find((i) => i.issue.key === "ABC-101")?.goalId).toBe("g-paiement");
-    expect(board.goalsNotice.value).toBe(GOALS_UNAVAILABLE_NOTICE);
+    expect(board.goalsNotice.value).toContain("Goals Atlassian illisibles");
   });
 
   it("board relu au lancement suivant, avec ses réglages locaux", async () => {
@@ -111,7 +111,7 @@ describe("BoardModel — synchronisation", () => {
     const { jira, board } = await detected();
     await board.sync();
     await board.refreshStructure();
-    expect(jira.requests.every((request) => request.method === "GET")).toBe(true);
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
   it("session perdue : le dit, garde le board affiché, puis se rétablit", async () => {

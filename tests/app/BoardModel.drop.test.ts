@@ -4,7 +4,7 @@ import { BUILD_BLOCK, goalBlock, RUN_BLOCK } from "../../src/core/boardBlocks";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { BOARD_URL, boardSiteJira, GOALS_DOCUMENT, SPRINT_ISSUES } from "../support/boardFixture";
-import type { FakeJira, Reply } from "../support/fakeJira";
+import { type FakeJira, isWriteRequest, type Reply } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 import { issueJson, statusJson } from "../support/jiraFixtures";
 
@@ -39,7 +39,7 @@ async function boardWith(jira: FakeJira = boardSiteJira()) {
   await board.load();
   await board.detect(BOARD_URL);
   const before = jira.requests.length;
-  const writes = () => jira.requests.slice(before).filter((r) => r.method !== "GET");
+  const writes = () => jira.requests.slice(before).filter(isWriteRequest);
   return { board, jira, platform, writes };
 }
 

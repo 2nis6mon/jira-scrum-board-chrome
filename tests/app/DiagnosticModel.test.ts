@@ -133,6 +133,7 @@ describe("DiagnosticModel — règle Origin", () => {
     await model.runReads();
 
     expect(model.read.value?.graphqlOrigin).toBeNull();
-    expect(activeOriginOperation(platform)).toBe("remove");
+    // Aucune variante n'a passé : la variante par défaut (adresse du site) est reposée.
+    expect(activeOriginOperation(platform)).toBe("set");
   });
 });

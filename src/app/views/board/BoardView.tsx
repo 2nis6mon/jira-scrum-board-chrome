@@ -12,7 +12,7 @@ import {
   QUICK_FILTERS,
 } from "../../../core/filters";
 import type { BoardModel } from "../../model/BoardModel";
-import { formatDay, formatPoints, formatTime, plural, toggled } from "../format";
+import { formatDay, formatPoints, formatTime, goalStatusLabel, plural, toggled } from "../format";
 import { FilterMenu } from "./FilterMenu";
 import { IssueCard } from "./IssueCard";
 
@@ -422,6 +422,24 @@ function Notices(props: {
         </div>
       )}
       {board.goalsNotice.value && <p class="notice notice-info">{board.goalsNotice.value}</p>}
+      {board.goalsWarnings.value.length > 0 && (
+        <div class="notice notice-info">
+          <p>
+            <strong>Lecture partielle des Goals Atlassian.</strong> Le board s'affiche, mais :
+          </p>
+          <ul>
+            {board.goalsWarnings.value.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {snapshot?.goalsOrigin === "atlassianGoals" && snapshot.goals.length === 0 && (
+        <p class="notice notice-info">
+          Aucun Goal Atlassian n'est rattaché aux tickets de ce sprint. Rattachez un ticket à un
+          Goal dans Jira : l'objectif apparaîtra ici avec sa swimlane.
+        </p>
+      )}
       {snapshot?.goalsReadOnly && (
         <p class="notice notice-info">
           Votre compte ne peut pas lire la propriété du sprint qui porte les objectifs épinglés et
@@ -527,6 +545,19 @@ function LaneView(props: {
           </button>
         ) : (
           <span class="lane-title">{lane.title}</span>
+        )}
+        {goal?.atlassianStatus && (
+          <span
+            class="goal-status"
+            title={`Statut déclaré dans Atlassian : ${goal.atlassianStatus}`}
+          >
+            {goalStatusLabel(goal.atlassianStatus)}
+          </span>
+        )}
+        {goal?.atlassianUrl?.startsWith("https://") && (
+          <a class="goal-link" href={goal.atlassianUrl} target="_blank" rel="noopener noreferrer">
+            Ouvrir le Goal
+          </a>
         )}
         <span class="lane-count">
           {layout.filtersActive

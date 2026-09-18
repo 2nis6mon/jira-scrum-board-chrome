@@ -93,6 +93,8 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 | `core/boardSync.ts` | `BoardController.detectBoard` et `performSync` (lecture seule) |
 | `core/boardLayout.ts` | répartition en swimlanes et colonnes des vues SwiftUI du board |
 | `core/boardWrites.ts` | `BoardController.moveIssue`, `rankIssue`, `assignGoal` (mode texte) |
+| `jira/goals.ts` | `GoalsClient.swift` |
+| `core/atlassianGoals.ts` | `BoardController.loadAtlassianSprintGoals` |
 
 Écarts voulus : `SprintGoalText.render` n'est pas porté (il ne servait qu'à réécrire le champ du
 sprint) ; le mode de compatibilité « Build et RUN restent en bas » des ordres enregistrés avant la
@@ -129,9 +131,15 @@ particulier — le transport garde `X-Atlassian-Token` absent par défaut. La pa
 (`/gateway/api/graphql`, API Goals) répond `403 {"message":"Invalid CORS request"}`,
 `x-failure-category: FAILURE_CLIENT_CORS`, avec ou sans `no-check` : elle rejette l'en-tête
 `Origin: chrome-extension://…`. Parade validée par Denis et livrée en 0.4.0 : la règle `Origin`
-ci-dessus ; le diagnostic essaie « conservé / retiré / adresse du site » et mémorise par site la
-variante acceptée (`graphqlOrigin.v1`). La lecture des Goals (port de `GoalsClient.swift`) attend
-le rapport de ce diagnostic ; `BoardModel` passe encore `goalsLoader: null`.
+ci-dessus. Diagnostic 0.4.0 sur son instance : Origin conservé → refus, Origin RETIRÉ → refus,
+Origin = adresse du site → accepté. D'où la variante par défaut « site » (`DEFAULT_ORIGIN_MODE`) ;
+le diagnostic mémorise par site la variante acceptée (`graphqlOrigin.v1`).
+
+0.5.0 : lecture des Goals (`src/jira/goals.ts`, port de `GoalsClient.swift` : introspection,
+`goals_search`, `goals_byIds`, `workItems`) et objectifs du sprint déduits des tickets
+(`src/core/atlassianGoals.ts`). Rattachement natif par les deux mutations de l'inventaire
+`GraphqlWrite` (`writes.ts`) : forme ARI du ticket d'abord, identifiant brut seulement après un
+REFUS explicite, jamais après une issue incertaine. Épinglage d'un Goal au sprint : pas encore.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.

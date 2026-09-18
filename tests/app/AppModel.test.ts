@@ -63,7 +63,7 @@ describe("AppModel — connexion", () => {
     const platform = fakePlatform(new FakeJira());
     const model = new AppModel(platform);
     await model.connect("acme.atlassian.net");
-    expect(activeOriginOperation(platform)).toBe("remove");
+    expect(activeOriginOperation(platform)).toBe("set");
     expect(platform.appliedRules.at(-1)?.condition.urlFilter).toBe(
       "|https://acme.atlassian.net/gateway/api/graphql|",
     );
@@ -77,7 +77,7 @@ describe("AppModel — connexion", () => {
     platform.stored.set("connection.v1", { origin: "https://acme.atlassian.net" });
     platform.granted.add(PATTERN);
     await new AppModel(platform).start();
-    expect(activeOriginOperation(platform)).toBe("remove");
+    expect(activeOriginOperation(platform)).toBe("set");
   });
 
   it("accès refusé dans Chrome : reste déconnecté, n'enregistre rien, n'émet rien", async () => {

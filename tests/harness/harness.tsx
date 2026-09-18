@@ -3,7 +3,7 @@
 // ni par board.html ni par vite.config.ts : il n'entre jamais dans dist/.
 //
 //   npm run harness   puis   http://localhost:5199/?scenario=board|board-filtre|board-session|
-//                            board-vide|board-dnd|board-choix|board-erreur|ok|xsrf|refuse|session|deconnecte
+//                            board-vide|board-dnd|board-choix|board-erreur|board-goals|ok|xsrf|refuse|session|deconnecte
 import { render } from "preact";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
@@ -12,6 +12,7 @@ import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
 import { FakeJira, type Reply, XSRF_REFUSAL } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
+import { goalsGateway } from "../support/goalsGateway";
 import { issueJson, statusJson } from "../support/jiraFixtures";
 
 const PROPERTY = `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.diagnostic}`;
@@ -66,7 +67,30 @@ async function simulateDrop(
 }
 
 if (scenario.startsWith("board")) {
-  const jira = boardSiteJira();
+  const jira = boardSiteJira(
+    scenario === "board-goals"
+      ? {
+          graphql: goalsGateway({
+            goals: [
+              {
+                id: "ari:cloud:townsquare:c:goal/paiement",
+                key: "GOAL-1",
+                name: "Paiement en une étape",
+                status: "on_track",
+                url: "https://home.atlassian.com/goal/1",
+                workItems: ["ABC-101", "ABC-102"],
+              },
+              {
+                id: "ari:cloud:townsquare:c:goal/stabilite",
+                name: "Zéro incident",
+                status: "at_risk",
+                workItems: ["ABC-103"],
+              },
+            ],
+          }),
+        }
+      : {},
+  );
   // Faux Jira qui évolue : après la transition, ABC-102 est « En cours ».
   let moved = false;
   const issues = () =>

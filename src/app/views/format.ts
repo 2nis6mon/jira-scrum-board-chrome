@@ -36,3 +36,20 @@ export function toggled<T>(set: ReadonlySet<T>, value: T): Set<T> {
   else next.add(value);
   return next;
 }
+
+/** Libellés des codes de statut des Goals Atlassian ; un code inconnu est montré tel quel. */
+const GOAL_STATUS_LABELS: Record<string, string> = {
+  pending: "En attente",
+  on_track: "En bonne voie",
+  at_risk: "À risque",
+  off_track: "En retard",
+  paused: "En pause",
+  done: "Terminé",
+  completed: "Terminé",
+  cancelled: "Annulé",
+  archived: "Archivé",
+};
+
+export function goalStatusLabel(value: string): string {
+  return GOAL_STATUS_LABELS[value.toLowerCase().replace(/[\s-]+/g, "_")] ?? value;
+}

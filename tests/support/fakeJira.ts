@@ -88,3 +88,14 @@ export class FakeJira {
     });
   };
 }
+
+/** Écriture émise : tout sauf GET et sauf les lectures GraphQL (POST d'un document « query »). */
+export function isWriteRequest(request: RecordedRequest): boolean {
+  if (request.method === "GET") return false;
+  const query = (request.body as { query?: unknown } | null)?.query;
+  return !(
+    request.path === "/gateway/api/graphql" &&
+    typeof query === "string" &&
+    query.trimStart().startsWith("query")
+  );
+}

@@ -29,6 +29,8 @@ export type JiraErrorInfo =
   | { kind: "badRequest"; messages: string[]; fieldErrors: Record<string, string> }
   /** Jira a répondu par une redirection, que l'extension ne suit jamais. */
   | { kind: "redirected" }
+  /** Erreurs renvoyées dans le corps d'une réponse GraphQL (HTTP 200) : le corps fait foi. */
+  | { kind: "graphql"; messages: string[] }
   /** Réponse illisible : le contrat d'API ne correspond pas à ce qui est attendu. */
   | { kind: "decoding"; context: string; detail: string }
   /** La propriété d'entité dépasse la limite Atlassian de 32 Ko. */
@@ -130,6 +132,10 @@ function describe(info: JiraErrorInfo): string {
     }
     case "redirected":
       return "Jira a répondu par une redirection au lieu de données.";
+    case "graphql":
+      return info.messages.length === 0
+        ? "Atlassian a refusé la requête."
+        : `Atlassian a refusé la requête : ${info.messages.join(" ; ")}`;
     case "decoding":
       return `Réponse Jira inattendue (${info.context}).`;
     case "propertyTooLarge":
@@ -166,6 +172,8 @@ function suggest(info: JiraErrorInfo): string {
       return "Réessayez dans quelques minutes.";
     case "badRequest":
       return "Corrigez la demande dans Jira, puis actualisez.";
+    case "graphql":
+      return "Le diagnostic de l'extension montre ce que la passerelle GraphQL d'Atlassian répond.";
     case "decoding":
       return "Signalez cette anomalie : la réponse de votre instance Jira ne correspond pas au format attendu.";
     case "propertyTooLarge":

@@ -1,5 +1,5 @@
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
-import { FakeJira, type Reply } from "./fakeJira";
+import { FakeJira, type RecordedRequest, type Reply } from "./fakeJira";
 import { issueJson, statusJson } from "./jiraFixtures";
 
 // Faux Jira d'un board complet (board 7, sprint actif 42), pour les tests de l'interface et le
@@ -87,9 +87,23 @@ export const GOALS_DOCUMENT = {
   atlassianGoalIds: [],
 };
 
-export function boardSiteJira(options: { sprintIssues?: unknown[]; myself?: Reply } = {}) {
+/** Refus de la passerelle GraphQL tel que constaté sur instance réelle sans la règle Origin. */
+export const CORS_REFUSAL: Reply = {
+  status: 403,
+  json: { code: 403, message: "Invalid CORS request" },
+  headers: { "Content-Type": "application/json", "X-Failure-Category": "FAILURE_CLIENT_CORS" },
+};
+
+export function boardSiteJira(
+  options: {
+    sprintIssues?: unknown[];
+    myself?: Reply;
+    graphql?: Reply | ((request: RecordedRequest) => Reply);
+  } = {},
+) {
   const issues = options.sprintIssues ?? SPRINT_ISSUES;
   return new FakeJira()
+    .on("POST", "/gateway/api/graphql", options.graphql ?? CORS_REFUSAL)
     .on(
       "GET",
       "/rest/api/3/myself",

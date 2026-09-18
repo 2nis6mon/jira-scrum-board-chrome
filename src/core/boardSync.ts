@@ -132,7 +132,7 @@ export interface AtlassianGoalsLoader {
     pinnedGoalIds: readonly string[];
     issues: readonly JiraIssue[];
     configuration: BoardConfiguration;
-  }): Promise<{ goals: SprintGoal[]; links: Record<string, string> }>;
+  }): Promise<{ goals: SprintGoal[]; links: Record<string, string>; warnings?: readonly string[] }>;
 }
 
 export interface SyncResult {
@@ -144,6 +144,8 @@ export interface SyncResult {
    * texte du sprint. `null` si tout s'est passé comme configuré.
    */
   readonly goalsIssue: string | null;
+  /** Lectures partielles des Goals Atlassian : le board s'affiche, il y manque quelque chose. */
+  readonly goalsWarnings: readonly string[];
   /** Couleurs des objectifs à mémoriser localement (jamais écrites dans Jira). */
   readonly goalColorIndex: Record<string, number>;
 }
@@ -173,6 +175,7 @@ export async function loadSnapshot(input: {
       snapshot: emptySnapshot(now, input.currentUser),
       document: null,
       goalsIssue: null,
+      goalsWarnings: [],
       goalColorIndex: { ...configuration.goalColorIndex },
     };
   }
@@ -219,6 +222,7 @@ export async function loadSnapshot(input: {
   let links: Record<string, string>;
   let goalsIssue: string | null = null;
   let goalsOrigin: GoalSource = "sprintText";
+  let goalsWarnings: readonly string[] = [];
 
   if (configuration.goalSource === "atlassianGoals" && input.goalsLoader) {
     try {
@@ -229,10 +233,11 @@ export async function loadSnapshot(input: {
       });
       goals = resolved.goals;
       links = resolved.links;
+      goalsWarnings = resolved.warnings ?? [];
       goalsOrigin = "atlassianGoals";
     } catch (error) {
       // Repli explicite sur le champ texte, sans masquer la cause.
-      goalsIssue = error instanceof Error ? error.message : String(error);
+      goalsIssue = describeGoalsFailure(error);
       ({ goals, links } = reconcileSprintGoals(sprint.goal, document));
     }
   } else {
@@ -296,6 +301,7 @@ export async function loadSnapshot(input: {
     },
     document,
     goalsIssue,
+    goalsWarnings,
     goalColorIndex,
   };
 }
@@ -312,4 +318,16 @@ function emptySnapshot(now: Date, currentUser: JiraUser | null): BoardSnapshot {
     currentUser,
     goalsReadOnly: false,
   };
+}
+
+/** Cause d'un échec de lecture des Goals, dite dans les termes de ce qui s'est passé. */
+export function describeGoalsFailure(error: unknown): string {
+  if (
+    error instanceof JiraError &&
+    error.info.kind === "forbidden" &&
+    /cors/i.test(error.info.bodyExcerpt)
+  ) {
+    return "la passerelle GraphQL d'Atlassian refuse l'origine des requêtes de l'extension (« Invalid CORS request »). L'onglet Diagnostic essaie les variantes de l'en-tête Origin et retient celle qui passe.";
+  }
+  return error instanceof Error ? error.message : String(error);
 }

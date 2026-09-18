@@ -1,4 +1,5 @@
 import { batch, computed, signal } from "@preact/signals";
+import { loadAtlassianSprintGoals } from "../../core/atlassianGoals";
 import { type BoardBlock, blockIdentifier } from "../../core/boardBlocks";
 import { type BoardConfiguration, displayedGoalId } from "../../core/boardConfiguration";
 import { type BoardIssue, type BoardSnapshot, findIssue } from "../../core/boardIssue";
@@ -15,6 +16,7 @@ import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/d
 import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../../core/filters";
 import { JiraClient } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
+import { GoalsClient } from "../../jira/goals";
 import type { JiraTransition, JiraUser } from "../../jira/models";
 import { type JiraSite, parseBoardUrl } from "../../jira/site";
 import { JiraTransport } from "../../jira/transport";
@@ -23,14 +25,6 @@ import { type AuditEntry, AuditLog } from "./auditLog";
 import { loadActiveBoard, loadBoard, saveBoard } from "./boardStore";
 import { ImageCache } from "./ImageCache";
 import { toMessage, type UserMessage } from "./messages";
-
-/**
- * Limitation connue, affichée tant que l'extension ne lit pas les Goals Atlassian : leur API
- * passe par la passerelle GraphQL, qui a refusé l'origine de l'extension lors de l'essai sur une
- * instance réelle (« Invalid CORS request »).
- */
-export const GOALS_UNAVAILABLE_NOTICE =
-  "Les Goals Atlassian ne sont pas encore lus par l'extension : leur API (passerelle GraphQL d'Atlassian) refuse pour l'instant ses requêtes. Les objectifs affichés sont les lignes du champ « Objectif » du sprint, en lecture seule.";
 
 export interface SyncProblem extends UserMessage {
   /** La session Jira du navigateur n'est plus reconnue : il faut se reconnecter à Jira. */
@@ -85,7 +79,10 @@ export class BoardModel {
   readonly snapshot = signal<BoardSnapshot | null>(null);
   readonly syncing = signal(false);
   readonly syncProblem = signal<SyncProblem | null>(null);
+  /** Les Goals Atlassian n'ont pas pu être lus : le board s'est rabattu sur le texte du sprint. */
   readonly goalsNotice = signal<string | null>(null);
+  /** Lectures partielles des Goals Atlassian. */
+  readonly goalsWarnings = signal<readonly string[]>([]);
 
   readonly filters = signal<BoardFilters>(NO_FILTERS);
 
@@ -114,6 +111,7 @@ export class BoardModel {
 
   readonly #platform: Platform;
   readonly #client: JiraClient;
+  readonly #goals: GoalsClient;
   readonly #transport: JiraTransport;
   readonly #now: () => Date;
   #currentUser: JiraUser | null = null;
@@ -128,6 +126,7 @@ export class BoardModel {
     const transport = new JiraTransport({ site, fetch: platform.fetch });
     this.#transport = transport;
     this.#client = new JiraClient(transport);
+    this.#goals = new GoalsClient(transport);
     this.images = new ImageCache((url) => transport.fetchImage(url));
   }
 
@@ -226,13 +225,19 @@ export class BoardModel {
         reader: this.#client,
         configuration,
         currentUser: this.#currentUser,
-        goalsLoader: null,
+        goalsLoader: {
+          load: (input) => loadAtlassianSprintGoals({ reader: this.#goals, ...input }),
+        },
         now: this.#now(),
       });
       if (isStale()) return;
 
       this.snapshot.value = result.snapshot;
-      this.goalsNotice.value = result.goalsIssue === null ? null : GOALS_UNAVAILABLE_NOTICE;
+      this.goalsNotice.value =
+        result.goalsIssue === null
+          ? null
+          : `Goals Atlassian illisibles : ${result.goalsIssue} Les objectifs affichés sont les lignes du champ « Objectif » du sprint.`;
+      this.goalsWarnings.value = result.goalsWarnings;
       this.syncProblem.value = null;
 
       // Couleurs des objectifs : mémorisées localement pour rester stables d'un sprint à l'autre.
@@ -420,16 +425,10 @@ export class BoardModel {
       goalId === null
         ? "aucun objectif"
         : (snapshot.goals.find((goal) => goal.id === goalId)?.title ?? goalId);
-    if (snapshot.goalsOrigin !== "sprintText" || !snapshot.sprint) {
-      this.writeNotice.value = {
-        tone: "error",
-        text: "Le rattachement à un Goal Atlassian n'est pas encore disponible dans l'extension.",
-        suggestion: "Faites ce rattachement dans Jira. Rien n'a été modifié.",
-        sessionLost: false,
-        issueKey,
-      };
-      return false;
+    if (snapshot.goalsOrigin === "atlassianGoals") {
+      return this.#assignAtlassianGoal(issue, goalId, title);
     }
+    if (!snapshot.sprint) return false;
     try {
       await linkToTextGoal(this.#client, this.#transport, {
         sprintId: snapshot.sprint.id,
@@ -456,6 +455,77 @@ export class BoardModel {
         error,
         "Rattacher un ticket à un objectif du sprint exige en général la permission Jira de gérer les sprints.",
       );
+      return false;
+    }
+  }
+
+  /**
+   * Lien NATIF ticket↔Goal Atlassian. L'ancien Goal est détaché d'abord ; si Atlassian refuse ce
+   * détachement, on s'arrête là : poursuivre laisserait le ticket rattaché à deux Goals.
+   */
+  async #assignAtlassianGoal(
+    issue: BoardIssue,
+    goalId: string | null,
+    title: string,
+  ): Promise<boolean> {
+    const issueKey = issue.issue.key;
+    const previous = issue.goalId;
+    if (previous === goalId) return true;
+    const refused = async (text: string, messages: readonly string[]) => {
+      const detail = messages.join(" ") || "aucun détail fourni par Atlassian";
+      this.writeNotice.value = {
+        tone: "error",
+        text,
+        suggestion: `${detail}. Rien d'autre n'a été modifié.`,
+        sessionLost: false,
+        issueKey,
+      };
+      await this.#record({
+        action: "rattachement",
+        issueKey,
+        from: null,
+        to: title,
+        outcome: "échec",
+        detail,
+      });
+      return false;
+    };
+    try {
+      if (previous !== null) {
+        const removal = await this.#goals.setLink("goal.unlink", previous, issue.issue.id);
+        if (!removal.success) {
+          return refused(
+            "Atlassian a refusé de détacher le ticket de son Goal actuel.",
+            removal.messages,
+          );
+        }
+        if (goalId === null) {
+          await this.#record({
+            action: "rattachement",
+            issueKey,
+            from: null,
+            to: title,
+            outcome: "réussi",
+            detail: "lien Goal retiré",
+          });
+          return true;
+        }
+      }
+      if (goalId === null) return true;
+      const link = await this.#goals.setLink("goal.link", goalId, issue.issue.id);
+      if (!link.success)
+        return refused("Atlassian a refusé de rattacher le ticket au Goal.", link.messages);
+      await this.#record({
+        action: "rattachement",
+        issueKey,
+        from: null,
+        to: title,
+        outcome: "réussi",
+        detail: "lien Goal Atlassian natif",
+      });
+      return true;
+    } catch (error) {
+      await this.#fail("rattachement", issueKey, title, error);
       return false;
     }
   }

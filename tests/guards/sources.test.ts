@@ -52,10 +52,11 @@ describe("code de production", () => {
     for (const path of sprintPaths) expect(path).toContain("/properties/");
   });
 
-  it("ne contient aucune mutation GraphQL à cette étape", () => {
-    expect(
-      filesMatching(/goals_linkWorkItem|goals_unlinkWorkItem|\bmutation\s+\w*\s*[({]/),
-    ).toEqual([]);
+  it("ne déclare de mutation GraphQL que dans l'inventaire, et seulement les deux de rattachement", () => {
+    expect(filesMatching(/\bmutation\s+\w*\s*[({]/)).toEqual(["src/jira/writes.ts"]);
+    const writes = sources.find(({ file }) => file === "src/jira/writes.ts")?.code ?? "";
+    const mutated = [...writes.matchAll(/\bmutation\s+\w+[^{]*\{\s*(\w+)\(/g)].map((m) => m[1]);
+    expect(mutated.sort()).toEqual(["goals_linkWorkItem", "goals_unlinkWorkItem"]);
   });
 
   it("n'utilise ni storage.sync, ni cookies, ni exécution de code dynamique", () => {

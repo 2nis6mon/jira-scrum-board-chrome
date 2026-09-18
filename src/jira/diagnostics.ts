@@ -150,7 +150,8 @@ export async function runReadProbes(
       probes.push(failed(`post-graphql-${mode}`, label, error));
     }
   }
-  const graphqlOrigin = accepted.has("remove") ? "remove" : accepted.has("site") ? "site" : null;
+  // « site » d'abord : c'est la variante constatée sur instance réelle.
+  const graphqlOrigin = accepted.has("site") ? "site" : accepted.has("remove") ? "remove" : null;
   return { probes, displayName, sessionRecognized: true, graphqlOrigin };
 }
 

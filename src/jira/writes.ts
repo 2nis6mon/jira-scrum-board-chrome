@@ -10,8 +10,8 @@ import type { JsonObject } from "./json";
  * l'équipe et n'est jamais réécrit.
  *
  * Catégories validées : propriété de sprint, lien ticket↔Goal, transition, rang. Le lien
- * ticket↔Goal Atlassian passe par deux mutations GraphQL, qui ne sont pas encore émises : elles
- * s'ajouteront ici, et nulle part ailleurs.
+ * ticket↔Goal Atlassian passe par deux mutations GraphQL : elles forment l'inventaire
+ * `GraphqlWrite` plus bas, seul endroit où un document `mutation` existe.
  */
 export type JiraWrite =
   | { kind: "sprintProperty.put"; sprintId: number; key: SprintPropertyKey; value: JsonObject }
@@ -135,4 +135,52 @@ export function assertEntityId(id: number, what: string): void {
       detail: String(id),
     });
   }
+}
+
+/**
+ * INVENTAIRE EXHAUSTIF des écritures GraphQL : poser ou retirer le lien NATIF entre un ticket et
+ * un Goal Atlassian (mutations `goals_linkWorkItem` / `goals_unlinkWorkItem`, signature relevée
+ * du schéma par l'app Mac). Le lien reste visible dans Jira ; rien n'est stocké par l'extension.
+ */
+export type GraphqlWrite =
+  | { kind: "goal.link"; goalId: string; workItemId: string }
+  | { kind: "goal.unlink"; goalId: string; workItemId: string };
+
+export interface GraphqlWriteRequest {
+  readonly operation: string;
+  readonly variables: JsonObject;
+  /** Nom du champ de la réponse qui porte le résultat. */
+  readonly field: "goals_linkWorkItem" | "goals_unlinkWorkItem";
+  readonly resource: string;
+}
+
+export function buildGraphqlWrite(write: GraphqlWrite): GraphqlWriteRequest {
+  for (const value of [write.goalId, write.workItemId]) {
+    if (value.trim() === "" || value.length > 500) {
+      throw new JiraError({
+        kind: "decoding",
+        context: "identifiant de Goal ou de ticket",
+        detail: value,
+      });
+    }
+  }
+  const variables: JsonObject = { input: { goalId: write.goalId, workItemId: write.workItemId } };
+  if (write.kind === "goal.link") {
+    return {
+      operation: `mutation linkWorkItem($input: TownsquareGoalsLinkWorkItemInput!) {
+  goals_linkWorkItem(input: $input) { success errors { message } }
+}`,
+      variables,
+      field: "goals_linkWorkItem",
+      resource: "le rattachement du ticket au Goal",
+    };
+  }
+  return {
+    operation: `mutation unlinkWorkItem($input: TownsquareGoalsUnlinkWorkItemInput!) {
+  goals_unlinkWorkItem(input: $input) { success errors { message } }
+}`,
+    variables,
+    field: "goals_unlinkWorkItem",
+    resource: "le détachement du ticket de son Goal",
+  };
 }

@@ -1149,3 +1149,24 @@ ul.lane-cell {
   display: flex;
   flex-direction: column;
 }
+
+.goal-status {
+  height: 20px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--goal-border, var(--line));
+  color: var(--ink-2);
+  font-size: 11px;
+}
+
+.goal-link {
+  font-size: 12px;
+}
+
+.notice ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}

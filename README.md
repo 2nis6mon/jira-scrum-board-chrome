@@ -4,10 +4,10 @@ Pilote un sprint Jira Cloud par ses objectifs, depuis un onglet Chrome. Jira res
 vérité. Projet distinct de l'app macOS du même nom, dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.4.0 — board et glisser-déposer.** Board du sprint actif par objectifs, Build et
-> RUN ; filtres et recherche ; glisser-déposer qui écrit dans Jira (transition, rang, rattachement
-> aux objectifs du texte du sprint) ; diagnostic de connexion. Les Goals Atlassian ne sont pas
-> encore lus : la 0.4.0 teste, dans le diagnostic, la parade à leur refus (voir *Limites*).
+> **État : 0.5.0 — board, glisser-déposer et Goals Atlassian.** Board du sprint actif organisé
+> par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres et recherche ;
+> glisser-déposer qui écrit dans Jira : transition, rang, et lien natif ticket↔Goal. Repli
+> automatique et expliqué sur le texte du sprint si les Goals ne répondent pas.
 
 ## Installer l'extension (mode développeur)
 
@@ -54,8 +54,12 @@ carte ouvre le ticket dans Jira, dans un nouvel onglet. *Actualiser* relit Jira.
 
 **Glisser-déposer** — une carte déposée dans une case peut entraîner, dans cet ordre :
 
-1. **rattachement** à l'objectif du bloc (ou détachement, dans *Build*) — objectifs du texte du
-   sprint : le lien est enregistré dans la propriété du sprint partagée avec l'app Mac ;
+1. **rattachement** à l'objectif du bloc (ou détachement, dans *Build*) :
+   - **Goals Atlassian** : lien NATIF ticket↔Goal (`goals_linkWorkItem` / `goals_unlinkWorkItem`),
+     visible dans Jira ; l'ancien Goal est détaché d'abord, et si Atlassian refuse, rien d'autre
+     n'est fait (le ticket ne se retrouve pas lié à deux Goals) ;
+   - **texte du sprint** (repli) : le lien est enregistré dans la propriété du sprint partagée avec
+     l'app Mac ;
 2. **transition** vers la colonne — le ticket est relu dans Jira juste avant ; s'il a changé, rien
    n'est écrit ; sans transition directe, une fenêtre montre celles que Jira propose ;
 3. **rang** — déposée devant une carte, elle est classée juste avant (rang du board Jira).
@@ -77,16 +81,23 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
 - **Colonnes** : celles du board Jira, avec leur limite WIP (en rouge au-delà, filtres ou non).
 - **Diagnostic** (en-tête) : ce que Jira répond réellement aux requêtes de l'extension.
 
+## Objectifs
+
+- **Goals Atlassian** (par défaut) : les objectifs d'un sprint sont déduits de ses tickets — Goals
+  qui listent ces tickets (`workItems`), complétés par le champ « Goals » des tickets. Statut
+  déclaré dans Atlassian et lien vers le Goal dans l'en-tête de la swimlane. Le schéma de l'API
+  est découvert par introspection, comme sur l'app Mac.
+- **Texte du sprint** (repli) : les lignes du champ « Objectif » du sprint, en lecture seule. Le
+  board s'y rabat, en le disant, si la passerelle GraphQL ne répond pas.
+
 ## Limites
 
-- **Goals Atlassian non lus.** Leur API passe par la passerelle GraphQL d'Atlassian, qui a
-  refusé les requêtes de l'extension : `{"code":403,"message":"Invalid CORS request"}` (constaté
-  sur instance réelle, extension 0.2.1). La cause est l'en-tête `Origin: chrome-extension://…` que
-  Chrome ajoute ; l'API REST de Jira, elle, l'accepte. La 0.4.0 pose une règle qui retire cet
-  en-tête pour les seules requêtes de l'extension vers la passerelle, et le diagnostic dit quelle
-  variante la passerelle accepte. La lecture des Goals viendra ensuite ; d'ici là, les objectifs
-  sont les lignes du champ « Objectif » du sprint.
-- Le rattachement à un Goal Atlassian (mutations GraphQL) n'est pas encore disponible.
+- **Passerelle GraphQL et en-tête `Origin`.** La passerelle d'Atlassian refuse l'en-tête
+  `Origin: chrome-extension://…` que Chrome ajoute, et aussi son absence. Sur l'instance essayée,
+  elle n'accepte que l'adresse du site : c'est la variante posée par défaut, pour les seules
+  requêtes de l'extension vers la passerelle. L'onglet *Diagnostic* re-teste les variantes.
+- Épingler un Goal à un sprint (pour qu'il apparaisse sans ticket rattaché) n'est pas encore
+  possible depuis l'extension ; les Goals épinglés depuis l'app Mac sont, eux, affichés.
 - Déplacer une carte se fait à la souris uniquement pour l'instant.
 - Un seul board à la fois ; réglages (ordre des swimlanes, couleurs, champs des cartes, règles
   de couleur) pas encore modifiables depuis l'interface.
@@ -135,7 +146,7 @@ réservé au développement, jamais inclus dans `dist/`.
 
 ### ✅ Vérifié sur cette machine
 
-- Types, lint, 452 tests, construction.
+- Types, lint, 494 tests, construction.
 - Chargement réel dans Chrome 153 (sans interface, profil temporaire vierge) : manifest accepté,
   identifiant conforme, permissions `storage` et `declarativeNetRequestWithHostAccess` seules,
   aucun hôte accordé à l'installation, formulaire de connexion sans erreur, hôte hors
@@ -151,18 +162,27 @@ réservé au développement, jamais inclus dans `dist/`.
   écriture rejouée, journal.
 - Glisser-déposer dans Chrome sur le banc d'essai (événements simulés sur les vraies vues, faux
   Jira) ; rendu du board, des bandeaux et de la fenêtre de choix par captures d'écran.
-- Endpoints d'écriture vérifiés dans les spécifications OpenAPI publiées par Atlassian.
+- Endpoints d'écriture REST vérifiés dans les spécifications OpenAPI publiées par Atlassian.
+- API Goals contre une **fausse passerelle** calquée sur le schéma relevé par l'app Mac sur
+  instance réelle (`TownsquareGoal`, `owner` en INTERFACE, `targetDate` composite) : découverte
+  du schéma, recherche paginée, lecture par identifiants, lien Goal → tickets, mutations (forme
+  de l'entrée, ARI puis identifiant brut après refus explicite seulement, jamais de nouvelle
+  tentative sur issue incertaine), repli sur le texte du sprint, glisser-déposer entre Goals.
 
 ### ✅ Constaté par l'utilisateur sur son instance (0.2.0, 0.2.1)
 
 - Session du navigateur reconnue par Jira pour les requêtes de l'extension.
 - POST de lecture REST, puis PUT / relecture / DELETE d'une propriété de sprint : acceptés sans
   en-tête particulier.
-- Passerelle GraphQL : refus `Invalid CORS request`, avec ou sans `X-Atlassian-Token: no-check`.
+- Passerelle GraphQL : refus `Invalid CORS request`, avec ou sans `X-Atlassian-Token: no-check`
+  (0.2.1) ; puis, avec la règle `Origin` (0.4.0) : refus si l'en-tête est retiré, **acceptée**
+  s'il est remplacé par l'adresse du site (identifiant du site lu).
 
 ### ⚠️ Non vérifié — nécessite votre instance Jira
 
 - Le board sur votre sprint (0.3.0) et le glisser-déposer (0.4.0) : transition réelle, rang et
   permission « Planifier les tickets », rattachement dans la propriété du sprint.
-- La réponse de la passerelle GraphQL avec l'en-tête `Origin` retiré ou remplacé (diagnostic 0.4.0).
+- La lecture des Goals de votre sprint (0.5.0) : `goals_search`, `goals_byIds`, `workItems` avec
+  la session du navigateur, et le rattachement / détachement par glisser-déposer (mutations
+  constatées sur le Mac, jamais émises depuis l'extension).
 - Les volumes réels (pagination au-delà de 100 tickets, plusieurs sprints actifs).

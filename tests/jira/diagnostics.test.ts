@@ -146,12 +146,12 @@ describe("runReadProbes — variantes de l'en-tête Origin (passerelle GraphQL)"
     return { jira, control };
   }
 
-  it("essaie les trois variantes et retient « en-tête retiré » quand il passe", async () => {
+  it("essaie les trois variantes et retient « adresse du site » quand elle passe", async () => {
     const { jira, control } = gatewayJira(new Set(["remove", "site"]));
     const read = await runReadProbes(transportFor(jira), control);
 
     expect(control.modes).toEqual(["keep", "remove", "site"]);
-    expect(read.graphqlOrigin).toBe("remove");
+    expect(read.graphqlOrigin).toBe("site");
     expect(read.probes.map((p) => [p.id, p.status])).toEqual([
       ["session", "ok"],
       ["post-rest", "ok"],
@@ -165,9 +165,9 @@ describe("runReadProbes — variantes de l'en-tête Origin (passerelle GraphQL)"
     ).toBe(true);
   });
 
-  it("retient « adresse du site » si seule cette variante passe", async () => {
-    const { jira, control } = gatewayJira(new Set(["site"]));
-    expect((await runReadProbes(transportFor(jira), control)).graphqlOrigin).toBe("site");
+  it("retient « en-tête retiré » si seule cette variante passe", async () => {
+    const { jira, control } = gatewayJira(new Set(["remove"]));
+    expect((await runReadProbes(transportFor(jira), control)).graphqlOrigin).toBe("remove");
   });
 
   it("aucune variante ne passe : le rapport le dit, avec la réponse de la passerelle", async () => {
@@ -201,11 +201,13 @@ describe("runReadProbes — variantes de l'en-tête Origin (passerelle GraphQL)"
   });
 
   it("le rapport annonce la variante retenue", async () => {
-    const { jira, control } = gatewayJira(new Set(["remove"]));
+    const { jira, control } = gatewayJira(new Set(["site"]));
     const read = await runReadProbes(transportFor(jira), control);
     expect(
       formatReport({ extensionVersion: "9.9.9", userAgent: "UA", read, write: null }),
-    ).toContain("GraphQL : accepté, en-tête Origin retiré (variante retenue).");
+    ).toContain(
+      "GraphQL : accepté, en-tête Origin remplacé par l'adresse du site (variante retenue).",
+    );
   });
 });
 

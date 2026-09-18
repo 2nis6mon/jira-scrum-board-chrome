@@ -1,7 +1,7 @@
 import { JiraError } from "./errors";
 import { isRecord, type JsonObject, type JsonValue } from "./json";
 import type { JiraSite } from "./site";
-import { buildWriteRequest, type JiraWrite } from "./writes";
+import { buildGraphqlWrite, buildWriteRequest, type GraphqlWrite, type JiraWrite } from "./writes";
 
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -112,6 +112,16 @@ export class JiraTransport {
     }
     const body = JSON.stringify({ query: operation, variables });
     return this.#send("POST", GRAPHQL_PATH, body, options);
+  }
+
+  /**
+   * Écriture GraphQL de l'inventaire fermé `GraphqlWrite` (lien ticket↔Goal). Une seule tentative.
+   * La réponse est rendue telle quelle : GraphQL répond 200 même quand il refuse, le corps fait foi.
+   */
+  async graphqlWrite(write: GraphqlWrite): Promise<JiraResponse> {
+    const request = buildGraphqlWrite(write);
+    const body = JSON.stringify({ query: request.operation, variables: request.variables });
+    return this.#send("POST", GRAPHQL_PATH, body, { resource: request.resource });
   }
 
   /** Écriture REST. Une seule tentative, quelle que soit l'erreur. */

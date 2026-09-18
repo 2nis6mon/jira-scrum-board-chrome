@@ -46,12 +46,13 @@ describe("règle Origin", () => {
 });
 
 describe("GraphqlOrigin", () => {
-  it("variante par défaut : en-tête retiré, comme l'app Mac", async () => {
+  it("variante par défaut : l'adresse du site, seule acceptée sur l'instance réelle", async () => {
     const platform = fakePlatform(new FakeJira());
     const origin = new GraphqlOrigin(platform, SITE);
     expect(await origin.preferred()).toBe(DEFAULT_ORIGIN_MODE);
+    expect(DEFAULT_ORIGIN_MODE).toBe("site");
     await origin.restore();
-    expect(platform.appliedRules.at(-1)?.action.requestHeaders[0].operation).toBe("remove");
+    expect(platform.appliedRules.at(-1)?.action.requestHeaders[0].operation).toBe("set");
   });
 
   it("mémorise la variante retenue par site, et l'oublie à la déconnexion", async () => {

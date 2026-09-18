@@ -7,8 +7,11 @@ const ORIGIN_KEY = "graphqlOrigin.v1";
 /** Variante utilisable en production : celle que le diagnostic a vue acceptée par la passerelle. */
 export type WorkingOriginMode = Exclude<OriginMode, "keep">;
 
-/** Par défaut, l'en-tête est retiré : c'est le comportement de l'app Mac, qui n'en envoie pas. */
-export const DEFAULT_ORIGIN_MODE: WorkingOriginMode = "remove";
+/**
+ * Variante par défaut : l'adresse du site. Sur l'instance réelle essayée (diagnostic 0.4.0), la
+ * passerelle refuse l'en-tête de l'extension ET son absence, et n'accepte que celle-ci.
+ */
+export const DEFAULT_ORIGIN_MODE: WorkingOriginMode = "site";
 
 /**
  * Règle `Origin` du site connecté : posée à la connexion, retirée à la déconnexion. La variante

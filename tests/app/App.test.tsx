@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
 import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
-import { FakeJira } from "../support/fakeJira";
+import { FakeJira, isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 import { issueJson } from "../support/jiraFixtures";
 
@@ -96,7 +96,7 @@ describe("App", () => {
     ).toContain("OPS-412");
     expect(document.querySelector('[data-issue-key="ABC-104"] .card-flag')).not.toBeNull();
     expect(text()).toContain("Sprint 42");
-    expect(text()).toContain("Les Goals Atlassian ne sont pas encore lus");
+    expect(text()).toContain("Goals Atlassian illisibles");
   });
 
   it("WIP : la colonne au-delà de sa limite est signalée, filtres ou non", async () => {
@@ -144,7 +144,7 @@ describe("App", () => {
     const { jira } = await connectedBoard();
     button("Actualiser").click();
     await tick();
-    expect(jira.requests.every((request) => request.method === "GET")).toBe(true);
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
   it("le diagnostic reste accessible depuis l'en-tête", async () => {
