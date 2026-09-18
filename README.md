@@ -4,9 +4,9 @@ Pilote un sprint Jira Cloud par ses objectifs, depuis un onglet Chrome. Jira res
 vérité. Projet distinct de l'app macOS du même nom, dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.5.0 — board, glisser-déposer et Goals Atlassian.** Board du sprint actif organisé
-> par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres et recherche ;
-> glisser-déposer qui écrit dans Jira : transition, rang, et lien natif ticket↔Goal. Repli
+> **État : 0.6.0 — les quatre écritures.** Board du sprint actif organisé par Goals Atlassian
+> (lus par l'API GraphQL), Build et RUN ; filtres et recherche ; glisser-déposer qui écrit dans
+> Jira : transition, rang, et lien natif ticket↔Goal ; épinglage de Goals au sprint. Repli
 > automatique et expliqué sur le texte du sprint si les Goals ne répondent pas.
 
 ## Installer l'extension (mode développeur)
@@ -79,14 +79,21 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
   et menus Personne, Objectif, Type, Priorité, Statut, Label, Composant, Parent. Un clic sur le
   titre d'un objectif n'affiche que lui ; un second clic rétablit tout.
 - **Colonnes** : celles du board Jira, avec leur limite WIP (en rouge au-delà, filtres ou non).
+- **Épingler des Goals au sprint** (menu *⋯*) : choisir, parmi les Goals du site, ceux qui
+  s'affichent même sans ticket rattaché. La sélection se compose dans la fenêtre (filtre local,
+  sans requête pendant la frappe) et n'est écrite qu'au clic sur *Enregistrer dans Jira*.
 - **Diagnostic** (en-tête) : ce que Jira répond réellement aux requêtes de l'extension.
 
 ## Objectifs
 
 - **Goals Atlassian** (par défaut) : les objectifs d'un sprint sont déduits de ses tickets — Goals
-  qui listent ces tickets (`workItems`), complétés par le champ « Goals » des tickets. Statut
-  déclaré dans Atlassian et lien vers le Goal dans l'en-tête de la swimlane. Le schéma de l'API
-  est découvert par introspection, comme sur l'app Mac.
+  qui listent ces tickets (`workItems`), complétés par le champ « Goals » des tickets — plus les
+  Goals **épinglés** au sprint, affichés en premier, dans l'ordre d'épinglage. Statut déclaré
+  dans Atlassian et lien vers le Goal dans l'en-tête de la swimlane. Le schéma de l'API est
+  découvert par introspection, comme sur l'app Mac.
+- Jira n'a aucune relation native entre un sprint et un Goal : l'épinglage est enregistré dans la
+  propriété du sprint `com.scrumboardmac.sprintgoals.v1`, **partagée avec l'app Mac** (même
+  format ; un Goal épinglé d'un côté apparaît de l'autre).
 - **Texte du sprint** (repli) : les lignes du champ « Objectif » du sprint, en lecture seule. Le
   board s'y rabat, en le disant, si la passerelle GraphQL ne répond pas.
 
@@ -96,18 +103,30 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
   `Origin: chrome-extension://…` que Chrome ajoute, et aussi son absence. Sur l'instance essayée,
   elle n'accepte que l'adresse du site : c'est la variante posée par défaut, pour les seules
   requêtes de l'extension vers la passerelle. L'onglet *Diagnostic* re-teste les variantes.
-- Épingler un Goal à un sprint (pour qu'il apparaisse sans ticket rattaché) n'est pas encore
-  possible depuis l'extension ; les Goals épinglés depuis l'app Mac sont, eux, affichés.
+- Si Jira refuse d'enregistrer l'épinglage (droits), l'app Mac propose de garder la sélection sur
+  la machine ; l'extension ne le fait pas encore.
 - Déplacer une carte se fait à la souris uniquement pour l'instant.
 - Un seul board à la fois ; réglages (ordre des swimlanes, couleurs, champs des cartes, règles
   de couleur) pas encore modifiables depuis l'interface.
 
 ## Ce que l'extension écrit dans Jira
 
-À cette étape, **une seule écriture existe**, et uniquement sur le bouton « Tester l'écriture » :
-`PUT` puis `DELETE` de la propriété technique `com.scrumboardmac.diagnostic` du sprint actif.
-Elle est invisible dans Jira, ne touche ni ticket ni champ du sprint, et est supprimée aussitôt.
-C'est le même test que « Tester l'enregistrement » de l'app Mac.
+Quatre catégories, rien d'autre, chacune sur un geste explicite :
+
+| Écriture | Geste | Requête |
+|---|---|---|
+| Transition d'un ticket | glisser-déposer vers une colonne | `POST /rest/api/3/issue/{clé}/transitions` |
+| Rang d'un ticket | glisser-déposer devant une carte | `PUT /rest/agile/1.0/issue/rank` |
+| Lien ticket↔Goal | glisser-déposer vers un Goal ou vers *Build* | mutations GraphQL `goals_linkWorkItem` / `goals_unlinkWorkItem` |
+| Propriété du sprint | épinglage de Goals ; rattachement en mode texte du sprint | `PUT /rest/agile/1.0/sprint/{id}/properties/com.scrumboardmac.sprintgoals.v1` |
+
+S'y ajoute le test du *Diagnostic*, sur son bouton seulement : `PUT` puis `DELETE` de la propriété
+technique `com.scrumboardmac.diagnostic`, invisible dans Jira et supprimée aussitôt.
+
+Le champ « Objectif » du sprint n'est **jamais** écrit. La propriété du sprint est relue juste
+avant chaque écriture et seule la partie concernée change : ce que l'app Mac y a mis est gardé,
+y compris les clés que l'extension ne connaît pas. Si cette relecture échoue, ou si les Goals
+épinglés ont changé dans Jira depuis leur affichage, rien n'est écrit.
 
 L'inventaire des écritures est [`src/jira/writes.ts`](src/jira/writes.ts) : le transport ne sait
 émettre que ce que ce fichier décrit. Aucune écriture n'est jamais rejouée.
@@ -138,15 +157,16 @@ Reconstruit `dist/` à chaque modification.
 npm run harness
 ```
 
-Banc d'essai visuel sur <http://localhost:5199/?scenario=ok> (`ok`, `xsrf`, `refuse`, `session`,
-`deconnecte`) : l'interface réelle branchée sur le faux Jira des tests. Données fictives,
-réservé au développement, jamais inclus dans `dist/`.
+Banc d'essai visuel sur <http://localhost:5199/?scenario=board> (scénarios listés en tête de
+[`tests/harness/harness.tsx`](tests/harness/harness.tsx), dont `board-goals` et `board-epingle`) :
+l'interface réelle branchée sur le faux Jira des tests. Données fictives, réservé au
+développement, jamais inclus dans `dist/`.
 
 ## État de vérification
 
 ### ✅ Vérifié sur cette machine
 
-- Types, lint, 494 tests, construction.
+- Types, lint, 521 tests, construction.
 - Chargement réel dans Chrome 153 (sans interface, profil temporaire vierge) : manifest accepté,
   identifiant conforme, permissions `storage` et `declarativeNetRequestWithHostAccess` seules,
   aucun hôte accordé à l'installation, formulaire de connexion sans erreur, hôte hors
@@ -168,6 +188,10 @@ réservé au développement, jamais inclus dans `dist/`.
   du schéma, recherche paginée, lecture par identifiants, lien Goal → tickets, mutations (forme
   de l'entrée, ARI puis identifiant brut après refus explicite seulement, jamais de nouvelle
   tentative sur issue incertaine), repli sur le texte du sprint, glisser-déposer entre Goals.
+- Épinglage (0.6.0) contre le faux Jira : une seule écriture de la propriété, objectifs, liens et
+  clés inconnues conservés, rien d'écrit si la relecture échoue ou si la sélection a changé
+  entre-temps, refus de droits, issue incertaine, limite de 32 Ko ; fenêtre essayée dans Chrome
+  sur le banc d'essai (`board-epingle`).
 
 ### ✅ Constaté par l'utilisateur sur son instance (0.2.0, 0.2.1)
 
@@ -185,4 +209,6 @@ réservé au développement, jamais inclus dans `dist/`.
 - La lecture des Goals de votre sprint (0.5.0) : `goals_search`, `goals_byIds`, `workItems` avec
   la session du navigateur, et le rattachement / détachement par glisser-déposer (mutations
   constatées sur le Mac, jamais émises depuis l'extension).
+- L'épinglage (0.6.0) : liste des Goals de votre site, écriture de la propriété du sprint, et
+  lecture croisée avec l'app Mac (un Goal épinglé d'un côté visible de l'autre).
 - Les volumes réels (pagination au-delà de 100 tickets, plusieurs sprints actifs).

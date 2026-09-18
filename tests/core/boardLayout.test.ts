@@ -34,6 +34,7 @@ function snapshot(
     syncedAt: new Date(0),
     currentUser: null,
     goalsReadOnly: false,
+    pinnedGoalIds: [],
   };
 }
 

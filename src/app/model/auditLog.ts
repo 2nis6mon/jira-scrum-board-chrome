@@ -9,8 +9,14 @@ export interface AuditEntry {
   /** Date ISO de la tentative. */
   readonly at: string;
   readonly site: string;
-  readonly action: "transition" | "transition choisie" | "classement" | "rattachement";
-  readonly issueKey: string;
+  readonly action:
+    | "transition"
+    | "transition choisie"
+    | "classement"
+    | "rattachement"
+    | "épinglage";
+  /** Ticket concerné ; `null` pour une écriture qui porte sur le sprint (épinglage). */
+  readonly issueKey: string | null;
   readonly from: string | null;
   readonly to: string | null;
   /** `incertain` : Jira n'a pas répondu, l'écriture a peut-être eu lieu. */
@@ -70,7 +76,7 @@ function isEntry(value: unknown): value is AuditEntry {
     typeof entry.at === "string" &&
     typeof entry.site === "string" &&
     typeof entry.action === "string" &&
-    typeof entry.issueKey === "string" &&
+    (typeof entry.issueKey === "string" || entry.issueKey === null) &&
     typeof entry.outcome === "string"
   );
 }

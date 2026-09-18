@@ -210,9 +210,11 @@ export async function loadSnapshot(input: {
   // Propriété d'entité du sprint : épinglage des Goals, et liens du mode texte.
   let document: SprintGoalDocument | null = null;
   let goalsReadOnly = false;
+  let pinnedGoalIds: readonly string[] | null = null;
   try {
     const value = await reader.sprintProperty(sprint.id, SPRINT_PROPERTY_KEYS.goals);
     document = value === null ? null : decodeSprintGoalDocument(value);
+    pinnedGoalIds = document?.atlassianGoalIds ?? [];
   } catch (error) {
     if (!(error instanceof JiraError)) throw error;
     if (error.info.kind === "forbidden") goalsReadOnly = true;
@@ -298,6 +300,7 @@ export async function loadSnapshot(input: {
       syncedAt: now,
       currentUser: input.currentUser,
       goalsReadOnly,
+      pinnedGoalIds,
     },
     document,
     goalsIssue,
@@ -317,6 +320,7 @@ function emptySnapshot(now: Date, currentUser: JiraUser | null): BoardSnapshot {
     syncedAt: now,
     currentUser,
     goalsReadOnly: false,
+    pinnedGoalIds: null,
   };
 }
 

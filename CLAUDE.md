@@ -92,7 +92,7 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 | `jira/client.ts` | lectures de `JiraClient.swift` (board, sprints, tickets, champs, propriété) |
 | `core/boardSync.ts` | `BoardController.detectBoard` et `performSync` (lecture seule) |
 | `core/boardLayout.ts` | répartition en swimlanes et colonnes des vues SwiftUI du board |
-| `core/boardWrites.ts` | `BoardController.moveIssue`, `rankIssue`, `assignGoal` (mode texte) |
+| `core/boardWrites.ts` | `BoardController.moveIssue`, `rankIssue`, `assignGoal` (mode texte), `SprintGoalStore.saveAtlassianSelection` (épinglage) |
 | `jira/goals.ts` | `GoalsClient.swift` |
 | `core/atlassianGoals.ts` | `BoardController.loadAtlassianSprintGoals` |
 
@@ -100,6 +100,12 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 sprint) ; le mode de compatibilité « Build et RUN restent en bas » des ordres enregistrés avant la
 2.2 du Mac n'existe pas ; les champs « optionnels pour d'anciennes configurations » ont ici une
 valeur par défaut. Le format de `SprintGoalDocument` est PARTAGÉ avec le Mac : ne pas le changer.
+Écarts de prudence sur la propriété du sprint (`boardWrites.ts`) : si sa relecture échoue, rien
+n'est écrit (le Mac écrivait un document vidé) ; une valeur qui n'est pas un objet JSON n'est pas
+écrasée ; les clés inconnues sont réécrites telles quelles ; l'épinglage est refusé si la
+sélection lue n'est plus celle affichée. Et dans `atlassianGoals.ts`, les Goals du site sont
+interrogés dès qu'aucun Goal n'est associé au board ni déclaré par les tickets, épinglés ou non
+(le Mac ne le faisait que sans aucun candidat : un épinglé masquait les autres).
 
 Garde-fous à connaître avant de toucher au réseau :
 
@@ -117,7 +123,7 @@ Garde-fous à connaître avant de toucher au réseau :
 npm run check         # types + lint + tests + construction
 npm run verify:load   # construit puis charge dist/ dans un Chrome temporaire sans interface
 npm run watch         # reconstruit dist/ à chaque modification
-npm run harness       # banc d'essai visuel, données fictives, http://localhost:5199/?scenario=ok
+npm run harness       # banc d'essai visuel, données fictives, http://localhost:5199/?scenario=board
 ```
 
 Dépendances en versions exactes (`.npmrc` : `save-exact`, `ignore-scripts`). Toute nouvelle
@@ -139,7 +145,11 @@ le diagnostic mémorise par site la variante acceptée (`graphqlOrigin.v1`).
 `goals_search`, `goals_byIds`, `workItems`) et objectifs du sprint déduits des tickets
 (`src/core/atlassianGoals.ts`). Rattachement natif par les deux mutations de l'inventaire
 `GraphqlWrite` (`writes.ts`) : forme ARI du ticket d'abord, identifiant brut seulement après un
-REFUS explicite, jamais après une issue incertaine. Épinglage d'un Goal au sprint : pas encore.
+REFUS explicite, jamais après une issue incertaine.
+
+0.6.0 : épinglage de Goals au sprint (`pinAtlassianGoals`, fenêtre `PinGoalsDialog`, menu « ⋯ »),
+qui termine l'étape 4. Reste du Mac non porté : garder localement une sélection refusée par Jira
+(`keepSelectionLocally`), à faire avec les réglages locaux de l'étape 5.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.

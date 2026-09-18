@@ -3,7 +3,8 @@
 // ni par board.html ni par vite.config.ts : il n'entre jamais dans dist/.
 //
 //   npm run harness   puis   http://localhost:5199/?scenario=board|board-filtre|board-session|
-//                            board-vide|board-dnd|board-choix|board-erreur|board-goals|ok|xsrf|refuse|session|deconnecte
+//                            board-vide|board-dnd|board-choix|board-erreur|board-goals|
+//                            board-epingle|ok|xsrf|refuse|session|deconnecte
 import { render } from "preact";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
@@ -67,8 +68,9 @@ async function simulateDrop(
 }
 
 if (scenario.startsWith("board")) {
+  const withGoals = scenario === "board-goals" || scenario === "board-epingle";
   const jira = boardSiteJira(
-    scenario === "board-goals"
+    withGoals
       ? {
           graphql: goalsGateway({
             goals: [
@@ -77,20 +79,46 @@ if (scenario.startsWith("board")) {
                 key: "GOAL-1",
                 name: "Paiement en une étape",
                 status: "on_track",
+                owner: "Camille Durand",
                 url: "https://home.atlassian.com/goal/1",
                 workItems: ["ABC-101", "ABC-102"],
               },
               {
                 id: "ari:cloud:townsquare:c:goal/stabilite",
+                key: "GOAL-2",
                 name: "Zéro incident",
                 status: "at_risk",
                 workItems: ["ABC-103"],
+              },
+              {
+                id: "ari:cloud:townsquare:c:goal/securite",
+                key: "GOAL-3",
+                name: "Sécurité des comptes clients",
+                status: "pending",
+                owner: "Alex Martin",
+              },
+              {
+                id: "ari:cloud:townsquare:c:goal/ancien",
+                key: "GOAL-4",
+                name: "Objectif archivé",
+                isArchived: true,
               },
             ],
           }),
         }
       : {},
   );
+  if (scenario === "board-epingle") {
+    // Propriété du sprint qui garde ce qu'on y écrit, comme Jira.
+    const goalsProperty = `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.goals}`;
+    let stored: unknown = { atlassianGoalIds: [] };
+    jira
+      .on("GET", goalsProperty, () => ({ status: 200, json: { value: stored } }))
+      .on("PUT", goalsProperty, (request) => {
+        stored = request.body;
+        return { status: 200 };
+      });
+  }
   // Faux Jira qui évolue : après la transition, ABC-102 est « En cours ».
   let moved = false;
   const issues = () =>
@@ -152,6 +180,7 @@ if (scenario.startsWith("board")) {
   if (connection.state === "connected") {
     await connection.board.detect(BOARD_URL);
     if (scenario === "board-filtre") connection.board.toggleQuickFilter("blocked");
+    if (scenario === "board-epingle") connection.board.openPinEditor();
     if (["board-dnd", "board-choix", "board-erreur"].includes(scenario)) {
       await new Promise((resolve) => setTimeout(resolve, 100));
       await simulateDrop("ABC-102", "Finaliser le parcours de paiement", "En cours", null);

@@ -134,9 +134,9 @@ export function DiagnosticView({ diagnostic }: { diagnostic: DiagnosticModel }) 
           </button>
         </header>
         <p class="hint">
-          Chaque écriture tentée depuis le board (transition, classement, rattachement), avec la
-          réponse de Jira. Le journal reste dans ce navigateur ; il ne contient ni secret ni nom de
-          personne, et il est effacé à la déconnexion.
+          Chaque écriture tentée depuis le board (transition, classement, rattachement, épinglage),
+          avec la réponse de Jira. Le journal reste dans ce navigateur ; il ne contient ni secret ni
+          nom de personne, et il est effacé à la déconnexion.
         </p>
         {diagnostic.journal.value.length === 0 ? (
           <p class="hint">Aucune écriture pour l'instant.</p>
@@ -146,7 +146,7 @@ export function DiagnosticView({ diagnostic }: { diagnostic: DiagnosticModel }) 
               <tr>
                 <th>Date</th>
                 <th>Action</th>
-                <th>Ticket</th>
+                <th>Cible</th>
                 <th>Vers</th>
                 <th>Résultat</th>
                 <th>Détail</th>
@@ -160,7 +160,7 @@ export function DiagnosticView({ diagnostic }: { diagnostic: DiagnosticModel }) 
                 >
                   <td>{new Date(entry.at).toLocaleString("fr-FR")}</td>
                   <td>{entry.action}</td>
-                  <td>{entry.issueKey}</td>
+                  <td>{entry.issueKey ?? "sprint"}</td>
                   <td>{entry.to ?? ""}</td>
                   <td>{entry.outcome}</td>
                   <td>{entry.detail ?? ""}</td>

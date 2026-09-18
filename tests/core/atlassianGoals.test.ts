@@ -109,6 +109,39 @@ describe("loadAtlassianSprintGoals", () => {
     expect(result.links).toEqual({ "ABC-3": "g2" });
   });
 
+  it("un Goal épinglé ne masque pas ceux que portent les tickets quand leur champ est muet", async () => {
+    // Écart voulu avec le Mac : il n'interrogeait le site qu'en l'absence de tout candidat.
+    const r = reader({
+      site: [goal("g-site")],
+      workItems: { "g-site": ["ABC-3"] },
+      known: [goal("g-epingle", "Préparer la release"), goal("g-site", "Stabilité")],
+    });
+    const result = await loadAtlassianSprintGoals({
+      reader: r,
+      pinnedGoalIds: ["g-epingle"],
+      issues: [makeIssue("ABC-3")],
+      configuration: config,
+    });
+    expect(r.asked).toEqual([["g-epingle", "g-site"]]);
+    expect(result.goals.map((g) => g.title)).toEqual(["Préparer la release", "Stabilité"]);
+    expect(result.links).toEqual({ "ABC-3": "g-site" });
+  });
+
+  it("recherche du site en échec : les Goals épinglés s'affichent quand même, avec l'avertissement", async () => {
+    const r = reader({
+      fail: { search: new Error("délai dépassé") },
+      known: [goal("g-epingle", "Préparer la release")],
+    });
+    const result = await loadAtlassianSprintGoals({
+      reader: r,
+      pinnedGoalIds: ["g-epingle"],
+      issues: [makeIssue("ABC-3")],
+      configuration: config,
+    });
+    expect(result.goals.map((g) => g.title)).toEqual(["Préparer la release"]);
+    expect(result.warnings).toEqual(["Recherche des objectifs du site : délai dépassé"]);
+  });
+
   it("un ticket lié à deux objectifs suit le premier affiché", async () => {
     const r = reader({
       workItems: { g1: ["ABC-2"], g2: ["ABC-2"] },

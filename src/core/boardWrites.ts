@@ -1,6 +1,6 @@
 import type { JiraClient } from "../jira/client";
 import { JiraError } from "../jira/errors";
-import { isRecord, type JsonValue } from "../jira/json";
+import { isRecord, type JsonObject, type JsonValue } from "../jira/json";
 import type { JiraStatus, JiraTransition } from "../jira/models";
 import { resolveTransition } from "../jira/transitionPlanner";
 import type { JiraTransport } from "../jira/transport";
@@ -17,7 +17,7 @@ import {
 } from "./sprintGoals";
 
 // Écritures du board, dans les catégories validées : transition, rang, rattachement à un
-// objectif (propriété du sprint). Chacune part UNE fois ; une lecture la précède quand elle
+// objectif et épinglage de Goals (propriété du sprint). Chacune part UNE fois ; une lecture la précède quand elle
 // sert à vérifier que Jira est toujours dans l'état affiché.
 
 /** Lectures dont les écritures ont besoin. `JiraClient` les fournit. */
@@ -162,14 +162,13 @@ export async function linkToTextGoal(
   if (input.goalId !== null && !input.goals.some((goal) => goal.id === input.goalId)) {
     throw new Error("Cet objectif n'existe plus dans le sprint. Actualisez le board.");
   }
-  const stored = await reader.sprintProperty(input.sprintId, SPRINT_PROPERTY_KEYS.goals);
-  const fresh = stored === null ? null : decodeSprintGoalDocument(stored);
-  const document = withTextGoalLink(fresh, input);
+  const stored = await readStoredDocument(reader, input.sprintId);
+  const document = withTextGoalLink(stored.document, input);
   await writer.write({
     kind: "sprintProperty.put",
     sprintId: input.sprintId,
     key: SPRINT_PROPERTY_KEYS.goals,
-    value: encodeSprintGoalDocument(document),
+    value: documentValue(stored, document),
   });
 }
 
@@ -215,11 +214,138 @@ export function withTextGoalLink(
   else links[input.issueKey] = input.goalId;
 
   return {
-    version: SPRINT_GOAL_DOCUMENT_VERSION,
+    version: fresh?.version ?? SPRINT_GOAL_DOCUMENT_VERSION,
     goals,
     links,
     atlassianGoalIds: [...(fresh?.atlassianGoalIds ?? [])],
-    updatedAt: input.now.toISOString().replace(/\.\d{3}Z$/, "Z"),
+    updatedAt: timestamp(input.now),
     updatedBy: input.accountId,
   };
+}
+
+// ─── Épinglage de Goals Atlassian au sprint ──────────────────────────────────
+
+export type PinOutcome =
+  /** Jira a confirmé l'enregistrement de la nouvelle sélection. */
+  | { kind: "pinned"; goalIds: string[] }
+  /** Jira porte déjà exactement cette sélection : rien n'a été écrit. */
+  | { kind: "unchanged" }
+  /** La sélection a changé dans Jira depuis son affichage : rien n'a été écrit. */
+  | { kind: "conflict"; current: string[] };
+
+/**
+ * Épingle des Goals Atlassian au sprint, pour les afficher même sans ticket rattaché. Jira n'a
+ * aucune relation native entre un sprint et un Goal : la sélection est enregistrée dans la
+ * propriété d'entité du sprint, partagée avec l'app Mac. Le champ « Objectif » du sprint n'est
+ * jamais touché. Portage de `SprintGoalStore.saveAtlassianSelection` (Mac), avec deux écarts
+ * voulus :
+ * - si la relecture de la propriété échoue, RIEN n'est écrit (le Mac écrivait alors un document
+ *   privé de ses objectifs et de ses liens du mode texte) ;
+ * - si la sélection relue n'est plus celle que l'utilisateur avait sous les yeux (`shownGoalIds`),
+ *   rien n'est écrit : quelqu'un l'a modifiée entre-temps, on la relit plutôt que de l'écraser.
+ * Seul `atlassianGoalIds` change : objectifs, liens du mode texte et clés inconnues sont gardés.
+ */
+export async function pinAtlassianGoals(
+  reader: WriteReader,
+  writer: JiraWriter,
+  input: {
+    sprintId: number;
+    /** Sélection lue dans Jira quand l'utilisateur a commencé à la modifier. */
+    shownGoalIds: readonly string[];
+    goalIds: readonly string[];
+    accountId: string | null;
+    now: Date;
+  },
+): Promise<PinOutcome> {
+  const goalIds = normalizedGoalIds(input.goalIds);
+  const stored = await readStoredDocument(reader, input.sprintId);
+  const current = [...(stored.document?.atlassianGoalIds ?? [])];
+  if (!sameIds(current, normalizedGoalIds(input.shownGoalIds))) {
+    return { kind: "conflict", current };
+  }
+  if (sameIds(current, goalIds)) return { kind: "unchanged" };
+
+  const document = withPinnedGoals(stored.document, { ...input, goalIds });
+  await writer.write({
+    kind: "sprintProperty.put",
+    sprintId: input.sprintId,
+    key: SPRINT_PROPERTY_KEYS.goals,
+    value: documentValue(stored, document),
+  });
+  return { kind: "pinned", goalIds };
+}
+
+/** Document à écrire : celui lu dans Jira, avec la seule sélection de Goals remplacée. */
+export function withPinnedGoals(
+  fresh: SprintGoalDocument | null,
+  input: { goalIds: readonly string[]; accountId: string | null; now: Date },
+): SprintGoalDocument {
+  return {
+    version: fresh?.version ?? SPRINT_GOAL_DOCUMENT_VERSION,
+    goals: [...(fresh?.goals ?? [])],
+    links: { ...(fresh?.links ?? {}) },
+    atlassianGoalIds: normalizedGoalIds(input.goalIds),
+    updatedAt: timestamp(input.now),
+    updatedBy: input.accountId,
+  };
+}
+
+/** Identifiants non vides, sans doublon, dans l'ordre choisi (il fixe l'ordre des swimlanes). */
+function normalizedGoalIds(ids: readonly string[]): string[] {
+  return [...new Set(ids.map((id) => id.trim()).filter((id) => id !== ""))];
+}
+
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id, index) => id === b[index]);
+}
+
+// ─── Propriété d'entité du sprint ────────────────────────────────────────────
+
+/** Clés du document connues de cette version. */
+const DOCUMENT_KEYS = new Set([
+  "version",
+  "goals",
+  "links",
+  "atlassianGoalIds",
+  "updatedAt",
+  "updatedBy",
+]);
+
+interface StoredDocument {
+  readonly document: SprintGoalDocument | null;
+  /**
+   * Clés que cette version ne connaît pas — ajoutées par une version plus récente de l'app Mac,
+   * par exemple. Elles sont réécrites telles quelles : le document est partagé.
+   */
+  readonly unknownKeys: JsonObject;
+}
+
+/**
+ * Relit la propriété juste avant de l'écrire. Une valeur qui n'est pas un objet JSON n'est pas
+ * écrasée : on ne sait ni ce qu'elle contient, ni qui l'a posée.
+ */
+async function readStoredDocument(reader: WriteReader, sprintId: number): Promise<StoredDocument> {
+  const stored = await reader.sprintProperty(sprintId, SPRINT_PROPERTY_KEYS.goals);
+  if (stored === null) return { document: null, unknownKeys: {} };
+  if (!isRecord(stored)) {
+    throw new JiraError({
+      kind: "decoding",
+      context: "propriété des objectifs du sprint : objet JSON attendu, rien n'a été écrit",
+      detail: Array.isArray(stored) ? "tableau" : typeof stored,
+    });
+  }
+  const unknownKeys: JsonObject = {};
+  for (const [key, value] of Object.entries(stored)) {
+    if (!DOCUMENT_KEYS.has(key)) unknownKeys[key] = value as JsonValue;
+  }
+  return { document: decodeSprintGoalDocument(stored), unknownKeys };
+}
+
+function documentValue(stored: StoredDocument, document: SprintGoalDocument): JsonObject {
+  return { ...stored.unknownKeys, ...encodeSprintGoalDocument(document) };
+}
+
+/** Horodatage au format écrit par l'app Mac (ISO 8601, à la seconde). */
+function timestamp(now: Date): string {
+  return now.toISOString().replace(/\.\d{3}Z$/, "Z");
 }

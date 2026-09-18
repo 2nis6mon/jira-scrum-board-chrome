@@ -59,10 +59,14 @@ export async function loadAtlassianSprintGoals(input: {
   // Objectifs à interroger : épinglés, associés au board, découverts sur les tickets.
   let candidates = unique([...input.pinnedGoalIds, ...configuration.boardGoalIds, ...discovered]);
 
-  // Sans candidat, on interroge les objectifs du site : le board doit fonctionner sans réglage.
-  if (candidates.length === 0) {
+  // Ni objectif associé au board, ni objectif déclaré par les tickets : on interroge les
+  // objectifs du site, pour que le board fonctionne sans réglage. Écart voulu avec le Mac, qui
+  // ne le fait qu'en l'absence de tout candidat : un Goal épinglé y masquait ceux que portent
+  // les tickets quand leur champ « Goals » est illisible.
+  if (configuration.boardGoalIds.length === 0 && discovered.length === 0) {
     try {
-      candidates = (await reader.searchGoals({ limit: 100, loadAll: true })).map((goal) => goal.id);
+      const site = await reader.searchGoals({ limit: 100, loadAll: true });
+      candidates = unique([...candidates, ...site.map((goal) => goal.id)]);
     } catch (error) {
       warnings.push(describe("Recherche des objectifs du site", error));
     }

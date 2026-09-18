@@ -10,6 +10,7 @@ import {
   type MoveOutcome,
   moveToColumn,
   performTransition,
+  pinAtlassianGoals,
   rankIssue,
 } from "../../core/boardWrites";
 import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/dropPlan";
@@ -17,7 +18,7 @@ import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../.
 import { JiraClient } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import { GoalsClient } from "../../jira/goals";
-import type { JiraTransition, JiraUser } from "../../jira/models";
+import type { AtlassianGoal, JiraTransition, JiraUser } from "../../jira/models";
 import { type JiraSite, parseBoardUrl } from "../../jira/site";
 import { JiraTransport } from "../../jira/transport";
 import type { Platform } from "../platform/types";
@@ -59,6 +60,18 @@ export interface DropTarget {
   readonly beforeKey: string | null;
 }
 
+/** Fenêtre de choix des Goals Atlassian épinglés au sprint. */
+export interface PinEditor {
+  readonly sprintId: number;
+  readonly sprintName: string;
+  /** Sélection lue dans Jira à l'ouverture : l'écriture est refusée si Jira ne la porte plus. */
+  readonly base: readonly string[];
+  /** Sélection en cours, dans l'ordre d'épinglage (celui des swimlanes). */
+  readonly selection: readonly string[];
+  readonly saving: boolean;
+  readonly notice: (UserMessage & { readonly tone: "error" | "warning" }) | null;
+}
+
 export interface BoardModelOptions {
   readonly now?: () => Date;
   readonly audit?: AuditLog;
@@ -92,6 +105,23 @@ export class BoardModel {
   readonly transitionChoice = signal<TransitionChoice | null>(null);
   readonly dragging = signal<DragState | null>(null);
   readonly dropTarget = signal<DropTarget | null>(null);
+
+  readonly pinEditor = signal<PinEditor | null>(null);
+  /** Goals du site, chargés à la première ouverture de la fenêtre d'épinglage. */
+  readonly siteGoals = signal<readonly AtlassianGoal[] | null>(null);
+  readonly siteGoalsLoading = signal(false);
+  readonly siteGoalsError = signal<UserMessage | null>(null);
+
+  /** L'épinglage n'a de sens qu'en mode Goals Atlassian, sur un sprint dont la propriété est lue. */
+  readonly canPinGoals = computed(() => {
+    const snapshot = this.snapshot.value;
+    return (
+      snapshot !== null &&
+      snapshot.sprint !== null &&
+      snapshot.goalsOrigin === "atlassianGoals" &&
+      snapshot.pinnedGoalIds !== null
+    );
+  });
 
   readonly layout = computed(() => {
     const snapshot = this.snapshot.value;
@@ -162,6 +192,7 @@ export class BoardModel {
       this.snapshot.value = null;
       this.filters.value = NO_FILTERS;
       this.syncProblem.value = null;
+      this.pinEditor.value = null;
       this.editingBoard.value = false;
     } catch (error) {
       this.setupError.value = toMessage(error);
@@ -398,6 +429,134 @@ export class BoardModel {
 
   cancelTransitionChoice(): void {
     this.transitionChoice.value = null;
+  }
+
+  // ─── Épinglage de Goals au sprint ─────────────────────────────────────────
+
+  openPinEditor(): void {
+    const snapshot = this.snapshot.value;
+    if (!this.canPinGoals.value || !snapshot?.sprint || snapshot.pinnedGoalIds === null) return;
+    this.pinEditor.value = {
+      sprintId: snapshot.sprint.id,
+      sprintName: snapshot.sprint.name,
+      base: [...snapshot.pinnedGoalIds],
+      selection: [...snapshot.pinnedGoalIds],
+      saving: false,
+      notice: null,
+    };
+    if (this.siteGoals.value === null) void this.loadSiteGoals();
+  }
+
+  /** Épingle ou désépingle un Goal dans la fenêtre. Rien n'est écrit avant « Enregistrer ». */
+  togglePinned(goalId: string): void {
+    const editor = this.pinEditor.value;
+    if (!editor || editor.saving) return;
+    const selection = editor.selection.includes(goalId)
+      ? editor.selection.filter((id) => id !== goalId)
+      : [...editor.selection, goalId];
+    this.pinEditor.value = { ...editor, selection };
+  }
+
+  closePinEditor(): void {
+    if (this.pinEditor.value?.saving) return;
+    this.pinEditor.value = null;
+  }
+
+  /** Lit les Goals du site. Le filtrage se fait ensuite localement, sans requête par frappe. */
+  async loadSiteGoals(): Promise<void> {
+    if (this.siteGoalsLoading.value) return;
+    this.siteGoalsLoading.value = true;
+    this.siteGoalsError.value = null;
+    try {
+      this.siteGoals.value = await this.#goals.searchGoals({ limit: 100, loadAll: true });
+    } catch (error) {
+      this.siteGoalsError.value = toMessage(error);
+    } finally {
+      this.siteGoalsLoading.value = false;
+    }
+  }
+
+  /**
+   * Enregistre la sélection dans la propriété du sprint : UNE écriture, sur geste explicite. La
+   * fenêtre ne se ferme qu'une fois Jira d'accord ; le board est relu dans tous les cas.
+   */
+  async savePinnedGoals(): Promise<void> {
+    const editor = this.pinEditor.value;
+    if (!editor || editor.saving) return;
+    const saving: PinEditor = { ...editor, saving: true, notice: null };
+    this.pinEditor.value = saving;
+    // La fenêtre a pu disparaître pendant l'écriture (changement de board) : on ne la rouvre pas.
+    const settle = (next: PinEditor | null) => {
+      if (this.pinEditor.value === saving) this.pinEditor.value = next;
+    };
+    const count = editor.selection.length;
+    const to = `${count} Goal${count > 1 ? "s" : ""} épinglé${count > 1 ? "s" : ""}`;
+    const entry = { action: "épinglage", issueKey: null, from: null, to } as const;
+    try {
+      const outcome = await pinAtlassianGoals(this.#client, this.#transport, {
+        sprintId: editor.sprintId,
+        shownGoalIds: editor.base,
+        goalIds: editor.selection,
+        accountId: this.snapshot.value?.currentUser?.accountId ?? null,
+        now: this.#now(),
+      });
+      switch (outcome.kind) {
+        case "pinned":
+          settle(null);
+          await this.#record({ ...entry, outcome: "réussi", detail: "propriété du sprint" });
+          break;
+        case "unchanged":
+          settle(null);
+          break;
+        case "conflict":
+          // Rien n'est écrasé : la fenêtre repart de ce que Jira porte maintenant.
+          settle({
+            ...editor,
+            base: outcome.current,
+            selection: outcome.current,
+            notice: {
+              tone: "warning",
+              text: "Les Goals épinglés ont été modifiés dans Jira pendant votre sélection.",
+              suggestion:
+                "Rien n'a été écrit. La fenêtre montre maintenant la sélection enregistrée dans Jira : refaites vos changements, puis enregistrez.",
+            },
+          });
+          await this.#record({
+            ...entry,
+            outcome: "échec",
+            detail: "conflit : sélection modifiée dans Jira",
+          });
+          break;
+      }
+    } catch (error) {
+      const jiraError = error instanceof JiraError ? error : null;
+      const uncertain = jiraError?.isOutcomeUnknown ?? false;
+      const message = toMessage(error);
+      settle({
+        ...editor,
+        notice: uncertain
+          ? {
+              tone: "warning",
+              text: `Jira n'a pas confirmé l'enregistrement (${message.text.replace(/\.$/, "")}).`,
+              suggestion:
+                "Il a peut-être eu lieu : le board vient d'être relu. Vérifiez-le avant de recommencer ; l'extension ne rejoue jamais une écriture.",
+            }
+          : {
+              tone: "error",
+              text: message.text,
+              suggestion:
+                jiraError?.info.kind === "forbidden"
+                  ? "Épingler un Goal au sprint exige en général la permission Jira de gérer les sprints."
+                  : message.suggestion,
+            },
+      });
+      await this.#record({
+        ...entry,
+        outcome: uncertain ? "incertain" : "échec",
+        detail: message.text,
+      });
+    }
+    await this.sync();
   }
 
   /** Rang à écrire : devant la carte visée, ou à la fin de la case. Rien si la place ne change pas. */

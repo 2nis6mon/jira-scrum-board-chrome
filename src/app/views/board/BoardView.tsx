@@ -15,6 +15,7 @@ import type { BoardModel } from "../../model/BoardModel";
 import { formatDay, formatPoints, formatTime, goalStatusLabel, plural, toggled } from "../format";
 import { FilterMenu } from "./FilterMenu";
 import { IssueCard } from "./IssueCard";
+import { PinGoalsDialog } from "./PinGoalsDialog";
 
 export function BoardView({
   board,
@@ -32,6 +33,7 @@ export function BoardView({
       {snapshot?.sprint && <FilterBar board={board} />}
       <Notices board={board} snapshot={snapshot} layout={layout} />
       <TransitionChoiceDialog board={board} />
+      <PinGoalsDialog board={board} />
       {snapshot === null ? (
         !board.syncProblem.value && <p class="board-empty">Lecture du board dans Jira…</p>
       ) : snapshot.sprint === null ? (
@@ -207,6 +209,11 @@ function SprintHeader(props: {
             >
               Ouvrir le board dans Jira
             </a>
+            {board.canPinGoals.value && (
+              <button type="button" onClick={() => board.openPinEditor()}>
+                Épingler des Goals au sprint…
+              </button>
+            )}
             <button
               type="button"
               onClick={() => void board.refreshStructure()}
@@ -435,15 +442,31 @@ function Notices(props: {
         </div>
       )}
       {snapshot?.goalsOrigin === "atlassianGoals" && snapshot.goals.length === 0 && (
-        <p class="notice notice-info">
-          Aucun Goal Atlassian n'est rattaché aux tickets de ce sprint. Rattachez un ticket à un
-          Goal dans Jira : l'objectif apparaîtra ici avec sa swimlane.
-        </p>
+        <div class="notice notice-info">
+          <p>
+            Aucun Goal Atlassian n'est rattaché aux tickets de ce sprint. Rattachez un ticket à un
+            Goal dans Jira, ou épinglez un Goal au sprint : l'objectif apparaîtra ici avec sa
+            swimlane.
+          </p>
+          {board.canPinGoals.value && (
+            <div class="row">
+              <button type="button" onClick={() => board.openPinEditor()}>
+                Épingler des Goals…
+              </button>
+            </div>
+          )}
+        </div>
       )}
       {snapshot?.goalsReadOnly && (
         <p class="notice notice-info">
           Votre compte ne peut pas lire la propriété du sprint qui porte les objectifs épinglés et
           les rattachements : les objectifs sont affichés sans eux.
+        </p>
+      )}
+      {snapshot?.sprint && snapshot.pinnedGoalIds === null && !snapshot.goalsReadOnly && (
+        <p class="notice notice-info">
+          La propriété du sprint qui porte les objectifs épinglés et les rattachements n'a pas pu
+          être lue : le board s'affiche sans elle. Actualisez pour la relire.
         </p>
       )}
       {layout && layout.unmappedCount > 0 && (
@@ -522,6 +545,7 @@ function LaneView(props: {
   const progress = lane.progress;
   const focused = goal !== null && isGoalFocused(board.filters.value, goal.id);
   const goalsById = new Map(board.snapshot.value?.goals.map((g) => [g.id, g]) ?? []);
+  const pinned = new Set(board.snapshot.value?.pinnedGoalIds ?? []);
   const cardFields = displayedCardFields(configuration);
   const ownColumns = lane.block.kind === "run" && !sameColumns(layout.runColumns, layout.columns);
 
@@ -545,6 +569,11 @@ function LaneView(props: {
           </button>
         ) : (
           <span class="lane-title">{lane.title}</span>
+        )}
+        {goal?.atlassianGoalId && pinned.has(goal.atlassianGoalId) && (
+          <span class="goal-pinned" title="Épinglé au sprint : affiché même sans ticket rattaché">
+            épinglé
+          </span>
         )}
         {goal?.atlassianStatus && (
           <span

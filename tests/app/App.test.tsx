@@ -6,6 +6,7 @@ import { AppModel } from "../../src/app/model/AppModel";
 import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
 import { FakeJira, isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
+import { goalsGateway } from "../support/goalsGateway";
 import { issueJson } from "../support/jiraFixtures";
 
 afterEach(() => {
@@ -145,6 +146,53 @@ describe("App", () => {
     button("Actualiser").click();
     await tick();
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+  });
+
+  it("épingler un Goal : fenêtre de choix, une seule écriture sur « Enregistrer »", async () => {
+    const pinned = "ari:cloud:townsquare:c:goal/securite";
+    const property = "/rest/agile/1.0/sprint/42/properties/com.scrumboardmac.sprintgoals.v1";
+    // La propriété ne change qu'avec l'écriture, comme dans Jira.
+    let stored: unknown = { atlassianGoalIds: [] };
+    const jira = boardSiteJira({
+      graphql: goalsGateway({
+        goals: [
+          { id: "ari:cloud:townsquare:c:goal/paiement", name: "Paiement", workItems: ["ABC-101"] },
+          { id: pinned, key: "GOAL-3", name: "Sécurité des comptes" },
+          { id: "ari:cloud:townsquare:c:goal/ancien", name: "Ancien objectif", isArchived: true },
+        ],
+      }),
+    })
+      .on("GET", property, () => ({ status: 200, json: { value: stored } }))
+      .on("PUT", property, (request) => {
+        stored = request.body;
+        return { status: 200 };
+      });
+    const { board } = await connectedBoard(jira);
+
+    button("Épingler des Goals au sprint").click();
+    await expect.poll(() => document.querySelectorAll(".pin-option").length).toBe(2);
+    expect(text()).not.toContain("Ancien objectif");
+    const save = button("Enregistrer dans Jira");
+    expect(save.disabled).toBe(true);
+
+    const search = document.querySelector<HTMLInputElement>(".pin-search");
+    if (!search) throw new Error("champ de filtre attendu");
+    search.value = "securite";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    expect(document.querySelectorAll(".pin-option")).toHaveLength(1);
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+
+    document.querySelector<HTMLInputElement>(".pin-option input")?.click();
+    await tick();
+    expect(board.pinEditor.value?.selection).toEqual([pinned]);
+    expect(button("Enregistrer dans Jira").disabled).toBe(false);
+
+    button("Enregistrer dans Jira").click();
+    await expect.poll(() => document.querySelector("[role=dialog]")).toBeNull();
+    expect(jira.requests.filter(isWriteRequest).map((r) => r.method)).toEqual(["PUT"]);
+    await expect.poll(() => text()).toContain("Sécurité des comptes");
+    expect(document.querySelector(".goal-pinned")?.textContent).toBe("épinglé");
   });
 
   it("le diagnostic reste accessible depuis l'en-tête", async () => {

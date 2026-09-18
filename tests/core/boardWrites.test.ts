@@ -3,8 +3,10 @@ import {
   linkToTextGoal,
   moveToColumn,
   performTransition,
+  pinAtlassianGoals,
   rankFailures,
   rankIssue,
+  withPinnedGoals,
   withTextGoalLink,
 } from "../../src/core/boardWrites";
 import { makeSprintGoal, makeSprintGoalDocument } from "../../src/core/sprintGoals";
@@ -296,5 +298,199 @@ describe("rattachement à un objectif du texte du sprint", () => {
     const { reader, writer } = setup(jira);
     await linkToTextGoal(reader, writer, input("g1"));
     expect(jira.requests.filter((r) => r.method !== "GET").map((r) => r.path)).toEqual([GOALS]);
+  });
+});
+
+describe("épinglage de Goals Atlassian au sprint", () => {
+  const PAIEMENT = "ari:cloud:townsquare:c:goal/paiement";
+  const STABILITE = "ari:cloud:townsquare:c:goal/stabilite";
+  const stored = (value: unknown) => ({ status: 200, json: { key: "k", value } });
+  const pin = (
+    jira: FakeJira,
+    goalIds: readonly string[],
+    shownGoalIds: readonly string[] = [],
+  ) => {
+    const { reader, writer } = setup(jira);
+    return pinAtlassianGoals(reader, writer, {
+      sprintId: 42,
+      shownGoalIds,
+      goalIds,
+      accountId: "compte-1",
+      now: NOW,
+    });
+  };
+
+  it("relit la propriété et n'y change que la sélection : objectifs, liens et clés inconnues gardés", async () => {
+    const jira = new FakeJira()
+      .on(
+        "GET",
+        GOALS,
+        stored({
+          version: 1,
+          goals: [{ id: "g1", title: "Paiement", color: "goal4", position: 0 }],
+          links: { "ABC-7": "g1" },
+          atlassianGoalIds: [PAIEMENT],
+          updatedBy: "compte-mac",
+          ajoutMac: { conserve: true },
+        }),
+      )
+      .on("PUT", GOALS, { status: 200 });
+
+    const outcome = await pin(jira, [PAIEMENT, STABILITE], [PAIEMENT]);
+
+    expect(outcome).toEqual({ kind: "pinned", goalIds: [PAIEMENT, STABILITE] });
+    expect(jira.sent("PUT")).toHaveLength(1);
+    expect(jira.sent("PUT")[0]?.body).toEqual({
+      ajoutMac: { conserve: true },
+      version: 1,
+      goals: [{ id: "g1", title: "Paiement", color: "goal4", position: 0 }],
+      links: { "ABC-7": "g1" },
+      atlassianGoalIds: [PAIEMENT, STABILITE],
+      updatedAt: "2026-09-18T10:15:30Z",
+      updatedBy: "compte-1",
+    });
+  });
+
+  it("n'écrit que la propriété des objectifs : ni le sprint, ni son champ « Objectif »", async () => {
+    const jira = new FakeJira().on("GET", GOALS, { status: 404 }).on("PUT", GOALS, { status: 201 });
+    await pin(jira, [PAIEMENT]);
+    expect(jira.requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+      `GET ${GOALS}`,
+      `PUT ${GOALS}`,
+    ]);
+    expect(jira.sent("PUT")[0]?.body).toEqual({
+      version: 1,
+      goals: [],
+      links: {},
+      atlassianGoalIds: [PAIEMENT],
+      updatedAt: "2026-09-18T10:15:30Z",
+      updatedBy: "compte-1",
+    });
+  });
+
+  it("désépingler tout écrit une sélection vide, sans toucher au reste", async () => {
+    const jira = new FakeJira()
+      .on("GET", GOALS, stored({ links: { "ABC-7": "g1" }, atlassianGoalIds: [PAIEMENT] }))
+      .on("PUT", GOALS, { status: 200 });
+    await pin(jira, [], [PAIEMENT]);
+    expect(jira.sent("PUT")[0]?.body).toMatchObject({
+      links: { "ABC-7": "g1" },
+      atlassianGoalIds: [],
+    });
+  });
+
+  it("sélection modifiée dans Jira depuis l'affichage : rien n'est écrit, la sélection lue remonte", async () => {
+    const jira = new FakeJira().on("GET", GOALS, stored({ atlassianGoalIds: [STABILITE] }));
+    const outcome = await pin(jira, [PAIEMENT], []);
+    expect(outcome).toEqual({ kind: "conflict", current: [STABILITE] });
+    expect(jira.requests.filter((r) => r.method !== "GET")).toEqual([]);
+  });
+
+  it("l'ordre compte : il fixe celui des swimlanes", async () => {
+    const jira = new FakeJira().on(
+      "GET",
+      GOALS,
+      stored({ atlassianGoalIds: [STABILITE, PAIEMENT] }),
+    );
+    const outcome = await pin(jira, [STABILITE], [PAIEMENT, STABILITE]);
+    expect(outcome.kind).toBe("conflict");
+  });
+
+  it("sélection identique à celle de Jira : aucune écriture", async () => {
+    const jira = new FakeJira().on("GET", GOALS, stored({ atlassianGoalIds: [PAIEMENT] }));
+    expect(await pin(jira, [` ${PAIEMENT} `, PAIEMENT], [PAIEMENT])).toEqual({
+      kind: "unchanged",
+    });
+    expect(jira.sent("PUT")).toEqual([]);
+  });
+
+  it("identifiants vides ou en double écartés, ordre d'épinglage conservé", () => {
+    const document = withPinnedGoals(null, {
+      goalIds: [STABILITE, " ", PAIEMENT, STABILITE],
+      accountId: null,
+      now: NOW,
+    });
+    expect(document.atlassianGoalIds).toEqual([STABILITE, PAIEMENT]);
+  });
+
+  it("relecture impossible : rien n'est écrit (le Mac écrivait alors un document vidé)", async () => {
+    const jira = new FakeJira().on("GET", GOALS, { status: 403, json: {} });
+    await expect(pin(jira, [PAIEMENT])).rejects.toMatchObject({ info: { kind: "forbidden" } });
+    expect(jira.sent("PUT")).toEqual([]);
+  });
+
+  it("valeur stockée qui n'est pas un objet JSON : elle n'est pas écrasée", async () => {
+    const jira = new FakeJira().on("GET", GOALS, stored(["inattendu"]));
+    await expect(pin(jira, [PAIEMENT])).rejects.toMatchObject({ info: { kind: "decoding" } });
+    expect(jira.sent("PUT")).toEqual([]);
+  });
+
+  it("refus de droits à l'écriture : une seule tentative, l'erreur remonte", async () => {
+    const jira = new FakeJira()
+      .on("GET", GOALS, { status: 404 })
+      .on("PUT", GOALS, { status: 403, json: { errorMessages: ["Manage Sprints requis"] } });
+    await expect(pin(jira, [PAIEMENT])).rejects.toMatchObject({ info: { kind: "forbidden" } });
+    expect(jira.sent("PUT")).toHaveLength(1);
+  });
+
+  it("réseau coupé pendant l'écriture : issue incertaine, jamais rejouée", async () => {
+    const jira = new FakeJira()
+      .on("GET", GOALS, { status: 404 })
+      .on("PUT", GOALS, { networkError: "Failed to fetch" });
+    const error = await pin(jira, [PAIEMENT]).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(JiraError);
+    expect((error as JiraError).isOutcomeUnknown).toBe(true);
+    expect(jira.sent("PUT")).toHaveLength(1);
+  });
+
+  it("sélection au-delà de la limite Atlassian de 32 Ko : refusée avant tout envoi", async () => {
+    const jira = new FakeJira().on("GET", GOALS, { status: 404 });
+    // Volume irréaliste, uniquement pour prouver que la limite s'applique (test repris du Mac).
+    const ids = Array.from(
+      { length: 400 },
+      (_, index) => `ari:cloud:townsquare:site:goal/${"x".repeat(100)}-${index}`,
+    );
+    await expect(pin(jira, ids)).rejects.toMatchObject({ info: { kind: "propertyTooLarge" } });
+    expect(jira.sent("PUT")).toEqual([]);
+  });
+});
+
+describe("document partagé avec l'app Mac", () => {
+  it("un rattachement du mode texte garde les clés que cette version ne connaît pas", async () => {
+    const jira = new FakeJira()
+      .on("GET", GOALS, {
+        status: 200,
+        json: { value: { version: 1, goals: [], links: {}, futurChamp: [1, 2] } },
+      })
+      .on("PUT", GOALS, { status: 200 });
+    const { reader, writer } = setup(jira);
+    await linkToTextGoal(reader, writer, {
+      sprintId: 42,
+      issueKey: "ABC-1",
+      goalId: "g1",
+      goals: [makeSprintGoal({ id: "g1", title: "Paiement", position: 0, color: "goal1" })],
+      accountId: null,
+      now: NOW,
+    });
+    expect(jira.sent("PUT")[0]?.body).toMatchObject({
+      futurChamp: [1, 2],
+      links: { "ABC-1": "g1" },
+    });
+  });
+
+  it("un rattachement du mode texte n'écrase pas une valeur qui n'est pas un objet JSON", async () => {
+    const jira = new FakeJira().on("GET", GOALS, { status: 200, json: { value: "texte" } });
+    const { reader, writer } = setup(jira);
+    await expect(
+      linkToTextGoal(reader, writer, {
+        sprintId: 42,
+        issueKey: "ABC-1",
+        goalId: null,
+        goals: [],
+        accountId: null,
+        now: NOW,
+      }),
+    ).rejects.toMatchObject({ info: { kind: "decoding" } });
+    expect(jira.sent("PUT")).toEqual([]);
   });
 });

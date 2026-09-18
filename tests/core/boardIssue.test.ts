@@ -59,6 +59,7 @@ function snapshot(scrumIssues: BoardIssue[], runIssues: BoardIssue[] = []): Boar
     syncedAt: new Date(0),
     currentUser: null,
     goalsReadOnly: false,
+    pinnedGoalIds: [],
   };
 }
 

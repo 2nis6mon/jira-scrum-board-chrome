@@ -336,9 +336,35 @@ describe("loadSnapshot", () => {
     const { snapshot, document } = await sync(jira);
 
     expect(snapshot.goalsReadOnly).toBe(true);
+    expect(snapshot.pinnedGoalIds).toBeNull();
     expect(document).toBeNull();
     expect(snapshot.goals.map((g) => g.title)).toEqual(["Paiement"]);
     expect(snapshot.scrumIssues).toHaveLength(1);
+  });
+
+  it("Goals épinglés : lus dans la propriété, vides si elle n'existe pas, inconnus si illisible", async () => {
+    const withProperty = (property: Reply) =>
+      sync(
+        boardJira({
+          sprints: [sprintJson(42, { goal: "Paiement" })],
+          issues: { 42: [issueJson("ABC-1")] },
+          property,
+        }),
+      );
+
+    const pinned = await withProperty({
+      status: 200,
+      json: { value: { atlassianGoalIds: ["ari:goal/1", "ari:goal/2"] } },
+    });
+    expect(pinned.snapshot.pinnedGoalIds).toEqual(["ari:goal/1", "ari:goal/2"]);
+
+    const absent = await withProperty({ status: 404 });
+    expect(absent.snapshot.pinnedGoalIds).toEqual([]);
+
+    // Une erreur de lecture n'est pas une sélection vide : l'épinglage n'est alors pas modifiable.
+    const unreadable = await withProperty({ status: 400, json: { errorMessages: ["Refus"] } });
+    expect(unreadable.snapshot.pinnedGoalIds).toBeNull();
+    expect(unreadable.snapshot.goalsReadOnly).toBe(false);
   });
 
   describe("source « Goals Atlassian »", () => {

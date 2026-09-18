@@ -26,6 +26,14 @@ describe("journal des écritures", () => {
     ]);
   });
 
+  it("garde une écriture qui porte sur le sprint et non sur un ticket (épinglage)", async () => {
+    const log = new AuditLog(fakePlatform(new FakeJira()).store);
+    await log.append({ ...entry("ABC-1"), action: "épinglage", issueKey: null });
+    expect(await log.list("https://acme.atlassian.net")).toEqual([
+      expect.objectContaining({ action: "épinglage", issueKey: null }),
+    ]);
+  });
+
   it("ne perd aucune entrée quand deux ajouts se croisent", async () => {
     const log = new AuditLog(fakePlatform(new FakeJira()).store);
     await Promise.all(Array.from({ length: 20 }, (_, i) => log.append(entry(`ABC-${i + 1}`))));

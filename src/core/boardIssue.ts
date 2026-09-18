@@ -196,6 +196,11 @@ export interface BoardSnapshot {
   readonly currentUser: JiraUser | null;
   /** Vrai si la lecture des objectifs a échoué faute de droits Jira. */
   readonly goalsReadOnly: boolean;
+  /**
+   * Goals Atlassian épinglés au sprint de référence, tels que lus dans sa propriété. `null` si
+   * cette propriété n'a pas pu être lue : l'épinglage n'est alors pas connu, ni modifiable.
+   */
+  readonly pinnedGoalIds: readonly string[] | null;
 }
 
 export function allIssues(snapshot: BoardSnapshot): BoardIssue[] {
