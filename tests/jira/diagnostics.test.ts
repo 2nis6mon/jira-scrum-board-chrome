@@ -74,6 +74,43 @@ describe("runReadProbes", () => {
     ]);
   });
 
+  it("403 sans mention XSRF (passerelle GraphQL) : retente la lecture avec l'en-tête", async () => {
+    const jira = new FakeJira()
+      .on("GET", MYSELF, { status: 200, json: {} })
+      .on("POST", JQL_PARSE, { status: 200, json: {} })
+      .on("POST", GRAPHQL, { status: 403, text: "Forbidden" }, CLOUD_ID);
+
+    const graphql = (await runReadProbes(transportFor(jira))).probes[2];
+
+    expect(graphql?.status).toBe("ok");
+    expect(graphql?.detail).toContain("refus 403 sans en-tête, puis identifiant du site lu");
+    expect(jira.sent("POST", GRAPHQL).map((r) => r.headers["X-Atlassian-Token"])).toEqual([
+      undefined,
+      "no-check",
+    ]);
+  });
+
+  it("403 dans les deux cas : le rapport montre ce que le serveur a répondu", async () => {
+    const refusal = {
+      status: 403,
+      text: "<html><title>Forbidden</title>Requête refusée par la passerelle</html>",
+      headers: { "Content-Type": "text/html;charset=utf-8" },
+    };
+    const jira = new FakeJira()
+      .on("GET", MYSELF, { status: 200, json: {} })
+      .on("POST", JQL_PARSE, { status: 200, json: {} })
+      .on("POST", GRAPHQL, refusal);
+
+    const read = await runReadProbes(transportFor(jira));
+    const report = formatReport({ extensionVersion: "9.9.9", userAgent: "UA", read, write: null });
+
+    expect(read.probes[2]?.status).toBe("failed");
+    expect(jira.sent("POST", GRAPHQL)).toHaveLength(2);
+    expect(report).toContain("même refus sans en-tête");
+    expect(report).toContain("Forbidden Requête refusée par la passerelle");
+    expect(report).toContain("content-type: text/html;charset=utf-8");
+  });
+
   it("une réponse GraphQL sans cloudId est un échec, pas un succès", async () => {
     const jira = new FakeJira()
       .on("GET", MYSELF, { status: 200, json: {} })

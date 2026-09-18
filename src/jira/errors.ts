@@ -17,8 +17,12 @@ export type JiraErrorInfo =
   | { kind: "unauthorized" }
   /** 403 « XSRF check failed » — Jira refuse l'origine de la requête, pas le compte. */
   | { kind: "xsrf"; bodyExcerpt: string }
-  /** 403 — le compte est reconnu mais n'a pas le droit. */
-  | { kind: "forbidden"; detail: string | null }
+  /**
+   * 403 — refus sans mention XSRF : droits insuffisants, ou refus de la passerelle. `detail` est
+   * le message de Jira quand il en donne un ; `bodyExcerpt` et `responseHints` (quelques en-têtes
+   * de la réponse) servent au diagnostic quand il n'en donne pas.
+   */
+  | { kind: "forbidden"; detail: string | null; bodyExcerpt: string; responseHints: string }
   | { kind: "notFound"; resource: string }
   | { kind: "rateLimited"; retryAfterSeconds: number | null }
   | { kind: "serviceUnavailable"; status: number }

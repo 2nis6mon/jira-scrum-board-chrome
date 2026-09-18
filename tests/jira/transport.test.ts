@@ -104,9 +104,31 @@ describe("JiraTransport — erreurs", () => {
     const { transport } = transportFor(jira);
 
     expect((await errorOf(transport.write(PUT_PROBE))).kind).toBe("xsrf");
-    expect(await errorOf(transport.write(PUT_PROBE))).toEqual({
+    expect(await errorOf(transport.write(PUT_PROBE))).toMatchObject({
       kind: "forbidden",
       detail: "Vous ne pouvez pas gérer ce sprint.",
+    });
+  });
+
+  it("garde le corps et les en-têtes utiles d'un 403 sans message Jira", async () => {
+    const jira = new FakeJira().on("POST", "/gateway/api/graphql", {
+      status: 403,
+      text: "<html><body>Forbidden by gateway</body></html>",
+      headers: {
+        "Content-Type": "text/html",
+        "X-Failure-Category": "EXEMPLE_DE_TEST",
+        "Set-Cookie": "session=secret",
+        "Atl-Traceid": "trace-123",
+      },
+    });
+    const info = await errorOf(
+      transportFor(jira).transport.graphqlQuery("query q { a }", {}, { resource: "site" }),
+    );
+    expect(info).toEqual({
+      kind: "forbidden",
+      detail: null,
+      bodyExcerpt: "<html><body>Forbidden by gateway</body></html>",
+      responseHints: "content-type: text/html ; x-failure-category: EXEMPLE_DE_TEST",
     });
   });
 

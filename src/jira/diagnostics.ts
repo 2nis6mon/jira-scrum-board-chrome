@@ -102,8 +102,9 @@ function readCloudId(response: JiraResponse): boolean {
 }
 
 /**
- * Essaie une LECTURE sans en-tête, puis avec « no-check » si — et seulement si — Jira a
- * répondu par un refus XSRF.
+ * Essaie une LECTURE sans en-tête, puis avec « no-check » après n'importe quel 403 : la passerelle
+ * GraphQL ne formule pas son refus comme Jira (« XSRF check failed »), et retenter une lecture
+ * est sans risque. Les ÉCRITURES, elles, ne sont retentées qu'après un refus XSRF explicite.
  */
 async function probeWithFallback(
   id: string,
@@ -111,7 +112,7 @@ async function probeWithFallback(
   run: (atlassianToken: AtlassianTokenHeader) => Promise<JiraResponse>,
   validate: (response: JiraResponse) => string | null = () => "réponse reçue",
 ): Promise<ProbeResult> {
-  let refusedWithoutHeader = false;
+  let firstRefusal: string | null = null;
   for (const variant of ["absent", "no-check"] as const) {
     try {
       const response = await run(variant);
@@ -125,16 +126,16 @@ async function probeWithFallback(
           detail: `réponse ${response.status} au contenu inattendu, ${TOKEN_LABEL[variant]}`,
         };
       }
-      const prefix = refusedWithoutHeader ? "refus XSRF sans en-tête, puis " : "";
+      const prefix = firstRefusal === null ? "" : `${firstRefusal} sans en-tête, puis `;
       return ok(id, label, response, `${prefix}${summary} ${TOKEN_LABEL[variant]}`);
     } catch (error) {
-      if (variant === "absent" && isXsrf(error)) {
-        refusedWithoutHeader = true;
+      if (variant === "absent" && isForbidden(error)) {
+        firstRefusal = isXsrf(error) ? "refus XSRF" : "refus 403";
         continue;
       }
       const result = failed(id, label, error);
-      const context = refusedWithoutHeader ? "refus XSRF sans en-tête, puis " : "";
-      return { ...result, detail: `${context}${result.detail} (${TOKEN_LABEL[variant]})` };
+      const context = firstRefusal === null ? "" : "même refus sans en-tête ; ";
+      return { ...result, detail: `${context}${TOKEN_LABEL[variant]} : ${result.detail}` };
     }
   }
   throw new Error("inatteignable");
@@ -385,8 +386,15 @@ function describeForReport(error: JiraError): string {
   switch (info.kind) {
     case "xsrf":
       return `refus XSRF — ${oneLine(info.bodyExcerpt)}`;
-    case "forbidden":
-      return `refusé — ${info.detail ?? "aucun détail fourni par Jira"}`;
+    case "forbidden": {
+      if (info.detail !== null) return `refusé — ${info.detail}`;
+      const body = oneLine(info.bodyExcerpt);
+      const parts = [
+        body === "" ? "corps de réponse vide" : `réponse : ${body}`,
+        ...(info.responseHints === "" ? [] : [info.responseHints]),
+      ];
+      return `refusé sans message Jira — ${parts.join(" — ")}`;
+    }
     case "unexpected":
       return `${error.message} ${oneLine(info.bodyExcerpt)}`;
     case "offline":
@@ -401,7 +409,11 @@ function oneLine(text: string): string {
     .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, 160);
+    .slice(0, 240);
+}
+
+function isForbidden(error: unknown): boolean {
+  return error instanceof JiraError && error.httpStatus === 403;
 }
 
 function isXsrf(error: unknown): boolean {

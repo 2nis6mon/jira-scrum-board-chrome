@@ -240,6 +240,8 @@ function mapHttpError(status: number, text: string, headers: Headers, resource: 
       return new JiraError({
         kind: "forbidden",
         detail: messages[0] ?? Object.values(fieldErrors)[0] ?? null,
+        bodyExcerpt: excerpt(text),
+        responseHints: responseHints(headers),
       });
     case 404:
       return new JiraError({ kind: "notFound", resource });
@@ -259,6 +261,20 @@ function mapHttpError(status: number, text: string, headers: Headers, resource: 
       }
       return new JiraError({ kind: "unexpected", status, bodyExcerpt: excerpt(text) });
   }
+}
+
+/**
+ * En-têtes de réponse qui aident à comprendre un refus, s'ils sont présents. Aucun n'identifie
+ * l'utilisateur ni le site.
+ */
+function responseHints(headers: Headers): string {
+  const hints: string[] = [];
+  headers.forEach((value, name) => {
+    if (name === "content-type" || name === "www-authenticate" || name.startsWith("x-failure")) {
+      hints.push(`${name}: ${value}`);
+    }
+  });
+  return hints.sort().join(" ; ");
 }
 
 function backoffMs(attempt: number, error: JiraError): number {
