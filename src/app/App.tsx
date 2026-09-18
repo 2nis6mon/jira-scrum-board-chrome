@@ -14,7 +14,7 @@ export function App({ model }: { model: AppModel }) {
   return (
     <>
       <header class="app-header">
-        <h1>Scrum Board</h1>
+        <h1>Sprint Goals Board</h1>
         <span class="app-version">{model.extensionVersion}</span>
         {connection.state === "connected" && (
           <>

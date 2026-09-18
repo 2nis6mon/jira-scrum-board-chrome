@@ -393,7 +393,7 @@ function isXsrfDetail(probe: ProbeResult): boolean {
  */
 export function formatReport(input: ReportInput): string {
   const lines = [
-    `Scrum Board (extension Chrome) ${input.extensionVersion} — diagnostic de connexion`,
+    `Sprint Goals Board (extension Chrome) ${input.extensionVersion} — diagnostic de connexion`,
     input.userAgent,
     "",
   ];

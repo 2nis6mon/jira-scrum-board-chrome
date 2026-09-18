@@ -1,10 +1,15 @@
-# Scrum Board — extension Chrome
+# Sprint Goals Board pour Jira — extension Chrome
 
-Pilote un sprint Jira Cloud par ses objectifs, depuis un onglet Chrome. Jira reste la source de
-vérité. Projet distinct de l'app macOS du même nom, dont il reprend la spécification
+**Le board Scrum que Jira n'offre pas : une swimlane par Sprint Goal, créée automatiquement.**
+Le board Jira range les tickets par colonne, sans montrer à quel objectif du sprint chacun
+contribue. Ici, chaque Sprint Goal devient sa propre swimlane, avec ses tickets et son
+avancement, dès l'ouverture du board — sans rien configurer. Les tickets sans objectif restent
+visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
+
+Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.8.0 — page Réglages.** Board du sprint actif organisé par Goals Atlassian (lus par
+> **État : 0.8.1 — page Réglages.** Board du sprint actif organisé par Goals Atlassian (lus par
 > l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides du board Jira ;
 > glisser-déposer qui écrit dans Jira : transition, rang, et lien natif ticket↔Goal ; épinglage
 > de Goals au sprint ; ordre, repli, couleur et masquage des swimlanes ; page Réglages (colonnes,
@@ -188,7 +193,7 @@ développement, jamais inclus dans `dist/`.
 
 ### ✅ Vérifié sur cette machine
 
-- Types, lint, 589 tests, construction.
+- Types, lint, 590 tests, construction.
 - Chargement réel dans Chrome 153 (sans interface, profil temporaire vierge) : manifest accepté,
   identifiant conforme, permissions `storage` et `declarativeNetRequestWithHostAccess` seules,
   aucun hôte accordé à l'installation, formulaire de connexion sans erreur, hôte hors

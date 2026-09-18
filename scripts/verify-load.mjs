@@ -112,7 +112,11 @@ try {
   await sleep(1500);
 
   const text = await evaluate(sessionId, "document.body.innerText");
-  check("la page s'affiche", text.includes("Scrum Board"), JSON.stringify(text.slice(0, 80)));
+  check(
+    "la page s'affiche",
+    text.includes("Sprint Goals Board"),
+    JSON.stringify(text.slice(0, 80)),
+  );
   check("version du manifest affichée", text.includes(manifest.version), manifest.version);
 
   const inlineScripts = await evaluate(

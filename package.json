@@ -1,8 +1,8 @@
 {
   "name": "jira-scrum-board-chrome",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
-  "description": "Extension Chrome : Scrum Board Jira piloté par les objectifs du sprint",
+  "description": "Sprint Goals Board pour Jira : une swimlane par Sprint Goal, créée automatiquement sur le board Scrum",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"

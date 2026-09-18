@@ -47,6 +47,14 @@ describe("manifest", () => {
     expect(manifest.declarative_net_request).toBeUndefined();
   });
 
+  it("nom et description dans les limites de Chrome, et le nom suit la forme « … pour Jira »", () => {
+    // Limites du Chrome Web Store : nom 75, nom court 12, description 132 caractères.
+    expect([...(manifest.name as string)].length).toBeLessThanOrEqual(75);
+    expect([...(manifest.short_name as string)].length).toBeLessThanOrEqual(12);
+    expect([...(manifest.description as string)].length).toBeLessThanOrEqual(132);
+    expect(manifest.name).toMatch(/ pour Jira$/);
+  });
+
   it("icônes : des fichiers PNG de l'extension elle-même, présents dans public/", () => {
     const icons = manifest.icons as Record<string, string>;
     const action = (manifest.action as { default_icon: Record<string, string> }).default_icon;

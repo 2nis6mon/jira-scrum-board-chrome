@@ -1,5 +1,7 @@
-# Scrum Board — extension Chrome
+# Sprint Goals Board pour Jira — extension Chrome
 
+Nom public choisi par Denis le 18/09/2026 (manifest : nom, nom court « Sprint Goals »,
+description ≤ 132 caractères qui met en avant la swimlane automatique par Sprint Goal).
 Extension Chrome (Manifest V3) qui reprend les fonctionnalités de l'app macOS « Scrum Board »,
 connectée à Jira Cloud. Projet **distinct** de l'app Mac, qui reste maintenue en parallèle.
 
