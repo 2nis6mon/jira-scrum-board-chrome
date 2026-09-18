@@ -57,7 +57,7 @@ src/app/platform/     seul endroit qui touche chrome.* (permissions, stockage)
 src/app/model/        état de l'interface (signals), plateforme injectée
 src/background/       service worker (ouvre la page, rien d'autre)
 src/jira/             site, erreurs, transport HTTP, inventaire des écritures, diagnostic,
-                      modèles Jira et leur décodage, planificateur de transitions
+                      modèles Jira et leur décodage, client REST (lectures), transitions
 src/core/             logique métier pure, portée de l'app Mac (voir ci-dessous)
 tests/                tests Vitest ; tests/support = faux Jira, fausse plateforme, fabriques
 tests/harness/        banc d'essai visuel (données fictives), jamais dans dist/
@@ -78,6 +78,8 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 | `core/dropPlan.ts` | `BoardDropPlan`, `RankChange` |
 | `core/cardColors.ts`, `core/cardFields.ts` | `CardColorRule`, `CardColorResolver`, `CardField` |
 | `jira/models.ts`, `jira/transitionPlanner.ts` | `Models.swift`, `TransitionPlanner` |
+| `jira/client.ts` | lectures de `JiraClient.swift` (board, sprints, tickets, champs, propriété) |
+| `core/boardSync.ts` | `BoardController.detectBoard` et `performSync` (lecture seule) |
 
 Écarts voulus : `SprintGoalText.render` n'est pas porté (il ne servait qu'à réécrire le champ du
 sprint) ; le mode de compatibilité « Build et RUN restent en bas » des ordres enregistrés avant la
@@ -107,6 +109,12 @@ Dépendances en versions exactes (`.npmrc` : `save-exact`, `ignore-scripts`). To
 dépendance d'exécution se justifie : il y en a deux aujourd'hui (`preact`, `@preact/signals`).
 
 ## Étapes
+
+Constat sur l'instance de Denis (18/09/2026, extension 0.2.0) : la session du navigateur est
+reconnue ; les POST de lecture REST et les écritures REST (PUT/DELETE de propriété de sprint)
+passent SANS en-tête particulier — le transport garde donc `X-Atlassian-Token` absent par défaut.
+La passerelle GraphQL (`/gateway/api/graphql`) répond 403 sans message : cause à établir avec le
+diagnostic 0.2.1 avant de choisir une parade. Toute parade touchant au manifest se propose d'abord.
 
 Plan validé le 18/09/2026 : 0 socle · 1 connexion et diagnostic (essai XSRF par Denis) ·
 2 logique métier · 3 board en lecture seule · 4 les quatre écritures · 5 réglages locaux ·

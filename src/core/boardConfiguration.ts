@@ -1,3 +1,4 @@
+import type { JiraBoardStructure } from "../jira/client";
 import type { JiraIssueType, JiraStatus } from "../jira/models";
 import { isDoneStatus } from "../jira/models";
 import { type BoardBlock, blockIdentifier } from "./boardBlocks";
@@ -177,18 +178,7 @@ export function defaultCategory(typeName: string): IssueCategory {
 }
 
 /** Ce que Jira déclare d'un board : `GET board/{id}` et `GET board/{id}/configuration`. */
-export interface DiscoveredBoard {
-  readonly boardId: number;
-  readonly boardName: string;
-  readonly boardType: string;
-  readonly projectKey: string | null;
-  readonly columns: readonly {
-    readonly name: string;
-    readonly statusIds: readonly string[];
-    readonly max: number | null;
-  }[];
-  readonly estimationFieldId: string | null;
-}
+export type DiscoveredBoard = JiraBoardStructure;
 
 export function buildConfiguration(input: {
   board: DiscoveredBoard;
