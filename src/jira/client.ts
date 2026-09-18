@@ -4,14 +4,21 @@ import {
   decodeIssue,
   decodeSprint,
   decodeStatus,
+  decodeTransition,
   decodeUser,
   type JiraIssue,
   type JiraSprint,
   type JiraStatus,
+  type JiraTransition,
   type JiraUser,
 } from "./models";
 import type { JiraTransport } from "./transport";
-import { assertEntityId, type SprintPropertyKey, sprintPropertyPath } from "./writes";
+import {
+  assertEntityId,
+  assertIssueKey,
+  type SprintPropertyKey,
+  sprintPropertyPath,
+} from "./writes";
 
 /** Champ Jira, tel que listé par `GET /rest/api/3/field`. */
 export interface JiraField {
@@ -219,6 +226,36 @@ export class JiraClient {
       query,
       `les tickets du board ${boardId}`,
     );
+  }
+
+  /** Statut actuel d'un ticket dans Jira : relu juste avant une transition. */
+  async issueStatus(issueKey: string): Promise<JiraStatus> {
+    assertIssueKey(issueKey);
+    const { body } = await this.#transport.get(`/rest/api/3/issue/${issueKey}`, {
+      query: { fields: "status" },
+      resource: `le ticket ${issueKey}`,
+    });
+    const fields = isRecord(body) ? body.fields : null;
+    return (
+      decodeStatus(isRecord(fields) ? fields.status : null) ??
+      decodingFailure(`ticket ${issueKey}`, "statut absent")
+    );
+  }
+
+  /**
+   * Transitions que Jira propose depuis le statut COURANT du ticket, avec les champs exigés par
+   * leur écran. Le graphe complet du workflow n'est pas lisible sans droits d'administration.
+   */
+  async transitions(issueKey: string): Promise<JiraTransition[]> {
+    assertIssueKey(issueKey);
+    const { body } = await this.#transport.get(`/rest/api/3/issue/${issueKey}/transitions`, {
+      query: { expand: "transitions.fields" },
+      resource: `les transitions de ${issueKey}`,
+    });
+    if (!isRecord(body) || !Array.isArray(body.transitions)) {
+      decodingFailure("transitions", "transitions absent");
+    }
+    return body.transitions.map(decodeTransition);
   }
 
   /** Lit une propriété d'entité du sprint. `null` si elle n'existe pas encore. */

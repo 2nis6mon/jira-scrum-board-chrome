@@ -122,6 +122,55 @@ export function DiagnosticView({ diagnostic }: { diagnostic: DiagnosticModel }) 
 
       <section class="panel">
         <header class="panel-header">
+          <h2>Journal des écritures</h2>
+          <button
+            type="button"
+            onClick={() => void diagnostic.clearJournal()}
+            disabled={diagnostic.journal.value.length === 0}
+          >
+            Effacer le journal
+          </button>
+        </header>
+        <p class="hint">
+          Chaque écriture tentée depuis le board (transition, classement, rattachement), avec la
+          réponse de Jira. Le journal reste dans ce navigateur ; il ne contient ni secret ni nom de
+          personne, et il est effacé à la déconnexion.
+        </p>
+        {diagnostic.journal.value.length === 0 ? (
+          <p class="hint">Aucune écriture pour l'instant.</p>
+        ) : (
+          <table class="journal">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Action</th>
+                <th>Ticket</th>
+                <th>Vers</th>
+                <th>Résultat</th>
+                <th>Détail</th>
+              </tr>
+            </thead>
+            <tbody>
+              {diagnostic.journal.value.map((entry) => (
+                <tr
+                  key={`${entry.at}-${entry.issueKey}-${entry.action}`}
+                  class={`journal-${entry.outcome === "réussi" ? "ok" : "ko"}`}
+                >
+                  <td>{new Date(entry.at).toLocaleString("fr-FR")}</td>
+                  <td>{entry.action}</td>
+                  <td>{entry.issueKey}</td>
+                  <td>{entry.to ?? ""}</td>
+                  <td>{entry.outcome}</td>
+                  <td>{entry.detail ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section class="panel">
+        <header class="panel-header">
           <h2>3 · Rapport</h2>
           <button type="button" onClick={() => void diagnostic.copyReport()} disabled={!read}>
             {diagnostic.reportCopied.value ? "Copié" : "Copier le rapport"}

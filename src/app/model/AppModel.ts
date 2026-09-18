@@ -2,6 +2,7 @@ import { signal } from "@preact/signals";
 import { isRecord } from "../../jira/json";
 import { type JiraSite, normalizeSiteUrl } from "../../jira/site";
 import type { Platform } from "../platform/types";
+import { AuditLog } from "./auditLog";
 import { BoardModel } from "./BoardModel";
 import { forgetSite } from "./boardStore";
 import { DiagnosticModel } from "./DiagnosticModel";
@@ -23,9 +24,11 @@ export class AppModel {
   readonly view = signal<View>("board");
 
   readonly #platform: Platform;
+  readonly #audit: AuditLog;
 
   constructor(platform: Platform) {
     this.#platform = platform;
+    this.#audit = new AuditLog(platform.store);
   }
 
   get extensionVersion(): string {
@@ -98,6 +101,7 @@ export class AppModel {
     await this.#platform.permissions.remove(current.site.permissionPattern);
     await this.#platform.store.remove(CONNECTION_KEY);
     await forgetSite(this.#platform.store, current.site.origin);
+    await this.#audit.forgetSite(current.site.origin);
     this.connectionError.value = null;
     this.view.value = "board";
     this.connection.value = { state: "disconnected", lastInput: current.site.host };
@@ -111,14 +115,14 @@ export class AppModel {
   showDiagnostic(): void {
     this.view.value = "diagnostic";
     const current = this.connection.value;
-    if (current.state === "connected" && current.diagnostic.read.value === null) {
-      void current.diagnostic.runReads();
-    }
+    if (current.state !== "connected") return;
+    if (current.diagnostic.read.value === null) void current.diagnostic.runReads();
+    void current.diagnostic.loadJournal();
   }
 
   async #enter(site: JiraSite): Promise<void> {
-    const board = new BoardModel(site, this.#platform);
-    const diagnostic = new DiagnosticModel(site, this.#platform);
+    const board = new BoardModel(site, this.#platform, { audit: this.#audit });
+    const diagnostic = new DiagnosticModel(site, this.#platform, this.#audit);
     this.connection.value = { state: "connected", site, board, diagnostic };
     await board.load();
   }

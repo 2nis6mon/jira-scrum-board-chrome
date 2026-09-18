@@ -9,13 +9,18 @@ import type { JsonObject } from "./json";
  * `POST|PUT /rest/agile/1.0/sprint/{id}` : le champ « Sprint Goal » du sprint appartient à
  * l'équipe et n'est jamais réécrit.
  *
- * Catégories validées : propriété de sprint, lien ticket↔Goal, transition, rang.
- * Étape 1 : seule la propriété de sprint existe (diagnostic). Transition, rang et lien
- * ticket↔Goal s'ajouteront ici à l'étape 4, et nulle part ailleurs.
+ * Catégories validées : propriété de sprint, lien ticket↔Goal, transition, rang. Le lien
+ * ticket↔Goal Atlassian passe par deux mutations GraphQL, qui ne sont pas encore émises : elles
+ * s'ajouteront ici, et nulle part ailleurs.
  */
 export type JiraWrite =
   | { kind: "sprintProperty.put"; sprintId: number; key: SprintPropertyKey; value: JsonObject }
-  | { kind: "sprintProperty.delete"; sprintId: number; key: SprintPropertyKey };
+  | { kind: "sprintProperty.delete"; sprintId: number; key: SprintPropertyKey }
+  /** Transition de workflow, choisie parmi celles que Jira propose. Jira répond 204. */
+  | { kind: "issue.transition"; issueKey: string; transitionId: string }
+  /** Rang du board (global) : juste avant, ou juste après, un autre ticket. 204 ou 207. */
+  | { kind: "issue.rank"; issueKey: string; before: string }
+  | { kind: "issue.rank"; issueKey: string; after: string };
 
 /**
  * Clés de propriété de sprint, identiques à celles de l'app Mac pour que les deux
@@ -31,7 +36,7 @@ export const SPRINT_PROPERTY_KEYS = {
 export type SprintPropertyKey = (typeof SPRINT_PROPERTY_KEYS)[keyof typeof SPRINT_PROPERTY_KEYS];
 
 export interface WriteRequest {
-  readonly method: "PUT" | "DELETE";
+  readonly method: "POST" | "PUT" | "DELETE";
   readonly path: string;
   readonly body: string | null;
   /** Désignation lisible de la ressource, pour les messages d'erreur. */
@@ -70,6 +75,55 @@ export function buildWriteRequest(write: JiraWrite): WriteRequest {
         body: null,
         resource: `la propriété « ${write.key} » du sprint ${write.sprintId}`,
       };
+    case "issue.transition":
+      assertIssueKey(write.issueKey);
+      if (!/^\d+$/.test(write.transitionId)) {
+        throw new JiraError({
+          kind: "decoding",
+          context: "identifiant de transition",
+          detail: write.transitionId,
+        });
+      }
+      return {
+        method: "POST",
+        path: `/rest/api/3/issue/${write.issueKey}/transitions`,
+        body: JSON.stringify({ transition: { id: write.transitionId } }),
+        resource: `la transition de ${write.issueKey}`,
+      };
+    case "issue.rank": {
+      assertIssueKey(write.issueKey);
+      const reference = "before" in write ? write.before : write.after;
+      assertIssueKey(reference);
+      if (reference === write.issueKey) {
+        throw new JiraError({
+          kind: "decoding",
+          context: "classement",
+          detail: "ticket de référence identique",
+        });
+      }
+      // `rankCustomFieldId` est omis : Jira utilise le champ de rang par défaut de l'instance.
+      const body =
+        "before" in write
+          ? { issues: [write.issueKey], rankBeforeIssue: write.before }
+          : { issues: [write.issueKey], rankAfterIssue: write.after };
+      return {
+        method: "PUT",
+        path: "/rest/agile/1.0/issue/rank",
+        body: JSON.stringify(body),
+        resource: `le classement de ${write.issueKey}`,
+      };
+    }
+  }
+}
+
+/** Clé Jira (`ABC-123`) : seule forme admise dans un chemin ou un corps d'écriture. */
+export function isIssueKey(value: string): boolean {
+  return /^[A-Z][A-Z0-9_]*-[1-9]\d*$/.test(value);
+}
+
+export function assertIssueKey(value: string): void {
+  if (!isIssueKey(value)) {
+    throw new JiraError({ kind: "decoding", context: "clé de ticket", detail: value });
   }
 }
 

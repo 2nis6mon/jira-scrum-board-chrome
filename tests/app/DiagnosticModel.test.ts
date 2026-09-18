@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { AuditLog } from "../../src/app/model/auditLog";
 import { DiagnosticModel } from "../../src/app/model/DiagnosticModel";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
@@ -27,7 +28,7 @@ function healthyJira(): FakeJira {
 
 function modelFor(jira: FakeJira) {
   const platform = fakePlatform(jira);
-  return { model: new DiagnosticModel(SITE, platform), platform };
+  return { model: new DiagnosticModel(SITE, platform, new AuditLog(platform.store)), platform };
 }
 
 describe("DiagnosticModel", () => {

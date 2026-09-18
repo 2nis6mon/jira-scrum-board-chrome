@@ -16,11 +16,15 @@ const EVERY_WRITE: Record<JiraWrite["kind"], JiraWrite> = {
     sprintId: 42,
     key: SPRINT_PROPERTY_KEYS.diagnostic,
   },
+  "issue.transition": { kind: "issue.transition", issueKey: "ABC-1", transitionId: "21" },
+  "issue.rank": { kind: "issue.rank", issueKey: "ABC-1", before: "ABC-2" },
 };
 
 /** Chemins qu'une écriture a le droit de viser. Rien d'autre. */
 const ALLOWED_PATHS = [
   /^\/rest\/agile\/1\.0\/sprint\/\d+\/properties\/com\.scrumboardmac\.[a-z0-9.]+$/,
+  /^\/rest\/api\/3\/issue\/[A-Z][A-Z0-9_]*-\d+\/transitions$/,
+  /^\/rest\/agile\/1\.0\/issue\/rank$/,
 ];
 
 describe("inventaire des écritures", () => {
@@ -63,6 +67,51 @@ describe("inventaire des écritures", () => {
         sprintId,
         key: SPRINT_PROPERTY_KEYS.diagnostic,
       }),
+    ).toThrowError(JiraError);
+  });
+});
+
+describe("transition et rang", () => {
+  it("transition : POST du seul identifiant de transition", () => {
+    const request = buildWriteRequest({
+      kind: "issue.transition",
+      issueKey: "ABC-12",
+      transitionId: "31",
+    });
+    expect(request.method).toBe("POST");
+    expect(request.path).toBe("/rest/api/3/issue/ABC-12/transitions");
+    expect(JSON.parse(request.body ?? "")).toEqual({ transition: { id: "31" } });
+  });
+
+  it("rang : avant ou après un ticket, sans champ de rang imposé", () => {
+    const before = buildWriteRequest({ kind: "issue.rank", issueKey: "ABC-1", before: "ABC-2" });
+    expect(before.method).toBe("PUT");
+    expect(JSON.parse(before.body ?? "")).toEqual({ issues: ["ABC-1"], rankBeforeIssue: "ABC-2" });
+    const after = buildWriteRequest({ kind: "issue.rank", issueKey: "ABC-1", after: "ABC-9" });
+    expect(JSON.parse(after.body ?? "")).toEqual({ issues: ["ABC-1"], rankAfterIssue: "ABC-9" });
+  });
+
+  it.each(["abc-1", "ABC-0", "ABC-1/../../sprint/42", "ABC-1?x=1", "", "../ABC-1"])(
+    "refuse la clé « %s » avant tout envoi",
+    (issueKey) => {
+      expect(() =>
+        buildWriteRequest({ kind: "issue.transition", issueKey, transitionId: "1" }),
+      ).toThrowError(JiraError);
+      expect(() =>
+        buildWriteRequest({ kind: "issue.rank", issueKey, before: "ABC-2" }),
+      ).toThrowError(JiraError);
+      expect(() =>
+        buildWriteRequest({ kind: "issue.rank", issueKey: "ABC-2", after: issueKey }),
+      ).toThrowError(JiraError);
+    },
+  );
+
+  it("refuse un identifiant de transition qui n'est pas un nombre, et un rang sur soi-même", () => {
+    expect(() =>
+      buildWriteRequest({ kind: "issue.transition", issueKey: "ABC-1", transitionId: "21/../x" }),
+    ).toThrowError(JiraError);
+    expect(() =>
+      buildWriteRequest({ kind: "issue.rank", issueKey: "ABC-1", before: "ABC-1" }),
     ).toThrowError(JiraError);
   });
 });

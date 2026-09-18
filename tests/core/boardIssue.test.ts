@@ -53,6 +53,7 @@ function snapshot(scrumIssues: BoardIssue[], runIssues: BoardIssue[] = []): Boar
     sprint: null,
     activeSprints: [],
     goals: [],
+    goalsOrigin: "sprintText",
     scrumIssues,
     runIssues,
     syncedAt: new Date(0),

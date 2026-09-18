@@ -1,4 +1,4 @@
-import { isRecord } from "../jira/json";
+import { isRecord, type JsonObject } from "../jira/json";
 
 /**
  * Un objectif de sprint tel que manipulé par l'application.
@@ -172,11 +172,11 @@ export function decodeSprintGoalDocument(value: unknown): SprintGoalDocument {
 }
 
 /** Forme JSON écrite dans Jira. Les champs vides sont omis, comme le fait l'app Mac. */
-export function encodeSprintGoalDocument(document: SprintGoalDocument): Record<string, unknown> {
-  const encoded: Record<string, unknown> = {
+export function encodeSprintGoalDocument(document: SprintGoalDocument): JsonObject {
+  const encoded: JsonObject = {
     version: document.version,
     goals: document.goals.map((goal) => {
-      const item: Record<string, unknown> = {
+      const item: JsonObject = {
         id: goal.id,
         title: goal.title,
         color: goal.color,

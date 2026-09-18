@@ -11,6 +11,7 @@ import {
 import { type JiraSite, parseBoardUrl } from "../../jira/site";
 import { JiraTransport } from "../../jira/transport";
 import type { Platform } from "../platform/types";
+import type { AuditEntry, AuditLog } from "./auditLog";
 import { toMessage, type UserMessage } from "./messages";
 
 /**
@@ -32,12 +33,17 @@ export class DiagnosticModel {
 
   readonly reportCopied = signal(false);
 
+  /** Journal local des écritures faites depuis le board, du plus récent au plus ancien. */
+  readonly journal = signal<readonly AuditEntry[]>([]);
+
   readonly #platform: Platform;
   readonly #transport: JiraTransport;
+  readonly #audit: AuditLog;
 
-  constructor(site: JiraSite, platform: Platform) {
+  constructor(site: JiraSite, platform: Platform, audit: AuditLog) {
     this.site = site;
     this.#platform = platform;
+    this.#audit = audit;
     // Une seule tentative par requête : le diagnostic doit rapporter ce que Jira répond,
     // pas ce qu'il finit par répondre.
     this.#transport = new JiraTransport({ site, fetch: platform.fetch, maxGetAttempts: 1 });
@@ -106,6 +112,15 @@ export class DiagnosticModel {
     } finally {
       this.writeRunning.value = false;
     }
+  }
+
+  async loadJournal(): Promise<void> {
+    this.journal.value = await this.#audit.list(this.site.origin);
+  }
+
+  async clearJournal(): Promise<void> {
+    await this.#audit.forgetSite(this.site.origin);
+    this.journal.value = [];
   }
 
   report(): string {

@@ -28,6 +28,7 @@ function snapshot(
     sprint: null,
     activeSprints: [],
     goals: GOALS,
+    goalsOrigin: "sprintText",
     scrumIssues: assemble(scrum, links),
     runIssues: assemble(run, {}),
     syncedAt: new Date(0),

@@ -16,6 +16,7 @@ import {
   type BoardConfiguration,
   type ColumnConfiguration,
   categoryForIssueType,
+  type GoalSource,
   type IssueCategory,
   isBugType,
 } from "./boardConfiguration";
@@ -182,6 +183,12 @@ export interface BoardSnapshot {
   /** Tous les sprints actifs du board. Le board affiche leurs tickets réunis. */
   readonly activeSprints: readonly JiraSprint[];
   readonly goals: readonly SprintGoal[];
+  /**
+   * D'où viennent les objectifs AFFICHÉS : peut différer de la source configurée quand la
+   * lecture des Goals Atlassian a échoué et que le board s'est rabattu sur le texte du sprint.
+   * Un rattachement s'écrit là où l'objectif affiché existe.
+   */
+  readonly goalsOrigin: GoalSource;
   readonly scrumIssues: readonly BoardIssue[];
   /** Tickets RUN DU SPRINT, affichés dans le bloc RUN. */
   readonly runIssues: readonly BoardIssue[];

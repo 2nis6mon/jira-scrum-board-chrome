@@ -12,7 +12,7 @@ const NOW = new Date("2026-09-18T10:00:00Z");
 
 function modelFor(jira: FakeJira) {
   const platform = fakePlatform(jira);
-  return { board: new BoardModel(SITE, platform, () => NOW), platform };
+  return { board: new BoardModel(SITE, platform, { now: () => NOW }), platform };
 }
 
 async function detected(jira: FakeJira = boardSiteJira()) {
@@ -64,7 +64,7 @@ describe("BoardModel — mise en place", () => {
     await saveBoard(platform.store, { ...stored, buildSectionLabel: "Hors objectif" });
 
     const jira = boardSiteJira();
-    const next = new BoardModel(SITE, { ...platform, fetch: jira.fetch }, () => NOW);
+    const next = new BoardModel(SITE, { ...platform, fetch: jira.fetch }, { now: () => NOW });
     await next.load();
 
     expect(next.configuration.value?.buildSectionLabel).toBe("Hors objectif");

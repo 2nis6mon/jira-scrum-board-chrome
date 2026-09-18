@@ -7,6 +7,7 @@ import {
   type BoardConfiguration,
   buildConfiguration,
   displayedCardFields,
+  type GoalSource,
   mergeConfiguration,
 } from "./boardConfiguration";
 import { assembleBoardIssues, type BoardIssue, type BoardSnapshot } from "./boardIssue";
@@ -217,6 +218,7 @@ export async function loadSnapshot(input: {
   let goals: SprintGoal[];
   let links: Record<string, string>;
   let goalsIssue: string | null = null;
+  let goalsOrigin: GoalSource = "sprintText";
 
   if (configuration.goalSource === "atlassianGoals" && input.goalsLoader) {
     try {
@@ -227,6 +229,7 @@ export async function loadSnapshot(input: {
       });
       goals = resolved.goals;
       links = resolved.links;
+      goalsOrigin = "atlassianGoals";
     } catch (error) {
       // Repli explicite sur le champ texte, sans masquer la cause.
       goalsIssue = error instanceof Error ? error.message : String(error);
@@ -284,6 +287,7 @@ export async function loadSnapshot(input: {
       sprint,
       activeSprints,
       goals: coloredGoals,
+      goalsOrigin,
       scrumIssues,
       runIssues,
       syncedAt: now,
@@ -301,6 +305,7 @@ function emptySnapshot(now: Date, currentUser: JiraUser | null): BoardSnapshot {
     sprint: null,
     activeSprints: [],
     goals: [],
+    goalsOrigin: "sprintText",
     scrumIssues: [],
     runIssues: [],
     syncedAt: now,

@@ -1020,3 +1020,132 @@ fieldset.filter-menu-panel {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* ─── Glisser-déposer ────────────────────────────────────────────────────── */
+
+.card[draggable="true"] {
+  cursor: grab;
+}
+
+.card-dragging {
+  opacity: 0.45;
+}
+
+.card-pending {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.card-pending-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--card-corner);
+  background: rgb(255 255 255 / 70%);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.lane-cell-droppable {
+  outline: 1px dashed #b7c0cd;
+  outline-offset: -1px;
+}
+
+.lane-cell-target {
+  outline: 2px solid var(--goal-ring, var(--in-progress));
+  outline-offset: -2px;
+  background: #e4e8ee;
+}
+
+.drop-line {
+  height: 3px;
+  margin: -2px 0;
+  border-radius: 2px;
+  background: var(--goal-ring, var(--in-progress));
+}
+
+.notice-warning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fdf6e7;
+  border: 1px solid #f1dcae;
+  color: #713f12;
+}
+
+.notice .row button {
+  flex: none;
+}
+
+/* ─── Fenêtre de choix ───────────────────────────────────────────────────── */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(21 24 29 / 35%);
+}
+
+.dialog {
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 16px 40px rgb(21 24 29 / 20%);
+}
+
+.transition-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.transition-list button {
+  width: 100%;
+  height: auto;
+  padding: 9px 12px;
+  text-align: left;
+}
+
+/* ─── Journal ────────────────────────────────────────────────────────────── */
+
+.journal {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.journal th,
+.journal td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.journal th {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+
+.journal-ko td:nth-child(5) {
+  color: var(--blocked);
+  font-weight: 600;
+}
+
+ul.lane-cell {
+  margin: 0;
+  list-style: none;
+}
+
+.lane-item {
+  display: flex;
+  flex-direction: column;
+}

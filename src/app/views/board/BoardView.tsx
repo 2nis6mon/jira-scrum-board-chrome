@@ -1,7 +1,8 @@
+import { Fragment } from "preact";
 import { useEffect } from "preact/hooks";
 import type { BoardConfiguration } from "../../../core/boardConfiguration";
 import { displayedCardFields, displayedGoalId } from "../../../core/boardConfiguration";
-import { type BoardSnapshot, sprintMetrics } from "../../../core/boardIssue";
+import { type BoardSnapshot, browseUrl, sprintMetrics } from "../../../core/boardIssue";
 import { type BoardLayout, columnLoad, daysRemaining, type Lane } from "../../../core/boardLayout";
 import {
   activeFilterCount,
@@ -30,6 +31,7 @@ export function BoardView({
       <SprintHeader board={board} configuration={configuration} snapshot={snapshot} />
       {snapshot?.sprint && <FilterBar board={board} />}
       <Notices board={board} snapshot={snapshot} layout={layout} />
+      <TransitionChoiceDialog board={board} />
       {snapshot === null ? (
         !board.syncProblem.value && <p class="board-empty">Lecture du board dans Jira…</p>
       ) : snapshot.sprint === null ? (
@@ -40,6 +42,53 @@ export function BoardView({
         layout && <BoardGrid board={board} configuration={configuration} layout={layout} />
       )}
     </main>
+  );
+}
+
+// ─── Choix d'une transition ──────────────────────────────────────────────────
+
+/** Aucune transition directe vers la colonne : on montre ce que Jira autorise réellement. */
+function TransitionChoiceDialog({ board }: { board: BoardModel }) {
+  const choice = board.transitionChoice.value;
+  useEffect(() => {
+    if (!choice) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") board.cancelTransitionChoice();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [board, choice]);
+  if (!choice) return null;
+
+  return (
+    <div class="dialog-backdrop">
+      <div
+        class="dialog panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="transition-choice-title"
+      >
+        <h2 id="transition-choice-title">Aucune transition directe vers « {choice.columnName} »</h2>
+        <p class="hint">
+          Depuis son statut actuel, Jira propose pour {choice.issueKey} les transitions suivantes.
+          L'extension n'en enchaîne jamais plusieurs à votre place.
+        </p>
+        <ul class="transition-list">
+          {choice.available.map((transition) => (
+            <li key={transition.id}>
+              <button type="button" onClick={() => void board.chooseTransition(transition)}>
+                <strong>{transition.name}</strong> → {transition.to.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div class="row">
+          <button type="button" class="grow" onClick={() => board.cancelTransitionChoice()}>
+            Ne rien changer
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -319,8 +368,36 @@ function Notices(props: {
 }) {
   const { board, snapshot, layout } = props;
   const problem = board.syncProblem.value;
+  const writeNotice = board.writeNotice.value;
   return (
     <>
+      {writeNotice && (
+        <div class={`notice notice-${writeNotice.tone}`} role="alert">
+          <p>
+            <strong>{writeNotice.text}</strong>
+            {writeNotice.suggestion && ` ${writeNotice.suggestion}`}
+          </p>
+          <div class="row">
+            {writeNotice.sessionLost && (
+              <a href={board.site.origin} target="_blank" rel="noopener noreferrer">
+                Ouvrir {board.site.host}
+              </a>
+            )}
+            {writeNotice.issueKey && !writeNotice.sessionLost && (
+              <a
+                href={browseUrl(board.site.origin, writeNotice.issueKey)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Ouvrir {writeNotice.issueKey}
+              </a>
+            )}
+            <button type="button" aria-label="Fermer" onClick={() => board.dismissWriteNotice()}>
+              ×
+            </button>
+          </div>
+        </div>
+      )}
       {problem && (
         <div class="notice notice-error" role="alert">
           <p>
@@ -478,32 +555,105 @@ function LaneView(props: {
         </div>
       )}
       <div class="board-row lane-cells">
-        {lane.cells.map((cell) => (
-          <div key={cell.column.id} class="lane-cell">
-            {cell.issues.map((issue) => {
-              const shownUnder = lane.block.kind === "goal" ? lane.block.goalId : null;
-              const hiddenGoal =
-                issue.goalId !== null && displayedGoalId(configuration, issue.goalId) !== shownUnder
-                  ? (goalsById.get(issue.goalId)?.title ?? null)
-                  : null;
-              return (
-                <IssueCard
-                  key={issue.issue.id}
-                  issue={issue}
-                  siteOrigin={board.site.origin}
-                  images={board.images}
-                  cardFields={cardFields}
-                  showStatus={cell.column.statusIds.length > 1}
-                  agingThresholdDays={configuration.agingThresholdDays}
-                  goalTitle={hiddenGoal}
-                />
-              );
-            })}
-          </div>
-        ))}
+        {lane.cells.map((cell) => {
+          const drag = board.dragging.value;
+          const droppable = drag !== null && board.accepts(lane.block, drag.lane);
+          const target = board.dropTarget.value;
+          const targeted =
+            droppable && target?.laneId === lane.id && target.columnId === cell.column.id;
+          const dropLine = <li class="drop-line" aria-hidden="true" />;
+          return (
+            <ul
+              key={cell.column.id}
+              aria-label={`${lane.title} — ${cell.column.name}`}
+              class={`lane-cell${droppable ? " lane-cell-droppable" : ""}${targeted ? " lane-cell-target" : ""}`}
+              onDragOver={(event) => {
+                const current = board.dragging.value;
+                if (!current || !board.accepts(lane.block, current.lane)) return;
+                event.preventDefault();
+                if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+                board.setDropTarget({
+                  laneId: lane.id,
+                  columnId: cell.column.id,
+                  beforeKey: insertionPoint(event.currentTarget, event.clientY, current.issueKey),
+                });
+              }}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  board.setDropTarget(null);
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const current = board.dragging.value;
+                const key = event.dataTransfer?.getData(DRAG_TYPE) ?? "";
+                const beforeKey = board.dropTarget.value?.beforeKey ?? null;
+                board.endDrag();
+                // Seule la carte dont le glissement a commencé sur ce board est acceptée.
+                if (!current || key !== current.issueKey) return;
+                void board.dropIssue({
+                  issueKey: key,
+                  block: lane.block,
+                  columnId: cell.column.id,
+                  beforeKey,
+                });
+              }}
+            >
+              {cell.issues.map((issue) => {
+                const shownUnder = lane.block.kind === "goal" ? lane.block.goalId : null;
+                const hiddenGoal =
+                  issue.goalId !== null &&
+                  displayedGoalId(configuration, issue.goalId) !== shownUnder
+                    ? (goalsById.get(issue.goalId)?.title ?? null)
+                    : null;
+                const key = issue.issue.key;
+                return (
+                  <Fragment key={issue.issue.id}>
+                    {targeted && target?.beforeKey === key && dropLine}
+                    <li class="lane-item">
+                      <IssueCard
+                        issue={issue}
+                        siteOrigin={board.site.origin}
+                        images={board.images}
+                        cardFields={cardFields}
+                        showStatus={cell.column.statusIds.length > 1}
+                        agingThresholdDays={configuration.agingThresholdDays}
+                        goalTitle={hiddenGoal}
+                        pending={board.pendingKeys.value.has(key)}
+                        dragging={drag?.issueKey === key}
+                        onDragStart={(event) => {
+                          if (!event.dataTransfer) return;
+                          event.dataTransfer.setData(DRAG_TYPE, key);
+                          event.dataTransfer.effectAllowed = "move";
+                          board.startDrag(key, issue.category === "RUN" ? "run" : "scrum");
+                        }}
+                        onDragEnd={() => board.endDrag()}
+                      />
+                    </li>
+                  </Fragment>
+                );
+              })}
+              {targeted && target?.beforeKey === null && dropLine}
+            </ul>
+          );
+        })}
       </div>
     </section>
   );
+}
+
+/** Type de donnée du glisser-déposer : propre à l'extension, il ne porte qu'une clé de ticket. */
+const DRAG_TYPE = "application/x-scrum-board-issue";
+
+/** Carte devant laquelle déposer, d'après la position du pointeur ; `null` = à la fin. */
+function insertionPoint(cell: HTMLElement, clientY: number, draggedKey: string): string | null {
+  for (const card of cell.querySelectorAll<HTMLElement>("[data-issue-key]")) {
+    const key = card.dataset.issueKey;
+    if (!key || key === draggedKey) continue;
+    const box = card.getBoundingClientRect();
+    if (clientY < box.top + box.height / 2) return key;
+  }
+  return null;
 }
 
 function sameColumns(a: BoardLayout["columns"], b: BoardLayout["columns"]): boolean {

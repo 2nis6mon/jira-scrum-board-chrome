@@ -19,6 +19,11 @@ interface Props {
   agingThresholdDays: number;
   /** Titre de l'objectif, montré quand le ticket n'est pas dans la swimlane de son objectif. */
   goalTitle: string | null;
+  /** Une écriture est en cours sur ce ticket : il attend la réponse de Jira. */
+  pending?: boolean;
+  dragging?: boolean;
+  onDragStart?: (event: DragEvent) => void;
+  onDragEnd?: () => void;
 }
 
 /** Carte d'un ticket. Un clic ouvre le ticket dans Jira, dans un nouvel onglet. */
@@ -33,12 +38,17 @@ export function IssueCard(props: Props) {
 
   return (
     <a
-      class={`card${issue.isBlocked ? " card-blocked" : ""}`}
+      class={`card${issue.isBlocked ? " card-blocked" : ""}${props.pending ? " card-pending" : ""}${props.dragging ? " card-dragging" : ""}`}
       href={browseUrl(props.siteOrigin, issue.issue.key)}
       target="_blank"
       rel="noopener noreferrer"
       data-issue-key={issue.issue.key}
+      draggable={props.onDragStart !== undefined && !props.pending}
+      onDragStart={props.onDragStart}
+      onDragEnd={props.onDragEnd}
+      aria-busy={props.pending ? true : undefined}
     >
+      {props.pending && <span class="card-pending-label">Envoi à Jira…</span>}
       <div class="card-top">
         <JiraIcon
           url={fields.issuetype.iconUrl}
