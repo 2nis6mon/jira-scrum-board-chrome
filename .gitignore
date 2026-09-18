@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+*.zip
+*.crx
+*.pem
+.secrets/
+.DS_Store
+*.log
+.vite/

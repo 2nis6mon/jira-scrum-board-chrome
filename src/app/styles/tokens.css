@@ -1,0 +1,35 @@
+/* Jetons repris de Theme.swift (app macOS). Seul le jeu clair est défini pour l'instant.
+   Une couleur d'objectif n'apparaît que sur son anneau, la teinte de sa ligne et sa barre ;
+   un statut n'apparaît jamais sans son icône et son libellé. */
+:root {
+  color-scheme: light;
+
+  /* Neutres */
+  --background: #f7f8fa;
+  --sidebar: #f1f3f6;
+  --surface: #ffffff;
+  --line: #e2e5ea;
+  --column: #eceef2;
+  --ink: #15181d;
+  --ink-2: #3f444d;
+  --ink-3: #636a76;
+  --ink-4: #6b7280;
+
+  /* Statuts */
+  --blocked: #dc2626;
+  --done: #15803d;
+  --in-progress: #2563eb;
+  --added: #7c3aed;
+  --run: #b45309;
+  --jira-filter: #0d9488;
+
+  /* Gabarits */
+  --sidebar-width: 248px;
+  --header-height: 56px;
+  --filter-bar-height: 44px;
+  --column-band-height: 32px;
+  --lane-header-height: 28px;
+  --card-corner: 7px;
+
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}

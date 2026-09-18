@@ -1,0 +1,33 @@
+{
+  "name": "jira-scrum-board-chrome",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Extension Chrome : Scrum Board Jira piloté par les objectifs du sprint",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "vite build",
+    "watch": "vite build --watch --mode development",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "verify:load": "npm run build && node scripts/verify-load.mjs"
+  },
+  "dependencies": {
+    "@preact/signals": "2.11.2",
+    "preact": "10.29.8"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@types/chrome": "0.3.0",
+    "happy-dom": "20.14.5",
+    "typescript": "7.0.2",
+    "vite": "8.3.0",
+    "vitest": "5.0.1"
+  }
+}
