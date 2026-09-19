@@ -965,18 +965,47 @@ button.lane-title[aria-pressed="true"] {
 .card-bottom {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
-.card-spacer {
-  flex: 1;
+/* Drapeau et priorité, poussés à droite de la clé. */
+.card-marks {
+  flex: none;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
 
+/* Dernière ligne : alertes à gauche (elles seules se replient si elles sont trop nombreuses),
+   points et assigné à droite, toujours sur la ligne. */
+.card-alerts {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.card-owner {
+  flex: none;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Toujours sur une ligne, entre l'icône du type et le drapeau ; « … » seulement si la colonne est
+   trop étroite pour elle (clé complète au survol). */
 .card-key {
+  min-width: 0;
+  overflow: hidden;
   font-size: 12px;
   font-weight: 600;
   color: var(--ink-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-flag {
@@ -1013,6 +1042,7 @@ button.lane-title[aria-pressed="true"] {
 .badge {
   display: inline-flex;
   align-items: center;
+  gap: 3px;
   height: 18px;
   padding: 0 6px;
   border-radius: 9px;
@@ -1021,6 +1051,7 @@ button.lane-title[aria-pressed="true"] {
 }
 
 .badge-blocked {
+  padding: 0 4px;
   background: #fde8e8;
   color: #b91c1c;
 }
@@ -1036,6 +1067,7 @@ button.lane-title[aria-pressed="true"] {
 }
 
 .badge-added {
+  padding: 0 4px;
   background: #efe8fd;
   color: var(--added);
 }
@@ -1256,9 +1288,11 @@ ul.lane-cell {
   list-style: none;
 }
 
+/* Conteneur de requête : une carte étroite se fait plus compacte (voir @container plus bas). */
 .lane-item {
   display: flex;
   flex-direction: column;
+  container-type: inline-size;
 }
 
 .goal-status {
@@ -2472,4 +2506,17 @@ details.lane-menu .menu-panel {
 
 details.lane-menu:not([data-placed]) .menu-panel {
   visibility: hidden;
+}
+
+/* Colonne étroite : carte un peu plus compacte, pour que la clé tienne sur sa ligne entre l'icône
+   du type et le drapeau. Si la place manque encore, elle finit par « … » (clé entière au survol). */
+@container (max-width: 175px) {
+  .lane-item .card {
+    padding-right: 7px;
+    padding-left: 7px;
+  }
+
+  .lane-item .card-key {
+    font-size: 11px;
+  }
 }

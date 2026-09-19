@@ -223,6 +223,13 @@ défile horizontalement (`overflow-x: auto` rogne aussi en vertical). Son pannea
 en position fixe, placé à l'ouverture (`views/board/floatingMenu.ts`) sous son bouton ou
 au-dessus faute de place, et refermé si la page ou le board défile.
 
+0.10.4 (demandes de Denis sur la carte) : dernière ligne = alertes en pastilles à icône (bloqué,
+bugs, ajouté, jours) à gauche, points et assigné à droite, jamais repoussés à la ligne ; clé
+jamais sur deux lignes (`white-space: nowrap`, « … » en dernier recours) ; une carte étroite se
+compacte par requête de conteneur (`.lane-item`, `@container (max-width: 175px)`). Une clé
+longue reste coupée quand les colonnes sont à leur minimum (150 px) : élargir ce minimum est
+une option proposée à Denis, pas faite.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.
 

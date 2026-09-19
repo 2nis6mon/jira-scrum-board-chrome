@@ -8,6 +8,7 @@ import {
 import type { ParentColor } from "../../../core/parentColors";
 import type { ImageCache } from "../../model/ImageCache";
 import { formatPoints, initials, plural } from "../format";
+import { Icon } from "../Icon";
 import { JiraIcon } from "./JiraIcon";
 
 interface Props {
@@ -67,15 +68,20 @@ export function IssueCard(props: Props) {
           label={fields.issuetype.name}
           images={props.images}
         />
-        <span class="card-key">{issue.issue.key}</span>
-        <span class="card-spacer" />
-        {issue.isFlagged && <FlagIcon />}
-        {fields.priority && (
-          <JiraIcon
-            url={fields.priority.iconUrl}
-            label={fields.priority.name}
-            images={props.images}
-          />
+        <span class="card-key" title={issue.issue.key}>
+          {issue.issue.key}
+        </span>
+        {(issue.isFlagged || fields.priority) && (
+          <span class="card-marks">
+            {issue.isFlagged && <FlagIcon />}
+            {fields.priority && (
+              <JiraIcon
+                url={fields.priority.iconUrl}
+                label={fields.priority.name}
+                images={props.images}
+              />
+            )}
+          </span>
         )}
       </div>
 
@@ -108,65 +114,86 @@ export function IssueCard(props: Props) {
         </div>
       )}
 
-      {(issue.isBlocked ||
-        issue.linkedBugs.length > 0 ||
-        issue.addedAfterSprintStart === true ||
-        aging) && (
-        <div class="card-badges">
+      {/* Dernière ligne : les alertes, compactes (icône, détail au survol), puis points et assigné. */}
+      <div class="card-bottom">
+        <div class="card-alerts">
           {issue.isBlocked && (
-            <span class="badge badge-blocked" title={blockedDetail(issue)}>
-              Bloqué
+            <span
+              class="badge badge-blocked"
+              role="img"
+              aria-label="Bloqué"
+              title={blockedTitle(issue)}
+            >
+              <Icon name="blocked" size={13} />
             </span>
           )}
           {issue.linkedBugs.length > 0 && (
             <span
               class={`badge ${openBugs.length > 0 ? "badge-bugs-open" : "badge-bugs-done"}`}
-              title={issue.linkedBugs
-                .map((bug) => `${bug.key}${bug.statusName ? ` — ${bug.statusName}` : ""}`)
-                .join("\n")}
+              role="img"
+              aria-label={
+                openBugs.length > 0
+                  ? plural(openBugs.length, "bug ouvert", "bugs ouverts")
+                  : "Bugs liés terminés"
+              }
+              title={[
+                openBugs.length > 0
+                  ? plural(openBugs.length, "bug ouvert", "bugs ouverts")
+                  : "Bugs liés terminés",
+                ...issue.linkedBugs.map(
+                  (bug) => `${bug.key}${bug.statusName ? ` — ${bug.statusName}` : ""}`,
+                ),
+              ].join("\n")}
             >
-              {openBugs.length > 0
-                ? plural(openBugs.length, "bug ouvert", "bugs ouverts")
-                : "Bugs terminés"}
+              <Icon name="bug" size={13} />
+              {openBugs.length > 0 ? openBugs.length : issue.linkedBugs.length}
             </span>
           )}
           {issue.addedAfterSprintStart === true && (
-            <span class="badge badge-added" title="Ajouté au sprint après son démarrage">
-              Ajouté
+            <span
+              class="badge badge-added"
+              role="img"
+              aria-label="Ajouté en cours de sprint"
+              title="Ajouté au sprint après son démarrage"
+            >
+              <Icon name="added" size={13} />
             </span>
           )}
           {aging && (
-            <span class="badge badge-aging" title="Jours depuis le dernier changement de statut">
+            <span
+              class="badge badge-aging"
+              title={`${plural(issue.daysInColumn ?? 0, "jour")} sans changement de statut`}
+            >
+              <Icon name="clock" size={12} />
               {issue.daysInColumn} j
             </span>
           )}
         </div>
-      )}
-
-      <div class="card-bottom">
-        <span class="card-spacer" />
-        {issue.estimate !== null && (
-          <span class="card-points" title="Story points">
-            {formatPoints(issue.estimate)}
-          </span>
-        )}
-        {fields.assignee ? (
-          <span
-            class="avatar"
-            role="img"
-            title={fields.assignee.displayName}
-            aria-label={fields.assignee.displayName}
-          >
-            {initials(fields.assignee.displayName)}
-          </span>
-        ) : (
-          <span
-            class="avatar avatar-empty"
-            role="img"
-            title="Non assigné"
-            aria-label="Non assigné"
-          />
-        )}
+        {/* Points et assigné restent ensemble, à droite, sur la ligne. */}
+        <div class="card-owner">
+          {issue.estimate !== null && (
+            <span class="card-points" title="Story points">
+              {formatPoints(issue.estimate)}
+            </span>
+          )}
+          {fields.assignee ? (
+            <span
+              class="avatar"
+              role="img"
+              title={fields.assignee.displayName}
+              aria-label={fields.assignee.displayName}
+            >
+              {initials(fields.assignee.displayName)}
+            </span>
+          ) : (
+            <span
+              class="avatar avatar-empty"
+              role="img"
+              title="Non assigné"
+              aria-label="Non assigné"
+            />
+          )}
+        </div>
       </div>
     </a>
   );
@@ -184,6 +211,11 @@ function FlagIcon() {
       <path d="M4.2 2h9.3l-2.4 3.6 2.4 3.6H4.2z" fill="currentColor" />
     </svg>
   );
+}
+
+/** Info-bulle de la pastille « bloqué » : ce qui bloque, lien par lien et label par label. */
+function blockedTitle(issue: BoardIssue): string {
+  return ["Bloqué", blockedDetail(issue)].filter((line) => line !== "").join("\n");
 }
 
 function blockedDetail(issue: BoardIssue): string {

@@ -172,10 +172,40 @@ describe("App", () => {
     expect(card("ABC-104")?.textContent).not.toContain("Revue");
     // Drapeau à droite, juste avant la priorité ; titre complet en info-bulle.
     const flag = card("ABC-104")?.querySelector(".card-flag");
-    expect(flag?.previousElementSibling?.classList.contains("card-spacer")).toBe(true);
+    expect(flag?.parentElement?.classList.contains("card-marks")).toBe(true);
+    expect(flag?.parentElement?.previousElementSibling?.classList.contains("card-key")).toBe(true);
     expect(card("ABC-101")?.querySelector(".card-summary")?.getAttribute("title")).toBe(
       "Afficher le récapitulatif avant paiement",
     );
+  });
+
+  it("carte : alertes, points et assigné sur la dernière ligne ; clé sur une seule ligne", async () => {
+    const old = issueJson("ABC-108", {
+      summary: "Ticket ancien et bloqué",
+      statusId: "3",
+      points: 5,
+      assigneeId: "u2",
+      assigneeName: "Alex Martin",
+      blockedBy: "OPS-9",
+      extraFields: { created: "2026-01-05T09:00:00.000+0000" },
+    });
+    await connectedBoard(boardSiteJira({ sprintIssues: [...SPRINT_ISSUES, old] }));
+    const card = document.querySelector<HTMLElement>('[data-issue-key="ABC-108"]');
+    const bottom = card?.querySelector(".card-bottom");
+    if (!card || !bottom) throw new Error("carte attendue");
+
+    const blocked = bottom.querySelector(".badge-blocked");
+    expect(blocked?.getAttribute("aria-label")).toBe("Bloqué");
+    expect(blocked?.querySelector("svg.icon")).not.toBeNull();
+    expect(blocked?.getAttribute("title")).toContain("OPS-9");
+    expect(bottom.querySelector(".badge-aging")?.textContent).toMatch(/^\d+ j$/);
+    expect(bottom.querySelector(".card-points")?.textContent).toBe("5");
+    expect(bottom.querySelector(".avatar")?.getAttribute("aria-label")).toBe("Alex Martin");
+    // Plus de ligne d'alertes à part : seuls parent et champs choisis restent au-dessus.
+    expect(
+      card.querySelectorAll(".card-badges .badge-blocked, .card-badges .badge-aging"),
+    ).toHaveLength(0);
+    expect(card.querySelector(".card-key")?.getAttribute("title")).toBe("ABC-108");
   });
 
   it("WIP : la colonne au-delà de sa limite est signalée, filtres ou non", async () => {

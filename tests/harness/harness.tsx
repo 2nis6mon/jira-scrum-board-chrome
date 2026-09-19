@@ -168,6 +168,7 @@ if (scenario.startsWith("board")) {
       },
       customfield_10021: [{ value: "Impediment" }],
       priority: { id: "2", name: "High" },
+      created: "2026-04-20T09:00:00.000+0000",
     },
     "ABC-103": { parent: { key: "ABC-91", fields: { summary: "Performance du panier" } } },
     "ABC-105": {

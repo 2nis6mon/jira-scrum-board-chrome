@@ -9,7 +9,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.10.3 — réglages locaux terminés (étape 5), mise en page de l'app Mac.** Board du
+> **État : 0.10.4 — réglages locaux terminés (étape 5), mise en page de l'app Mac.** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
 > du board Jira ; glisser-déposer qui écrit dans Jira : transition, rang, et lien natif
 > ticket↔Goal ; épinglage de Goals au sprint, gardé dans le navigateur si Jira le refuse ; ordre,
@@ -92,13 +92,15 @@ Chaque écriture attend la confirmation de Jira avant la suivante ; la carte ne 
 relecture du board. Aucune écriture n'est rejouée : si Jira ne répond pas, le board est relu et
 le bandeau le dit. Chaque tentative est notée dans le **journal** (*Administration → Diagnostic*).
 
-- **Cartes** : type, clé, drapeau Jira et priorité à droite, résumé sur deux lignes au plus (en
-  entier au survol), story points, initiales de l'assigné. Le parent est un badge à son titre,
+- **Cartes** : type, clé (toujours sur une ligne ; carte plus compacte en colonne étroite, « … »
+  en dernier recours, clé entière au survol), drapeau Jira et priorité à droite, résumé sur deux
+  lignes au plus (en entier au survol). Le parent est un badge à son titre,
   d'une couleur propre à ce parent : tous ses tickets la partagent, deux parents ne l'ont jamais
   en commun (0.9.1). Les champs choisis dans les réglages sont des badges, un par valeur, le nom
-  du champ au survol. Le statut n'est pas écrit : la colonne le dit. Badges *Bloqué* (lien « est
-  bloqué par », détail au survol), bugs liés, *Ajouté* en cours de sprint, jours dans la colonne
-  au-delà du seuil. Les icônes de type et de priorité
+  du champ au survol. Le statut n'est pas écrit : la colonne le dit. Dernière ligne (0.10.4) :
+  les alertes en pastilles à icône — bloqué (détail au survol), bugs liés (nombre), ajouté en
+  cours de sprint, jours sans changement de statut au-delà du seuil —, puis story points et
+  initiales de l'assigné, toujours à droite. Les icônes de type et de priorité
   sont téléchargées depuis le site avec la session ; les avatars ne le sont pas (ils sont
   hébergés hors du site) : on affiche les initiales.
 - **En-tête** : sprint (badge *actif*), dates, jours restants, avancement en story points (en
@@ -274,6 +276,8 @@ développement, jamais inclus dans `dist/`.
   fenêtre), fenêtre rétrécie, clavier, double-clic ; vérifié dans Chrome sur le banc d'essai.
 - Menu « ⋯ » d'une swimlane (0.10.3) : entier même sur la dernière swimlane d'un board replié,
   ouvert vers le haut dans une fenêtre basse ; vérifié dans Chrome sur le banc d'essai.
+- Carte (0.10.4) : alertes, points et assigné sur une ligne ; clé sur une ligne, entière dans une
+  carte de 152 px, « … » à 141 px (colonnes au minimum) ; vérifié dans Chrome sur le banc d'essai.
 
 ### ✅ Constaté par l'utilisateur sur son instance (0.2.0, 0.2.1)
 
