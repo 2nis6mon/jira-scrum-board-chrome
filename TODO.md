@@ -153,9 +153,35 @@ automatique, largeur de la barre latérale, filtres.
 - [ ] **Propriété du board dans Jira** (comme celle du sprint, mais au niveau du board) : toute
   l'équipe la lit, et les changements sont partagés tout de suite. Mais c'est une **cinquième
   catégorie d'écriture** et cela **lève la règle « réglages jamais écrits dans Jira »** : à décider
-  par Denis. À vérifier avant tout code : l'endpoint dans la spécification OpenAPI de Jira Software,
-  les droits nécessaires pour écrire (administrateur du board ?), et le format, à partager avec
-  l'app Mac.
+  par Denis. Vérifié le 19/09/2026 dans la spécification OpenAPI de Jira Software
+  (`developer.atlassian.com/cloud/jira/software/swagger.v3.json`) :
+  `GET /rest/agile/1.0/board/{boardId}/properties` (clés), `GET` / `PUT` / `DELETE
+  /rest/agile/1.0/board/{boardId}/properties/{propertyKey}` ; lecture pour qui peut **voir** le
+  board, écriture pour qui peut **modifier** le board (en pratique ses administrateurs : à confirmer
+  sur l'instance de Denis). Taille maximale non précisée pour le board ; 32 768 caractères pour les
+  propriétés de projet (spécification de la plateforme). Valeur lisible par toute l'équipe : rien de
+  personnel ni de sensible dedans. Format à partager avec l'app Mac.
+- [ ] **Propriété d'utilisateur dans Jira**, pour les réglages **personnels** d'une même personne
+  sur plusieurs postes (sans passer par Google) : `GET` / `PUT /rest/api/3/user/properties/{clé}`
+  (paramètre `accountId`) ; chacun lit et écrit **les siennes** (droit « accès à Jira »), seul un
+  administrateur Jira lit celles des autres. Invisible pour l'équipe : ne sert pas au partage.
+  Nouvelle écriture elle aussi.
+- Propriété de projet (`/rest/api/3/project/{clé}/properties/{clé}`) : écriture réservée aux
+  administrateurs du projet, et un projet peut avoir plusieurs boards ; moins adaptée que celle du
+  board.
+
+**Ce que Jira expose déjà sur le board** (lecture, API documentée) :
+`GET /rest/agile/1.0/board/{id}/configuration` → colonnes et leurs statuts, limites WIP `min` et
+`max`, type de contrainte (`constraintType` : en nombre de tickets ou en points), champ
+d'estimation, filtre du board, projet, champ de rang ; `/quickfilter` → filtres rapides ;
+`/features` → fonctionnalités activées (dont `SPRINTS`, `ESTIMATION`, `GOALS`). L'extension lit
+déjà colonnes, WIP `max`, estimation et filtres rapides. **Non exposés** par l'API documentée :
+couleurs des cartes, champs affichés sur les cartes, swimlanes, jours ouvrés du board — d'où les
+réglages locaux correspondants. Pistes nées de cette lecture :
+- [ ] Limite WIP **minimale** et contrainte **en points** (`constraintType`) : ni lues ni
+  appliquées aujourd'hui (le board compare toujours un nombre de tickets au `max`).
+- [ ] `features` : savoir si les Goals sont activés sur le board avant de proposer le mode Goals
+  Atlassian.
 - [ ] **Politique Chrome gérée** (`storage.managed`), si l'entreprise administre Chrome : l'IT pousse
   une configuration en lecture seule. Demande un schéma dans le manifest et l'accord de l'IT ;
   utile seulement pour un déploiement encadré.
