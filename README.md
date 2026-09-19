@@ -9,7 +9,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.10.2 — réglages locaux terminés (étape 5), mise en page de l'app Mac.** Board du
+> **État : 0.10.3 — réglages locaux terminés (étape 5), mise en page de l'app Mac.** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
 > du board Jira ; glisser-déposer qui écrit dans Jira : transition, rang, et lien natif
 > ticket↔Goal ; épinglage de Goals au sprint, gardé dans le navigateur si Jira le refuse ; ordre,
@@ -272,6 +272,8 @@ développement, jamais inclus dans `dist/`.
   animation au survol, saisie refusée, Échap ; vérifié dans Chrome sur le banc d'essai.
 - Largeur de la barre latérale (0.10.2) : glissé à la souris, bornes (200 px, moitié de la
   fenêtre), fenêtre rétrécie, clavier, double-clic ; vérifié dans Chrome sur le banc d'essai.
+- Menu « ⋯ » d'une swimlane (0.10.3) : entier même sur la dernière swimlane d'un board replié,
+  ouvert vers le haut dans une fenêtre basse ; vérifié dans Chrome sur le banc d'essai.
 
 ### ✅ Constaté par l'utilisateur sur son instance (0.2.0, 0.2.1)
 

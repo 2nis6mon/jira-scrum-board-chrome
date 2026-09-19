@@ -218,6 +218,11 @@ Appliquer.
 flèches du clavier, double-clic = 248 px. Gardée dans `chrome.storage.local`, clé `interface.v1`
 (préférence d'affichage, commune à tous les sites), enregistrée au relâchement seulement.
 
+0.10.3 (signalé par Denis) : le menu « ⋯ » d'une swimlane était rogné par la zone du board, qui
+défile horizontalement (`overflow-x: auto` rogne aussi en vertical). Son panneau est désormais
+en position fixe, placé à l'ouverture (`views/board/floatingMenu.ts`) sous son bouton ou
+au-dessus faute de place, et refermé si la page ou le board défile.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.
 

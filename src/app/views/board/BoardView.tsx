@@ -22,6 +22,7 @@ import type { BoardModel } from "../../model/BoardModel";
 import { formatDay, formatPoints, formatTime, goalStatusLabel, plural, toggled } from "../format";
 import { Icon } from "../Icon";
 import { FilterMenu } from "./FilterMenu";
+import { placeFloatingMenu } from "./floatingMenu";
 import { IssueCard } from "./IssueCard";
 import { LANE_DRAG_TYPE, revealLane } from "./lanes";
 import { PinGoalsDialog } from "./PinGoalsDialog";
@@ -911,7 +912,11 @@ function LaneMenu({ board, lane }: { board: BoardModel; lane: Lane }) {
     void action();
   };
   return (
-    <details class="menu lane-menu" name="lane-menu">
+    <details
+      class="menu lane-menu"
+      name="lane-menu"
+      onToggle={(event) => placeFloatingMenu(event.currentTarget)}
+    >
       <summary aria-label={`Affichage de la swimlane ${lane.title}`} title="Affichage">
         ⋯
       </summary>

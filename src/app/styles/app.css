@@ -2459,3 +2459,17 @@ details.board-switcher .menu-panel {
   cursor: col-resize;
   user-select: none;
 }
+
+/* Placé par rapport à la fenêtre (floatingMenu.ts) : le board, qui défile, ne le rogne plus. Caché
+   le temps d'être placé, pour ne pas apparaître un instant au mauvais endroit. */
+details.lane-menu .menu-panel {
+  position: fixed;
+  top: var(--menu-top, 0);
+  right: var(--menu-right, 0);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
+
+details.lane-menu:not([data-placed]) .menu-panel {
+  visibility: hidden;
+}
