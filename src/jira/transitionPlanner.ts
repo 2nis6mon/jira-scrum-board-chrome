@@ -6,11 +6,11 @@ export type TransitionResolution =
   | { kind: "alreadyInTargetColumn" }
   /** Une transition directe existe et peut être exécutée. */
   | { kind: "ready"; transition: JiraTransition; targetStatus: JiraStatus }
+  | { kind: "choose"; available: JiraTransition[] }
   /** La transition existe mais Jira exige des champs que l'application ne remplit pas. */
   | { kind: "requiresFields"; transition: JiraTransition; fields: string[] }
   /**
-   * Aucune transition ne mène à la colonne cible depuis le statut courant. `available` liste
-   * ce que Jira autorise réellement, pour l'afficher à l'utilisateur.
+   * Aucune transition ne mène à la destination : aucune autre destination proposée.
    */
   | { kind: "unreachable"; available: JiraTransition[] };
 
@@ -23,8 +23,7 @@ export type TransitionResolution =
  * reviendrait à provoquer de vraies écritures sans savoir où le ticket s'arrêterait — et
  * pourrait le laisser bloqué dans un statut intermédiaire.
  *
- * L'application exécute donc uniquement les transitions directes, et affiche explicitement les
- * déplacements possibles lorsqu'il n'y en a pas.
+ * Une seule action possible est exécutée ; plusieurs demandent un choix explicite.
  */
 export function resolveTransition(
   currentStatusId: string,
@@ -35,16 +34,13 @@ export function resolveTransition(
 
   const usable = transitions.filter((transition) => transition.isAvailable !== false);
 
-  // L'ordre des statuts de la colonne fait foi : on prend le premier atteignable.
-  let firstFieldBlocked: { transition: JiraTransition; fields: string[] } | null = null;
-  for (const statusId of targetStatusIds) {
-    for (const transition of usable.filter((candidate) => candidate.to.id === statusId)) {
-      const missing = blockingRequiredFields(transition);
-      if (missing.length === 0) return { kind: "ready", transition, targetStatus: transition.to };
-      firstFieldBlocked ??= { transition, fields: missing };
-    }
+  const candidates = usable.filter((transition) => targetStatusIds.includes(transition.to.id));
+  if (candidates.length > 1) return { kind: "choose", available: candidates };
+  const transition = candidates[0];
+  if (!transition) return { kind: "unreachable", available: [] };
+  const missing = blockingRequiredFields(transition);
+  if (transition.hasScreen || missing.length > 0) {
+    return { kind: "requiresFields", transition, fields: missing };
   }
-
-  if (firstFieldBlocked) return { kind: "requiresFields", ...firstFieldBlocked };
-  return { kind: "unreachable", available: usable };
+  return { kind: "ready", transition, targetStatus: transition.to };
 }

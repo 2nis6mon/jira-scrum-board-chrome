@@ -1,6 +1,6 @@
 # TODO — Sprint Goals Board pour Jira
 
-Mis à jour le 19/09/2026 pour la version 0.15.1, après revue du code et précisions de Denis.
+Mis à jour le 19/09/2026 pour la version 0.16.0, après revue du code et précisions de Denis.
 Denis confirme utiliser la dernière version dans Chrome et que les fonctionnalités marchent.
 Ce retour ne constitue pas un relevé détaillé de chaque scénario testé sur son Jira.
 
@@ -58,40 +58,31 @@ de Denis.
   Vérifier les possibilités du schéma avant implémentation ; signaler une lecture incomplète
   si elle ne peut pas être poursuivie. Couvrir le cas de plus de 100 liens et l'absence de
   complément par le champ Goals des tickets.
-- [ ] **Rendre explicite un changement de Goal partiellement réussi.** Dans
-  `src/app/model/BoardModel.ts`, l'ancien lien est supprimé avant la création du nouveau.
-  Si la création échoue, le message doit indiquer que le détachement a déjà réussi et inviter
-  à vérifier l'état relu. Couvrir ce scénario et les résultats incertains ; ne pas rejouer
-  automatiquement les écritures ni introduire une restauration implicite.
+- [x] **0.16.0 — Changement de Goal partiellement réussi** : le message précise désormais
+  que l'ancien lien a déjà été retiré si la création du nouveau lien échoue ou reste incertaine.
+  Les autres opérations déjà confirmées du déplacement sont également signalées.
 
 ---
 
-## 3. Changement de statut par colonne : plusieurs statuts, ou aucun
+## 3. Statuts et transitions — livré en 0.16.0, à essayer sur Jira
 
-**Aujourd'hui** (`jira/transitionPlanner.ts`, port du `TransitionPlanner` du Mac) :
+Règles validées avec Denis le 19/09/2026 :
 
-- Ticket déjà dans un des statuts de la colonne visée : aucune transition, seul le rang peut
-  changer.
-- **Colonne à plusieurs statuts** : le **premier statut de la colonne** (ordre du board Jira)
-  atteignable par une transition directe est choisi **sans demander**. L'utilisateur ne choisit
-  pas le statut.
-- **Aucune transition directe** vers un statut de la colonne : une fenêtre liste les transitions
-  que Jira autorise depuis le statut courant (qui peuvent mener ailleurs) ; l'utilisateur en choisit
-  une ou ne change rien. Jamais d'enchaînement automatique de transitions.
-- Transition qui exige des champs (écran de transition) : refusée, avec un message ; on passe par
-  Jira.
-- **Colonne sans statut** : masquée d'office (réglage « aucun statut Jira ») ; on ne peut pas y
-  déposer de carte.
+- [x] Même colonne : jamais de transition, uniquement Goal et/ou rang.
+- [x] Autre colonne : zones de dépôt par statut accessible, chargées au début du glissé.
+- [x] Colonne inaccessible grisée, dépôt interdit. Chargement et échec de lecture distingués.
+- [x] Plusieurs transitions vers le statut choisi : fenêtre de choix par nom d'action.
+- [x] Écran de transition ou champs obligatoires : passage par Jira, sans écriture du déplacement.
+- [x] Annulation avant toute écriture ; relecture du statut et des transitions après choix.
+- [x] Ordre des opérations : transition, objectif, rang ; arrêt au premier échec, réussite
+  partielle explicitée, aucune restauration automatique.
+- [x] Zone de statut sans position précise : rang conservé ; position devant une carte : classement.
+- [x] Colonne sans statut : reste masquée, explication conservée dans l'administration.
+- [ ] Retour de Denis sur les zones de dépôt, ses transitions réelles et le mode présentation.
 
-**À trancher.**
-
-- [ ] Colonne à plusieurs statuts : garder le choix automatique du premier, ou **demander** quel
-  statut (petite fenêtre quand plusieurs sont atteignables) ? Ou un statut par défaut réglable par
-  colonne dans l'administration ?
-- [ ] Faut-il montrer le statut choisi après coup (bandeau « passé en *Revue* ») ?
-- [ ] Aucune transition directe : la fenêtre actuelle suffit-elle, ou faut-il proposer d'ouvrir le
-  ticket dans Jira directement ?
-- [ ] Colonne sans statut : la montrer grisée, avec « aucun statut Jira », plutôt que la masquer ?
+Les limites WIP restent des avertissements ; elles ne rendent pas un statut inaccessible.
+L'accès à un statut dépend des transitions du ticket et des droits de l'utilisateur, pas d'un
+statut par défaut configuré dans l'extension.
 
 ---
 

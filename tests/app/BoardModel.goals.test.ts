@@ -158,7 +158,7 @@ describe("BoardModel — Goals Atlassian", () => {
     await board.dropIssue({
       issueKey: "ABC-102",
       block: goalBlock(STABILITE),
-      columnId: "col-1-En cours",
+      columnId: "col-0-À faire",
       beforeKey: null,
     });
 
@@ -199,4 +199,38 @@ describe("BoardModel — Goals Atlassian", () => {
     expect(board.snapshot.value?.goals).toEqual([]);
     expect(board.goalsNotice.value).toBeNull();
   });
+});
+
+describe("changement de Goal partiel", () => {
+  it.each([false, true])(
+    "ancien lien retiré, création refusée ou incertaine (%s) : le dit sans restauration",
+    async (uncertain) => {
+      const { board, mutations } = await goalsBoard({
+        mutation: (_input, field) => {
+          if (field === "goals_unlinkWorkItem")
+            return { status: 200, json: { data: { [field]: { success: true } } } };
+          return uncertain
+            ? { status: 503 }
+            : {
+                status: 200,
+                json: { data: { [field]: { success: false, errors: [{ message: "Refus" }] } } },
+              };
+        },
+      });
+      await board.dropIssue({
+        issueKey: "ABC-102",
+        block: goalBlock(STABILITE),
+        columnId: TODO,
+        beforeKey: null,
+      });
+      expect(board.writeNotice.value?.text).toContain("l’ancien Goal a déjà été retiré");
+      expect(mutations.filter((m) => m.field === "goals_unlinkWorkItem")).toHaveLength(1);
+      expect(
+        mutations
+          .filter((m) => m.field === "goals_linkWorkItem")
+          .every((m) => m.goalId === STABILITE),
+      ).toBe(true);
+      if (uncertain) expect(mutations).toHaveLength(2);
+    },
+  );
 });

@@ -3,7 +3,7 @@
 // ni par board.html ni par vite.config.ts : il n'entre jamais dans dist/.
 //
 //   npm run harness   puis   http://localhost:5199/?scenario=board|board-filtre|board-session|
-//                            board-vide|board-dnd|board-choix|board-erreur|board-goals|
+//                            board-vide|board-dnd|board-choix|board-statuts|board-erreur|board-goals|
 //                            board-epingle|board-epingle-refus|board-multi|ok|xsrf|refuse|session|
 //                            deconnecte
 import { render } from "preact";
@@ -64,11 +64,12 @@ async function simulateDrop(
   const point = reference ? at(reference, "top") : at(cell, "bottom");
   card.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: data }));
   await new Promise((resolve) => setTimeout(resolve, 50));
-  cell.dispatchEvent(
+  const destination = cell.querySelector<HTMLElement>(".status-drop-zone") ?? cell;
+  destination.dispatchEvent(
     new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: data, ...point }),
   );
   await new Promise((resolve) => setTimeout(resolve, 50));
-  cell.dispatchEvent(
+  destination.dispatchEvent(
     new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: data, ...point }),
   );
   card.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer: data }));
@@ -230,14 +231,14 @@ if (scenario.startsWith("board")) {
       : withHistory;
   };
   // Faux Jira qui évolue : après la transition, ABC-102 est « En cours ».
-  let moved = false;
+  let moved: { id: string; name: string } | null = null;
   const issues = () =>
     SPRINT_ISSUES.map((issue) =>
       moved && issue.key === "ABC-102"
         ? issueJson("ABC-102", {
             summary: "Brancher le prestataire de paiement",
-            statusId: "3",
-            statusName: "En cours",
+            statusId: moved.id,
+            statusName: moved.name,
             points: 8,
             extraFields: { issuelinks: (issue.fields as { issuelinks: unknown }).issuelinks },
           })
@@ -250,10 +251,12 @@ if (scenario.startsWith("board")) {
   jira.on("GET", "/rest/api/3/issue/ABC-102", () => ({
     status: 200,
     json: {
-      fields: { status: moved ? statusJson("3", "En cours") : statusJson("1", "À faire", "new") },
+      fields: {
+        status: moved ? statusJson(moved.id, moved.name) : statusJson("1", "À faire", "new"),
+      },
     },
   }));
-  const target = scenario === "board-choix" ? ["41", "9", "Abandonné"] : ["21", "3", "En cours"];
+  const target = ["21", "3", "En cours"];
   jira.on("GET", "/rest/api/3/issue/ABC-102/transitions", {
     status: 200,
     json: {
@@ -264,17 +267,29 @@ if (scenario.startsWith("board")) {
           to: statusJson(target[1] ?? "", target[2] ?? ""),
           isAvailable: true,
         },
+        ...(scenario === "board-choix"
+          ? [
+              {
+                id: "22",
+                name: "Démarrer avec validation",
+                to: statusJson("3", "En cours"),
+                isAvailable: true,
+              },
+            ]
+          : []),
+        { id: "23", name: "Envoyer en revue", to: statusJson("4", "Revue"), isAvailable: true },
       ],
     },
   });
-  jira.on("POST", "/rest/api/3/issue/ABC-102/transitions", () => {
+  jira.on("POST", "/rest/api/3/issue/ABC-102/transitions", (request) => {
     if (scenario === "board-erreur") {
       return {
         status: 400,
         json: { errorMessages: ["Le validateur du workflow a refusé la transition."] },
       };
     }
-    moved = true;
+    const id = (request.body as { transition: { id: string } }).transition.id;
+    moved = id === "23" ? { id: "4", name: "Revue" } : { id: "3", name: "En cours" };
     return { status: 204 };
   });
   if (scenario === "board-vide") {
@@ -301,6 +316,9 @@ if (scenario.startsWith("board")) {
       }),
       { resync: true },
     );
+    if (scenario === "board-statuts") {
+      connection.board.startDrag("ABC-102", "scrum");
+    }
     if (scenario === "board-filtre") connection.board.toggleQuickFilter("blocked");
     if (pinning) connection.board.openPinEditor();
     if (["board-dnd", "board-choix", "board-erreur"].includes(scenario)) {

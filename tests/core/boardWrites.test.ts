@@ -96,13 +96,12 @@ describe("moveToColumn", () => {
     expect(jira.sent("POST")).toEqual([]);
   });
 
-  it("pas de transition directe : propose ce que Jira autorise, rien n'est écrit", async () => {
+  it("pas de transition directe : refus sans autre destination", async () => {
     const jira = new FakeJira()
       .on("GET", ISSUE, status("3", "En cours"))
       .on("GET", TRANSITIONS, { status: 200, json: { transitions: [transition("11", "4")] } });
     const outcome = await move(jira);
-    expect(outcome.kind).toBe("choose");
-    expect(outcome.kind === "choose" && outcome.available.map((t) => t.id)).toEqual(["11"]);
+    expect(outcome.kind).toBe("noTransition");
     expect(jira.sent("POST")).toEqual([]);
   });
 

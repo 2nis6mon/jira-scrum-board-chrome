@@ -93,33 +93,20 @@ describe("glisser-déposer — changement de colonne", () => {
     });
   });
 
-  it("pas de transition directe : propose les transitions de Jira, puis exécute celle choisie", async () => {
+  it("destination inaccessible : aucune écriture, ni choix vers une autre colonne", async () => {
     const { board, jira, writes } = await boardWith();
     jira
       .on("GET", "/rest/api/3/issue/ABC-102", statusReply("1", "À faire"))
-      .on(
-        "GET",
-        "/rest/api/3/issue/ABC-102/transitions",
-        transitions(["21", "3", "En cours"], ["41", "9", "Abandonné"]),
-      )
-      .on("POST", "/rest/api/3/issue/ABC-102/transitions", { status: 204 });
-
+      .on("GET", "/rest/api/3/issue/ABC-102/transitions", transitions(["21", "3", "En cours"]));
     await board.dropIssue({
       issueKey: "ABC-102",
-      block: goalBlock("g-paiement"),
+      block: goalBlock("g-stabilite"),
       columnId: DONE,
       beforeKey: null,
     });
     expect(writes()).toEqual([]);
-    const choice = board.transitionChoice.value;
-    expect(choice?.columnName).toBe("Terminé");
-    expect(choice?.available.map((t) => t.name)).toEqual(["Vers En cours", "Vers Abandonné"]);
-
-    const chosen = choice?.available[0];
-    if (!chosen) throw new Error("transition attendue");
-    await board.chooseTransition(chosen);
-    expect(writes().map((r) => r.body)).toEqual([{ transition: { id: "21" } }]);
     expect(board.transitionChoice.value).toBeNull();
+    expect(board.writeNotice.value?.text).toContain("Aucune transition disponible");
   });
 
   it("choisir « ne rien changer » n'écrit rien", async () => {
@@ -235,7 +222,7 @@ describe("glisser-déposer — rattachement à un objectif du texte du sprint", 
     expect(links).toHaveProperty("ABC-102", "g-paiement");
   });
 
-  it("objectif et colonne : rattachement d'abord, transition ensuite", async () => {
+  it("objectif et colonne : transition avant le rattachement", async () => {
     const { board, jira, writes } = await boardWith();
     jira
       .on("PUT", PROPERTY, { status: 200 })
@@ -250,24 +237,29 @@ describe("glisser-déposer — rattachement à un objectif du texte du sprint", 
       beforeKey: null,
     });
     expect(writes().map((r) => r.path)).toEqual([
-      PROPERTY,
       "/rest/api/3/issue/ABC-105/transitions",
+      PROPERTY,
     ]);
   });
 
-  it("rattachement refusé : la transition n'est pas tentée", async () => {
+  it("rattachement refusé après la transition : réussite partielle explicite", async () => {
     const { board, jira, writes } = await boardWith();
-    jira.on("PUT", PROPERTY, { status: 403, json: {} });
+    jira
+      .on("PUT", PROPERTY, { status: 403, json: {} })
+      .on("GET", "/rest/api/3/issue/ABC-105", statusReply("1", "À faire"))
+      .on("GET", "/rest/api/3/issue/ABC-105/transitions", transitions(["21", "3", "En cours"]))
+      .on("POST", "/rest/api/3/issue/ABC-105/transitions", { status: 204 });
     await board.dropIssue({
       issueKey: "ABC-105",
       block: goalBlock("g-stabilite"),
       columnId: DOING,
       beforeKey: null,
     });
-
-    expect(writes().map((r) => r.path)).toEqual([PROPERTY]);
-    expect(jira.sent("GET", "/rest/api/3/issue/ABC-105")).toEqual([]);
-    expect(board.writeNotice.value?.suggestion).toContain("gérer les sprints");
+    expect(writes().map((r) => r.path)).toEqual([
+      "/rest/api/3/issue/ABC-105/transitions",
+      PROPERTY,
+    ]);
+    expect(board.writeNotice.value?.text).toContain("Déjà effectué : statut modifié");
   });
 
   it("déposer dans le même bloc, même colonne, à la même place : rien n'est écrit", async () => {
@@ -391,5 +383,150 @@ describe("glisser-déposer — dépôts refusés sans requête", () => {
       .on("POST", "/rest/api/3/issue/RUN-7/transitions", { status: 204 });
     await board.dropIssue({ issueKey: "RUN-7", block: RUN_BLOCK, columnId: DONE, beforeKey: null });
     expect(writes().map((r) => r.path)).toEqual(["/rest/api/3/issue/RUN-7/transitions"]);
+  });
+});
+
+describe("choix du statut et de la transition avant toute écriture", () => {
+  const path = "/rest/api/3/issue/ABC-102/transitions";
+  const drop = {
+    issueKey: "ABC-102",
+    block: goalBlock("g-stabilite"),
+    columnId: DOING,
+    beforeKey: null,
+    targetStatusId: "3",
+  };
+  async function prepare() {
+    const setup = await boardWith();
+    setup.jira
+      .on("GET", "/rest/api/3/issue/ABC-102", statusReply("1", "À faire"))
+      .on(
+        "GET",
+        path,
+        transitions(["21", "3", "En cours"], ["22", "3", "En cours"], ["23", "4", "Revue"]),
+      )
+      .on("POST", path, { status: 204 })
+      .on("PUT", PROPERTY, { status: 200 });
+    return setup;
+  }
+
+  it("choix limité au statut ciblé, annulation sans changer le Goal", async () => {
+    const { board, writes } = await prepare();
+    await board.dropIssue(drop);
+    expect(board.transitionChoice.value?.available.map((t) => t.id)).toEqual(["21", "22"]);
+    expect(writes()).toEqual([]);
+    expect(board.canSwitchBoard.value).toBe(false);
+    board.cancelTransitionChoice();
+    expect(writes()).toEqual([]);
+    expect(board.canSwitchBoard.value).toBe(true);
+  });
+
+  it("reprend tout le déplacement après choix : transition, Goal, rang", async () => {
+    const { board, jira, writes } = await prepare();
+    jira.on("PUT", RANK, { status: 204 });
+    await board.dropIssue({ ...drop, block: BUILD_BLOCK, beforeKey: "ABC-104" });
+    const chosen = board.transitionChoice.value?.available[1];
+    if (!chosen) throw new Error("choix attendu");
+    await board.chooseTransition(chosen);
+    expect(writes().map((r) => r.path)).toEqual([path, PROPERTY, RANK]);
+    expect(writes()[0]?.body).toEqual({ transition: { id: "22" } });
+    expect(jira.sent("GET", path)).toHaveLength(2);
+  });
+
+  it.each(["statut", "transition"])(
+    "revalide le %s après l'ouverture de la fenêtre",
+    async (change) => {
+      const { board, jira, writes } = await prepare();
+      await board.dropIssue(drop);
+      const chosen = board.transitionChoice.value?.available[0];
+      if (!chosen) throw new Error("choix attendu");
+      if (change === "statut")
+        jira.on("GET", "/rest/api/3/issue/ABC-102", statusReply("6", "Terminé"));
+      else jira.on("GET", path, transitions(["22", "3", "En cours"]));
+      await board.chooseTransition(chosen);
+      expect(writes()).toEqual([]);
+      expect(board.writeNotice.value).not.toBeNull();
+    },
+  );
+
+  it("statut explicite Revue : ne choisit pas En cours", async () => {
+    const { board, writes } = await prepare();
+    await board.dropIssue({ ...drop, targetStatusId: "4" });
+    expect(writes()[0]?.body).toEqual({ transition: { id: "23" } });
+    expect(board.transitionChoice.value).toBeNull();
+  });
+
+  it("écran de transition sans champ obligatoire : passage par Jira, rien n'est écrit", async () => {
+    const { board, jira, writes } = await prepare();
+    jira.on("GET", path, {
+      status: 200,
+      json: {
+        transitions: [
+          {
+            id: "21",
+            name: "Démarrer",
+            to: statusJson("3", "En cours"),
+            hasScreen: true,
+            fields: {},
+          },
+        ],
+      },
+    });
+    await board.dropIssue(drop);
+    expect(writes()).toEqual([]);
+    expect(board.writeNotice.value?.text).toContain("à compléter dans Jira");
+  });
+
+  it("même colonne à plusieurs statuts : aucune lecture ni écriture de transition", async () => {
+    const { board, jira, writes } = await prepare();
+    await board.dropIssue({
+      issueKey: "ABC-101",
+      block: goalBlock("g-stabilite"),
+      columnId: DOING,
+      beforeKey: null,
+      targetStatusId: "4",
+    });
+    expect(writes().map((r) => r.path)).toEqual([PROPERTY]);
+    expect(jira.sent("GET", "/rest/api/3/issue/ABC-101/transitions")).toEqual([]);
+  });
+
+  it("échec de la transition : ni objectif ni rang modifié", async () => {
+    const { board, jira, writes } = await prepare();
+    jira.on("POST", path, { status: 400, json: { errorMessages: ["Refus du validateur"] } });
+    await board.dropIssue({
+      ...drop,
+      targetStatusId: "4",
+      beforeKey: "ABC-104",
+      block: BUILD_BLOCK,
+    });
+    expect(writes().map((r) => r.path)).toEqual([path]);
+  });
+
+  it("zone sans position précise : conserve le rang même si la destination contient une carte", async () => {
+    const { board, writes } = await prepare();
+    await board.dropIssue({ ...drop, targetStatusId: "4", block: BUILD_BLOCK });
+    expect(writes().map((r) => r.path)).toEqual([path, PROPERTY]);
+  });
+
+  it("précharge les statuts, distingue la colonne actuelle et les destinations interdites", async () => {
+    const { board } = await prepare();
+    const columns = board.configuration.value?.scrumColumns;
+    if (!columns?.[0] || !columns[1] || !columns[2]) throw new Error("colonnes attendues");
+    board.startDrag("ABC-102", "scrum");
+    expect(board.columnDrop(columns[0]).kind).toBe("same");
+    expect(board.columnDrop(columns[1]).kind).toBe("loading");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(board.columnDrop(columns[1]).statuses.map((s) => s.id)).toEqual(["3", "4"]);
+    expect(board.columnDrop(columns[2]).kind).toBe("blocked");
+    board.endDrag();
+    expect(board.columnDrop(columns[1]).kind).toBe("idle");
+  });
+
+  it("lecture refusée : erreur distincte, colonne actuelle toujours utilisable", async () => {
+    const { board, jira } = await prepare();
+    jira.on("GET", path, { status: 403 });
+    board.startDrag("ABC-102", "scrum");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(board.dragTransitions.value.kind).toBe("error");
+    board.endDrag();
   });
 });

@@ -18,6 +18,7 @@ import {
   QUICK_FILTERS,
 } from "../../../core/filters";
 import { goalColorName } from "../../../core/sprintGoals";
+import { blockingRequiredFields } from "../../../jira/models";
 import { atlassianLink } from "../../../jira/site";
 import type { BoardModel } from "../../model/BoardModel";
 import { formatDay, formatPoints, formatTime, goalStatusLabel, plural, toggled } from "../format";
@@ -89,7 +90,7 @@ export function BoardView({
 
 // ─── Choix d'une transition ──────────────────────────────────────────────────
 
-/** Aucune transition directe vers la colonne : on montre ce que Jira autorise réellement. */
+/** Plusieurs actions vers la destination : choisir avant toute écriture. */
 function TransitionChoiceDialog({ board }: { board: BoardModel }) {
   const choice = board.transitionChoice.value;
   useEffect(() => {
@@ -110,10 +111,12 @@ function TransitionChoiceDialog({ board }: { board: BoardModel }) {
         aria-modal="true"
         aria-labelledby="transition-choice-title"
       >
-        <h2 id="transition-choice-title">Aucune transition directe vers « {choice.columnName} »</h2>
+        <h2 id="transition-choice-title">
+          Choisir la transition vers « {choice.available[0]?.to.name ?? choice.columnName} »
+        </h2>
         <p class="hint">
-          Depuis son statut actuel, Jira propose pour {choice.issueKey} les transitions suivantes.
-          L'extension n'en enchaîne jamais plusieurs à votre place.
+          Plusieurs actions sont possibles pour {choice.issueKey}. Aucun changement de statut,
+          d’objectif ou de rang ne sera effectué avant votre choix.
         </p>
         <ul class="transition-list">
           {choice.available.map((transition) => (
@@ -124,13 +127,16 @@ function TransitionChoiceDialog({ board }: { board: BoardModel }) {
                 onClick={() => void board.chooseTransition(transition)}
               >
                 <strong>{transition.name}</strong> → {transition.to.name}
+                {(transition.hasScreen || blockingRequiredFields(transition).length > 0) && (
+                  <span class="hint"> · À compléter dans Jira</span>
+                )}
               </button>
             </li>
           ))}
         </ul>
         <div class="row">
           <button type="button" class="grow" onClick={() => board.cancelTransitionChoice()}>
-            Ne rien changer
+            Annuler le déplacement
           </button>
         </div>
       </div>
@@ -876,19 +882,37 @@ function LaneView(props: {
         <div class="board-row lane-cells">
           {lane.cells.map((cell) => {
             const drag = board.dragging.value;
-            const droppable = drag !== null && board.accepts(lane.block, drag.lane);
+            const compatible = drag !== null && board.accepts(lane.block, drag.lane);
+            const destination = board.columnDrop(cell.column);
+            const droppable = compatible && destination.kind === "same";
+            const statusZones = compatible && destination.kind === "statuses";
+            const unavailable =
+              drag !== null &&
+              (!compatible || ["blocked", "loading", "error"].includes(destination.kind));
             const target = board.dropTarget.value;
             const targeted =
-              droppable && target?.laneId === lane.id && target.columnId === cell.column.id;
+              (droppable || statusZones) &&
+              target?.laneId === lane.id &&
+              target.columnId === cell.column.id;
             const dropLine = <li class="drop-line" aria-hidden="true" />;
             return (
               <ul
                 key={cell.column.id}
                 aria-label={`${lane.title} — ${cell.column.name}`}
-                class={`lane-cell${droppable ? " lane-cell-droppable" : ""}${targeted ? " lane-cell-target" : ""}`}
+                class={`lane-cell${droppable || statusZones ? " lane-cell-droppable" : ""}${targeted ? " lane-cell-target" : ""}${unavailable ? " lane-cell-unavailable" : ""}${statusZones ? " lane-cell-statuses" : ""}`}
+                style={
+                  statusZones
+                    ? { minHeight: `${Math.max(160, destination.statuses.length * 78 + 10)}px` }
+                    : undefined
+                }
+                aria-disabled={unavailable || undefined}
                 onDragOver={(event) => {
                   const current = board.dragging.value;
-                  if (!current || !board.accepts(lane.block, current.lane)) return;
+                  if (!current || !droppable) {
+                    if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+                    board.setDropTarget(null);
+                    return;
+                  }
                   event.preventDefault();
                   if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
                   board.setDropTarget({
@@ -909,7 +933,7 @@ function LaneView(props: {
                   const beforeKey = board.dropTarget.value?.beforeKey ?? null;
                   board.endDrag();
                   // Seule la carte dont le glissement a commencé sur ce board est acceptée.
-                  if (!current || key !== current.issueKey) return;
+                  if (!current || key !== current.issueKey || !droppable) return;
                   void board.dropIssue({
                     issueKey: key,
                     block: lane.block,
@@ -918,6 +942,61 @@ function LaneView(props: {
                   });
                 }}
               >
+                {unavailable && (
+                  <li class="drop-unavailable-message">
+                    {!compatible ? "Autre catégorie de ticket" : destination.message}
+                  </li>
+                )}
+                {statusZones && (
+                  <li class="status-drop-zones">
+                    {destination.statuses.map((status) => (
+                      // biome-ignore lint/a11y/noStaticElementInteractions: zone de dépôt uniquement, le déplacement au clavier est hors périmètre.
+                      <div
+                        key={status.id}
+                        class={`status-drop-zone${targeted && target?.statusId === status.id ? " status-drop-zone-active" : ""}`}
+                        data-status-id={status.id}
+                        onDragOver={(event) => {
+                          event.stopPropagation();
+                          event.preventDefault();
+                          if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+                          const cellElement = event.currentTarget.closest(".lane-cell");
+                          board.setDropTarget({
+                            laneId: lane.id,
+                            columnId: cell.column.id,
+                            statusId: status.id,
+                            beforeKey:
+                              cellElement instanceof HTMLElement && drag
+                                ? preciseInsertionPoint(cellElement, event.clientY, drag.issueKey)
+                                : null,
+                          });
+                        }}
+                        onDrop={(event) => {
+                          event.stopPropagation();
+                          event.preventDefault();
+                          const current = board.dragging.value;
+                          const key = event.dataTransfer?.getData(DRAG_TYPE);
+                          const beforeKey = board.dropTarget.value?.beforeKey ?? null;
+                          board.endDrag();
+                          if (!current || key !== current.issueKey) return;
+                          void board.dropIssue({
+                            issueKey: key,
+                            block: lane.block,
+                            columnId: cell.column.id,
+                            beforeKey,
+                            targetStatusId: status.id,
+                          });
+                        }}
+                      >
+                        <strong>{status.name}</strong>
+                        <span>
+                          {status.inJira
+                            ? "À compléter dans Jira"
+                            : "Déposer pour choisir ce statut"}
+                        </span>
+                      </div>
+                    ))}
+                  </li>
+                )}
                 {cell.issues.map((issue) => {
                   const shownUnder = lane.block.kind === "goal" ? lane.block.goalId : null;
                   const hiddenGoal =
@@ -1066,4 +1145,14 @@ function insertionPoint(cell: HTMLElement, clientY: number, draggedKey: string):
 
 function sameColumns(a: BoardLayout["columns"], b: BoardLayout["columns"]): boolean {
   return a.length === b.length && a.every((column, index) => column.id === b[index]?.id);
+}
+
+/** Le rang ne change que près du bord supérieur d'une carte, position explicitement visée. */
+function preciseInsertionPoint(cell: HTMLElement, y: number, movingKey: string): string | null {
+  for (const card of cell.querySelectorAll<HTMLElement>(".card[data-issue-key]")) {
+    const key = card.dataset.issueKey;
+    if (key && key !== movingKey && Math.abs(card.getBoundingClientRect().top - y) <= 10)
+      return key;
+  }
+  return null;
 }

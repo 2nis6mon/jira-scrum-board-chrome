@@ -36,9 +36,9 @@ export type MoveOutcome =
   | { kind: "conflict"; currentStatus: JiraStatus }
   /** La transition exige des champs que l'extension ne remplit pas : rien n'a été écrit. */
   | { kind: "requiresFields"; transition: JiraTransition; fields: string[] }
-  /** Aucune transition directe : voici ce que Jira autorise réellement. Rien n'a été écrit. */
+  /** Plusieurs transitions vers la destination : rien n'a été écrit avant le choix. */
   | { kind: "choose"; available: JiraTransition[] }
-  /** Jira ne propose aucune transition depuis le statut courant. Rien n'a été écrit. */
+  /** Jira ne propose aucune transition vers la destination. Rien n'a été écrit. */
   | { kind: "noTransition"; currentStatus: JiraStatus };
 
 /**
@@ -51,13 +51,22 @@ export type MoveOutcome =
 export async function moveToColumn(
   reader: WriteReader,
   writer: JiraWriter,
-  input: { issueKey: string; knownStatusId: string; targetStatusIds: readonly string[] },
+  input: {
+    issueKey: string;
+    knownStatusId: string;
+    targetStatusIds: readonly string[];
+    transitionId?: string;
+  },
 ): Promise<MoveOutcome> {
   const currentStatus = await reader.issueStatus(input.issueKey);
   if (currentStatus.id !== input.knownStatusId) return { kind: "conflict", currentStatus };
 
   const transitions = await reader.transitions(input.issueKey);
-  const resolution = resolveTransition(currentStatus.id, input.targetStatusIds, transitions);
+  const resolution = resolveTransition(
+    currentStatus.id,
+    input.targetStatusIds,
+    input.transitionId ? transitions.filter((t) => t.id === input.transitionId) : transitions,
+  );
   switch (resolution.kind) {
     case "alreadyInTargetColumn":
       return { kind: "alreadyThere" };
@@ -67,6 +76,8 @@ export async function moveToColumn(
         transition: resolution.transition,
         fields: resolution.fields,
       };
+    case "choose":
+      return { kind: "choose", available: resolution.available };
     case "unreachable":
       return resolution.available.length === 0
         ? { kind: "noTransition", currentStatus }

@@ -25,7 +25,6 @@ import {
   linkToTextGoal,
   type MoveOutcome,
   moveToColumn,
-  performTransition,
   pinAtlassianGoals,
   rankIssue,
 } from "../../core/boardWrites";
@@ -54,7 +53,12 @@ import {
 import { JiraClient, type JiraField, type JiraQuickFilter } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import { GoalsClient } from "../../jira/goals";
-import type { AtlassianGoal, JiraTransition, JiraUser } from "../../jira/models";
+import {
+  type AtlassianGoal,
+  blockingRequiredFields,
+  type JiraTransition,
+  type JiraUser,
+} from "../../jira/models";
 import { type JiraSite, parseBoardUrl } from "../../jira/site";
 import { JiraTransport } from "../../jira/transport";
 import { BOARD_PROPERTY_KEYS } from "../../jira/writes";
@@ -84,8 +88,23 @@ export interface WriteNotice extends UserMessage {
   readonly issueKey: string | null;
 }
 
-/** Aucune transition directe : l'utilisateur choisit parmi ce que Jira autorise. */
+export interface IssueDrop {
+  readonly issueKey: string;
+  readonly block: BoardBlock;
+  readonly columnId: string;
+  readonly beforeKey: string | null;
+  readonly targetStatusId?: string;
+}
+
+export type DragTransitions =
+  | { kind: "loading" }
+  | { kind: "ready"; transitions: readonly JiraTransition[] }
+  | { kind: "error"; message: string };
+
+/** Choix en attente : aucune écriture du déplacement n'a encore eu lieu. */
 export interface TransitionChoice {
+  readonly drop: IssueDrop;
+  readonly knownStatusId: string;
   readonly issueKey: string;
   readonly columnName: string;
   readonly available: readonly JiraTransition[];
@@ -99,6 +118,7 @@ export interface DragState {
 
 /** Emplacement visé : une case (swimlane × colonne), devant un ticket ou à la fin. */
 export interface DropTarget {
+  readonly statusId?: string;
   readonly laneId: string;
   readonly columnId: string;
   readonly beforeKey: string | null;
@@ -196,6 +216,7 @@ export class BoardModel {
   readonly writeNotice = signal<WriteNotice | null>(null);
   readonly transitionChoice = signal<TransitionChoice | null>(null);
   readonly dragging = signal<DragState | null>(null);
+  readonly dragTransitions = signal<DragTransitions>({ kind: "loading" });
   readonly dropTarget = signal<DropTarget | null>(null);
   /** Swimlane en cours de glisser-déposer (identifiant de bloc). */
   readonly draggingLane = signal<string | null>(null);
@@ -333,6 +354,8 @@ export class BoardModel {
    */
   readonly canSwitchBoard = computed(
     () =>
+      this.transitionChoice.value === null &&
+      this.dragging.value === null &&
       !this.setupBusy.value &&
       this.pendingKeys.value.size === 0 &&
       this.pinEditor.value?.saving !== true &&
@@ -706,8 +729,63 @@ export class BoardModel {
   // ─── Glisser-déposer et écritures ─────────────────────────────────────────
 
   startDrag(issueKey: string, lane: "scrum" | "run"): void {
-    if (this.pendingKeys.value.has(issueKey)) return;
-    this.dragging.value = { issueKey, lane };
+    if (this.pendingKeys.value.size > 0 || this.transitionChoice.value) return;
+    const snapshot = this.snapshot.value;
+    if (!snapshot || !findIssue(snapshot, issueKey)) return;
+    const drag = { issueKey, lane };
+    this.dragging.value = drag;
+    this.dragTransitions.value = { kind: "loading" };
+    void this.#client.transitions(issueKey).then(
+      (transitions) => {
+        if (this.dragging.value === drag) {
+          this.dragTransitions.value = { kind: "ready", transitions };
+        }
+      },
+      (error: unknown) => {
+        if (this.dragging.value === drag) {
+          this.dragTransitions.value = { kind: "error", message: toMessage(error).text };
+        }
+      },
+    );
+  }
+
+  /** Possibilités du ticket glissé, propres à chaque colonne et sans écriture. */
+  columnDrop(column: { id: string; statusIds: readonly string[] }): {
+    kind: "idle" | "same" | "loading" | "error" | "blocked" | "statuses";
+    message: string;
+    statuses: { id: string; name: string; inJira: boolean }[];
+  } {
+    const drag = this.dragging.value;
+    const snapshot = this.snapshot.value;
+    const issue = drag && snapshot ? findIssue(snapshot, drag.issueKey) : null;
+    const empty = { message: "", statuses: [] };
+    if (!issue) return { ...empty, kind: "idle" };
+    if (issue.columnId === column.id) return { ...empty, kind: "same" };
+    const state = this.dragTransitions.value;
+    if (state.kind === "loading")
+      return { ...empty, kind: "loading", message: "Lecture des transitions…" };
+    if (state.kind === "error") return { ...empty, kind: "error", message: state.message };
+    const transitions = state.transitions.filter(
+      (t) => t.isAvailable !== false && column.statusIds.includes(t.to.id),
+    );
+    const statuses = column.statusIds.flatMap((id) => {
+      const candidates = transitions.filter((t) => t.to.id === id);
+      const first = candidates[0];
+      return first
+        ? [
+            {
+              id,
+              name: first.to.name,
+              inJira: candidates.every((t) => t.hasScreen || blockingRequiredFields(t).length > 0),
+            },
+          ]
+        : [];
+    });
+    return {
+      kind: statuses.length ? "statuses" : "blocked",
+      message: "Aucune transition disponible",
+      statuses,
+    };
   }
 
   setDropTarget(target: DropTarget | null): void {
@@ -715,7 +793,8 @@ export class BoardModel {
     if (
       current?.laneId === target?.laneId &&
       current?.columnId === target?.columnId &&
-      current?.beforeKey === target?.beforeKey
+      current?.beforeKey === target?.beforeKey &&
+      current?.statusId === target?.statusId
     ) {
       return;
     }
@@ -738,33 +817,39 @@ export class BoardModel {
     this.writeNotice.value = null;
   }
 
-  /**
-   * Dépôt d'une carte dans une case du board. Jusqu'à trois écritures, dans cet ordre, chacune
-   * confirmée par Jira avant la suivante : rattachement à l'objectif du bloc, transition vers la
-   * colonne, puis rang. La première qui n'aboutit pas arrête les suivantes. La carte ne bouge
-   * qu'à la relecture de Jira qui suit.
-   */
-  async dropIssue(input: {
-    issueKey: string;
-    block: BoardBlock;
-    columnId: string;
-    beforeKey: string | null;
-  }): Promise<void> {
+  /** Résout toute l'intention avant d'écrire : transition, objectif, puis rang. */
+  async dropIssue(
+    input: IssueDrop,
+    selection?: { id: string; knownStatusId: string },
+  ): Promise<void> {
     const snapshot = this.snapshot.value;
     const configuration = this.configuration.value;
-    if (!snapshot || !configuration || this.pendingKeys.value.has(input.issueKey)) return;
-
-    // Seule une carte du board chargé est acceptée : un texte glissé depuis ailleurs ne peut
-    // pas viser un ticket arbitraire.
+    if (
+      !snapshot ||
+      !configuration ||
+      this.pendingKeys.value.size > 0 ||
+      this.transitionChoice.value
+    )
+      return;
     const issue = findIssue(snapshot, input.issueKey);
     if (!issue) return;
+    if (selection && issue.issue.fields.status.id !== selection.knownStatusId) {
+      this.writeNotice.value = {
+        tone: "warning",
+        text: "Le statut du ticket a changé. Recommencez le déplacement.",
+        suggestion: "Rien n'a été modifié.",
+        sessionLost: false,
+        issueKey: input.issueKey,
+      };
+      return;
+    }
     const lane = issue.category === "RUN" ? "run" : "scrum";
     if (!this.accepts(input.block, lane)) return;
-
     const columns = lane === "run" ? configuration.runColumns : configuration.scrumColumns;
     const column = columns.find((candidate) => candidate.id === input.columnId);
-    if (!column) return;
-
+    if (!column || column.statusIds.length === 0) return;
+    const goalTargetId = input.block.kind === "goal" ? input.block.goalId : null;
+    if (goalTargetId && !snapshot.goals.some((goal) => goal.id === goalTargetId)) return;
     const plan = resolveDrop({
       currentGoalId: displayedGoalId(configuration, issue.goalId),
       currentColumnId: issue.columnId,
@@ -776,49 +861,55 @@ export class BoardModel {
             ? { kind: "build" }
             : { kind: "unchanged" },
     });
-    const rank = this.#rankFor(input, column.id);
+    // Une zone de statut sans position précise conserve le rang global.
+    const rank =
+      plan.changesColumn && input.beforeKey === null
+        ? { kind: "none" as const }
+        : this.#rankFor(input, column.id);
     if (isNoOpDrop(plan) && rank.kind === "none") return;
-
     this.#setPending(input.issueKey, true);
     this.writeNotice.value = null;
+    const completed: string[] = [];
     try {
+      if (plan.changesColumn) {
+        if (input.targetStatusId && !column.statusIds.includes(input.targetStatusId)) return;
+        const moved = await this.#moveIssue(issue, column, input, selection);
+        if (!moved) return;
+        completed.push("statut modifié");
+      }
       if (plan.goalChange.kind === "assign") {
         const linked = await this.#assignGoal(issue, snapshot, plan.goalChange.goalId);
         if (!linked) return;
-      }
-      if (plan.changesColumn) {
-        const moved = await this.#moveIssue(issue, column);
-        if (!moved) return;
+        completed.push("objectif modifié");
       }
       if (rank.kind !== "none") await this.#rank(issue, rank);
     } finally {
+      const notice = this.writeNotice.peek();
+      if (notice && completed.length > 0) {
+        this.writeNotice.value = {
+          ...notice,
+          text: `${notice.text} Déjà effectué : ${completed.join(", ")}.`,
+          suggestion:
+            "Le board est relu pour montrer l'état de Jira. Aucun retour arrière automatique n'est effectué.",
+        };
+      }
       this.#setPending(input.issueKey, false);
-      await this.sync();
+      if (!this.transitionChoice.value) await this.sync();
     }
   }
 
-  /** Exécute la transition choisie dans la fenêtre de choix. */
+  /** Revalide le choix dans Jira avant de reprendre le déplacement entier. */
   async chooseTransition(transition: JiraTransition): Promise<void> {
     const choice = this.transitionChoice.value;
-    if (!choice) return;
+    if (!choice?.available.some((candidate) => candidate.id === transition.id)) return;
     this.transitionChoice.value = null;
-    this.#setPending(choice.issueKey, true);
-    try {
-      await performTransition(this.#transport, choice.issueKey, transition);
-      await this.#record({
-        action: "transition choisie",
-        issueKey: choice.issueKey,
-        from: null,
-        to: transition.to.name,
-        outcome: "réussi",
-        detail: `Transition « ${transition.name} »`,
-      });
-    } catch (error) {
-      await this.#fail("transition choisie", choice.issueKey, transition.to.name, error);
-    } finally {
-      this.#setPending(choice.issueKey, false);
-      await this.sync();
-    }
+    await this.dropIssue(
+      { ...choice.drop, targetStatusId: transition.to.id },
+      {
+        id: transition.id,
+        knownStatusId: choice.knownStatusId,
+      },
+    );
   }
 
   cancelTransitionChoice(): void {
@@ -1061,12 +1152,13 @@ export class BoardModel {
     const issueKey = issue.issue.key;
     const previous = issue.goalId;
     if (previous === goalId) return true;
+    let detached = false;
     const refused = async (text: string, messages: readonly string[]) => {
       const detail = messages.join(" ") || "aucun détail fourni par Atlassian";
       this.writeNotice.value = {
         tone: "error",
-        text,
-        suggestion: `${detail}. Rien d'autre n'a été modifié.`,
+        text: detached ? `${text} Le lien avec l’ancien Goal a déjà été retiré.` : text,
+        suggestion: `${detail}. Vérifiez le board après sa relecture.`,
         sessionLost: false,
         issueKey,
       };
@@ -1089,6 +1181,7 @@ export class BoardModel {
             removal.messages,
           );
         }
+        detached = true;
         if (goalId === null) {
           await this.#record({
             action: "rattachement",
@@ -1116,6 +1209,13 @@ export class BoardModel {
       return true;
     } catch (error) {
       await this.#fail("rattachement", issueKey, title, error);
+      const notice = this.writeNotice.peek();
+      if (detached && notice) {
+        this.writeNotice.value = {
+          ...notice,
+          text: `${notice.text} Le lien avec l’ancien Goal a déjà été retiré.`,
+        };
+      }
       return false;
     }
   }
@@ -1123,6 +1223,8 @@ export class BoardModel {
   async #moveIssue(
     issue: BoardIssue,
     column: { name: string; statusIds: readonly string[] },
+    drop: IssueDrop,
+    selection?: { id: string; knownStatusId: string },
   ): Promise<boolean> {
     const issueKey = issue.issue.key;
     const from = issue.issue.fields.status.name;
@@ -1130,8 +1232,9 @@ export class BoardModel {
     try {
       outcome = await moveToColumn(this.#client, this.#transport, {
         issueKey,
-        knownStatusId: issue.issue.fields.status.id,
-        targetStatusIds: column.statusIds,
+        knownStatusId: selection?.knownStatusId ?? issue.issue.fields.status.id,
+        targetStatusIds: drop.targetStatusId ? [drop.targetStatusId] : column.statusIds,
+        ...(selection ? { transitionId: selection.id } : {}),
       });
     } catch (error) {
       await this.#fail("transition", issueKey, column.name, error);
@@ -1171,7 +1274,7 @@ export class BoardModel {
       case "requiresFields":
         this.writeNotice.value = {
           tone: "error",
-          text: `La transition « ${outcome.transition.name} » de ${issueKey} exige des champs dans Jira : ${outcome.fields.join(", ")}.`,
+          text: `La transition « ${outcome.transition.name} » de ${issueKey} est à compléter dans Jira${outcome.fields.length ? ` : ${outcome.fields.join(", ")}` : " (écran de transition)"}.`,
           suggestion:
             "Faites ce changement dans Jira : l'extension ne remplit volontairement aucun champ de ticket.",
           sessionLost: false,
@@ -1189,7 +1292,7 @@ export class BoardModel {
       case "noTransition":
         this.writeNotice.value = {
           tone: "error",
-          text: `Jira ne propose aucune transition pour ${issueKey} depuis « ${outcome.currentStatus.name} ».`,
+          text: `Aucune transition disponible vers « ${column.name} » pour ${issueKey} depuis « ${outcome.currentStatus.name} ».`,
           suggestion: "Rien n'a été modifié.",
           sessionLost: false,
           issueKey,
@@ -1204,8 +1307,10 @@ export class BoardModel {
         });
         return false;
       case "choose":
-        // On montre ce que Jira autorise réellement plutôt que de deviner un chemin.
+        // Le choix porte uniquement sur les transitions vers la destination demandée.
         this.transitionChoice.value = {
+          drop,
+          knownStatusId: selection?.knownStatusId ?? issue.issue.fields.status.id,
           issueKey,
           columnName: column.name,
           available: outcome.available,
@@ -1575,6 +1680,7 @@ export class BoardModel {
     if (seconds === null) return;
     this.#autoRefreshTimer = setInterval(() => {
       const busy =
+        this.transitionChoice.value !== null ||
         this.dragging.value !== null ||
         this.draggingLane.value !== null ||
         this.pendingKeys.value.size > 0 ||

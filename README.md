@@ -9,7 +9,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.15.1 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
+> **État : 0.16.0 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
 > 0.14.0), plusieurs boards (6b), réglages d'équipe partagés par Jira, audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)).** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
@@ -100,21 +100,30 @@ carte ouvre le ticket dans Jira, dans un nouvel onglet. La flèche ronde de l'en
   l'objectif du board (ses tickets passent dans *Build*) ; l'objectif passe alors dans *Masqués du
   board*, œil fermé, qui s'ouvre au survol et le réaffiche d'un clic. Réglage de ce navigateur.
 
-**Glisser-déposer** — une carte déposée dans une case peut entraîner, dans cet ordre :
+**Glisser-déposer (0.16.0)** :
 
-1. **rattachement** à l'objectif du bloc (ou détachement, dans *Build*) :
-   - **Goals Atlassian** : lien NATIF ticket↔Goal (`goals_linkWorkItem` / `goals_unlinkWorkItem`),
-     visible dans Jira ; l'ancien Goal est détaché d'abord, et si Atlassian refuse, rien d'autre
-     n'est fait (le ticket ne se retrouve pas lié à deux Goals) ;
-   - **texte du sprint** (repli) : le lien est enregistré dans la propriété du sprint partagée avec
-     l'app Mac ;
-2. **transition** vers la colonne — le ticket est relu dans Jira juste avant ; s'il a changé, rien
-   n'est écrit ; sans transition directe, une fenêtre montre celles que Jira propose ;
-3. **rang** — déposée devant une carte, elle est classée juste avant (rang du board Jira).
+- **Même colonne** : le statut ne change jamais. Seuls l'objectif et le rang peuvent changer.
+- **Autre colonne** : pendant le glissé, les statuts accessibles apparaissent comme des zones
+  de dépôt. Choisir le statut en déposant la carte dans sa zone. Une colonne inaccessible est
+  grisée et refuse le dépôt ; une lecture en cours ou en échec est indiquée séparément.
+- **Plusieurs transitions vers le statut choisi** : une fenêtre demande quelle action effectuer.
+  Annuler ne modifie ni le statut, ni l'objectif, ni le rang.
+- **Écran de transition ou champs obligatoires** : indication « À compléter dans Jira », puis
+  message avec accès au ticket ; aucune partie du déplacement n'est écrite dans ce cas.
+- **Rang** : dans la même colonne, classement devant une carte ou en fin de case comme auparavant.
+  Dans une autre colonne, une position près du bord supérieur d'une carte affiche la ligne
+  d'insertion ; sinon, déposer dans une zone de statut conserve le rang global.
+
+Le statut et les transitions sont relus avant l'écriture, y compris après le choix dans la
+fenêtre. Un conflit ou une destination devenue inaccessible arrête le déplacement.
+Les opérations sont exécutées dans cet ordre : **transition → objectif → rang**.
+Le Goal Atlassian est détaché puis rattaché par ses liens natifs ; en mode texte, l'association
+est écrite dans la propriété du sprint partagée avec l'app Mac.
 
 Chaque écriture attend la confirmation de Jira avant la suivante ; la carte ne bouge qu'à la
-relecture du board. Aucune écriture n'est rejouée : si Jira ne répond pas, le board est relu et
-le bandeau le dit. Chaque tentative est notée dans le **journal** (*Administration → Diagnostic*).
+relecture du board. Une réussite partielle est signalée, sans retour arrière automatique.
+Aucune écriture incertaine n'est rejouée. Chaque tentative est notée dans le **journal**
+(*Administration → Diagnostic*).
 
 - **Cartes** : type, clé (toujours sur une ligne ; carte plus compacte en colonne étroite, « … »
   en dernier recours, clé entière au survol), drapeau Jira et priorité à droite, résumé sur deux

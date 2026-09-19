@@ -377,6 +377,7 @@ export interface JiraTransitionField {
 }
 
 export interface JiraTransition {
+  readonly hasScreen?: boolean;
   readonly id: string;
   readonly name: string;
   readonly to: JiraStatus;
@@ -648,6 +649,7 @@ export function decodeTransition(value: unknown): JiraTransition {
     id: value.id,
     name: value.name,
     to,
+    hasScreen: value.hasScreen === true,
     isAvailable: typeof value.isAvailable === "boolean" ? value.isAvailable : null,
     fields,
   };

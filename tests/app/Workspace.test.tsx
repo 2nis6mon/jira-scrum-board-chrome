@@ -12,6 +12,7 @@ import {
 } from "../support/boardFixture";
 import { isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
+import { statusJson } from "../support/jiraFixtures";
 
 // Barre latérale, en-tête, barre de filtres et administration (maquette de l'app Mac).
 
@@ -535,5 +536,46 @@ describe("administration", () => {
     button("Se déconnecter").click();
     await expect.poll(() => document.querySelector("h2")?.textContent).toBe("Connexion à Jira");
     expect(document.querySelector(".sidebar")).toBeNull();
+  });
+});
+
+describe("zones de dépôt par statut", () => {
+  it("affiche les statuts, grise les destinations impossibles et nettoie la fin du geste", async () => {
+    const jira = boardSiteJira().on("GET", "/rest/api/3/issue/ABC-102/transitions", {
+      status: 200,
+      json: {
+        transitions: [
+          { id: "21", name: "Démarrer", to: statusJson("3", "En cours") },
+          { id: "22", name: "Relire", to: statusJson("4", "Revue"), hasScreen: true },
+        ],
+      },
+    });
+    const { board } = await connectedBoard(jira);
+    board.startDrag("ABC-102", "scrum");
+    await tick();
+    await tick();
+    const cell = document.querySelector(
+      'ul[aria-label="Finaliser le parcours de paiement — En cours"]',
+    );
+    expect(
+      [...(cell?.querySelectorAll(".status-drop-zone") ?? [])].map((zone) =>
+        zone.getAttribute("data-status-id"),
+      ),
+    ).toEqual(["3", "4"]);
+    expect(cell?.textContent).toContain("À compléter dans Jira");
+    expect(
+      document
+        .querySelector('ul[aria-label="Finaliser le parcours de paiement — Terminé"]')
+        ?.getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(
+      document.querySelector(
+        'ul[aria-label="Finaliser le parcours de paiement — À faire"] .status-drop-zone',
+      ),
+    ).toBeNull();
+    board.endDrag();
+    await tick();
+    expect(document.querySelector(".status-drop-zone")).toBeNull();
+    expect(document.querySelector(".lane-cell-unavailable")).toBeNull();
   });
 });

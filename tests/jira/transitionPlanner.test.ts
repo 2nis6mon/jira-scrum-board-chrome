@@ -46,13 +46,13 @@ describe("resolveTransition", () => {
     expect(resolveTransition("5", ["5", "6"], []).kind).toBe("alreadyInTargetColumn");
   });
 
-  it("l'ordre des statuts de la colonne décide", () => {
+  it("plusieurs destinations : aucun choix arbitraire", () => {
     const result = resolveTransition(
       "3",
       ["5", "4"],
       [transition("11", "Review", REVIEW), transition("21", "Test", TEST)],
     );
-    expect(result.kind === "ready" && result.targetStatus.id).toBe("5");
+    expect(result.kind === "choose" && result.available.map((t) => t.to.id)).toEqual(["4", "5"]);
   });
 
   it("signale les champs obligatoires au lieu de les inventer", () => {
@@ -65,7 +65,7 @@ describe("resolveTransition", () => {
     expect(result.kind === "requiresFields" && result.fields).toEqual(["resolution"]);
   });
 
-  it("préfère la transition sans champ obligatoire", () => {
+  it("plusieurs transitions vers le même statut : demander même si une seule est sans formulaire", () => {
     const result = resolveTransition(
       "3",
       ["6"],
@@ -74,13 +74,13 @@ describe("resolveTransition", () => {
         transition("32", "Terminer", DONE),
       ],
     );
-    expect(result.kind === "ready" && result.transition.id).toBe("32");
+    expect(result.kind === "choose" && result.available.map((t) => t.id)).toEqual(["31", "32"]);
   });
 
-  it("déplacement impossible : liste ce que Jira autorise réellement", () => {
+  it("déplacement impossible : ne propose pas une autre destination", () => {
     const result = resolveTransition("3", ["9"], [transition("11", "Review", REVIEW)]);
     expect(result.kind).toBe("unreachable");
-    expect(result.kind === "unreachable" && result.available.map((t) => t.id)).toEqual(["11"]);
+    expect(result.kind === "unreachable" && result.available).toEqual([]);
   });
 
   it("ignore une transition marquée indisponible", () => {

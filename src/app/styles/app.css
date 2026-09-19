@@ -3039,3 +3039,61 @@ details.lane-menu:not([data-placed]) .menu-panel {
     animation: none;
   }
 }
+
+/* Destinations du ticket glissé : même colonne libre, autres colonnes par statut. */
+.lane-cell {
+  position: relative;
+}
+.lane-cell-unavailable {
+  background: var(--surface-muted, #e9ebef);
+  cursor: not-allowed;
+}
+.lane-cell-unavailable > .lane-item {
+  opacity: 0.3;
+}
+.drop-unavailable-message {
+  padding: 12px 8px;
+  color: var(--text-muted, #5e6675);
+  font-size: 12px;
+}
+.lane-cell-statuses {
+  min-height: 160px;
+}
+.lane-cell-statuses > .lane-item {
+  opacity: 0.25;
+}
+.status-drop-zones {
+  position: absolute;
+  inset: 5px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.status-drop-zone {
+  flex: 1;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+  border: 2px dashed #7b91b5;
+  border-radius: 8px;
+  background: rgb(239 245 255 / 90%);
+  color: #243b60;
+  text-align: center;
+}
+.status-drop-zone-active {
+  border-color: #1868db;
+  background: #dbeafe;
+}
+.status-drop-zone span {
+  font-size: 11px;
+}
+.lane-cell-statuses > .drop-line {
+  position: relative;
+  z-index: 3;
+  pointer-events: none;
+}

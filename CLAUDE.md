@@ -314,6 +314,16 @@ fenêtre, le point de dépôt d'une carte est donc juste (vérifié dans Chrome 
 carte, menu « ⋯ »). Le menu « ⋯ », en position fixe sous un parent zoomé, divise ses positions
 par `currentCSSZoom` (`floatingMenu.ts`, hauteur maximale comprise).
 
+0.16.0 : glisser-déposer par statut, validé avec Denis. Même colonne : Goal et rang seulement.
+Autres colonnes : transitions préchargées au début du geste, zones par statut, destinations
+inaccessibles grisées (lecture en cours ou en échec distinguée). Plusieurs transitions vers le
+statut choisi : fenêtre avant toute écriture ; annulation complète. Statut et transitions relus
+avant exécution, y compris après choix. Écran de transition (`hasScreen`) ou champs obligatoires :
+passage par Jira. Ordre des écritures : transition → objectif → rang ; réussite partielle dite
+explicitement, sans restauration automatique. Sans position précise dans une zone de statut,
+le rang est conservé. Banc d'essai : `board-statuts` (zones), `board-choix` (fenêtre), `board-dnd`
+(déplacement), `board-erreur` (refus). Aucun essai contre le Jira réel dans ce lot.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.
 
