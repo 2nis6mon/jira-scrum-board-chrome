@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { JiraError } from "../../src/jira/errors";
-import { isTrustedHost, normalizeSiteUrl, parseBoardUrl } from "../../src/jira/site";
+import { atlassianLink, isTrustedHost, normalizeSiteUrl, parseBoardUrl } from "../../src/jira/site";
 
 // Cas repris de SecurityHardeningTests / AtlassianHostTests de l'app Mac, adaptés :
 // l'extension n'admet que *.atlassian.net (ni *.jira.com, ni domaine personnalisé).
@@ -105,5 +105,38 @@ describe("parseBoardUrl", () => {
 
   it("refuse un board hébergé hors *.atlassian.net", () => {
     expect(parseBoardUrl("https://jira.acme.example/boards/12")).toBeNull();
+  });
+});
+
+describe("atlassianLink — lien vers une page d'Atlassian reçu de Jira", () => {
+  it("garde un lien HTTPS vers atlassian.com ou un sous-domaine d'Atlassian", () => {
+    expect(atlassianLink("https://home.atlassian.com/o/1/s/2/goal/ABC-1")).toBe(
+      "https://home.atlassian.com/o/1/s/2/goal/ABC-1",
+    );
+    expect(atlassianLink("https://acme.atlassian.net/browse/ABC-1")).toBe(
+      "https://acme.atlassian.net/browse/ABC-1",
+    );
+    expect(atlassianLink("https://atlassian.com/goal")).toBe("https://atlassian.com/goal");
+    expect(atlassianLink("https://HOME.Atlassian.com/x")).toBe("https://home.atlassian.com/x");
+  });
+
+  it("écarte tout autre site, schéma, identifiant ou port", () => {
+    for (const raw of [
+      "https://evil.example/goal",
+      "https://evilatlassian.com/goal",
+      "https://atlassian.com.evil.example/goal",
+      "https://atlassian.net/goal",
+      "http://home.atlassian.com/goal",
+      "javascript:alert(1)",
+      "data:text/html,<p>x</p>",
+      "https://user:secret@home.atlassian.com/goal",
+      "https://home.atlassian.com:8443/goal",
+      "pas une adresse",
+      "",
+      null,
+      undefined,
+    ]) {
+      expect(atlassianLink(raw)).toBeNull();
+    }
   });
 });

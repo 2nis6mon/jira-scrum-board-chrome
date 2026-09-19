@@ -81,6 +81,16 @@ describe("code de production", () => {
     expect(filesMatching(/webRequest|responseHeaders/)).toEqual([]);
   });
 
+  it("n'ouvre un nouvel onglet qu'avec noopener, et un lien de Goal que vers Atlassian", () => {
+    for (const { file, code } of sources) {
+      const blank = code.match(/target="_blank"/g)?.length ?? 0;
+      const safe = code.match(/rel="noopener noreferrer"/g)?.length ?? 0;
+      expect(safe, file).toBe(blank);
+    }
+    // L'adresse d'un Goal peut venir de la propriété du sprint : elle passe par atlassianLink.
+    expect(filesMatching(/href=\{[^}]*atlassianUrl/)).toEqual([]);
+  });
+
   it("garde jira/ indépendant de chrome.* et du DOM", () => {
     const jira = sources.filter(({ file }) => file.startsWith("src/jira/"));
     for (const { file, code } of jira) {

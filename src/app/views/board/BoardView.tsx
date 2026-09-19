@@ -18,6 +18,7 @@ import {
   QUICK_FILTERS,
 } from "../../../core/filters";
 import { goalColorName } from "../../../core/sprintGoals";
+import { atlassianLink } from "../../../jira/site";
 import type { BoardModel } from "../../model/BoardModel";
 import { formatDay, formatPoints, formatTime, goalStatusLabel, plural, toggled } from "../format";
 import { HealthPanel } from "../health/HealthPanel";
@@ -730,6 +731,7 @@ function LaneView(props: {
 }) {
   const { board, configuration, layout, lane, nextLaneId } = props;
   const goal = lane.goal;
+  const goalLink = atlassianLink(goal?.atlassianUrl);
   const progress = lane.progress;
   const focused = goal !== null && isGoalFocused(board.filters.value, goal.id);
   const goalsById = new Map(board.snapshot.value?.goals.map((g) => [g.id, g]) ?? []);
@@ -826,8 +828,8 @@ function LaneView(props: {
             {goalStatusLabel(goal.atlassianStatus)}
           </span>
         )}
-        {goal?.atlassianUrl?.startsWith("https://") && (
-          <a class="goal-link" href={goal.atlassianUrl} target="_blank" rel="noopener noreferrer">
+        {goalLink && (
+          <a class="goal-link" href={goalLink} target="_blank" rel="noopener noreferrer">
             Ouvrir le Goal
           </a>
         )}

@@ -210,5 +210,5 @@ réglages locaux correspondants. Pistes nées de cette lecture :
 ## Déjà prévu : fin de l'étape 6
 
 - ~~6c — Déplacer une carte au clavier~~ : abandonné à la demande de Denis (19/09/2026).
-- [ ] 6d — Audit de sécurité de l'extension, sur le modèle de celui du Mac.
+- [x] 6d — Audit de sécurité de l'extension : fait en 0.14.1, `docs/SECURITY-AUDIT.md`.
 - [ ] 6e — Empaquetage pour l'installation.

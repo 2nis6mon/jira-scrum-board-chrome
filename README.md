@@ -9,8 +9,9 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.14.0 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
-> 0.14.0), plusieurs boards (6b), réglages d'équipe partagés par Jira.** Board du
+> **État : 0.14.1 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
+> 0.14.0), plusieurs boards (6b), réglages d'équipe partagés par Jira, audit de sécurité (6d,
+> [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)).** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
 > du board Jira ; glisser-déposer qui écrit dans Jira : transition, rang, et lien natif
 > ticket↔Goal ; épinglage de Goals au sprint, gardé dans le navigateur si Jira le refuse ; ordre,
@@ -52,7 +53,9 @@ manifest : déplacer le dossier ne fait pas perdre les réglages locaux.
 | Politique de sécurité | Scripts de l'extension uniquement ; connexions limitées à `*.atlassian.net` ; aucune image ni style distant |
 | Absents | Scripts injectés dans les pages, permissions `cookies`, `tabs`, `scripting`, `webRequest`, règles `declarativeNetRequest` statiques |
 
-Ces droits sont verrouillés par [`tests/manifest.test.ts`](tests/manifest.test.ts).
+Ces droits sont verrouillés par [`tests/manifest.test.ts`](tests/manifest.test.ts). L'audit de
+sécurité de l'extension (0.14.1, lot 6d) est dans [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md) :
+inventaire des écritures, fuites possibles, constats et correctifs.
 
 ## Utiliser
 
@@ -249,7 +252,7 @@ développement, jamais inclus dans `dist/`.
 
 ### ✅ Vérifié sur cette machine
 
-- Types, lint, 608 tests, construction.
+- Types, lint, 687 tests, construction.
 - Chargement réel dans Chrome 153 (sans interface, profil temporaire vierge) : manifest accepté,
   identifiant conforme, permissions `storage` et `declarativeNetRequestWithHostAccess` seules,
   aucun hôte accordé à l'installation, formulaire de connexion sans erreur, hôte hors
@@ -343,3 +346,6 @@ développement, jamais inclus dans `dist/`.
 - Les filtres rapides de votre board (0.7.0) et les règles de couleur (0.9.0) : l'évaluation de
   leur JQL restreint aux sprints actifs (`currentUser()`, champs personnalisés…).
 - Les volumes réels (pagination au-delà de 100 tickets, plusieurs sprints actifs).
+- Le lien « Ouvrir le Goal » (0.14.1) : il n'est plus proposé que vers `atlassian.com` ou un
+  sous-domaine d'Atlassian ; s'il disparaît sur vos Goals, l'API renvoie une adresse hors de ces
+  domaines.

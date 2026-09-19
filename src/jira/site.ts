@@ -54,6 +54,34 @@ export function normalizeSiteUrl(raw: string): JiraSite {
   return siteFromHost(host);
 }
 
+/** Domaines d'Atlassian vers lesquels un lien venu de Jira peut être proposé. */
+const ATLASSIAN_LINK_DOMAINS = ["atlassian.com", "atlassian.net"] as const;
+
+/**
+ * Lien vers une page d'Atlassian reçu de Jira (page d'un Goal, par exemple) : rendu seulement
+ * s'il est en HTTPS, sans identifiants ni port, sur `atlassian.com` ou un sous-domaine
+ * d'`atlassian.com` ou d'`atlassian.net` (frontière de libellé DNS). Sinon `null` : l'adresse
+ * peut venir de la propriété du sprint, que d'autres outils écrivent, et le board ne doit pas
+ * mener vers un autre site.
+ */
+export function atlassianLink(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" || url.username !== "" || url.password !== "" || url.port !== "") {
+    return null;
+  }
+  const host = url.hostname.toLowerCase();
+  const trusted = ATLASSIAN_LINK_DOMAINS.some(
+    (domain) => host.endsWith(`.${domain}`) || (domain === "atlassian.com" && host === domain),
+  );
+  return trusted ? url.toString() : null;
+}
+
 function siteFromHost(host: string): JiraSite {
   return { origin: `https://${host}`, host, permissionPattern: `https://${host}/*` };
 }

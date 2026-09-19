@@ -10,6 +10,8 @@ connectée à Jira Cloud. Projet **distinct** de l'app Mac, qui reste maintenue 
 - Spécification fonctionnelle commune aux deux projets : `docs/reference-app-mac/PROMPT.md`.
 - API Atlassian vérifiées, audit de sécurité et README du Mac : même dossier. Ce sont des copies
   conformes (voir `LISEZ-MOI.md` pour le commit d'origine) : ne pas les modifier ici.
+- Audit de sécurité de l'extension : `docs/SECURITY-AUDIT.md` (0.14.1). Le tenir à jour à chaque
+  nouvelle écriture, permission, hôte ou donnée écrite dans Jira (inventaire E*, constats S*).
 - Code de l'app Mac : `/Users/dsimon/Claude Code/jira-scrum-board-advanced`. **Lecture seule,
   ne jamais le modifier.** Ses tests Swift sont la référence des cas de test à porter.
 
@@ -241,7 +243,7 @@ comme CLIENT-10114 tient en entier sur sa carte, drapeau compris. Prix : à 7 co
 défile horizontalement sous environ 1 550 px de fenêtre (1 410 avant).
 
 Étape 6, découpée en lots (annoncés à Denis) : 6a Sprint Health · 6b plusieurs boards · 6c déplacer
-une carte au clavier (abandonné le 19/09/2026) · 6d audit de sécurité · 6e empaquetage. Le mode présentation de la
+une carte au clavier (abandonné le 19/09/2026) · 6d audit de sécurité (0.14.1) · 6e empaquetage. Le mode présentation de la
 spécification est abandonné : Denis a retiré le plein écran (0.10.1).
 
 0.11.0 : lot 6a, Sprint Health (`core/sprintHealth.ts`, port de `SprintHealthView`) : comptages
@@ -281,6 +283,14 @@ la flèche ronde, `aria-pressed`) ou par le chevron du panneau. État gardé dan
 latérale devient « Sprint » ; tout ce qui désigne le board Jira garde « board » (menu du board,
 section Board de l'administration, « Masqués du board », limites WIP du board). Le lot 6c
 (déplacer une carte au clavier) est abandonné à la demande de Denis.
+
+0.14.1 : lot 6d, audit de sécurité (`docs/SECURITY-AUDIT.md`, sur le modèle de celui du Mac :
+inventaire E1–E7 des écritures, constats S1–S8, correspondance avec C1–C10). Seul correctif :
+S1, le lien « Ouvrir le Goal » ne mène plus qu'à `atlassian.com` ou un sous-domaine
+d'`atlassian.com`/`atlassian.net` (`atlassianLink` dans `jira/site.ts`) ; deux garde-fous
+ajoutés (`target="_blank"` toujours avec `noopener noreferrer`, aucun `href` formé directement
+d'`atlassianUrl`). Le reste est informatif (session = tous les droits, réglages d'équipe appliqués
+d'office, restriction JQL syntaxique, clé privée locale).
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.
