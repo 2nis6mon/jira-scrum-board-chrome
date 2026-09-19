@@ -48,6 +48,11 @@ export class AppModel {
   readonly sidebarWidth = signal<number>(SIDEBAR_WIDTH.default);
   /** Panneau « Santé du sprint » déplié au-dessus des swimlanes ; gardé dans ce navigateur. */
   readonly healthOpen = signal(false);
+  /**
+   * Mode présentation : barre latérale et en-tête masqués, restent les filtres et le board. Le temps
+   * de la page seulement : une réouverture repart en mode normal.
+   */
+  readonly presenting = signal(false);
 
   readonly #platform: Platform;
   readonly #audit: AuditLog;
@@ -133,6 +138,7 @@ export class AppModel {
     this.connectionError.value = null;
     this.view.value = "board";
     this.adminSection.value = "board";
+    this.presenting.value = false;
     this.connection.value = { state: "disconnected", lastInput: current.site.host };
   }
 
@@ -147,8 +153,19 @@ export class AppModel {
     await this.#saveInterface().catch(() => {});
   }
 
+  /** Mode présentation, sur la vue du sprint. La barre latérale retrouve ensuite son état. */
+  enterPresentation(): void {
+    this.view.value = "board";
+    this.presenting.value = true;
+  }
+
+  exitPresentation(): void {
+    this.presenting.value = false;
+  }
+
   /** Administration : réglages locaux du board, diagnostic, déconnexion. */
   showAdmin(section: AdminSection = this.adminSection.value): void {
+    this.presenting.value = false;
     if (section === "diagnostic") {
       this.showDiagnostic();
       return;
@@ -159,6 +176,7 @@ export class AppModel {
 
   /** Ouvre le diagnostic ; ses lectures sont lancées à la première ouverture. */
   showDiagnostic(): void {
+    this.presenting.value = false;
     this.adminSection.value = "diagnostic";
     this.view.value = "admin";
     const current = this.connection.value;

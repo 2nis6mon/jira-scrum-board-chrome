@@ -9,7 +9,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.14.2 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
+> **État : 0.15.0 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
 > 0.14.0), plusieurs boards (6b), réglages d'équipe partagés par Jira, audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)).** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
@@ -79,6 +79,12 @@ carte ouvre le ticket dans Jira, dans un nouvel onglet. La flèche ronde de l'en
   de l'en-tête masque la barre. Sa bordure droite se tire (curseur ↔) pour l'élargir ou la
   rétrécir, de 200 px à la moitié de la fenêtre ; flèches du clavier quand elle a le focus,
   double-clic pour revenir à la largeur par défaut. La largeur est gardée dans ce navigateur.
+- **Mode présentation** (0.15.0) : le bouton à icône de chevalet, au bout de l'en-tête, masque la
+  barre latérale, l'en-tête et le panneau Santé ; restent les filtres et le board. Une bulle
+  « Échap pour revenir » flotte cinq secondes en bas de l'écran ; le bouton *Quitter*, au bout de
+  la barre de filtres, reste toujours affiché. Échap referme d'abord un menu ou une fenêtre
+  ouverts, et efface d'abord une recherche remplie. Le mode n'est pas gardé : une réouverture
+  repart en mode normal, la barre latérale dans l'état où on l'avait laissée.
 - **Santé du sprint** (0.11.0, portée de Sprint Health du Mac ; panneau depuis 0.14.0) : le bouton
   à icône (tracé de pouls) de l'en-tête, à côté de la flèche ronde, déplie ou replie un panneau
   entre les filtres et les swimlanes ; l'état du panneau est gardé dans ce navigateur. Des
@@ -252,7 +258,7 @@ développement, jamais inclus dans `dist/`.
 
 ### ✅ Vérifié sur cette machine
 
-- Types, lint, 687 tests, construction.
+- Types, lint, 692 tests, construction.
 - Chargement réel dans Chrome 153 (sans interface, profil temporaire vierge) : manifest accepté,
   identifiant conforme, permissions `storage` et `declarativeNetRequestWithHostAccess` seules,
   aucun hôte accordé à l'installation, formulaire de connexion sans erreur, hôte hors

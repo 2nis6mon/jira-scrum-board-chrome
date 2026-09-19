@@ -243,8 +243,9 @@ comme CLIENT-10114 tient en entier sur sa carte, drapeau compris. Prix : à 7 co
 défile horizontalement sous environ 1 550 px de fenêtre (1 410 avant).
 
 Étape 6, découpée en lots (annoncés à Denis) : 6a Sprint Health · 6b plusieurs boards · 6c déplacer
-une carte au clavier (abandonné le 19/09/2026) · 6d audit de sécurité (0.14.1) · 6e empaquetage. Le mode présentation de la
-spécification est abandonné : Denis a retiré le plein écran (0.10.1).
+une carte au clavier (abandonné le 19/09/2026) · 6d audit de sécurité (0.14.1) · 6e empaquetage. Le plein
+écran du navigateur reste retiré (0.10.1) ; un mode présentation sans plein écran est revenu en
+0.15.0, à la demande de Denis.
 
 0.11.0 : lot 6a, Sprint Health (`core/sprintHealth.ts`, port de `SprintHealthView`) : comptages
 directs, filtres appliqués, aucun score. Écart voulu : la charge par colonne ignore les filtres,
@@ -296,6 +297,15 @@ d'office, restriction JQL syntaxique, clé privée locale).
 (restent Personne, Type, Parent, Statut, Label). Le moteur de filtres (`core/filters.ts`,
 `filterOptions`) est inchangé, porté du Mac : le filtre par objectif sert toujours au clic sur le
 titre d'une swimlane (« N'afficher que cet objectif »).
+
+0.15.0 (demande de Denis) : mode présentation. Bouton icône (chevalet) au bout de l'en-tête ;
+masque barre latérale, en-tête et panneau Santé, restent filtres, bandeaux et board
+(`AppModel.presenting`, jamais enregistré ; `ScreenControls.presenting`). Sortie toujours visible :
+bouton « Quitter » au bout de la barre de filtres (ou seul dans une barre si les filtres manquent) ;
+bulle flottante « Échap pour revenir » 5 s (`PresentationHint`, `PRESENTATION_HINT_MS`, sans
+capter la souris). Échap (écouteur de `Workspace`) laisse d'abord la main à une fenêtre ouverte
+(`[role="dialog"]`), referme un menu ouvert, n'efface pas une recherche remplie. L'administration
+et la déconnexion quittent le mode. Pas de plein écran du navigateur (retiré par Denis en 0.10.1).
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.

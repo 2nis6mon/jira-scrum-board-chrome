@@ -775,6 +775,17 @@ details.filter-menu > summary.active {
   color: var(--ink-2);
 }
 
+/* Sortie du mode présentation : toujours visible, au bout de la barre de filtres. */
+.presentation-exit {
+  height: 30px;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 15px;
+  color: var(--ink-2);
+}
+
 /* ─── Bandeaux ───────────────────────────────────────────────────────────── */
 
 .notice {
@@ -2959,5 +2970,56 @@ details.lane-menu:not([data-placed]) .menu-panel {
 
   .lane-item .card-key {
     font-size: 11px;
+  }
+}
+
+/* ─── Mode présentation ──────────────────────────────────────────────────── */
+
+/* Bulle d'aide à l'entrée en présentation : flotte en bas de l'écran, ne capte pas la souris,
+   s'efface d'elle-même (le script la retire au bout de 5 s). */
+.presentation-hint {
+  position: fixed;
+  z-index: 60;
+  bottom: 28px;
+  left: 50%;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgb(21 24 29 / 88%);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+  color: #fff;
+  font-size: 14px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: presentation-hint 5s ease forwards;
+}
+
+.presentation-hint kbd {
+  padding: 1px 6px;
+  border: 1px solid rgb(255 255 255 / 45%);
+  border-radius: 4px;
+  font: inherit;
+  font-weight: 600;
+}
+
+@keyframes presentation-hint {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  6%,
+  88% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .presentation-hint {
+    animation: none;
   }
 }

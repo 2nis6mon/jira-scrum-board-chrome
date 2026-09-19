@@ -1,4 +1,4 @@
-import { Fragment } from "preact";
+import { type ComponentChildren, Fragment } from "preact";
 import { useEffect } from "preact/hooks";
 import type { BoardConfiguration } from "../../../core/boardConfiguration";
 import { displayedCardFields, displayedGoalId } from "../../../core/boardConfiguration";
@@ -41,17 +41,28 @@ export function BoardView({
 }) {
   const snapshot = board.snapshot.value;
   const layout = board.layout.value;
-  const health = controls.healthOpen && snapshot?.sprint ? board.health.value : null;
+  const presenting = controls.presenting;
+  const health = controls.healthOpen && !presenting && snapshot?.sprint ? board.health.value : null;
+  // En présentation, le bouton de sortie reste toujours affiché : au bout de la barre de filtres,
+  // ou seul dans une barre si les filtres ne sont pas là (plus de sprint actif, par exemple).
+  const exit = presenting ? <PresentationExit onExit={controls.onExitPresentation} /> : null;
+  const showFilters = snapshot?.sprint != null && board.options.value !== null;
 
   return (
-    <main class="board-screen">
-      <SprintHeader
-        board={board}
-        configuration={configuration}
-        snapshot={snapshot}
-        controls={controls}
-      />
-      {snapshot?.sprint && <FilterBar board={board} />}
+    <main class={`board-screen${presenting ? " board-screen-presenting" : ""}`}>
+      {!presenting && (
+        <SprintHeader
+          board={board}
+          configuration={configuration}
+          snapshot={snapshot}
+          controls={controls}
+        />
+      )}
+      {showFilters ? (
+        <FilterBar board={board} trailing={exit} />
+      ) : (
+        exit && <div class="filter-bar">{exit}</div>
+      )}
       <Notices board={board} snapshot={snapshot} layout={layout} />
       {health && (
         <HealthPanel
@@ -129,13 +140,17 @@ function TransitionChoiceDialog({ board }: { board: BoardModel }) {
 
 // ─── En-tête ─────────────────────────────────────────────────────────────────
 
-/** Commandes de l'écran portées par l'en-tête : barre latérale, santé du sprint. */
+/** Commandes de l'écran portées par l'en-tête : barre latérale, santé du sprint, présentation. */
 export interface ScreenControls {
   readonly sidebarCollapsed: boolean;
   readonly onToggleSidebar: () => void;
   /** Panneau « Santé du sprint » déplié au-dessus des swimlanes. */
   readonly healthOpen: boolean;
   readonly onToggleHealth: () => void;
+  /** Mode présentation : barre latérale, en-tête et santé masqués ; filtres et board restent. */
+  readonly presenting: boolean;
+  readonly onEnterPresentation: () => void;
+  readonly onExitPresentation: () => void;
 }
 
 function SprintHeader(props: {
@@ -272,8 +287,33 @@ function SprintHeader(props: {
         >
           <Icon name="refresh" size={17} />
         </button>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Mode présentation"
+          title="Mode présentation : masque la barre latérale et l'en-tête (Échap pour revenir)"
+          onClick={controls.onEnterPresentation}
+        >
+          <Icon name="present" size={17} />
+        </button>
       </div>
     </header>
+  );
+}
+
+/** Sortie du mode présentation, toujours visible pendant la présentation. */
+function PresentationExit({ onExit }: { onExit: () => void }) {
+  return (
+    <button
+      type="button"
+      class="presentation-exit"
+      aria-label="Quitter le mode présentation"
+      title="Quitter le mode présentation (Échap)"
+      onClick={onExit}
+    >
+      <Icon name="exitPresent" />
+      Quitter
+    </button>
   );
 }
 
@@ -314,7 +354,7 @@ function remainingLabel(days: number): string {
 
 // ─── Filtres ─────────────────────────────────────────────────────────────────
 
-function FilterBar({ board }: { board: BoardModel }) {
+function FilterBar({ board, trailing }: { board: BoardModel; trailing?: ComponentChildren }) {
   const filters = board.filters.value;
   const options = board.options.value;
   const layout = board.layout.value;
@@ -410,6 +450,7 @@ function FilterBar({ board }: { board: BoardModel }) {
           </button>
         </>
       )}
+      {trailing}
     </div>
   );
 }

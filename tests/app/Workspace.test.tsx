@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { render } from "preact";
-import { afterEach, describe, expect, it } from "vitest";
-import { App } from "../../src/app/App";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { App, PRESENTATION_HINT_MS } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
 import { BOARD_PROPERTY_KEYS } from "../../src/jira/writes";
 import {
@@ -339,6 +339,101 @@ describe("en-tête du sprint", () => {
     labelled("Afficher la barre latérale").click();
     await tick();
     expect(document.querySelector(".sidebar")).not.toBeNull();
+  });
+});
+
+describe("mode présentation", () => {
+  const exitButton = () =>
+    document.querySelector<HTMLButtonElement>('button[aria-label="Quitter le mode présentation"]');
+  const pressEscape = (target: EventTarget = document) =>
+    target.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+
+  it("masque barre latérale et en-tête ; restent les filtres, le board et un bouton pour revenir", async () => {
+    const { model, jira } = await connectedBoard();
+    labelled("Mode présentation").click();
+    await tick();
+    expect(model.presenting.value).toBe(true);
+    expect(document.querySelector(".sidebar")).toBeNull();
+    expect(document.querySelector(".sprint-header")).toBeNull();
+    expect(document.querySelector(".filter-bar")).not.toBeNull();
+    expect(cardKeys()).toContain("ABC-101");
+    expect(document.querySelector(".presentation-hint")?.textContent).toBe(
+      "Mode présentation · Échap pour revenir",
+    );
+    // Le chemin du retour ne disparaît jamais : au bout de la barre de filtres.
+    expect(document.querySelector(".filter-bar")?.lastElementChild).toBe(exitButton());
+
+    exitButton()?.click();
+    await tick();
+    expect(model.presenting.value).toBe(false);
+    expect(document.querySelector(".sidebar")).not.toBeNull();
+    expect(document.querySelector(".sprint-header")).not.toBeNull();
+    expect(document.querySelector(".presentation-hint")).toBeNull();
+    expect(exitButton()).toBeNull();
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+  });
+
+  it("Échap revient au mode normal, après un menu ouvert, une fenêtre ou une recherche remplie", async () => {
+    const { model } = await connectedBoard();
+    labelled("Mode présentation").click();
+    await tick();
+
+    // Un menu ouvert se referme d'abord.
+    const menu = document.querySelector<HTMLDetailsElement>("details.filter-menu");
+    if (!menu) throw new Error("menu de filtre attendu");
+    menu.open = true;
+    pressEscape();
+    expect(menu.open).toBe(false);
+    expect(model.presenting.value).toBe(true);
+
+    // Une fenêtre ouverte garde Échap pour elle.
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    document.body.append(dialog);
+    pressEscape();
+    expect(model.presenting.value).toBe(true);
+    dialog.remove();
+
+    // Dans la recherche remplie, Échap efface d'abord le texte.
+    const search = document.querySelector<HTMLInputElement>('input[type="search"]');
+    if (!search) throw new Error("recherche attendue");
+    search.value = "paiement";
+    pressEscape(search);
+    expect(model.presenting.value).toBe(true);
+    search.value = "";
+
+    pressEscape();
+    await tick();
+    expect(model.presenting.value).toBe(false);
+    expect(document.querySelector(".sidebar")).not.toBeNull();
+  });
+
+  it("la bulle d'aide s'efface au bout de 5 secondes ; le bouton Quitter reste", async () => {
+    await connectedBoard();
+    vi.useFakeTimers();
+    try {
+      labelled("Mode présentation").click();
+      await vi.advanceTimersByTimeAsync(PRESENTATION_HINT_MS - 1000);
+      expect(document.querySelector(".presentation-hint")).not.toBeNull();
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(document.querySelector(".presentation-hint")).toBeNull();
+      expect(exitButton()).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("la barre latérale retrouve son état : repliée avant, repliée après", async () => {
+    const { model } = await connectedBoard();
+    labelled("Masquer la barre latérale").click();
+    await tick();
+    labelled("Mode présentation").click();
+    await tick();
+    exitButton()?.click();
+    await tick();
+    expect(model.sidebarCollapsed.value).toBe(true);
+    expect(document.querySelector(".sidebar")).toBeNull();
+    expect(document.querySelector(".sprint-header")).not.toBeNull();
   });
 });
 

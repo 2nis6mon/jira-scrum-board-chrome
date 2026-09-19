@@ -170,6 +170,30 @@ describe("AppModel — vues", () => {
   });
 });
 
+describe("AppModel — mode présentation", () => {
+  it("sur la vue du sprint ; l'administration et la déconnexion en sortent ; jamais gardé", async () => {
+    const platform = fakePlatform(readsOnlyJira());
+    const model = new AppModel(platform);
+    await model.connect("acme.atlassian.net");
+    model.showAdmin("board");
+
+    model.enterPresentation();
+    expect(model.view.value).toBe("board");
+    expect(model.presenting.value).toBe(true);
+    model.showAdmin();
+    expect(model.presenting.value).toBe(false);
+
+    model.enterPresentation();
+    model.showDiagnostic();
+    expect(model.presenting.value).toBe(false);
+
+    model.enterPresentation();
+    await model.disconnect();
+    expect(model.presenting.value).toBe(false);
+    expect(JSON.stringify(platform.stored.get("interface.v1") ?? {})).not.toContain("present");
+  });
+});
+
 describe("AppModel — largeur de la barre latérale", () => {
   it("de 200 px à la moitié de la fenêtre, arrondie", () => {
     expect(clampSidebarWidth(120, 1600)).toBe(200);

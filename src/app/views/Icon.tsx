@@ -123,6 +123,10 @@ const PATHS = {
   ),
   chevrons: <path d="M8 9.5 12 5.5l4 4M8 14.5l4 4 4-4" />,
   chevronUp: <path d="M6 15l6-6 6 6" />,
+  /** Chevalet de présentation : entrer en mode présentation. */
+  present: <path d="M3 4h18M4.5 4v10.5h15V4M12 14.5V18M8 21l4-3 4 3" />,
+  /** Flèches rentrantes : quitter le mode présentation. */
+  exitPresent: <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   signOut: <path d="M10 4H5v16h5M9.5 12h11M16.5 8l4 4-4 4" />,
 } satisfies Record<string, ComponentChildren>;
