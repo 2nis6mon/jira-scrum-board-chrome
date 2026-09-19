@@ -37,7 +37,6 @@ function Workspace({
 }) {
   const { board } = connection;
   const view = model.view.value;
-  const presentation = model.presentation.value;
   const sidebarCollapsed = model.sidebarCollapsed.value;
 
   // Un clic hors d'un menu ouvert le referme.
@@ -51,25 +50,14 @@ function Workspace({
     return () => document.removeEventListener("pointerdown", close);
   }, []);
 
-  // Sortir du plein écran du navigateur (Échap) rend la barre latérale.
-  useEffect(() => {
-    const leave = () => {
-      if (!document.fullscreenElement) model.setPresentation(false);
-    };
-    document.addEventListener("fullscreenchange", leave);
-    return () => document.removeEventListener("fullscreenchange", leave);
-  }, [model]);
-
   const controls: ScreenControls = {
-    presentation,
     sidebarCollapsed,
     onToggleSidebar: () => model.toggleSidebar(),
-    onTogglePresentation: () => togglePresentation(model),
   };
 
   return (
-    <div class={`workspace${presentation ? " workspace-presentation" : ""}`}>
-      {!presentation && !sidebarCollapsed && <Sidebar model={model} board={board} />}
+    <div class="workspace">
+      {!sidebarCollapsed && <Sidebar model={model} board={board} />}
       <div class="workspace-main">
         {view === "board" && <BoardScreen connection={connection} controls={controls} />}
         {view === "health" && <HealthPlaceholder />}
@@ -77,20 +65,6 @@ function Workspace({
       </div>
     </div>
   );
-}
-
-/**
- * Plein écran : la barre latérale disparaît et le navigateur passe en plein écran. S'il le refuse,
- * le board reste dans l'onglet, sans barre latérale ; le même bouton la rend.
- */
-function togglePresentation(model: AppModel): void {
-  const on = !model.presentation.value;
-  model.setPresentation(on);
-  if (on) {
-    document.documentElement.requestFullscreen?.().catch(() => {});
-  } else if (document.fullscreenElement) {
-    document.exitFullscreen().catch(() => {});
-  }
 }
 
 function BoardScreen({

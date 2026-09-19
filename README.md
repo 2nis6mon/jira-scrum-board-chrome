@@ -9,13 +9,12 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.10.0 — réglages locaux terminés (étape 5), mise en page de l'app Mac.** Board du
-> sprint actif organisé par
-> Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
+> **État : 0.10.1 — réglages locaux terminés (étape 5), mise en page de l'app Mac.** Board du
+> sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
 > du board Jira ; glisser-déposer qui écrit dans Jira : transition, rang, et lien natif
 > ticket↔Goal ; épinglage de Goals au sprint, gardé dans le navigateur si Jira le refuse ; ordre,
-> repli, couleur et masquage des swimlanes ; barre latérale (board, vues, swimlanes, administration)
-> et plein écran ; administration (colonnes, types, affichage, rafraîchissement automatique,
+> repli, couleur et masquage des swimlanes ; barre latérale (board, vues, swimlanes, administration) ;
+> administration (colonnes, types, affichage, rafraîchissement automatique,
 > source des objectifs, champs et couleurs des cartes, diagnostic, déconnexion). Repli
 > automatique et expliqué sur le texte du sprint si les Goals ne répondent pas.
 
@@ -69,10 +68,11 @@ carte ouvre le ticket dans Jira, dans un nouvel onglet. La flèche ronde de l'en
   Jira, relit colonnes et types, épingle des Goals ou change de board ; les vues *Board* et
   *Sprint Health* (emplacement réservé, pas encore construit) ; les swimlanes dans l'ordre du
   board, avec leur avancement — un clic y mène (en la dépliant), un glissé les réordonne, sur le
-  board comme dans la barre ; les objectifs masqués, avec un œil pour les réafficher ; et
-  *Administration* en pied de barre. Le bouton en haut à gauche de l'en-tête la masque.
-- **Plein écran** (flèches en haut à droite) : la barre latérale disparaît et le navigateur passe
-  en plein écran ; Échap ou le même bouton la rendent.
+  board comme dans la barre ; et *Administration* en pied de barre. Le bouton en haut à gauche
+  de l'en-tête masque la barre.
+- **Œil d'un objectif** (barre latérale) : ouvert, il se ferme au survol, et un clic masque
+  l'objectif du board (ses tickets passent dans *Build*) ; l'objectif passe alors dans *Masqués du
+  board*, œil fermé, qui s'ouvre au survol et le réaffiche d'un clic. Réglage de ce navigateur.
 
 **Glisser-déposer** — une carte déposée dans une case peut entraîner, dans cet ordre :
 
@@ -124,7 +124,10 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (*Administrat
   - *Board* : colonnes Scrum et RUN (affichées, nom, limite WIP), types de tickets (Scrum, RUN,
     ignoré ; « bug »), section RUN, nom du bloc Build, seuil « vieillissant », labels de blocage,
     rafraîchissement automatique (1, 2 ou 5 min, lecture seule, suspendu pendant un geste),
-    réinitialisation de l'ordre des swimlanes. Modifications en brouillon, puis *Appliquer*.
+    réinitialisation de l'ordre des swimlanes. Chaque modification est enregistrée aussitôt : une
+    case ou une liste dès qu'on la change, un champ texte quand on le valide (Entrée ou sortie du
+    champ) ; une saisie refusée reste affichée avec son message, Échap revient à la valeur
+    enregistrée. Classement des types, bugs et labels de blocage font relire le board dans Jira.
   - *Objectifs* : source (Goals Atlassian ou texte du sprint), Goals associés au board, accès à
     l'épinglage, couleur et visibilité de chaque objectif.
   - *Champs des cartes* : jusqu'à trois champs sous le titre (versions, labels, composants, ou
@@ -262,8 +265,9 @@ développement, jamais inclus dans `dist/`.
 - Mise en page de l'app Mac (0.10.0) : barre latérale (swimlanes dans l'ordre du board, décomptes,
   clic qui déplie et amène à l'écran, glissé depuis la barre ou le board vers l'une ou l'autre,
   objectifs masqués), administration (réglages, diagnostic, déconnexion), en-tête et filtres à
-  icônes ; vérifié dans Chrome sur le banc d'essai. Le plein écran du navigateur n'a pas pu y être
-  essayé (le panneau de test le refuse) : seul le masquage de la barre latérale l'a été.
+  icônes ; vérifié dans Chrome sur le banc d'essai.
+- Œil des objectifs et section Board enregistrée champ par champ (0.10.1) : masquer, réafficher,
+  animation au survol, saisie refusée, Échap ; vérifié dans Chrome sur le banc d'essai.
 
 ### ✅ Constaté par l'utilisateur sur son instance (0.2.0, 0.2.1)
 

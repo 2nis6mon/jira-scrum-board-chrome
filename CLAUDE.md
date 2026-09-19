@@ -176,7 +176,7 @@ manifest (`icons`, `action.default_icon`), l'onglet et l'en-tête du sprint ; s�
 filtres standard.
 
 0.8.0 : étape 5b, page Réglages (onglet de l'en-tête). Section Board en brouillon appliqué d'un
-coup (`applyBoardSection` refuse un brouillon dont les colonnes ou types ont été relus depuis) ;
+coup (remplacé en 0.10.1 par un enregistrement champ par champ) ;
 rafraîchissement automatique branché (`BoardModel`, suspendu pendant un geste).
 
 0.9.0 : lot 5c, qui termine l'étape 5. Règles de couleur des cartes (section Réglages, JQL évalué
@@ -198,11 +198,19 @@ swimlanes dans l'ordre du board (clic = dépliée et amenée à l'écran, gliss�
 état de glissé que le board), objectifs masqués, Administration en pied. Administration
 (`views/settings/AdminView.tsx`) = réglages du board + Diagnostic + Se déconnecter. En-tête du
 sprint aligné sur la maquette (badge actif, points et %, compteurs à icônes, « Jira · hh:mm »,
-flèche ronde, plein écran = barre masquée + plein écran du navigateur, Échap la rend) ; filtres à
-icônes dans l'ordre du Mac. Icônes dessinées dans `views/Icon.tsx` (aucune ressource externe,
+flèche ronde) ; filtres à icônes dans l'ordre du Mac. Icônes dessinées dans `views/Icon.tsx` (aucune ressource externe,
 aucune permission) ; leur couleur vient du parent par `--icon-color`. Sous happy-dom, le
 glissé DOM n'atteint pas les gestionnaires de Preact (pas de propriété `ondragstart`) : le
 geste se vérifie dans Chrome sur le banc d'essai.
+
+0.10.1 (remarques de Denis) : œil animé sur chaque objectif de la barre latérale (ouvert, il se
+ferme au survol : masquer ; fermé dans « Masqués du board », il s'ouvre : réafficher ; CSS seule,
+coupée si l'utilisateur réduit les animations) ; bouton plein écran retiré, à sa demande. Section
+Board de l'administration sans Annuler/Appliquer : chaque réglage est une fonction pure de
+`boardSettings.ts` (`withColumnName`, `withWipLimit`…), validée puis appliquée à la configuration
+la plus récente ; un champ texte s'enregistre à la validation (événement `change`), pas à chaque
+frappe ; seuls types, bugs et labels de blocage relisent Jira. Les autres sections gardent
+Appliquer.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.

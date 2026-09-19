@@ -7,7 +7,7 @@ import { BOARD_URL, boardSiteJira } from "../support/boardFixture";
 import { isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 
-// Barre latérale, en-tête, plein écran, barre de filtres et administration (maquette de l'app Mac).
+// Barre latérale, en-tête, barre de filtres et administration (maquette de l'app Mac).
 
 afterEach(() => {
   render(null, document.body);
@@ -42,11 +42,18 @@ function labelled(label: string): HTMLButtonElement {
   return found;
 }
 
-function sidebarRow(title: string): HTMLButtonElement {
-  const found = [...document.querySelectorAll<HTMLButtonElement>(".sidebar-lane")].find(
+/** Ligne d'une swimlane dans la barre latérale (glissable), qui porte son bouton et son œil. */
+function sidebarRow(title: string): HTMLElement {
+  const found = [...document.querySelectorAll<HTMLElement>(".sidebar-lane")].find(
     (row) => row.querySelector(".sidebar-lane-title")?.textContent === title,
   );
   if (!found) throw new Error(`swimlane « ${title} » absente de la barre latérale`);
+  return found;
+}
+
+function sidebarLink(title: string): HTMLButtonElement {
+  const found = sidebarRow(title).querySelector<HTMLButtonElement>(".sidebar-lane-main");
+  if (!found) throw new Error(`bouton de « ${title} » attendu`);
   return found;
 }
 
@@ -109,7 +116,7 @@ describe("barre latérale", () => {
       await tick();
       expect(cardKeys()).not.toContain("ABC-104");
 
-      sidebarRow("Build").click();
+      sidebarLink("Build").click();
       await expect.poll(() => scrolled).toEqual(["build"]);
       expect(board.configuration.value?.collapsedBlockIds).not.toContain("build");
       expect(cardKeys()).toContain("ABC-104");
@@ -120,7 +127,7 @@ describe("barre latérale", () => {
     // happy-dom ne relie pas les événements de glissé aux gestionnaires de Preact : le geste
     // lui-même est vérifié dans Chrome (banc d'essai) ; ici, l'état qu'il partage entre les vues.
     const { jira, board } = await connectedBoard();
-    expect(sidebarRow("RUN").getAttribute("draggable")).toBe("true");
+    expect(sidebarLink("RUN").getAttribute("draggable")).toBe("true");
     const stability = board.laneOrder.value[1] ?? "";
 
     board.startLaneDrag("run");
@@ -141,6 +148,32 @@ describe("barre latérale", () => {
     expect(boardLanes()).toEqual(expected);
     expect(sidebarLanes()).toEqual(expected);
     expect(document.querySelector(".sidebar-drop-line")).toBeNull();
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+  });
+
+  it("l'œil d'un objectif le masque ; celui d'un objectif masqué le réaffiche", async () => {
+    const { jira } = await connectedBoard();
+    // Seuls les objectifs ont un œil : Build et RUN ne se masquent pas.
+    expect(sidebarRow("Build").querySelector(".eye-toggle")).toBeNull();
+    expect(sidebarRow("RUN").querySelector(".eye-toggle")).toBeNull();
+
+    const hide = labelled("Masquer « Améliorer la stabilité » du board");
+    expect(hide.classList.contains("eye-toggle-hidden")).toBe(false);
+    expect(hide.querySelector(".eye-open")).not.toBeNull();
+    expect(hide.querySelector(".eye-shut")).not.toBeNull();
+    hide.click();
+    await tick();
+    expect(sidebarLanes()).not.toContain("Améliorer la stabilité");
+    expect(boardLanes()).not.toContain("Améliorer la stabilité");
+
+    // Les objectifs masqués sont listés en bas de la barre, œil fermé.
+    const show = labelled("Réafficher « Améliorer la stabilité » sur le board");
+    expect(show.classList.contains("eye-toggle-hidden")).toBe(true);
+    show.click();
+    await tick();
+    expect(sidebarLanes()).toEqual(boardLanes());
+    expect(sidebarLanes()).toContain("Améliorer la stabilité");
+    expect(document.querySelector(".sidebar-hidden")).toBeNull();
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
@@ -175,44 +208,6 @@ describe("en-tête du sprint", () => {
       button("2dans Build").click();
       await expect.poll(() => scrolled).toEqual(["build"]);
     });
-  });
-
-  it("plein écran : barre latérale masquée et plein écran du navigateur ; Échap la rend", async () => {
-    let requested = 0;
-    Object.defineProperty(document.documentElement, "requestFullscreen", {
-      configurable: true,
-      value: async () => {
-        requested += 1;
-      },
-    });
-    try {
-      await connectedBoard();
-      labelled("Plein écran").click();
-      await tick();
-      expect(requested).toBe(1);
-      expect(document.querySelector(".sidebar")).toBeNull();
-      expect(document.querySelector(".sidebar-toggle")).toBeNull();
-      expect(labelled("Quitter le plein écran").getAttribute("aria-pressed")).toBe("true");
-
-      // Échap : le navigateur quitte le plein écran et le signale.
-      document.dispatchEvent(new Event("fullscreenchange"));
-      await tick();
-      expect(document.querySelector(".sidebar")).not.toBeNull();
-      expect(labelled("Plein écran").getAttribute("aria-pressed")).toBe("false");
-    } finally {
-      Reflect.deleteProperty(document.documentElement, "requestFullscreen");
-    }
-  });
-
-  it("plein écran refusé par le navigateur : la barre latérale reste masquée, le bouton la rend", async () => {
-    await connectedBoard();
-    labelled("Plein écran").click();
-    await tick();
-    expect(document.querySelector(".sidebar")).toBeNull();
-
-    labelled("Quitter le plein écran").click();
-    await tick();
-    expect(document.querySelector(".sidebar")).not.toBeNull();
   });
 
   it("le bouton de la barre latérale la masque et la rend", async () => {

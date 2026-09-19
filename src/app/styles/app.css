@@ -1639,6 +1639,25 @@ details.lane-menu[open] > summary {
   font-size: 11px;
 }
 
+/* Saisie refusée : elle reste affichée, soulignée, avec son message. */
+.settings-invalid {
+  box-shadow: 0 0 0 1px var(--blocked);
+}
+
+.settings-error {
+  display: block;
+  max-width: 320px;
+  margin-top: 4px;
+  color: #b91c1c;
+  font-size: 11.5px;
+  white-space: normal;
+}
+
+/* Dans un tableau, le message reste étroit pour ne pas écraser les autres colonnes. */
+.settings-table .settings-error {
+  max-width: 170px;
+}
+
 .settings-no-board {
   max-width: 520px;
 }
@@ -2161,25 +2180,114 @@ details.board-switcher .menu-panel {
   list-style: none;
 }
 
+/* Ligne glissable : poignée, bouton qui mène à la swimlane, œil (objectifs seulement). */
 .sidebar-lane {
-  width: calc(100% - 16px);
-  height: auto;
   margin: 0 8px;
-  padding: 6px 8px;
+  padding: 6px 6px 6px 8px;
   display: flex;
   align-items: flex-start;
   gap: 7px;
-  border: none;
   border-radius: 6px;
-  background: none;
   color: var(--ink);
   font-size: 12.5px;
+}
+
+.sidebar-lane:hover {
+  background: #e7eaef;
+}
+
+.sidebar-lane-main {
+  flex: 1;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  display: flex;
+  align-items: inherit;
+  gap: 7px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
   text-align: left;
   white-space: normal;
 }
 
-.sidebar-lane:hover:not(:disabled) {
-  background: #e7eaef;
+.sidebar-lane-main:hover:not(:disabled) {
+  background: none;
+}
+
+/* Œil d'un objectif : ouvert, il se ferme au survol (masquer) ; fermé, il s'ouvre (réafficher). */
+.eye-toggle {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  margin: -2px 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-color: transparent;
+  background: none;
+  color: var(--ink-4);
+}
+
+.eye-toggle:hover:not(:disabled),
+.eye-toggle:focus-visible {
+  background: none;
+  color: var(--ink);
+}
+
+.eye-open,
+.eye-shut {
+  transform-origin: 12px 12px;
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eye-open,
+  .eye-shut {
+    transition: none;
+  }
+}
+
+.eye-shut {
+  opacity: 0;
+  transform: scaleY(0.3);
+}
+
+.eye-toggle-hidden .eye-open {
+  opacity: 0;
+  transform: scaleY(0.1);
+}
+
+.eye-toggle-hidden .eye-shut {
+  opacity: 1;
+  transform: none;
+}
+
+.eye-toggle:hover .eye-open,
+.eye-toggle:focus-visible .eye-open {
+  opacity: 0;
+  transform: scaleY(0.1);
+}
+
+.eye-toggle:hover .eye-shut,
+.eye-toggle:focus-visible .eye-shut {
+  opacity: 1;
+  transform: none;
+}
+
+.eye-toggle-hidden:hover .eye-open,
+.eye-toggle-hidden:focus-visible .eye-open {
+  opacity: 1;
+  transform: none;
+}
+
+.eye-toggle-hidden:hover .eye-shut,
+.eye-toggle-hidden:focus-visible .eye-shut {
+  opacity: 0;
+  transform: scaleY(0.3);
 }
 
 .sidebar-grip {

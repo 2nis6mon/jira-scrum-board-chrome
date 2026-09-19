@@ -116,12 +116,10 @@ function TransitionChoiceDialog({ board }: { board: BoardModel }) {
 
 // ─── En-tête ─────────────────────────────────────────────────────────────────
 
-/** Commandes de l'écran portées par l'en-tête : barre latérale et plein écran. */
+/** Commande de l'écran portée par l'en-tête : afficher ou masquer la barre latérale. */
 export interface ScreenControls {
-  readonly presentation: boolean;
   readonly sidebarCollapsed: boolean;
   readonly onToggleSidebar: () => void;
-  readonly onTogglePresentation: () => void;
 }
 
 function SprintHeader(props: {
@@ -149,21 +147,19 @@ function SprintHeader(props: {
 
   return (
     <header class="sprint-header">
-      {!controls.presentation && (
-        <button
-          type="button"
-          class="icon-button sidebar-toggle"
-          aria-label={
-            controls.sidebarCollapsed ? "Afficher la barre latérale" : "Masquer la barre latérale"
-          }
-          title={
-            controls.sidebarCollapsed ? "Afficher la barre latérale" : "Masquer la barre latérale"
-          }
-          onClick={controls.onToggleSidebar}
-        >
-          <Icon name="sidebar" size={17} />
-        </button>
-      )}
+      <button
+        type="button"
+        class="icon-button sidebar-toggle"
+        aria-label={
+          controls.sidebarCollapsed ? "Afficher la barre latérale" : "Masquer la barre latérale"
+        }
+        title={
+          controls.sidebarCollapsed ? "Afficher la barre latérale" : "Masquer la barre latérale"
+        }
+        onClick={controls.onToggleSidebar}
+      >
+        <Icon name="sidebar" size={17} />
+      </button>
       <div class="sprint-title">
         <div class="sprint-name">
           <h2>
@@ -245,20 +241,6 @@ function SprintHeader(props: {
           disabled={board.syncing.value}
         >
           <Icon name="refresh" size={17} />
-        </button>
-        <button
-          type="button"
-          class="icon-button"
-          aria-label={controls.presentation ? "Quitter le plein écran" : "Plein écran"}
-          aria-pressed={controls.presentation}
-          title={
-            controls.presentation
-              ? "Quitter le plein écran (Échap)"
-              : "Plein écran : le board seul, sans barre latérale"
-          }
-          onClick={controls.onTogglePresentation}
-        >
-          <Icon name={controls.presentation ? "exitFullscreen" : "enterFullscreen"} size={17} />
         </button>
       </div>
     </header>

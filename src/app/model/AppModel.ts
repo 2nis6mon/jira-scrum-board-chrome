@@ -28,12 +28,7 @@ export class AppModel {
   readonly connectionError = signal<UserMessage | null>(null);
   readonly view = signal<View>("board");
   readonly adminSection = signal<AdminSection>("board");
-  /**
-   * Plein écran : barre latérale masquée, board seul. La vue demande aussi le plein écran au
-   * navigateur ; en sortir (Échap) rend la barre latérale.
-   */
-  readonly presentation = signal(false);
-  /** Barre latérale repliée par son bouton, hors plein écran. Réglage de la session. */
+  /** Barre latérale repliée par son bouton. Réglage de la session. */
   readonly sidebarCollapsed = signal(false);
 
   readonly #platform: Platform;
@@ -119,7 +114,6 @@ export class AppModel {
     this.connectionError.value = null;
     this.view.value = "board";
     this.adminSection.value = "board";
-    this.presentation.value = false;
     this.connection.value = { state: "disconnected", lastInput: current.site.host };
   }
 
@@ -150,10 +144,6 @@ export class AppModel {
     if (current.state !== "connected") return;
     if (current.diagnostic.read.value === null) void current.diagnostic.runReads();
     void current.diagnostic.loadJournal();
-  }
-
-  setPresentation(on: boolean): void {
-    this.presentation.value = on;
   }
 
   toggleSidebar(): void {

@@ -4,12 +4,11 @@ import {
   type ColumnConfiguration,
   DEFAULT_BUILD_LABEL,
   type IssueCategory,
-  type IssueTypeConfiguration,
 } from "./boardConfiguration";
 import { type CardField, cardFieldId, MAX_CARD_FIELDS } from "./cardFields";
 import { foldText } from "./text";
 
-// Réglages de la page « Réglages », portés de l'administration du Mac (`AdminView`,
+// Réglages de l'administration, portés de l'administration du Mac (`AdminView`,
 // `CardFieldsAdminView`). Tous sont LOCAUX à ce navigateur : rien n'est écrit dans Jira.
 
 export const ISSUE_CATEGORY_LABEL: Record<IssueCategory, string> = {
@@ -21,131 +20,137 @@ export const ISSUE_CATEGORY_LABEL: Record<IssueCategory, string> = {
 /** Rafraîchissements automatiques proposés, en secondes (`null` = désactivé), comme le Mac. */
 export const AUTO_REFRESH_CHOICES: readonly (number | null)[] = [null, 60, 120, 300];
 
-// ─── Section Board : brouillon, validé puis appliqué d'un coup ───────────────
+// ─── Section Board : chaque réglage s'applique seul, dès qu'il est validé ────
+//
+// Chaque fonction part de la configuration QU'ON LUI DONNE (la plus récente au moment d'écrire) et
+// ne touche qu'à son réglage : deux modifications rapprochées s'additionnent, et une colonne ou un
+// type disparu entre-temps (structure relue dans Jira) laisse la configuration intacte.
 
-/**
- * Réglages de la section Board, modifiés en brouillon puis appliqués ensemble. Les autres
- * réglages (objectifs, couleurs, ordre, champs des cartes) n'en font pas partie : un brouillon
- * ouvert ne peut donc pas les écraser avec une copie périmée.
- */
-export interface BoardSectionDraft {
-  readonly scrumColumns: readonly ColumnConfiguration[];
-  readonly runColumns: readonly ColumnConfiguration[];
-  readonly issueTypes: readonly IssueTypeConfiguration[];
-  readonly showRunSection: boolean;
-  readonly buildSectionLabel: string;
-  /** Saisie brute : validée à l'application. */
-  readonly agingThresholdDays: string;
-  readonly autoRefreshSeconds: number | null;
-  /** Labels séparés par des virgules, tels que saisis. */
-  readonly blockedLabels: string;
-  /** Limites WIP saisies, par identifiant de colonne ; vide = aucune limite. */
-  readonly wipLimits: Readonly<Record<string, string>>;
-}
+export type ColumnKind = "scrum" | "run";
 
-export function boardSectionDraft(configuration: BoardConfiguration): BoardSectionDraft {
-  const wipLimits: Record<string, string> = {};
-  const record = (columns: readonly ColumnConfiguration[], kind: "scrum" | "run") => {
-    for (const column of columns) {
-      wipLimits[wipKey(column, kind)] = column.wipLimit === null ? "" : String(column.wipLimit);
-    }
-  };
-  record(configuration.scrumColumns, "scrum");
-  record(configuration.runColumns, "run");
-  return {
-    scrumColumns: configuration.scrumColumns,
-    runColumns: configuration.runColumns,
-    issueTypes: configuration.issueTypes,
-    showRunSection: configuration.showRunSection,
-    buildSectionLabel: configuration.buildSectionLabel,
-    agingThresholdDays: String(configuration.agingThresholdDays),
-    autoRefreshSeconds: configuration.autoRefreshSeconds,
-    blockedLabels: configuration.blockedLabels.join(", "),
-    wipLimits,
-  };
-}
-
-/** Clé d'une limite WIP : les colonnes Scrum et RUN peuvent partager un identifiant. */
-export function wipKey(column: ColumnConfiguration, kind: "scrum" | "run"): string {
-  return `${kind}:${column.id}`;
-}
-
-export type BoardSectionResult =
+export type SettingResult =
   | { readonly ok: true; readonly configuration: BoardConfiguration }
-  | { readonly ok: false; readonly errors: readonly string[] };
+  | { readonly ok: false; readonly error: string };
 
-/** Valide le brouillon et le reporte sur la configuration ACTUELLE (pas sur une copie ancienne). */
-export function applyBoardSection(
+function editColumn(
   configuration: BoardConfiguration,
-  draft: BoardSectionDraft,
-): BoardSectionResult {
-  const ids = (items: readonly { id: string }[]) => items.map((item) => item.id).join("\n");
-  if (
-    ids(draft.scrumColumns) !== ids(configuration.scrumColumns) ||
-    ids(draft.runColumns) !== ids(configuration.runColumns) ||
-    ids(draft.issueTypes) !== ids(configuration.issueTypes)
-  ) {
+  kind: ColumnKind,
+  columnId: string,
+  parts: Partial<ColumnConfiguration>,
+): BoardConfiguration {
+  const key = kind === "scrum" ? "scrumColumns" : "runColumns";
+  return {
+    ...configuration,
+    [key]: configuration[key].map((column) =>
+      column.id === columnId ? { ...column, ...parts } : column,
+    ),
+  };
+}
+
+function columnName(configuration: BoardConfiguration, kind: ColumnKind, columnId: string) {
+  const columns = kind === "scrum" ? configuration.scrumColumns : configuration.runColumns;
+  return columns.find((column) => column.id === columnId)?.name ?? columnId;
+}
+
+export function withColumnName(
+  configuration: BoardConfiguration,
+  kind: ColumnKind,
+  columnId: string,
+  name: string,
+): SettingResult {
+  const trimmed = name.trim();
+  if (trimmed === "") return { ok: false, error: "Chaque colonne doit garder un nom." };
+  return { ok: true, configuration: editColumn(configuration, kind, columnId, { name: trimmed }) };
+}
+
+export function withColumnHidden(
+  configuration: BoardConfiguration,
+  kind: ColumnKind,
+  columnId: string,
+  hidden: boolean,
+): BoardConfiguration {
+  return editColumn(configuration, kind, columnId, { hidden });
+}
+
+/** Limite WIP saisie : vide = aucune limite, sinon un entier de 1 à 999. */
+export function withWipLimit(
+  configuration: BoardConfiguration,
+  kind: ColumnKind,
+  columnId: string,
+  raw: string,
+): SettingResult {
+  const text = raw.trim();
+  if (text === "") {
     return {
-      ok: false,
-      errors: [
-        "Les colonnes ou les types du board ont été relus dans Jira depuis l'ouverture de ce brouillon. Annulez-le, puis refaites vos réglages.",
-      ],
+      ok: true,
+      configuration: editColumn(configuration, kind, columnId, { wipLimit: null }),
     };
   }
-
-  const errors: string[] = [];
-
-  const aging = Number(draft.agingThresholdDays.trim());
-  if (!Number.isInteger(aging) || aging < 1 || aging > 365) {
-    errors.push("Le seuil « vieillissant » doit être un nombre entier de jours, entre 1 et 365.");
+  const limit = Number(text);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 999) {
+    return {
+      ok: false,
+      error: `La limite WIP de « ${columnName(configuration, kind, columnId)} » doit être un entier entre 1 et 999, ou vide.`,
+    };
   }
-
-  const savedName = new Map(
-    [...configuration.scrumColumns, ...configuration.runColumns].map((c) => [c.id, c.name]),
-  );
-  const withWip = (columns: readonly ColumnConfiguration[], kind: "scrum" | "run") =>
-    columns.map((column) => {
-      const raw = (draft.wipLimits[wipKey(column, kind)] ?? "").trim();
-      if (raw === "") return { ...column, wipLimit: null };
-      const limit = Number(raw);
-      if (!Number.isInteger(limit) || limit < 1 || limit > 999) {
-        errors.push(
-          `La limite WIP de « ${savedName.get(column.id) ?? column.name} » doit être un entier entre 1 et 999, ou vide.`,
-        );
-        return column;
-      }
-      return { ...column, wipLimit: limit };
-    });
-  const scrumColumns = withWip(draft.scrumColumns, "scrum");
-  const runColumns = withWip(draft.runColumns, "run");
-
-  for (const column of [...scrumColumns, ...runColumns]) {
-    if (column.name.trim() === "") errors.push("Chaque colonne doit garder un nom.");
-  }
-
-  if (errors.length > 0) return { ok: false, errors: [...new Set(errors)] };
   return {
     ok: true,
-    configuration: {
-      ...configuration,
-      scrumColumns: scrumColumns.map((column) => ({ ...column, name: column.name.trim() })),
-      runColumns: runColumns.map((column) => ({ ...column, name: column.name.trim() })),
-      issueTypes: draft.issueTypes,
-      showRunSection: draft.showRunSection,
-      buildSectionLabel: draft.buildSectionLabel.trim() || DEFAULT_BUILD_LABEL,
-      agingThresholdDays: aging,
-      autoRefreshSeconds: draft.autoRefreshSeconds,
-      blockedLabels: parseLabels(draft.blockedLabels),
-    },
+    configuration: editColumn(configuration, kind, columnId, { wipLimit: limit }),
   };
 }
 
-/** Le brouillon diffère-t-il de ce qui est enregistré ? */
-export function isBoardSectionChanged(
+export function withIssueTypeCategory(
   configuration: BoardConfiguration,
-  draft: BoardSectionDraft,
-): boolean {
-  return JSON.stringify(boardSectionDraft(configuration)) !== JSON.stringify(draft);
+  typeId: string,
+  category: IssueCategory,
+): BoardConfiguration {
+  return {
+    ...configuration,
+    issueTypes: configuration.issueTypes.map((type) =>
+      type.id === typeId ? { ...type, category } : type,
+    ),
+  };
+}
+
+export function withBugType(
+  configuration: BoardConfiguration,
+  typeId: string,
+  countsAsBug: boolean,
+): BoardConfiguration {
+  return {
+    ...configuration,
+    issueTypes: configuration.issueTypes.map((type) =>
+      type.id === typeId ? { ...type, countsAsBug } : type,
+    ),
+  };
+}
+
+/** Nom du bloc Build ; vide = le nom par défaut. */
+export function withBuildLabel(
+  configuration: BoardConfiguration,
+  label: string,
+): BoardConfiguration {
+  return { ...configuration, buildSectionLabel: label.trim() || DEFAULT_BUILD_LABEL };
+}
+
+/** Seuil « vieillissant » saisi : un entier de 1 à 365 jours. */
+export function withAgingThreshold(configuration: BoardConfiguration, raw: string): SettingResult {
+  const days = Number(raw.trim());
+  if (raw.trim() === "" || !Number.isInteger(days) || days < 1 || days > 365) {
+    return {
+      ok: false,
+      error: "Le seuil « vieillissant » doit être un nombre entier de jours, entre 1 et 365.",
+    };
+  }
+  return { ok: true, configuration: { ...configuration, agingThresholdDays: days } };
+}
+
+/** Labels de blocage saisis, séparés par des virgules. */
+export function withBlockedLabels(
+  configuration: BoardConfiguration,
+  raw: string,
+): BoardConfiguration {
+  return { ...configuration, blockedLabels: parseLabels(raw) };
 }
 
 /** Labels séparés par des virgules, sans vide ni doublon (à la casse près, comme Jira). */

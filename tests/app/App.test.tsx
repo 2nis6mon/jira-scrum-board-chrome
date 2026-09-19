@@ -308,10 +308,8 @@ describe("App", () => {
 
     menuButton("Améliorer la stabilité", "Masquer cet objectif du board").click();
     await tick();
-    // Les objectifs masqués se retrouvent en bas de la barre latérale, repliés.
+    // Les objectifs masqués se retrouvent en bas de la barre latérale.
     expect(laneTitles()).not.toContain("Améliorer la stabilité");
-    button("Masqués du board").click();
-    await tick();
     labelled("Réafficher « Améliorer la stabilité » sur le board").click();
     await tick();
     expect(laneTitles()).toContain("Améliorer la stabilité");
@@ -338,36 +336,54 @@ describe("App", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
-  it("Réglages : renommer une colonne et limiter son WIP, appliqué au board, rien écrit dans Jira", async () => {
+  it("Administration, section Board : chaque champ s'applique dès qu'il est validé, rien écrit dans Jira", async () => {
     const { jira } = await connectedBoard();
     button("Administration").click();
     await tick();
     expect(document.querySelector(".settings")).not.toBeNull();
-    expect(button("Appliquer").disabled).toBe(true);
+    const labels = [...document.querySelectorAll("button")].map((b) => b.textContent?.trim());
+    expect(labels).not.toContain("Appliquer");
+    expect(labels).not.toContain("Annuler");
 
-    const name = document.querySelector<HTMLInputElement>(
-      "[aria-label='Nom de la colonne À faire (Scrum)']",
-    );
-    if (!name) throw new Error("champ du nom attendu");
-    name.value = "À prendre";
-    name.dispatchEvent(new Event("input", { bubbles: true }));
-    const wip = document.querySelector<HTMLInputElement>(
-      "[aria-label='Limite WIP de À faire (Scrum)']",
-    );
-    if (!wip) throw new Error("champ WIP attendu");
-    wip.value = "abc";
-    wip.dispatchEvent(new Event("input", { bubbles: true }));
+    const field = (label: string) => {
+      const found = document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
+      if (!found) throw new Error(`champ « ${label} » attendu`);
+      return found;
+    };
+    // Saisie puis validation (Entrée ou sortie du champ) : le navigateur émet « change ».
+    const type = (input: HTMLInputElement, value: string) => {
+      input.value = value;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const validate = (input: HTMLInputElement) =>
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+
+    const name = field("Nom de la colonne À faire (Scrum)");
+    type(name, "À prendre");
     await tick();
+    // Rien n'est enregistré pendant la frappe.
+    expect(field("Nom de la colonne À faire (Scrum)")).toBe(name);
+    validate(name);
+    await tick();
+    const wip = field("Limite WIP de À prendre (Scrum)");
 
-    button("Appliquer").click();
+    type(wip, "abc");
+    validate(wip);
     await tick();
     expect(document.querySelector("[role=alert]")?.textContent).toContain("limite WIP");
+    expect(wip.getAttribute("aria-invalid")).toBe("true");
+    expect(wip.value).toBe("abc");
 
-    wip.value = "1";
-    wip.dispatchEvent(new Event("input", { bubbles: true }));
+    // Échap revient à la valeur enregistrée.
+    wip.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await tick();
-    button("Appliquer").click();
-    await expect.poll(() => button("Appliquer").disabled).toBe(true);
+    expect(wip.value).toBe("");
+    expect(document.querySelector("[role=alert]")).toBeNull();
+
+    type(wip, "1");
+    validate(wip);
+    await tick();
+    expect(document.querySelector("[role=alert]")).toBeNull();
 
     button("Board").click();
     await tick();

@@ -217,53 +217,106 @@ function LaneRow(props: {
   const goal = lane.goal;
   const icon: IconName | null = lane.block.kind === "run" ? "run" : goal ? null : "build";
   return (
-    <button
-      type="button"
+    <div
       class={`sidebar-lane sidebar-lane-${lane.block.kind}${props.dragging ? " lane-dragging" : ""}`}
       data-goal-color={goal?.color}
-      draggable
-      title={goal ? lane.title : `Aller à ${lane.title}`}
-      onClick={() => {
-        model.showBoard();
-        void revealLane(board, lane.id);
-      }}
-      onDragStart={(event) => {
-        if (!event.dataTransfer) return;
-        event.dataTransfer.setData(LANE_DRAG_TYPE, lane.id);
-        event.dataTransfer.effectAllowed = "move";
-        board.startLaneDrag(lane.id);
-      }}
-      onDragEnd={() => board.endLaneDrag()}
     >
-      <span class="sidebar-grip" aria-hidden="true" />
-      {icon ? (
-        <Icon name={icon} size={14} />
-      ) : (
-        <span class="goal-ring sidebar-ring" aria-hidden="true" />
-      )}
-      {goal ? (
-        <span class="sidebar-lane-text">
-          <span class="sidebar-lane-title">{lane.title}</span>
-          <span class="sidebar-lane-meta">
-            {goal.atlassianKey && <span class="sidebar-lane-key">{goal.atlassianKey}</span>}
-            <span>
-              {lane.done}/{lane.count}
+      {/* Le bouton porte le glissé : poignée, icône et titre se saisissent ensemble. */}
+      <button
+        type="button"
+        class="sidebar-lane-main"
+        draggable
+        title={goal ? lane.title : `Aller à ${lane.title}`}
+        onClick={() => {
+          model.showBoard();
+          void revealLane(board, lane.id);
+        }}
+        onDragStart={(event) => {
+          if (!event.dataTransfer) return;
+          event.dataTransfer.setData(LANE_DRAG_TYPE, lane.id);
+          event.dataTransfer.effectAllowed = "move";
+          const row = event.currentTarget.closest(".sidebar-lane");
+          if (row instanceof HTMLElement) event.dataTransfer.setDragImage?.(row, 12, 12);
+          board.startLaneDrag(lane.id);
+        }}
+        onDragEnd={() => board.endLaneDrag()}
+      >
+        <span class="sidebar-grip" aria-hidden="true" />
+        {icon ? (
+          <Icon name={icon} size={14} />
+        ) : (
+          <span class="goal-ring sidebar-ring" aria-hidden="true" />
+        )}
+        {goal ? (
+          <span class="sidebar-lane-text">
+            <span class="sidebar-lane-title">{lane.title}</span>
+            <span class="sidebar-lane-meta">
+              {goal.atlassianKey && <span class="sidebar-lane-key">{goal.atlassianKey}</span>}
+              <span>
+                {lane.done}/{lane.count}
+              </span>
             </span>
           </span>
-        </span>
-      ) : (
-        <>
-          <span class="sidebar-lane-title">{lane.title}</span>
-          <span class="sidebar-lane-count">{lane.count}</span>
-        </>
+        ) : (
+          <>
+            <span class="sidebar-lane-title">{lane.title}</span>
+            <span class="sidebar-lane-count">{lane.count}</span>
+          </>
+        )}
+      </button>
+      {goal && (
+        <EyeToggle
+          hidden={false}
+          label={`Masquer « ${lane.title} » du board`}
+          onClick={() => void board.setGoalHidden(goal.id, true)}
+        />
       )}
+    </div>
+  );
+}
+
+/**
+ * Œil d'un objectif. Visible : ouvert, et il se ferme au survol (un clic masquera l'objectif).
+ * Masqué : fermé, et il s'ouvre au survol (un clic le réaffichera). L'animation est en CSS.
+ */
+function EyeToggle(props: { hidden: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      class={`eye-toggle${props.hidden ? " eye-toggle-hidden" : ""}`}
+      aria-label={props.label}
+      title={props.label}
+      onClick={props.onClick}
+    >
+      <svg
+        class="icon"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <g class="eye-open">
+          <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+          <circle cx="12" cy="12" r="3" />
+        </g>
+        <g class="eye-shut">
+          <path d="M3 10.5c2.4 3.6 5.6 5.5 9 5.5s6.6-1.9 9-5.5" />
+          <path d="M6.3 14.3 4.8 16.5M12 16v2.6M17.7 14.3l1.5 2.2" />
+        </g>
+      </svg>
     </button>
   );
 }
 
-/** Objectifs masqués du board, repliés par défaut ; un clic sur l'œil en réaffiche un. */
+/** Objectifs masqués du board, dépliés par défaut ; un clic sur l'œil en réaffiche un. */
 function HiddenGoals({ board }: { board: BoardModel }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const hidden = board.hiddenGoals.value;
   if (hidden.length === 0) return null;
   const build = board.configuration.value?.buildSectionLabel || "Build";
@@ -287,15 +340,11 @@ function HiddenGoals({ board }: { board: BoardModel }) {
             <li key={goal.id} class="sidebar-hidden-item" data-goal-color={goal.color}>
               <span class="goal-ring" aria-hidden="true" />
               <span class="sidebar-hidden-title">{goal.title}</span>
-              <button
-                type="button"
-                class="icon-button"
-                aria-label={`Réafficher « ${goal.title} » sur le board`}
-                title={`Réafficher « ${goal.title} » sur le board`}
+              <EyeToggle
+                hidden
+                label={`Réafficher « ${goal.title} » sur le board`}
                 onClick={() => void board.setGoalHidden(goal.id, false)}
-              >
-                <Icon name="show" size={14} />
-              </button>
+              />
             </li>
           ))}
         </ul>

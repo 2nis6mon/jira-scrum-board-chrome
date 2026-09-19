@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyBoardSection,
-  boardSectionDraft,
   customFieldChoices,
-  isBoardSectionChanged,
   parseLabels,
+  type SettingResult,
   sameCardFields,
   searchFields,
   shiftCardField,
-  wipKey,
+  withAgingThreshold,
+  withBlockedLabels,
+  withBugType,
+  withBuildLabel,
   withCardField,
+  withColumnHidden,
+  withColumnName,
   withDefaultBlockOrder,
+  withIssueTypeCategory,
+  withWipLimit,
 } from "../../src/core/boardSettings";
 import type { CardField } from "../../src/core/cardFields";
 import type { JiraField } from "../../src/jira/client";
@@ -20,92 +25,75 @@ const config = makeConfiguration();
 const [first] = config.scrumColumns;
 if (!first) throw new Error("colonne attendue");
 
-describe("section Board : brouillon", () => {
-  it("un brouillon non modifié s'applique à l'identique", () => {
-    const draft = boardSectionDraft(config);
-    expect(isBoardSectionChanged(config, draft)).toBe(false);
-    const result = applyBoardSection(config, draft);
-    expect(result.ok && result.configuration).toEqual(config);
+describe("section Board : chaque réglage s'applique seul", () => {
+  const ok = (result: SettingResult) => {
+    if (!result.ok) throw new Error(result.error);
+    return result.configuration;
+  };
+
+  it("renomme une colonne (espaces retirés) sans toucher au reste de la configuration", () => {
+    const current = { ...config, goalColorIndex: { g1: 4 } };
+    const renamed = ok(withColumnName(current, "scrum", first.id, "  À prendre  "));
+    expect(renamed.scrumColumns[0]?.name).toBe("À prendre");
+    expect(renamed.scrumColumns.slice(1)).toEqual(config.scrumColumns.slice(1));
+    // La colonne RUN de même identifiant n'est pas touchée.
+    expect(renamed.runColumns).toEqual(config.runColumns);
+    expect(renamed.goalColorIndex).toEqual({ g1: 4 });
   });
 
-  it("renomme, masque, limite le WIP, et garde le reste de la configuration", () => {
-    const draft = boardSectionDraft({ ...config, goalColorIndex: { g1: 4 } });
-    const edited = {
-      ...draft,
-      scrumColumns: draft.scrumColumns.map((column, index) =>
-        index === 0 ? { ...column, name: "  À prendre  ", hidden: true } : column,
-      ),
-      wipLimits: { ...draft.wipLimits, [wipKey(first, "scrum")]: " 4 " },
-    };
-    expect(isBoardSectionChanged(config, edited)).toBe(true);
-    const result = applyBoardSection({ ...config, goalColorIndex: { g1: 4 } }, edited);
-    if (!result.ok) throw new Error(result.errors.join());
-    expect(result.configuration.scrumColumns[0]).toMatchObject({
-      name: "À prendre",
-      hidden: true,
-      wipLimit: 4,
-    });
-    // La colonne RUN de même identifiant n'est pas touchée par la limite Scrum.
-    expect(result.configuration.runColumns[0]?.wipLimit).toBe(config.runColumns[0]?.wipLimit);
-    expect(result.configuration.goalColorIndex).toEqual({ g1: 4 });
-  });
-
-  it("une limite WIP vide retire la limite", () => {
-    const withLimit = {
-      ...config,
-      scrumColumns: config.scrumColumns.map((column) => ({ ...column, wipLimit: 3 })),
-    };
-    const draft = boardSectionDraft(withLimit);
-    const result = applyBoardSection(withLimit, {
-      ...draft,
-      wipLimits: { ...draft.wipLimits, [wipKey(first, "scrum")]: "" },
-    });
-    expect(result.ok && result.configuration.scrumColumns[0]?.wipLimit).toBeNull();
-  });
-
-  it("affichage : RUN, nom de Build, seuil, rafraîchissement, labels de blocage", () => {
-    const result = applyBoardSection(config, {
-      ...boardSectionDraft(config),
-      showRunSection: false,
-      buildSectionLabel: "   ",
-      agingThresholdDays: "5",
-      autoRefreshSeconds: 120,
-      blockedLabels: "bloqué, Impediment, , impediment",
-    });
-    if (!result.ok) throw new Error(result.errors.join());
-    expect(result.configuration).toMatchObject({
-      showRunSection: false,
-      buildSectionLabel: "Build",
-      agingThresholdDays: 5,
-      autoRefreshSeconds: 120,
-      blockedLabels: ["bloqué", "Impediment"],
+  it("un nom vide est refusé", () => {
+    expect(withColumnName(config, "scrum", first.id, "  ")).toEqual({
+      ok: false,
+      error: "Chaque colonne doit garder un nom.",
     });
   });
 
-  it("saisies invalides : rien n'est appliqué, chaque erreur est dite", () => {
-    const draft = boardSectionDraft(config);
-    const result = applyBoardSection(config, {
-      ...draft,
-      agingThresholdDays: "trois",
-      scrumColumns: draft.scrumColumns.map((column, index) =>
-        index === 0 ? { ...column, name: " " } : column,
-      ),
-      wipLimits: { ...draft.wipLimits, [wipKey(first, "scrum")]: "-2" },
-    });
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.errors).toEqual([
-      "Le seuil « vieillissant » doit être un nombre entier de jours, entre 1 et 365.",
-      `La limite WIP de « ${first.name} » doit être un entier entre 1 et 999, ou vide.`,
-      "Chaque colonne doit garder un nom.",
+  it("masquer une colonne", () => {
+    const hidden = withColumnHidden(config, "scrum", first.id, true);
+    expect(hidden.scrumColumns[0]?.hidden).toBe(true);
+    expect(hidden.runColumns).toEqual(config.runColumns);
+  });
+
+  it("limite WIP : entier de 1 à 999 ; vide la retire ; le reste est refusé", () => {
+    expect(ok(withWipLimit(config, "scrum", first.id, " 4 ")).scrumColumns[0]?.wipLimit).toBe(4);
+    const limited = ok(withWipLimit(config, "scrum", first.id, "4"));
+    expect(ok(withWipLimit(limited, "scrum", first.id, "")).scrumColumns[0]?.wipLimit).toBeNull();
+    for (const raw of ["-2", "0", "1000", "2.5", "abc"]) {
+      expect(withWipLimit(config, "scrum", first.id, raw)).toEqual({
+        ok: false,
+        error: `La limite WIP de « ${first.name} » doit être un entier entre 1 et 999, ou vide.`,
+      });
+    }
+  });
+
+  it("une colonne disparue entre-temps (structure relue) laisse la configuration intacte", () => {
+    expect(ok(withColumnName(config, "scrum", "disparue", "X"))).toEqual(config);
+    expect(ok(withWipLimit(config, "scrum", "disparue", "3"))).toEqual(config);
+  });
+
+  it("types : classement et bug", () => {
+    const [type] = config.issueTypes;
+    if (!type) throw new Error("type attendu");
+    expect(withIssueTypeCategory(config, type.id, "IGNORED").issueTypes[0]?.category).toBe(
+      "IGNORED",
+    );
+    expect(withBugType(config, type.id, true).issueTypes[0]?.countsAsBug).toBe(true);
+  });
+
+  it("nom de Build (vide : le nom par défaut), seuil vieillissant, labels de blocage", () => {
+    expect(withBuildLabel(config, "  Sprint Backlog ").buildSectionLabel).toBe("Sprint Backlog");
+    expect(withBuildLabel(config, "   ").buildSectionLabel).toBe("Build");
+    expect(ok(withAgingThreshold(config, " 5 ")).agingThresholdDays).toBe(5);
+    for (const raw of ["", "0", "366", "trois", "2.5"]) {
+      expect(withAgingThreshold(config, raw)).toEqual({
+        ok: false,
+        error: "Le seuil « vieillissant » doit être un nombre entier de jours, entre 1 et 365.",
+      });
+    }
+    expect(withBlockedLabels(config, "bloqué, Impediment, , impediment").blockedLabels).toEqual([
+      "bloqué",
+      "Impediment",
     ]);
-  });
-
-  it("structure relue dans Jira depuis l'ouverture du brouillon : il est refusé", () => {
-    const draft = boardSectionDraft(config);
-    const relue = { ...config, scrumColumns: config.scrumColumns.slice(1) };
-    const result = applyBoardSection(relue, draft);
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.errors[0]).toContain("relus dans Jira");
   });
 
   it("labels : sans vide ni doublon, casse d'origine gardée", () => {

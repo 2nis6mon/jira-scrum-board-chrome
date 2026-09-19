@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import {
   type BoardConfiguration,
   type ColumnConfiguration,
@@ -7,22 +7,35 @@ import {
 } from "../../../core/boardConfiguration";
 import {
   AUTO_REFRESH_CHOICES,
-  applyBoardSection,
-  type BoardSectionDraft,
-  boardSectionDraft,
+  type ColumnKind,
   ISSUE_CATEGORY_LABEL,
-  isBoardSectionChanged,
-  wipKey,
+  type SettingResult,
+  withAgingThreshold,
+  withBlockedLabels,
+  withBugType,
+  withBuildLabel,
+  withColumnHidden,
+  withColumnName,
   withDefaultBlockOrder,
+  withIssueTypeCategory,
+  withWipLimit,
 } from "../../../core/boardSettings";
 import type { BoardModel } from "../../model/BoardModel";
 import { plural } from "../format";
 
 const CATEGORIES: readonly IssueCategory[] = ["SCRUM", "RUN", "IGNORED"];
 
+/** Enregistre un réglage validé ; rend le message d'erreur s'il est refusé. */
+type Commit = (
+  change: (current: BoardConfiguration) => SettingResult,
+  options?: { resync?: boolean },
+) => string | null;
+
 /**
- * Colonnes, types de tickets, affichage. Modifiés en brouillon, appliqués ensemble : un réglage
- * à moitié saisi ne change pas le board.
+ * Colonnes, types de tickets, affichage. Chaque modification est enregistrée aussitôt : une case ou
+ * une liste dès qu'on la change, un champ texte quand on le valide (Entrée, ou sortie du champ).
+ * Classement des types, bugs et labels de blocage changent la lecture des tickets : le board est
+ * alors relu dans Jira (lecture seule). Le reste ne change que l'affichage.
  */
 export function BoardSettings({
   board,
@@ -31,50 +44,21 @@ export function BoardSettings({
   board: BoardModel;
   configuration: BoardConfiguration;
 }) {
-  const [draft, setDraft] = useState(() => boardSectionDraft(configuration));
-  const [errors, setErrors] = useState<readonly string[]>([]);
-  const [applying, setApplying] = useState(false);
-
-  // Un brouillon que l'utilisateur n'a pas touché suit la configuration (relecture de la structure
-  // dans Jira, par exemple) ; un brouillon modifié est gardé tel quel.
-  const base = useRef(configuration);
-  useEffect(() => {
-    if (base.current === configuration) return;
-    if (!isBoardSectionChanged(base.current, draft)) setDraft(boardSectionDraft(configuration));
-    base.current = configuration;
-  }, [configuration, draft]);
-
-  const changed = isBoardSectionChanged(configuration, draft);
-  // Chaque modification repart du brouillon COURANT : deux saisies rapprochées s'additionnent.
-  const update: DraftUpdate = (change) => {
-    setDraft((current) => ({ ...current, ...change(current) }));
-    setErrors([]);
+  const commit: Commit = (change, options = {}) => {
+    const preview = change(configuration);
+    if (!preview.ok) return preview.error;
+    // Appliqué à la configuration la plus récente : deux saisies rapprochées s'additionnent.
+    void board.applySettings(
+      (current) => {
+        const latest = change(current);
+        return latest.ok ? latest.configuration : current;
+      },
+      { resync: options.resync ?? false },
+    );
+    return null;
   };
-
-  const apply = async () => {
-    const result = applyBoardSection(configuration, draft);
-    if (!result.ok) {
-      setErrors(result.errors);
-      return;
-    }
-    setApplying(true);
-    try {
-      await board.applySettings(
-        (current) => {
-          const latest = applyBoardSection(current, draft);
-          return latest.ok ? latest.configuration : current;
-        },
-        { resync: true },
-      );
-      const saved = board.configuration.value;
-      if (saved) {
-        base.current = saved;
-        setDraft(boardSectionDraft(saved));
-      }
-    } finally {
-      setApplying(false);
-    }
-  };
+  const set = (change: (current: BoardConfiguration) => BoardConfiguration, resync = false) =>
+    commit((current) => ({ ok: true, configuration: change(current) }), { resync });
 
   return (
     <div class="settings-section">
@@ -91,10 +75,16 @@ export function BoardSettings({
         </header>
         <p class="hint">
           Les colonnes et leurs statuts viennent du board Jira. Vous pouvez en renommer l'affichage,
-          en masquer une et ajuster sa limite WIP.
+          en masquer une et ajuster sa limite WIP. Chaque modification est enregistrée dès que le
+          champ est validé.
         </p>
-        <ColumnEditor title="Scrum" kind="scrum" draft={draft} update={update} />
-        <ColumnEditor title="RUN" kind="run" draft={draft} update={update} />
+        <ColumnEditor
+          title="Scrum"
+          kind="scrum"
+          columns={configuration.scrumColumns}
+          commit={commit}
+        />
+        <ColumnEditor title="RUN" kind="run" columns={configuration.runColumns} commit={commit} />
       </section>
 
       <section class="panel" aria-labelledby="settings-types">
@@ -102,9 +92,9 @@ export function BoardSettings({
         <p class="hint">
           Ce qui alimente le board Scrum et ce qui part dans la zone RUN. Un type « ignoré »
           n'apparaît nulle part. « Bug » : un ticket lié de ce type est signalé comme bug sur la
-          carte du ticket porteur.
+          carte du ticket porteur. Le board est relu dans Jira après chaque changement.
         </p>
-        {draft.issueTypes.length === 0 ? (
+        {configuration.issueTypes.length === 0 ? (
           <p class="hint">Aucun type de ticket trouvé sur ce board.</p>
         ) : (
           <table class="settings-table">
@@ -116,7 +106,7 @@ export function BoardSettings({
               </tr>
             </thead>
             <tbody>
-              {draft.issueTypes.map((type) => (
+              {configuration.issueTypes.map((type) => (
                 <tr key={type.id}>
                   <td>{type.name}</td>
                   <td>
@@ -125,11 +115,7 @@ export function BoardSettings({
                       value={type.category}
                       onChange={(event) => {
                         const category = event.currentTarget.value as IssueCategory;
-                        update((current) => ({
-                          issueTypes: current.issueTypes.map((item) =>
-                            item.id === type.id ? { ...item, category } : item,
-                          ),
-                        }));
+                        set((current) => withIssueTypeCategory(current, type.id, category), true);
                       }}
                     >
                       {CATEGORIES.map((category) => (
@@ -146,11 +132,7 @@ export function BoardSettings({
                       checked={isBugTypeConfiguration(type)}
                       onChange={(event) => {
                         const countsAsBug = event.currentTarget.checked;
-                        update((current) => ({
-                          issueTypes: current.issueTypes.map((item) =>
-                            item.id === type.id ? { ...item, countsAsBug } : item,
-                          ),
-                        }));
+                        set((current) => withBugType(current, type.id, countsAsBug), true);
                       }}
                     />
                   </td>
@@ -166,47 +148,47 @@ export function BoardSettings({
         <label class="settings-check">
           <input
             type="checkbox"
-            checked={draft.showRunSection}
+            checked={configuration.showRunSection}
             onChange={(event) => {
               const showRunSection = event.currentTarget.checked;
-              update(() => ({ showRunSection }));
+              set((current) => ({ ...current, showRunSection }));
             }}
           />
           Afficher la section RUN
         </label>
-        <label class="settings-field">
-          <span>Nom du bloc des tickets rattachés à aucun objectif</span>
-          <input
-            type="text"
-            value={draft.buildSectionLabel}
+        <div class="settings-field">
+          <label for="settings-build-label">
+            Nom du bloc des tickets rattachés à aucun objectif
+          </label>
+          <CommitInput
+            id="settings-build-label"
+            value={configuration.buildSectionLabel}
             placeholder="Build"
-            onInput={(event) => {
-              const buildSectionLabel = event.currentTarget.value;
-              update(() => ({ buildSectionLabel }));
-            }}
+            onCommit={(raw) => set((current) => withBuildLabel(current, raw))}
           />
-        </label>
-        <label class="settings-field settings-inline">
-          <span>Seuil « vieillissant »</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            class="settings-number"
-            value={draft.agingThresholdDays}
-            onInput={(event) => {
-              const agingThresholdDays = event.currentTarget.value;
-              update(() => ({ agingThresholdDays }));
-            }}
+        </div>
+        <div class="settings-field settings-inline">
+          <label for="settings-aging">Seuil « vieillissant »</label>
+          <CommitInput
+            id="settings-aging"
+            value={String(configuration.agingThresholdDays)}
+            numeric
+            onCommit={(raw) => commit((current) => withAgingThreshold(current, raw))}
           />
           <span class="hint">jour(s) sans changement de statut</span>
-        </label>
+        </div>
         <label class="settings-field settings-inline">
           <span>Rafraîchissement automatique</span>
           <select
-            value={draft.autoRefreshSeconds === null ? "" : String(draft.autoRefreshSeconds)}
+            value={
+              configuration.autoRefreshSeconds === null
+                ? ""
+                : String(configuration.autoRefreshSeconds)
+            }
             onChange={(event) => {
               const value = event.currentTarget.value;
-              update(() => ({ autoRefreshSeconds: value === "" ? null : Number(value) }));
+              const autoRefreshSeconds = value === "" ? null : Number(value);
+              set((current) => ({ ...current, autoRefreshSeconds }));
             }}
           >
             {AUTO_REFRESH_CHOICES.map((seconds) => (
@@ -217,91 +199,38 @@ export function BoardSettings({
           </select>
           <span class="hint">lecture seule : il relit Jira, n'écrit rien</span>
         </label>
-        <label class="settings-field">
-          <span>Labels marquant un ticket bloqué</span>
-          <input
-            type="text"
-            value={draft.blockedLabels}
+        <div class="settings-field">
+          <label for="settings-blocked-labels">Labels marquant un ticket bloqué</label>
+          <CommitInput
+            id="settings-blocked-labels"
+            value={configuration.blockedLabels.join(", ")}
             placeholder="séparés par des virgules — vide : seuls les liens Jira comptent"
-            onInput={(event) => {
-              const blockedLabels = event.currentTarget.value;
-              update(() => ({ blockedLabels }));
-            }}
+            onCommit={(raw) => set((current) => withBlockedLabels(current, raw), true)}
           />
           <span class="hint">Le lien Jira « est bloqué par » est toujours pris en compte.</span>
-        </label>
+        </div>
         <div class="row">
           <button
             type="button"
             disabled={configuration.blockOrder.length === 0}
-            onClick={() =>
-              void board.applySettings(withDefaultBlockOrder, {
-                resync: false,
-              })
-            }
+            onClick={() => set(withDefaultBlockOrder)}
           >
             Réinitialiser l'ordre des swimlanes
           </button>
-          <span class="hint">
-            Objectifs dans leur ordre d'arrivée, puis Build et RUN. Immédiat, sans « Appliquer ».
-          </span>
+          <span class="hint">Objectifs dans leur ordre d'arrivée, puis Build et RUN.</span>
         </div>
       </section>
-
-      {errors.length > 0 && (
-        <div class="notice notice-error" role="alert">
-          <ul>
-            {errors.map((error) => (
-              <li key={error}>{error}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <div class="settings-actions">
-        <span class="hint">
-          {changed ? "Modifications non appliquées." : "Aucune modification en cours."}
-        </span>
-        <button
-          type="button"
-          disabled={!changed || applying}
-          onClick={() => {
-            setDraft(boardSectionDraft(configuration));
-            setErrors([]);
-          }}
-        >
-          Annuler
-        </button>
-        <button
-          type="button"
-          class="primary"
-          disabled={!changed || applying}
-          onClick={() => void apply()}
-        >
-          {applying ? "Application…" : "Appliquer"}
-        </button>
-      </div>
     </div>
   );
 }
 
-type DraftUpdate = (change: (current: BoardSectionDraft) => Partial<BoardSectionDraft>) => void;
-
 function ColumnEditor(props: {
   title: string;
-  kind: "scrum" | "run";
-  draft: BoardSectionDraft;
-  update: DraftUpdate;
+  kind: ColumnKind;
+  columns: readonly ColumnConfiguration[];
+  commit: Commit;
 }) {
-  const { draft, kind, update } = props;
-  const columns = kind === "scrum" ? draft.scrumColumns : draft.runColumns;
-  const change = (columnId: string, parts: Partial<ColumnConfiguration>) =>
-    update((current) => {
-      const edit = (list: readonly ColumnConfiguration[]) =>
-        list.map((column) => (column.id === columnId ? { ...column, ...parts } : column));
-      return kind === "scrum"
-        ? { scrumColumns: edit(current.scrumColumns) }
-        : { runColumns: edit(current.runColumns) };
-    });
+  const { kind, commit } = props;
   return (
     <table class="settings-table">
       <caption>{props.title}</caption>
@@ -314,51 +243,111 @@ function ColumnEditor(props: {
         </tr>
       </thead>
       <tbody>
-        {columns.map((column) => {
-          const key = wipKey(column, kind);
-          return (
-            <tr key={column.id}>
-              <td>
-                <input
-                  type="checkbox"
-                  aria-label={`Afficher la colonne ${column.name} (${props.title})`}
-                  checked={!column.hidden}
-                  disabled={column.statusIds.length === 0}
-                  onChange={(event) => change(column.id, { hidden: !event.currentTarget.checked })}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  aria-label={`Nom de la colonne ${column.name} (${props.title})`}
-                  value={column.name}
-                  onInput={(event) => change(column.id, { name: event.currentTarget.value })}
-                />
-              </td>
-              <td class={column.statusIds.length === 0 ? "settings-warning" : "hint"}>
-                {column.statusIds.length === 0
-                  ? "aucun statut Jira"
-                  : plural(column.statusIds.length, "statut")}
-                {column.isDone && <span class="settings-done">terminé</span>}
-              </td>
-              <td>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  class="settings-number"
-                  aria-label={`Limite WIP de ${column.name} (${props.title})`}
-                  placeholder="—"
-                  value={draft.wipLimits[key] ?? ""}
-                  onInput={(event) => {
-                    const value = event.currentTarget.value;
-                    update((current) => ({ wipLimits: { ...current.wipLimits, [key]: value } }));
-                  }}
-                />
-              </td>
-            </tr>
-          );
-        })}
+        {props.columns.map((column) => (
+          <tr key={column.id}>
+            <td>
+              <input
+                type="checkbox"
+                aria-label={`Afficher la colonne ${column.name} (${props.title})`}
+                checked={!column.hidden}
+                disabled={column.statusIds.length === 0}
+                onChange={(event) => {
+                  const hidden = !event.currentTarget.checked;
+                  commit((current) => ({
+                    ok: true,
+                    configuration: withColumnHidden(current, kind, column.id, hidden),
+                  }));
+                }}
+              />
+            </td>
+            <td>
+              <CommitInput
+                label={`Nom de la colonne ${column.name} (${props.title})`}
+                value={column.name}
+                onCommit={(raw) =>
+                  commit((current) => withColumnName(current, kind, column.id, raw))
+                }
+              />
+            </td>
+            <td class={column.statusIds.length === 0 ? "settings-warning" : "hint"}>
+              {column.statusIds.length === 0
+                ? "aucun statut Jira"
+                : plural(column.statusIds.length, "statut")}
+              {column.isDone && <span class="settings-done">terminé</span>}
+            </td>
+            <td>
+              <CommitInput
+                label={`Limite WIP de ${column.name} (${props.title})`}
+                value={column.wipLimit === null ? "" : String(column.wipLimit)}
+                placeholder="—"
+                numeric
+                onCommit={(raw) => commit((current) => withWipLimit(current, kind, column.id, raw))}
+              />
+            </td>
+          </tr>
+        ))}
       </tbody>
     </table>
+  );
+}
+
+/**
+ * Champ texte enregistré à la validation (Entrée, ou sortie du champ), pas à chaque frappe. Une
+ * saisie refusée reste affichée avec son erreur, sans rien changer ; Échap revient à la valeur
+ * enregistrée.
+ */
+function CommitInput(props: {
+  id?: string;
+  value: string;
+  onCommit: (raw: string) => string | null;
+  label?: string;
+  placeholder?: string;
+  numeric?: boolean;
+}) {
+  // Pendant la saisie, et tant qu'elle est refusée, le champ montre le texte tapé ; sinon, la
+  // valeur enregistrée (qui peut changer ailleurs : structure relue, autre onglet).
+  const [draft, setDraft] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const shown = draft ?? props.value;
+  // La valeur est lue dans le champ lui-même : l'état de la frappe peut ne pas être encore rendu.
+  const commit = (raw: string) => {
+    if (raw === props.value) {
+      setDraft(null);
+      setError(null);
+      return;
+    }
+    const refused = props.onCommit(raw);
+    setError(refused);
+    setDraft(refused === null ? null : raw);
+  };
+  return (
+    <>
+      <input
+        type="text"
+        id={props.id}
+        inputMode={props.numeric ? "numeric" : undefined}
+        class={
+          [props.numeric ? "settings-number" : "", error ? "settings-invalid" : ""]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
+        aria-label={props.label}
+        aria-invalid={error !== null ? true : undefined}
+        placeholder={props.placeholder}
+        value={shown}
+        onInput={(event) => setDraft(event.currentTarget.value)}
+        onChange={(event) => commit(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") return;
+          setDraft(null);
+          setError(null);
+        }}
+      />
+      {error && (
+        <span class="settings-error" role="alert">
+          {error}
+        </span>
+      )}
+    </>
   );
 }

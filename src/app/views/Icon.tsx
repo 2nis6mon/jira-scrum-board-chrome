@@ -65,8 +65,6 @@ const PATHS = {
     </>
   ),
   refresh: <path d="M20 12a8 8 0 1 1-3-6.24M17.5 1.8v4.5H13" />,
-  enterFullscreen: <path d="M14 10l6-6M15 4h5v5M10 14l-6 6M4 15v5h5" />,
-  exitFullscreen: <path d="M20 4l-6 6M14 5v5h5M4 20l6-6M5 14h5v5" />,
   sidebar: (
     <>
       <rect x="3" y="4.5" width="18" height="15" rx="2" />
@@ -106,12 +104,6 @@ const PATHS = {
     </>
   ),
   chevrons: <path d="M8 9.5 12 5.5l4 4M8 14.5l4 4 4-4" />,
-  show: (
-    <>
-      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
-      <circle cx="12" cy="12" r="3" />
-    </>
-  ),
   signOut: <path d="M10 4H5v16h5M9.5 12h11M16.5 8l4 4-4 4" />,
 } satisfies Record<string, ComponentChildren>;
 
