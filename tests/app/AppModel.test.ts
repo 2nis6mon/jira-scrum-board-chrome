@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AppModel } from "../../src/app/model/AppModel";
+import { AppModel, clampSidebarWidth, SIDEBAR_WIDTH } from "../../src/app/model/AppModel";
 import { saveBoard } from "../../src/app/model/boardStore";
 import { FakeJira } from "../support/fakeJira";
 import { activeOriginOperation, fakePlatform } from "../support/fakePlatform";
@@ -167,5 +167,45 @@ describe("AppModel — vues", () => {
     model.showDiagnostic();
     expect(jira.requests).toHaveLength(requestsAfterFirstOpen);
     expect(jira.requests.every((r) => r.method === "GET" || r.method === "POST")).toBe(true);
+  });
+});
+
+describe("AppModel — largeur de la barre latérale", () => {
+  it("de 200 px à la moitié de la fenêtre, arrondie", () => {
+    expect(clampSidebarWidth(120, 1600)).toBe(200);
+    expect(clampSidebarWidth(420.6, 1600)).toBe(421);
+    expect(clampSidebarWidth(1200, 1600)).toBe(800);
+    // Fenêtre étroite : le minimum l'emporte.
+    expect(clampSidebarWidth(300, 300)).toBe(200);
+  });
+
+  it("gardée dans ce navigateur, reprise au démarrage ; double-clic : largeur par défaut", async () => {
+    const platform = fakePlatform(new FakeJira());
+    const model = new AppModel(platform);
+    expect(model.sidebarWidth.value).toBe(SIDEBAR_WIDTH.default);
+
+    // Pendant le geste, rien n'est enregistré ; au relâchement, la largeur l'est.
+    await model.resizeSidebar(360, 1600, false);
+    expect(platform.stored.get("interface.v1")).toBeUndefined();
+    await model.resizeSidebar(380, 1600, true);
+    expect(platform.stored.get("interface.v1")).toEqual({ sidebarWidth: 380 });
+
+    const reopened = new AppModel(platform);
+    await reopened.start();
+    expect(reopened.sidebarWidth.value).toBe(380);
+
+    await reopened.resetSidebarWidth();
+    expect(reopened.sidebarWidth.value).toBe(248);
+    expect(platform.stored.get("interface.v1")).toEqual({ sidebarWidth: 248 });
+  });
+
+  it("une valeur enregistrée invalide est ignorée", async () => {
+    for (const saved of [{ sidebarWidth: "large" }, { sidebarWidth: 40 }, "380", null]) {
+      const platform = fakePlatform(new FakeJira());
+      platform.stored.set("interface.v1", saved);
+      const model = new AppModel(platform);
+      await model.start();
+      expect(model.sidebarWidth.value).toBe(SIDEBAR_WIDTH.default);
+    }
   });
 });

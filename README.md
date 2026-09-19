@@ -9,7 +9,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.10.1 — réglages locaux terminés (étape 5), mise en page de l'app Mac.** Board du
+> **État : 0.10.2 — réglages locaux terminés (étape 5), mise en page de l'app Mac.** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
 > du board Jira ; glisser-déposer qui écrit dans Jira : transition, rang, et lien natif
 > ticket↔Goal ; épinglage de Goals au sprint, gardé dans le navigateur si Jira le refuse ; ordre,
@@ -69,7 +69,9 @@ carte ouvre le ticket dans Jira, dans un nouvel onglet. La flèche ronde de l'en
   *Sprint Health* (emplacement réservé, pas encore construit) ; les swimlanes dans l'ordre du
   board, avec leur avancement — un clic y mène (en la dépliant), un glissé les réordonne, sur le
   board comme dans la barre ; et *Administration* en pied de barre. Le bouton en haut à gauche
-  de l'en-tête masque la barre.
+  de l'en-tête masque la barre. Sa bordure droite se tire (curseur ↔) pour l'élargir ou la
+  rétrécir, de 200 px à la moitié de la fenêtre ; flèches du clavier quand elle a le focus,
+  double-clic pour revenir à la largeur par défaut. La largeur est gardée dans ce navigateur.
 - **Œil d'un objectif** (barre latérale) : ouvert, il se ferme au survol, et un clic masque
   l'objectif du board (ses tickets passent dans *Build*) ; l'objectif passe alors dans *Masqués du
   board*, œil fermé, qui s'ouvre au survol et le réaffiche d'un clic. Réglage de ce navigateur.
@@ -268,6 +270,8 @@ développement, jamais inclus dans `dist/`.
   icônes ; vérifié dans Chrome sur le banc d'essai.
 - Œil des objectifs et section Board enregistrée champ par champ (0.10.1) : masquer, réafficher,
   animation au survol, saisie refusée, Échap ; vérifié dans Chrome sur le banc d'essai.
+- Largeur de la barre latérale (0.10.2) : glissé à la souris, bornes (200 px, moitié de la
+  fenêtre), fenêtre rétrécie, clavier, double-clic ; vérifié dans Chrome sur le banc d'essai.
 
 ### ✅ Constaté par l'utilisateur sur son instance (0.2.0, 0.2.1)
 

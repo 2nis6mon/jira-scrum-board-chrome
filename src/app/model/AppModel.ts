@@ -10,6 +10,17 @@ import { GraphqlOrigin } from "./graphqlOrigin";
 import { toMessage, type UserMessage } from "./messages";
 
 const CONNECTION_KEY = "connection.v1";
+/** Préférences d'affichage de ce navigateur, communes à tous les sites et boards. */
+const INTERFACE_KEY = "interface.v1";
+
+/** Largeur de la barre latérale, en pixels : 248 par défaut, 200 au moins. */
+export const SIDEBAR_WIDTH = { default: 248, min: 200 } as const;
+
+/** Largeur permise : au moins le minimum, au plus la moitié de la fenêtre. */
+export function clampSidebarWidth(width: number, viewportWidth: number): number {
+  const max = Math.max(SIDEBAR_WIDTH.min, Math.floor(viewportWidth / 2));
+  return Math.round(Math.min(max, Math.max(SIDEBAR_WIDTH.min, width)));
+}
 
 export type Connection =
   | { state: "loading" }
@@ -30,6 +41,8 @@ export class AppModel {
   readonly adminSection = signal<AdminSection>("board");
   /** Barre latérale repliée par son bouton. Réglage de la session. */
   readonly sidebarCollapsed = signal(false);
+  /** Largeur de la barre latérale choisie en tirant sa bordure ; gardée dans ce navigateur. */
+  readonly sidebarWidth = signal<number>(SIDEBAR_WIDTH.default);
 
   readonly #platform: Platform;
   readonly #audit: AuditLog;
@@ -45,6 +58,7 @@ export class AppModel {
 
   /** Reprend le site enregistré, si Chrome lui accorde toujours l'accès. */
   async start(): Promise<void> {
+    await this.#restoreInterface();
     const saved = await this.#platform.store.get(CONNECTION_KEY);
     const origin = isRecord(saved) && typeof saved.origin === "string" ? saved.origin : null;
     if (origin === null) {
@@ -148,6 +162,30 @@ export class AppModel {
 
   toggleSidebar(): void {
     this.sidebarCollapsed.value = !this.sidebarCollapsed.value;
+  }
+
+  /** Change la largeur de la barre latérale, bornée ; `save` la garde pour les prochaines fois. */
+  async resizeSidebar(width: number, viewportWidth: number, save: boolean): Promise<void> {
+    this.sidebarWidth.value = clampSidebarWidth(width, viewportWidth);
+    if (save) await this.#saveInterface();
+  }
+
+  async resetSidebarWidth(): Promise<void> {
+    this.sidebarWidth.value = SIDEBAR_WIDTH.default;
+    await this.#saveInterface();
+  }
+
+  async #restoreInterface(): Promise<void> {
+    const saved = await this.#platform.store.get(INTERFACE_KEY).catch(() => null);
+    const width = isRecord(saved) ? saved.sidebarWidth : null;
+    // Le maximum dépend de la fenêtre : il est appliqué à l'affichage, pas ici.
+    if (typeof width === "number" && Number.isFinite(width) && width >= SIDEBAR_WIDTH.min) {
+      this.sidebarWidth.value = Math.round(width);
+    }
+  }
+
+  async #saveInterface(): Promise<void> {
+    await this.#platform.store.set(INTERFACE_KEY, { sidebarWidth: this.sidebarWidth.value });
   }
 
   async #enter(site: JiraSite): Promise<void> {

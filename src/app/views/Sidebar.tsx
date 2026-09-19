@@ -1,7 +1,7 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import type { BoardConfiguration } from "../../core/boardConfiguration";
 import { type LaneSummary, laneSummaries } from "../../core/boardPreferences";
-import type { AppModel } from "../model/AppModel";
+import { type AppModel, clampSidebarWidth, SIDEBAR_WIDTH } from "../model/AppModel";
 import type { BoardModel } from "../model/BoardModel";
 import { LANE_DRAG_TYPE, revealLane } from "./board/lanes";
 import { Icon, type IconName } from "./Icon";
@@ -18,7 +18,12 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
   const lanes = snapshot?.sprint && configuration ? laneSummaries(snapshot, configuration) : null;
 
   return (
-    <aside class="sidebar" aria-label="Barre latérale">
+    <aside
+      class="sidebar"
+      aria-label="Barre latérale"
+      style={{ "--sidebar-width": `${model.sidebarWidth.value}px` }}
+    >
+      <SidebarResizer model={model} />
       <div class="sidebar-brand">
         <img src="/icons/icon-32.png" alt="" width="20" height="20" />
         <span class="sidebar-brand-name">Sprint Goals Board</span>
@@ -52,6 +57,82 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
         onClick={() => model.showAdmin()}
       />
     </aside>
+  );
+}
+
+/**
+ * Bordure droite de la barre latérale : on la tire pour élargir ou rétrécir la barre (de 200 px à
+ * la moitié de la fenêtre), on la règle aux flèches du clavier, un double-clic rend la largeur par
+ * défaut. La largeur retenue est gardée dans ce navigateur.
+ */
+function SidebarResizer({ model }: { model: AppModel }) {
+  // Le maximum suit la fenêtre : la barre affichée (CSS) et ses bornes restent d'accord.
+  const [viewport, setViewport] = useState(window.innerWidth);
+  useEffect(() => {
+    const update = () => setViewport(window.innerWidth);
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  const max = clampSidebarWidth(Number.POSITIVE_INFINITY, viewport);
+  const shown = Math.min(model.sidebarWidth.value, max);
+  const resize = (width: number, save: boolean) =>
+    void model.resizeSidebar(width, window.innerWidth, save);
+  return (
+    <hr
+      class="sidebar-resizer"
+      aria-orientation="vertical"
+      aria-label="Largeur de la barre latérale"
+      aria-valuemin={SIDEBAR_WIDTH.min}
+      aria-valuemax={max}
+      aria-valuenow={shown}
+      tabIndex={0}
+      title="Tirer pour élargir ou rétrécir la barre latérale ; double-clic : largeur par défaut"
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        const handle = event.currentTarget;
+        const origin = event.clientX;
+        // Part de la largeur AFFICHÉE : la fenêtre a pu rétrécir depuis l'enregistrement.
+        const start = handle.parentElement?.getBoundingClientRect().width ?? shown;
+        handle.setPointerCapture?.(event.pointerId);
+        document.documentElement.classList.add("sidebar-resizing");
+        const move = (moved: PointerEvent) => resize(start + moved.clientX - origin, false);
+        const finish = (ended: PointerEvent) => {
+          handle.removeEventListener("pointermove", move);
+          handle.removeEventListener("pointerup", finish);
+          handle.removeEventListener("pointercancel", finish);
+          document.documentElement.classList.remove("sidebar-resizing");
+          // Geste interrompu : la largeur atteinte est gardée telle quelle.
+          const width =
+            ended.type === "pointerup" ? start + ended.clientX - origin : model.sidebarWidth.value;
+          resize(width, true);
+        };
+        handle.addEventListener("pointermove", move);
+        handle.addEventListener("pointerup", finish);
+        handle.addEventListener("pointercancel", finish);
+      }}
+      onDblClick={() => void model.resetSidebarWidth()}
+      onKeyDown={(event) => {
+        // Largeur réellement affichée et maximum de l'instant : la fenêtre a pu changer.
+        const liveMax = clampSidebarWidth(Number.POSITIVE_INFINITY, window.innerWidth);
+        const measured = event.currentTarget.parentElement?.getBoundingClientRect().width ?? 0;
+        const current = Math.min(measured > 0 ? measured : model.sidebarWidth.value, liveMax);
+        const step = event.shiftKey ? 64 : 16;
+        const next =
+          event.key === "ArrowLeft"
+            ? current - step
+            : event.key === "ArrowRight"
+              ? current + step
+              : event.key === "Home"
+                ? SIDEBAR_WIDTH.min
+                : event.key === "End"
+                  ? liveMax
+                  : null;
+        if (next === null) return;
+        event.preventDefault();
+        resize(next, true);
+      }}
+    />
   );
 }
 

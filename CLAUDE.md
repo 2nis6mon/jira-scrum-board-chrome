@@ -212,6 +212,12 @@ la plus récente ; un champ texte s'enregistre à la validation (événement `ch
 frappe ; seuls types, bugs et labels de blocage relisent Jira. Les autres sections gardent
 Appliquer.
 
+0.10.2 (demande de Denis) : largeur de la barre latérale réglable en tirant sa bordure droite
+(`SidebarResizer`, un `<hr>` focusable, curseur `col-resize`), de 200 px à la moitié de la fenêtre
+(`clampSidebarWidth` ; la CSS applique aussi `clamp(200px, …, 50vw)`, qui suit la fenêtre) ;
+flèches du clavier, double-clic = 248 px. Gardée dans `chrome.storage.local`, clé `interface.v1`
+(préférence d'affichage, commune à tous les sites), enregistrée au relâchement seulement.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.
 

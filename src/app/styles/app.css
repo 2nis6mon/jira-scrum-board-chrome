@@ -2032,7 +2032,8 @@ input.color-rule-name {
 .sidebar {
   position: sticky;
   top: 0;
-  width: var(--sidebar-width);
+  /* Largeur tirée par l'utilisateur, bornée : 200 px (SIDEBAR_WIDTH.min) à la moitié de la fenêtre. */
+  width: clamp(200px, var(--sidebar-width), 50vw);
   height: 100vh;
   flex: none;
   display: flex;
@@ -2055,8 +2056,40 @@ input.color-rule-name {
 }
 
 .sidebar-brand-name {
+  min-width: 0;
+  overflow: hidden;
   color: var(--ink-2);
   font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Bordure droite de la barre, à tirer : zone de 7 px, trait bleu au survol ou au clavier. */
+.sidebar-resizer {
+  position: absolute;
+  z-index: 30;
+  top: 0;
+  right: -4px;
+  width: 7px;
+  height: 100%;
+  margin: 0;
+  border: none;
+  background: none;
+  cursor: col-resize;
+  outline: none;
+  transition: background 0.12s ease 0.15s;
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer:focus-visible,
+.sidebar-resizing .sidebar-resizer {
+  background: linear-gradient(
+    to right,
+    transparent 2px,
+    var(--in-progress) 2px,
+    var(--in-progress) 5px,
+    transparent 5px
+  );
 }
 
 .sidebar-brand .app-version {
@@ -2417,4 +2450,12 @@ details.board-switcher .menu-panel {
 
 .settings-tab:disabled {
   background: none;
+}
+
+/* Pendant qu'on tire la bordure de la barre latérale : curseur de redimensionnement partout, et
+   pas de sélection de texte. */
+:root.sidebar-resizing,
+:root.sidebar-resizing * {
+  cursor: col-resize;
+  user-select: none;
 }

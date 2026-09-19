@@ -177,6 +177,34 @@ describe("barre latérale", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
+  it("la bordure de la barre latérale se règle au clavier et revient par double-clic", async () => {
+    const { model } = await connectedBoard();
+    const handle = document.querySelector<HTMLElement>(".sidebar-resizer");
+    if (!handle) throw new Error("bordure attendue");
+    const sidebar = () => document.querySelector<HTMLElement>(".sidebar");
+    expect(handle.getAttribute("aria-orientation")).toBe("vertical");
+    expect(handle.getAttribute("aria-valuemin")).toBe("200");
+    expect(handle.getAttribute("aria-valuenow")).toBe("248");
+    expect(sidebar()?.style.getPropertyValue("--sidebar-width")).toBe("248px");
+
+    const key = (name: string, shiftKey = false) =>
+      handle.dispatchEvent(new KeyboardEvent("keydown", { key: name, shiftKey, bubbles: true }));
+    key("ArrowRight");
+    await tick();
+    expect(model.sidebarWidth.value).toBe(264);
+    expect(sidebar()?.style.getPropertyValue("--sidebar-width")).toBe("264px");
+    key("ArrowLeft", true);
+    await tick();
+    expect(model.sidebarWidth.value).toBe(200);
+    key("End");
+    await tick();
+    expect(model.sidebarWidth.value).toBe(Math.floor(window.innerWidth / 2));
+
+    handle.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    await tick();
+    expect(model.sidebarWidth.value).toBe(248);
+  });
+
   it("le menu du board mène au changement de board", async () => {
     await connectedBoard();
     expect(button("Relire colonnes et types depuis Jira")).toBeDefined();
