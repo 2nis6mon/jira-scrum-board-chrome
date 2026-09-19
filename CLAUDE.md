@@ -292,6 +292,11 @@ ajoutés (`target="_blank"` toujours avec `noopener noreferrer`, aucun `href` fo
 d'`atlassianUrl`). Le reste est informatif (session = tous les droits, réglages d'équipe appliqués
 d'office, restriction JQL syntaxique, clé privée locale).
 
+0.14.2 (demande de Denis) : menus Priorité, Objectif et Composant retirés de la barre de filtres
+(restent Personne, Type, Parent, Statut, Label). Le moteur de filtres (`core/filters.ts`,
+`filterOptions`) est inchangé, porté du Mac : le filtre par objectif sert toujours au clic sur le
+titre d'une swimlane (« N'afficher que cet objectif »).
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.
 

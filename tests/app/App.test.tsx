@@ -167,6 +167,12 @@ describe("App", () => {
     ]);
     expect(card("ABC-107")?.textContent).not.toContain("Labels");
     expect(card("ABC-107")?.textContent).not.toContain("Composants");
+    // Un ticket a un composant, mais la barre de filtres ne propose plus ce filtre (0.14.2).
+    expect(board.options.value?.components.length).toBeGreaterThan(0);
+    const menus = [...document.querySelectorAll("details.filter-menu > summary")].map(
+      (summary) => summary.textContent,
+    );
+    expect(menus).not.toContain("Composant");
 
     // Le statut n'est plus écrit, même dans une colonne qui en regroupe plusieurs.
     expect(card("ABC-104")?.textContent).not.toContain("Revue");

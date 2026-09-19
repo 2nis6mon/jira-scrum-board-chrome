@@ -76,7 +76,6 @@ const PATHS = {
       <circle cx="8" cy="8" r="1.4" />
     </>
   ),
-  component: <path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7zM3.5 7 12 11.5 20.5 7M12 11.5v10" />,
   reset: (
     <>
       <circle cx="12" cy="12" r="9" />

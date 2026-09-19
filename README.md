@@ -9,7 +9,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.14.1 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
+> **État : 0.14.2 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
 > 0.14.0), plusieurs boards (6b), réglages d'équipe partagés par Jira, audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)).** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
@@ -123,9 +123,9 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (*Administrat
   tickets si le board n'estime pas) et pourcentage, compteurs *bloqués* et *ajoutés* (cliquables :
   ils filtrent) et *dans Build* (mène au bloc), heure de la dernière lecture de Jira.
 - **Filtres**, chacun avec son icône : recherche (clé, résumé, personne, type, label, parent),
-  *Bloqués*, *Ajoutés*, filtres rapides Jira, puis menus Personne, Type, Parent, Priorité,
-  Objectif, Statut, Label, Composant. Un clic sur le titre d'un objectif n'affiche que lui ; un
-  second clic rétablit tout.
+  *Bloqués*, *Ajoutés*, filtres rapides Jira, puis menus Personne, Type, Parent, Statut, Label
+  (Priorité, Objectif et Composant retirés en 0.14.2, à la demande de Denis). Un clic sur le titre
+  d'un objectif n'affiche que lui ; un second clic rétablit tout.
 - **Filtres rapides Jira** : ceux définis sur le board Jira, en boutons (leur JQL au survol).
   Jira évalue lui-même leur JQL, restreint aux sprints actifs ; plusieurs filtres actifs se
   combinent, comme dans Jira. Un JQL que Jira refuse désactive les filtres rapides, et le bandeau

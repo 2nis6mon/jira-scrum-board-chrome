@@ -343,7 +343,7 @@ describe("en-tête du sprint", () => {
 });
 
 describe("barre de filtres", () => {
-  it("chaque filtre a son icône, dans l'ordre de la maquette", async () => {
+  it("chaque filtre a son icône ; ni Priorité, ni Objectif, ni Composant", async () => {
     await connectedBoard(
       boardSiteJira({
         quickFilters: [{ id: 5, name: "WEB", jql: "component = Web", position: 0 }],
@@ -357,8 +357,6 @@ describe("barre de filtres", () => {
       ["Personne", true],
       ["Type", true],
       ["Parent", true],
-      ["Priorité", true],
-      ["Objectif", true],
       ["Statut", true],
       ["Label", true],
     ]);

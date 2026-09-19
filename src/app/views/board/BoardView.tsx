@@ -386,28 +386,6 @@ function FilterBar({ board }: { board: BoardModel }) {
         }}
       />
       <FilterMenu
-        label="Priorité"
-        icon="priority"
-        options={options.priorities}
-        selected={filters.priorityNames}
-        onToggle={(value) =>
-          set({ ...filters, priorityNames: toggled(filters.priorityNames, value) })
-        }
-      />
-      <FilterMenu
-        label="Objectif"
-        icon="goal"
-        options={options.goals}
-        selected={filters.goalIds}
-        onToggle={(value) => set({ ...filters, goalIds: toggled(filters.goalIds, value) })}
-        extra={{
-          label: "Sans objectif",
-          count: options.withoutGoalCount,
-          checked: filters.includeWithoutGoal,
-          onToggle: () => set({ ...filters, includeWithoutGoal: !filters.includeWithoutGoal }),
-        }}
-      />
-      <FilterMenu
         label="Statut"
         icon="status"
         options={options.statuses}
@@ -421,17 +399,6 @@ function FilterBar({ board }: { board: BoardModel }) {
         selected={filters.labels}
         onToggle={(value) => set({ ...filters, labels: toggled(filters.labels, value) })}
       />
-      {options.components.length > 0 && (
-        <FilterMenu
-          label="Composant"
-          icon="component"
-          options={options.components}
-          selected={filters.componentNames}
-          onToggle={(value) =>
-            set({ ...filters, componentNames: toggled(filters.componentNames, value) })
-          }
-        />
-      )}
       {count > 0 && (
         <>
           <span class="filter-result">
