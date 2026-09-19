@@ -151,6 +151,38 @@ if (scenario.startsWith("board")) {
         return { status: 200 };
       });
   }
+  // Parents, drapeau, versions et titres longs FICTIFS, pour juger la carte.
+  const cardExtras: Record<string, Record<string, unknown>> = {
+    "ABC-101": {
+      parent: {
+        key: "ABC-90",
+        fields: { summary: "3 - [Paiement] Parcours en une étape pour tous" },
+      },
+      fixVersions: [{ id: "1", name: "AppWeb 99.0.0" }],
+      components: [{ id: "1", name: "Web" }],
+    },
+    "ABC-102": {
+      parent: {
+        key: "ABC-90",
+        fields: { summary: "3 - [Paiement] Parcours en une étape pour tous" },
+      },
+      customfield_10021: [{ value: "Impediment" }],
+      priority: { id: "2", name: "High" },
+    },
+    "ABC-103": { parent: { key: "ABC-91", fields: { summary: "Performance du panier" } } },
+    "ABC-105": {
+      summary:
+        "Rédiger la note de version détaillée pour le support, le service client et les partenaires",
+      parent: { key: "ABC-12", fields: { summary: "Communication des versions" } },
+    },
+    "RUN-7": { parent: { key: "RUN-1", fields: { summary: "Stabilité de la production" } } },
+  };
+  const decorated = (issue: Record<string, unknown>) => {
+    const extras = cardExtras[issue.key as string];
+    return extras
+      ? { ...issue, fields: { ...(issue.fields as Record<string, unknown>), ...extras } }
+      : issue;
+  };
   // Faux Jira qui évolue : après la transition, ABC-102 est « En cours ».
   let moved = false;
   const issues = () =>
@@ -164,7 +196,7 @@ if (scenario.startsWith("board")) {
             extraFields: { issuelinks: (issue.fields as { issuelinks: unknown }).issuelinks },
           })
         : issue,
-    );
+    ).map(decorated);
   jira.on("GET", "/rest/agile/1.0/sprint/42/issue", () => ({
     status: 200,
     json: { issues: issues(), total: issues().length },
@@ -211,6 +243,13 @@ if (scenario.startsWith("board")) {
   const connection = model.connection.value;
   if (connection.state === "connected") {
     await connection.board.detect(BOARD_URL);
+    await connection.board.applySettings(
+      (current) => ({
+        ...current,
+        cardFields: [{ kind: "fixVersions" }, { kind: "components" }, { kind: "labels" }],
+      }),
+      { resync: true },
+    );
     if (scenario === "board-filtre") connection.board.toggleQuickFilter("blocked");
     if (pinning) connection.board.openPinEditor();
     if (["board-dnd", "board-choix", "board-erreur"].includes(scenario)) {

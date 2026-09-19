@@ -5,6 +5,7 @@ import {
   cardFieldLabel,
   cardFieldValues,
 } from "../../../core/cardFields";
+import type { ParentColor } from "../../../core/parentColors";
 import type { ImageCache } from "../../model/ImageCache";
 import { formatPoints, initials, plural } from "../format";
 import { JiraIcon } from "./JiraIcon";
@@ -14,8 +15,8 @@ interface Props {
   siteOrigin: string;
   images: ImageCache;
   cardFields: readonly CardField[];
-  /** La colonne regroupe plusieurs statuts : on précise lequel. */
-  showStatus: boolean;
+  /** Couleur du badge du parent, commune à tous ses tickets. */
+  parentColor: ParentColor | null;
   agingThresholdDays: number;
   /** Titre de l'objectif, montré quand le ticket n'est pas dans la swimlane de son objectif. */
   goalTitle: string | null;
@@ -37,6 +38,14 @@ export function IssueCard(props: Props) {
     issue.daysInColumn !== null &&
     issue.daysInColumn >= props.agingThresholdDays &&
     fields.status.statusCategory?.key !== "done";
+  // Champs choisis dans les réglages : un badge par valeur, le nom du champ en info-bulle.
+  const tags = props.cardFields.flatMap((field) =>
+    cardFieldValues(field, fields).map((value, index) => ({
+      id: `${cardFieldId(field)}:${index}`,
+      label: cardFieldLabel(field),
+      value,
+    })),
+  );
 
   return (
     <a
@@ -59,12 +68,8 @@ export function IssueCard(props: Props) {
           images={props.images}
         />
         <span class="card-key">{issue.issue.key}</span>
-        {issue.isFlagged && (
-          <span class="card-flag" role="img" aria-label="Drapeau Jira" title="Drapeau Jira">
-            ⚑
-          </span>
-        )}
         <span class="card-spacer" />
+        {issue.isFlagged && <FlagIcon />}
         {fields.priority && (
           <JiraIcon
             url={fields.priority.iconUrl}
@@ -74,27 +79,34 @@ export function IssueCard(props: Props) {
         )}
       </div>
 
-      <p class="card-summary">{fields.summary}</p>
+      <p class="card-summary" title={fields.summary}>
+        {fields.summary}
+      </p>
 
-      {fields.parent && (
-        <p class="card-meta" title="Parent">
-          <span class="card-meta-key">{fields.parent.key}</span>
-          {fields.parent.summary && ` · ${fields.parent.summary}`}
-        </p>
-      )}
       {props.goalTitle && (
         <p class="card-meta" title="Objectif">
           Objectif · {props.goalTitle}
         </p>
       )}
-      {props.cardFields.map((field) => {
-        const values = cardFieldValues(field, fields);
-        return values.length === 0 ? null : (
-          <p key={cardFieldId(field)} class="card-meta">
-            <span class="card-meta-key">{cardFieldLabel(field)}</span> {values.join(", ")}
-          </p>
-        );
-      })}
+
+      {(fields.parent || tags.length > 0) && (
+        <div class="card-badges">
+          {fields.parent && (
+            <span
+              class={`badge badge-parent${props.parentColor?.tone === "deep" ? " badge-parent-deep" : ""}`}
+              style={{ "--parent-hue": String(props.parentColor?.hue ?? PARENT_FALLBACK_HUE) }}
+              title={`Parent ${fields.parent.key}${fields.parent.summary ? ` — ${fields.parent.summary}` : ""}`}
+            >
+              {fields.parent.summary ?? fields.parent.key}
+            </span>
+          )}
+          {tags.map((tag) => (
+            <span key={tag.id} class="badge badge-field" title={`${tag.label} : ${tag.value}`}>
+              {tag.value}
+            </span>
+          ))}
+        </div>
+      )}
 
       {(issue.isBlocked ||
         issue.linkedBugs.length > 0 ||
@@ -132,7 +144,6 @@ export function IssueCard(props: Props) {
       )}
 
       <div class="card-bottom">
-        {props.showStatus && <span class="card-status">{fields.status.name}</span>}
         <span class="card-spacer" />
         {issue.estimate !== null && (
           <span class="card-points" title="Story points">
@@ -158,6 +169,20 @@ export function IssueCard(props: Props) {
         )}
       </div>
     </a>
+  );
+}
+
+/** Teinte d'un parent dont la couleur n'a pas été calculée (ne devrait pas arriver). */
+const PARENT_FALLBACK_HUE = 212;
+
+/** Drapeau Jira (« Flagged »), à côté de la priorité. Dessiné ici : pas de ressource externe. */
+function FlagIcon() {
+  return (
+    <svg class="card-flag" viewBox="0 0 16 16" role="img" aria-label="Drapeau Jira">
+      <title>Drapeau Jira</title>
+      <path d="M3.5 1.5v13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+      <path d="M4.2 2h9.3l-2.4 3.6 2.4 3.6H4.2z" fill="currentColor" />
+    </svg>
   );
 }
 

@@ -884,16 +884,17 @@ button.lane-title[aria-pressed="true"] {
 }
 
 .card-flag {
+  width: 16px;
+  height: 16px;
+  flex: none;
   color: var(--blocked);
-  font-size: 13px;
-  line-height: 1;
 }
 
 .card-summary {
   font-size: 13px;
   line-height: 1.35;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
@@ -905,11 +906,6 @@ button.lane-title[aria-pressed="true"] {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.card-meta-key {
-  color: var(--ink-2);
-  font-weight: 600;
 }
 
 .card-badges {
@@ -953,12 +949,31 @@ button.lane-title[aria-pressed="true"] {
   color: var(--run);
 }
 
-.card-status {
-  font-size: 11px;
-  color: var(--ink-3);
+/* Parent et champs choisis : une ligne, coupée par « … » si le texte déborde de la carte. */
+.badge-parent,
+.badge-field {
+  display: block;
+  max-width: 100%;
+  line-height: 18px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Teinte fixée par la carte (--parent-hue) : une couleur par parent, voir core/parentColors. */
+.badge-parent {
+  background: hsl(var(--parent-hue) 70% 92%);
+  color: hsl(var(--parent-hue) 55% 28%);
+}
+
+.badge-parent-deep {
+  background: hsl(var(--parent-hue) 50% 82%);
+  color: hsl(var(--parent-hue) 60% 20%);
+}
+
+.badge-field {
+  background: var(--column);
+  color: var(--ink-2);
 }
 
 .card-points {

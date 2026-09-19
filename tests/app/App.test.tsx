@@ -100,6 +100,61 @@ describe("App", () => {
     expect(text()).toContain("Goals Atlassian illisibles");
   });
 
+  it("carte : parent en badge coloré sans sa clé, champs en badges, drapeau près de la priorité, sans statut", async () => {
+    const extra = [
+      issueJson("ABC-106", { summary: "Même parent", statusId: "4", parent: "ABC-90" }),
+      issueJson("ABC-107", {
+        summary: "Autre parent",
+        statusId: "1",
+        parent: "ABC-12",
+        labels: ["web", "mobile"],
+        extraFields: { components: [{ id: "1", name: "Front" }] },
+      }),
+    ];
+    const { board } = await connectedBoard(
+      boardSiteJira({ sprintIssues: [...SPRINT_ISSUES, ...extra] }),
+    );
+    await board.applySettings(
+      (current) => ({ ...current, cardFields: [{ kind: "labels" }, { kind: "components" }] }),
+      { resync: true },
+    );
+    await tick();
+
+    const card = (key: string) => document.querySelector<HTMLElement>(`[data-issue-key="${key}"]`);
+    const parent = (key: string) => card(key)?.querySelector<HTMLElement>(".badge-parent");
+    const hue = (key: string) => parent(key)?.style.getPropertyValue("--parent-hue");
+    // Le titre du parent, pas sa clé (gardée pour l'info-bulle).
+    expect(parent("ABC-101")?.textContent).toBe("Epic ABC-90");
+    expect(parent("ABC-101")?.getAttribute("title")).toBe("Parent ABC-90 — Epic ABC-90");
+    // Même parent, même couleur ; autre parent, autre couleur.
+    expect(hue("ABC-101")).toMatch(/^\d+$/);
+    expect(hue("ABC-106")).toBe(hue("ABC-101"));
+    expect(hue("ABC-107")).not.toBe(hue("ABC-101"));
+    expect(parent("ABC-102")).toBeNull();
+
+    // Champs choisis : un badge par valeur, le nom du champ seulement en info-bulle.
+    const tags = [...(card("ABC-107")?.querySelectorAll(".badge-field") ?? [])].map((tag) => [
+      tag.textContent,
+      tag.getAttribute("title"),
+    ]);
+    expect(tags).toEqual([
+      ["web", "Labels : web"],
+      ["mobile", "Labels : mobile"],
+      ["Front", "Composants : Front"],
+    ]);
+    expect(card("ABC-107")?.textContent).not.toContain("Labels");
+    expect(card("ABC-107")?.textContent).not.toContain("Composants");
+
+    // Le statut n'est plus écrit, même dans une colonne qui en regroupe plusieurs.
+    expect(card("ABC-104")?.textContent).not.toContain("Revue");
+    // Drapeau à droite, juste avant la priorité ; titre complet en info-bulle.
+    const flag = card("ABC-104")?.querySelector(".card-flag");
+    expect(flag?.previousElementSibling?.classList.contains("card-spacer")).toBe(true);
+    expect(card("ABC-101")?.querySelector(".card-summary")?.getAttribute("title")).toBe(
+      "Afficher le récapitulatif avant paiement",
+    );
+  });
+
   it("WIP : la colonne au-delà de sa limite est signalée, filtres ou non", async () => {
     const overLoaded = () => document.querySelector(".column-over .column-name")?.textContent;
     // 2 tickets Scrum « En cours » ou « Revue » pour une limite de 2 : pas de dépassement.

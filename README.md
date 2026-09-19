@@ -9,7 +9,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.9.0 — réglages locaux terminés (étape 5).** Board du sprint actif organisé par
+> **État : 0.9.1 — réglages locaux terminés (étape 5).** Board du sprint actif organisé par
 > Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
 > du board Jira ; glisser-déposer qui écrit dans Jira : transition, rang, et lien natif
 > ticket↔Goal ; épinglage de Goals au sprint, gardé dans le navigateur si Jira le refuse ; ordre,
@@ -79,9 +79,13 @@ Chaque écriture attend la confirmation de Jira avant la suivante ; la carte ne 
 relecture du board. Aucune écriture n'est rejouée : si Jira ne répond pas, le board est relu et
 le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diagnostic*).
 
-- **Cartes** : type, clé, drapeau Jira (⚑), priorité, résumé, parent, story points, initiales de
-  l'assigné ; badges *Bloqué* (lien « est bloqué par », détail au survol), bugs liés, *Ajouté*
-  en cours de sprint, jours dans la colonne au-delà du seuil. Les icônes de type et de priorité
+- **Cartes** : type, clé, drapeau Jira et priorité à droite, résumé sur deux lignes au plus (en
+  entier au survol), story points, initiales de l'assigné. Le parent est un badge à son titre,
+  d'une couleur propre à ce parent : tous ses tickets la partagent, deux parents ne l'ont jamais
+  en commun (0.9.1). Les champs choisis dans les réglages sont des badges, un par valeur, le nom
+  du champ au survol. Le statut n'est pas écrit : la colonne le dit. Badges *Bloqué* (lien « est
+  bloqué par », détail au survol), bugs liés, *Ajouté* en cours de sprint, jours dans la colonne
+  au-delà du seuil. Les icônes de type et de priorité
   sont téléchargées depuis le site avec la session ; les avatars ne le sont pas (ils sont
   hébergés hors du site) : on affiche les initiales.
 - **En-tête** : sprint, dates, jours restants, avancement en tickets et en points, compteurs
@@ -237,6 +241,9 @@ développement, jamais inclus dans `dist/`.
   actifs, priorité des règles, JQL refusé, réévaluation à chaque actualisation ; sélection gardée
   après un refus de droits, prioritaire seulement sans sélection dans Jira, oubliée dès que Jira
   l'enregistre ; rendu vérifié dans Chrome sur le banc d'essai (`board-epingle-refus`).
+- Carte revue (0.9.1) : couleur par parent (partagée, jamais en double, stable quand un parent
+  plus récent arrive), champs en badges, drapeau près de la priorité, résumé coupé à deux lignes ;
+  rendu vérifié dans Chrome sur le banc d'essai.
 
 ### ✅ Constaté par l'utilisateur sur son instance (0.2.0, 0.2.1)
 

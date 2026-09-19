@@ -101,6 +101,7 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 | `core/jiraQuickFilters.ts`, `core/jql.ts` | `BoardController.refreshQuickFilterSelection`, `JiraClient.quickFilters`, `CardColorResolver.queries` |
 | `core/boardSettings.ts`, `views/settings/` | `AdminView` (section Board), `GoalsAdminView` (source, Goals du board, couleurs), `CardFieldsAdminView` |
 | `core/boardPreferences.ts` | `BoardController.setBlockOrder`, `moveBlock`, `setBlockCollapsed`, `setGoalHidden`, `setGoalColor` |
+| `core/parentColors.ts` | aucun : couleur des badges parent, propre à l'extension (demande de Denis) |
 
 Écarts voulus : `SprintGoalText.render` n'est pas porté (il ne servait qu'à réécrire le champ du
 sprint) ; le mode de compatibilité « Build et RUN restent en bas » des ordres enregistrés avant la
@@ -180,6 +181,12 @@ par Jira sur les sprints actifs, `evaluateColorRules` dans `cardColors.ts`) ; s�
 d'épinglage gardée dans le navigateur après un refus de droits (`localPinnedGoalIds` de la
 configuration, par sprint ; portage de `keepSelectionLocally`), qui ne sert que si Jira n'a
 aucune sélection et s'efface dès que Jira enregistre. Prochaine étape : 6 (compléments).
+
+0.9.1 (demandes de Denis sur la carte) : drapeau Jira agrandi, à côté de la priorité ; résumé
+coupé à deux lignes ; parent en badge à son titre (sans clé), d'une couleur par parent
+(`parentColors.ts` : classement par clé, jamais deux fois la même couleur) ; champs choisis en
+badges sans leur nom ; statut retiré de la carte. Écart voulu avec le Mac, qui affiche le parent
+et les champs en texte.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.

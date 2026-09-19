@@ -38,6 +38,7 @@ import {
 import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/dropPlan";
 import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../../core/filters";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
+import { parentColors } from "../../core/parentColors";
 import { goalColorName, type SprintGoal } from "../../core/sprintGoals";
 import { JiraClient, type JiraField, type JiraQuickFilter } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
@@ -181,6 +182,12 @@ export class BoardModel {
     return snapshot && configuration
       ? buildBoardLayout(snapshot, configuration, this.filters.value)
       : null;
+  });
+
+  /** Couleur du badge de chaque parent, sur tous les tickets du sprint (filtres ignorés). */
+  readonly parentColors = computed(() => {
+    const snapshot = this.snapshot.value;
+    return parentColors(snapshot ? allIssues(snapshot) : []);
   });
 
   readonly options = computed(() => {

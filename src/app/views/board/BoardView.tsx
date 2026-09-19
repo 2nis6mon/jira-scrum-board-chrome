@@ -666,6 +666,7 @@ function LaneView(props: {
   const localPins = board.snapshot.value?.localPinnedGoalIds ?? null;
   const pinned = new Set(localPins ?? board.snapshot.value?.pinnedGoalIds ?? []);
   const cardFields = displayedCardFields(configuration);
+  const parentColors = board.parentColors.value;
   const ownColumns = lane.block.kind === "run" && !sameColumns(layout.runColumns, layout.columns);
 
   return (
@@ -844,6 +845,7 @@ function LaneView(props: {
                       ? (goalsById.get(issue.goalId)?.title ?? null)
                       : null;
                   const key = issue.issue.key;
+                  const parentKey = issue.issue.fields.parent?.key;
                   return (
                     <Fragment key={issue.issue.id}>
                       {targeted && target?.beforeKey === key && dropLine}
@@ -853,7 +855,7 @@ function LaneView(props: {
                           siteOrigin={board.site.origin}
                           images={board.images}
                           cardFields={cardFields}
-                          showStatus={cell.column.statusIds.length > 1}
+                          parentColor={parentKey ? (parentColors.get(parentKey) ?? null) : null}
                           agingThresholdDays={configuration.agingThresholdDays}
                           goalTitle={hiddenGoal}
                           pending={board.pendingKeys.value.has(key)}
