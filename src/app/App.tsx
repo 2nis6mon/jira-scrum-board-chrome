@@ -3,6 +3,7 @@ import type { AppModel, Connection } from "./model/AppModel";
 import { BoardSetupView } from "./views/BoardSetupView";
 import { BoardView, type ScreenControls } from "./views/board/BoardView";
 import { ConnectionView } from "./views/ConnectionView";
+import { SprintHealthView } from "./views/health/SprintHealthView";
 import { Sidebar } from "./views/Sidebar";
 import { AdminView } from "./views/settings/AdminView";
 
@@ -53,6 +54,7 @@ function Workspace({
   const controls: ScreenControls = {
     sidebarCollapsed,
     onToggleSidebar: () => model.toggleSidebar(),
+    showBoard: () => model.showBoard(),
   };
 
   return (
@@ -60,7 +62,7 @@ function Workspace({
       {!sidebarCollapsed && <Sidebar model={model} board={board} />}
       <div class="workspace-main">
         {view === "board" && <BoardScreen connection={connection} controls={controls} />}
-        {view === "health" && <HealthPlaceholder />}
+        {view === "health" && <HealthScreen connection={connection} controls={controls} />}
         {view === "admin" && <AdminView model={model} connection={connection} />}
       </div>
     </div>
@@ -81,17 +83,16 @@ function BoardScreen({
   return <BoardView board={board} configuration={configuration} controls={controls} />;
 }
 
-/** Emplacement de Sprint Health, vue qui n'est pas encore construite. */
-function HealthPlaceholder() {
-  return (
-    <main class="centered">
-      <div class="panel">
-        <h2>Sprint Health</h2>
-        <p class="hint">
-          La santé du sprint, objectif par objectif, arrivera ici. Cette vue n'est pas encore
-          disponible.
-        </p>
-      </div>
-    </main>
-  );
+function HealthScreen({
+  connection,
+  controls,
+}: {
+  connection: Extract<Connection, { state: "connected" }>;
+  controls: ScreenControls;
+}) {
+  const { board } = connection;
+  if (!board.loaded.value) return <main class="centered" aria-busy="true" />;
+  const configuration = board.configuration.value;
+  if (!configuration || board.editingBoard.value) return <BoardSetupView board={board} />;
+  return <SprintHealthView board={board} configuration={configuration} controls={controls} />;
 }

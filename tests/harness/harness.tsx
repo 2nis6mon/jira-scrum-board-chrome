@@ -178,11 +178,24 @@ if (scenario.startsWith("board")) {
     },
     "RUN-7": { parent: { key: "RUN-1", fields: { summary: "Stabilité de la production" } } },
   };
+  // Historique FICTIF du sprint : ABC-105 y est entré après le démarrage, les autres y étaient.
+  const changelog = (key: string) => ({
+    histories:
+      key === "ABC-105"
+        ? [
+            {
+              created: "2026-09-17T10:00:00.000+0200",
+              items: [{ field: "Sprint", fromString: null, toString: "Sprint 42" }],
+            },
+          ]
+        : [],
+  });
   const decorated = (issue: Record<string, unknown>) => {
     const extras = cardExtras[issue.key as string];
+    const withHistory = { ...issue, changelog: changelog(issue.key as string) };
     return extras
-      ? { ...issue, fields: { ...(issue.fields as Record<string, unknown>), ...extras } }
-      : issue;
+      ? { ...withHistory, fields: { ...(issue.fields as Record<string, unknown>), ...extras } }
+      : withHistory;
   };
   // Faux Jira qui évolue : après la transition, ABC-102 est « En cours ».
   let moved = false;

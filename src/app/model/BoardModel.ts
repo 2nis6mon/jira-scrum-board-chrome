@@ -40,6 +40,7 @@ import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../.
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
 import { parentColors } from "../../core/parentColors";
 import { goalColorName, type SprintGoal } from "../../core/sprintGoals";
+import { sprintHealth } from "../../core/sprintHealth";
 import { JiraClient, type JiraField, type JiraQuickFilter } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import { GoalsClient } from "../../jira/goals";
@@ -188,6 +189,15 @@ export class BoardModel {
   readonly parentColors = computed(() => {
     const snapshot = this.snapshot.value;
     return parentColors(snapshot ? allIssues(snapshot) : []);
+  });
+
+  /** Sprint Health : comptages sur les tickets du sprint, filtres de la barre appliqués. */
+  readonly health = computed(() => {
+    const snapshot = this.snapshot.value;
+    const configuration = this.configuration.value;
+    return snapshot?.sprint && configuration
+      ? sprintHealth(snapshot, configuration, this.filters.value)
+      : null;
   });
 
   readonly options = computed(() => {

@@ -213,13 +213,40 @@ describe("barre latérale", () => {
     expect(document.querySelector(".connection h2")?.textContent).toBe("Quel board afficher ?");
   });
 
-  it("Sprint Health : emplacement réservé, pas encore construit", async () => {
-    await connectedBoard();
+  it("Sprint Health : comptages du sprint, filtres appliqués, tickets à surveiller vers Jira", async () => {
+    const { jira, board } = await connectedBoard();
     button("Sprint Health").click();
     await tick();
-    expect(text()).toContain("Cette vue n'est pas encore disponible.");
     expect(button("Sprint Health").getAttribute("aria-current")).toBe("page");
     expect(cardKeys()).toEqual([]);
+
+    const kpis = () =>
+      [...document.querySelectorAll(".health-kpi")].map((kpi) => kpi.textContent ?? "");
+    expect(kpis()).toEqual([
+      "Story points livrés3 / 1718 % du sprint",
+      "Tickets terminés1 / 52 en cours · 2 à faire",
+      "Bloqués1 / 6lien Jira « est bloqué par » ou label",
+    ]);
+    // Sans historique Jira, rien n'est affirmé sur le périmètre ajouté.
+    expect(text()).toContain("Jira n'a pas fourni l'historique du sprint");
+    expect(
+      [...document.querySelectorAll(".health-goal-title")].map((title) => title.textContent),
+    ).toEqual(["Finaliser le parcours de paiement", "Améliorer la stabilité"]);
+
+    const watched = [...document.querySelectorAll(".health-watch tbody tr")];
+    expect(watched).toHaveLength(1);
+    const link = watched[0]?.querySelector<HTMLAnchorElement>("a");
+    expect(link?.textContent).toBe("ABC-102");
+    expect(link?.href).toBe("https://acme.atlassian.net/browse/ABC-102");
+    expect(link?.target).toBe("_blank");
+    expect(watched[0]?.textContent).toContain("Bloqué");
+
+    // Les filtres de la barre s'appliquent.
+    board.setSearch("paiement");
+    await tick();
+    // ABC-101 (en cours) et ABC-102 (à faire) parlent de paiement.
+    expect(kpis()[1]).toBe("Tickets terminés0 / 21 en cours · 1 à faire");
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 });
 

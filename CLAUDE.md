@@ -105,6 +105,7 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 | `core/parentColors.ts` | aucun : couleur des badges parent, propre à l'extension (demande de Denis) |
 | `views/Sidebar.tsx`, `core/boardPreferences.ts` (`laneSummaries`) | `SidebarView`, `BoardSwitcherView` (menu), `WorkspaceView` |
 | `views/settings/AdminView.tsx` | `AdminView` (réglages), plus le diagnostic et la déconnexion |
+| `core/sprintHealth.ts`, `views/health/` | `SprintHealthView` |
 
 Écarts voulus : `SprintGoalText.render` n'est pas porté (il ne servait qu'à réécrire le champ du
 sprint) ; le mode de compatibilité « Build et RUN restent en bas » des ordres enregistrés avant la
@@ -193,7 +194,7 @@ et les champs en texte.
 
 0.10.0 (demande de Denis, maquette = fenêtre de l'app Mac) : l'en-tête de l'application devient
 une barre latérale (`views/Sidebar.tsx`) : board affiché et son menu (actions du board ; la liste
-des boards viendra avec le multi-board), vues Board et Sprint Health (emplacement réservé),
+des boards viendra avec le multi-board), vues Board et Sprint Health,
 swimlanes dans l'ordre du board (clic = dépliée et amenée à l'écran, glissé = réordonner, même
 état de glissé que le board), objectifs masqués, Administration en pied. Administration
 (`views/settings/AdminView.tsx`) = réglages du board + Diagnostic + Se déconnecter. En-tête du
@@ -232,6 +233,16 @@ compacte par requête de conteneur (`.lane-item`, `@container (max-width: 175px)
 dans app.css, `MINIMUM_COLUMN_WIDTH` dans layoutMetrics.ts), écart voulu avec le Mac : une clé
 comme CLIENT-10114 tient en entier sur sa carte, drapeau compris. Prix : à 7 colonnes, le board
 défile horizontalement sous environ 1 550 px de fenêtre (1 410 avant).
+
+Étape 6, découpée en lots (annoncés à Denis) : 6a Sprint Health · 6b plusieurs boards · 6c déplacer
+une carte au clavier · 6d audit de sécurité · 6e empaquetage. Le mode présentation de la
+spécification est abandonné : Denis a retiré le plein écran (0.10.1).
+
+0.11.0 : lot 6a, Sprint Health (`core/sprintHealth.ts`, port de `SprintHealthView`) : comptages
+directs, filtres appliqués, aucun score. Écart voulu : la charge par colonne ignore les filtres,
+comme les limites WIP du board. L'en-tête et la barre de filtres du board y sont réutilisés
+(`SprintHeader`, `FilterBar`, `Notices` exportés de BoardView) ; le compteur « dans Build »
+ramène au board (`ScreenControls.showBoard`).
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.

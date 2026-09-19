@@ -2489,6 +2489,297 @@ details.board-switcher .menu-panel {
   background: none;
 }
 
+/* ─── Sprint Health ──────────────────────────────────────────────────────── */
+
+.health {
+  width: 100%;
+  max-width: 1400px;
+  padding: 14px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Couleur d'une barre ou d'une icône, selon ce qu'elle compte. */
+.health-tone-done {
+  --goal-ring: var(--done);
+  --icon-color: var(--done);
+}
+
+.health-tone-blocked {
+  --goal-ring: var(--blocked);
+  --icon-color: var(--blocked);
+}
+
+.health-tone-added {
+  --goal-ring: var(--added);
+  --icon-color: var(--added);
+}
+
+.health-tone-progress {
+  --goal-ring: var(--in-progress);
+  --icon-color: var(--in-progress);
+}
+
+.health-tone-muted {
+  --goal-ring: var(--ink-4);
+  --icon-color: var(--ink-3);
+}
+
+.health-tone-run {
+  --goal-ring: var(--run);
+  --icon-color: var(--run);
+}
+
+.health-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.health-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.health-kpi-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.health-kpi > .health-kpi-title {
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.health-kpi-value {
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.health-kpi-value strong {
+  color: var(--ink);
+  font-size: 24px;
+  font-weight: 650;
+}
+
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 14px;
+}
+
+.health-card {
+  gap: 12px;
+}
+
+.health-card-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.health-card-head h2 {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.health-muted,
+.health-empty,
+.health-note {
+  color: var(--ink-4);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.health-note {
+  font-size: 11px;
+}
+
+.health-key {
+  flex: none;
+  color: var(--ink-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.health-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.health-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.health-goals,
+.health-issues,
+.health-columns,
+.health-composition {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+}
+
+.health-goal-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+}
+
+.health-goal-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.health-bar-row {
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.health-bar-row progress,
+.health-composition progress {
+  width: 100%;
+}
+
+.health-percent {
+  width: 40px;
+  flex: none;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.health-scope {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.health-scope strong {
+  color: var(--added);
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.health-issues {
+  gap: 5px;
+}
+
+.health-issue {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.health-column {
+  display: grid;
+  grid-template-columns: minmax(0, 150px) minmax(60px, 1fr) 28px 64px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.health-column-name {
+  overflow: hidden;
+  color: var(--ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.health-columns progress {
+  width: 100%;
+}
+
+.health-columns .health-count {
+  text-align: right;
+}
+
+.health-wip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--ink-4);
+  font-size: 11px;
+  --icon-color: var(--blocked);
+}
+
+.health-column-over .health-wip {
+  color: var(--blocked);
+}
+
+.health-composition-head {
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+}
+
+.health-watch {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 12.5px;
+}
+
+.health-watch th {
+  padding: 6px 8px 6px 0;
+  color: var(--ink-4);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.health-watch td {
+  padding: 7px 8px 7px 0;
+  border-top: 1px solid var(--line);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.health-watch th:nth-child(1) {
+  width: 120px;
+}
+
+.health-watch th:nth-child(3) {
+  width: 150px;
+}
+
+.health-watch th:nth-child(4) {
+  width: 70px;
+}
+
+.health-watch th:nth-child(5) {
+  width: 22%;
+}
+
 /* Pendant qu'on tire la bordure de la barre latérale : curseur de redimensionnement partout, et
    pas de sélection de texte. */
 :root.sidebar-resizing,

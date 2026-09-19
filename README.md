@@ -9,7 +9,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.10.5 — réglages locaux terminés (étape 5), mise en page de l'app Mac.** Board du
+> **État : 0.11.0 — étape 6 en cours : Sprint Health (lot 6a).** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
 > du board Jira ; glisser-déposer qui écrit dans Jira : transition, rang, et lien natif
 > ticket↔Goal ; épinglage de Goals au sprint, gardé dans le navigateur si Jira le refuse ; ordre,
@@ -66,12 +66,18 @@ carte ouvre le ticket dans Jira, dans un nouvel onglet. La flèche ronde de l'en
 
 - **Barre latérale** (reprise de l'app Mac) : le board affiché, dont le menu ouvre le board dans
   Jira, relit colonnes et types, épingle des Goals ou change de board ; les vues *Board* et
-  *Sprint Health* (emplacement réservé, pas encore construit) ; les swimlanes dans l'ordre du
+  *Sprint Health* ; les swimlanes dans l'ordre du
   board, avec leur avancement — un clic y mène (en la dépliant), un glissé les réordonne, sur le
   board comme dans la barre ; et *Administration* en pied de barre. Le bouton en haut à gauche
   de l'en-tête masque la barre. Sa bordure droite se tire (curseur ↔) pour l'élargir ou la
   rétrécir, de 200 px à la moitié de la fenêtre ; flèches du clavier quand elle a le focus,
   double-clic pour revenir à la largeur par défaut. La largeur est gardée dans ce navigateur.
+- **Sprint Health** (0.11.0, porté du Mac) : des comptages directs sur les tickets lus dans Jira,
+  filtres de la barre appliqués, sans score ni projection. Indicateurs (story points livrés,
+  tickets terminés, bloqués, périmètre ajouté), avancement par objectif, changement de périmètre
+  (tickets entrés après le démarrage, si Jira fournit l'historique), charge par colonne avec les
+  limites WIP (charge réelle, filtres ignorés), composition du sprint, tickets à surveiller
+  (bloqués ou sans changement de statut au-delà du seuil ; la clé ouvre Jira). Lecture seule.
 - **Œil d'un objectif** (barre latérale) : ouvert, il se ferme au survol, et un clic masque
   l'objectif du board (ses tickets passent dans *Build*) ; l'objectif passe alors dans *Masqués du
   board*, œil fermé, qui s'ouvre au survol et le réaffiche d'un clic. Réglage de ce navigateur.
@@ -282,6 +288,10 @@ développement, jamais inclus dans `dist/`.
   Chrome sur le banc d'essai.
 - Colonnes d'au moins 170 px (0.10.5) : colonnes au minimum, une clé à 5 chiffres
   (CLIENT-10114) tient en entier, drapeau et priorité compris ; vérifié dans Chrome.
+- Sprint Health (0.11.0) contre le faux Jira : comptages vérifiés à la main (points, tickets,
+  bloqués, ajoutés, avancement par objectif, charge et WIP, composition, tickets à surveiller),
+  filtres appliqués, historique absent signalé sans rien affirmer ; rendu vérifié dans Chrome sur
+  le banc d'essai.
 
 ### ✅ Constaté par l'utilisateur sur son instance (0.2.0, 0.2.1)
 

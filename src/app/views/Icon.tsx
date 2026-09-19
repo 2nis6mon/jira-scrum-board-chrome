@@ -24,6 +24,13 @@ const PATHS = {
     </>
   ),
   jiraFilters: <path d="M4 7h16M7 12h10M10 17h4" />,
+  done: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 12.5l2.8 2.8L16 9.8" />
+    </>
+  ),
+  points: <path d="M4 20V11M9.3 20V6M14.7 20V13M20 20V4" />,
   bug: (
     <>
       <rect x="7.5" y="8" width="9" height="12.5" rx="4.5" />

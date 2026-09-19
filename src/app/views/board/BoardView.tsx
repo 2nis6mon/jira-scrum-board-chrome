@@ -117,13 +117,15 @@ function TransitionChoiceDialog({ board }: { board: BoardModel }) {
 
 // ─── En-tête ─────────────────────────────────────────────────────────────────
 
-/** Commande de l'écran portée par l'en-tête : afficher ou masquer la barre latérale. */
+/** Commandes de l'écran portées par l'en-tête : barre latérale, retour au board. */
 export interface ScreenControls {
   readonly sidebarCollapsed: boolean;
   readonly onToggleSidebar: () => void;
+  /** Affiche la vue Board (depuis Sprint Health, par exemple). */
+  readonly showBoard: () => void;
 }
 
-function SprintHeader(props: {
+export function SprintHeader(props: {
   board: BoardModel;
   configuration: BoardConfiguration;
   snapshot: BoardSnapshot | null;
@@ -214,7 +216,10 @@ function SprintHeader(props: {
             <button
               type="button"
               class="counter counter-build"
-              onClick={() => void revealLane(board, "build")}
+              onClick={() => {
+                controls.showBoard();
+                void revealLane(board, "build");
+              }}
               title={`Aller à ${buildLabel} : tickets du sprint sans objectif affiché`}
             >
               <Icon name="build" />
@@ -285,7 +290,7 @@ function remainingLabel(days: number): string {
 
 // ─── Filtres ─────────────────────────────────────────────────────────────────
 
-function FilterBar({ board }: { board: BoardModel }) {
+export function FilterBar({ board }: { board: BoardModel }) {
   const filters = board.filters.value;
   const options = board.options.value;
   const layout = board.layout.value;
@@ -462,7 +467,7 @@ function JiraQuickFilters({ board }: { board: BoardModel }) {
 
 // ─── Bandeaux ────────────────────────────────────────────────────────────────
 
-function Notices(props: {
+export function Notices(props: {
   board: BoardModel;
   snapshot: BoardSnapshot | null;
   layout: BoardLayout | null;
