@@ -194,7 +194,7 @@ et les champs en texte.
 
 0.10.0 (demande de Denis, maquette = fenêtre de l'app Mac) : l'en-tête de l'application devient
 une barre latérale (`views/Sidebar.tsx`) : board affiché et son menu (actions du board ; la liste
-des boards viendra avec le multi-board), vues Board et Sprint Health,
+des boards : lot 6b), vues Board et Sprint Health,
 swimlanes dans l'ordre du board (clic = dépliée et amenée à l'écran, glissé = réordonner, même
 état de glissé que le board), objectifs masqués, Administration en pied. Administration
 (`views/settings/AdminView.tsx`) = réglages du board + Diagnostic + Se déconnecter. En-tête du
@@ -243,6 +243,16 @@ directs, filtres appliqués, aucun score. Écart voulu : la charge par colonne i
 comme les limites WIP du board. L'en-tête et la barre de filtres du board y sont réutilisés
 (`SprintHeader`, `FilterBar`, `Notices` exportés de BoardView) ; le compteur « dans Build »
 ramène au board (`ScreenControls.showBoard`).
+
+0.12.0 : lot 6b, plusieurs boards (port de `BoardSwitcherView`). `boardStore.ts` : `listBoards`,
+`activateBoard`, `removeBoard` ; `saveBoard` ne rend actif que sur demande (ajout, changement de
+board) : un réglage enregistré après un changement ne ramène pas l'ancien board. `BoardModel` :
+`boards`, `switchBoard`, `removeBoard`, `canSwitchBoard` (refusé pendant une écriture Jira, un
+enregistrement d'épinglage ou une relecture de structure), `#enterBoard` commun à l'ajout et au
+changement (tout l'état du board quitté est oublié ; une synchronisation en cours est ignorée).
+Menu du nom de board (`Sidebar.tsx`) avec confirmation du retrait. La barre latérale a un
+`z-index` (30) : `sticky` crée un empilement, sinon la bande des colonnes du board passait
+par-dessus sa fenêtre de confirmation ; le menu d'une swimlane est au-dessus (40).
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.

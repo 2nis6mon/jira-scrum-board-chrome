@@ -4,13 +4,20 @@
 //
 //   npm run harness   puis   http://localhost:5199/?scenario=board|board-filtre|board-session|
 //                            board-vide|board-dnd|board-choix|board-erreur|board-goals|
-//                            board-epingle|board-epingle-refus|ok|xsrf|refuse|session|deconnecte
+//                            board-epingle|board-epingle-refus|board-multi|ok|xsrf|refuse|session|
+//                            deconnecte
 import { render } from "preact";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
 import "../../src/app/styles/app.css";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
-import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
+import {
+  BOARD_URL,
+  boardSiteJira,
+  SECOND_BOARD_URL,
+  SPRINT_ISSUES,
+  withSecondBoard,
+} from "../support/boardFixture";
 import { FakeJira, type Reply, XSRF_REFUSAL } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 import { goalsGateway } from "../support/goalsGateway";
@@ -256,6 +263,11 @@ if (scenario.startsWith("board")) {
   await model.connect("acme.atlassian.net");
   const connection = model.connection.value;
   if (connection.state === "connected") {
+    if (scenario === "board-multi") {
+      // Deux boards enregistrés (le second, fictif, sur le projet XYZ) ; le board 7 est affiché.
+      withSecondBoard(jira);
+      await connection.board.detect(SECOND_BOARD_URL);
+    }
     await connection.board.detect(BOARD_URL);
     await connection.board.applySettings(
       (current) => ({

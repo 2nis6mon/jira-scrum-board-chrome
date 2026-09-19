@@ -123,6 +123,7 @@ const PATHS = {
     </>
   ),
   chevrons: <path d="M8 9.5 12 5.5l4 4M8 14.5l4 4 4-4" />,
+  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   signOut: <path d="M10 4H5v16h5M9.5 12h11M16.5 8l4 4-4 4" />,
 } satisfies Record<string, ComponentChildren>;
 

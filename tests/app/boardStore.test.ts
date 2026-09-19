@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { forgetSite, loadActiveBoard, loadBoard, saveBoard } from "../../src/app/model/boardStore";
+import {
+  activateBoard,
+  forgetSite,
+  listBoards,
+  loadActiveBoard,
+  loadBoard,
+  removeBoard,
+  saveBoard,
+} from "../../src/app/model/boardStore";
 import { decodeStoredConfiguration } from "../../src/core/boardConfiguration";
 import { FakeJira } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
@@ -82,5 +90,63 @@ describe("stockage local des boards", () => {
     expect(tolerant?.hiddenGoalIds).toEqual(["g1"]);
     expect(tolerant?.cardFields).toEqual([{ kind: "labels" }]);
     expect(tolerant?.goalColorIndex).toEqual({ g1: 2 });
+  });
+});
+
+describe("plusieurs boards par site", () => {
+  const boards = async (store: ReturnType<typeof fakePlatform>["store"]) =>
+    (await listBoards(store, ACME)).map((board) => [board.boardId, board.boardName]);
+
+  it("liste les boards du site par ordre de nom, sans ceux d'un autre site", async () => {
+    const { store } = fakePlatform(new FakeJira());
+    await saveBoard(store, makeConfiguration({ boardId: 9, boardName: "Équipe Zèbre" }));
+    await saveBoard(store, makeConfiguration({ boardId: 7, boardName: "équipe Alpha" }));
+    await saveBoard(store, makeConfiguration({ boardId: 3, siteOrigin: OTHER }));
+
+    expect(await boards(store)).toEqual([
+      [7, "équipe Alpha"],
+      [9, "Équipe Zèbre"],
+    ]);
+  });
+
+  it("un réglage enregistré ne change pas le board actif ; l'ajout et le changement si", async () => {
+    const { store } = fakePlatform(new FakeJira());
+    await saveBoard(store, makeConfiguration({ boardId: 7 }));
+    await saveBoard(store, makeConfiguration({ boardId: 9 }));
+    expect((await loadActiveBoard(store, ACME))?.boardId).toBe(9);
+
+    // Un réglage du board 7 arrivé après le changement de board ne ramène pas le board 7.
+    await saveBoard(store, makeConfiguration({ boardId: 7, hiddenGoalIds: ["g1"] }), {
+      activate: false,
+    });
+    expect((await loadActiveBoard(store, ACME))?.boardId).toBe(9);
+    expect((await loadBoard(store, ACME, 7))?.hiddenGoalIds).toEqual(["g1"]);
+
+    expect(await activateBoard(store, ACME, 7)).toBe(true);
+    expect((await loadActiveBoard(store, ACME))?.boardId).toBe(7);
+    expect(await activateBoard(store, ACME, 99)).toBe(false);
+    expect((await loadActiveBoard(store, ACME))?.boardId).toBe(7);
+  });
+
+  it("le premier board enregistré devient actif, même sans le demander", async () => {
+    const { store } = fakePlatform(new FakeJira());
+    await saveBoard(store, makeConfiguration({ boardId: 7 }), { activate: false });
+    expect((await loadActiveBoard(store, ACME))?.boardId).toBe(7);
+  });
+
+  it("retirer le board actif active le premier restant ; retirer le dernier n'en laisse aucun", async () => {
+    const { store } = fakePlatform(new FakeJira());
+    await saveBoard(store, makeConfiguration({ boardId: 9, boardName: "Zèbre" }));
+    await saveBoard(store, makeConfiguration({ boardId: 7, boardName: "Alpha" }));
+    await saveBoard(store, makeConfiguration({ boardId: 8, boardName: "Bravo" }));
+    await activateBoard(store, ACME, 8);
+
+    // Retirer un board qui n'est pas actif ne change pas l'actif.
+    expect(await removeBoard(store, ACME, 9)).toBe(8);
+    expect(await removeBoard(store, ACME, 8)).toBe(7);
+    expect(await boards(store)).toEqual([[7, "Alpha"]]);
+    expect(await removeBoard(store, ACME, 7)).toBeNull();
+    expect(await loadActiveBoard(store, ACME)).toBeNull();
+    expect(await boards(store)).toEqual([]);
   });
 });

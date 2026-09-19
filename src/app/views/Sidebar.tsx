@@ -2,7 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import type { BoardConfiguration } from "../../core/boardConfiguration";
 import { type LaneSummary, laneSummaries } from "../../core/boardPreferences";
 import { type AppModel, clampSidebarWidth, SIDEBAR_WIDTH } from "../model/AppModel";
-import type { BoardModel } from "../model/BoardModel";
+import type { BoardModel, BoardSummary } from "../model/BoardModel";
 import { LANE_DRAG_TYPE, revealLane } from "./board/lanes";
 import { Icon, type IconName } from "./Icon";
 
@@ -155,13 +155,18 @@ function NavButton(props: {
   );
 }
 
-/** Board affiché. Son menu accueillera la liste des boards ; il porte déjà les actions du board. */
+/**
+ * Board affiché et son menu, repris du sélecteur de boards du Mac : les boards enregistrés pour ce
+ * site (un clic bascule), l'ajout d'un board par son adresse, les actions du board affiché, et son
+ * retrait de l'extension. Chaque board garde ses propres réglages dans ce navigateur.
+ */
 function BoardSwitcher(props: {
   model: AppModel;
   board: BoardModel;
   configuration: BoardConfiguration | null;
 }) {
   const { model, board, configuration } = props;
+  const [removal, setRemoval] = useState<BoardSummary | null>(null);
   if (!configuration) {
     return (
       <button
@@ -177,51 +182,161 @@ function BoardSwitcher(props: {
       </button>
     );
   }
+  const boards = board.boards.value;
+  const canSwitch = board.canSwitchBoard.value;
+  const current: BoardSummary = boards.find((item) => item.boardId === configuration.boardId) ?? {
+    boardId: configuration.boardId,
+    boardName: configuration.boardName,
+    projectKeys: configuration.projectKeys,
+  };
   // Un choix fait, le menu se referme.
   const act = (event: Event, action: () => void) => {
     (event.currentTarget as HTMLElement).closest("details")?.removeAttribute("open");
     action();
   };
   return (
-    <details class="board-switcher" name="filter-menu">
-      <summary class="board-switcher-summary" title="Actions du board">
-        <Icon name="boards" size={16} />
-        <span class="board-switcher-name">{configuration.boardName}</span>
-        <Icon name="chevrons" size={12} />
-      </summary>
-      <div class="menu-panel">
-        <a
-          href={`${board.site.origin}/secure/RapidBoard.jspa?rapidView=${configuration.boardId}`}
-          target="_blank"
-          rel="noopener noreferrer"
+    <>
+      <details class="board-switcher" name="filter-menu">
+        <summary
+          class="board-switcher-summary"
+          title="Changer de board, en ajouter ou en retirer un"
         >
-          Ouvrir le board dans Jira
-        </a>
-        <button
-          type="button"
-          disabled={board.setupBusy.value}
-          onClick={(event) => act(event, () => void board.refreshStructure())}
-        >
-          Relire colonnes et types depuis Jira
-        </button>
-        {board.canPinGoals.value && (
-          <button type="button" onClick={(event) => act(event, () => board.openPinEditor())}>
-            Épingler des Goals au sprint…
+          <Icon name="boards" size={16} />
+          <span class="board-switcher-name">{configuration.boardName}</span>
+          {boards.length > 1 && <span class="board-switcher-count">{boards.length}</span>}
+          <Icon name="chevrons" size={12} />
+        </summary>
+        <div class="menu-panel board-switcher-panel">
+          <p class="menu-section">Boards enregistrés</p>
+          {boards.map((item) => {
+            const shown = item.boardId === configuration.boardId;
+            return (
+              <button
+                key={item.boardId}
+                type="button"
+                class="board-choice"
+                aria-current={shown ? "true" : undefined}
+                disabled={!shown && !canSwitch}
+                title={
+                  !shown && !canSwitch
+                    ? "Possible dès que l'écriture en cours dans Jira est terminée"
+                    : undefined
+                }
+                onClick={(event) =>
+                  act(event, () => {
+                    model.showBoard();
+                    void board.switchBoard(item.boardId);
+                  })
+                }
+              >
+                <span class="board-choice-check">{shown && <Icon name="check" size={13} />}</span>
+                <span class="board-choice-name">{boardTitle(item)}</span>
+                <span class="board-choice-id">#{item.boardId}</span>
+              </button>
+            );
+          })}
+          <hr class="menu-separator" />
+          <button
+            type="button"
+            disabled={!canSwitch}
+            onClick={(event) =>
+              act(event, () => {
+                model.showBoard();
+                board.editBoard();
+              })
+            }
+          >
+            Ajouter un board par son adresse…
           </button>
-        )}
-        <button
-          type="button"
-          onClick={(event) =>
-            act(event, () => {
-              model.showBoard();
-              board.editBoard();
-            })
-          }
-        >
-          Changer de board…
-        </button>
+          <hr class="menu-separator" />
+          <a
+            href={`${board.site.origin}/secure/RapidBoard.jspa?rapidView=${configuration.boardId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Ouvrir ce board dans Jira
+          </a>
+          <button
+            type="button"
+            disabled={board.setupBusy.value}
+            onClick={(event) => act(event, () => void board.refreshStructure())}
+          >
+            Relire colonnes et types depuis Jira
+          </button>
+          {board.canPinGoals.value && (
+            <button type="button" onClick={(event) => act(event, () => board.openPinEditor())}>
+              Épingler des Goals au sprint…
+            </button>
+          )}
+          <hr class="menu-separator" />
+          <button
+            type="button"
+            class="menu-danger"
+            disabled={!canSwitch}
+            onClick={(event) => act(event, () => setRemoval(current))}
+          >
+            Retirer « {configuration.boardName} » de l'extension…
+          </button>
+        </div>
+      </details>
+      {removal && (
+        <RemoveBoardDialog
+          target={removal}
+          onConfirm={() => {
+            setRemoval(null);
+            void board.removeBoard(removal.boardId);
+          }}
+          onCancel={() => setRemoval(null)}
+        />
+      )}
+    </>
+  );
+}
+
+/** « Équipe Paiement · ABC », comme le sélecteur du Mac. */
+function boardTitle(board: BoardSummary): string {
+  const [project] = board.projectKeys;
+  return project ? `${board.boardName} · ${project}` : board.boardName;
+}
+
+/** Confirmation du retrait d'un board : ses réglages locaux sont effacés, rien dans Jira. */
+function RemoveBoardDialog(props: {
+  target: BoardSummary;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const { onCancel } = props;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onCancel();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+  return (
+    <div class="dialog-backdrop">
+      <div
+        class="dialog panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="remove-board-title"
+      >
+        <h2 id="remove-board-title">Retirer « {props.target.boardName} » de l'extension ?</h2>
+        <p class="hint">
+          Les réglages de ce board dans ce navigateur seront effacés : colonnes, types, objectifs du
+          board, couleurs, ordre et repli des swimlanes, champs et règles de couleur des cartes.
+          Rien n'est supprimé dans Jira ; vous pourrez l'ajouter de nouveau par son adresse.
+        </p>
+        <div class="row">
+          <button type="button" class="danger grow" onClick={props.onConfirm}>
+            Retirer de l'extension
+          </button>
+          <button type="button" onClick={onCancel}>
+            Annuler
+          </button>
+        </div>
       </div>
-    </details>
+    </div>
   );
 }
 

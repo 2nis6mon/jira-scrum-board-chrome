@@ -49,7 +49,14 @@ import { type JiraSite, parseBoardUrl } from "../../jira/site";
 import { JiraTransport } from "../../jira/transport";
 import type { Platform } from "../platform/types";
 import { type AuditEntry, AuditLog } from "./auditLog";
-import { loadActiveBoard, loadBoard, saveBoard } from "./boardStore";
+import {
+  activateBoard,
+  listBoards,
+  loadActiveBoard,
+  loadBoard,
+  removeBoard,
+  saveBoard,
+} from "./boardStore";
 import { ImageCache } from "./ImageCache";
 import { toMessage, type UserMessage } from "./messages";
 
@@ -102,6 +109,13 @@ export interface PinEditor {
   readonly canKeepLocally: boolean;
 }
 
+/** Board enregistré du site, tel que le menu des boards le présente. */
+export interface BoardSummary {
+  readonly boardId: number;
+  readonly boardName: string;
+  readonly projectKeys: readonly string[];
+}
+
 export interface BoardModelOptions {
   readonly now?: () => Date;
   readonly audit?: AuditLog;
@@ -118,6 +132,8 @@ export class BoardModel {
   readonly editingBoard = signal(false);
   readonly setupBusy = signal(false);
   readonly setupError = signal<UserMessage | null>(null);
+  /** Boards enregistrés pour ce site, par ordre de nom (menu des boards). */
+  readonly boards = signal<readonly BoardSummary[]>([]);
 
   readonly snapshot = signal<BoardSnapshot | null>(null);
   readonly syncing = signal(false);
@@ -257,9 +273,65 @@ export class BoardModel {
   async load(): Promise<void> {
     const configuration = await loadActiveBoard(this.#platform.store, this.site.origin);
     this.configuration.value = configuration;
+    await this.#refreshBoards();
     this.loaded.value = true;
     this.#restartAutoRefresh();
     if (configuration) await this.sync();
+  }
+
+  /**
+   * Un changement de board attend la fin des gestes en cours : une écriture dans Jira, un
+   * enregistrement d'épinglage ou une lecture de structure appartiennent au board affiché.
+   */
+  readonly canSwitchBoard = computed(
+    () =>
+      !this.setupBusy.value &&
+      this.pendingKeys.value.size === 0 &&
+      this.pinEditor.value?.saving !== true,
+  );
+
+  /** Affiche un autre board déjà enregistré, avec ses réglages, puis le relit dans Jira. */
+  async switchBoard(boardId: number): Promise<void> {
+    if (boardId === this.configuration.value?.boardId || !this.canSwitchBoard.value) return;
+    const configuration = await loadBoard(this.#platform.store, this.site.origin, boardId);
+    if (!configuration) {
+      this.writeNotice.value = {
+        tone: "error",
+        text: "Ce board n'est plus enregistré dans ce navigateur.",
+        suggestion: "Ajoutez-le de nouveau par son adresse.",
+        issueKey: null,
+        sessionLost: false,
+      };
+      await this.#refreshBoards();
+      return;
+    }
+    await this.#queued(() => activateBoard(this.#platform.store, this.site.origin, boardId));
+    this.#enterBoard(configuration);
+    await this.sync();
+  }
+
+  /**
+   * Retire un board de ce navigateur, avec ses réglages. Rien n'est supprimé dans Jira. Si c'était
+   * le board affiché, le premier restant (par ordre de nom) le remplace ; sans board restant,
+   * l'adresse d'un board est demandée.
+   */
+  async removeBoard(boardId: number): Promise<void> {
+    if (!this.canSwitchBoard.value) return;
+    const shown = this.configuration.value?.boardId === boardId;
+    const next = await this.#queued(() =>
+      removeBoard(this.#platform.store, this.site.origin, boardId),
+    );
+    await this.#refreshBoards();
+    if (!shown) return;
+    const configuration =
+      next === null ? null : await loadBoard(this.#platform.store, this.site.origin, next);
+    if (configuration) {
+      this.#enterBoard(configuration);
+      await this.sync();
+      return;
+    }
+    this.#enterBoard(null);
+    this.editingBoard.value = true;
   }
 
   editBoard(): void {
@@ -280,21 +352,9 @@ export class BoardModel {
     try {
       const existing = await this.#existingFor(urlText);
       const configuration = await detectBoard(this.#client, urlText, existing);
-      await this.#persist(configuration);
-      this.#generation += 1; // une synchronisation en cours appartient à l'ancien board
-      this.configuration.value = configuration;
-      this.snapshot.value = null;
-      this.filters.value = NO_FILTERS;
-      this.jiraQuickFilters.value = [];
-      this.#colorMatches = {};
-      this.cardColors.value = {};
-      this.colorRuleIssues.value = {};
-      this.colorRuleCounts.value = {};
-      this.#quickFiltersBoardId = null;
-      this.syncProblem.value = null;
-      this.pinEditor.value = null;
-      this.editingBoard.value = false;
-      this.#restartAutoRefresh();
+      await this.#persist(configuration, { activate: true });
+      this.#enterBoard(configuration);
+      await this.#refreshBoards();
     } catch (error) {
       this.setupError.value = toMessage(error);
       return;
@@ -313,6 +373,7 @@ export class BoardModel {
       const configuration = await refreshBoardStructure(this.#client, current.boardId, current);
       await this.#persist(configuration);
       this.configuration.value = configuration;
+      await this.#refreshBoards(); // le nom du board a pu changer dans Jira
       this.#quickFiltersBoardId = null; // relus avec la structure
     } catch (error) {
       this.syncProblem.value = { ...toMessage(error), sessionLost: isSessionLost(error) };
@@ -1268,10 +1329,62 @@ export class BoardModel {
     this.#autoRefreshTimer = null;
   }
 
-  #persist(configuration: BoardConfiguration): Promise<void> {
-    const next = this.#saveQueue.then(() => saveBoard(this.#platform.store, configuration));
+  /**
+   * Enregistre une configuration. Seuls l'ajout et le changement de board en font le board actif :
+   * un réglage enregistré après un changement de board ne ramène pas l'ancien.
+   */
+  #persist(
+    configuration: BoardConfiguration,
+    options: { activate: boolean } = { activate: false },
+  ): Promise<void> {
+    return this.#queued(() => saveBoard(this.#platform.store, configuration, options));
+  }
+
+  /** Écritures locales enchaînées : la dernière demandée est la dernière faite. */
+  #queued<T>(write: () => Promise<T>): Promise<T> {
+    const next = this.#saveQueue.then(write);
     this.#saveQueue = next.catch(() => {});
     return next;
+  }
+
+  async #refreshBoards(): Promise<void> {
+    const boards = await listBoards(this.#platform.store, this.site.origin);
+    this.boards.value = boards.map((board) => ({
+      boardId: board.boardId,
+      boardName: board.boardName,
+      projectKeys: board.projectKeys,
+    }));
+  }
+
+  /**
+   * Affiche un board (ou aucun) : tout ce qui appartenait au board précédent est oublié. Une
+   * synchronisation encore en cours appartient à l'ancien board : son résultat sera ignoré.
+   */
+  #enterBoard(configuration: BoardConfiguration | null): void {
+    this.#generation += 1;
+    batch(() => {
+      this.configuration.value = configuration;
+      this.snapshot.value = null;
+      this.filters.value = NO_FILTERS;
+      this.jiraQuickFilters.value = [];
+      this.cardColors.value = {};
+      this.colorRuleIssues.value = {};
+      this.colorRuleCounts.value = {};
+      this.syncProblem.value = null;
+      this.goalsNotice.value = null;
+      this.goalsWarnings.value = [];
+      this.writeNotice.value = null;
+      this.transitionChoice.value = null;
+      this.dragging.value = null;
+      this.dropTarget.value = null;
+      this.draggingLane.value = null;
+      this.laneDropTarget.value = undefined;
+      this.pinEditor.value = null;
+      this.editingBoard.value = false;
+    });
+    this.#colorMatches = {};
+    this.#quickFiltersBoardId = null;
+    this.#restartAutoRefresh();
   }
 
   /**

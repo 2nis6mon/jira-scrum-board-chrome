@@ -180,3 +180,45 @@ export function boardSiteJira(
       json: { key: SPRINT_PROPERTY_KEYS.goals, value: GOALS_DOCUMENT },
     });
 }
+
+/** Second board FICTIF du même site (12, projet XYZ), pour les tests à plusieurs boards. */
+export const SECOND_BOARD_URL = "https://acme.atlassian.net/jira/software/c/projects/XYZ/boards/12";
+
+export function withSecondBoard(jira: FakeJira): FakeJira {
+  const issues = [issueJson("XYZ-1", { summary: "Refondre le compte", statusId: "1" })];
+  return jira
+    .on("GET", "/rest/agile/1.0/board/12", {
+      status: 200,
+      json: { id: 12, name: "Équipe Compte", type: "scrum", location: { projectKey: "XYZ" } },
+    })
+    .on("GET", "/rest/agile/1.0/board/12/configuration", {
+      status: 200,
+      json: {
+        columnConfig: {
+          columns: [
+            { name: "À faire", statuses: [{ id: "1" }] },
+            { name: "Terminé", statuses: [{ id: "6" }] },
+          ],
+        },
+      },
+    })
+    .on("GET", "/rest/agile/1.0/board/12/quickfilter", {
+      status: 200,
+      json: { isLast: true, values: [] },
+    })
+    .on("GET", "/rest/agile/1.0/board/12/issue", {
+      status: 200,
+      json: { issues, total: issues.length },
+    })
+    .on("GET", "/rest/agile/1.0/board/12/sprint", {
+      status: 200,
+      json: {
+        isLast: true,
+        values: [{ id: 77, name: "Compte 3", state: "active", goal: "🎯 Refonte du compte" }],
+      },
+    })
+    .on("GET", "/rest/agile/1.0/sprint/77/issue", {
+      status: 200,
+      json: { issues, total: issues.length },
+    });
+}

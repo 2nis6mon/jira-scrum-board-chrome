@@ -3,7 +3,12 @@ import { render } from "preact";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
-import { BOARD_URL, boardSiteJira } from "../support/boardFixture";
+import {
+  BOARD_URL,
+  boardSiteJira,
+  SECOND_BOARD_URL,
+  withSecondBoard,
+} from "../support/boardFixture";
 import { isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 
@@ -205,10 +210,52 @@ describe("barre latérale", () => {
     expect(model.sidebarWidth.value).toBe(248);
   });
 
-  it("le menu du board mène au changement de board", async () => {
+  it("menu des boards : liste des boards enregistrés, bascule d'un clic, retrait confirmé", async () => {
+    const { board, jira } = await connectedBoard(withSecondBoard(boardSiteJira()));
+    await board.detect(SECOND_BOARD_URL);
+    await tick();
+    const name = () => document.querySelector(".board-switcher-name")?.textContent;
+    const choices = () =>
+      [...document.querySelectorAll(".board-choice")].map((choice) => [
+        choice.querySelector(".board-choice-name")?.textContent,
+        choice.getAttribute("aria-current"),
+      ]);
+    expect(name()).toBe("Équipe Compte");
+    expect(document.querySelector(".board-switcher-count")?.textContent).toBe("2");
+    expect(choices()).toEqual([
+      ["Équipe Compte · XYZ", "true"],
+      ["Équipe Paiement · ABC", null],
+    ]);
+    expect(cardKeys()).toEqual(["XYZ-1"]);
+
+    button("Équipe Paiement · ABC").click();
+    await expect.poll(() => cardKeys()).toContain("ABC-101");
+    expect(name()).toBe("Équipe Paiement");
+
+    // Retrait : une confirmation, qu'on peut annuler.
+    button("Retirer « Équipe Paiement » de l'extension…").click();
+    await tick();
+    expect(document.querySelector("[role=dialog]")?.textContent).toContain(
+      "Rien n'est supprimé dans Jira",
+    );
+    button("Annuler").click();
+    await tick();
+    expect(document.querySelector("[role=dialog]")).toBeNull();
+    expect(choices()).toHaveLength(2);
+
+    button("Retirer « Équipe Paiement » de l'extension…").click();
+    await tick();
+    button("Retirer de l'extension").click();
+    await expect.poll(() => name()).toBe("Équipe Compte");
+    expect(choices()).toEqual([["Équipe Compte · XYZ", "true"]]);
+    expect(document.querySelector(".board-switcher-count")).toBeNull();
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+  });
+
+  it("le menu du board permet d'en ajouter un par son adresse", async () => {
     await connectedBoard();
     expect(button("Relire colonnes et types depuis Jira")).toBeDefined();
-    button("Changer de board…").click();
+    button("Ajouter un board par son adresse…").click();
     await tick();
     expect(document.querySelector(".connection h2")?.textContent).toBe("Quel board afficher ?");
   });

@@ -9,7 +9,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.11.0 — étape 6 en cours : Sprint Health (lot 6a).** Board du
+> **État : 0.12.0 — étape 6 en cours : Sprint Health (lot 6a), plusieurs boards (lot 6b).** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
 > du board Jira ; glisser-déposer qui écrit dans Jira : transition, rang, et lien natif
 > ticket↔Goal ; épinglage de Goals au sprint, gardé dans le navigateur si Jira le refuse ; ordre,
@@ -64,8 +64,11 @@ Le board affiche les tickets des **sprints actifs**, regroupés par objectif, pu
 (tickets sans objectif) et *RUN* (types classés RUN, présents dans le sprint). Un clic sur une
 carte ouvre le ticket dans Jira, dans un nouvel onglet. La flèche ronde de l'en-tête relit Jira.
 
-- **Barre latérale** (reprise de l'app Mac) : le board affiché, dont le menu ouvre le board dans
-  Jira, relit colonnes et types, épingle des Goals ou change de board ; les vues *Board* et
+- **Barre latérale** (reprise de l'app Mac) : le board affiché et son menu — les boards
+  enregistrés pour ce site (un clic bascule de l'un à l'autre, chacun avec ses réglages), l'ajout
+  d'un board par son adresse, l'ouverture dans Jira, la relecture des colonnes et types,
+  l'épinglage de Goals, et le retrait d'un board (après confirmation ; ses réglages dans ce
+  navigateur sont effacés, rien dans Jira). Le dernier board affiché revient à l'ouverture ; les vues *Board* et
   *Sprint Health* ; les swimlanes dans l'ordre du
   board, avec leur avancement — un clic y mène (en la dépliant), un glissé les réordonne, sur le
   board comme dans la barre ; et *Administration* en pied de barre. Le bouton en haut à gauche
@@ -288,6 +291,11 @@ développement, jamais inclus dans `dist/`.
   Chrome sur le banc d'essai.
 - Colonnes d'au moins 170 px (0.10.5) : colonnes au minimum, une clé à 5 chiffres
   (CLIENT-10114) tient en entier, drapeau et priorité compris ; vérifié dans Chrome.
+- Plusieurs boards (0.12.0) contre le faux Jira : liste par nom, bascule (autre board relu dans
+  Jira, réglages propres à chaque board, filtres remis à zéro), refus pendant une écriture, retrait
+  (board suivant affiché, adresse redemandée après le dernier), réouverture sur le dernier board ;
+  un réglage enregistré ne change plus le board actif. Rendu et gestes vérifiés dans Chrome sur le
+  banc d'essai (`board-multi`).
 - Sprint Health (0.11.0) contre le faux Jira : comptages vérifiés à la main (points, tickets,
   bloqués, ajoutés, avancement par objectif, charge et WIP, composition, tickets à surveiller),
   filtres appliqués, historique absent signalé sans rien affirmer ; rendu vérifié dans Chrome sur
