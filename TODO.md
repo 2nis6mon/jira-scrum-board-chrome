@@ -123,6 +123,54 @@ démarrer le sprint.
 
 ---
 
+## 5. Partager la configuration entre plusieurs postes et avec l'équipe
+
+**Demande.** Si quelqu'un de l'équipe installe l'extension, comment retrouve-t-il la même
+configuration (colonnes, types, couleurs, règles…) ? Est-ce possible ?
+
+**Aujourd'hui.**
+
+- Tous les réglages sont **locaux au navigateur** : `chrome.storage.local`, par site et par board.
+  Un autre poste, ou un autre profil Chrome, repart de zéro : il faut refaire les réglages.
+- Deux règles du projet l'imposent : réglages **jamais écrits dans Jira** (décision héritée du Mac)
+  et **jamais dans `storage.sync`** (rien ne part chez Google).
+- Ce qui est **déjà partagé** passe par Jira : Goals épinglés au sprint et rattachements du mode
+  texte (propriété du sprint), liens ticket↔Goal, statuts, rang. Les colonnes, statuts et types
+  viennent aussi de Jira, relus sur chaque poste.
+
+**Ce qui vaudrait la peine d'être partagé** (réglages d'équipe) : noms et limites WIP des colonnes,
+classement des types (Scrum, RUN, ignoré, bug), labels de blocage, nom de Build, seuil de
+vieillissement, couleurs des objectifs, ordre des swimlanes, champs des cartes, règles de couleur.
+**Ce qui resterait personnel** : swimlanes repliées, objectifs masqués, rafraîchissement
+automatique, largeur de la barre latérale, filtres.
+
+**Pistes, de la plus simple à la plus intégrée.**
+
+- [ ] **Export / import d'un fichier** (réglages d'équipe d'un board en JSON) depuis
+  l'administration. Aucune permission nouvelle, rien dans Jira ni chez Google. Le fichier circule
+  à la main (Slack, Confluence) ; il faut réimporter à chaque changement. Import : validation stricte,
+  aperçu de ce qui change, réglages personnels non touchés.
+- [ ] **Propriété du board dans Jira** (comme celle du sprint, mais au niveau du board) : toute
+  l'équipe la lit, et les changements sont partagés tout de suite. Mais c'est une **cinquième
+  catégorie d'écriture** et cela **lève la règle « réglages jamais écrits dans Jira »** : à décider
+  par Denis. À vérifier avant tout code : l'endpoint dans la spécification OpenAPI de Jira Software,
+  les droits nécessaires pour écrire (administrateur du board ?), et le format, à partager avec
+  l'app Mac.
+- [ ] **Politique Chrome gérée** (`storage.managed`), si l'entreprise administre Chrome : l'IT pousse
+  une configuration en lecture seule. Demande un schéma dans le manifest et l'accord de l'IT ;
+  utile seulement pour un déploiement encadré.
+- Écarté : `storage.sync`, interdit par les règles du projet, et qui ne synchronise que les postes
+  d'**une même personne**, pas l'équipe.
+
+**À trancher.**
+
+- [ ] Partage ponctuel (fichier) ou partage vivant (Jira) ?
+- [ ] Qui a le droit de modifier la configuration d'équipe : tout le monde, ou un responsable ?
+- [ ] En cas de réglage local différent de celui de l'équipe : lequel l'emporte ?
+- [ ] Même format que l'app Mac, pour qu'un réglage fait sur l'un serve à l'autre ?
+
+---
+
 ## Déjà prévu : fin de l'étape 6
 
 - [ ] 6c — Déplacer une carte au clavier (alternative accessible au glisser-déposer).
