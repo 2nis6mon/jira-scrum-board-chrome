@@ -27,8 +27,11 @@ export type Connection =
   | { state: "disconnected"; lastInput: string }
   | { state: "connected"; site: JiraSite; board: BoardModel; diagnostic: DiagnosticModel };
 
-/** Vues de la barre latérale. Sprint Health n'est pas encore construite (étape 6). */
-export type View = "board" | "health" | "admin";
+/**
+ * Vues de la barre latérale : le sprint (swimlanes, et la santé du sprint dans un panneau
+ * repliable) et l'administration.
+ */
+export type View = "board" | "admin";
 
 /** Sections de l'administration : réglages du board, diagnostic, compte. */
 export type AdminSection = "team" | "board" | "goals" | "cardFields" | "cardColors" | "diagnostic";
@@ -43,6 +46,8 @@ export class AppModel {
   readonly sidebarCollapsed = signal(false);
   /** Largeur de la barre latérale choisie en tirant sa bordure ; gardée dans ce navigateur. */
   readonly sidebarWidth = signal<number>(SIDEBAR_WIDTH.default);
+  /** Panneau « Santé du sprint » déplié au-dessus des swimlanes ; gardé dans ce navigateur. */
+  readonly healthOpen = signal(false);
 
   readonly #platform: Platform;
   readonly #audit: AuditLog;
@@ -135,9 +140,11 @@ export class AppModel {
     this.view.value = "board";
   }
 
-  /** Emplacement de Sprint Health, qui arrive à l'étape 6. */
-  showHealth(): void {
-    this.view.value = "health";
+  /** Déplie ou replie la santé du sprint, dans la vue du sprint. */
+  async toggleHealth(): Promise<void> {
+    this.healthOpen.value = !this.healthOpen.value;
+    // Un stockage indisponible n'empêche pas le panneau : il ne sera simplement pas retenu.
+    await this.#saveInterface().catch(() => {});
   }
 
   /** Administration : réglages locaux du board, diagnostic, déconnexion. */
@@ -177,15 +184,20 @@ export class AppModel {
 
   async #restoreInterface(): Promise<void> {
     const saved = await this.#platform.store.get(INTERFACE_KEY).catch(() => null);
-    const width = isRecord(saved) ? saved.sidebarWidth : null;
+    if (!isRecord(saved)) return;
+    const width = saved.sidebarWidth;
     // Le maximum dépend de la fenêtre : il est appliqué à l'affichage, pas ici.
     if (typeof width === "number" && Number.isFinite(width) && width >= SIDEBAR_WIDTH.min) {
       this.sidebarWidth.value = Math.round(width);
     }
+    this.healthOpen.value = saved.healthOpen === true;
   }
 
   async #saveInterface(): Promise<void> {
-    await this.#platform.store.set(INTERFACE_KEY, { sidebarWidth: this.sidebarWidth.value });
+    await this.#platform.store.set(INTERFACE_KEY, {
+      sidebarWidth: this.sidebarWidth.value,
+      healthOpen: this.healthOpen.value,
+    });
   }
 
   async #enter(site: JiraSite): Promise<void> {

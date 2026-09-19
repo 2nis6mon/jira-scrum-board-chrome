@@ -415,7 +415,7 @@ describe("App", () => {
     await tick();
     expect(document.querySelector("[role=alert]")).toBeNull();
 
-    button("Board").click();
+    button("Sprint").click();
     await tick();
     const heads = [...document.querySelectorAll(".column-band .column-name")].map(
       (head) => head.textContent,
@@ -456,7 +456,7 @@ describe("App", () => {
       .poll(() => document.querySelector(".color-rule-ok")?.textContent)
       .toContain("1 ticket affiché satisfait");
 
-    button("Board").click();
+    button("Sprint").click();
     await tick();
     const colored = [...document.querySelectorAll<HTMLElement>("[data-card-color]")].map((card) => [
       card.dataset.issueKey,

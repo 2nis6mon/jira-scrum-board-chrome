@@ -9,12 +9,12 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.13.0 — étape 6 en cours : Sprint Health (6a), plusieurs boards (6b), réglages
-> d'équipe partagés par Jira.** Board du
+> **État : 0.14.0 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
+> 0.14.0), plusieurs boards (6b), réglages d'équipe partagés par Jira.** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
 > du board Jira ; glisser-déposer qui écrit dans Jira : transition, rang, et lien natif
 > ticket↔Goal ; épinglage de Goals au sprint, gardé dans le navigateur si Jira le refuse ; ordre,
-> repli, couleur et masquage des swimlanes ; barre latérale (board, vues, swimlanes, administration) ;
+> repli, couleur et masquage des swimlanes ; barre latérale (board, vue Sprint, swimlanes, administration) ;
 > administration (colonnes, types, affichage, rafraîchissement automatique,
 > source des objectifs, champs et couleurs des cartes, diagnostic, déconnexion). Repli
 > automatique et expliqué sur le texte du sprint si les Goals ne répondent pas.
@@ -69,14 +69,17 @@ carte ouvre le ticket dans Jira, dans un nouvel onglet. La flèche ronde de l'en
   enregistrés pour ce site (un clic bascule de l'un à l'autre, chacun avec ses réglages), l'ajout
   d'un board par son adresse, l'ouverture dans Jira, la relecture des colonnes et types,
   l'épinglage de Goals, et le retrait d'un board (après confirmation ; ses réglages dans ce
-  navigateur sont effacés, rien dans Jira). Le dernier board affiché revient à l'ouverture ; les vues *Board* et
-  *Sprint Health* ; les swimlanes dans l'ordre du
+  navigateur sont effacés, rien dans Jira). Le dernier board affiché revient à l'ouverture ; la vue
+  *Sprint* (les swimlanes, et la santé du sprint dans un panneau) ; les swimlanes dans l'ordre du
   board, avec leur avancement — un clic y mène (en la dépliant), un glissé les réordonne, sur le
   board comme dans la barre ; et *Administration* en pied de barre. Le bouton en haut à gauche
   de l'en-tête masque la barre. Sa bordure droite se tire (curseur ↔) pour l'élargir ou la
   rétrécir, de 200 px à la moitié de la fenêtre ; flèches du clavier quand elle a le focus,
   double-clic pour revenir à la largeur par défaut. La largeur est gardée dans ce navigateur.
-- **Sprint Health** (0.11.0, porté du Mac) : des comptages directs sur les tickets lus dans Jira,
+- **Santé du sprint** (0.11.0, portée de Sprint Health du Mac ; panneau depuis 0.14.0) : le bouton
+  à icône (tracé de pouls) de l'en-tête, à côté de la flèche ronde, déplie ou replie un panneau
+  entre les filtres et les swimlanes ; l'état du panneau est gardé dans ce navigateur. Des
+  comptages directs sur les tickets lus dans Jira,
   filtres de la barre appliqués, sans score ni projection. Indicateurs (story points livrés,
   tickets terminés, bloqués, périmètre ajouté), avancement par objectif, changement de périmètre
   (tickets entrés après le démarrage, si Jira fournit l'historique), charge par colonne avec les
@@ -314,7 +317,8 @@ développement, jamais inclus dans `dist/`.
 - Sprint Health (0.11.0) contre le faux Jira : comptages vérifiés à la main (points, tickets,
   bloqués, ajoutés, avancement par objectif, charge et WIP, composition, tickets à surveiller),
   filtres appliqués, historique absent signalé sans rien affirmer ; rendu vérifié dans Chrome sur
-  le banc d'essai.
+  le banc d'essai. En panneau (0.14.0) : ouverture et fermeture par l'en-tête et par le panneau,
+  place entre les filtres et les swimlanes, état gardé et repris ; rendu vérifié dans Chrome.
 
 ### ✅ Constaté par l'utilisateur sur son instance (0.2.0, 0.2.1)
 

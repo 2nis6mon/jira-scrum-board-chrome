@@ -7,6 +7,11 @@ Liste de travail décidée avec Denis le 19/09/2026. Chaque point donne ce que f
 
 ## 1. Sprint Health dans la vue Board, et « Sprint » au lieu de « Board »
 
+> **Fait en 0.14.0**, choix de Denis du 19/09/2026 : panneau repliable entre la barre de filtres
+> et les swimlanes ; bouton icône seule (tracé de pouls) dans l'en-tête, à côté de la flèche
+> ronde ; l'entrée *Sprint Health* quitte la barre latérale ; seule la vue est renommée
+> (*Board* → *Sprint*), « board » reste pour le board Jira.
+
 **Aujourd'hui.** Sprint Health est une vue à part, ouverte depuis la barre latérale (entrée sous
 *Board*). Elle reprend l'en-tête et les filtres du board, puis ses propres cartes : indicateurs,
 avancement par objectif, périmètre, charge par colonne, composition, tickets à surveiller.
@@ -204,6 +209,6 @@ réglages locaux correspondants. Pistes nées de cette lecture :
 
 ## Déjà prévu : fin de l'étape 6
 
-- [ ] 6c — Déplacer une carte au clavier (alternative accessible au glisser-déposer).
+- ~~6c — Déplacer une carte au clavier~~ : abandonné à la demande de Denis (19/09/2026).
 - [ ] 6d — Audit de sécurité de l'extension, sur le modèle de celui du Mac.
 - [ ] 6e — Empaquetage pour l'installation.

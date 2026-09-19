@@ -73,8 +73,8 @@ src/app/model/        état de l'interface (signals), plateforme injectée : App
                       vue), BoardModel (board, synchro, filtres, glisser-déposer), DiagnosticModel,
                       boardStore, auditLog (journal des écritures), graphqlOrigin (règle Origin)
 src/app/views/        vues Preact ; Sidebar = barre latérale ; views/board/ = en-tête, filtres,
-                      swimlanes, cartes ; views/settings/ = Administration (réglages, diagnostic,
-                      déconnexion)
+                      swimlanes, cartes ; views/health/ = panneau Santé du sprint ;
+                      views/settings/ = Administration (réglages, diagnostic, déconnexion)
 src/background/       service worker (ouvre la page, rien d'autre)
 src/jira/             site, erreurs, transport HTTP, inventaire des écritures, diagnostic,
                       modèles Jira et leur décodage, client REST (lectures), transitions
@@ -110,7 +110,7 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 | `core/parentColors.ts` | aucun : couleur des badges parent, propre à l'extension (demande de Denis) |
 | `views/Sidebar.tsx`, `core/boardPreferences.ts` (`laneSummaries`) | `SidebarView`, `BoardSwitcherView` (menu), `WorkspaceView` |
 | `views/settings/AdminView.tsx` | `AdminView` (réglages), plus le diagnostic et la déconnexion |
-| `core/sprintHealth.ts`, `views/health/` | `SprintHealthView` |
+| `core/sprintHealth.ts`, `views/health/HealthPanel.tsx` | `SprintHealthView` (ici un panneau de la vue Sprint) |
 | `core/teamSettings.ts`, `views/settings/TeamSettings.tsx` | aucun : réglages d'équipe, propres à l'extension (format prévu pour l'app Mac) |
 
 Écarts voulus : `SprintGoalText.render` n'est pas porté (il ne servait qu'à réécrire le champ du
@@ -241,14 +241,14 @@ comme CLIENT-10114 tient en entier sur sa carte, drapeau compris. Prix : à 7 co
 défile horizontalement sous environ 1 550 px de fenêtre (1 410 avant).
 
 Étape 6, découpée en lots (annoncés à Denis) : 6a Sprint Health · 6b plusieurs boards · 6c déplacer
-une carte au clavier · 6d audit de sécurité · 6e empaquetage. Le mode présentation de la
+une carte au clavier (abandonné le 19/09/2026) · 6d audit de sécurité · 6e empaquetage. Le mode présentation de la
 spécification est abandonné : Denis a retiré le plein écran (0.10.1).
 
 0.11.0 : lot 6a, Sprint Health (`core/sprintHealth.ts`, port de `SprintHealthView`) : comptages
 directs, filtres appliqués, aucun score. Écart voulu : la charge par colonne ignore les filtres,
 comme les limites WIP du board. L'en-tête et la barre de filtres du board y sont réutilisés
 (`SprintHeader`, `FilterBar`, `Notices` exportés de BoardView) ; le compteur « dans Build »
-ramène au board (`ScreenControls.showBoard`).
+ramène au board (`ScreenControls.showBoard`, retiré en 0.14.0 avec la vue à part).
 
 0.12.0 : lot 6b, plusieurs boards (port de `BoardSwitcherView`). `boardStore.ts` : `listBoards`,
 `activateBoard`, `removeBoard` ; `saveBoard` ne rend actif que sur demande (ajout, changement de
@@ -272,6 +272,15 @@ configuration), clés inconnues gardées, valeur illisible jamais écrasée, une
 `BoardModel` relit la propriété à chaque actualisation : nouvelle version appliquée d'office si
 rien n'a été modifié ici (ou si le board vient d'être ajouté), sinon proposée (Appliquer / Garder
 les miens). Onglet « Réglages d'équipe » de l'administration, bandeaux sur le board.
+
+0.14.0 (point 1 de TODO.md, choix de Denis) : Sprint Health n'est plus une vue à part mais un
+panneau repliable de la vue du sprint (`views/health/HealthPanel.tsx`), entre la barre de filtres
+et les swimlanes, ouvert et fermé par un bouton icône seule de l'en-tête (tracé de pouls, à côté de
+la flèche ronde, `aria-pressed`) ou par le chevron du panneau. État gardé dans `interface.v1`
+(`healthOpen`, préférence d'affichage commune à tous les sites). L'entrée « Board » de la barre
+latérale devient « Sprint » ; tout ce qui désigne le board Jira garde « board » (menu du board,
+section Board de l'administration, « Masqués du board », limites WIP du board). Le lot 6c
+(déplacer une carte au clavier) est abandonné à la demande de Denis.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.

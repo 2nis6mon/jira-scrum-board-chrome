@@ -7,9 +7,9 @@ import { LANE_DRAG_TYPE, revealLane } from "./board/lanes";
 import { Icon, type IconName } from "./Icon";
 
 /**
- * Barre latérale, reprise de l'app Mac. De haut en bas : board affiché (et son menu), vues Board et
- * Sprint Health, swimlanes dans l'ordre du board (un clic y mène, un glissé les réordonne),
- * objectifs masqués, et Administration en pied de barre.
+ * Barre latérale, reprise de l'app Mac. De haut en bas : board affiché (et son menu), vue du sprint
+ * (la santé du sprint y est un panneau), swimlanes dans l'ordre du board (un clic y mène, un glissé
+ * les réordonne), objectifs masqués, et Administration en pied de barre.
  */
 export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }) {
   const view = model.view.value;
@@ -33,15 +33,9 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
       <nav class="sidebar-nav" aria-label="Vues">
         <NavButton
           icon="board"
-          label="Board"
+          label="Sprint"
           current={view === "board"}
           onClick={() => model.showBoard()}
-        />
-        <NavButton
-          icon="health"
-          label="Sprint Health"
-          current={view === "health"}
-          onClick={() => model.showHealth()}
         />
       </nav>
       <div class="sidebar-divider" />

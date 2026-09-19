@@ -20,6 +20,7 @@ import {
 import { goalColorName } from "../../../core/sprintGoals";
 import type { BoardModel } from "../../model/BoardModel";
 import { formatDay, formatPoints, formatTime, goalStatusLabel, plural, toggled } from "../format";
+import { HealthPanel } from "../health/HealthPanel";
 import { Icon } from "../Icon";
 import { publisher, when } from "../settings/TeamSettings";
 import { FilterMenu } from "./FilterMenu";
@@ -39,6 +40,7 @@ export function BoardView({
 }) {
   const snapshot = board.snapshot.value;
   const layout = board.layout.value;
+  const health = controls.healthOpen && snapshot?.sprint ? board.health.value : null;
 
   return (
     <main class="board-screen">
@@ -50,6 +52,14 @@ export function BoardView({
       />
       {snapshot?.sprint && <FilterBar board={board} />}
       <Notices board={board} snapshot={snapshot} layout={layout} />
+      {health && (
+        <HealthPanel
+          board={board}
+          configuration={configuration}
+          health={health}
+          onClose={controls.onToggleHealth}
+        />
+      )}
       <TransitionChoiceDialog board={board} />
       <PinGoalsDialog board={board} />
       {snapshot === null ? (
@@ -118,15 +128,16 @@ function TransitionChoiceDialog({ board }: { board: BoardModel }) {
 
 // ─── En-tête ─────────────────────────────────────────────────────────────────
 
-/** Commandes de l'écran portées par l'en-tête : barre latérale, retour au board. */
+/** Commandes de l'écran portées par l'en-tête : barre latérale, santé du sprint. */
 export interface ScreenControls {
   readonly sidebarCollapsed: boolean;
   readonly onToggleSidebar: () => void;
-  /** Affiche la vue Board (depuis Sprint Health, par exemple). */
-  readonly showBoard: () => void;
+  /** Panneau « Santé du sprint » déplié au-dessus des swimlanes. */
+  readonly healthOpen: boolean;
+  readonly onToggleHealth: () => void;
 }
 
-export function SprintHeader(props: {
+function SprintHeader(props: {
   board: BoardModel;
   configuration: BoardConfiguration;
   snapshot: BoardSnapshot | null;
@@ -217,10 +228,7 @@ export function SprintHeader(props: {
             <button
               type="button"
               class="counter counter-build"
-              onClick={() => {
-                controls.showBoard();
-                void revealLane(board, "build");
-              }}
+              onClick={() => void revealLane(board, "build")}
               title={`Aller à ${buildLabel} : tickets du sprint sans objectif affiché`}
             >
               <Icon name="build" />
@@ -239,6 +247,20 @@ export function SprintHeader(props: {
               ? `Jira · ${formatTime(snapshot.syncedAt)}`
               : ""}
         </span>
+        {sprint && (
+          <button
+            type="button"
+            class="icon-button health-toggle"
+            aria-label="Santé du sprint"
+            aria-pressed={controls.healthOpen}
+            title={
+              controls.healthOpen ? "Masquer la santé du sprint" : "Afficher la santé du sprint"
+            }
+            onClick={controls.onToggleHealth}
+          >
+            <Icon name="health" size={17} />
+          </button>
+        )}
         <button
           type="button"
           class={`icon-button${board.syncing.value ? " icon-button-busy" : ""}`}
@@ -291,7 +313,7 @@ function remainingLabel(days: number): string {
 
 // ─── Filtres ─────────────────────────────────────────────────────────────────
 
-export function FilterBar({ board }: { board: BoardModel }) {
+function FilterBar({ board }: { board: BoardModel }) {
   const filters = board.filters.value;
   const options = board.options.value;
   const layout = board.layout.value;
@@ -468,7 +490,7 @@ function JiraQuickFilters({ board }: { board: BoardModel }) {
 
 // ─── Bandeaux ────────────────────────────────────────────────────────────────
 
-export function Notices(props: {
+function Notices(props: {
   board: BoardModel;
   snapshot: BoardSnapshot | null;
   layout: BoardLayout | null;

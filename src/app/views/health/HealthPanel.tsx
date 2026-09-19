@@ -4,7 +4,6 @@ import type { BoardIssue } from "../../../core/boardIssue";
 import { browseUrl } from "../../../core/boardIssue";
 import { percent, type SprintHealth, type WatchedIssue } from "../../../core/sprintHealth";
 import type { BoardModel } from "../../model/BoardModel";
-import { FilterBar, Notices, type ScreenControls, SprintHeader } from "../board/BoardView";
 import { formatDay, formatPoints, plural } from "../format";
 import { Icon, type IconName } from "../Icon";
 
@@ -13,36 +12,36 @@ const SCOPE_LIMIT = 6;
 const WATCH_LIMIT = 12;
 
 /**
- * Sprint Health, porté de l'app Mac : des comptages directs sur les tickets lus dans Jira,
- * filtres de la barre appliqués. Aucun score, aucune projection. Lecture seule.
+ * Santé du sprint, portée de Sprint Health de l'app Mac : des comptages directs sur les tickets lus
+ * dans Jira, filtres de la barre appliqués. Aucun score, aucune projection. Lecture seule.
+ * Panneau repliable de la vue du sprint, au-dessus des swimlanes ; le bouton icône de l'en-tête
+ * l'ouvre et le referme.
  */
-export function SprintHealthView(props: {
+export function HealthPanel(props: {
   board: BoardModel;
   configuration: BoardConfiguration;
-  controls: ScreenControls;
+  health: SprintHealth;
+  onClose: () => void;
 }) {
-  const { board, configuration, controls } = props;
-  const snapshot = board.snapshot.value;
-  const health = board.health.value;
-
   return (
-    <main class="board-screen">
-      <SprintHeader
-        board={board}
-        configuration={configuration}
-        snapshot={snapshot}
-        controls={controls}
-      />
-      {snapshot?.sprint && <FilterBar board={board} />}
-      <Notices board={board} snapshot={snapshot} layout={board.layout.value} />
-      {snapshot === null ? (
-        !board.syncProblem.value && <p class="board-empty">Lecture du board dans Jira…</p>
-      ) : health === null ? (
-        <p class="board-empty">Aucun sprint actif sur ce board.</p>
-      ) : (
-        <HealthBody board={board} configuration={configuration} health={health} />
-      )}
-    </main>
+    <section class="health-panel" aria-labelledby="health-title">
+      <header class="health-panel-head">
+        <h2 id="health-title">
+          <Icon name="health" size={16} />
+          Santé du sprint
+        </h2>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Masquer la santé du sprint"
+          title="Masquer la santé du sprint"
+          onClick={props.onClose}
+        >
+          <Icon name="chevronUp" size={16} />
+        </button>
+      </header>
+      <HealthBody board={props.board} configuration={props.configuration} health={props.health} />
+    </section>
   );
 }
 

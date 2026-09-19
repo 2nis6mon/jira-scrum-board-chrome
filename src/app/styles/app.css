@@ -548,6 +548,10 @@ progress::-webkit-progress-value {
   --icon-animation: spin 0.9s linear infinite;
 }
 
+.health-toggle[aria-pressed="true"] {
+  --icon-color: var(--in-progress);
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -2608,12 +2612,34 @@ details.board-switcher .menu-panel {
   gap: 12px;
 }
 
-/* ─── Sprint Health ──────────────────────────────────────────────────────── */
+/* ─── Santé du sprint ────────────────────────────────────────────────────── */
+
+/* Panneau repliable de la vue du sprint, entre les filtres et les swimlanes. */
+.health-panel {
+  border-bottom: 1px solid var(--line);
+}
+
+.health-panel-head {
+  max-width: 1400px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 0 20px;
+}
+
+.health-panel-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 650;
+  --icon-color: var(--in-progress);
+}
 
 .health {
   width: 100%;
   max-width: 1400px;
-  padding: 14px 20px 40px;
+  padding: 8px 20px 18px;
   display: flex;
   flex-direction: column;
   gap: 14px;

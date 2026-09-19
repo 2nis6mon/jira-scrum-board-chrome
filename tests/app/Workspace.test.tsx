@@ -89,7 +89,7 @@ async function withScrollSpy(run: (scrolled: string[]) => Promise<void>) {
 }
 
 describe("barre latérale", () => {
-  it("board affiché, vues, swimlanes dans l'ordre du board, Administration en pied", async () => {
+  it("board affiché, vue du sprint, swimlanes dans l'ordre du board, Administration en pied", async () => {
     await connectedBoard();
     const sidebar = document.querySelector(".sidebar");
 
@@ -98,9 +98,9 @@ describe("barre latérale", () => {
       item.textContent,
       item.getAttribute("aria-current"),
     ]);
+    // La vue s'appelle « Sprint » ; la santé du sprint n'est plus une vue à part.
     expect(nav).toEqual([
-      ["Board", "page"],
-      ["Sprint Health", null],
+      ["Sprint", "page"],
       ["Administration", null],
     ]);
     expect(sidebar?.querySelector(".sidebar-section-title")?.textContent).toBe(
@@ -261,12 +261,24 @@ describe("barre latérale", () => {
     expect(document.querySelector(".connection h2")?.textContent).toBe("Quel board afficher ?");
   });
 
-  it("Sprint Health : comptages du sprint, filtres appliqués, tickets à surveiller vers Jira", async () => {
-    const { jira, board } = await connectedBoard();
-    button("Sprint Health").click();
+  it("santé du sprint : panneau au-dessus des swimlanes, comptages, filtres appliqués", async () => {
+    const { jira, board, model } = await connectedBoard();
+    const toggle = labelled("Santé du sprint");
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    expect(document.querySelector(".health-panel")).toBeNull();
+
+    toggle.click();
     await tick();
-    expect(button("Sprint Health").getAttribute("aria-current")).toBe("page");
-    expect(cardKeys()).toEqual([]);
+    expect(labelled("Santé du sprint").getAttribute("aria-pressed")).toBe("true");
+    const panel = document.querySelector(".health-panel");
+    expect(panel?.querySelector("h2")?.textContent).toBe("Santé du sprint");
+    // Le panneau s'ouvre entre les filtres et les swimlanes, qui restent affichées.
+    const screen = document.querySelector("main.board-screen");
+    const order = [...(screen?.children ?? [])].map((child) => child.className);
+    expect(order.indexOf("health-panel")).toBeGreaterThan(order.indexOf("filter-bar"));
+    expect(order.indexOf("health-panel")).toBeLessThan(order.indexOf("board"));
+    expect(cardKeys()).toContain("ABC-101");
+    expect(model.view.value).toBe("board");
 
     const kpis = () =>
       [...document.querySelectorAll(".health-kpi")].map((kpi) => kpi.textContent ?? "");
@@ -294,6 +306,12 @@ describe("barre latérale", () => {
     await tick();
     // ABC-101 (en cours) et ABC-102 (à faire) parlent de paiement.
     expect(kpis()[1]).toBe("Tickets terminés0 / 21 en cours · 1 à faire");
+
+    // Le bouton du panneau le referme, comme celui de l'en-tête.
+    labelled("Masquer la santé du sprint").click();
+    await tick();
+    expect(document.querySelector(".health-panel")).toBeNull();
+    expect(labelled("Santé du sprint").getAttribute("aria-pressed")).toBe("false");
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 });
@@ -392,7 +410,7 @@ describe("administration", () => {
       publishedAt: "2030-01-01T08:00:00Z",
       publishedBy: { accountId: "u9", displayName: "Alex Martin" },
     };
-    button("Board").click();
+    button("Sprint").click();
     await board.sync();
     await tick();
     expect(text()).toContain("Alex Martin a publié de nouveaux réglages d'équipe");
