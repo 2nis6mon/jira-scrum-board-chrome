@@ -9,7 +9,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.10.4 — réglages locaux terminés (étape 5), mise en page de l'app Mac.** Board du
+> **État : 0.10.5 — réglages locaux terminés (étape 5), mise en page de l'app Mac.** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
 > du board Jira ; glisser-déposer qui écrit dans Jira : transition, rang, et lien natif
 > ticket↔Goal ; épinglage de Goals au sprint, gardé dans le navigateur si Jira le refuse ; ordre,
@@ -115,6 +115,8 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (*Administrat
   combinent, comme dans Jira. Un JQL que Jira refuse désactive les filtres rapides, et le bandeau
   le dit. Lecture seule.
 - **Colonnes** : celles du board Jira, avec leur limite WIP (en rouge au-delà, filtres ou non).
+  Elles se partagent la largeur, sans descendre sous 170 px (150 sur le Mac) : en dessous, le
+  board défile horizontalement.
 - **Swimlanes** : la poignée (⠿) à gauche de l'en-tête se glisse pour placer la swimlane
   (objectif, Build ou RUN) où l'on veut ; la flèche replie ou déplie ; le menu *⋯* la monte ou la
   descend (alternative au clavier), replie ou déplie tout, change la couleur d'un objectif ou le masque (ses
@@ -276,8 +278,10 @@ développement, jamais inclus dans `dist/`.
   fenêtre), fenêtre rétrécie, clavier, double-clic ; vérifié dans Chrome sur le banc d'essai.
 - Menu « ⋯ » d'une swimlane (0.10.3) : entier même sur la dernière swimlane d'un board replié,
   ouvert vers le haut dans une fenêtre basse ; vérifié dans Chrome sur le banc d'essai.
-- Carte (0.10.4) : alertes, points et assigné sur une ligne ; clé sur une ligne, entière dans une
-  carte de 152 px, « … » à 141 px (colonnes au minimum) ; vérifié dans Chrome sur le banc d'essai.
+- Carte (0.10.4) : alertes, points et assigné sur une ligne ; clé sur une ligne ; vérifié dans
+  Chrome sur le banc d'essai.
+- Colonnes d'au moins 170 px (0.10.5) : colonnes au minimum, une clé à 5 chiffres
+  (CLIENT-10114) tient en entier, drapeau et priorité compris ; vérifié dans Chrome.
 
 ### ✅ Constaté par l'utilisateur sur son instance (0.2.0, 0.2.1)
 

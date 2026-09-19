@@ -226,9 +226,12 @@ au-dessus faute de place, et refermé si la page ou le board défile.
 0.10.4 (demandes de Denis sur la carte) : dernière ligne = alertes en pastilles à icône (bloqué,
 bugs, ajouté, jours) à gauche, points et assigné à droite, jamais repoussés à la ligne ; clé
 jamais sur deux lignes (`white-space: nowrap`, « … » en dernier recours) ; une carte étroite se
-compacte par requête de conteneur (`.lane-item`, `@container (max-width: 175px)`). Une clé
-longue reste coupée quand les colonnes sont à leur minimum (150 px) : élargir ce minimum est
-une option proposée à Denis, pas faite.
+compacte par requête de conteneur (`.lane-item`, `@container (max-width: 175px)`).
+
+0.10.5 (validé par Denis) : largeur minimale des colonnes portée de 150 à 170 px (`--column-min`
+dans app.css, `MINIMUM_COLUMN_WIDTH` dans layoutMetrics.ts), écart voulu avec le Mac : une clé
+comme CLIENT-10114 tient en entier sur sa carte, drapeau compris. Prix : à 7 colonnes, le board
+défile horizontalement sous environ 1 550 px de fenêtre (1 410 avant).
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.

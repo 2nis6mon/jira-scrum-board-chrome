@@ -787,7 +787,10 @@ details.filter-menu > summary.active {
 /* ─── Board ──────────────────────────────────────────────────────────────── */
 
 .board {
-  --column-min: 150px;
+  /* Largeur minimale d'une colonne (150 px sur le Mac) : 170 px, pour qu'une clé comme
+     CLIENT-10114 tienne en entier sur sa carte, drapeau et priorité compris. En dessous, le board
+     défile horizontalement. Même valeur que MINIMUM_COLUMN_WIDTH (core/layoutMetrics.ts). */
+  --column-min: 170px;
   padding: 10px 20px 40px;
   overflow-x: auto;
 }
