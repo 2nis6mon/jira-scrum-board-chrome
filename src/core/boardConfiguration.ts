@@ -1,4 +1,5 @@
 import type { JiraBoardStructure } from "../jira/client";
+import type { JsonObject } from "../jira/json";
 import type { JiraIssueType, JiraStatus } from "../jira/models";
 import { isDoneStatus } from "../jira/models";
 import { type BoardBlock, blockIdentifier } from "./boardBlocks";
@@ -105,6 +106,17 @@ export interface BoardConfiguration {
    * n'a aucune sélection pour ce sprint, et ne sont partagés avec personne.
    */
   readonly localPinnedGoalIds: Readonly<Record<string, readonly string[]>>;
+  /**
+   * Dernière version des réglages d'équipe (propriété du board dans Jira) appliquée, publiée ou
+   * acceptée dans ce navigateur. Sert de référence : ce qui en diffère est une modification locale
+   * non publiée. `null` : aucune. Réglages gardés sous leur forme JSON (voir `teamSettings.ts`).
+   */
+  readonly teamBase: TeamBase | null;
+}
+
+export interface TeamBase {
+  readonly publishedAt: string;
+  readonly settings: JsonObject;
 }
 
 export const DEFAULT_BUILD_LABEL = "Build";
@@ -253,6 +265,7 @@ export function buildConfiguration(input: {
     cardFields: [],
     cardColorRules: [],
     localPinnedGoalIds: {},
+    teamBase: null,
   };
 }
 
@@ -297,6 +310,7 @@ export function mergeConfiguration(
     cardFields: existing.cardFields,
     cardColorRules: existing.cardColorRules,
     localPinnedGoalIds: existing.localPinnedGoalIds,
+    teamBase: existing.teamBase,
   };
 }
 
@@ -373,7 +387,15 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
     cardFields: decodeList(value.cardFields, decodeCardField) ?? [],
     cardColorRules: decodeList(value.cardColorRules, decodeColorRule) ?? [],
     localPinnedGoalIds: decodeLocalPins(value.localPinnedGoalIds),
+    teamBase: decodeTeamBase(value.teamBase),
   };
+}
+
+function decodeTeamBase(value: unknown): TeamBase | null {
+  if (!isObject(value) || typeof value.publishedAt !== "string" || !isObject(value.settings)) {
+    return null;
+  }
+  return { publishedAt: value.publishedAt, settings: value.settings as JsonObject };
 }
 
 function decodeLocalPins(value: unknown): Record<string, string[]> {

@@ -98,8 +98,8 @@ démarrer le sprint.
 
 **Contraintes à lever avec Denis avant tout code** (règles du projet, `CLAUDE.md`) :
 
-- Aujourd'hui l'extension n'écrit que quatre choses dans Jira : propriété du sprint (épinglage),
-  lien ticket↔Goal, transitions, rang. Le planning demanderait des **écritures nouvelles** :
+- Aujourd'hui l'extension n'écrit que cinq choses dans Jira : propriété du sprint (épinglage),
+  lien ticket↔Goal, transitions, rang, propriété du board (réglages d'équipe). Le planning demanderait des **écritures nouvelles** :
   - **ajouter un ticket à un sprint** (déplacer depuis le backlog) ;
   - **démarrer un sprint** (état, dates) ;
   - éventuellement **créer un Goal Atlassian**.
@@ -124,6 +124,11 @@ démarrer le sprint.
 ---
 
 ## 5. Partager la configuration entre plusieurs postes et avec l'équipe
+
+> **Fait en 0.13.0** (piste « propriété du board », validée par Denis le 19/09/2026) : onglet
+> *Réglages d'équipe* de l'administration. Reste à valider sur le Jira de Denis ; les pistes
+> « propriété d'utilisateur » (réglages personnels sur plusieurs postes) et « export / import »
+> restent ouvertes.
 
 **Demande.** Si quelqu'un de l'équipe installe l'extension, comment retrouve-t-il la même
 configuration (colonnes, types, couleurs, règles…) ? Est-ce possible ?

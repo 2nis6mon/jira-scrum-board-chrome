@@ -1,4 +1,4 @@
-import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
+import { BOARD_PROPERTY_KEYS, SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { FakeJira, type RecordedRequest, type Reply } from "./fakeJira";
 import { issueJson, statusJson } from "./jiraFixtures";
 
@@ -104,81 +104,87 @@ export function boardSiteJira(
   } = {},
 ) {
   const issues = options.sprintIssues ?? SPRINT_ISSUES;
-  return new FakeJira()
-    .on("POST", "/gateway/api/graphql", options.graphql ?? CORS_REFUSAL)
-    .on(
-      "GET",
-      "/rest/api/3/myself",
-      options.myself ?? {
+  return (
+    new FakeJira()
+      .on("POST", "/gateway/api/graphql", options.graphql ?? CORS_REFUSAL)
+      .on(
+        "GET",
+        "/rest/api/3/myself",
+        options.myself ?? {
+          status: 200,
+          json: { accountId: "u1", displayName: "Camille Durand" },
+        },
+      )
+      .on("GET", "/rest/agile/1.0/board/7", {
         status: 200,
-        json: { accountId: "u1", displayName: "Camille Durand" },
-      },
-    )
-    .on("GET", "/rest/agile/1.0/board/7", {
-      status: 200,
-      json: { id: 7, name: "Équipe Paiement", type: "scrum", location: { projectKey: "ABC" } },
-    })
-    .on("GET", "/rest/agile/1.0/board/7/quickfilter", {
-      status: 200,
-      json: { isLast: true, values: options.quickFilters ?? [] },
-    })
-    .on("GET", "/rest/agile/1.0/board/7/configuration", {
-      status: 200,
-      json: {
-        columnConfig: {
-          columns: [
-            { name: "À faire", statuses: [{ id: "1" }] },
-            { name: "En cours", statuses: [{ id: "3" }, { id: "4" }], max: 2 },
-            { name: "Terminé", statuses: [{ id: "6" }] },
+        json: { id: 7, name: "Équipe Paiement", type: "scrum", location: { projectKey: "ABC" } },
+      })
+      // Réglages d'équipe : rien de publié par défaut (Jira répond 404 à une propriété absente).
+      .on("GET", `/rest/agile/1.0/board/7/properties/${BOARD_PROPERTY_KEYS.teamSettings}`, {
+        status: 404,
+      })
+      .on("GET", "/rest/agile/1.0/board/7/quickfilter", {
+        status: 200,
+        json: { isLast: true, values: options.quickFilters ?? [] },
+      })
+      .on("GET", "/rest/agile/1.0/board/7/configuration", {
+        status: 200,
+        json: {
+          columnConfig: {
+            columns: [
+              { name: "À faire", statuses: [{ id: "1" }] },
+              { name: "En cours", statuses: [{ id: "3" }, { id: "4" }], max: 2 },
+              { name: "Terminé", statuses: [{ id: "6" }] },
+            ],
+          },
+          estimation: { field: { fieldId: "customfield_10016" } },
+        },
+      })
+      .on("GET", "/rest/api/3/status", {
+        status: 200,
+        json: [
+          statusJson("1", "À faire", "new"),
+          statusJson("3", "En cours"),
+          statusJson("4", "Revue"),
+          statusJson("6", "Terminé", "done"),
+        ],
+      })
+      .on("GET", "/rest/api/3/field", {
+        status: 200,
+        json: [
+          { id: "customfield_10016", name: "Story Points" },
+          { id: "customfield_10021", name: "Flagged", schema: { custom: "x:multicheckboxes" } },
+        ],
+      })
+      .on("GET", "/rest/agile/1.0/board/7/issue", {
+        status: 200,
+        json: { issues, total: issues.length },
+      })
+      .on("GET", "/rest/agile/1.0/board/7/sprint", {
+        status: 200,
+        json: {
+          isLast: true,
+          values: [
+            {
+              id: 42,
+              name: "Sprint 42",
+              state: "active",
+              startDate: "2026-09-14T08:00:00.000+0200",
+              endDate: "2026-09-25T18:00:00.000+0200",
+              goal: SPRINT_GOAL_TEXT,
+            },
           ],
         },
-        estimation: { field: { fieldId: "customfield_10016" } },
-      },
-    })
-    .on("GET", "/rest/api/3/status", {
-      status: 200,
-      json: [
-        statusJson("1", "À faire", "new"),
-        statusJson("3", "En cours"),
-        statusJson("4", "Revue"),
-        statusJson("6", "Terminé", "done"),
-      ],
-    })
-    .on("GET", "/rest/api/3/field", {
-      status: 200,
-      json: [
-        { id: "customfield_10016", name: "Story Points" },
-        { id: "customfield_10021", name: "Flagged", schema: { custom: "x:multicheckboxes" } },
-      ],
-    })
-    .on("GET", "/rest/agile/1.0/board/7/issue", {
-      status: 200,
-      json: { issues, total: issues.length },
-    })
-    .on("GET", "/rest/agile/1.0/board/7/sprint", {
-      status: 200,
-      json: {
-        isLast: true,
-        values: [
-          {
-            id: 42,
-            name: "Sprint 42",
-            state: "active",
-            startDate: "2026-09-14T08:00:00.000+0200",
-            endDate: "2026-09-25T18:00:00.000+0200",
-            goal: SPRINT_GOAL_TEXT,
-          },
-        ],
-      },
-    })
-    .on("GET", "/rest/agile/1.0/sprint/42/issue", {
-      status: 200,
-      json: { issues, total: issues.length },
-    })
-    .on("GET", `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.goals}`, {
-      status: 200,
-      json: { key: SPRINT_PROPERTY_KEYS.goals, value: GOALS_DOCUMENT },
-    });
+      })
+      .on("GET", "/rest/agile/1.0/sprint/42/issue", {
+        status: 200,
+        json: { issues, total: issues.length },
+      })
+      .on("GET", `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.goals}`, {
+        status: 200,
+        json: { key: SPRINT_PROPERTY_KEYS.goals, value: GOALS_DOCUMENT },
+      })
+  );
 }
 
 /** Second board FICTIF du même site (12, projet XYZ), pour les tests à plusieurs boards. */
@@ -201,6 +207,9 @@ export function withSecondBoard(jira: FakeJira): FakeJira {
           ],
         },
       },
+    })
+    .on("GET", `/rest/agile/1.0/board/12/properties/${BOARD_PROPERTY_KEYS.teamSettings}`, {
+      status: 404,
     })
     .on("GET", "/rest/agile/1.0/board/12/quickfilter", {
       status: 200,

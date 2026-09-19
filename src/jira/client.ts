@@ -16,6 +16,8 @@ import type { JiraTransport } from "./transport";
 import {
   assertEntityId,
   assertIssueKey,
+  type BoardPropertyKey,
+  boardPropertyPath,
   type SprintPropertyKey,
   sprintPropertyPath,
 } from "./writes";
@@ -294,6 +296,23 @@ export class JiraClient {
       decodingFailure("transitions", "transitions absent");
     }
     return body.transitions.map(decodeTransition);
+  }
+
+  /**
+   * Lit une propriété d'entité du board. `null` si elle n'existe pas encore. Endpoint vérifié
+   * dans la spécification OpenAPI de Jira Software (19/09/2026) : lecture pour qui voit le board.
+   */
+  async boardProperty(boardId: number, key: BoardPropertyKey): Promise<JsonValue | null> {
+    try {
+      const { body } = await this.#transport.get(boardPropertyPath(boardId, key), {
+        resource: `les réglages d'équipe du board ${boardId}`,
+      });
+      return isRecord(body) && body.value !== undefined ? (body.value as JsonValue) : null;
+    } catch (error) {
+      // Absence normale : personne n'a encore publié de réglages d'équipe sur ce board.
+      if (error instanceof JiraError && error.info.kind === "notFound") return null;
+      throw error;
+    }
   }
 
   /** Lit une propriété d'entité du sprint. `null` si elle n'existe pas encore. */

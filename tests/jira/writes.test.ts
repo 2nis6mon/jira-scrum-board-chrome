@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { JiraError } from "../../src/jira/errors";
-import { buildWriteRequest, type JiraWrite, SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
+import {
+  BOARD_PROPERTY_KEYS,
+  buildWriteRequest,
+  type JiraWrite,
+  SPRINT_PROPERTY_KEYS,
+} from "../../src/jira/writes";
 
 // Un exemple de chaque écriture exprimable. Le type `Record<JiraWrite["kind"], …>` force
 // cette liste à rester exhaustive : ajouter une écriture sans l'inscrire ici ne compile pas.
@@ -16,6 +21,12 @@ const EVERY_WRITE: Record<JiraWrite["kind"], JiraWrite> = {
     sprintId: 42,
     key: SPRINT_PROPERTY_KEYS.diagnostic,
   },
+  "boardProperty.put": {
+    kind: "boardProperty.put",
+    boardId: 7,
+    key: BOARD_PROPERTY_KEYS.teamSettings,
+    value: { version: 1 },
+  },
   "issue.transition": { kind: "issue.transition", issueKey: "ABC-1", transitionId: "21" },
   "issue.rank": { kind: "issue.rank", issueKey: "ABC-1", before: "ABC-2" },
 };
@@ -23,6 +34,7 @@ const EVERY_WRITE: Record<JiraWrite["kind"], JiraWrite> = {
 /** Chemins qu'une écriture a le droit de viser. Rien d'autre. */
 const ALLOWED_PATHS = [
   /^\/rest\/agile\/1\.0\/sprint\/\d+\/properties\/com\.scrumboardmac\.[a-z0-9.]+$/,
+  /^\/rest\/agile\/1\.0\/board\/\d+\/properties\/com\.scrumboardmac\.[a-z0-9.]+$/,
   /^\/rest\/api\/3\/issue\/[A-Z][A-Z0-9_]*-\d+\/transitions$/,
   /^\/rest\/agile\/1\.0\/issue\/rank$/,
 ];
@@ -46,6 +58,39 @@ describe("inventaire des écritures", () => {
       "com.scrumboardmac.sprintgoals.v1",
       "com.scrumboardmac.diagnostic",
     ]);
+    expect(Object.values(BOARD_PROPERTY_KEYS)).toEqual(["com.scrumboardmac.boardsettings.v1"]);
+  });
+
+  it("réglages d'équipe : PUT de la seule propriété du board, jamais du board lui-même", () => {
+    const request = buildWriteRequest({
+      kind: "boardProperty.put",
+      boardId: 7,
+      key: BOARD_PROPERTY_KEYS.teamSettings,
+      value: { version: 1 },
+    });
+    expect(request.method).toBe("PUT");
+    expect(request.path).toBe(
+      "/rest/agile/1.0/board/7/properties/com.scrumboardmac.boardsettings.v1",
+    );
+    for (const write of Object.values(EVERY_WRITE)) {
+      expect(buildWriteRequest(write).path).not.toMatch(/^\/rest\/agile\/1\.0\/board\/\d+\/?$/);
+    }
+    expect(() =>
+      buildWriteRequest({
+        kind: "boardProperty.put",
+        boardId: 7,
+        key: BOARD_PROPERTY_KEYS.teamSettings,
+        value: { blob: "x".repeat(33 * 1024) },
+      }),
+    ).toThrowError(JiraError);
+    expect(() =>
+      buildWriteRequest({
+        kind: "boardProperty.put",
+        boardId: 0,
+        key: BOARD_PROPERTY_KEYS.teamSettings,
+        value: {},
+      }),
+    ).toThrowError(JiraError);
   });
 
   it("refuse avant l'envoi une propriété de plus de 32 Ko", () => {

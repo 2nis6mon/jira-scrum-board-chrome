@@ -21,6 +21,7 @@ import { goalColorName } from "../../../core/sprintGoals";
 import type { BoardModel } from "../../model/BoardModel";
 import { formatDay, formatPoints, formatTime, goalStatusLabel, plural, toggled } from "../format";
 import { Icon } from "../Icon";
+import { publisher, when } from "../settings/TeamSettings";
 import { FilterMenu } from "./FilterMenu";
 import { placeFloatingMenu } from "./floatingMenu";
 import { IssueCard } from "./IssueCard";
@@ -475,8 +476,36 @@ export function Notices(props: {
   const { board, snapshot, layout } = props;
   const problem = board.syncProblem.value;
   const writeNotice = board.writeNotice.value;
+  const teamApplied = board.teamApplied.value;
+  const teamUpdate = board.teamStatus.value?.update ?? null;
   return (
     <>
+      {teamApplied && !teamUpdate && (
+        <div class="notice notice-info notice-inline" role="status">
+          <p>
+            Réglages d'équipe appliqués : publiés par {publisher(teamApplied)}, {when(teamApplied)}.
+          </p>
+          <button type="button" aria-label="Fermer" onClick={() => board.dismissTeamApplied()}>
+            ×
+          </button>
+        </div>
+      )}
+      {teamUpdate && (
+        <div class="notice notice-info">
+          <p>
+            <strong>{publisher(teamUpdate)} a publié de nouveaux réglages d'équipe</strong> (
+            {when(teamUpdate)}). Vos réglages ayant changé, ils ne sont pas appliqués d'office.
+          </p>
+          <div class="row">
+            <button type="button" onClick={() => void board.applyTeamSettings()}>
+              Appliquer les réglages de l'équipe
+            </button>
+            <button type="button" onClick={() => void board.keepLocalSettings()}>
+              Garder les miens
+            </button>
+          </div>
+        </div>
+      )}
       {writeNotice && (
         <div class={`notice notice-${writeNotice.tone}`} role="alert">
           <p>

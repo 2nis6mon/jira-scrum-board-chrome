@@ -15,11 +15,16 @@ connectée à Jira Cloud. Projet **distinct** de l'app Mac, qui reste maintenue 
 
 ## Règles non négociables
 
-1. **Quatre catégories d'écriture dans Jira, rien d'autre** : propriété de sprint (épinglage des
-   Goals), lien ticket↔Goal (`goals_linkWorkItem` / `goals_unlinkWorkItem`), transitions, rang.
+1. **Cinq catégories d'écriture dans Jira, rien d'autre** : propriété de sprint (épinglage des
+   Goals), lien ticket↔Goal (`goals_linkWorkItem` / `goals_unlinkWorkItem`), transitions, rang,
+   et propriété du board pour les réglages d'équipe (validée par Denis le 19/09/2026, publiée
+   seulement par « Publier pour l'équipe »).
 2. **Ne JAMAIS réécrire le champ « Sprint Goal » du sprint.** Il est lu, jamais écrit.
 3. Ordre des swimlanes, couleurs des objectifs, champs des cartes, règles de couleur : réglages
-   **locaux** (`chrome.storage.local`), jamais écrits dans Jira, jamais dans `storage.sync`.
+   **locaux** (`chrome.storage.local`), jamais dans `storage.sync`. Seule exception : leur part
+   d'équipe (`core/teamSettings.ts`) est écrite dans la propriété du board sur le geste explicite
+   « Publier pour l'équipe ». Les réglages personnels (swimlanes repliées, filtres,
+   rafraîchissement, épinglage local, largeur de la barre) ne sont jamais écrits dans Jira.
 4. **Une seule tentative pour tout POST/PUT/DELETE.** Jamais de retry sur une écriture ; si
    l'issue est incertaine, on relit Jira.
 5. Pas de fiche ticket native : on ouvre la page Jira dans un onglet.
@@ -106,6 +111,7 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 | `views/Sidebar.tsx`, `core/boardPreferences.ts` (`laneSummaries`) | `SidebarView`, `BoardSwitcherView` (menu), `WorkspaceView` |
 | `views/settings/AdminView.tsx` | `AdminView` (réglages), plus le diagnostic et la déconnexion |
 | `core/sprintHealth.ts`, `views/health/` | `SprintHealthView` |
+| `core/teamSettings.ts`, `views/settings/TeamSettings.tsx` | aucun : réglages d'équipe, propres à l'extension (format prévu pour l'app Mac) |
 
 Écarts voulus : `SprintGoalText.render` n'est pas porté (il ne servait qu'à réécrire le champ du
 sprint) ; le mode de compatibilité « Build et RUN restent en bas » des ordres enregistrés avant la
@@ -253,6 +259,19 @@ changement (tout l'état du board quitté est oublié ; une synchronisation en c
 Menu du nom de board (`Sidebar.tsx`) avec confirmation du retrait. La barre latérale a un
 `z-index` (30) : `sticky` crée un empilement, sinon la bande des colonnes du board passait
 par-dessus sa fenêtre de confirmation ; le menu d'une swimlane est au-dessus (40).
+
+0.13.0 (validé par Denis) : réglages d'équipe partagés par la propriété du board
+`com.scrumboardmac.boardsettings.v1` (`GET`/`PUT /rest/agile/1.0/board/{id}/properties/{clé}`,
+vérifiés dans la spécification OpenAPI de Jira Software le 19/09/2026 : lecture pour qui voit le
+board, écriture pour qui peut le modifier). Cinquième catégorie d'écriture (`boardProperty.put`
+dans `writes.ts`). `core/teamSettings.ts` : extraction et application (structure toujours
+relue dans Jira, colonnes et types par identifiant, couleurs combinées), différences par famille,
+document v1 (`publishedAt` à la milliseconde, `publishedBy` nom et compte), publication avec
+relecture, conflit si quelqu'un a publié depuis la version connue (`teamBase` de la
+configuration), clés inconnues gardées, valeur illisible jamais écrasée, une seule écriture.
+`BoardModel` relit la propriété à chaque actualisation : nouvelle version appliquée d'office si
+rien n'a été modifié ici (ou si le board vient d'être ajouté), sinon proposée (Appliquer / Garder
+les miens). Onglet « Réglages d'équipe » de l'administration, bandeaux sur le board.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.

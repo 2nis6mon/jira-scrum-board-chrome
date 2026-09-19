@@ -6,10 +6,12 @@ import { BoardSettings } from "./BoardSettings";
 import { CardColorSettings } from "./CardColorSettings";
 import { CardFieldSettings } from "./CardFieldSettings";
 import { GoalSettings } from "./GoalSettings";
+import { TeamSettings } from "./TeamSettings";
 
 type BoardSection = Exclude<AdminSection, "diagnostic">;
 
 const BOARD_SECTIONS: readonly { id: BoardSection; label: string }[] = [
+  { id: "team", label: "Réglages d'équipe" },
   { id: "board", label: "Board" },
   { id: "goals", label: "Objectifs" },
   { id: "cardFields", label: "Champs des cartes" },
@@ -51,7 +53,7 @@ export function AdminView({
         ))}
         <p class="hint settings-local">
           {configuration
-            ? "Réglages de ce navigateur, pour ce board. Rien n'est écrit dans Jira."
+            ? "Réglages de ce navigateur, pour ce board. Seuls les réglages d'équipe, publiés à votre demande, sont écrits dans Jira."
             : "Choisissez d'abord un board : ces réglages portent sur lui."}
         </p>
         <p class="settings-group">Site Jira</p>
@@ -83,6 +85,7 @@ export function AdminView({
         ) : configuration ? (
           // Un autre board : les brouillons repartent de sa configuration.
           <div key={configuration.boardId}>
+            {section === "team" && <TeamSettings board={board} configuration={configuration} />}
             {section === "board" && <BoardSettings board={board} configuration={configuration} />}
             {section === "goals" && <GoalSettings board={board} configuration={configuration} />}
             {section === "cardFields" && (

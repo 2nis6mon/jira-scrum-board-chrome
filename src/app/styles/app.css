@@ -1918,11 +1918,19 @@ select {
     grid-template-columns: 1fr;
   }
 
+  /* En bandeau au-dessus du contenu : ni fixe, ni haute comme l'écran. */
   .settings-nav {
+    position: static;
+    height: auto;
+    overflow: visible;
     flex-direction: row;
     flex-wrap: wrap;
     border-right: none;
     border-bottom: 1px solid var(--line);
+  }
+
+  .settings-account {
+    margin-top: 8px;
   }
 }
 
@@ -2572,6 +2580,32 @@ details.board-switcher .menu-panel {
 .menu-panel > .menu-danger {
   color: var(--blocked);
   white-space: normal;
+}
+
+/* Réglages d'équipe (Administration) et bandeau « appliqués » du board. */
+.team-state {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ink-2);
+}
+
+.settings-section .notice {
+  margin: 0;
+  max-width: none;
+}
+
+.team-families {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink-2);
+}
+
+.notice-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 /* ─── Sprint Health ──────────────────────────────────────────────────────── */

@@ -9,13 +9,17 @@ import type { JsonObject } from "./json";
  * `POST|PUT /rest/agile/1.0/sprint/{id}` : le champ « Sprint Goal » du sprint appartient à
  * l'équipe et n'est jamais réécrit.
  *
- * Catégories validées : propriété de sprint, lien ticket↔Goal, transition, rang. Le lien
+ * Catégories validées : propriété de sprint, lien ticket↔Goal, transition, rang, et (validée par
+ * Denis le 19/09/2026) propriété du board pour les réglages d'équipe, publiés sur un geste
+ * explicite. Le lien
  * ticket↔Goal Atlassian passe par deux mutations GraphQL : elles forment l'inventaire
  * `GraphqlWrite` plus bas, seul endroit où un document `mutation` existe.
  */
 export type JiraWrite =
   | { kind: "sprintProperty.put"; sprintId: number; key: SprintPropertyKey; value: JsonObject }
   | { kind: "sprintProperty.delete"; sprintId: number; key: SprintPropertyKey }
+  /** Réglages d'équipe du board, publiés par « Publier pour l'équipe ». Jira répond 200 ou 201. */
+  | { kind: "boardProperty.put"; boardId: number; key: BoardPropertyKey; value: JsonObject }
   /** Transition de workflow, choisie parmi celles que Jira propose. Jira répond 204. */
   | { kind: "issue.transition"; issueKey: string; transitionId: string }
   /** Rang du board (global) : juste avant, ou juste après, un autre ticket. 204 ou 207. */
@@ -35,6 +39,17 @@ export const SPRINT_PROPERTY_KEYS = {
 
 export type SprintPropertyKey = (typeof SPRINT_PROPERTY_KEYS)[keyof typeof SPRINT_PROPERTY_KEYS];
 
+/**
+ * Clés de propriété du board. Même espace de noms que celles du sprint : l'app Mac pourra lire
+ * les réglages d'équipe dans le même format.
+ */
+export const BOARD_PROPERTY_KEYS = {
+  /** Réglages d'équipe du board (colonnes, types, couleurs, règles…). */
+  teamSettings: "com.scrumboardmac.boardsettings.v1",
+} as const;
+
+export type BoardPropertyKey = (typeof BOARD_PROPERTY_KEYS)[keyof typeof BOARD_PROPERTY_KEYS];
+
 export interface WriteRequest {
   readonly method: "POST" | "PUT" | "DELETE";
   readonly path: string;
@@ -48,26 +63,38 @@ export function sprintPropertyPath(sprintId: number, key: SprintPropertyKey): st
   return `/rest/agile/1.0/sprint/${sprintId}/properties/${key}`;
 }
 
+export function boardPropertyPath(boardId: number, key: BoardPropertyKey): string {
+  assertEntityId(boardId, "board");
+  return `/rest/agile/1.0/board/${boardId}/properties/${key}`;
+}
+
+/** Corps JSON d'une propriété d'entité, dans la limite documentée par Atlassian. */
+function propertyBody(value: JsonObject): string {
+  const body = JSON.stringify(value);
+  const bytes = new TextEncoder().encode(body).length;
+  if (bytes > ENTITY_PROPERTY_LIMIT_BYTES) {
+    throw new JiraError({ kind: "propertyTooLarge", bytes, limit: ENTITY_PROPERTY_LIMIT_BYTES });
+  }
+  return body;
+}
+
 /** Seul endroit où une écriture REST prend la forme d'une requête HTTP. */
 export function buildWriteRequest(write: JiraWrite): WriteRequest {
   switch (write.kind) {
-    case "sprintProperty.put": {
-      const body = JSON.stringify(write.value);
-      const bytes = new TextEncoder().encode(body).length;
-      if (bytes > ENTITY_PROPERTY_LIMIT_BYTES) {
-        throw new JiraError({
-          kind: "propertyTooLarge",
-          bytes,
-          limit: ENTITY_PROPERTY_LIMIT_BYTES,
-        });
-      }
+    case "sprintProperty.put":
       return {
         method: "PUT",
         path: sprintPropertyPath(write.sprintId, write.key),
-        body,
+        body: propertyBody(write.value),
         resource: `la propriété « ${write.key} » du sprint ${write.sprintId}`,
       };
-    }
+    case "boardProperty.put":
+      return {
+        method: "PUT",
+        path: boardPropertyPath(write.boardId, write.key),
+        body: propertyBody(write.value),
+        resource: `les réglages d'équipe du board ${write.boardId}`,
+      };
     case "sprintProperty.delete":
       return {
         method: "DELETE",

@@ -3,6 +3,7 @@ import { render } from "preact";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
+import { BOARD_PROPERTY_KEYS } from "../../src/jira/writes";
 import {
   BOARD_URL,
   boardSiteJira,
@@ -354,6 +355,53 @@ describe("barre de filtres", () => {
 });
 
 describe("administration", () => {
+  it("réglages d'équipe : publiés après confirmation, relus dans Jira, proposés à un collègue", async () => {
+    const property = `/rest/agile/1.0/board/7/properties/${BOARD_PROPERTY_KEYS.teamSettings}`;
+    let stored: Record<string, unknown> | null = null;
+    const jira = boardSiteJira()
+      .on("GET", property, () =>
+        stored === null ? { status: 404 } : { status: 200, json: { value: stored } },
+      )
+      .on("PUT", property, (request) => {
+        stored = request.body as Record<string, unknown>;
+        return { status: 201 };
+      });
+    const { board } = await connectedBoard(jira);
+    button("Administration").click();
+    await tick();
+    button("Réglages d'équipe").click();
+    await tick();
+    expect(text()).toContain("Aucun réglage d'équipe n'est encore publié");
+
+    button("Publier pour l'équipe…").click();
+    await tick();
+    const dialog = document.querySelector("[role=dialog]");
+    expect(dialog?.textContent).toContain("Première publication");
+    // Rien n'est écrit avant la confirmation.
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+    dialog?.querySelector<HTMLButtonElement>("button.primary")?.click();
+    await expect.poll(() => jira.sent("PUT", property).length).toBe(1);
+    await expect.poll(() => text()).toContain("Réglages publiés pour l'équipe.");
+    expect(text()).toContain("Ce navigateur est à jour avec l'équipe.");
+    expect(document.querySelector(".report")?.textContent).toContain('"version": 1');
+
+    // Un collègue publie une autre version ; ici, une modification locale n'est pas publiée.
+    await board.moveLane("build", -1);
+    stored = {
+      ...(stored ?? {}),
+      publishedAt: "2030-01-01T08:00:00Z",
+      publishedBy: { accountId: "u9", displayName: "Alex Martin" },
+    };
+    button("Board").click();
+    await board.sync();
+    await tick();
+    expect(text()).toContain("Alex Martin a publié de nouveaux réglages d'équipe");
+    button("Garder les miens").click();
+    await tick();
+    expect(text()).not.toContain("a publié de nouveaux réglages");
+    expect(jira.sent("PUT", property)).toHaveLength(1);
+  });
+
   it("regroupe les réglages du board, le diagnostic et la déconnexion", async () => {
     await connectedBoard();
     button("Administration").click();
@@ -361,6 +409,7 @@ describe("administration", () => {
 
     expect(button("Administration").getAttribute("aria-current")).toBe("page");
     expect([...document.querySelectorAll(".settings-tab")].map((tab) => tab.textContent)).toEqual([
+      "Réglages d'équipe",
       "Board",
       "Objectifs",
       "Champs des cartes",

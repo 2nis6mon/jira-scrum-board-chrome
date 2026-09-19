@@ -31,7 +31,7 @@ export type Connection =
 export type View = "board" | "health" | "admin";
 
 /** Sections de l'administration : réglages du board, diagnostic, compte. */
-export type AdminSection = "board" | "goals" | "cardFields" | "cardColors" | "diagnostic";
+export type AdminSection = "team" | "board" | "goals" | "cardFields" | "cardColors" | "diagnostic";
 
 /** Racine de l'état de l'interface : connexion à un site, puis board ou administration. */
 export class AppModel {

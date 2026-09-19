@@ -14,8 +14,9 @@ export interface AuditEntry {
     | "transition choisie"
     | "classement"
     | "rattachement"
-    | "épinglage";
-  /** Ticket concerné ; `null` pour une écriture qui porte sur le sprint (épinglage). */
+    | "épinglage"
+    | "réglages d'équipe";
+  /** Ticket concerné ; `null` pour une écriture qui porte sur le sprint ou le board. */
   readonly issueKey: string | null;
   readonly from: string | null;
   readonly to: string | null;

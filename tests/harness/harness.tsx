@@ -10,7 +10,7 @@ import { render } from "preact";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
 import "../../src/app/styles/app.css";
-import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
+import { BOARD_PROPERTY_KEYS, SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import {
   BOARD_URL,
   boardSiteJira,
@@ -158,6 +158,31 @@ if (scenario.startsWith("board")) {
         return { status: 200 };
       });
   }
+  // Réglages d'équipe : propriété du board qui garde ce qu'on y publie, comme Jira. Pour simuler la
+  // publication d'un collègue depuis la console : `__equipe.publier({ agingThresholdDays: 9 })`.
+  const teamProperty = `/rest/agile/1.0/board/7/properties/${BOARD_PROPERTY_KEYS.teamSettings}`;
+  let teamStored: Record<string, unknown> | null = null;
+  jira
+    .on("GET", teamProperty, () =>
+      teamStored === null ? { status: 404 } : { status: 200, json: { value: teamStored } },
+    )
+    .on("PUT", teamProperty, (request) => {
+      teamStored = request.body as Record<string, unknown>;
+      return { status: 201 };
+    });
+  Object.assign(window, {
+    __equipe: {
+      publier(settings: Record<string, unknown>) {
+        const current = (teamStored?.settings ?? {}) as Record<string, unknown>;
+        teamStored = {
+          ...(teamStored ?? { version: 1 }),
+          publishedAt: new Date().toISOString(),
+          publishedBy: { accountId: "collegue", displayName: "Alex Martin" },
+          settings: { ...current, ...settings },
+        };
+      },
+    },
+  });
   // Parents, drapeau, versions et titres longs FICTIFS, pour juger la carte.
   const cardExtras: Record<string, Record<string, unknown>> = {
     "ABC-101": {

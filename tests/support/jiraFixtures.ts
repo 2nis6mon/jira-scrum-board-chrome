@@ -130,6 +130,7 @@ export function makeConfiguration(parts: Partial<BoardConfiguration> = {}): Boar
     cardFields: [],
     cardColorRules: [],
     localPinnedGoalIds: {},
+    teamBase: null,
     ...parts,
   };
 }

@@ -9,7 +9,8 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.12.0 — étape 6 en cours : Sprint Health (lot 6a), plusieurs boards (lot 6b).** Board du
+> **État : 0.13.0 — étape 6 en cours : Sprint Health (6a), plusieurs boards (6b), réglages
+> d'équipe partagés par Jira.** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
 > du board Jira ; glisser-déposer qui écrit dans Jira : transition, rang, et lien natif
 > ticket↔Goal ; épinglage de Goals au sprint, gardé dans le navigateur si Jira le refuse ; ordre,
@@ -134,8 +135,17 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (*Administrat
 - **Épingler des Goals au sprint** (menu du board, dans la barre latérale) : choisir, parmi les Goals du site, ceux qui
   s'affichent même sans ticket rattaché. La sélection se compose dans la fenêtre (filtre local,
   sans requête pendant la frappe) et n'est écrite qu'au clic sur *Enregistrer dans Jira*.
-- **Administration** (pied de la barre latérale). Réglages propres à ce navigateur et à ce board,
-  jamais écrits dans Jira :
+- **Administration** (pied de la barre latérale). Réglages de ce navigateur et de ce board ; seule
+  leur part d'équipe peut être publiée dans Jira (voir *Réglages d'équipe*) :
+  - *Réglages d'équipe* (0.13.0) : colonnes, types, labels de blocage, nom de Build, seuil de
+    vieillissement, source des objectifs et Goals du board, couleurs des objectifs, ordre des
+    swimlanes, objectifs masqués, champs et règles de couleur des cartes, partagés avec l'équipe
+    par une propriété du board dans Jira. *Publier pour l'équipe…* les écrit, après confirmation
+    (il faut pouvoir modifier le board dans Jira). Chacun les reçoit à l'actualisation suivante :
+    appliqués d'office s'il n'a rien modifié de son côté (ou s'il vient d'ajouter le board),
+    proposés sinon (*Appliquer* / *Garder les miens*). Le contenu publié est affiché tel que relu
+    dans Jira. Les réglages personnels (swimlanes repliées, filtres, rafraîchissement, largeur de
+    la barre) ne sont jamais publiés.
   - *Board* : colonnes Scrum et RUN (affichées, nom, limite WIP), types de tickets (Scrum, RUN,
     ignoré ; « bug »), section RUN, nom du bloc Build, seuil « vieillissant », labels de blocage,
     rafraîchissement automatique (1, 2 ou 5 min, lecture seule, suspendu pendant un geste),
@@ -177,11 +187,10 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (*Administrat
   navigateur : elle n'est partagée avec personne, et ne sert que tant que Jira n'a aucune
   sélection pour ce sprint. Un bandeau le rappelle, avec « Réessayer dans Jira » et « Oublier ».
 - Déplacer une carte se fait à la souris uniquement pour l'instant.
-- Un seul board à la fois.
 
 ## Ce que l'extension écrit dans Jira
 
-Quatre catégories, rien d'autre, chacune sur un geste explicite :
+Cinq catégories, rien d'autre, chacune sur un geste explicite :
 
 | Écriture | Geste | Requête |
 |---|---|---|
@@ -189,6 +198,7 @@ Quatre catégories, rien d'autre, chacune sur un geste explicite :
 | Rang d'un ticket | glisser-déposer devant une carte | `PUT /rest/agile/1.0/issue/rank` |
 | Lien ticket↔Goal | glisser-déposer vers un Goal ou vers *Build* | mutations GraphQL `goals_linkWorkItem` / `goals_unlinkWorkItem` |
 | Propriété du sprint | épinglage de Goals ; rattachement en mode texte du sprint | `PUT /rest/agile/1.0/sprint/{id}/properties/com.scrumboardmac.sprintgoals.v1` |
+| Propriété du board (0.13.0) | *Publier pour l'équipe…* dans l'administration | `PUT /rest/agile/1.0/board/{id}/properties/com.scrumboardmac.boardsettings.v1` |
 
 S'y ajoute le test du *Diagnostic*, sur son bouton seulement : `PUT` puis `DELETE` de la propriété
 technique `com.scrumboardmac.diagnostic`, invisible dans Jira et supprimée aussitôt.
@@ -291,6 +301,11 @@ développement, jamais inclus dans `dist/`.
   Chrome sur le banc d'essai.
 - Colonnes d'au moins 170 px (0.10.5) : colonnes au minimum, une clé à 5 chiffres
   (CLIENT-10114) tient en entier, drapeau et priorité compris ; vérifié dans Chrome.
+- Réglages d'équipe (0.13.0) contre le faux Jira : extraction et application (structure de
+  Jira, colonnes inconnues ignorées, couleurs combinées), publication (une écriture, relecture,
+  conflit, clés inconnues gardées, valeur illisible jamais écrasée, refus de droits), application
+  d'office ou proposée, « Garder les miens » ; parcours vérifié dans Chrome sur le banc d'essai
+  (publication, version d'un collègue appliquée, puis proposée après une modification locale).
 - Plusieurs boards (0.12.0) contre le faux Jira : liste par nom, bascule (autre board relu dans
   Jira, réglages propres à chaque board, filtres remis à zéro), refus pendant une écriture, retrait
   (board suivant affiché, adresse redemandée après le dernier), réouverture sur le dernier board ;
@@ -312,6 +327,8 @@ développement, jamais inclus dans `dist/`.
 
 ### ⚠️ Non vérifié — nécessite votre instance Jira
 
+- Les réglages d'équipe (0.13.0) : lecture et écriture de la propriété du board sur votre Jira,
+  droits nécessaires pour publier, et réception sur un second poste ou profil Chrome.
 - Le board sur votre sprint (0.3.0) et le glisser-déposer (0.4.0) : transition réelle, rang et
   permission « Planifier les tickets », rattachement dans la propriété du sprint.
 - La lecture des Goals de votre sprint (0.5.0) : `goals_search`, `goals_byIds`, `workItems` avec
