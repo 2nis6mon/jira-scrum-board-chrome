@@ -307,6 +307,13 @@ capter la souris). Échap (écouteur de `Workspace`) laisse d'abord la main à u
 (`[role="dialog"]`), referme un menu ouvert, n'efface pas une recherche remplie. L'administration
 et la déconnexion quittent le mode. Pas de plein écran du navigateur (retiré par Denis en 0.10.1).
 
+0.15.1 (demande de Denis) : en présentation, filtres, bandeaux et board agrandis par `zoom`
+(`--presentation-zoom: 1.25` sur `.board-screen-presenting`), les fenêtres gardent leur taille.
+`zoom` standardisé (Chrome 128+) : `getBoundingClientRect` et `clientY` restent en pixels de la
+fenêtre, le point de dépôt d'une carte est donc juste (vérifié dans Chrome 152 : glissé d'une
+carte, menu « ⋯ »). Le menu « ⋯ », en position fixe sous un parent zoomé, divise ses positions
+par `currentCSSZoom` (`floatingMenu.ts`, hauteur maximale comprise).
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.
 

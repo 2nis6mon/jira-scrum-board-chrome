@@ -8,8 +8,11 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-/** Menu dont le bouton occupe `top`–`top + 24` et dont le panneau mesure `height` px. */
-function menu(top: number, height: number) {
+/**
+ * Menu dont le bouton occupe `top`–`top + 24` et dont le panneau mesure `height` px à l'écran.
+ * `zoom` : zoom CSS effectif du panneau (mode présentation).
+ */
+function menu(top: number, height: number, zoom?: number) {
   const details = document.createElement("details");
   const summary = document.createElement("summary");
   const panel = document.createElement("div");
@@ -18,7 +21,8 @@ function menu(top: number, height: number) {
   document.body.append(details);
   summary.getBoundingClientRect = () =>
     ({ top, bottom: top + 24, left: 1150, right: 1176, width: 26, height: 24 }) as DOMRect;
-  Object.defineProperty(panel, "offsetHeight", { value: height });
+  panel.getBoundingClientRect = () => ({ top: 0, bottom: height, height }) as DOMRect;
+  if (zoom !== undefined) Object.defineProperty(panel, "currentCSSZoom", { value: zoom });
   details.open = true;
   return { details, panel };
 }
@@ -31,7 +35,22 @@ describe("menu d'une swimlane placé dans la fenêtre", () => {
     placeFloatingMenu(details, VIEWPORT);
     expect(topOf(panel)).toBe("128px");
     expect(panel.style.getPropertyValue("--menu-right")).toBe("24px");
+    expect(panel.style.getPropertyValue("--menu-max-height")).toBe("784px");
     expect(details.dataset.placed).toBe("");
+  });
+
+  it("board agrandi (mode présentation) : positions ramenées au zoom du panneau", () => {
+    // Mesures en pixels de la fenêtre ; une longueur CSS du panneau y vaut 1,25 px.
+    const { details, panel } = menu(100, 300, 1.25);
+    placeFloatingMenu(details, VIEWPORT);
+    expect(topOf(panel)).toBe(`${Math.round(128 / 1.25)}px`);
+    expect(panel.style.getPropertyValue("--menu-right")).toBe(`${Math.round(24 / 1.25)}px`);
+    expect(panel.style.getPropertyValue("--menu-max-height")).toBe(`${Math.floor(784 / 1.25)}px`);
+
+    // Au-dessus faute de place : la hauteur mesurée à l'écran compte, zoom compris.
+    const high = menu(600, 300, 1.25);
+    placeFloatingMenu(high.details, VIEWPORT);
+    expect(topOf(high.panel)).toBe(`${Math.round(296 / 1.25)}px`);
   });
 
   it("au-dessus quand la place manque en dessous (dernière swimlane, board court)", () => {

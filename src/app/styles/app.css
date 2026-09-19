@@ -2952,7 +2952,7 @@ details.lane-menu .menu-panel {
   z-index: 40;
   top: var(--menu-top, 0);
   right: var(--menu-right, 0);
-  max-height: calc(100vh - 16px);
+  max-height: var(--menu-max-height, calc(100vh - 16px));
   overflow-y: auto;
 }
 
@@ -2974,6 +2974,22 @@ details.lane-menu:not([data-placed]) .menu-panel {
 }
 
 /* ─── Mode présentation ──────────────────────────────────────────────────── */
+
+/* Lisible à distance : filtres, bandeaux et board agrandis d'un bloc (texte, cartes, icônes,
+   espacements). Les fenêtres gardent leur taille. Même largeur minimale de colonne en pixels CSS :
+   à l'écran, une colonne mesure donc au moins 170 × 1,25 px ; le board défile horizontalement plus
+   tôt, compensé en partie par la barre latérale et l'en-tête masqués. Le menu « ⋯ » d'une swimlane,
+   en position fixe, tient compte du zoom (floatingMenu.ts). */
+.board-screen-presenting {
+  --presentation-zoom: 1.25;
+}
+
+.board-screen-presenting > .filter-bar,
+.board-screen-presenting > .notice,
+.board-screen-presenting > .board,
+.board-screen-presenting > .board-empty {
+  zoom: var(--presentation-zoom);
+}
 
 /* Bulle d'aide à l'entrée en présentation : flotte en bas de l'écran, ne capte pas la souris,
    s'efface d'elle-même (le script la retire au bout de 5 s). */
