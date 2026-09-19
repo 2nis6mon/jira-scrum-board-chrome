@@ -2,7 +2,12 @@ import { Fragment } from "preact";
 import { useEffect } from "preact/hooks";
 import type { BoardConfiguration } from "../../../core/boardConfiguration";
 import { displayedCardFields, displayedGoalId } from "../../../core/boardConfiguration";
-import { type BoardSnapshot, browseUrl, sprintMetrics } from "../../../core/boardIssue";
+import {
+  type BoardSnapshot,
+  browseUrl,
+  type SprintMetrics,
+  sprintMetrics,
+} from "../../../core/boardIssue";
 import { type BoardLayout, columnLoad, daysRemaining, type Lane } from "../../../core/boardLayout";
 import { GOAL_COLOR_NAMES } from "../../../core/boardPreferences";
 import {
@@ -15,23 +20,32 @@ import {
 import { goalColorName } from "../../../core/sprintGoals";
 import type { BoardModel } from "../../model/BoardModel";
 import { formatDay, formatPoints, formatTime, goalStatusLabel, plural, toggled } from "../format";
+import { Icon } from "../Icon";
 import { FilterMenu } from "./FilterMenu";
 import { IssueCard } from "./IssueCard";
+import { LANE_DRAG_TYPE, revealLane } from "./lanes";
 import { PinGoalsDialog } from "./PinGoalsDialog";
 
 export function BoardView({
   board,
   configuration,
+  controls,
 }: {
   board: BoardModel;
   configuration: BoardConfiguration;
+  controls: ScreenControls;
 }) {
   const snapshot = board.snapshot.value;
   const layout = board.layout.value;
 
   return (
     <main class="board-screen">
-      <SprintHeader board={board} configuration={configuration} snapshot={snapshot} />
+      <SprintHeader
+        board={board}
+        configuration={configuration}
+        snapshot={snapshot}
+        controls={controls}
+      />
       {snapshot?.sprint && <FilterBar board={board} />}
       <Notices board={board} snapshot={snapshot} layout={layout} />
       <TransitionChoiceDialog board={board} />
@@ -102,16 +116,30 @@ function TransitionChoiceDialog({ board }: { board: BoardModel }) {
 
 // ─── En-tête ─────────────────────────────────────────────────────────────────
 
+/** Commandes de l'écran portées par l'en-tête : barre latérale et plein écran. */
+export interface ScreenControls {
+  readonly presentation: boolean;
+  readonly sidebarCollapsed: boolean;
+  readonly onToggleSidebar: () => void;
+  readonly onTogglePresentation: () => void;
+}
+
 function SprintHeader(props: {
   board: BoardModel;
   configuration: BoardConfiguration;
   snapshot: BoardSnapshot | null;
+  controls: ScreenControls;
 }) {
-  const { board, configuration, snapshot } = props;
+  const { board, configuration, snapshot, controls } = props;
   const sprint = snapshot?.sprint ?? null;
   const metrics = snapshot ? sprintMetrics(snapshot, configuration.agingThresholdDays) : null;
   const filters = board.filters.value;
   const remaining = daysRemaining(sprint?.endDate ?? null, new Date());
+  const buildLabel = configuration.buildSectionLabel || "Build";
+  const buildCount = snapshot
+    ? snapshot.scrumIssues.filter((issue) => displayedGoalId(configuration, issue.goalId) === null)
+        .length
+    : 0;
   // Sans historique Jira, on ne sait pas quels tickets ont été ajoutés : on n'affiche pas « 0 ».
   const addedKnown =
     snapshot !== null &&
@@ -121,72 +149,81 @@ function SprintHeader(props: {
 
   return (
     <header class="sprint-header">
-      <img class="sprint-icon" src="/icons/icon-64.png" alt="" width="36" height="36" />
+      {!controls.presentation && (
+        <button
+          type="button"
+          class="icon-button sidebar-toggle"
+          aria-label={
+            controls.sidebarCollapsed ? "Afficher la barre latérale" : "Masquer la barre latérale"
+          }
+          title={
+            controls.sidebarCollapsed ? "Afficher la barre latérale" : "Masquer la barre latérale"
+          }
+          onClick={controls.onToggleSidebar}
+        >
+          <Icon name="sidebar" size={17} />
+        </button>
+      )}
       <div class="sprint-title">
-        <span class="sprint-board">{configuration.boardName}</span>
-        <h2>
-          {snapshot
-            ? snapshot.activeSprints.map((s) => s.name).join(" + ") || "Aucun sprint actif"
-            : "…"}
-        </h2>
+        <div class="sprint-name">
+          <h2>
+            {snapshot
+              ? snapshot.activeSprints.map((s) => s.name).join(" + ") || "Aucun sprint actif"
+              : "…"}
+          </h2>
+          {sprint?.state === "active" && <span class="sprint-active">actif</span>}
+        </div>
         {sprint && (
           <span class="sprint-dates">
             {sprint.startDate && formatDay(sprint.startDate)}
             {sprint.endDate && ` → ${formatDay(sprint.endDate)}`}
-            {remaining !== null && ` · ${remainingLabel(remaining)}`}
+            {remaining !== null && (
+              <span class={remaining <= 2 ? "sprint-remaining-tight" : undefined}>
+                {` · ${remainingLabel(remaining)}`}
+              </span>
+            )}
           </span>
         )}
       </div>
 
       {metrics && sprint && (
         <div class="sprint-metrics">
-          <div class="sprint-progress">
-            <span>
-              {metrics.done} / {plural(metrics.totalIssues, "ticket")} terminés
-              {metrics.totalPoints !== null &&
-                ` · ${formatPoints(metrics.donePoints ?? 0)} / ${formatPoints(metrics.totalPoints)} pts`}
-            </span>
-            <progress max={1} value={metrics.completionRatio} aria-label="Avancement du sprint" />
-          </div>
+          <SprintProgress metrics={metrics} />
           <div class="sprint-counters">
             <button
               type="button"
-              class="counter counter-blocked"
+              class={`counter counter-blocked${metrics.blockedCount > 0 ? " counter-alert" : ""}`}
               aria-pressed={filters.quickFilters.has("blocked")}
               onClick={() => board.toggleQuickFilter("blocked")}
-              title={QUICK_FILTER_HELP.blocked}
+              title={`Filtrer : ${QUICK_FILTER_HELP.blocked.toLowerCase()}`}
             >
-              {plural(metrics.blockedCount, "bloqué")}
+              <Icon name="blocked" />
+              <strong>{metrics.blockedCount}</strong>
+              {metrics.blockedCount > 1 ? "bloqués" : "bloqué"}
             </button>
             {addedKnown && (
               <button
                 type="button"
-                class="counter counter-added"
+                class={`counter counter-added${metrics.addedAfterStartCount > 0 ? " counter-alert" : ""}`}
                 aria-pressed={filters.quickFilters.has("addedAfterStart")}
                 onClick={() => board.toggleQuickFilter("addedAfterStart")}
-                title={QUICK_FILTER_HELP.addedAfterStart}
+                title={`Filtrer : ${QUICK_FILTER_HELP.addedAfterStart.toLowerCase()}`}
               >
-                {plural(metrics.addedAfterStartCount, "ajouté")}
+                <Icon name="added" />
+                <strong>{metrics.addedAfterStartCount}</strong>
+                {metrics.addedAfterStartCount > 1 ? "ajoutés" : "ajouté"}
               </button>
             )}
             <button
               type="button"
-              class="counter"
-              aria-pressed={filters.includeWithoutGoal && filters.goalIds.size === 0}
-              onClick={() =>
-                board.setFilters({
-                  ...filters,
-                  goalIds: new Set(),
-                  includeWithoutGoal: !(filters.includeWithoutGoal && filters.goalIds.size === 0),
-                })
-              }
-              title="Tickets Scrum rattachés à aucun objectif"
+              class="counter counter-build"
+              onClick={() => void revealLane(board, "build")}
+              title={`Aller à ${buildLabel} : tickets du sprint sans objectif affiché`}
             >
-              {metrics.withoutGoalCount} sans objectif
+              <Icon name="build" />
+              <strong>{buildCount}</strong>
+              dans {buildLabel}
             </button>
-            {metrics.runCount > 0 && (
-              <span class="counter counter-run">RUN {metrics.runCount}</span>
-            )}
           </div>
         </div>
       )}
@@ -196,56 +233,68 @@ function SprintHeader(props: {
           {board.syncing.value
             ? "Actualisation…"
             : snapshot
-              ? `Actualisé à ${formatTime(snapshot.syncedAt)}`
+              ? `Jira · ${formatTime(snapshot.syncedAt)}`
               : ""}
         </span>
-        <button type="button" onClick={() => void board.sync()} disabled={board.syncing.value}>
-          Actualiser
+        <button
+          type="button"
+          class={`icon-button${board.syncing.value ? " icon-button-busy" : ""}`}
+          aria-label="Actualiser"
+          title="Actualiser depuis Jira"
+          onClick={() => void board.sync()}
+          disabled={board.syncing.value}
+        >
+          <Icon name="refresh" size={17} />
         </button>
-        <details class="menu" name="filter-menu">
-          <summary aria-label="Autres actions">⋯</summary>
-          <div class="menu-panel">
-            <a
-              href={`${board.site.origin}/secure/RapidBoard.jspa?rapidView=${configuration.boardId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Ouvrir le board dans Jira
-            </a>
-            {board.canPinGoals.value && (
-              <button type="button" onClick={() => board.openPinEditor()}>
-                Épingler des Goals au sprint…
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => void board.refreshStructure()}
-              disabled={board.setupBusy.value}
-            >
-              Relire colonnes et types depuis Jira
-            </button>
-            <button type="button" onClick={() => board.editBoard()}>
-              Changer de board
-            </button>
-            {snapshot?.sprint && (
-              <>
-                <button type="button" onClick={() => void board.setAllLanesCollapsed(true)}>
-                  Replier toutes les swimlanes
-                </button>
-                <button type="button" onClick={() => void board.setAllLanesCollapsed(false)}>
-                  Déplier toutes les swimlanes
-                </button>
-              </>
-            )}
-          </div>
-        </details>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label={controls.presentation ? "Quitter le plein écran" : "Plein écran"}
+          aria-pressed={controls.presentation}
+          title={
+            controls.presentation
+              ? "Quitter le plein écran (Échap)"
+              : "Plein écran : le board seul, sans barre latérale"
+          }
+          onClick={controls.onTogglePresentation}
+        >
+          <Icon name={controls.presentation ? "exitFullscreen" : "enterFullscreen"} size={17} />
+        </button>
       </div>
     </header>
   );
 }
 
+/** Avancement du sprint : en story points si le board en a, sinon en tickets. */
+function SprintProgress({ metrics }: { metrics: SprintMetrics }) {
+  const tickets = `${metrics.done} / ${plural(metrics.totalIssues, "ticket")} terminés`;
+  const points = metrics.totalPoints;
+  const ratio =
+    points === null
+      ? metrics.completionRatio
+      : points === 0
+        ? 0
+        : (metrics.donePoints ?? 0) / points;
+  return (
+    <div
+      class="sprint-progress"
+      title={
+        points === null ? tickets : `Story points terminés sur le total du sprint · ${tickets}`
+      }
+    >
+      <strong>
+        {points === null
+          ? `${metrics.done}/${plural(metrics.totalIssues, "ticket")}`
+          : `${formatPoints(metrics.donePoints ?? 0)}/${formatPoints(points)} pts`}
+      </strong>
+      <progress max={1} value={ratio} aria-label="Avancement du sprint" />
+      <span class="sprint-percent">{Math.round(ratio * 100)} %</span>
+    </div>
+  );
+}
+
 function remainingLabel(days: number): string {
-  if (days >= 1) return plural(days, "jour restant", "jours restants");
+  if (days >= 1) return `${days} j restant${days > 1 ? "s" : ""}`;
   if (days === 0) return "se termine aujourd'hui";
   // Le sprint est encore actif dans Jira : seule sa date de fin prévue est dépassée.
   return `fin prévue dépassée de ${plural(-days, "jour")}`;
@@ -257,130 +306,127 @@ function FilterBar({ board }: { board: BoardModel }) {
   const filters = board.filters.value;
   const options = board.options.value;
   const layout = board.layout.value;
-
-  // Un clic hors d'un menu ouvert le referme.
-  useEffect(() => {
-    const close = (event: PointerEvent) => {
-      for (const menu of document.querySelectorAll<HTMLDetailsElement>("details[open]")) {
-        if (!menu.contains(event.target as Node)) menu.open = false;
-      }
-    };
-    document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
-  }, []);
-
   if (!options) return null;
   const set = board.setFilters.bind(board);
   const count = activeFilterCount(filters);
 
   return (
     <div class="filter-bar">
-      <input
-        type="search"
-        class="filter-search"
-        aria-label="Rechercher"
-        placeholder="Rechercher : clé, résumé, personne, type, label"
-        value={filters.searchText}
-        onInput={(event) => board.setSearch(event.currentTarget.value)}
-      />
+      <label class="filter-search">
+        <Icon name="search" />
+        <input
+          type="search"
+          aria-label="Rechercher"
+          placeholder="Clé, résumé, personne, type, label…"
+          value={filters.searchText}
+          onInput={(event) => board.setSearch(event.currentTarget.value)}
+        />
+      </label>
+      <span class="filter-separator" aria-hidden="true" />
       {QUICK_FILTERS.map((quick) => (
         <button
           key={quick}
           type="button"
-          class="chip"
+          class={`chip chip-${quick}`}
           aria-pressed={filters.quickFilters.has(quick)}
           title={QUICK_FILTER_HELP[quick]}
           onClick={() => board.toggleQuickFilter(quick)}
         >
+          <Icon name={quick === "blocked" ? "blocked" : "added"} />
           {QUICK_FILTER_LABEL[quick]}
         </button>
       ))}
       <JiraQuickFilters board={board} />
-      <div class="filter-group">
+      <span class="filter-separator" aria-hidden="true" />
+      <FilterMenu
+        label="Personne"
+        icon="person"
+        options={options.assignees}
+        selected={filters.assigneeIds}
+        onToggle={(value) => set({ ...filters, assigneeIds: toggled(filters.assigneeIds, value) })}
+        extra={{
+          label: "Non assigné",
+          count: options.unassignedCount,
+          checked: filters.includeUnassigned,
+          onToggle: () => set({ ...filters, includeUnassigned: !filters.includeUnassigned }),
+        }}
+      />
+      <FilterMenu
+        label="Type"
+        icon="type"
+        options={options.issueTypes}
+        selected={filters.issueTypeIds}
+        onToggle={(value) =>
+          set({ ...filters, issueTypeIds: toggled(filters.issueTypeIds, value) })
+        }
+      />
+      <FilterMenu
+        label="Parent"
+        icon="parent"
+        options={options.parents}
+        selected={filters.parentKeys}
+        onToggle={(value) => set({ ...filters, parentKeys: toggled(filters.parentKeys, value) })}
+        extra={{
+          label: "Sans parent",
+          count: options.withoutParentCount,
+          checked: filters.includeWithoutParent,
+          onToggle: () => set({ ...filters, includeWithoutParent: !filters.includeWithoutParent }),
+        }}
+      />
+      <FilterMenu
+        label="Priorité"
+        icon="priority"
+        options={options.priorities}
+        selected={filters.priorityNames}
+        onToggle={(value) =>
+          set({ ...filters, priorityNames: toggled(filters.priorityNames, value) })
+        }
+      />
+      <FilterMenu
+        label="Objectif"
+        icon="goal"
+        options={options.goals}
+        selected={filters.goalIds}
+        onToggle={(value) => set({ ...filters, goalIds: toggled(filters.goalIds, value) })}
+        extra={{
+          label: "Sans objectif",
+          count: options.withoutGoalCount,
+          checked: filters.includeWithoutGoal,
+          onToggle: () => set({ ...filters, includeWithoutGoal: !filters.includeWithoutGoal }),
+        }}
+      />
+      <FilterMenu
+        label="Statut"
+        icon="status"
+        options={options.statuses}
+        selected={filters.statusIds}
+        onToggle={(value) => set({ ...filters, statusIds: toggled(filters.statusIds, value) })}
+      />
+      <FilterMenu
+        label="Label"
+        icon="label"
+        options={options.labels}
+        selected={filters.labels}
+        onToggle={(value) => set({ ...filters, labels: toggled(filters.labels, value) })}
+      />
+      {options.components.length > 0 && (
         <FilterMenu
-          label="Personne"
-          options={options.assignees}
-          selected={filters.assigneeIds}
+          label="Composant"
+          icon="component"
+          options={options.components}
+          selected={filters.componentNames}
           onToggle={(value) =>
-            set({ ...filters, assigneeIds: toggled(filters.assigneeIds, value) })
-          }
-          extra={{
-            label: "Non assigné",
-            count: options.unassignedCount,
-            checked: filters.includeUnassigned,
-            onToggle: () => set({ ...filters, includeUnassigned: !filters.includeUnassigned }),
-          }}
-        />
-        <FilterMenu
-          label="Objectif"
-          options={options.goals}
-          selected={filters.goalIds}
-          onToggle={(value) => set({ ...filters, goalIds: toggled(filters.goalIds, value) })}
-          extra={{
-            label: "Sans objectif",
-            count: options.withoutGoalCount,
-            checked: filters.includeWithoutGoal,
-            onToggle: () => set({ ...filters, includeWithoutGoal: !filters.includeWithoutGoal }),
-          }}
-        />
-        <FilterMenu
-          label="Type"
-          options={options.issueTypes}
-          selected={filters.issueTypeIds}
-          onToggle={(value) =>
-            set({ ...filters, issueTypeIds: toggled(filters.issueTypeIds, value) })
+            set({ ...filters, componentNames: toggled(filters.componentNames, value) })
           }
         />
-        <FilterMenu
-          label="Priorité"
-          options={options.priorities}
-          selected={filters.priorityNames}
-          onToggle={(value) =>
-            set({ ...filters, priorityNames: toggled(filters.priorityNames, value) })
-          }
-        />
-        <FilterMenu
-          label="Statut"
-          options={options.statuses}
-          selected={filters.statusIds}
-          onToggle={(value) => set({ ...filters, statusIds: toggled(filters.statusIds, value) })}
-        />
-        <FilterMenu
-          label="Label"
-          options={options.labels}
-          selected={filters.labels}
-          onToggle={(value) => set({ ...filters, labels: toggled(filters.labels, value) })}
-        />
-        {options.components.length > 0 && (
-          <FilterMenu
-            label="Composant"
-            options={options.components}
-            selected={filters.componentNames}
-            onToggle={(value) =>
-              set({ ...filters, componentNames: toggled(filters.componentNames, value) })
-            }
-          />
-        )}
-        <FilterMenu
-          label="Parent"
-          options={options.parents}
-          selected={filters.parentKeys}
-          onToggle={(value) => set({ ...filters, parentKeys: toggled(filters.parentKeys, value) })}
-          extra={{
-            label: "Sans parent",
-            count: options.withoutParentCount,
-            checked: filters.includeWithoutParent,
-            onToggle: () =>
-              set({ ...filters, includeWithoutParent: !filters.includeWithoutParent }),
-          }}
-        />
-      </div>
+      )}
       {count > 0 && (
         <>
           <span class="filter-result">
             {layout && `${layout.visibleCount} / ${plural(layout.totalCount, "ticket")}`}
           </span>
           <button type="button" class="filter-reset" onClick={() => board.resetFilters()}>
+            <Icon name="reset" />
             Réinitialiser ({count})
           </button>
         </>
@@ -399,29 +445,35 @@ function JiraQuickFilters({ board }: { board: BoardModel }) {
   const active = board.filters.value.jiraQuickFilterIds;
   const applying = board.applyingQuickFilters.value;
   return (
-    <fieldset class="jira-quick-filters" aria-busy={applying}>
-      <legend>Filtres rapides Jira</legend>
-      {quickFilters.map((quick) => (
-        <button
-          key={quick.id}
-          type="button"
-          class="chip chip-jira"
-          aria-pressed={active.has(quick.id)}
-          title={[quick.description, `JQL évalué par Jira : ${quick.jql}`]
-            .filter((line) => line !== null && line !== "")
-            .join("\n")}
-          disabled={applying}
-          onClick={() => void board.toggleJiraQuickFilter(quick.id)}
-        >
-          {quick.name}
-        </button>
-      ))}
-      {applying && (
-        <span class="jira-quick-filters-busy" aria-live="polite">
-          Jira filtre…
+    <>
+      <span class="filter-separator" aria-hidden="true" />
+      <fieldset class="jira-quick-filters" aria-busy={applying}>
+        <legend class="visually-hidden">Filtres rapides Jira</legend>
+        <span class="jira-quick-filters-icon" title="Filtres rapides du board Jira">
+          <Icon name="jiraFilters" />
         </span>
-      )}
-    </fieldset>
+        {quickFilters.map((quick) => (
+          <button
+            key={quick.id}
+            type="button"
+            class="chip chip-jira"
+            aria-pressed={active.has(quick.id)}
+            title={[quick.description, `JQL évalué par Jira : ${quick.jql}`]
+              .filter((line) => line !== null && line !== "")
+              .join("\n")}
+            disabled={applying}
+            onClick={() => void board.toggleJiraQuickFilter(quick.id)}
+          >
+            {quick.name}
+          </button>
+        ))}
+        {applying && (
+          <span class="jira-quick-filters-busy" aria-live="polite">
+            Jira filtre…
+          </span>
+        )}
+      </fieldset>
+    </>
   );
 }
 
@@ -510,27 +562,6 @@ function Notices(props: {
               </button>
             </div>
           )}
-        </div>
-      )}
-      {board.hiddenGoals.value.length > 0 && (
-        <div class="notice notice-info">
-          <p>
-            {board.hiddenGoals.value.length > 1
-              ? `${board.hiddenGoals.value.length} objectifs sont masqués du board (réglage de ce navigateur) : leurs tickets`
-              : "Un objectif est masqué du board (réglage de ce navigateur) : ses tickets"}{" "}
-            sont affichés dans {board.configuration.value?.buildSectionLabel || "Build"}.
-          </p>
-          <div class="row">
-            {board.hiddenGoals.value.map((goal) => (
-              <button
-                key={goal.id}
-                type="button"
-                onClick={() => void board.setGoalHidden(goal.id, false)}
-              >
-                Réafficher « {goal.title} »
-              </button>
-            ))}
-          </div>
         </div>
       )}
       {snapshot?.localPinnedGoalIds && (
@@ -673,6 +704,7 @@ function LaneView(props: {
     <section
       class={`lane lane-${lane.block.kind}${board.draggingLane.value === lane.id ? " lane-dragging" : ""}`}
       data-goal-color={goal?.color}
+      data-lane-id={lane.id}
       aria-label={lane.title}
       onDragOver={(event) => {
         // Seul le glissé d'une swimlane est traité ici ; celui des cartes l'est par les cases.
@@ -967,8 +999,6 @@ function LaneMenu({ board, lane }: { board: BoardModel; lane: Lane }) {
 
 /** Type de donnée du glisser-déposer : propre à l'extension, il ne porte qu'une clé de ticket. */
 const DRAG_TYPE = "application/x-scrum-board-issue";
-/** Type propre au glissé des swimlanes : une case ne l'accepte jamais, ni une swimlane une carte. */
-const LANE_DRAG_TYPE = "application/x-scrum-board-lane";
 
 /** Carte devant laquelle déposer, d'après la position du pointeur ; `null` = à la fin. */
 function insertionPoint(cell: HTMLElement, clientY: number, draggedKey: string): string | null {

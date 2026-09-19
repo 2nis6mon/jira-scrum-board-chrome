@@ -16,13 +16,25 @@ export type Connection =
   | { state: "disconnected"; lastInput: string }
   | { state: "connected"; site: JiraSite; board: BoardModel; diagnostic: DiagnosticModel };
 
-export type View = "board" | "settings" | "diagnostic";
+/** Vues de la barre latérale. Sprint Health n'est pas encore construite (étape 6). */
+export type View = "board" | "health" | "admin";
 
-/** Racine de l'état de l'interface : connexion à un site, puis board ou diagnostic. */
+/** Sections de l'administration : réglages du board, diagnostic, compte. */
+export type AdminSection = "board" | "goals" | "cardFields" | "cardColors" | "diagnostic";
+
+/** Racine de l'état de l'interface : connexion à un site, puis board ou administration. */
 export class AppModel {
   readonly connection = signal<Connection>({ state: "loading" });
   readonly connectionError = signal<UserMessage | null>(null);
   readonly view = signal<View>("board");
+  readonly adminSection = signal<AdminSection>("board");
+  /**
+   * Plein écran : barre latérale masquée, board seul. La vue demande aussi le plein écran au
+   * navigateur ; en sortir (Échap) rend la barre latérale.
+   */
+  readonly presentation = signal(false);
+  /** Barre latérale repliée par son bouton, hors plein écran. Réglage de la session. */
+  readonly sidebarCollapsed = signal(false);
 
   readonly #platform: Platform;
   readonly #audit: AuditLog;
@@ -106,6 +118,8 @@ export class AppModel {
     await this.#audit.forgetSite(current.site.origin);
     this.connectionError.value = null;
     this.view.value = "board";
+    this.adminSection.value = "board";
+    this.presentation.value = false;
     this.connection.value = { state: "disconnected", lastInput: current.site.host };
   }
 
@@ -113,18 +127,37 @@ export class AppModel {
     this.view.value = "board";
   }
 
-  /** Réglages locaux du board : colonnes, types, affichage, objectifs, champs des cartes. */
-  showSettings(): void {
-    this.view.value = "settings";
+  /** Emplacement de Sprint Health, qui arrive à l'étape 6. */
+  showHealth(): void {
+    this.view.value = "health";
+  }
+
+  /** Administration : réglages locaux du board, diagnostic, déconnexion. */
+  showAdmin(section: AdminSection = this.adminSection.value): void {
+    if (section === "diagnostic") {
+      this.showDiagnostic();
+      return;
+    }
+    this.adminSection.value = section;
+    this.view.value = "admin";
   }
 
   /** Ouvre le diagnostic ; ses lectures sont lancées à la première ouverture. */
   showDiagnostic(): void {
-    this.view.value = "diagnostic";
+    this.adminSection.value = "diagnostic";
+    this.view.value = "admin";
     const current = this.connection.value;
     if (current.state !== "connected") return;
     if (current.diagnostic.read.value === null) void current.diagnostic.runReads();
     void current.diagnostic.loadJournal();
+  }
+
+  setPresentation(on: boolean): void {
+    this.presentation.value = on;
+  }
+
+  toggleSidebar(): void {
+    this.sidebarCollapsed.value = !this.sidebarCollapsed.value;
   }
 
   async #enter(site: JiraSite): Promise<void> {

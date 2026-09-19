@@ -1,4 +1,5 @@
 import type { FilterOption } from "../../../core/boardLayout";
+import { Icon, type IconName } from "../Icon";
 
 interface Extra {
   readonly label: string;
@@ -10,6 +11,7 @@ interface Extra {
 /** Menu de filtre à choix multiples. Les valeurs proposées sont celles présentes dans le sprint. */
 export function FilterMenu(props: {
   label: string;
+  icon: IconName;
   options: readonly FilterOption[];
   selected: ReadonlySet<string>;
   onToggle: (value: string) => void;
@@ -19,6 +21,7 @@ export function FilterMenu(props: {
   return (
     <details class="filter-menu" name="filter-menu">
       <summary class={activeCount > 0 ? "active" : undefined}>
+        <Icon name={props.icon} />
         {props.label}
         {activeCount > 0 && <span class="filter-badge">{activeCount}</span>}
       </summary>

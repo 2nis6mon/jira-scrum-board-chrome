@@ -159,7 +159,8 @@ describe("AppModel — vues", () => {
 
     model.showDiagnostic();
     await expect.poll(() => connection.diagnostic.read.value).not.toBeNull();
-    expect(model.view.value).toBe("diagnostic");
+    expect(model.view.value).toBe("admin");
+    expect(model.adminSection.value).toBe("diagnostic");
     const requestsAfterFirstOpen = jira.requests.length;
 
     model.showBoard();

@@ -20,6 +20,22 @@ const cardKeys = () =>
     (card) => card.dataset.issueKey,
   );
 
+/** Bouton d'icône seule, désigné par son aria-label. */
+function labelled(label: string): HTMLButtonElement {
+  const found = document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+  if (!found) throw new Error(`bouton « ${label} » introuvable`);
+  return found;
+}
+
+/** Titre d'une swimlane sur le board (un clic n'affiche que son objectif). */
+function laneTitle(label: string): HTMLButtonElement {
+  const found = [...document.querySelectorAll<HTMLButtonElement>("button.lane-title")].find(
+    (b) => b.textContent?.trim() === label,
+  );
+  if (!found) throw new Error(`titre de swimlane « ${label} » introuvable`);
+  return found;
+}
+
 function button(label: string): HTMLButtonElement {
   const found = [...document.querySelectorAll("button")].find((b) =>
     b.textContent?.trim().startsWith(label),
@@ -64,14 +80,21 @@ describe("App", () => {
     expect(platform.requested).toEqual([]);
   });
 
-  it("connecté sans board : demande l'adresse du board", async () => {
+  it("connecté sans board : demande l'adresse du board ; l'administration reste accessible", async () => {
     const model = new AppModel(fakePlatform(new FakeJira()));
     render(<App model={model} />, document.body);
     await model.connect("acme.atlassian.net");
     await tick();
 
-    expect(document.querySelector(".app-site")?.textContent).toContain("acme.atlassian.net");
     expect(document.querySelector("h2")?.textContent).toBe("Quel board afficher ?");
+    expect(document.querySelector(".board-switcher-button")?.textContent).toBe("Choisir un board");
+
+    button("Administration").click();
+    await tick();
+    expect(document.querySelector(".settings-site")?.textContent).toBe("acme.atlassian.net");
+    expect(button("Couleurs des cartes").disabled).toBe(true);
+    expect(button("Diagnostic").disabled).toBe(false);
+    expect(text()).toContain("Aucun board n'est encore choisi");
   });
 
   it("board : swimlanes par objectif, Build et RUN, cartes vers la page Jira", async () => {
@@ -187,18 +210,18 @@ describe("App", () => {
 
   it("un clic sur un objectif n'affiche que lui ; un second rétablit tout", async () => {
     await connectedBoard();
-    button("Améliorer la stabilité").click();
+    laneTitle("Améliorer la stabilité").click();
     await tick();
     expect(cardKeys()).toEqual(["ABC-103"]);
 
-    button("Améliorer la stabilité").click();
+    laneTitle("Améliorer la stabilité").click();
     await tick();
     expect(cardKeys()).toHaveLength(6);
   });
 
   it("l'affichage n'émet que des lectures", async () => {
     const { jira } = await connectedBoard();
-    button("Actualiser").click();
+    labelled("Actualiser").click();
     await tick();
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
@@ -285,8 +308,11 @@ describe("App", () => {
 
     menuButton("Améliorer la stabilité", "Masquer cet objectif du board").click();
     await tick();
-    expect(text()).toContain("Un objectif est masqué du board");
-    button("Réafficher « Améliorer la stabilité »").click();
+    // Les objectifs masqués se retrouvent en bas de la barre latérale, repliés.
+    expect(laneTitles()).not.toContain("Améliorer la stabilité");
+    button("Masqués du board").click();
+    await tick();
+    labelled("Réafficher « Améliorer la stabilité » sur le board").click();
     await tick();
     expect(laneTitles()).toContain("Améliorer la stabilité");
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
@@ -314,7 +340,7 @@ describe("App", () => {
 
   it("Réglages : renommer une colonne et limiter son WIP, appliqué au board, rien écrit dans Jira", async () => {
     const { jira } = await connectedBoard();
-    button("Réglages").click();
+    button("Administration").click();
     await tick();
     expect(document.querySelector(".settings")).not.toBeNull();
     expect(button("Appliquer").disabled).toBe(true);
@@ -365,7 +391,7 @@ describe("App", () => {
       return { status: 200, json: { issues, total: issues.length } };
     });
     await connectedBoard(jira);
-    button("Réglages").click();
+    button("Administration").click();
     await tick();
     button("Couleurs des cartes").click();
     await tick();
@@ -395,13 +421,15 @@ describe("App", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
-  it("le diagnostic reste accessible depuis l'en-tête", async () => {
+  it("le diagnostic reste accessible depuis l'administration, même session perdue", async () => {
     const jira = new FakeJira().on("GET", "/rest/api/3/myself", { status: 401 });
     const model = new AppModel(fakePlatform(jira));
     render(<App model={model} />, document.body);
     await model.connect("acme.atlassian.net");
     await tick();
 
+    button("Administration").click();
+    await tick();
     button("Diagnostic").click();
     await expect.poll(() => document.querySelectorAll(".probe").length).toBe(3);
     expect(document.querySelector(".probe-failed .probe-code")?.textContent).toBe("401");

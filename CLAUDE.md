@@ -67,8 +67,9 @@ src/app/platform/     seul endroit qui touche chrome.* (permissions, stockage)
 src/app/model/        état de l'interface (signals), plateforme injectée : AppModel (connexion,
                       vue), BoardModel (board, synchro, filtres, glisser-déposer), DiagnosticModel,
                       boardStore, auditLog (journal des écritures), graphqlOrigin (règle Origin)
-src/app/views/        vues Preact ; views/board/ = en-tête, filtres, swimlanes, cartes ;
-                      views/settings/ = page Réglages
+src/app/views/        vues Preact ; Sidebar = barre latérale ; views/board/ = en-tête, filtres,
+                      swimlanes, cartes ; views/settings/ = Administration (réglages, diagnostic,
+                      déconnexion)
 src/background/       service worker (ouvre la page, rien d'autre)
 src/jira/             site, erreurs, transport HTTP, inventaire des écritures, diagnostic,
                       modèles Jira et leur décodage, client REST (lectures), transitions
@@ -102,6 +103,8 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 | `core/boardSettings.ts`, `views/settings/` | `AdminView` (section Board), `GoalsAdminView` (source, Goals du board, couleurs), `CardFieldsAdminView` |
 | `core/boardPreferences.ts` | `BoardController.setBlockOrder`, `moveBlock`, `setBlockCollapsed`, `setGoalHidden`, `setGoalColor` |
 | `core/parentColors.ts` | aucun : couleur des badges parent, propre à l'extension (demande de Denis) |
+| `views/Sidebar.tsx`, `core/boardPreferences.ts` (`laneSummaries`) | `SidebarView`, `BoardSwitcherView` (menu), `WorkspaceView` |
+| `views/settings/AdminView.tsx` | `AdminView` (réglages), plus le diagnostic et la déconnexion |
 
 Écarts voulus : `SprintGoalText.render` n'est pas porté (il ne servait qu'à réécrire le champ du
 sprint) ; le mode de compatibilité « Build et RUN restent en bas » des ordres enregistrés avant la
@@ -187,6 +190,19 @@ coupé à deux lignes ; parent en badge à son titre (sans clé), d'une couleur 
 (`parentColors.ts` : classement par clé, jamais deux fois la même couleur) ; champs choisis en
 badges sans leur nom ; statut retiré de la carte. Écart voulu avec le Mac, qui affiche le parent
 et les champs en texte.
+
+0.10.0 (demande de Denis, maquette = fenêtre de l'app Mac) : l'en-tête de l'application devient
+une barre latérale (`views/Sidebar.tsx`) : board affiché et son menu (actions du board ; la liste
+des boards viendra avec le multi-board), vues Board et Sprint Health (emplacement réservé),
+swimlanes dans l'ordre du board (clic = dépliée et amenée à l'écran, glissé = réordonner, même
+état de glissé que le board), objectifs masqués, Administration en pied. Administration
+(`views/settings/AdminView.tsx`) = réglages du board + Diagnostic + Se déconnecter. En-tête du
+sprint aligné sur la maquette (badge actif, points et %, compteurs à icônes, « Jira · hh:mm »,
+flèche ronde, plein écran = barre masquée + plein écran du navigateur, Échap la rend) ; filtres à
+icônes dans l'ordre du Mac. Icônes dessinées dans `views/Icon.tsx` (aucune ressource externe,
+aucune permission) ; leur couleur vient du parent par `--icon-color`. Sous happy-dom, le
+glissé DOM n'atteint pas les gestionnaires de Preact (pas de propriété `ondragstart`) : le
+geste se vérifie dans Chrome sur le banc d'essai.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build --outDir <scratchpad>`.

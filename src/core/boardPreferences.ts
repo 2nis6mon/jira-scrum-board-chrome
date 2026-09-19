@@ -3,11 +3,12 @@ import {
   blockIdentifier,
   displayedBlocks,
   goalBlock,
+  parseBlockIdentifier,
   resolveBlocks,
 } from "./boardBlocks";
-import { type BoardConfiguration, isGoalHidden } from "./boardConfiguration";
-import type { BoardSnapshot } from "./boardIssue";
-import { GOAL_COLOR_COUNT } from "./sprintGoals";
+import { type BoardConfiguration, displayedGoalId, isGoalHidden } from "./boardConfiguration";
+import { type BoardSnapshot, isIssueDone } from "./boardIssue";
+import { GOAL_COLOR_COUNT, type SprintGoal } from "./sprintGoals";
 
 // Réglages d'affichage modifiés depuis le board : ordre, repli, masquage, couleur des objectifs.
 // Portage des méthodes correspondantes de `BoardController` (Mac). Tous sont LOCAUX : chaque
@@ -43,6 +44,48 @@ export function laneOrder(snapshot: BoardSnapshot, configuration: BoardConfigura
     filteredCount: () => 0,
     sprintHasRunIssues: snapshot.runIssues.length > 0,
   }).map(blockIdentifier);
+}
+
+/** Une swimlane résumée, pour la barre latérale : filtres ignorés, comme `laneOrder`. */
+export interface LaneSummary {
+  readonly id: string;
+  readonly block: BoardBlock;
+  readonly title: string;
+  readonly goal: SprintGoal | null;
+  /** Tickets du bloc : ceux de l'objectif, ceux de Build (aucun objectif affiché), ou RUN. */
+  readonly count: number;
+  /** Tickets terminés du bloc. */
+  readonly done: number;
+}
+
+/**
+ * Swimlanes de la barre latérale, dans l'ordre du board (`laneOrder`). Build compte aussi les
+ * tickets d'un objectif masqué : c'est là que le board les affiche.
+ */
+export function laneSummaries(
+  snapshot: BoardSnapshot,
+  configuration: BoardConfiguration,
+): LaneSummary[] {
+  const goals = new Map(snapshot.goals.map((goal) => [goal.id, goal]));
+  return laneOrder(snapshot, configuration).flatMap((id): LaneSummary[] => {
+    const block = parseBlockIdentifier(id);
+    if (!block) return [];
+    const issues =
+      block.kind === "run"
+        ? snapshot.runIssues
+        : snapshot.scrumIssues.filter(
+            (issue) =>
+              displayedGoalId(configuration, issue.goalId) ===
+              (block.kind === "goal" ? block.goalId : null),
+          );
+    const goal = block.kind === "goal" ? (goals.get(block.goalId) ?? null) : null;
+    if (block.kind === "goal" && !goal) return [];
+    const title =
+      goal?.title ?? (block.kind === "run" ? "RUN" : configuration.buildSectionLabel || "Build");
+    return [
+      { id, block, title, goal, count: issues.length, done: issues.filter(isIssueDone).length },
+    ];
+  });
 }
 
 /**

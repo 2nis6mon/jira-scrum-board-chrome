@@ -9,12 +9,14 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.9.1 — réglages locaux terminés (étape 5).** Board du sprint actif organisé par
+> **État : 0.10.0 — réglages locaux terminés (étape 5), mise en page de l'app Mac.** Board du
+> sprint actif organisé par
 > Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
 > du board Jira ; glisser-déposer qui écrit dans Jira : transition, rang, et lien natif
 > ticket↔Goal ; épinglage de Goals au sprint, gardé dans le navigateur si Jira le refuse ; ordre,
-> repli, couleur et masquage des swimlanes ; page Réglages (colonnes, types, affichage,
-> rafraîchissement automatique, source des objectifs, champs et couleurs des cartes). Repli
+> repli, couleur et masquage des swimlanes ; barre latérale (board, vues, swimlanes, administration)
+> et plein écran ; administration (colonnes, types, affichage, rafraîchissement automatique,
+> source des objectifs, champs et couleurs des cartes, diagnostic, déconnexion). Repli
 > automatique et expliqué sur le texte du sprint si les Goals ne répondent pas.
 
 ## Installer l'extension (mode développeur)
@@ -61,7 +63,16 @@ Ces droits sont verrouillés par [`tests/manifest.test.ts`](tests/manifest.test.
 
 Le board affiche les tickets des **sprints actifs**, regroupés par objectif, puis *Build*
 (tickets sans objectif) et *RUN* (types classés RUN, présents dans le sprint). Un clic sur une
-carte ouvre le ticket dans Jira, dans un nouvel onglet. *Actualiser* relit Jira.
+carte ouvre le ticket dans Jira, dans un nouvel onglet. La flèche ronde de l'en-tête relit Jira.
+
+- **Barre latérale** (reprise de l'app Mac) : le board affiché, dont le menu ouvre le board dans
+  Jira, relit colonnes et types, épingle des Goals ou change de board ; les vues *Board* et
+  *Sprint Health* (emplacement réservé, pas encore construit) ; les swimlanes dans l'ordre du
+  board, avec leur avancement — un clic y mène (en la dépliant), un glissé les réordonne, sur le
+  board comme dans la barre ; les objectifs masqués, avec un œil pour les réafficher ; et
+  *Administration* en pied de barre. Le bouton en haut à gauche de l'en-tête la masque.
+- **Plein écran** (flèches en haut à droite) : la barre latérale disparaît et le navigateur passe
+  en plein écran ; Échap ou le même bouton la rendent.
 
 **Glisser-déposer** — une carte déposée dans une case peut entraîner, dans cet ordre :
 
@@ -77,7 +88,7 @@ carte ouvre le ticket dans Jira, dans un nouvel onglet. *Actualiser* relit Jira.
 
 Chaque écriture attend la confirmation de Jira avant la suivante ; la carte ne bouge qu'à la
 relecture du board. Aucune écriture n'est rejouée : si Jira ne répond pas, le board est relu et
-le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diagnostic*).
+le bandeau le dit. Chaque tentative est notée dans le **journal** (*Administration → Diagnostic*).
 
 - **Cartes** : type, clé, drapeau Jira et priorité à droite, résumé sur deux lignes au plus (en
   entier au survol), story points, initiales de l'assigné. Le parent est un badge à son titre,
@@ -88,11 +99,13 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
   au-delà du seuil. Les icônes de type et de priorité
   sont téléchargées depuis le site avec la session ; les avatars ne le sont pas (ils sont
   hébergés hors du site) : on affiche les initiales.
-- **En-tête** : sprint, dates, jours restants, avancement en tickets et en points, compteurs
-  *bloqués*, *ajoutés*, *sans objectif* (cliquables : ils filtrent), RUN.
-- **Filtres** : recherche (clé, résumé, personne, type, label, parent), *Bloqués*, *Ajoutés*,
-  et menus Personne, Objectif, Type, Priorité, Statut, Label, Composant, Parent. Un clic sur le
-  titre d'un objectif n'affiche que lui ; un second clic rétablit tout.
+- **En-tête** : sprint (badge *actif*), dates, jours restants, avancement en story points (en
+  tickets si le board n'estime pas) et pourcentage, compteurs *bloqués* et *ajoutés* (cliquables :
+  ils filtrent) et *dans Build* (mène au bloc), heure de la dernière lecture de Jira.
+- **Filtres**, chacun avec son icône : recherche (clé, résumé, personne, type, label, parent),
+  *Bloqués*, *Ajoutés*, filtres rapides Jira, puis menus Personne, Type, Parent, Priorité,
+  Objectif, Statut, Label, Composant. Un clic sur le titre d'un objectif n'affiche que lui ; un
+  second clic rétablit tout.
 - **Filtres rapides Jira** : ceux définis sur le board Jira, en boutons (leur JQL au survol).
   Jira évalue lui-même leur JQL, restreint aux sprints actifs ; plusieurs filtres actifs se
   combinent, comme dans Jira. Un JQL que Jira refuse désactive les filtres rapides, et le bandeau
@@ -101,12 +114,13 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
 - **Swimlanes** : la poignée (⠿) à gauche de l'en-tête se glisse pour placer la swimlane
   (objectif, Build ou RUN) où l'on veut ; la flèche replie ou déplie ; le menu *⋯* la monte ou la
   descend (alternative au clavier), replie ou déplie tout, change la couleur d'un objectif ou le masque (ses
-  tickets passent dans *Build* ; un rappel permet de le réafficher). Ces réglages restent dans ce
-  navigateur et ne changent rien dans Jira.
-- **Épingler des Goals au sprint** (menu *⋯*) : choisir, parmi les Goals du site, ceux qui
+  tickets passent dans *Build* ; la barre latérale permet de le réafficher). Ces réglages restent
+  dans ce navigateur et ne changent rien dans Jira.
+- **Épingler des Goals au sprint** (menu du board, dans la barre latérale) : choisir, parmi les Goals du site, ceux qui
   s'affichent même sans ticket rattaché. La sélection se compose dans la fenêtre (filtre local,
   sans requête pendant la frappe) et n'est écrite qu'au clic sur *Enregistrer dans Jira*.
-- **Réglages** (en-tête), propres à ce navigateur et à ce board, jamais écrits dans Jira :
+- **Administration** (pied de la barre latérale). Réglages propres à ce navigateur et à ce board,
+  jamais écrits dans Jira :
   - *Board* : colonnes Scrum et RUN (affichées, nom, limite WIP), types de tickets (Scrum, RUN,
     ignoré ; « bug »), section RUN, nom du bloc Build, seuil « vieillissant », labels de blocage,
     rafraîchissement automatique (1, 2 ou 5 min, lecture seule, suspendu pendant un geste),
@@ -119,7 +133,8 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
     la règle intégrée « Ajouté en cours de sprint ». Jira évalue chaque JQL à chaque actualisation,
     restreint aux sprints actifs ; un JQL refusé est signalé sous sa règle, sans bloquer les
     autres. Lecture seule.
-- **Diagnostic** (en-tête) : ce que Jira répond réellement aux requêtes de l'extension.
+  Puis *Diagnostic* : ce que Jira répond réellement aux requêtes de l'extension ; et
+  *Se déconnecter*, qui rend l'accès au site à Chrome et oublie ses boards et réglages.
 
 ## Objectifs
 
@@ -139,7 +154,7 @@ le bandeau le dit. Chaque tentative est notée dans le **journal** (onglet *Diag
 - **Passerelle GraphQL et en-tête `Origin`.** La passerelle d'Atlassian refuse l'en-tête
   `Origin: chrome-extension://…` que Chrome ajoute, et aussi son absence. Sur l'instance essayée,
   elle n'accepte que l'adresse du site : c'est la variante posée par défaut, pour les seules
-  requêtes de l'extension vers la passerelle. L'onglet *Diagnostic* re-teste les variantes.
+  requêtes de l'extension vers la passerelle. *Administration → Diagnostic* re-teste les variantes.
 - Si Jira refuse d'enregistrer l'épinglage faute de droits, la sélection peut être gardée dans ce
   navigateur : elle n'est partagée avec personne, et ne sert que tant que Jira n'a aucune
   sélection pour ce sprint. Un bandeau le rappelle, avec « Réessayer dans Jira » et « Oublier ».
@@ -244,6 +259,11 @@ développement, jamais inclus dans `dist/`.
 - Carte revue (0.9.1) : couleur par parent (partagée, jamais en double, stable quand un parent
   plus récent arrive), champs en badges, drapeau près de la priorité, résumé coupé à deux lignes ;
   rendu vérifié dans Chrome sur le banc d'essai.
+- Mise en page de l'app Mac (0.10.0) : barre latérale (swimlanes dans l'ordre du board, décomptes,
+  clic qui déplie et amène à l'écran, glissé depuis la barre ou le board vers l'une ou l'autre,
+  objectifs masqués), administration (réglages, diagnostic, déconnexion), en-tête et filtres à
+  icônes ; vérifié dans Chrome sur le banc d'essai. Le plein écran du navigateur n'a pas pu y être
+  essayé (le panneau de test le refuse) : seul le masquage de la barre latérale l'a été.
 
 ### ✅ Constaté par l'utilisateur sur son instance (0.2.0, 0.2.1)
 

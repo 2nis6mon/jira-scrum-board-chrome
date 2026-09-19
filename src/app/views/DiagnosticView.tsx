@@ -32,7 +32,7 @@ export function DiagnosticView({ diagnostic }: { diagnostic: DiagnosticModel }) 
   const sprint = diagnostic.sprint.value;
 
   return (
-    <main class="page">
+    <div class="page">
       <section class="panel">
         <header class="panel-header">
           <h2>1 · Lectures</h2>
@@ -185,6 +185,6 @@ export function DiagnosticView({ diagnostic }: { diagnostic: DiagnosticModel }) 
         </p>
         {read && <pre class="report">{diagnostic.report()}</pre>}
       </section>
-    </main>
+    </div>
   );
 }

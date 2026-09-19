@@ -5,6 +5,7 @@ import { buildBoardLayout } from "../../src/core/boardLayout";
 import {
   GOAL_COLOR_NAMES,
   laneOrder,
+  laneSummaries,
   withAllBlocksCollapsed,
   withBlockCollapsed,
   withBlockOrder,
@@ -42,6 +43,60 @@ function snapshot(run: JiraIssue[] = []): BoardSnapshot {
 }
 
 const withRun = snapshot([makeIssue("RUN-1", { typeId: "10004" })]);
+
+describe("swimlanes de la barre latérale", () => {
+  const assembled = (issues: JiraIssue[], links: Record<string, string> = {}) =>
+    assembleBoardIssues({ issues, configuration: config, columns: config.scrumColumns, links });
+  const sprint: BoardSnapshot = {
+    ...snapshot(),
+    scrumIssues: assembled(
+      [
+        makeIssue("ABC-1", { category: "done" }),
+        makeIssue("ABC-2"),
+        makeIssue("ABC-3", { category: "done" }),
+        makeIssue("ABC-4"),
+      ],
+      { "ABC-1": "g1", "ABC-2": "g1", "ABC-3": "g2" },
+    ),
+    runIssues: assembled([makeIssue("RUN-1", { typeId: "10004" })]),
+  };
+  const rows = (configuration = config) =>
+    laneSummaries(sprint, configuration).map((lane) => [
+      lane.id,
+      lane.title,
+      lane.done,
+      lane.count,
+    ]);
+
+  it("dans l'ordre du board, avec tickets terminés et total de chaque swimlane", () => {
+    expect(rows()).toEqual([
+      ["goal:g1", "Paiement", 1, 2],
+      ["goal:g2", "Stabilité", 1, 1],
+      ["goal:g3", "Sécurité", 0, 0],
+      ["build", "Build", 0, 1],
+      ["run", "RUN", 0, 1],
+    ]);
+  });
+
+  it("suit l'ordre choisi, et Build compte les tickets d'un objectif masqué", () => {
+    const moved = withBlockOrder(config, ["run", "goal:g3", "build", "goal:g1", "goal:g2"]);
+    expect(rows(withGoalHidden(moved, "g2", true))).toEqual([
+      ["run", "RUN", 0, 1],
+      ["goal:g3", "Sécurité", 0, 0],
+      ["build", "Build", 1, 2],
+      ["goal:g1", "Paiement", 1, 2],
+    ]);
+  });
+
+  it("Build prend le nom choisi dans les réglages", () => {
+    expect(rows({ ...config, buildSectionLabel: "Sprint Backlog" })[3]).toEqual([
+      "build",
+      "Sprint Backlog",
+      0,
+      1,
+    ]);
+  });
+});
 
 describe("ordre des swimlanes", () => {
   it("objectifs visibles, Build, puis RUN s'il y a des tickets RUN", () => {
