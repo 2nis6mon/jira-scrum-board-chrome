@@ -1,44 +1,72 @@
 # TODO — Sprint Goals Board pour Jira
 
-Liste de travail décidée avec Denis le 19/09/2026. Chaque point donne ce que fait l'extension
-**aujourd'hui** (vérifié dans le code, version 0.12.0), puis les questions à trancher avant de coder.
+Mis à jour le 19/09/2026 pour la version 0.15.1, après revue du code et précisions de Denis.
+Denis confirme utiliser la dernière version dans Chrome et que les fonctionnalités marchent.
+Ce retour ne constitue pas un relevé détaillé de chaque scénario testé sur son Jira.
+
+Les décisions confirmées, les travaux restants et les pistes facultatives sont séparés ci-dessous.
+L'ordre des travaux est une proposition ; les choix encore ouverts ne sont pas des autorisations
+à développer de nouvelles écritures Jira ou à changer les permissions.
+
+## 1. Décisions confirmées et éléments livrés
+
+### Orientation et règles métier confirmées le 19/09/2026
+
+- **Page dédiée** : c'est l'orientation actuelle. Une intégration dans la page Jira a été évoquée,
+  sans décision de la réaliser ; elle reste une piste facultative.
+- **Goals Atlassian privilégiés**, avec maintien de l'option « texte du sprint ».
+- **Plusieurs sprints actifs** : afficher tous leurs tickets ensemble, sans doublon, avec un
+  sprint de référence. Le comportement actuel est conservé : le premier par date de début donne
+  les dates de l'en-tête, l'épinglage et, en mode texte, les objectifs et leurs rattachements.
+  Les Goals Atlassian sont déduits des tickets de tous les sprints ; les textes des autres sprints
+  ne sont pas réunis. Référence : `src/core/boardSync.ts`.
+- **Plusieurs Goals pour un ticket** : conserver pour l'instant son affichage dans une seule
+  swimlane. Le code retient le premier Goal lors de la résolution des associations
+  (`src/core/atlassianGoals.ts`).
+- Le champ Jira « Sprint Goal » reste en lecture seule. Le format de la propriété du sprint,
+  partagé avec l'app Mac, reste inchangé.
+
+### Livré
+
+- [x] **0.13.0 — Réglages d'équipe** : publication explicite dans la propriété du board
+  `com.scrumboardmac.boardsettings.v1`. À l'actualisation, une nouvelle version s'applique
+  automatiquement si les réglages locaux n'ont pas divergé ; sinon elle est proposée avec
+  « Appliquer » / « Garder les miens ». Les couleurs, l'ordre et les objectifs masqués font
+  partie des réglages d'équipe ; repli des swimlanes, filtres, rafraîchissement et largeur de
+  barre restent personnels. Format prévu pour être partagé avec l'app Mac ; cela ne signifie
+  pas que sa prise en charge est déjà livrée dans l'app Mac.
+- [x] **0.14.0 — Santé du sprint** : panneau repliable entre les filtres et les swimlanes,
+  bouton icône dans l'en-tête, suppression de l'entrée séparée dans la barre latérale.
+  La vue s'appelle « Sprint » ; « board » est conservé pour désigner le board Jira.
+- [x] **0.14.1 — Audit de sécurité** : `docs/SECURITY-AUDIT.md`, avec correction des liens
+  de Goals. Audit existant, sans prétendre à une validation de tous les usages réels.
+- [x] **0.14.2 — Filtres simplifiés** : menus Priorité, Objectif et Composant retirés ;
+  filtrage par objectif toujours accessible par le titre de sa swimlane.
+- [x] **0.15.0 / 0.15.1 — Présentation** : interface allégée, sortie par bouton ou Échap,
+  filtres et board agrandis.
+
+**Abandonné** : déplacement des cartes au clavier (ancien lot 6c, décision de Denis).
+
+## 2. Fiabilité des Goals — constats de la revue à traiter
+
+Ces points viennent de la lecture du code ; ils ne sont pas des incidents reproduits sur le Jira
+de Denis.
+
+- [ ] **Compléter la lecture des tickets liés à un Goal.** Le client utilise
+  `workItems(first: 100)` sans pagination de cette liste (`src/jira/goals.ts`). Le champ Goals
+  des tickets peut compléter les associations, mais ne garantit pas leur exhaustivité.
+  Vérifier les possibilités du schéma avant implémentation ; signaler une lecture incomplète
+  si elle ne peut pas être poursuivie. Couvrir le cas de plus de 100 liens et l'absence de
+  complément par le champ Goals des tickets.
+- [ ] **Rendre explicite un changement de Goal partiellement réussi.** Dans
+  `src/app/model/BoardModel.ts`, l'ancien lien est supprimé avant la création du nouveau.
+  Si la création échoue, le message doit indiquer que le détachement a déjà réussi et inviter
+  à vérifier l'état relu. Couvrir ce scénario et les résultats incertains ; ne pas rejouer
+  automatiquement les écritures ni introduire une restauration implicite.
 
 ---
 
-## 1. Sprint Health dans la vue Board, et « Sprint » au lieu de « Board »
-
-> **Fait en 0.14.0**, choix de Denis du 19/09/2026 : panneau repliable entre la barre de filtres
-> et les swimlanes ; bouton icône seule (tracé de pouls) dans l'en-tête, à côté de la flèche
-> ronde ; l'entrée *Sprint Health* quitte la barre latérale ; seule la vue est renommée
-> (*Board* → *Sprint*), « board » reste pour le board Jira.
-
-**Aujourd'hui.** Sprint Health est une vue à part, ouverte depuis la barre latérale (entrée sous
-*Board*). Elle reprend l'en-tête et les filtres du board, puis ses propres cartes : indicateurs,
-avancement par objectif, périmètre, charge par colonne, composition, tickets à surveiller.
-
-**Demande.** Déplacer Sprint Health à l'intérieur de la vue Board, et renommer *Board* en *Sprint*
-dans l'application, sauf dans le titre « Sprint Goals Board ».
-
-**À trancher.**
-
-- [ ] **Où placer Sprint Health dans la vue ?** Pistes :
-  - bascule dans l'en-tête du sprint, à côté du titre : `[ Board | Santé ]` ;
-  - bouton icône (tracé de pouls) près de la flèche ronde, qui affiche ou masque la santé ;
-  - panneau repliable au-dessus des swimlanes, sous la barre de filtres.
-- [ ] **Icône, texte, ou les deux ?**
-- [ ] L'entrée *Sprint Health* disparaît-elle alors de la barre latérale ?
-- [ ] **Jusqu'où renommer ?** « board » a deux sens dans l'interface :
-  - la **vue** du sprint en cours (entrée *Board* de la barre latérale) → *Sprint* ;
-  - le **board Jira** lui-même, qui contient les sprints : « Boards enregistrés », « Ajouter un
-    board par son adresse… », « Ouvrir ce board dans Jira », « Quel board afficher ? », section
-    *Board* de l'administration (colonnes et types du board), « Masqués du board », « limites WIP
-    du board », « filtres rapides du board Jira ». Renommer ceux-là en « sprint » serait inexact
-    (on n'ajoute pas un sprint par son adresse). Proposition : ne renommer que la vue, garder
-    « board » quand il s'agit du board Jira. À confirmer.
-
----
-
-## 2. Changement de statut par colonne : plusieurs statuts, ou aucun
+## 3. Changement de statut par colonne : plusieurs statuts, ou aucun
 
 **Aujourd'hui** (`jira/transitionPlanner.ts`, port du `TransitionPlanner` du Mac) :
 
@@ -64,35 +92,6 @@ dans l'application, sauf dans le titre « Sprint Goals Board ».
 - [ ] Aucune transition directe : la fenêtre actuelle suffit-elle, ou faut-il proposer d'ouvrir le
   ticket dans Jira directement ?
 - [ ] Colonne sans statut : la montrer grisée, avec « aucun statut Jira », plutôt que la masquer ?
-- [ ] À valider sur le Jira de Denis : les transitions réelles de son workflow (aucune n'a encore
-  été émise depuis l'extension).
-
----
-
-## 3. Plusieurs sprints actifs et objectifs en mode « texte du sprint »
-
-**Aujourd'hui** (`core/boardSync.ts`) :
-
-- Les tickets de **tous** les sprints actifs sont affichés ensemble ; l'en-tête montre leurs noms
-  joints par « + ». Un ticket présent dans deux sprints n'apparaît qu'une fois.
-- Le **sprint de référence** est le premier sprint actif par date de début. C'est lui seul qui
-  donne : dates et jours restants de l'en-tête, épinglage des Goals, et, en mode texte, **les
-  objectifs** (lignes de son champ « Sprint Goal ») et **les rattachements** (propriété du sprint).
-- En mode texte, les objectifs des **autres** sprints actifs sont donc **ignorés** ; leurs tickets
-  ne peuvent être rattachés qu'aux objectifs du sprint de référence, et ces rattachements sont
-  enregistrés dans la propriété de ce seul sprint.
-- En mode Goals Atlassian, les objectifs viennent des tickets de tous les sprints ; seul l'épinglage
-  dépend du sprint de référence.
-
-**À trancher.**
-
-- [ ] Mode texte, plusieurs sprints : réunir les objectifs de tous les sprints (préfixés par le nom
-  du sprint ?), ou ne garder que le sprint de référence en le disant clairement ?
-- [ ] Rattachement d'un ticket du sprint B à un objectif du sprint A : l'écrire dans la propriété de
-  quel sprint ? (Règle actuelle : celle du sprint de référence.)
-- [ ] Ou bien : choisir le sprint affiché (menu dans l'en-tête) au lieu de les mélanger ?
-- [ ] L'app Mac se comporte comme l'extension aujourd'hui : un changement ici devra y être reporté
-  (le format de la propriété du sprint est partagé et ne doit pas changer).
 
 ---
 
@@ -128,87 +127,42 @@ démarrer le sprint.
 
 ---
 
-## 5. Partager la configuration entre plusieurs postes et avec l'équipe
+## 5. Installation et distribution
 
-> **Fait en 0.13.0** (piste « propriété du board », validée par Denis le 19/09/2026) : onglet
-> *Réglages d'équipe* de l'administration. Reste à valider sur le Jira de Denis ; les pistes
-> « propriété d'utilisateur » (réglages personnels sur plusieurs postes) et « export / import »
-> restent ouvertes.
+- [ ] **Empaquetage pour l'installation** (ancien lot 6e).
+- [ ] Choisir le mode de distribution et de mise à jour pour les autres utilisateurs.
+- [ ] Préparer le paquet et les instructions correspondantes, sans embarquer de clé privée
+  ni les données du banc d'essai.
 
-**Demande.** Si quelqu'un de l'équipe installe l'extension, comment retrouve-t-il la même
-configuration (colonnes, types, couleurs, règles…) ? Est-ce possible ?
+## 6. Pistes facultatives — à décider selon les besoins
 
-**Aujourd'hui.**
+Le partage des réglages d'équipe via Jira est déjà livré : il n'est plus à choisir ni à refaire.
 
-- Tous les réglages sont **locaux au navigateur** : `chrome.storage.local`, par site et par board.
-  Un autre poste, ou un autre profil Chrome, repart de zéro : il faut refaire les réglages.
-- Deux règles du projet l'imposent : réglages **jamais écrits dans Jira** (décision héritée du Mac)
-  et **jamais dans `storage.sync`** (rien ne part chez Google).
-- Ce qui est **déjà partagé** passe par Jira : Goals épinglés au sprint et rattachements du mode
-  texte (propriété du sprint), liens ticket↔Goal, statuts, rang. Les colonnes, statuts et types
-  viennent aussi de Jira, relus sur chaque poste.
+- [ ] **Export / import de configuration** : fichier JSON validé, aperçu des changements,
+  distinction entre réglages d'équipe et préférences personnelles.
+- [ ] **Préférences personnelles sur plusieurs postes** : étudier une propriété d'utilisateur
+  Jira. Ce serait une nouvelle écriture, à vérifier dans la documentation et à faire valider.
+  `chrome.storage.sync` reste exclu par les règles actuelles du projet.
+- [ ] **Limites WIP** : étudier le minimum et les contraintes en points ; le code compare
+  actuellement un nombre de tickets au maximum.
+- [ ] **Disponibilité des Goals** : étudier les fonctionnalités exposées par le board pour
+  adapter la proposition du mode Goals Atlassian ; vérifier la pertinence de cette information.
+- [ ] **Déploiement Chrome géré** : configuration en lecture seule poussée par l'IT via
+  `storage.managed`, seulement si un besoin de déploiement encadré apparaît.
+- [ ] **Intégration dans la page Jira** : possibilité évoquée, pas de migration décidée.
+  Piste proposée : afficher notre propre vue dans Jira, en conservant l'onglet dédié.
+  L'injection, les communications avec l'extension, les permissions et la CSP nécessiteraient
+  une étude et des validations spécifiques. Transformer le board natif serait une autre
+  approche, plus dépendante de la structure de la page Jira.
 
-**Ce qui vaudrait la peine d'être partagé** (réglages d'équipe) : noms et limites WIP des colonnes,
-classement des types (Scrum, RUN, ignoré, bug), labels de blocage, nom de Build, seuil de
-vieillissement, couleurs des objectifs, ordre des swimlanes, champs des cartes, règles de couleur.
-**Ce qui resterait personnel** : swimlanes repliées, objectifs masqués, rafraîchissement
-automatique, largeur de la barre latérale, filtres.
+## 7. Suivi documentaire et validation
 
-**Pistes, de la plus simple à la plus intégrée.**
+- [x] Nettoyer ce TODO : retirer les décisions devenues obsolètes et intégrer les choix confirmés.
+- [ ] Lors des prochains travaux, consigner les scénarios effectivement validés par Denis,
+  notamment réception des réglages d'équipe sur un second poste, workflows particuliers,
+  volumes importants et lecture croisée des épinglages avec l'app Mac. Ne pas les présenter
+  comme échoués ou non fonctionnels sur la seule base d'anciennes mentions du README.
 
-- [ ] **Export / import d'un fichier** (réglages d'équipe d'un board en JSON) depuis
-  l'administration. Aucune permission nouvelle, rien dans Jira ni chez Google. Le fichier circule
-  à la main (Slack, Confluence) ; il faut réimporter à chaque changement. Import : validation stricte,
-  aperçu de ce qui change, réglages personnels non touchés.
-- [ ] **Propriété du board dans Jira** (comme celle du sprint, mais au niveau du board) : toute
-  l'équipe la lit, et les changements sont partagés tout de suite. Mais c'est une **cinquième
-  catégorie d'écriture** et cela **lève la règle « réglages jamais écrits dans Jira »** : à décider
-  par Denis. Vérifié le 19/09/2026 dans la spécification OpenAPI de Jira Software
-  (`developer.atlassian.com/cloud/jira/software/swagger.v3.json`) :
-  `GET /rest/agile/1.0/board/{boardId}/properties` (clés), `GET` / `PUT` / `DELETE
-  /rest/agile/1.0/board/{boardId}/properties/{propertyKey}` ; lecture pour qui peut **voir** le
-  board, écriture pour qui peut **modifier** le board (en pratique ses administrateurs : à confirmer
-  sur l'instance de Denis). Taille maximale non précisée pour le board ; 32 768 caractères pour les
-  propriétés de projet (spécification de la plateforme). Valeur lisible par toute l'équipe : rien de
-  personnel ni de sensible dedans. Format à partager avec l'app Mac.
-- [ ] **Propriété d'utilisateur dans Jira**, pour les réglages **personnels** d'une même personne
-  sur plusieurs postes (sans passer par Google) : `GET` / `PUT /rest/api/3/user/properties/{clé}`
-  (paramètre `accountId`) ; chacun lit et écrit **les siennes** (droit « accès à Jira »), seul un
-  administrateur Jira lit celles des autres. Invisible pour l'équipe : ne sert pas au partage.
-  Nouvelle écriture elle aussi.
-- Propriété de projet (`/rest/api/3/project/{clé}/properties/{clé}`) : écriture réservée aux
-  administrateurs du projet, et un projet peut avoir plusieurs boards ; moins adaptée que celle du
-  board.
-
-**Ce que Jira expose déjà sur le board** (lecture, API documentée) :
-`GET /rest/agile/1.0/board/{id}/configuration` → colonnes et leurs statuts, limites WIP `min` et
-`max`, type de contrainte (`constraintType` : en nombre de tickets ou en points), champ
-d'estimation, filtre du board, projet, champ de rang ; `/quickfilter` → filtres rapides ;
-`/features` → fonctionnalités activées (dont `SPRINTS`, `ESTIMATION`, `GOALS`). L'extension lit
-déjà colonnes, WIP `max`, estimation et filtres rapides. **Non exposés** par l'API documentée :
-couleurs des cartes, champs affichés sur les cartes, swimlanes, jours ouvrés du board — d'où les
-réglages locaux correspondants. Pistes nées de cette lecture :
-- [ ] Limite WIP **minimale** et contrainte **en points** (`constraintType`) : ni lues ni
-  appliquées aujourd'hui (le board compare toujours un nombre de tickets au `max`).
-- [ ] `features` : savoir si les Goals sont activés sur le board avant de proposer le mode Goals
-  Atlassian.
-- [ ] **Politique Chrome gérée** (`storage.managed`), si l'entreprise administre Chrome : l'IT pousse
-  une configuration en lecture seule. Demande un schéma dans le manifest et l'accord de l'IT ;
-  utile seulement pour un déploiement encadré.
-- Écarté : `storage.sync`, interdit par les règles du projet, et qui ne synchronise que les postes
-  d'**une même personne**, pas l'équipe.
-
-**À trancher.**
-
-- [ ] Partage ponctuel (fichier) ou partage vivant (Jira) ?
-- [ ] Qui a le droit de modifier la configuration d'équipe : tout le monde, ou un responsable ?
-- [ ] En cas de réglage local différent de celui de l'équipe : lequel l'emporte ?
-- [ ] Même format que l'app Mac, pour qu'un réglage fait sur l'un serve à l'autre ?
-
----
-
-## Déjà prévu : fin de l'étape 6
-
-- ~~6c — Déplacer une carte au clavier~~ : abandonné à la demande de Denis (19/09/2026).
-- [x] 6d — Audit de sécurité de l'extension : fait en 0.14.1, `docs/SECURITY-AUDIT.md`.
-- [ ] 6e — Empaquetage pour l'installation.
+Les essais contre le vrai Jira restent réalisés par Denis, conformément à `CLAUDE.md`.
+Les vérifications locales utilisent les faux services et le banc d'essai. Ne pas reconstruire
+`dist/` pendant ses essais ; utiliser un dossier de sortie temporaire si nécessaire.
