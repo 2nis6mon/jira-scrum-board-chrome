@@ -434,6 +434,11 @@ export class BoardModel {
     this.editingBoard.value = false;
   }
 
+  /** Recherche les boards Scrum accessibles sur le site connecté. */
+  searchBoards(name: string) {
+    return this.#client.searchBoards(name);
+  }
+
   /** Lit dans Jira la structure du board désigné par son adresse, l'enregistre, le synchronise. */
   async detect(urlText: string): Promise<void> {
     if (this.setupBusy.value) return;

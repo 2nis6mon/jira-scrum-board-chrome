@@ -9,7 +9,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.16.0 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
+> **État : 0.17.0 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
 > 0.14.0), plusieurs boards (6b), réglages d'équipe partagés par Jira, audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)).** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
@@ -62,7 +62,7 @@ inventaire des écritures, fuites possibles, constats et correctifs.
 1. Clic sur l'icône de l'extension : le board s'ouvre dans un onglet.
 2. Saisir l'adresse du site (`societe.atlassian.net`) et accepter la demande d'accès de Chrome.
    Il faut être connecté à Jira dans un onglet de ce navigateur.
-3. Coller l'adresse du board Jira (celle de la barre d'adresse quand le board est ouvert).
+3. Saisir tout ou partie du nom du board Scrum et sélectionner un des cinq premiers résultats accessibles. La saisie par adresse reste disponible en option.
 
 Le board affiche les tickets des **sprints actifs**, regroupés par objectif, puis *Build*
 (tickets sans objectif) et *RUN* (types classés RUN, présents dans le sprint). Un clic sur une
@@ -70,7 +70,7 @@ carte ouvre le ticket dans Jira, dans un nouvel onglet. La flèche ronde de l'en
 
 - **Barre latérale** (reprise de l'app Mac) : le board affiché et son menu — les boards
   enregistrés pour ce site (un clic bascule de l'un à l'autre, chacun avec ses réglages), l'ajout
-  d'un board par son adresse, l'ouverture dans Jira, la relecture des colonnes et types,
+  d'un board par son nom (ou son adresse), l'ouverture dans Jira, la relecture des colonnes et types,
   l'épinglage de Goals, et le retrait d'un board (après confirmation ; ses réglages dans ce
   navigateur sont effacés, rien dans Jira). Le dernier board affiché revient à l'ouverture ; la vue
   *Sprint* (les swimlanes, et la santé du sprint dans un panneau) ; les swimlanes dans l'ordre du
@@ -366,3 +366,12 @@ développement, jamais inclus dans `dist/`.
 - Le lien « Ouvrir le Goal » (0.14.1) : il n'est plus proposé que vers `atlassian.com` ou un
   sous-domaine d'Atlassian ; s'il disparaît sur vos Goals, l'API renvoie une adresse hors de ces
   domaines.
+
+### Recherche de boards et déconnexion (0.17.0)
+
+La recherche interroge le site connecté après une pause de 300 ms dans la saisie et affiche au
+maximum cinq boards Scrum. Jira filtre les résultats selon les droits de la session courante :
+[documentation de GET /rest/agile/1.0/board](https://developer.atlassian.com/cloud/jira/software/rest/api-group-board/#api-rest-agile-1-0-board-get).
+Le projet et l’identifiant distinguent les boards de même nom. Préciser la recherche pour trouver
+d’autres résultats. Une réponse ancienne est ignorée si la saisie change.
+La déconnexion demande confirmation avant de retirer l’accès au site et d’effacer ses réglages locaux.

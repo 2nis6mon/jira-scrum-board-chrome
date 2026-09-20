@@ -257,7 +257,7 @@ describe("barre latérale", () => {
   it("le menu du board permet d'en ajouter un par son adresse", async () => {
     await connectedBoard();
     expect(button("Relire colonnes et types depuis Jira")).toBeDefined();
-    button("Ajouter un board par son adresse…").click();
+    button("Ajouter un board…").click();
     await tick();
     expect(document.querySelector(".connection h2")?.textContent).toBe("Quel board afficher ?");
   });
@@ -533,7 +533,15 @@ describe("administration", () => {
     button("Diagnostic").click();
     await expect.poll(() => document.querySelectorAll(".probe").length).toBeGreaterThan(0);
 
+    const confirmation = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirmation);
     button("Se déconnecter").click();
+    await tick();
+    expect(document.querySelector(".sidebar")).not.toBeNull();
+    expect(confirmation).toHaveBeenCalledWith(expect.stringContaining("réglages"));
+    confirmation.mockReturnValue(true);
+    button("Se déconnecter").click();
+    vi.unstubAllGlobals();
     await expect.poll(() => document.querySelector("h2")?.textContent).toBe("Connexion à Jira");
     expect(document.querySelector(".sidebar")).toBeNull();
   });

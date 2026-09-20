@@ -240,6 +240,22 @@ progress::-webkit-progress-value {
   margin-bottom: -6px;
 }
 
+.board-search {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.connection details label {
+  display: block;
+  margin: 12px 0 6px;
+}
+
+.connection details .row {
+  margin-top: 12px;
+}
+
 .notes {
   padding-left: 18px;
   color: var(--ink-3);
@@ -1791,6 +1807,11 @@ select {
   border-radius: 6px;
   background: var(--surface);
   font: inherit;
+}
+
+.board-search select {
+  width: 100%;
+  min-width: 0;
 }
 
 .settings-warning {

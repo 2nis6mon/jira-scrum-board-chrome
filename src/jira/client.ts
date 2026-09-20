@@ -22,6 +22,12 @@ import {
   sprintPropertyPath,
 } from "./writes";
 
+export interface JiraBoardChoice {
+  readonly id: number;
+  readonly name: string;
+  readonly projectKey: string | null;
+}
+
 /** Champ Jira, tel que listé par `GET /rest/api/3/field`. */
 export interface JiraField {
   readonly id: string;
@@ -152,6 +158,35 @@ export class JiraClient {
       resource: "votre compte Jira",
     });
     return decodeUser(body) ?? decodingFailure("myself", "displayName absent");
+  }
+
+  /** Recherche native par nom, limitée aux cinq premiers boards Scrum accessibles.
+   * Paramètres vérifiés : developer.atlassian.com/cloud/jira/software/rest/api-group-board/
+   */
+  async searchBoards(name: string): Promise<JiraBoardChoice[]> {
+    if (!name.trim()) return [];
+    const { body } = await this.#transport.get("/rest/agile/1.0/board", {
+      query: { name: name.trim(), type: "scrum", startAt: "0", maxResults: "5" },
+      resource: "les boards accessibles",
+    });
+    if (!isRecord(body) || !Array.isArray(body.values)) decodingFailure("boards", "values absent");
+    return body.values.slice(0, 5).map((item) => {
+      if (
+        !isRecord(item) ||
+        typeof item.id !== "number" ||
+        !Number.isSafeInteger(item.id) ||
+        item.id <= 0 ||
+        typeof item.name !== "string"
+      ) {
+        return decodingFailure("boards", "identifiant ou nom absent");
+      }
+      const location = isRecord(item.location) ? item.location : {};
+      return {
+        id: item.id,
+        name: item.name,
+        projectKey: typeof location.projectKey === "string" ? location.projectKey : null,
+      };
+    });
   }
 
   async boardStructure(boardId: number): Promise<JiraBoardStructure> {

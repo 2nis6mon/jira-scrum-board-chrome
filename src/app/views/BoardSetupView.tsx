@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import type { BoardModel } from "../model/BoardModel";
+import { BoardSearch } from "./BoardSearch";
 import { ErrorMessage } from "./Message";
 
 export function BoardSetupView({ board }: { board: BoardModel }) {
@@ -17,30 +18,38 @@ export function BoardSetupView({ board }: { board: BoardModel }) {
         }}
       >
         <h2>Quel board afficher ?</h2>
-        <label for="board-url">Adresse de votre board Jira</label>
-        <input
-          id="board-url"
-          type="text"
-          inputMode="url"
-          autocomplete="off"
-          spellcheck={false}
-          placeholder={`${board.site.origin}/jira/software/c/projects/ABC/boards/123`}
-          value={url}
-          onInput={(event) => setUrl(event.currentTarget.value)}
-        />
-        <ErrorMessage message={board.setupError.value} />
-        <div class="row">
-          <button type="submit" class="primary grow" disabled={busy || url.trim() === ""}>
-            {busy ? "Lecture du board…" : "Afficher le board"}
-          </button>
-          {canCancel && (
-            <button type="button" onClick={() => board.cancelEdit()} disabled={busy}>
-              Annuler
+        <BoardSearch board={board} />
+        <details>
+          <summary>Utiliser une adresse de board</summary>
+          <label for="board-url">Adresse de votre board Jira</label>
+          <input
+            id="board-url"
+            type="text"
+            inputMode="url"
+            autocomplete="off"
+            spellcheck={false}
+            placeholder={`${board.site.origin}/jira/software/c/projects/ABC/boards/123`}
+            value={url}
+            onInput={(event) => setUrl(event.currentTarget.value)}
+          />
+
+          <div class="row">
+            <button type="submit" class="primary grow" disabled={busy || url.trim() === ""}>
+              {busy ? "Lecture du board…" : "Afficher le board"}
             </button>
-          )}
-        </div>
+          </div>
+        </details>
+        <ErrorMessage message={board.setupError.value} />
+        {canCancel && (
+          <button type="button" onClick={() => board.cancelEdit()} disabled={busy}>
+            Annuler
+          </button>
+        )}
         <ul class="notes">
-          <li>Copiez l'adresse affichée par Chrome quand votre board Jira est ouvert.</li>
+          <li>
+            Recherchez un board Scrum par son nom sur le site connecté. Jusqu’à cinq résultats sont
+            proposés ; précisez le nom pour affiner.
+          </li>
           <li>
             Colonnes, statuts, types de tickets et champ d'estimation sont lus dans Jira. Rien n'y
             est modifié.

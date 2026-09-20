@@ -67,7 +67,18 @@ export function AdminView({
         </button>
         <div class="settings-account">
           <span class="settings-site">{site.host}</span>
-          <button type="button" class="settings-signout" onClick={() => void model.disconnect()}>
+          <button
+            type="button"
+            class="settings-signout"
+            onClick={() => {
+              if (
+                window.confirm(
+                  `Se déconnecter de ${site.host} ?\n\nLes boards et leurs réglages enregistrés dans ce navigateur seront effacés et l’autorisation d’accès au site sera retirée. Rien ne sera modifié dans Jira.`,
+                )
+              )
+                void model.disconnect();
+            }}
+          >
             <Icon name="signOut" />
             Se déconnecter
           </button>

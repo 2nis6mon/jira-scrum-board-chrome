@@ -306,3 +306,34 @@ describe("filtres rapides du board", () => {
     });
   });
 });
+
+describe("recherche des boards", () => {
+  it("recherche par nom côté Jira et demande cinq boards Scrum maximum", async () => {
+    const jira = new FakeJira().on("GET", "/rest/agile/1.0/board", {
+      status: 200,
+      json: {
+        values: Array.from({ length: 8 }, (_, i) => ({
+          id: i + 1,
+          name: `Équipe ${i}`,
+          location: { projectKey: "ABC" },
+        })),
+      },
+    });
+    const results = await clientFor(jira).searchBoards("  équipe & mobile  ");
+    expect(results).toHaveLength(5);
+    expect(results[0]).toEqual({ id: 1, name: "Équipe 0", projectKey: "ABC" });
+    expect(Object.fromEntries(jira.requests[0]?.url.searchParams ?? [])).toEqual({
+      name: "équipe & mobile",
+      type: "scrum",
+      startAt: "0",
+      maxResults: "5",
+    });
+    expect(jira.requests).toHaveLength(1);
+  });
+  it("ne demande rien pour une saisie vide et remonte les refus de droits", async () => {
+    const jira = new FakeJira().on("GET", "/rest/agile/1.0/board", { status: 403 });
+    expect(await clientFor(jira).searchBoards("  ")).toEqual([]);
+    expect(jira.requests).toHaveLength(0);
+    await expect(clientFor(jira).searchBoards("Équipe")).rejects.toBeInstanceOf(JiraError);
+  });
+});

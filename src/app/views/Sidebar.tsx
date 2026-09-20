@@ -240,7 +240,7 @@ function BoardSwitcher(props: {
               })
             }
           >
-            Ajouter un board par son adresse…
+            Ajouter un board…
           </button>
           <hr class="menu-separator" />
           <a
@@ -319,7 +319,7 @@ function RemoveBoardDialog(props: {
         <p class="hint">
           Les réglages de ce board dans ce navigateur seront effacés : colonnes, types, objectifs du
           board, couleurs, ordre et repli des swimlanes, champs et règles de couleur des cartes.
-          Rien n'est supprimé dans Jira ; vous pourrez l'ajouter de nouveau par son adresse.
+          Rien n'est supprimé dans Jira ; vous pourrez l'ajouter de nouveau par son nom.
         </p>
         <div class="row">
           <button type="button" class="danger grow" onClick={props.onConfirm}>
