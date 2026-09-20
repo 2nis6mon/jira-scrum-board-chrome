@@ -247,15 +247,6 @@ progress::-webkit-progress-value {
   min-width: 0;
 }
 
-.connection details label {
-  display: block;
-  margin: 12px 0 6px;
-}
-
-.connection details .row {
-  margin-top: 12px;
-}
-
 .notes {
   padding-left: 18px;
   color: var(--ink-3);

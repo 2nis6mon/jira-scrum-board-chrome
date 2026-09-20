@@ -1,8 +1,8 @@
 {
   "name": "jira-scrum-board-chrome",
-  "version": "0.18.1",
+  "version": "0.18.2",
   "private": true,
-  "description": "Sprint Goals Board pour Jira : une swimlane par Sprint Goal, créée automatiquement sur le board Scrum",
+  "description": "Swimlanes automatiques par Sprint Goal pour les boards Scrum Jira uniquement. Les boards Kanban ne sont pas pris en charge.",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"

@@ -80,7 +80,7 @@ describe("App", () => {
     expect(platform.requested).toEqual([]);
   });
 
-  it("connecté sans board : demande l'adresse du board ; l'administration reste accessible", async () => {
+  it("connecté sans board : propose la recherche du board ; l'administration reste accessible", async () => {
     const model = new AppModel(fakePlatform(new FakeJira()));
     render(<App model={model} />, document.body);
     await model.connect("acme.atlassian.net");

@@ -151,7 +151,7 @@ function NavButton(props: {
 
 /**
  * Board affiché et son menu, repris du sélecteur de boards du Mac : les boards enregistrés pour ce
- * site (un clic bascule), l'ajout d'un board par son adresse, les actions du board affiché, et son
+ * site (un clic bascule), l'ajout d'un board par son nom, les actions du board affiché, et son
  * retrait de l'extension. Chaque board garde ses propres réglages dans ce navigateur.
  */
 function BoardSwitcher(props: {

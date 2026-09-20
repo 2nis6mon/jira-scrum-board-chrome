@@ -1,44 +1,16 @@
-import { useState } from "preact/hooks";
 import type { BoardModel } from "../model/BoardModel";
 import { BoardSearch } from "./BoardSearch";
 import { ErrorMessage } from "./Message";
 
 export function BoardSetupView({ board }: { board: BoardModel }) {
-  const [url, setUrl] = useState("");
   const canCancel = board.configuration.value !== null;
   const busy = board.setupBusy.value;
 
   return (
     <main class="centered">
-      <form
-        class="panel connection"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void board.detect(url);
-        }}
-      >
-        <h2>Quel board afficher ?</h2>
+      <section class="panel connection" aria-labelledby="board-setup-title">
+        <h2 id="board-setup-title">Quel board afficher ?</h2>
         <BoardSearch board={board} />
-        <details>
-          <summary>Utiliser une adresse de board</summary>
-          <label for="board-url">Adresse de votre board Jira</label>
-          <input
-            id="board-url"
-            type="text"
-            inputMode="url"
-            autocomplete="off"
-            spellcheck={false}
-            placeholder={`${board.site.origin}/jira/software/c/projects/ABC/boards/123`}
-            value={url}
-            onInput={(event) => setUrl(event.currentTarget.value)}
-          />
-
-          <div class="row">
-            <button type="submit" class="primary grow" disabled={busy || url.trim() === ""}>
-              {busy ? "Lecture du board…" : "Afficher le board"}
-            </button>
-          </div>
-        </details>
         <ErrorMessage message={board.setupError.value} />
         {canCancel && (
           <button type="button" onClick={() => board.cancelEdit()} disabled={busy}>
@@ -46,6 +18,12 @@ export function BoardSetupView({ board }: { board: BoardModel }) {
           </button>
         )}
         <ul class="notes">
+          <li>
+            <strong>
+              Cette extension est réservée aux boards Scrum. Les boards Kanban ne sont pas pris en
+              charge.
+            </strong>
+          </li>
           <li>
             Recherchez un board Scrum par son nom sur le site connecté. Jusqu’à cinq résultats sont
             proposés ; précisez le nom pour affiner.
@@ -55,7 +33,7 @@ export function BoardSetupView({ board }: { board: BoardModel }) {
             est modifié.
           </li>
         </ul>
-      </form>
+      </section>
     </main>
   );
 }

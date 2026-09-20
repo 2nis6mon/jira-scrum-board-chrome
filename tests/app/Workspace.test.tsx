@@ -254,7 +254,7 @@ describe("barre latérale", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
-  it("le menu du board permet d'en ajouter un par son adresse", async () => {
+  it("le menu du board permet d'en rechercher un par son nom", async () => {
     await connectedBoard();
     expect(button("Relire colonnes et types depuis Jira")).toBeDefined();
     button("Ajouter un board…").click();
