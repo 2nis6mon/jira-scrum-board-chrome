@@ -38,6 +38,7 @@ import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/d
 import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../../core/filters";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
 import { parentColors } from "../../core/parentColors";
+import { type PendingMove, withPendingMove } from "../../core/pendingMove";
 import { goalColorName, type SprintGoal } from "../../core/sprintGoals";
 import { sprintHealth } from "../../core/sprintHealth";
 import {
@@ -211,7 +212,11 @@ export class BoardModel {
 
   readonly filters = signal<BoardFilters>(NO_FILTERS);
 
-  /** Tickets dont une écriture est en cours : ils ne bougent pas avant la réponse de Jira. */
+  /** Position provisoire pendant le déplacement ; aucune mutation du snapshot confirmé. */
+  readonly pendingMove = signal<PendingMove | null>(null);
+  readonly moveFeedback = signal<{ issueKey: string; kind: "success" | "warning" } | null>(null);
+  #feedbackTimer: ReturnType<typeof setTimeout> | null = null;
+  #syncTask: Promise<void> | null = null;
   readonly pendingKeys = signal<ReadonlySet<string>>(new Set());
   readonly writeNotice = signal<WriteNotice | null>(null);
   readonly transitionChoice = signal<TransitionChoice | null>(null);
@@ -264,7 +269,10 @@ export class BoardModel {
     const snapshot = this.snapshot.value;
     const configuration = this.configuration.value;
     return snapshot && configuration
-      ? buildBoardLayout(snapshot, configuration, this.filters.value)
+      ? withPendingMove(
+          buildBoardLayout(snapshot, configuration, this.filters.value),
+          this.pendingMove.value,
+        )
       : null;
   });
 
@@ -487,17 +495,22 @@ export class BoardModel {
    */
   async sync(): Promise<void> {
     if (!this.configuration.value) return;
-    if (this.syncing.value) {
+    if (this.#syncTask) {
       this.#resyncRequested = true;
+      await this.#syncTask;
       return;
     }
     this.syncing.value = true;
-    try {
+    this.#syncTask = (async () => {
       do {
         this.#resyncRequested = false;
         await this.#syncOnce();
       } while (this.#resyncRequested);
+    })();
+    try {
+      await this.#syncTask;
     } finally {
+      this.#syncTask = null;
       this.syncing.value = false;
     }
   }
@@ -872,8 +885,17 @@ export class BoardModel {
         ? { kind: "none" as const }
         : this.#rankFor(input, column.id);
     if (isNoOpDrop(plan) && rank.kind === "none") return;
+    const generation = this.#generation;
+    this.#clearMoveFeedback();
+    this.pendingMove.value = {
+      issue,
+      block: input.block,
+      columnId: input.columnId,
+      beforeKey: input.beforeKey,
+    };
     this.#setPending(input.issueKey, true);
     this.writeNotice.value = null;
+    let finished = false;
     const completed: string[] = [];
     try {
       if (plan.changesColumn) {
@@ -888,6 +910,7 @@ export class BoardModel {
         completed.push("objectif modifié");
       }
       if (rank.kind !== "none") await this.#rank(issue, rank);
+      finished = this.writeNotice.peek() === null;
     } finally {
       const notice = this.writeNotice.peek();
       if (notice && completed.length > 0) {
@@ -898,8 +921,25 @@ export class BoardModel {
             "Le board est relu pour montrer l'état de Jira. Aucun retour arrière automatique n'est effectué.",
         };
       }
-      this.#setPending(input.issueKey, false);
-      if (!this.transitionChoice.value) await this.sync();
+      let refreshed = false;
+      try {
+        if (!this.transitionChoice.value) {
+          await this.sync();
+          refreshed = true;
+        }
+      } finally {
+        batch(() => {
+          this.pendingMove.value = null;
+          this.#setPending(input.issueKey, false);
+          if (generation === this.#generation && !this.transitionChoice.value) {
+            this.moveFeedback.value = {
+              issueKey: input.issueKey,
+              kind: finished && refreshed && !this.syncProblem.value ? "success" : "warning",
+            };
+            this.#feedbackTimer = setTimeout(() => this.#clearMoveFeedback(), 4000);
+          }
+        });
+      }
     }
   }
 
@@ -1596,7 +1636,15 @@ export class BoardModel {
     this.pendingKeys.value = next;
   }
 
+  #clearMoveFeedback(): void {
+    if (this.#feedbackTimer !== null) clearTimeout(this.#feedbackTimer);
+    this.#feedbackTimer = null;
+    this.moveFeedback.value = null;
+  }
+
   dispose(): void {
+    this.#clearMoveFeedback();
+    this.pendingMove.value = null;
     this.#generation += 1;
     this.#stopAutoRefresh();
     this.images.dispose();
@@ -1731,6 +1779,8 @@ export class BoardModel {
    * synchronisation encore en cours appartient à l'ancien board : son résultat sera ignoré.
    */
   #enterBoard(configuration: BoardConfiguration | null): void {
+    this.#clearMoveFeedback();
+    this.pendingMove.value = null;
     this.#generation += 1;
     batch(() => {
       this.configuration.value = configuration;

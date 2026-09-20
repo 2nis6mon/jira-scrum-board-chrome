@@ -1,12 +1,18 @@
 # TODO — Sprint Goals Board pour Jira
 
-Mis à jour le 20/09/2026 pour la version 0.17.0, après revue du code et précisions de Denis.
+Mis à jour le 20/09/2026 pour la version 0.18.0, après revue du code et précisions de Denis.
 Denis confirme utiliser la dernière version dans Chrome et que les fonctionnalités marchent.
 Ce retour ne constitue pas un relevé détaillé de chaque scénario testé sur son Jira.
 
 Les décisions confirmées, les travaux restants et les pistes facultatives sont séparés ci-dessous.
 L'ordre des travaux est une proposition ; les choix encore ouverts ne sont pas des autorisations
 à développer de nouvelles écritures Jira ou à changer les permissions.
+
+## Livré — 0.18.0
+
+- [x] Carte provisoire à destination pendant le déplacement et la relecture Jira.
+- [x] Repère de confirmation ou d’avertissement pendant quatre secondes ; état Jira conservé lors d’une réussite partielle.
+- [ ] Validation utilisateur de la lisibilité des repères sur un board réel.
 
 ## Livré — 0.17.0
 

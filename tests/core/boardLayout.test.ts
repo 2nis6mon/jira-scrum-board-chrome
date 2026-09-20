@@ -7,6 +7,7 @@ import {
   filterOptions,
 } from "../../src/core/boardLayout";
 import { focusGoal, NO_FILTERS } from "../../src/core/filters";
+import { withPendingMove } from "../../src/core/pendingMove";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
 import type { JiraIssue } from "../../src/jira/models";
 import { makeConfiguration, makeIssue } from "../support/jiraFixtures";
@@ -198,5 +199,47 @@ describe("daysRemaining", () => {
   it("traverse un changement d'heure sans décalage", () => {
     expect(daysRemaining(new Date(2026, 9, 26, 9, 0), new Date(2026, 9, 24, 9, 0))).toBe(2);
     expect(daysRemaining(new Date(2026, 2, 30, 9, 0), new Date(2026, 2, 28, 9, 0))).toBe(2);
+  });
+});
+
+describe("position provisoire d’un ticket", () => {
+  it("change de Goal et respecte la position d’insertion sans toucher aux données Jira", () => {
+    const board = snapshot(
+      [
+        makeIssue("ABC-1", { statusId: "1" }),
+        makeIssue("ABC-2", { statusId: "1" }),
+        makeIssue("ABC-3", { statusId: "1" }),
+      ],
+      [],
+      { "ABC-1": "g1", "ABC-2": "g2", "ABC-3": "g2" },
+    );
+    const layout = buildBoardLayout(board, config, NO_FILTERS);
+    const issue = board.scrumIssues[0];
+    if (!issue) throw new Error("ticket absent");
+    const projected = withPendingMove(layout, {
+      issue,
+      block: { kind: "goal", goalId: "g2" },
+      columnId: "todo",
+      beforeKey: "ABC-3",
+    });
+    expect(
+      projected.lanes
+        .find((lane) => lane.id === "goal:g2")
+        ?.cells[0]?.issues.map((item) => item.issue.key),
+    ).toEqual(["ABC-2", "ABC-1", "ABC-3"]);
+    expect(
+      projected.lanes
+        .flatMap((lane) => lane.cells.flatMap((cell) => cell.issues))
+        .filter((item) => item.issue.key === "ABC-1"),
+    ).toHaveLength(1);
+    expect(issue.goalId).toBe("g1");
+    expect(layout.lanes.find((lane) => lane.id === "goal:g1")?.cells[0]?.issues).toEqual([issue]);
+    const reordered = withPendingMove(layout, {
+      issue,
+      block: { kind: "goal", goalId: "g1" },
+      columnId: "todo",
+      beforeKey: null,
+    });
+    expect(reordered.lanes[0]?.cells[0]?.issues[0]?.issue.fields.status.id).toBe("1");
   });
 });

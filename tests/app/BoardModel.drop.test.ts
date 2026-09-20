@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BoardModel } from "../../src/app/model/BoardModel";
 import { BUILD_BLOCK, goalBlock, RUN_BLOCK } from "../../src/core/boardBlocks";
 import { normalizeSiteUrl } from "../../src/jira/site";
@@ -260,6 +260,8 @@ describe("glisser-déposer — rattachement à un objectif du texte du sprint", 
       PROPERTY,
     ]);
     expect(board.writeNotice.value?.text).toContain("Déjà effectué : statut modifié");
+    expect(board.moveFeedback.value?.kind).toBe("warning");
+    expect(board.pendingMove.value).toBeNull();
   });
 
   it("déposer dans le même bloc, même colonne, à la même place : rien n'est écrit", async () => {
@@ -529,4 +531,114 @@ describe("choix du statut et de la transition avant toute écriture", () => {
     expect(board.dragTransitions.value.kind).toBe("error");
     board.endDrag();
   });
+});
+
+describe("retour visuel du déplacement", () => {
+  const cellOf = (board: BoardModel, key: string) =>
+    board.layout.value?.lanes.flatMap((lane) =>
+      lane.cells
+        .filter((cell) => cell.issues.some((issue) => issue.issue.key === key))
+        .map((cell) => `${lane.id}/${cell.column.id}`),
+    );
+
+  it("projette une seule carte à destination sans modifier le snapshot et attend la relecture", async () => {
+    const { board, jira } = await boardWith();
+    jira
+      .on("GET", "/rest/api/3/issue/ABC-102", statusReply("1", "À faire"))
+      .on("GET", "/rest/api/3/issue/ABC-102/transitions", transitions(["21", "3", "En cours"]))
+      .on("POST", "/rest/api/3/issue/ABC-102/transitions", { status: 204 });
+    const snapshot = board.snapshot.value;
+    let release: () => void = () => {};
+    const sync = vi.spyOn(board, "sync").mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const moving = board.dropIssue({
+      issueKey: "ABC-102",
+      block: goalBlock("g-paiement"),
+      columnId: DOING,
+      beforeKey: null,
+    });
+    expect(cellOf(board, "ABC-102")).toEqual([`goal:g-paiement/${DOING}`]);
+    expect(board.snapshot.value).toBe(snapshot);
+    await expect.poll(() => sync.mock.calls.length).toBe(1);
+    expect(board.pendingKeys.value.has("ABC-102")).toBe(true);
+    expect(board.moveFeedback.value).toBeNull();
+    release();
+    await moving;
+    expect(board.pendingMove.value).toBeNull();
+    expect(board.pendingKeys.value.size).toBe(0);
+    expect(board.moveFeedback.value).toEqual({ issueKey: "ABC-102", kind: "success" });
+    board.dispose();
+    expect(board.moveFeedback.value).toBeNull();
+  });
+
+  it("restaure l’état relu après un refus et signale le déplacement incomplet", async () => {
+    const { board, jira } = await boardWith();
+    const origin = cellOf(board, "ABC-102");
+    jira
+      .on("GET", "/rest/api/3/issue/ABC-102", statusReply("1", "À faire"))
+      .on("GET", "/rest/api/3/issue/ABC-102/transitions", transitions(["21", "3", "En cours"]))
+      .on("POST", "/rest/api/3/issue/ABC-102/transitions", { status: 403 });
+    await board.dropIssue({
+      issueKey: "ABC-102",
+      block: goalBlock("g-paiement"),
+      columnId: DOING,
+      beforeKey: null,
+    });
+    expect(cellOf(board, "ABC-102")).toEqual(origin);
+    expect(board.moveFeedback.value?.kind).toBe("warning");
+    expect(board.writeNotice.value).not.toBeNull();
+    expect(board.pendingMove.value).toBeNull();
+    board.dispose();
+  });
+
+  it("ne laisse pas de projection pendant le choix d’une transition", async () => {
+    const { board, jira } = await boardWith();
+    jira
+      .on("GET", "/rest/api/3/issue/ABC-102", statusReply("1", "À faire"))
+      .on(
+        "GET",
+        "/rest/api/3/issue/ABC-102/transitions",
+        transitions(["21", "3", "En cours"], ["22", "3", "En cours"]),
+      );
+    await board.dropIssue({
+      issueKey: "ABC-102",
+      block: goalBlock("g-paiement"),
+      columnId: DOING,
+      beforeKey: null,
+    });
+    expect(board.transitionChoice.value).not.toBeNull();
+    expect(board.pendingMove.value).toBeNull();
+    expect(board.moveFeedback.value).toBeNull();
+    board.cancelTransitionChoice();
+    board.dispose();
+  });
+});
+
+it("retire le repère de déplacement après quatre secondes", async () => {
+  const { board, jira } = await boardWith();
+  jira
+    .on("GET", "/rest/api/3/issue/ABC-102", statusReply("1", "À faire"))
+    .on("GET", "/rest/api/3/issue/ABC-102/transitions", transitions(["21", "3", "En cours"]))
+    .on("POST", "/rest/api/3/issue/ABC-102/transitions", { status: 204 });
+  vi.useFakeTimers();
+  try {
+    await board.dropIssue({
+      issueKey: "ABC-102",
+      block: goalBlock("g-paiement"),
+      columnId: DOING,
+      beforeKey: null,
+    });
+    expect(board.moveFeedback.value?.kind).toBe("success");
+    vi.advanceTimersByTime(3999);
+    expect(board.moveFeedback.value).not.toBeNull();
+    vi.advanceTimersByTime(1);
+    expect(board.moveFeedback.value).toBeNull();
+  } finally {
+    board.dispose();
+    vi.useRealTimers();
+  }
 });

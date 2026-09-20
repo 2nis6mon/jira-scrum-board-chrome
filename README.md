@@ -9,7 +9,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.17.0 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
+> **État : 0.18.0 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
 > 0.14.0), plusieurs boards (6b), réglages d'équipe partagés par Jira, audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)).** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
@@ -375,3 +375,13 @@ maximum cinq boards Scrum. Jira filtre les résultats selon les droits de la ses
 Le projet et l’identifiant distinguent les boards de même nom. Préciser la recherche pour trouver
 d’autres résultats. Une réponse ancienne est ignorée si la saisie change.
 La déconnexion demande confirmation avant de retirer l’accès au site et d’effacer ses réglages locaux.
+
+### Repérage des déplacements (0.18.0)
+
+Pendant un déplacement, la carte apparaît provisoirement à destination avec un contour bleu et
+« Déplacement en cours… », jusqu’à la réponse et à la relecture de Jira. Les compteurs restent
+basés sur les données confirmées. Le choix éventuel d’une transition reste obligatoire.
+Après confirmation, un contour vert et « Confirmé par Jira » restent quatre secondes.
+Un refus ou une relecture impossible donne un repère orange « Déplacement à vérifier » et le
+message détaillé habituel. La projection est retirée : l’état relu dans Jira reprend la main.
+En cas de réussite partielle, les changements déjà acceptés ne sont pas annulés dans Jira.

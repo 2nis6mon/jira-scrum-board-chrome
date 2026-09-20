@@ -1019,6 +1019,11 @@ function LaneView(props: {
                           agingThresholdDays={configuration.agingThresholdDays}
                           goalTitle={hiddenGoal}
                           pending={board.pendingKeys.value.has(key)}
+                          feedback={
+                            board.moveFeedback.value?.issueKey === key
+                              ? board.moveFeedback.value.kind
+                              : undefined
+                          }
                           tint={board.cardColors.value[key] ?? null}
                           dragging={drag?.issueKey === key}
                           onDragStart={(event) => {

@@ -1223,7 +1223,34 @@ fieldset.filter-menu-panel {
 .card-pending {
   position: relative;
   pointer-events: none;
-  opacity: 0.7;
+  outline: 2px dashed #0c66e4;
+  outline-offset: -2px;
+}
+
+.card[data-move-feedback="success"] {
+  outline: 3px solid #21824a;
+  outline-offset: -3px;
+}
+
+.card[data-move-feedback="warning"] {
+  outline: 3px solid #ad6500;
+  outline-offset: -3px;
+}
+
+.card-move-label {
+  display: block;
+  padding: 3px 6px;
+  margin-bottom: 6px;
+  border-radius: 4px;
+  background: #dcfce7;
+  color: #14532d;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.card[data-move-feedback="warning"] .card-move-label {
+  background: #fff1cc;
+  color: #783f00;
 }
 
 .card-pending-label {

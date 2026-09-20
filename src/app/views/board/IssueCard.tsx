@@ -23,6 +23,7 @@ interface Props {
   goalTitle: string | null;
   /** Une écriture est en cours sur ce ticket : il attend la réponse de Jira. */
   pending?: boolean;
+  feedback?: "success" | "warning" | undefined;
   /** Couleur de fond donnée par une règle de couleur (nom de la palette). */
   tint?: string | null;
   dragging?: boolean;
@@ -54,6 +55,7 @@ export function IssueCard(props: Props) {
       href={browseUrl(props.siteOrigin, issue.issue.key)}
       target="_blank"
       rel="noopener noreferrer"
+      data-move-feedback={props.feedback}
       data-issue-key={issue.issue.key}
       data-card-color={props.tint ?? undefined}
       draggable={props.onDragStart !== undefined && !props.pending}
@@ -61,7 +63,12 @@ export function IssueCard(props: Props) {
       onDragEnd={props.onDragEnd}
       aria-busy={props.pending ? true : undefined}
     >
-      {props.pending && <span class="card-pending-label">Envoi à Jira…</span>}
+      {props.pending && <span class="card-pending-label">Déplacement en cours…</span>}
+      {props.feedback && (
+        <span class="card-move-label" role="status">
+          {props.feedback === "success" ? "Confirmé par Jira" : "Déplacement à vérifier"}
+        </span>
+      )}
       <div class="card-top">
         <JiraIcon
           url={fields.issuetype.iconUrl}
