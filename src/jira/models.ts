@@ -371,6 +371,10 @@ export function sprintActivated(sprint: JiraSprint): Date | null {
 // ─── Transitions ─────────────────────────────────────────────────────────────
 
 export interface JiraTransitionField {
+  readonly schema?: { type: string; items: string | null; custom: string | null };
+  readonly operations?: readonly string[];
+  readonly allowedValues?: readonly JsonValue[];
+  readonly defaultValue?: JsonValue;
   readonly required: boolean;
   readonly name: string | null;
   readonly hasDefaultValue: boolean | null;
@@ -639,6 +643,24 @@ export function decodeTransition(value: unknown): JiraTransition {
     for (const [id, field] of Object.entries(value.fields)) {
       if (!isRecord(field)) continue;
       fields[id] = {
+        ...(isRecord(field.schema) && typeof field.schema.type === "string"
+          ? {
+              schema: {
+                type: field.schema.type,
+                items: text(field.schema.items),
+                custom: text(field.schema.custom),
+              },
+            }
+          : {}),
+        operations: Array.isArray(field.operations)
+          ? field.operations.filter((item): item is string => typeof item === "string")
+          : [],
+        ...(Array.isArray(field.allowedValues)
+          ? { allowedValues: field.allowedValues as JsonValue[] }
+          : {}),
+        ...(field.defaultValue !== undefined
+          ? { defaultValue: field.defaultValue as JsonValue }
+          : {}),
         required: field.required === true,
         name: text(field.name),
         hasDefaultValue: typeof field.hasDefaultValue === "boolean" ? field.hasDefaultValue : null,

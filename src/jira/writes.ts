@@ -1,5 +1,6 @@
 import { ENTITY_PROPERTY_LIMIT_BYTES, JiraError } from "./errors";
 import type { JsonObject } from "./json";
+import { plainDocument } from "./transitionFields";
 
 /**
  * INVENTAIRE EXHAUSTIF des écritures REST de l'extension dans Jira.
@@ -21,7 +22,13 @@ export type JiraWrite =
   /** Réglages d'équipe du board, publiés par « Publier pour l'équipe ». Jira répond 200 ou 201. */
   | { kind: "boardProperty.put"; boardId: number; key: BoardPropertyKey; value: JsonObject }
   /** Transition de workflow, choisie parmi celles que Jira propose. Jira répond 204. */
-  | { kind: "issue.transition"; issueKey: string; transitionId: string }
+  | {
+      kind: "issue.transition";
+      issueKey: string;
+      transitionId: string;
+      fields?: JsonObject;
+      comment?: string;
+    }
   /** Rang du board (global) : juste avant, ou juste après, un autre ticket. 204 ou 207. */
   | { kind: "issue.rank"; issueKey: string; before: string }
   | { kind: "issue.rank"; issueKey: string; after: string };
@@ -114,7 +121,13 @@ export function buildWriteRequest(write: JiraWrite): WriteRequest {
       return {
         method: "POST",
         path: `/rest/api/3/issue/${write.issueKey}/transitions`,
-        body: JSON.stringify({ transition: { id: write.transitionId } }),
+        body: JSON.stringify({
+          transition: { id: write.transitionId },
+          ...(write.fields && Object.keys(write.fields).length ? { fields: write.fields } : {}),
+          ...(write.comment
+            ? { update: { comment: [{ add: { body: plainDocument(write.comment) } }] } }
+            : {}),
+        }),
         resource: `la transition de ${write.issueKey}`,
       };
     case "issue.rank": {

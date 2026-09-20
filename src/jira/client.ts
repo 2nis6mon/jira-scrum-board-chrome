@@ -303,6 +303,23 @@ export class JiraClient {
     );
   }
 
+  /** Valeurs actuelles des seuls champs exposés par l’écran de transition. */
+  async issueFields(
+    issueKey: string,
+    ids: readonly string[],
+  ): Promise<import("./json").JsonObject> {
+    assertIssueKey(issueKey);
+    const names = ids.filter((id) => id !== "comment");
+    if (!names.length) return {};
+    const { body } = await this.#transport.get(`/rest/api/3/issue/${issueKey}`, {
+      query: { fields: names.join(",") },
+      resource: "les champs de la transition",
+    });
+    if (!isRecord(body) || !isRecord(body.fields))
+      decodingFailure("champs de transition", "fields absent");
+    return body.fields as import("./json").JsonObject;
+  }
+
   /** Statut actuel d'un ticket dans Jira : relu juste avant une transition. */
   async issueStatus(issueKey: string): Promise<JiraStatus> {
     assertIssueKey(issueKey);

@@ -1,12 +1,18 @@
 # TODO — Sprint Goals Board pour Jira
 
-Mis à jour le 20/09/2026 pour la version 0.18.3, après revue du code et précisions de Denis.
+Mis à jour le 20/09/2026 pour la version 0.19.0, après revue du code et précisions de Denis.
 Denis confirme utiliser la dernière version dans Chrome et que les fonctionnalités marchent.
 Ce retour ne constitue pas un relevé détaillé de chaque scénario testé sur son Jira.
 
 Les décisions confirmées, les travaux restants et les pistes facultatives sont séparés ci-dessous.
 L'ordre des travaux est une proposition ; les choix encore ouverts ne sont pas des autorisations
 à développer de nouvelles écritures Jira ou à changer les permissions.
+
+## Livré — 0.19.0
+
+- [x] Formulaire de transition créé à partir des champs exposés par Jira, valeurs existantes conservées, validation explicite et erreurs par champ.
+- [x] Repli vers Jira pour les champs non pris en charge ; aucune relance d’écriture incertaine.
+- [ ] Validation utilisateur des écrans de transition sur les workflows réels.
 
 ## Livré — 0.18.3
 

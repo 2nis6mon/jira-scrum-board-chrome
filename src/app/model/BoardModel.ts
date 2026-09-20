@@ -54,6 +54,7 @@ import {
 import { JiraClient, type JiraField, type JiraQuickFilter } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import { GoalsClient } from "../../jira/goals";
+import type { JsonObject } from "../../jira/json";
 import {
   type AtlassianGoal,
   blockingRequiredFields,
@@ -61,6 +62,7 @@ import {
   type JiraUser,
 } from "../../jira/models";
 import { type JiraSite, parseBoardUrl } from "../../jira/site";
+import { type TransitionDraft, TransitionInputError } from "../../jira/transitionFields";
 import { JiraTransport } from "../../jira/transport";
 import { BOARD_PROPERTY_KEYS } from "../../jira/writes";
 import type { Platform } from "../platform/types";
@@ -95,6 +97,23 @@ export interface IssueDrop {
   readonly columnId: string;
   readonly beforeKey: string | null;
   readonly targetStatusId?: string;
+}
+
+interface TransitionSelection {
+  id: string;
+  knownStatusId: string;
+  draft?: TransitionDraft;
+}
+export interface TransitionForm {
+  readonly drop: IssueDrop;
+  readonly transition: JiraTransition;
+  readonly knownStatusId: string;
+  readonly current: JsonObject;
+  readonly draft: TransitionDraft;
+  readonly saving: boolean;
+  readonly error: UserMessage | null;
+  readonly fieldErrors: Readonly<Record<string, string>>;
+  readonly blocked: boolean;
 }
 
 export type DragTransitions =
@@ -219,6 +238,7 @@ export class BoardModel {
   #syncTask: Promise<void> | null = null;
   readonly pendingKeys = signal<ReadonlySet<string>>(new Set());
   readonly writeNotice = signal<WriteNotice | null>(null);
+  readonly transitionForm = signal<TransitionForm | null>(null);
   readonly transitionChoice = signal<TransitionChoice | null>(null);
   readonly dragging = signal<DragState | null>(null);
   readonly dragTransitions = signal<DragTransitions>({ kind: "loading" });
@@ -363,6 +383,7 @@ export class BoardModel {
   readonly canSwitchBoard = computed(
     () =>
       this.transitionChoice.value === null &&
+      this.transitionForm.value === null &&
       this.dragging.value === null &&
       !this.setupBusy.value &&
       this.pendingKeys.value.size === 0 &&
@@ -747,7 +768,8 @@ export class BoardModel {
   // ─── Glisser-déposer et écritures ─────────────────────────────────────────
 
   startDrag(issueKey: string, lane: "scrum" | "run"): void {
-    if (this.pendingKeys.value.size > 0 || this.transitionChoice.value) return;
+    if (this.pendingKeys.value.size > 0 || this.transitionChoice.value || this.transitionForm.value)
+      return;
     const snapshot = this.snapshot.value;
     if (!snapshot || !findIssue(snapshot, issueKey)) return;
     const drag = { issueKey, lane };
@@ -836,17 +858,15 @@ export class BoardModel {
   }
 
   /** Résout toute l'intention avant d'écrire : transition, objectif, puis rang. */
-  async dropIssue(
-    input: IssueDrop,
-    selection?: { id: string; knownStatusId: string },
-  ): Promise<void> {
+  async dropIssue(input: IssueDrop, selection?: TransitionSelection): Promise<void> {
     const snapshot = this.snapshot.value;
     const configuration = this.configuration.value;
     if (
       !snapshot ||
       !configuration ||
       this.pendingKeys.value.size > 0 ||
-      this.transitionChoice.value
+      this.transitionChoice.value ||
+      (this.transitionForm.value !== null && selection?.draft === undefined)
     )
       return;
     const issue = findIssue(snapshot, input.issueKey);
@@ -923,7 +943,7 @@ export class BoardModel {
       }
       let refreshed = false;
       try {
-        if (!this.transitionChoice.value) {
+        if (!this.transitionChoice.value && !this.transitionForm.value) {
           await this.sync();
           refreshed = true;
         }
@@ -934,6 +954,7 @@ export class BoardModel {
           if (
             generation === this.#generation &&
             !this.transitionChoice.value &&
+            !this.transitionForm.value &&
             !(finished && refreshed && !this.syncProblem.value)
           ) {
             this.moveFeedback.value = {
@@ -959,6 +980,47 @@ export class BoardModel {
         knownStatusId: choice.knownStatusId,
       },
     );
+  }
+
+  changeTransitionField(id: string, value: string | string[]): void {
+    const form = this.transitionForm.value;
+    if (!form || form.saving || form.blocked || !Object.hasOwn(form.transition.fields, id)) return;
+    this.transitionForm.value = {
+      ...form,
+      draft: { ...form.draft, [id]: value },
+      fieldErrors: { ...form.fieldErrors, [id]: "" },
+    };
+  }
+
+  async submitTransitionForm(): Promise<void> {
+    const form = this.transitionForm.value;
+    if (!form || form.saving || form.blocked || this.pendingKeys.value.size) return;
+    this.transitionForm.value = { ...form, saving: true, error: null, fieldErrors: {} };
+    try {
+      await this.dropIssue(form.drop, {
+        id: form.transition.id,
+        knownStatusId: form.knownStatusId,
+        draft: form.draft,
+      });
+    } finally {
+      const remaining = this.transitionForm.value;
+      if (remaining)
+        this.transitionForm.value = {
+          ...remaining,
+          saving: false,
+          ...(remaining.error
+            ? {}
+            : this.writeNotice.value
+              ? { error: this.writeNotice.value, blocked: true }
+              : {}),
+        };
+    }
+  }
+
+  cancelTransitionForm(): void {
+    if (this.transitionForm.value?.saving) return;
+    this.transitionForm.value = null;
+    this.writeNotice.value = null;
   }
 
   cancelTransitionChoice(): void {
@@ -1273,8 +1335,9 @@ export class BoardModel {
     issue: BoardIssue,
     column: { name: string; statusIds: readonly string[] },
     drop: IssueDrop,
-    selection?: { id: string; knownStatusId: string },
+    selection?: TransitionSelection,
   ): Promise<boolean> {
+    const generation = this.#generation;
     const issueKey = issue.issue.key;
     const from = issue.issue.fields.status.name;
     let outcome: MoveOutcome;
@@ -1283,15 +1346,33 @@ export class BoardModel {
         issueKey,
         knownStatusId: selection?.knownStatusId ?? issue.issue.fields.status.id,
         targetStatusIds: drop.targetStatusId ? [drop.targetStatusId] : column.statusIds,
-        ...(selection ? { transitionId: selection.id } : {}),
+        ...(selection
+          ? { transitionId: selection.id, ...(selection.draft ? { draft: selection.draft } : {}) }
+          : {}),
       });
     } catch (error) {
+      const form = this.transitionForm.peek();
+      if (form) {
+        const fieldErrors =
+          error instanceof TransitionInputError
+            ? error.fields
+            : error instanceof JiraError && error.info.kind === "badRequest"
+              ? error.info.fieldErrors
+              : {};
+        const blocked = !(
+          error instanceof TransitionInputError ||
+          (error instanceof JiraError && error.info.kind === "badRequest")
+        );
+        this.transitionForm.value = { ...form, error: toMessage(error), fieldErrors, blocked };
+        if (blocked) await this.sync();
+      }
       await this.#fail("transition", issueKey, column.name, error);
       return false;
     }
 
     switch (outcome.kind) {
       case "moved":
+        this.transitionForm.value = null;
         await this.#record({
           action: "transition",
           issueKey,
@@ -1319,25 +1400,33 @@ export class BoardModel {
           outcome: "échec",
           detail: "conflit : statut modifié dans Jira",
         });
+        if (this.transitionForm.value) await this.sync();
         return false;
-      case "requiresFields":
-        this.writeNotice.value = {
-          tone: "error",
-          text: `La transition « ${outcome.transition.name} » de ${issueKey} est à compléter dans Jira${outcome.fields.length ? ` : ${outcome.fields.join(", ")}` : " (écran de transition)"}.`,
-          suggestion:
-            "Faites ce changement dans Jira : l'extension ne remplit volontairement aucun champ de ticket.",
-          sessionLost: false,
-          issueKey,
+      case "requiresFields": {
+        let current: JsonObject = {};
+        let error: UserMessage | null = null;
+        try {
+          current = await this.#client.issueFields(
+            issueKey,
+            Object.keys(outcome.transition.fields),
+          );
+        } catch (reason) {
+          error = toMessage(reason);
+        }
+        if (generation !== this.#generation) return false;
+        this.transitionForm.value = {
+          drop,
+          transition: outcome.transition,
+          knownStatusId: issue.issue.fields.status.id,
+          current,
+          draft: {},
+          saving: false,
+          error,
+          fieldErrors: {},
+          blocked: error !== null,
         };
-        await this.#record({
-          action: "transition",
-          issueKey,
-          from,
-          to: column.name,
-          outcome: "échec",
-          detail: `champs exigés : ${outcome.fields.join(", ")}`,
-        });
         return false;
+      }
       case "noTransition":
         this.writeNotice.value = {
           tone: "error",
@@ -1649,6 +1738,7 @@ export class BoardModel {
   dispose(): void {
     this.#clearMoveFeedback();
     this.pendingMove.value = null;
+    this.transitionForm.value = null;
     this.#generation += 1;
     this.#stopAutoRefresh();
     this.images.dispose();
@@ -1738,6 +1828,7 @@ export class BoardModel {
     this.#autoRefreshTimer = setInterval(() => {
       const busy =
         this.transitionChoice.value !== null ||
+        this.transitionForm.value !== null ||
         this.dragging.value !== null ||
         this.draggingLane.value !== null ||
         this.pendingKeys.value.size > 0 ||
@@ -1785,6 +1876,7 @@ export class BoardModel {
   #enterBoard(configuration: BoardConfiguration | null): void {
     this.#clearMoveFeedback();
     this.pendingMove.value = null;
+    this.transitionForm.value = null;
     this.#generation += 1;
     batch(() => {
       this.configuration.value = configuration;
@@ -1799,6 +1891,7 @@ export class BoardModel {
       this.goalsWarnings.value = [];
       this.writeNotice.value = null;
       this.transitionChoice.value = null;
+      this.transitionForm.value = null;
       this.dragging.value = null;
       this.dropTarget.value = null;
       this.draggingLane.value = null;

@@ -1,6 +1,6 @@
 {
   "name": "jira-scrum-board-chrome",
-  "version": "0.18.3",
+  "version": "0.19.0",
   "private": true,
   "description": "Swimlanes automatiques par Sprint Goal pour les boards Scrum Jira uniquement. Les boards Kanban ne sont pas pris en charge.",
   "type": "module",
@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "verify:transition": "node scripts/verify-transition.mjs",
     "verify:drag": "node scripts/verify-drag.mjs",
     "verify:load": "npm run build && node scripts/verify-load.mjs",
     "harness": "vite --config vite.harness.config.ts"

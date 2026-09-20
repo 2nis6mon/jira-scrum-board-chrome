@@ -2,6 +2,7 @@ import type { JiraClient } from "../jira/client";
 import { JiraError } from "../jira/errors";
 import { isRecord, type JsonObject, type JsonValue } from "../jira/json";
 import type { JiraStatus, JiraTransition } from "../jira/models";
+import { type TransitionDraft, transitionInput } from "../jira/transitionFields";
 import { resolveTransition } from "../jira/transitionPlanner";
 import type { JiraTransport } from "../jira/transport";
 import { SPRINT_PROPERTY_KEYS } from "../jira/writes";
@@ -21,7 +22,10 @@ import {
 // sert à vérifier que Jira est toujours dans l'état affiché.
 
 /** Lectures dont les écritures ont besoin. `JiraClient` les fournit. */
-export type WriteReader = Pick<JiraClient, "issueStatus" | "transitions" | "sprintProperty">;
+export type WriteReader = Pick<
+  JiraClient,
+  "issueStatus" | "issueFields" | "transitions" | "sprintProperty"
+>;
 /** Seule porte d'écriture : l'inventaire fermé de `writes.ts`. */
 export type JiraWriter = Pick<JiraTransport, "write">;
 
@@ -56,6 +60,7 @@ export async function moveToColumn(
     knownStatusId: string;
     targetStatusIds: readonly string[];
     transitionId?: string;
+    draft?: TransitionDraft;
   },
 ): Promise<MoveOutcome> {
   const currentStatus = await reader.issueStatus(input.issueKey);
@@ -67,6 +72,25 @@ export async function moveToColumn(
     input.targetStatusIds,
     input.transitionId ? transitions.filter((t) => t.id === input.transitionId) : transitions,
   );
+  if (
+    input.draft &&
+    input.transitionId &&
+    (resolution.kind === "requiresFields" || resolution.kind === "ready")
+  ) {
+    const transition = resolution.transition;
+    const current = await reader.issueFields(input.issueKey, Object.keys(transition.fields));
+    const values = transitionInput(transition, input.draft, current);
+    // La lecture des champs a pu prendre du temps : revalide le statut avant l’unique envoi.
+    const latest = await reader.issueStatus(input.issueKey);
+    if (latest.id !== input.knownStatusId) return { kind: "conflict", currentStatus: latest };
+    await writer.write({
+      kind: "issue.transition",
+      issueKey: input.issueKey,
+      transitionId: transition.id,
+      ...values,
+    });
+    return { kind: "moved", transition };
+  }
   switch (resolution.kind) {
     case "alreadyInTargetColumn":
       return { kind: "alreadyThere" };

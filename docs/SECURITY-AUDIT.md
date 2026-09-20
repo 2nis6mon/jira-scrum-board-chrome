@@ -62,7 +62,7 @@ Il n'existe **aucune autre écriture** que celles-ci.
 
 | # | Opération | Appel | Geste de l'utilisateur |
 |---|---|---|---|
-| E1 | Changer le statut d'un ticket | `POST /rest/api/3/issue/{clé}/transitions`, corps `{"transition":{"id"}}` | Déposer une carte dans une autre colonne ; choisir une transition dans la fenêtre proposée quand aucune n'est directe |
+| E1 | Changer le statut d'un ticket | `POST /rest/api/3/issue/{clé}/transitions`, corps `{"transition":{"id"}}`, avec `fields` et `update.comment` si formulaire validé (0.19.0) | Déposer une carte dans une autre colonne ; choisir une transition dans la fenêtre proposée quand aucune n'est directe |
 | E2 | Classer un ticket (rang du board) | `PUT /rest/agile/1.0/issue/rank` | Déposer une carte au-dessus d'une autre |
 | E3 | Rattacher un ticket à un Goal | mutation `goals_linkWorkItem` | Déposer une carte dans la swimlane d'un Goal |
 | E4 | Détacher un ticket de son Goal | mutation `goals_unlinkWorkItem` | Déposer une carte dans *Build* ; implicite avant E3 quand le ticket change de Goal |
@@ -105,7 +105,7 @@ Les autres `POST` sont des lectures :
   répond pas, l'issue est notée « incertaine » et l'extension relit Jira.
 - E1 : le ticket est relu avant la transition. Si son statut a changé dans Jira, rien n'est
   écrit. Seules les transitions proposées par Jira sont utilisées, jamais enchaînées. Une
-  transition qui exige des champs est refusée.
+  transition avec écran demande un formulaire explicite (0.19.0) ; les champs non pris en charge ne sont pas écrits.
 - E3/E4 : si le détachement de l'ancien Goal échoue, rien de plus n'est tenté. C'est l'équivalent
   du correctif C4 du Mac.
 - E5/E6 : la propriété est relue avant chaque écriture.
@@ -328,3 +328,19 @@ validée le 18/09/2026, après le diagnostic sur votre instance. Ne jamais l'él
 | — | Deux garde-fous dans `tests/guards/sources.test.ts` : tout `target="_blank"` porte `rel="noopener noreferrer"` ; aucun lien n'est formé directement à partir de `atlassianUrl`. |
 
 Aucune écriture, permission, hôte ni relâchement de CSP nouveau.
+
+## Extension E1 — écrans de transition (0.19.0)
+
+Demande explicite de Denis : gérer automatiquement les champs des transitions dans l’outil.
+Même endpoint E1, aucun nouveau droit/hôte : les champs modifiés et le commentaire éventuel
+sont envoyés dans l’unique POST de transition. Aucun PUT de ticket ni POST de commentaire séparé.
+Les champs autorisés, leurs opérations et leurs choix sont relus juste avant l’envoi. Les types
+inconnus et widgets tiers ne sont pas sérialisés. Les champs de structure (statut, projet, type,
+parent, sprint, sécurité, temps de travail) sont exclus de ce formulaire.
+Le statut est revalidé après la lecture des champs. Aucun champ non modifié n’est renvoyé.
+Le commentaire est encodé en ADF de texte, jamais en HTML. Toutes les étiquettes et erreurs sont
+rendues comme texte par Preact ; aucune URL de métadonnées n’est suivie.
+Brouillon en mémoire ; le journal ne contient pas les valeurs saisies. En cas de résultat réseau
+incertain, relecture sans nouvelle écriture, nouvelle soumission bloquée. Annuler avant validation
+n’effectue aucune écriture. Une transition déjà acceptée n’est pas rejouée si le changement de
+Goal ou de rang échoue ensuite. Tests : transitionFields, BoardModel.drop et verify:transition.

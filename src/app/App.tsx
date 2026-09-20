@@ -57,7 +57,7 @@ function Workspace({
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       // Une fenêtre ouverte (choix de transition, épinglage…) se referme d'abord : elle écoute Échap.
-      if (document.querySelector('[role="dialog"]')) return;
+      if (document.querySelector('[role="dialog"], dialog[open]')) return;
       // Un menu ouvert se referme d'abord.
       const menu = document.querySelector<HTMLDetailsElement>("details[open]");
       if (menu) {

@@ -30,6 +30,7 @@ import { placeFloatingMenu } from "./floatingMenu";
 import { IssueCard } from "./IssueCard";
 import { LANE_DRAG_TYPE, revealLane } from "./lanes";
 import { PinGoalsDialog } from "./PinGoalsDialog";
+import { TransitionFormDialog } from "./TransitionFormDialog";
 
 export function BoardView({
   board,
@@ -74,6 +75,7 @@ export function BoardView({
         />
       )}
       <TransitionChoiceDialog board={board} />
+      <TransitionFormDialog board={board} />
       <PinGoalsDialog board={board} />
       {snapshot === null ? (
         !board.syncProblem.value && <p class="board-empty">Lecture du board dans Jira…</p>
@@ -128,7 +130,7 @@ function TransitionChoiceDialog({ board }: { board: BoardModel }) {
               >
                 <strong>{transition.name}</strong> → {transition.to.name}
                 {(transition.hasScreen || blockingRequiredFields(transition).length > 0) && (
-                  <span class="hint"> · À compléter dans Jira</span>
+                  <span class="hint"> · Formulaire à compléter</span>
                 )}
               </button>
             </li>
@@ -985,7 +987,7 @@ function LaneView(props: {
                         <strong>{status.name}</strong>
                         <span>
                           {status.inJira
-                            ? "À compléter dans Jira"
+                            ? "Formulaire à compléter"
                             : "Déposer pour choisir ce statut"}
                         </span>
                       </div>

@@ -570,7 +570,7 @@ describe("zones de dépôt par statut", () => {
         zone.getAttribute("data-status-id"),
       ),
     ).toEqual(["3", "4"]);
-    expect(cell?.textContent).toContain("À compléter dans Jira");
+    expect(cell?.textContent).toContain("Formulaire à compléter");
     expect(
       document
         .querySelector('ul[aria-label="Finaliser le parcours de paiement — Terminé"]')

@@ -11,7 +11,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.18.3 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
+> **État : 0.19.0 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
 > 0.14.0), plusieurs boards (6b), réglages d'équipe partagés par Jira, audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)).** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
@@ -409,3 +409,28 @@ rouge pendant quatre secondes, avec le message détaillé conservé dans le boar
 
 `npm run verify:drag` contrôle les vrais gestes Chrome sur le premier Goal, le deuxième Goal
 et Build, avec le Jira fictif du banc d’essai et un profil navigateur temporaire vierge.
+
+### Écrans de transition (0.19.0)
+
+Quand Jira expose un écran de transition, une fenêtre affiche ses champs avant toute écriture.
+Les valeurs existantes et les valeurs par défaut lisibles sont préremplies. Seules les valeurs
+modifiées sont envoyées avec la transition, après « Valider la transition ». Annuler ne change
+ni le statut, ni le Goal, ni le rang. Après confirmation du statut, le reste du déplacement reprend.
+
+Types pris en charge : texte, nombres, dates, date/heure, texte multiligne, labels, commentaire,
+choix simples ou multiples lorsque Jira fournit la liste des valeurs (résolution, versions,
+composants, utilisateurs, etc.). Le texte riche existant est conservé s’il n’est pas modifié ;
+sa saisie de remplacement produit un document ADF en texte simple. Les widgets tiers, les listes
+en cascade et les recherches distantes d’utilisateurs ne sont pas reproduits : leur présence
+est signalée et un lien ouvre le ticket Jira. Un champ obligatoire non pris en charge et sans
+valeur existante/par défaut bloque l’envoi.
+
+Le statut, les métadonnées et les valeurs actuelles sont relus à la validation. Les erreurs
+renvoyées par Jira restent affichées avec la saisie conservée. Une écriture à l’issue incertaine
+n’est jamais rejouée ; le formulaire bloque une nouvelle soumission et le board est relu.
+Les validateurs dont Jira n’expose pas les règles peuvent encore refuser l’envoi.
+Aucune permission supplémentaire. Brouillon en mémoire seulement, sans stockage local.
+
+Contrôle navigateur : `npm run verify:transition` (Jira fictif et profil Chrome vierge).
+API : [Get transitions / Transition issue](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/),
+`expand=transitions.fields`, envoi de `fields` et `update.comment` dans le POST de transition.

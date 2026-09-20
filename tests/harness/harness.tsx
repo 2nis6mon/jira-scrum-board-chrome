@@ -343,6 +343,69 @@ if (scenario.startsWith("board")) {
       });
     }
   }
+  if (scenario === "board-form") {
+    const submitted: unknown[] = [];
+    Object.assign(window, { __transitionProbe: submitted });
+    jira.on("GET", "/rest/api/3/issue/ABC-102", () => ({
+      status: 200,
+      json: {
+        fields: {
+          status: statusJson(moved?.id ?? "1", moved?.name ?? "À faire"),
+          summary: "Résumé existant",
+        },
+      },
+    }));
+    jira.on("GET", "/rest/api/3/issue/ABC-102/transitions", {
+      status: 200,
+      json: {
+        transitions: [
+          {
+            id: "21",
+            name: "Démarrer",
+            hasScreen: true,
+            to: statusJson("3", "En cours"),
+            fields: {
+              summary: {
+                name: "Résumé",
+                required: true,
+                operations: ["set"],
+                schema: { type: "string" },
+              },
+              resolution: {
+                name: "Résolution",
+                required: true,
+                operations: ["set"],
+                schema: { type: "resolution" },
+                allowedValues: [
+                  { id: "1", name: "Résolu" },
+                  { id: "2", name: "Annulé" },
+                ],
+              },
+              comment: {
+                name: "Commentaire",
+                required: false,
+                operations: ["add"],
+                schema: { type: "array" },
+              },
+              customfield_123: {
+                name: "Widget tiers",
+                required: new URLSearchParams(location.search).has("unsupported"),
+                operations: ["set"],
+                schema: { type: "string", custom: "test:widget" },
+              },
+            },
+          },
+        ],
+      },
+    });
+    jira.on("POST", "/rest/api/3/issue/ABC-102/transitions", (request) => {
+      submitted.push(request.body);
+      if (submitted.length === 1)
+        return { status: 400, json: { errors: { resolution: "Refus du validateur de test" } } };
+      moved = { id: "3", name: "En cours" };
+      return { status: 204 };
+    });
+  }
   const model = new AppModel(fakePlatform(jira));
   if (container) render(<App model={model} />, container);
   await model.connect("acme.atlassian.net");
