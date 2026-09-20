@@ -223,7 +223,7 @@ if (scenario.startsWith("board")) {
           ]
         : [],
   });
-  const decorated = (issue: Record<string, unknown>) => {
+  const decorated = (issue: Record<string, unknown>): Record<string, unknown> => {
     const extras = cardExtras[issue.key as string];
     const withHistory = { ...issue, changelog: changelog(issue.key as string) };
     return extras
@@ -297,6 +297,51 @@ if (scenario.startsWith("board")) {
       status: 200,
       json: { values: [], isLast: true },
     });
+  }
+  // Régression navigateur : des transitions réelles du point de vue de l’interface,
+  // sur plusieurs swimlanes. Les écritures ne touchent que cette mémoire de test.
+  if (scenario === "board-drag-regression") {
+    const changed = new Set<string>();
+    jira.on("GET", "/rest/agile/1.0/sprint/42/issue", () => ({
+      status: 200,
+      json: {
+        issues: issues().map((item) =>
+          changed.has(String(item.key))
+            ? {
+                ...item,
+                fields: {
+                  ...(item.fields as Record<string, unknown>),
+                  status: statusJson("3", "En cours"),
+                },
+              }
+            : item,
+        ),
+        total: issues().length,
+      },
+    }));
+    for (const key of ["ABC-102", "ABC-103", "ABC-105"]) {
+      jira.on("GET", `/rest/api/3/issue/${key}`, () => ({
+        status: 200,
+        json: {
+          fields: {
+            status: statusJson(changed.has(key) ? "3" : key === "ABC-103" ? "6" : "1", "Statut"),
+          },
+        },
+      }));
+      jira.on("GET", `/rest/api/3/issue/${key}/transitions`, {
+        status: 200,
+        json: {
+          transitions: [
+            { id: "21", name: "Démarrer", to: statusJson("3", "En cours"), isAvailable: true },
+            { id: "23", name: "Relire", to: statusJson("4", "Revue"), isAvailable: true },
+          ],
+        },
+      });
+      jira.on("POST", `/rest/api/3/issue/${key}/transitions`, () => {
+        changed.add(key);
+        return { status: 204 };
+      });
+    }
   }
   const model = new AppModel(fakePlatform(jira));
   if (container) render(<App model={model} />, container);

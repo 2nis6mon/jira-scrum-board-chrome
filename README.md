@@ -11,7 +11,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.18.2 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
+> **État : 0.18.3 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
 > 0.14.0), plusieurs boards (6b), réglages d'équipe partagés par Jira, audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)).** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
@@ -383,8 +383,8 @@ La déconnexion demande confirmation avant de retirer l’accès au site et d’
 Pendant un déplacement, la carte apparaît provisoirement à destination avec un contour bleu et
 « Déplacement en cours… », jusqu’à la réponse et à la relecture de Jira. Les compteurs restent
 basés sur les données confirmées. Le choix éventuel d’une transition reste obligatoire.
-Après confirmation, un contour vert et « Confirmé par Jira » restent quatre secondes.
-Un refus ou une relecture impossible donne un repère orange « Déplacement à vérifier » et le
+Après confirmation, la carte reprend son apparence habituelle (depuis 0.18.3).
+Un refus ou une relecture impossible donne un repère rouge « Déplacement à vérifier » et le
 message détaillé habituel. La projection est retirée : l’état relu dans Jira reprend la main.
 En cas de réussite partielle, les changements déjà acceptés ne sont pas annulés dans Jira.
 
@@ -397,3 +397,15 @@ et Échap referme la liste. Le champ conserve le focus pendant la navigation.
 ### Sélection des boards (0.18.2)
 
 L’ajout d’un board se fait uniquement par la recherche avec autocomplétion. La saisie d’URL a été retirée.
+
+### Glisser-déposer dans toutes les swimlanes (0.18.3)
+
+Les zones de statut et les messages d’indisponibilité se superposent aux colonnes sans agrandir
+les lignes pendant le geste. Cela empêche les cartes des swimlanes suivantes de se décaler sous
+le pointeur au démarrage du glissement. Si les statuts dépassent la hauteur disponible, leur
+liste défile à l’intérieur de la colonne.
+Le repère vert et son message de réussite sont supprimés. Seul un problème affiche un repère
+rouge pendant quatre secondes, avec le message détaillé conservé dans le board.
+
+`npm run verify:drag` contrôle les vrais gestes Chrome sur le premier Goal, le deuxième Goal
+et Build, avec le Jira fictif du banc d’essai et un profil navigateur temporaire vierge.

@@ -25,10 +25,6 @@ export function BoardSetupView({ board }: { board: BoardModel }) {
             </strong>
           </li>
           <li>
-            Recherchez un board Scrum par son nom sur le site connecté. Jusqu’à cinq résultats sont
-            proposés ; précisez le nom pour affiner.
-          </li>
-          <li>
             Colonnes, statuts, types de tickets et champ d'estimation sont lus dans Jira. Rien n'y
             est modifié.
           </li>

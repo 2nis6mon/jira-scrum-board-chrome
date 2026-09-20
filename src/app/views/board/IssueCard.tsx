@@ -23,7 +23,7 @@ interface Props {
   goalTitle: string | null;
   /** Une écriture est en cours sur ce ticket : il attend la réponse de Jira. */
   pending?: boolean;
-  feedback?: "success" | "warning" | undefined;
+  feedback?: "warning" | undefined;
   /** Couleur de fond donnée par une règle de couleur (nom de la palette). */
   tint?: string | null;
   dragging?: boolean;
@@ -66,7 +66,7 @@ export function IssueCard(props: Props) {
       {props.pending && <span class="card-pending-label">Déplacement en cours…</span>}
       {props.feedback && (
         <span class="card-move-label" role="status">
-          {props.feedback === "success" ? "Confirmé par Jira" : "Déplacement à vérifier"}
+          Déplacement à vérifier
         </span>
       )}
       <div class="card-top">

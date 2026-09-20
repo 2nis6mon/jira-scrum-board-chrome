@@ -900,11 +900,6 @@ function LaneView(props: {
                 key={cell.column.id}
                 aria-label={`${lane.title} — ${cell.column.name}`}
                 class={`lane-cell${droppable || statusZones ? " lane-cell-droppable" : ""}${targeted ? " lane-cell-target" : ""}${unavailable ? " lane-cell-unavailable" : ""}${statusZones ? " lane-cell-statuses" : ""}`}
-                style={
-                  statusZones
-                    ? { minHeight: `${Math.max(160, destination.statuses.length * 78 + 10)}px` }
-                    : undefined
-                }
                 aria-disabled={unavailable || undefined}
                 onDragOver={(event) => {
                   const current = board.dragging.value;

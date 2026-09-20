@@ -1,12 +1,19 @@
 # TODO — Sprint Goals Board pour Jira
 
-Mis à jour le 20/09/2026 pour la version 0.18.2, après revue du code et précisions de Denis.
+Mis à jour le 20/09/2026 pour la version 0.18.3, après revue du code et précisions de Denis.
 Denis confirme utiliser la dernière version dans Chrome et que les fonctionnalités marchent.
 Ce retour ne constitue pas un relevé détaillé de chaque scénario testé sur son Jira.
 
 Les décisions confirmées, les travaux restants et les pistes facultatives sont séparés ci-dessous.
 L'ordre des travaux est une proposition ; les choix encore ouverts ne sont pas des autorisations
 à développer de nouvelles écritures Jira ou à changer les permissions.
+
+## Livré — 0.18.3
+
+- [x] Retirer le texte redondant sous la recherche de boards.
+- [x] Retirer le repère vert et le message de réussite ; conserver le repère rouge en cas de problème.
+- [x] Stabiliser les swimlanes pendant le glissement ; régression vérifiée avec de vrais gestes Chrome depuis deux Goals et Build.
+- [ ] Validation utilisateur du correctif de glisser-déposer sur Jira réel.
 
 ## Livré — 0.18.2
 

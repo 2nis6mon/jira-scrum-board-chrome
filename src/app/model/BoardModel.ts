@@ -214,7 +214,7 @@ export class BoardModel {
 
   /** Position provisoire pendant le déplacement ; aucune mutation du snapshot confirmé. */
   readonly pendingMove = signal<PendingMove | null>(null);
-  readonly moveFeedback = signal<{ issueKey: string; kind: "success" | "warning" } | null>(null);
+  readonly moveFeedback = signal<{ issueKey: string; kind: "warning" } | null>(null);
   #feedbackTimer: ReturnType<typeof setTimeout> | null = null;
   #syncTask: Promise<void> | null = null;
   readonly pendingKeys = signal<ReadonlySet<string>>(new Set());
@@ -931,10 +931,14 @@ export class BoardModel {
         batch(() => {
           this.pendingMove.value = null;
           this.#setPending(input.issueKey, false);
-          if (generation === this.#generation && !this.transitionChoice.value) {
+          if (
+            generation === this.#generation &&
+            !this.transitionChoice.value &&
+            !(finished && refreshed && !this.syncProblem.value)
+          ) {
             this.moveFeedback.value = {
               issueKey: input.issueKey,
-              kind: finished && refreshed && !this.syncProblem.value ? "success" : "warning",
+              kind: "warning",
             };
             this.#feedbackTimer = setTimeout(() => this.#clearMoveFeedback(), 4000);
           }

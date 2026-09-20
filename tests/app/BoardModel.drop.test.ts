@@ -570,7 +570,7 @@ describe("retour visuel du déplacement", () => {
     await moving;
     expect(board.pendingMove.value).toBeNull();
     expect(board.pendingKeys.value.size).toBe(0);
-    expect(board.moveFeedback.value).toEqual({ issueKey: "ABC-102", kind: "success" });
+    expect(board.moveFeedback.value).toBeNull();
     board.dispose();
     expect(board.moveFeedback.value).toBeNull();
   });
@@ -623,7 +623,7 @@ it("retire le repère de déplacement après quatre secondes", async () => {
   jira
     .on("GET", "/rest/api/3/issue/ABC-102", statusReply("1", "À faire"))
     .on("GET", "/rest/api/3/issue/ABC-102/transitions", transitions(["21", "3", "En cours"]))
-    .on("POST", "/rest/api/3/issue/ABC-102/transitions", { status: 204 });
+    .on("POST", "/rest/api/3/issue/ABC-102/transitions", { status: 403 });
   vi.useFakeTimers();
   try {
     await board.dropIssue({
@@ -632,7 +632,7 @@ it("retire le repère de déplacement après quatre secondes", async () => {
       columnId: DOING,
       beforeKey: null,
     });
-    expect(board.moveFeedback.value?.kind).toBe("success");
+    expect(board.moveFeedback.value?.kind).toBe("warning");
     vi.advanceTimersByTime(3999);
     expect(board.moveFeedback.value).not.toBeNull();
     vi.advanceTimersByTime(1);

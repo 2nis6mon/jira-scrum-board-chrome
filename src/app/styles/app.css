@@ -341,7 +341,7 @@ progress::-webkit-progress-value {
 }
 
 .conclusion-ok {
-  color: #14532d;
+  color: #8c1c13;
   background: #e3f5e9;
 }
 
@@ -1218,13 +1218,8 @@ fieldset.filter-menu-panel {
   outline-offset: -2px;
 }
 
-.card[data-move-feedback="success"] {
-  outline: 3px solid #21824a;
-  outline-offset: -3px;
-}
-
 .card[data-move-feedback="warning"] {
-  outline: 3px solid #ad6500;
+  outline: 3px solid #c9372c;
   outline-offset: -3px;
 }
 
@@ -1233,15 +1228,10 @@ fieldset.filter-menu-panel {
   padding: 3px 6px;
   margin-bottom: 6px;
   border-radius: 4px;
-  background: #dcfce7;
-  color: #14532d;
+  background: #ffeceb;
+  color: #8c1c13;
   font-size: 11px;
   font-weight: 600;
-}
-
-.card[data-move-feedback="warning"] .card-move-label {
-  background: #fff1cc;
-  color: #783f00;
 }
 
 .card-pending-label {
@@ -3137,17 +3127,22 @@ details.lane-menu:not([data-placed]) .menu-panel {
   opacity: 0.3;
 }
 .drop-unavailable-message {
-  padding: 12px 8px;
+  position: absolute;
+  inset: 5px;
+  z-index: 2;
+  pointer-events: none;
+  overflow: auto;
+  padding: 8px;
   color: var(--text-muted, #5e6675);
   font-size: 12px;
-}
-.lane-cell-statuses {
-  min-height: 160px;
 }
 .lane-cell-statuses > .lane-item {
   opacity: 0.25;
 }
+/* Les indications ne changent jamais la hauteur des lignes pendant le glissement.
+   Sinon une carte des lignes suivantes se déplace sous le pointeur dès dragstart. */
 .status-drop-zones {
+  overflow-y: auto;
   position: absolute;
   inset: 5px;
   z-index: 2;
@@ -3156,7 +3151,7 @@ details.lane-menu:not([data-placed]) .menu-panel {
   gap: 6px;
 }
 .status-drop-zone {
-  flex: 1;
+  flex: 1 0 auto;
   min-height: 48px;
   display: flex;
   flex-direction: column;
