@@ -23,6 +23,7 @@ function setup(searchBoards: (query: string) => Promise<JiraBoardChoice[]>) {
   if (!input) throw new Error("champ absent");
   return {
     detect,
+    input,
     type: (value: string) => {
       input.value = value;
       input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -37,13 +38,12 @@ it("diffère la recherche et ouvre le board choisi par son identifiant", async (
   await tick();
   type("Paiement");
   expect(search).not.toHaveBeenCalled();
-  await expect.poll(() => document.querySelectorAll("option").length).toBe(2);
+  await expect.poll(() => document.querySelectorAll('[role="option"]').length).toBe(1);
   expect(search).toHaveBeenCalledTimes(1);
   expect(search).toHaveBeenCalledWith("Paiement");
-  const select = document.querySelector("select");
-  if (!select) throw new Error("liste absente");
-  select.value = "42";
-  select.dispatchEvent(new Event("change", { bubbles: true }));
+  const option = document.querySelector<HTMLButtonElement>('[role="option"]');
+  if (!option) throw new Error("suggestion absente");
+  option.click();
   expect(detect).toHaveBeenCalledWith(
     "https://acme.atlassian.net/secure/RapidBoard.jspa?rapidView=42",
   );
@@ -66,7 +66,7 @@ it("ignore les réponses anciennes et affiche les résultats vides", async () =>
   await expect.poll(() => document.body.textContent).toContain("Aucun board Scrum");
   resolveOld([{ id: 1, name: "ancien", projectKey: null }]);
   await tick();
-  expect(document.querySelector("select")).toBeNull();
+  expect(document.querySelector('[role="listbox"]')).toBeNull();
 });
 it("affiche les erreurs et efface les résultats après suppression du texte", async () => {
   const { type } = setup(async () => {
@@ -78,4 +78,36 @@ it("affiche les erreurs et efface les résultats après suppression du texte", a
   type("");
   await tick();
   expect(document.body.textContent).not.toContain("Session expirée");
+});
+
+it("ouvre les suggestions sous le champ et permet le choix au clavier", async () => {
+  const { type, input, detect } = setup(async () =>
+    Array.from({ length: 7 }, (_, index) => ({
+      id: index + 1,
+      name: `Équipe ${index}`,
+      projectKey: null,
+    })),
+  );
+  await tick();
+  type("Équipe");
+  await expect.poll(() => document.querySelectorAll('[role="option"]').length).toBe(5);
+  expect(input.getAttribute("aria-expanded")).toBe("true");
+  const key = async (value: string) => {
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true }),
+    );
+    await tick();
+  };
+  await key("ArrowDown");
+  await key("ArrowDown");
+  expect(input.getAttribute("aria-activedescendant")).toBe("board-result-1");
+  await key("Escape");
+  expect(document.querySelector('[role="listbox"]')).toBeNull();
+  await key("Enter");
+  expect(detect).not.toHaveBeenCalled();
+  await key("ArrowUp");
+  await key("Enter");
+  expect(detect).toHaveBeenCalledWith(
+    "https://acme.atlassian.net/secure/RapidBoard.jspa?rapidView=5",
+  );
 });

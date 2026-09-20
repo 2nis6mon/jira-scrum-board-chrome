@@ -1836,9 +1836,55 @@ select {
   font: inherit;
 }
 
-.board-search select {
+.board-autocomplete {
+  position: relative;
+}
+
+.board-autocomplete input {
   width: 100%;
+  box-sizing: border-box;
+}
+
+.board-suggestions {
+  position: absolute;
+  inset: 100% 0 auto;
+  z-index: 10;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 16%);
+}
+
+.board-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  height: auto;
+  min-height: 42px;
+  padding: 8px;
+  text-align: left;
+  border: 0;
+  white-space: normal;
+}
+
+.board-suggestion[aria-selected="true"] {
+  background: var(--sidebar);
+  box-shadow: inset 3px 0 var(--in-progress);
+}
+
+.board-suggestion-name {
+  overflow-wrap: anywhere;
   min-width: 0;
+}
+
+.board-suggestion-meta {
+  flex-shrink: 0;
+  color: var(--ink-3);
+  font-size: 11px;
 }
 
 .settings-warning {

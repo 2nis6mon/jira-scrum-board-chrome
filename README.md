@@ -9,7 +9,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.18.0 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
+> **État : 0.18.1 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
 > 0.14.0), plusieurs boards (6b), réglages d'équipe partagés par Jira, audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)).** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
@@ -385,3 +385,9 @@ Après confirmation, un contour vert et « Confirmé par Jira » restent quatre 
 Un refus ou une relecture impossible donne un repère orange « Déplacement à vérifier » et le
 message détaillé habituel. La projection est retirée : l’état relu dans Jira reprend la main.
 En cas de réussite partielle, les changements déjà acceptés ne sont pas annulés dans Jira.
+
+### Autocomplétion des boards (0.18.1)
+
+Les cinq premières suggestions apparaissent directement sous le champ pendant la saisie.
+Un clic choisit le board ; au clavier, les flèches parcourent les suggestions, Entrée valide
+et Échap referme la liste. Le champ conserve le focus pendant la navigation.
