@@ -677,6 +677,12 @@ describe("écran de transition dynamique", () => {
                 operations: ["add"],
                 schema: { type: "array" },
               },
+              worklog: {
+                name: "Log work",
+                required: false,
+                operations: ["add"],
+                schema: { type: "array", items: "worklog" },
+              },
             },
           },
         ],
@@ -734,10 +740,14 @@ describe("écran de transition dynamique", () => {
   it("ne rejoue jamais une écriture à l’issue incertaine", async () => {
     const { board, jira, writes } = await prepareForm();
     board.changeTransitionField("resolution", '{"id":"1"}');
+    board.changeTransitionField("worklog", "45m");
     jira.on("POST", path, { networkError: "connexion coupée après envoi" });
     await board.submitTransitionForm();
     expect(board.transitionForm.value?.blocked).toBe(true);
     expect(writes()).toHaveLength(1);
+    expect(writes()[0]?.body).toMatchObject({
+      update: { worklog: [{ add: { timeSpent: "45m" } }] },
+    });
     await board.submitTransitionForm();
     expect(writes()).toHaveLength(1);
     board.dispose();

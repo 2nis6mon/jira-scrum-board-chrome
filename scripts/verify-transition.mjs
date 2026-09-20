@@ -106,7 +106,7 @@ try {
   assert(
     await evaluate(
       sessionId,
-      "document.querySelector('#transition-field-summary').value === 'Résumé existant' && window.__transitionProbe.length === 0",
+      "document.querySelector('#transition-field-summary').value === 'Résumé existant' && document.querySelector('#transition-field-customfield_18742').value === '3' && document.querySelector('#transition-field-worklog').value === '' && window.__transitionProbe.length === 0",
     ),
     "Préremplissage sans écriture",
   );
@@ -137,6 +137,8 @@ try {
     `(()=>{
     const select=document.querySelector('#transition-field-resolution');select.value='{"id":"1"}';select.dispatchEvent(new Event('change',{bubbles:true}));
     const comment=document.querySelector('#transition-field-comment');comment.value='Validation effectuée';comment.dispatchEvent(new Event('input',{bubbles:true}));
+    const points=document.querySelector('#transition-field-customfield_18742');points.value='2,5';points.dispatchEvent(new Event('input',{bubbles:true}));
+    const worklog=document.querySelector('#transition-field-worklog');worklog.value='1h 30m';worklog.dispatchEvent(new Event('input',{bubbles:true}));
   })()`,
   );
   await sleep(100);
@@ -145,7 +147,7 @@ try {
   assert(
     await evaluate(
       sessionId,
-      "document.querySelector('dialog').textContent.includes('Refus du validateur') && document.querySelector('#transition-field-comment').value === 'Validation effectuée' && window.__transitionProbe.length === 1",
+      "document.querySelector('dialog').textContent.includes('Refus du validateur') && document.querySelector('#transition-field-comment').value === 'Validation effectuée' && document.querySelector('#transition-field-worklog').value === '1h 30m' && document.querySelector('#transition-field-customfield_18742').value === '2,5' && window.__transitionProbe.length === 1",
     ),
     "Le refus doit conserver le formulaire et ses valeurs",
   );
@@ -161,9 +163,13 @@ try {
   );
   assert(
     result.requests[1].fields.resolution.id === "1" &&
+      result.requests[1].fields.customfield_18742 === 2.5 &&
+      result.requests[1].update.worklog[0].add.timeSpent === "1h 30m" &&
+      typeof result.requests[1].update.worklog[0].add.started === "string" &&
+      !("worklog" in result.requests[1].fields) &&
       !("summary" in result.requests[1].fields) &&
       result.requests[1].update.comment[0].add.body.type === "doc",
-    "Valeurs et commentaire envoyés dans la seule transition, sans écraser le résumé",
+    "Story Points, temps et commentaire envoyés dans la seule transition, sans écraser le résumé",
   );
   console.log(
     "✓ Formulaire Chrome : préremplissage, annulation, champ obligatoire, refus Jira, conservation de saisie et réussite",

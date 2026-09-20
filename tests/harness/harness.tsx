@@ -352,6 +352,7 @@ if (scenario.startsWith("board")) {
         fields: {
           status: statusJson(moved?.id ?? "1", moved?.name ?? "À faire"),
           summary: "Résumé existant",
+          customfield_18742: 3,
         },
       },
     }));
@@ -380,6 +381,21 @@ if (scenario.startsWith("board")) {
                   { id: "1", name: "Résolu" },
                   { id: "2", name: "Annulé" },
                 ],
+              },
+              customfield_18742: {
+                name: "Story Points",
+                required: true,
+                operations: ["set"],
+                schema: {
+                  type: "number",
+                  custom: "com.atlassian.jira.plugin.system.customfieldtypes:float",
+                },
+              },
+              worklog: {
+                name: "Log work",
+                required: true,
+                operations: ["add"],
+                schema: { type: "array", items: "worklog" },
               },
               comment: {
                 name: "Commentaire",

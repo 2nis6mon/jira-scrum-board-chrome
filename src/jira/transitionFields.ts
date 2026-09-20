@@ -10,6 +10,7 @@ export type FieldKind =
   | "datetime-local"
   | "select"
   | "multiple"
+  | "duration"
   | "unsupported";
 export interface FieldChoice {
   label: string;
@@ -19,6 +20,7 @@ export interface FieldChoice {
 /** Types standards seulement ; les widgets d’applications tierces restent dans Jira. */
 export function fieldKind(id: string, field: JiraTransitionField): FieldKind {
   if (id === "comment") return field.operations?.includes("add") ? "textarea" : "unsupported";
+  if (id === "worklog") return field.operations?.includes("add") ? "duration" : "unsupported";
   if (!field.operations?.includes("set") || !field.schema) return "unsupported";
   if (
     [
@@ -28,7 +30,7 @@ export function fieldKind(id: string, field: JiraTransitionField): FieldKind {
       "parent",
       "sprint",
       "security",
-      "worklog",
+      "timespent",
       "timetracking",
     ].includes(id)
   )
@@ -100,15 +102,26 @@ export function hasFieldValue(value: JsonValue | undefined): boolean {
   );
 }
 
+/** Unités explicites : Jira interprète lui-même les jours et semaines selon sa configuration. */
+export function workDuration(value: string): string | null {
+  const normalized = value.trim().toLowerCase();
+  if (!/^(?:\d+w\s*)?(?:\d+d\s*)?(?:\d+h\s*)?(?:\d+m\s*)?$/.test(normalized)) return null;
+  const amounts = normalized.match(/\d+/g) ?? [];
+  if (!amounts.length || !amounts.some((part) => Number(part) > 0)) return null;
+  if (amounts.some((part) => !Number.isSafeInteger(Number(part)))) return null;
+  return normalized;
+}
+
 /** Seules les valeurs explicitement modifiées sont envoyées. Le reste est conservé par Jira. */
 export function transitionInput(
   transition: JiraTransition,
   draft: TransitionDraft,
   current: JsonObject,
-): { fields: JsonObject; comment?: string } {
+): { fields: JsonObject; comment?: string; timeSpent?: string } {
   const fields: JsonObject = {};
   const errors: Record<string, string> = {};
   let comment: string | undefined;
+  let timeSpent: string | undefined;
   for (const id of Object.keys(draft))
     if (!Object.hasOwn(transition.fields, id))
       errors[id] =
@@ -118,7 +131,8 @@ export function transitionInput(
     const value = draft[id];
     const present = value !== undefined;
     const empty = Array.isArray(value) ? value.length === 0 : !value?.trim();
-    const existing = id === "comment" ? undefined : current[id];
+    const additive = id === "comment" || id === "worklog";
+    const existing = additive ? undefined : current[id];
     const hasExisting = hasFieldValue(existing);
     if (kind === "unsupported") {
       if (present || (field.required && !hasExisting && !field.hasDefaultValue))
@@ -126,13 +140,13 @@ export function transitionInput(
       continue;
     }
     if (!present) {
-      if (field.required && !hasExisting && !field.hasDefaultValue)
+      if (field.required && !hasExisting && (additive || !field.hasDefaultValue))
         errors[id] = "Champ obligatoire.";
       continue;
     }
     if (empty) {
       if (field.required) errors[id] = "Champ obligatoire.";
-      else if (id !== "comment") fields[id] = field.schema?.type === "array" ? [] : null;
+      else if (!additive) fields[id] = field.schema?.type === "array" ? [] : null;
       continue;
     }
     if (kind === "multiple" || kind === "select") {
@@ -150,9 +164,16 @@ export function transitionInput(
             : (JSON.parse(selected[0] ?? "null") as JsonValue);
     } else if (typeof value !== "string") errors[id] = "Valeur invalide.";
     else if (id === "comment") comment = value;
-    else if (kind === "number") {
-      if (!Number.isFinite(Number(value))) errors[id] = "Nombre invalide.";
-      else fields[id] = Number(value);
+    else if (kind === "duration") {
+      const duration = workDuration(value);
+      if (!duration)
+        errors[id] = "Saisissez une durée positive avec ses unités, par exemple 1h 30m.";
+      else timeSpent = duration;
+    } else if (kind === "number") {
+      const number = value.trim().replace(",", ".");
+      if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(number) || !Number.isFinite(Number(number)))
+        errors[id] = "Nombre invalide.";
+      else fields[id] = Number(number);
     } else if (kind === "date") {
       if (
         !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
@@ -172,7 +193,11 @@ export function transitionInput(
     else fields[id] = kind === "textarea" ? plainDocument(value) : value;
   }
   if (Object.keys(errors).length) throw new TransitionInputError(errors);
-  return { fields, ...(comment !== undefined ? { comment } : {}) };
+  return {
+    fields,
+    ...(comment !== undefined ? { comment } : {}),
+    ...(timeSpent !== undefined ? { timeSpent } : {}),
+  };
 }
 
 /** Préremplissage lisible ; les documents riches non triviaux ne sont pas aplatis silencieusement. */
@@ -181,7 +206,7 @@ export function initialValue(
   field: JiraTransitionField,
   current: JsonObject,
 ): string | string[] {
-  if (id === "comment") return "";
+  if (id === "comment" || id === "worklog") return "";
   const value = current[id] ?? field.defaultValue;
   const kind = fieldKind(id, field);
   const allowed = choices(field);

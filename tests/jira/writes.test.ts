@@ -117,6 +117,50 @@ describe("inventaire des écritures", () => {
 });
 
 describe("transition et rang", () => {
+  it("envoie points, commentaire et temps dans la même transition sans écraser le cumul", () => {
+    const request = buildWriteRequest({
+      kind: "issue.transition",
+      issueKey: "ABC-12",
+      transitionId: "31",
+      fields: { customfield_18742: 5 },
+      comment: "Fait",
+      timeSpent: "1h 30m",
+    });
+    expect(request.path).toBe("/rest/api/3/issue/ABC-12/transitions");
+    expect(JSON.parse(request.body ?? "")).toEqual({
+      transition: { id: "31" },
+      fields: { customfield_18742: 5 },
+      update: {
+        comment: [
+          {
+            add: {
+              body: {
+                type: "doc",
+                version: 1,
+                content: [{ type: "paragraph", content: [{ type: "text", text: "Fait" }] }],
+              },
+            },
+          },
+        ],
+        worklog: [
+          {
+            add: {
+              timeSpent: "1h 30m",
+              started: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T.*\+0000$/),
+            },
+          },
+        ],
+      },
+    });
+    expect(() =>
+      buildWriteRequest({
+        kind: "issue.transition",
+        issueKey: "ABC-12",
+        transitionId: "31",
+        timeSpent: "-3h",
+      }),
+    ).toThrow(JiraError);
+  });
   it("transition : POST du seul identifiant de transition", () => {
     const request = buildWriteRequest({
       kind: "issue.transition",

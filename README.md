@@ -11,7 +11,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.19.0 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
+> **État : 0.19.1 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
 > 0.14.0), plusieurs boards (6b), réglages d'équipe partagés par Jira, audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)).** Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
@@ -434,3 +434,18 @@ Aucune permission supplémentaire. Brouillon en mémoire seulement, sans stockag
 Contrôle navigateur : `npm run verify:transition` (Jira fictif et profil Chrome vierge).
 API : [Get transitions / Transition issue](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/),
 `expand=transitions.fields`, envoi de `fields` et `update.comment` dans le POST de transition.
+
+
+Depuis la 0.19.1, les **Story Points** utilisent le champ numérique identifié par les métadonnées
+Jira (sans imposer son identifiant). Valeur actuelle préremplie, décimales avec point ou virgule.
+Le **temps passé** est saisissable quand la transition expose `worklog` avec l’opération `add` :
+« Temps passé à ajouter », par exemple `1h 30m`. Cette durée ajoute une entrée au journal de
+travail, datée au moment de la validation ; elle ne remplace pas le cumul existant. Les unités
+`w`, `d`, `h`, `m` sont explicites et Jira applique ses réglages de jours/semaines. Le reste à
+faire suit le comportement de Jira ; l’extension n’impose pas un ajustement d’estimation.
+Le journal existant ne préremplit jamais une nouvelle durée. Un temps obligatoire doit être
+saisi même si le ticket contient déjà des heures. Un champ facultatif laissé vide n’est pas écrit.
+Points, commentaire et `update.worklog` sont envoyés dans le même POST de transition ; aucun
+appel séparé n’ajoute du temps avant la transition. En cas de réponse perdue, aucune relance
+pour éviter un doublon. Les champs calculés (`timespent`) et le widget d’estimations
+`timetracking` ne sont pas assimilés à une saisie de temps passé.

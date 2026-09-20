@@ -57,7 +57,7 @@ export function TransitionFormDialog({ board }: { board: BoardModel }) {
           return (
             <div key={id} class="transition-field">
               <label for={kind === "unsupported" ? undefined : inputId}>
-                {field.name ?? id}
+                {kind === "duration" ? "Temps passé à ajouter" : (field.name ?? id)}
                 {field.required ? " *" : ""}
               </label>
               {kind === "unsupported" ? (
@@ -118,8 +118,9 @@ export function TransitionFormDialog({ board }: { board: BoardModel }) {
               ) : (
                 <input
                   id={inputId}
-                  type={kind}
-                  step={kind === "number" ? "any" : undefined}
+                  type={kind === "duration" || kind === "number" ? "text" : kind}
+                  inputMode={kind === "number" ? "decimal" : undefined}
+                  placeholder={kind === "duration" ? "Ex. : 1h 30m" : undefined}
                   disabled={locked}
                   value={typeof value === "string" ? value : ""}
                   aria-required={field.required}
@@ -127,6 +128,13 @@ export function TransitionFormDialog({ board }: { board: BoardModel }) {
                   aria-describedby={errors ? `${inputId}-error` : undefined}
                   onInput={(event) => change(event.currentTarget.value)}
                 />
+              )}
+              {kind === "duration" && (
+                <p class="hint">
+                  Ajoute du temps au journal de travail, daté du moment de la validation. Unités : w
+                  (semaine), d (jour), h (heure), m (minute). Les jours et semaines suivent les
+                  réglages Jira ; le reste à faire suit son comportement habituel.
+                </p>
               )}
               {errors && (
                 <p id={`${inputId}-error`} class="transition-field-error" role="alert">

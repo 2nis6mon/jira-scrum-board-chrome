@@ -1,6 +1,6 @@
 import { ENTITY_PROPERTY_LIMIT_BYTES, JiraError } from "./errors";
 import type { JsonObject } from "./json";
-import { plainDocument } from "./transitionFields";
+import { plainDocument, workDuration } from "./transitionFields";
 
 /**
  * INVENTAIRE EXHAUSTIF des écritures REST de l'extension dans Jira.
@@ -28,6 +28,7 @@ export type JiraWrite =
       transitionId: string;
       fields?: JsonObject;
       comment?: string;
+      timeSpent?: string;
     }
   /** Rang du board (global) : juste avant, ou juste après, un autre ticket. 204 ou 207. */
   | { kind: "issue.rank"; issueKey: string; before: string }
@@ -111,6 +112,8 @@ export function buildWriteRequest(write: JiraWrite): WriteRequest {
       };
     case "issue.transition":
       assertIssueKey(write.issueKey);
+      if (write.timeSpent !== undefined && !workDuration(write.timeSpent))
+        throw new JiraError({ kind: "decoding", context: "temps passé", detail: "durée invalide" });
       if (!/^\d+$/.test(write.transitionId)) {
         throw new JiraError({
           kind: "decoding",
@@ -124,8 +127,26 @@ export function buildWriteRequest(write: JiraWrite): WriteRequest {
         body: JSON.stringify({
           transition: { id: write.transitionId },
           ...(write.fields && Object.keys(write.fields).length ? { fields: write.fields } : {}),
-          ...(write.comment
-            ? { update: { comment: [{ add: { body: plainDocument(write.comment) } }] } }
+          ...(write.comment || write.timeSpent
+            ? {
+                update: {
+                  ...(write.comment
+                    ? { comment: [{ add: { body: plainDocument(write.comment) } }] }
+                    : {}),
+                  ...(write.timeSpent
+                    ? {
+                        worklog: [
+                          {
+                            add: {
+                              timeSpent: write.timeSpent,
+                              started: new Date().toISOString().replace("Z", "+0000"),
+                            },
+                          },
+                        ],
+                      }
+                    : {}),
+                },
+              }
             : {}),
         }),
         resource: `la transition de ${write.issueKey}`,

@@ -1,12 +1,19 @@
 # TODO — Sprint Goals Board pour Jira
 
-Mis à jour le 20/09/2026 pour la version 0.19.0, après revue du code et précisions de Denis.
+Mis à jour le 20/09/2026 pour la version 0.19.1, après revue du code et précisions de Denis.
 Denis confirme utiliser la dernière version dans Chrome et que les fonctionnalités marchent.
 Ce retour ne constitue pas un relevé détaillé de chaque scénario testé sur son Jira.
 
 Les décisions confirmées, les travaux restants et les pistes facultatives sont séparés ci-dessous.
 L'ordre des travaux est une proposition ; les choix encore ouverts ne sont pas des autorisations
 à développer de nouvelles écritures Jira ou à changer les permissions.
+
+## Livré — 0.19.1
+
+- [x] Autoriser la saisie du temps passé dans les transitions (`worklog`), en ajout au journal existant.
+- [x] Story Points : champ numérique dynamique prérempli, décimales avec point ou virgule.
+- [x] Envoi unique avec la transition, aucune écriture à l’annulation et aucune relance automatique.
+- [ ] Valider les transitions demandant Time Spent et Story Points sur le Jira réel.
 
 ## Livré — 0.19.0
 

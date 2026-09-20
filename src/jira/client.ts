@@ -309,7 +309,7 @@ export class JiraClient {
     ids: readonly string[],
   ): Promise<import("./json").JsonObject> {
     assertIssueKey(issueKey);
-    const names = ids.filter((id) => id !== "comment");
+    const names = ids.filter((id) => id !== "comment" && id !== "worklog");
     if (!names.length) return {};
     const { body } = await this.#transport.get(`/rest/api/3/issue/${issueKey}`, {
       query: { fields: names.join(",") },

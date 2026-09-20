@@ -21,6 +21,10 @@ connectée à Jira Cloud. Projet **distinct** de l'app Mac, qui reste maintenue 
    Goals), lien ticket↔Goal (`goals_linkWorkItem` / `goals_unlinkWorkItem`), transitions, rang,
    et propriété du board pour les réglages d'équipe (validée par Denis le 19/09/2026, publiée
    seulement par « Publier pour l'équipe »).
+   Les transitions incluent les champs de leur formulaire validé, le commentaire et, depuis
+   la demande explicite de Denis du 20/09/2026, le temps passé (`update.worklog`) et les
+   Story Points. Seuls les champs exposés par la transition et les opérations autorisées
+   par Jira sont envoyés, jamais un ajout de temps séparé avant la transition.
 2. **Ne JAMAIS réécrire le champ « Sprint Goal » du sprint.** Il est lu, jamais écrit.
 3. Ordre des swimlanes, couleurs des objectifs, champs des cartes, règles de couleur : réglages
    **locaux** (`chrome.storage.local`), jamais dans `storage.sync`. Seule exception : leur part

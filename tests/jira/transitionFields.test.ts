@@ -7,6 +7,7 @@ import {
   plainDocument,
   TransitionInputError,
   transitionInput,
+  workDuration,
 } from "../../src/jira/transitionFields";
 import { statusJson } from "../support/jiraFixtures";
 
@@ -122,6 +123,90 @@ describe("formulaires de transition", () => {
     expect(transitionInput(t, { summary: "" }, { summary: "Résumé" })).toEqual({
       fields: { summary: null },
     });
+  });
+});
+
+describe("temps passé et Story Points", () => {
+  const worklog = {
+    name: "Log work",
+    required: true,
+    operations: ["add"],
+    schema: { type: "array", items: "worklog" },
+  };
+  it("propose le temps passé sans reprendre les heures déjà enregistrées", () => {
+    const t = transition({ worklog });
+    const field = t.fields.worklog;
+    if (!field) throw new Error("champ absent");
+    const current = { worklog: { total: 1, worklogs: [{ timeSpent: "2h" }] } };
+    expect(fieldKind("worklog", field)).toBe("duration");
+    expect(initialValue("worklog", field, current)).toBe("");
+    expect(() => transitionInput(t, {}, current)).toThrow(TransitionInputError);
+    expect(transitionInput(t, { worklog: "1h 30m" }, current)).toEqual({
+      fields: {},
+      timeSpent: "1h 30m",
+    });
+    expect(
+      transitionInput(
+        transition({ worklog: { ...worklog, required: false } }),
+        { worklog: "" },
+        current,
+      ),
+    ).toEqual({ fields: {} });
+  });
+  it.each(["0m", "-1h", "1.5h", "90", "NaN", "1h 2h", "1m 1h", "9007199254740992m"])(
+    "refuse une durée ambiguë ou invalide : %s",
+    (value) => {
+      expect(workDuration(value)).toBeNull();
+      expect(() => transitionInput(transition({ worklog }), { worklog: value }, {})).toThrow(
+        TransitionInputError,
+      );
+    },
+  );
+  it.each(["30m", "1h 30m", "2d", "1w 2d 3h 4m"])(
+    "conserve les unités explicites %s pour Jira",
+    (value) => {
+      expect(workDuration(value)).toBe(value);
+    },
+  );
+  it("refuse le temps passé si l’opération add a disparu, et le cumul en lecture seule", () => {
+    expect(() =>
+      transitionInput(
+        transition({ worklog: { ...worklog, operations: ["set"] } }),
+        { worklog: "1h" },
+        {},
+      ),
+    ).toThrow(TransitionInputError);
+    expect(() =>
+      transitionInput(
+        transition({ timespent: { ...text, schema: { type: "number" } } }),
+        { timespent: "3600" },
+        {},
+      ),
+    ).toThrow(TransitionInputError);
+  });
+  it("détecte le champ numérique Story Points sans identifiant imposé et accepte une virgule décimale", () => {
+    const t = transition({
+      customfield_18742: {
+        name: "Story Points",
+        required: true,
+        operations: ["set"],
+        schema: {
+          type: "number",
+          custom: "com.atlassian.jira.plugin.system.customfieldtypes:float",
+        },
+      },
+    });
+    const field = t.fields.customfield_18742;
+    if (!field) throw new Error("champ absent");
+    expect(fieldKind("customfield_18742", field)).toBe("number");
+    expect(initialValue("customfield_18742", field, { customfield_18742: 3 })).toBe("3");
+    expect(transitionInput(t, {}, { customfield_18742: 0 })).toEqual({ fields: {} });
+    expect(transitionInput(t, { customfield_18742: "2,5" }, {})).toEqual({
+      fields: { customfield_18742: 2.5 },
+    });
+    expect(() => transitionInput(t, { customfield_18742: "0x10" }, {})).toThrow(
+      TransitionInputError,
+    );
   });
 });
 

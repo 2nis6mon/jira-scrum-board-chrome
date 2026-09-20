@@ -62,7 +62,7 @@ Il n'existe **aucune autre écriture** que celles-ci.
 
 | # | Opération | Appel | Geste de l'utilisateur |
 |---|---|---|---|
-| E1 | Changer le statut d'un ticket | `POST /rest/api/3/issue/{clé}/transitions`, corps `{"transition":{"id"}}`, avec `fields` et `update.comment` si formulaire validé (0.19.0) | Déposer une carte dans une autre colonne ; choisir une transition dans la fenêtre proposée quand aucune n'est directe |
+| E1 | Changer le statut d'un ticket | `POST /rest/api/3/issue/{clé}/transitions`, corps `{"transition":{"id"}}`, avec `fields`, `update.comment` et `update.worklog` si formulaire validé (0.19.1) | Déposer une carte dans une autre colonne ; choisir une transition dans la fenêtre proposée quand aucune n'est directe |
 | E2 | Classer un ticket (rang du board) | `PUT /rest/agile/1.0/issue/rank` | Déposer une carte au-dessus d'une autre |
 | E3 | Rattacher un ticket à un Goal | mutation `goals_linkWorkItem` | Déposer une carte dans la swimlane d'un Goal |
 | E4 | Détacher un ticket de son Goal | mutation `goals_unlinkWorkItem` | Déposer une carte dans *Build* ; implicite avant E3 quand le ticket change de Goal |
@@ -82,9 +82,10 @@ ne modifient aucun champ du sprint ni du board.
 ### Ce que l'extension ne peut pas écrire
 
 Vérifié par l'absence de code, et par le typage de l'inventaire. L'extension ne peut pas :
-- créer, modifier ou supprimer un ticket ;
-- écrire un commentaire, un worklog ou une pièce jointe ;
-- changer une assignation, une priorité ou une estimation ;
+- créer ou supprimer un ticket, ou le modifier hors des champs de sa transition validée ;
+- écrire une pièce jointe, modifier/supprimer un commentaire ou un worklog existant ;
+- ajouter un commentaire ou du temps indépendamment d’une transition validée ;
+- changer une assignation, une priorité ou une estimation absente du formulaire de transition ;
 - modifier un sprint : contenu, dates, état, et **champ « Sprint Goal »**. Aucun chemin
   `/rest/agile/1.0/sprint/{id}` sans `/properties/`, et un garde-fou le vérifie ;
 - créer, modifier ou supprimer un Goal ;
@@ -336,7 +337,8 @@ Même endpoint E1, aucun nouveau droit/hôte : les champs modifiés et le commen
 sont envoyés dans l’unique POST de transition. Aucun PUT de ticket ni POST de commentaire séparé.
 Les champs autorisés, leurs opérations et leurs choix sont relus juste avant l’envoi. Les types
 inconnus et widgets tiers ne sont pas sérialisés. Les champs de structure (statut, projet, type,
-parent, sprint, sécurité, temps de travail) sont exclus de ce formulaire.
+parent, sprint, sécurité) sont exclus de ce formulaire. Le temps de travail était exclu en
+0.19.0 ; l’ajout de temps via `worklog` est autorisé depuis la 0.19.1 (ci-dessous).
 Le statut est revalidé après la lecture des champs. Aucun champ non modifié n’est renvoyé.
 Le commentaire est encodé en ADF de texte, jamais en HTML. Toutes les étiquettes et erreurs sont
 rendues comme texte par Preact ; aucune URL de métadonnées n’est suivie.
@@ -344,3 +346,21 @@ Brouillon en mémoire ; le journal ne contient pas les valeurs saisies. En cas d
 incertain, relecture sans nouvelle écriture, nouvelle soumission bloquée. Annuler avant validation
 n’effectue aucune écriture. Une transition déjà acceptée n’est pas rejouée si le changement de
 Goal ou de rang échoue ensuite. Tests : transitionFields, BoardModel.drop et verify:transition.
+
+
+## Extension E1 — temps passé et Story Points (0.19.1)
+
+Autorisation explicite de Denis le 20/09/2026 : étendre les écritures du formulaire aux champs
+Time Spent et Story Points. Aucun nouveau chemin d’écriture, hôte ou droit Chrome.
+`worklog` n’est accepté que si la transition fraîchement relue autorise `add`. La durée positive
+avec unités explicites est envoyée par `update.worklog: [{add: {timeSpent, started}}]`, avec
+l’heure de validation. Aucun historique de worklog n’est chargé ou réécrit et aucun cumul
+`timespent` n’est envoyé. Jira gère les unités de jours/semaines et son ajustement du reste à faire.
+Le widget `timetracking` (estimations) reste distinct et non pris en charge.
+Les Story Points utilisent le type numérique Jira standard, sans identifiant de champ imposé.
+Les nombres non finis et notations ambiguës sont refusés. Les valeurs inchangées sont omises.
+Une annulation n’écrit rien ; un double clic ou une réponse réseau perdue ne rejoue pas la durée.
+Sources : [contrat de transition et opérations de champs](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/),
+[structure du worklog](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-worklogs/),
+[exemple officiel de `update.worklog` dans Issue Update](https://docs.atlassian.com/software/jira/docs/api/REST/1000.1497.0/).
+Tests unitaires, modèle et banc Chrome fictif ; validation Jira réel encore à effectuer.
