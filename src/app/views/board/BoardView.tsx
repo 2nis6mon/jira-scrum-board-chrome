@@ -1,10 +1,16 @@
 import { type ComponentChildren, Fragment } from "preact";
 import { useEffect } from "preact/hooks";
 import type { BoardConfiguration } from "../../../core/boardConfiguration";
-import { displayedCardFields, displayedGoalId } from "../../../core/boardConfiguration";
+import {
+  displayedCardFields,
+  displayedGoalId,
+  isGoalHidden,
+  visibleColumns,
+} from "../../../core/boardConfiguration";
 import {
   type BoardSnapshot,
   browseUrl,
+  goalProgress,
   type SprintMetrics,
   sprintMetrics,
 } from "../../../core/boardIssue";
@@ -19,9 +25,8 @@ import {
 } from "../../../core/filters";
 import { goalColorName } from "../../../core/sprintGoals";
 import { blockingRequiredFields } from "../../../jira/models";
-import { atlassianLink } from "../../../jira/site";
 import type { BoardModel } from "../../model/BoardModel";
-import { formatDay, formatPoints, formatTime, goalStatusLabel, plural, toggled } from "../format";
+import { formatDay, formatPoints, formatTime, plural, toggled } from "../format";
 import { GoalMarker } from "../GoalMarker";
 import { HealthPanel } from "../health/HealthPanel";
 import { Icon } from "../Icon";
@@ -178,6 +183,18 @@ function SprintHeader(props: {
     ? snapshot.scrumIssues.filter((issue) => displayedGoalId(configuration, issue.goalId) === null)
         .length
     : 0;
+  const goals = snapshot?.goals.filter((goal) => !isGoalHidden(configuration, goal.id)) ?? [];
+  const lastColumnId = visibleColumns(configuration.scrumColumns).at(-1)?.id ?? null;
+  const completedGoals = snapshot
+    ? goals.filter(
+        (goal) =>
+          goalProgress(
+            goal,
+            snapshot.scrumIssues.filter((issue) => issue.goalId === goal.id),
+            lastColumnId,
+          ).state === "completed",
+      ).length
+    : 0;
   // Sans historique Jira, on ne sait pas quels tickets ont été ajoutés : on n'affiche pas « 0 ».
   const addedKnown =
     snapshot !== null &&
@@ -226,6 +243,18 @@ function SprintHeader(props: {
         <div class="sprint-metrics">
           <SprintProgress metrics={metrics} />
           <div class="sprint-counters">
+            {goals.length > 0 && (
+              <span
+                class="counter counter-goals"
+                title="Goals dont tous les tickets sont dans la dernière colonne"
+              >
+                <Icon name="check" />
+                <strong>
+                  {completedGoals}/{goals.length}
+                </strong>
+                Goals atteints
+              </span>
+            )}
             <button
               type="button"
               class={`counter counter-blocked${metrics.blockedCount > 0 ? " counter-alert" : ""}`}
@@ -748,12 +777,9 @@ function LaneView(props: {
 }) {
   const { board, configuration, layout, lane, nextLaneId } = props;
   const goal = lane.goal;
-  const goalLink = atlassianLink(goal?.atlassianUrl);
   const progress = lane.progress;
   const focused = goal !== null && isGoalFocused(board.filters.value, goal.id);
   const goalsById = new Map(board.snapshot.value?.goals.map((g) => [g.id, g]) ?? []);
-  const localPins = board.snapshot.value?.localPinnedGoalIds ?? null;
-  const pinned = new Set(localPins ?? board.snapshot.value?.pinnedGoalIds ?? []);
   const cardFields = displayedCardFields(configuration);
   const parentColors = board.parentColors.value;
   const ownColumns = lane.block.kind === "run" && !sameColumns(layout.runColumns, layout.columns);
@@ -826,31 +852,6 @@ function LaneView(props: {
           </button>
         ) : (
           <span class="lane-title">{lane.title}</span>
-        )}
-        {goal?.atlassianGoalId && pinned.has(goal.atlassianGoalId) && (
-          <span
-            class="goal-pinned"
-            title={
-              localPins
-                ? "Épinglé dans ce navigateur seulement : non partagé avec l'équipe"
-                : "Épinglé au sprint : affiché même sans ticket rattaché"
-            }
-          >
-            épinglé
-          </span>
-        )}
-        {goal?.atlassianStatus && (
-          <span
-            class="goal-status"
-            title={`Statut déclaré dans Atlassian : ${goal.atlassianStatus}`}
-          >
-            {goalStatusLabel(goal.atlassianStatus)}
-          </span>
-        )}
-        {goalLink && (
-          <a class="goal-link" href={goalLink} target="_blank" rel="noopener noreferrer">
-            Ouvrir le Goal
-          </a>
         )}
         <span class="lane-count">
           {layout.filtersActive

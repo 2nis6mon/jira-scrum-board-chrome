@@ -17,6 +17,10 @@ Pendant le défilement du board, l’en-tête du sprint, les filtres et les noms
 visibles. Le bandeau d’un Goal reste sous les colonnes jusqu’à la fin de sa swimlane, puis le Goal
 suivant le pousse et prend sa place.
 
+L’en-tête indique le nombre de Goals atteints sur le nombre de Goals visibles. Les bandeaux des
+swimlanes restent concentrés sur leur titre, le nombre de tickets et leur progression : épinglage,
+statut Atlassian et lien d’ouverture ne sont plus affichés à cet endroit.
+
 **Compatible uniquement avec les boards Scrum Jira. Les boards Kanban ne sont pas pris en charge.**
 
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification

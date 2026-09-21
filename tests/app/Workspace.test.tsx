@@ -116,6 +116,8 @@ describe("barre latérale", () => {
     expect(
       document.querySelector(`[data-lane-id="goal:${goal.id}"] .lane-header-completed`),
     ).not.toBeNull();
+    expect(document.querySelector(".counter-goals strong")?.textContent).toBe("2/2");
+    expect(document.querySelector(".counter-goals")?.textContent).toContain("Goals atteints");
     expect(sidebarRow(goal.title).querySelector(".eye-toggle")).not.toBeNull();
     board.snapshot.value = snapshot;
     await tick();
@@ -124,6 +126,7 @@ describe("barre latérale", () => {
     expect(
       document.querySelector(`[data-lane-id="goal:${goal.id}"] .lane-header-completed`),
     ).toBeNull();
+    expect(document.querySelector(".counter-goals strong")?.textContent).toBe("1/2");
     board.dispose();
   });
 

@@ -306,7 +306,9 @@ describe("App", () => {
     await expect.poll(() => document.querySelector("[role=dialog]")).toBeNull();
     expect(jira.requests.filter(isWriteRequest).map((r) => r.method)).toEqual(["PUT"]);
     await expect.poll(() => text()).toContain("Sécurité des comptes");
-    expect(document.querySelector(".goal-pinned")?.textContent).toBe("épinglé");
+    expect(document.querySelector(".goal-pinned")).toBeNull();
+    expect(document.querySelector(".goal-status")).toBeNull();
+    expect(document.querySelector(".goal-link")).toBeNull();
   });
 
   it("menu d'une swimlane : descendre, replier, masquer, sans rien écrire dans Jira", async () => {

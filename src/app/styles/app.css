@@ -507,6 +507,15 @@ progress::-webkit-progress-value {
   font-variant-numeric: tabular-nums;
 }
 
+.counter-goals {
+  color: #326348;
+  --icon-color: #16803d;
+}
+
+.counter-goals strong {
+  color: #14532d;
+}
+
 .counter-blocked.counter-alert {
   --icon-color: var(--blocked);
 }
@@ -1369,22 +1378,6 @@ ul.lane-cell {
   container-type: inline-size;
 }
 
-.goal-status {
-  height: 20px;
-  padding: 0 8px;
-  display: inline-flex;
-  align-items: center;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--goal-border, var(--line));
-  color: var(--ink-2);
-  font-size: 11px;
-}
-
-.goal-link {
-  font-size: 12px;
-}
-
 .notice ul {
   margin: 4px 0 0;
   padding-left: 18px;
@@ -1483,17 +1476,6 @@ ul.lane-cell {
 }
 
 .pin-meta {
-  color: var(--ink-3);
-  font-size: 11px;
-}
-
-.goal-pinned {
-  height: 20px;
-  padding: 0 8px;
-  display: inline-flex;
-  align-items: center;
-  border-radius: 10px;
-  border: 1px dashed var(--goal-border, var(--line));
   color: var(--ink-3);
   font-size: 11px;
 }
