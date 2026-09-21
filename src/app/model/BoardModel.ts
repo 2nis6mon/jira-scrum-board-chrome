@@ -202,6 +202,9 @@ export interface BoardModelOptions {
 
 /** Board du site connecté : configuration locale, photographie Jira, filtres. Lecture seule. */
 export class BoardModel {
+  /** Adaptateur facultatif de la vue hébergée dans Jira ; absent dans l'application autonome. */
+  nativeTransitionHandler: ((key: string, transition: JiraTransition) => boolean) | null = null;
+  readonly nativeTransitionPending = signal(false);
   readonly site: JiraSite;
 
   /** Faux tant que la configuration enregistrée n'a pas été relue. */
@@ -367,7 +370,16 @@ export class BoardModel {
   }
 
   /** Relit le board enregistré pour ce site et, s'il y en a un, le synchronise. */
-  async load(): Promise<void> {
+  async load(boardAddress?: string): Promise<void> {
+    if (boardAddress) {
+      this.loaded.value = false;
+      try {
+        await this.detect(boardAddress);
+      } finally {
+        this.loaded.value = true;
+      }
+      return;
+    }
     const configuration = await loadActiveBoard(this.#platform.store, this.site.origin);
     this.configuration.value = configuration;
     await this.#refreshBoards();
@@ -1424,6 +1436,17 @@ export class BoardModel {
         if (this.transitionForm.value) await this.sync();
         return false;
       case "requiresFields": {
+        if (this.nativeTransitionHandler?.(issueKey, outcome.transition)) {
+          this.nativeTransitionPending.value = true;
+          this.writeNotice.value = {
+            tone: "warning",
+            text: `Complétez « ${outcome.transition.name} » dans Jira pour ${issueKey}.`,
+            suggestion: "Le board sera actualisé à la fermeture du ticket.",
+            sessionLost: false,
+            issueKey,
+          };
+          return false;
+        }
         let current: JsonObject = {};
         let error: UserMessage | null = null;
         try {

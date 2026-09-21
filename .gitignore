@@ -11,4 +11,5 @@ coverage/
 
 # Fichiers générés conservés de la branche d’exploration Jira.
 dist-jira-test/
+dist-jira-direct-test/
 artifacts/demo-sprint-goals/

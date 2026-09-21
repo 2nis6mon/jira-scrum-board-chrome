@@ -1,6 +1,6 @@
 import { signal } from "@preact/signals";
 import { isRecord } from "../../jira/json";
-import { type JiraSite, normalizeSiteUrl } from "../../jira/site";
+import { type JiraSite, normalizeSiteUrl, parseBoardUrl } from "../../jira/site";
 import type { Platform } from "../platform/types";
 import { AuditLog } from "./auditLog";
 import { BoardModel } from "./BoardModel";
@@ -67,10 +67,13 @@ export class AppModel {
   }
 
   /** Reprend le site enregistré, si Chrome lui accorde toujours l'accès. */
-  async start(): Promise<void> {
+  async start(boardAddress?: string): Promise<void> {
     await this.#restoreInterface();
     const saved = await this.#platform.store.get(CONNECTION_KEY);
-    const origin = isRecord(saved) && typeof saved.origin === "string" ? saved.origin : null;
+    const target = boardAddress ? parseBoardUrl(boardAddress) : null;
+    const origin =
+      target?.site.origin ??
+      (isRecord(saved) && typeof saved.origin === "string" ? saved.origin : null);
     if (origin === null) {
       this.connection.value = { state: "disconnected", lastInput: "" };
       return;
@@ -87,7 +90,7 @@ export class AppModel {
       this.connection.value = { state: "disconnected", lastInput: site.host };
       return;
     }
-    await this.#enter(site);
+    await this.#enter(site, target ? boardAddress : undefined);
   }
 
   /**
@@ -218,7 +221,7 @@ export class AppModel {
     });
   }
 
-  async #enter(site: JiraSite): Promise<void> {
+  async #enter(site: JiraSite, boardAddress?: string): Promise<void> {
     // Règle `Origin` du site (passerelle GraphQL). Un échec (permission absente, par exemple
     // si l'extension n'a pas été rechargée) n'empêche pas le board : le diagnostic le montrera.
     const origin = new GraphqlOrigin(this.#platform, site);
@@ -226,6 +229,6 @@ export class AppModel {
     const board = new BoardModel(site, this.#platform, { audit: this.#audit });
     const diagnostic = new DiagnosticModel(site, this.#platform, this.#audit, origin);
     this.connection.value = { state: "connected", site, board, diagnostic };
-    await board.load();
+    await board.load(boardAddress);
   }
 }

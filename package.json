@@ -9,6 +9,8 @@
   },
   "scripts": {
     "build": "vite build",
+    "build:jira-direct-test": "vite build --mode jira-direct-test",
+    "verify:jira-direct-test": "npm run build:jira-direct-test && node scripts/verify-jira-direct-test.mjs",
     "watch": "vite build --watch --mode development",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
