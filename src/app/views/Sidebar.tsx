@@ -448,7 +448,6 @@ function LaneRow(props: {
                 {lane.done}/{lane.count}
               </span>
             </span>
-            {completed && <span class="sidebar-goal-complete-bar" aria-hidden="true" />}
           </span>
         ) : (
           <>

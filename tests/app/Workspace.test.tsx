@@ -112,7 +112,7 @@ describe("barre latérale", () => {
     expect(
       document.querySelector('.lane-header-completed [aria-label="Objectif atteint"]'),
     ).not.toBeNull();
-    expect(sidebarRow(goal.title).querySelector(".sidebar-goal-complete-bar")).not.toBeNull();
+    expect(sidebarRow(goal.title).querySelector(".sidebar-goal-complete-bar")).toBeNull();
     expect(
       document.querySelector(`[data-lane-id="goal:${goal.id}"] .lane-header-completed`),
     ).not.toBeNull();

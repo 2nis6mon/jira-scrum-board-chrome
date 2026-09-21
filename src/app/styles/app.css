@@ -3251,12 +3251,3 @@ dialog.transition-form::backdrop {
 .sidebar-lane-completed .sidebar-lane-meta {
   color: #326348;
 }
-.sidebar-goal-complete-bar {
-  display: block;
-  width: 100%;
-  max-width: 100px;
-  height: 4px;
-  margin-top: 5px;
-  border-radius: 4px;
-  background: #16803d;
-}
