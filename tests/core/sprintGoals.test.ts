@@ -238,20 +238,21 @@ describe("assignGoalColors", () => {
     expect(assignGoalColors(["a"], { a: 5 }).a).toBe(5);
   });
 
-  it("les couleurs recommencent quand les huit sont prises", () => {
-    const ids = Array.from({ length: 10 }, (_, i) => `g${i + 1}`);
+  it("les couleurs recommencent quand les neuf sont prises", () => {
+    const ids = Array.from({ length: 11 }, (_, i) => `g${i + 1}`);
     const colors = assignGoalColors(ids, {});
-    expect(new Set(ids.slice(0, 8).map((id) => colors[id]))).toEqual(
-      new Set([0, 1, 2, 3, 4, 5, 6, 7]),
+    expect(new Set(ids.slice(0, 9).map((id) => colors[id]))).toEqual(
+      new Set([0, 1, 2, 3, 4, 5, 6, 7, 8]),
     );
-    expect(colors.g9).toBe(0);
-    expect(colors.g10).toBe(1);
+    expect(colors.g10).toBe(0);
+    expect(colors.g11).toBe(1);
   });
 
   it("les noms de couleur sont stables", () => {
     expect(goalColorName(0)).toBe("goal1");
     expect(goalColorName(7)).toBe("goal8");
-    expect(goalColorName(8)).toBe("goal1");
+    expect(goalColorName(8)).toBe("goal9");
+    expect(goalColorName(9)).toBe("goal1");
     expect(goalColorName(-3)).toBe("goal1");
   });
 });

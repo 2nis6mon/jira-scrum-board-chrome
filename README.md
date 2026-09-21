@@ -7,8 +7,10 @@ avancement, dès l'ouverture du board — sans rien configurer. Les tickets sans
 visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 
 Un Goal dont tous les tickets des sprints actifs sont dans la dernière colonne visible du
-board reçoit une coche verte et une bordure verte, sans changer de fond. La même coche apparaît
-dans la barre latérale. Les filtres ne changent pas ce calcul ; un Goal vide n’est pas atteint.
+board reçoit une coche, une bordure et un fond verts. Dans la barre latérale, sa ligne devient
+verte avec une grande coche et une barre de progression pleine. Les filtres ne changent pas ce calcul ; un Goal vide n’est pas atteint.
+Le vert est réservé à cet indicateur : la palette propose neuf couleurs, dont le bleu ardoise,
+le rose et l’ambre. Les anciens choix vert et sarcelle deviennent respectivement ardoise et rose.
 Ce repère disparaît si un ticket quitte la dernière colonne et ne modifie aucun statut Atlassian.
 
 **Compatible uniquement avec les boards Scrum Jira. Les boards Kanban ne sont pas pris en charge.**

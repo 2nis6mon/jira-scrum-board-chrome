@@ -22,13 +22,14 @@ import { GOAL_COLOR_COUNT, type SprintGoal } from "./sprintGoals";
 /** Noms des couleurs d'objectif, dans l'ordre de la palette (repris du Mac). */
 export const GOAL_COLOR_NAMES = [
   "Bleu",
-  "Vert",
+  "Bleu ardoise",
   "Violet",
   "Orange",
-  "Sarcelle",
+  "Rose",
   "Indigo",
   "Framboise",
   "Ocre",
+  "Ambre",
 ] as const;
 
 /**

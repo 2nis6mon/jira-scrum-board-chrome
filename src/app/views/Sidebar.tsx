@@ -406,10 +406,11 @@ function LaneRow(props: {
 }) {
   const { model, board, lane } = props;
   const goal = lane.goal;
+  const completed = goal !== null && lane.count > 0 && lane.done === lane.count;
   const icon: IconName | null = lane.block.kind === "run" ? "run" : goal ? null : "build";
   return (
     <div
-      class={`sidebar-lane sidebar-lane-${lane.block.kind}${props.dragging ? " lane-dragging" : ""}`}
+      class={`sidebar-lane sidebar-lane-${lane.block.kind}${completed ? " sidebar-lane-completed" : ""}${props.dragging ? " lane-dragging" : ""}`}
       data-goal-color={goal?.color}
     >
       {/* Le bouton porte le glissé : poignée, icône et titre se saisissent ensemble. */}
@@ -433,11 +434,7 @@ function LaneRow(props: {
         onDragEnd={() => board.endLaneDrag()}
       >
         <span class="sidebar-grip" aria-hidden="true" />
-        {icon ? (
-          <Icon name={icon} size={14} />
-        ) : (
-          <GoalMarker completed={lane.count > 0 && lane.done === lane.count} sidebar />
-        )}
+        {icon ? <Icon name={icon} size={14} /> : <GoalMarker completed={completed} sidebar />}
         {goal ? (
           <span class="sidebar-lane-text">
             <span class="sidebar-lane-title">{lane.title}</span>
@@ -447,6 +444,7 @@ function LaneRow(props: {
                 {lane.done}/{lane.count}
               </span>
             </span>
+            {completed && <span class="sidebar-goal-complete-bar" aria-hidden="true" />}
           </span>
         ) : (
           <>

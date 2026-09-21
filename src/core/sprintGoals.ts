@@ -43,8 +43,8 @@ export function jqlReference(goal: SprintGoal): string | null {
 
 // ─── Couleurs des objectifs ──────────────────────────────────────────────────
 
-/** Le cœur ne manipule que des noms stables `goal1` … `goal8` ; les valeurs sont dans le thème. */
-export const GOAL_COLOR_COUNT = 8;
+/** Le cœur ne manipule que des noms stables `goal1` … `goal9` ; les valeurs sont dans le thème. */
+export const GOAL_COLOR_COUNT = 9;
 export const DEFAULT_GOAL_COLOR = "goal1";
 
 export function goalColorName(index: number): string {
@@ -56,7 +56,7 @@ export function goalColorName(index: number): string {
  *
  * Un objectif déjà coloré garde sa couleur, même s'il disparaît puis revient au sprint suivant.
  * Un nouvel objectif reçoit, dans l'ordre d'apparition, la première couleur que n'utilise aucun
- * des objectifs affichés ; quand les huit sont prises, les couleurs recommencent.
+ * des objectifs affichés ; quand toutes sont prises, les couleurs recommencent.
  */
 export function assignGoalColors(
   goalIds: readonly string[],

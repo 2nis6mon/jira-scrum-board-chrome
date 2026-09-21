@@ -3,6 +3,7 @@ import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App, PRESENTATION_HINT_MS } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
+import { visibleColumns } from "../../src/core/boardConfiguration";
 import { BOARD_PROPERTY_KEYS } from "../../src/jira/writes";
 import {
   BOARD_URL,
@@ -90,6 +91,39 @@ async function withScrollSpy(run: (scrolled: string[]) => Promise<void>) {
 }
 
 describe("barre latérale", () => {
+  it("met en évidence un Goal atteint dans les deux vues et retire ce repère à sa réouverture", async () => {
+    const { board } = await connectedBoard();
+    const snapshot = board.snapshot.value;
+    const config = board.configuration.value;
+    const goal = snapshot?.goals[0];
+    if (!snapshot || !config || !goal) throw new Error("board et Goal attendus");
+    const last = visibleColumns(config.scrumColumns).at(-1);
+    if (!last) throw new Error("dernière colonne attendue");
+    expect(snapshot.scrumIssues.some((issue) => issue.goalId === goal.id)).toBe(true);
+    board.snapshot.value = {
+      ...snapshot,
+      scrumIssues: snapshot.scrumIssues.map((issue) =>
+        issue.goalId === goal.id ? { ...issue, columnId: last.id } : issue,
+      ),
+    };
+    await tick();
+    expect(sidebarRow(goal.title).classList.contains("sidebar-lane-completed")).toBe(true);
+    expect(sidebarRow(goal.title).querySelector('[aria-label="Objectif atteint"]')).not.toBeNull();
+    expect(sidebarRow(goal.title).querySelector(".sidebar-goal-complete-bar")).not.toBeNull();
+    expect(
+      document.querySelector(`[data-lane-id="goal:${goal.id}"] .lane-header-completed`),
+    ).not.toBeNull();
+    expect(sidebarRow(goal.title).querySelector(".eye-toggle")).not.toBeNull();
+    board.snapshot.value = snapshot;
+    await tick();
+    expect(sidebarRow(goal.title).classList.contains("sidebar-lane-completed")).toBe(false);
+    expect(sidebarRow(goal.title).querySelector(".sidebar-goal-complete-bar")).toBeNull();
+    expect(
+      document.querySelector(`[data-lane-id="goal:${goal.id}"] .lane-header-completed`),
+    ).toBeNull();
+    board.dispose();
+  });
+
   it("board affiché, vue du sprint, swimlanes dans l'ordre du board, Administration en pied", async () => {
     await connectedBoard();
     const sidebar = document.querySelector(".sidebar");

@@ -213,5 +213,8 @@ describe("masquage et couleur des objectifs", () => {
 
   it("chaque couleur de la palette a un nom", () => {
     expect(GOAL_COLOR_NAMES).toHaveLength(GOAL_COLOR_COUNT);
+    expect(GOAL_COLOR_NAMES).not.toContain("Vert");
+    expect(GOAL_COLOR_NAMES).not.toContain("Sarcelle");
+    expect(GOAL_COLOR_NAMES).toEqual(expect.arrayContaining(["Bleu ardoise", "Rose", "Ambre"]));
   });
 });

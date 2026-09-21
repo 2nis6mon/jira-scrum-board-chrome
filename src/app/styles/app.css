@@ -3220,12 +3220,47 @@ dialog.transition-form::backdrop {
   font-size: 12px;
 }
 
-/* Objectif atteint : fond conservé, seuls le repère et la bordure deviennent verts. */
+/* Le vert est réservé à la réussite calculée depuis les tickets du Goal. */
 .goal-completed {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: none;
-  color: #16803d;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #16803d;
+  color: white;
+  --icon-color: white;
 }
 .lane-header-completed {
   border-color: #16803d;
+  background: #e3f5e9;
+}
+.sidebar-lane-completed {
+  background: #e3f5e9;
+  box-shadow: inset 4px 0 #16803d;
+  color: #14532d;
+}
+.sidebar-lane-completed:hover {
+  background: #d4eddd;
+}
+.sidebar-lane-completed .goal-completed {
+  width: 26px;
+  height: 26px;
+}
+.sidebar-lane-completed .sidebar-lane-title {
+  font-weight: 700;
+}
+.sidebar-lane-completed .sidebar-lane-meta {
+  color: #326348;
+}
+.sidebar-goal-complete-bar {
+  display: block;
+  width: 100%;
+  max-width: 100px;
+  height: 4px;
+  margin-top: 5px;
+  border-radius: 4px;
+  background: #16803d;
 }
