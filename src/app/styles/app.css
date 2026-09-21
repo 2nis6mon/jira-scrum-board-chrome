@@ -384,6 +384,16 @@ progress::-webkit-progress-value {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: 100vh;
+  max-height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* L’en-tête et les filtres restent hors de la zone qui défile. Leur hauteur peut varier
+   (petite fenêtre, filtres sur plusieurs lignes) sans exiger de décalage sticky calculé. */
+.board-screen > :not(.board) {
+  flex-shrink: 0;
 }
 
 .board-empty {
@@ -825,8 +835,10 @@ details.filter-menu > summary.active {
      CLIENT-10114 tienne en entier sur sa carte, drapeau et priorité compris. En dessous, le board
      défile horizontalement. Même valeur que MINIMUM_COLUMN_WIDTH (core/layoutMetrics.ts). */
   --column-min: 170px;
-  padding: 10px 20px 40px;
-  overflow-x: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 0 20px 40px;
+  overflow: auto;
 }
 
 .board-row {
@@ -840,7 +852,7 @@ details.filter-menu > summary.active {
   position: sticky;
   top: 0;
   z-index: 5;
-  padding: 6px 0;
+  padding: 16px 0 6px;
   background: var(--background);
 }
 
@@ -882,10 +894,13 @@ details.filter-menu > summary.active {
 .lane {
   margin-top: 12px;
   /* Sous la bande des colonnes, collante, quand la barre latérale y amène. */
-  scroll-margin-top: 56px;
+  scroll-margin-top: calc(var(--column-band-height) + 70px);
 }
 
 .lane-header {
+  position: sticky;
+  top: calc(var(--column-band-height) + 22px);
+  z-index: 4;
   min-height: var(--lane-header-height);
   display: flex;
   align-items: center;
@@ -894,7 +909,11 @@ details.filter-menu > summary.active {
   padding: 6px 10px;
   border-radius: 8px;
   border: 1px solid var(--goal-border, var(--line));
-  background: var(--goal-tint, var(--sidebar));
+  /* Certaines couleurs de Goal sont translucides : cette seconde couche empêche les cartes
+     qui défilent de rester visibles derrière le bandeau collant. */
+  background:
+    linear-gradient(var(--goal-tint, var(--sidebar)), var(--goal-tint, var(--sidebar))),
+    var(--surface);
 }
 
 .lane-title {
@@ -957,6 +976,7 @@ button.lane-title[aria-pressed="true"] {
 
 .column-band-run {
   position: static;
+  padding-top: 6px;
 }
 
 .lane-cells {

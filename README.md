@@ -13,6 +13,10 @@ Le vert est réservé à cet indicateur : la palette propose neuf couleurs, dont
 le rose et l’ambre. Les anciens choix vert et sarcelle deviennent respectivement ardoise et rose.
 Ce repère disparaît si un ticket quitte la dernière colonne et ne modifie aucun statut Atlassian.
 
+Pendant le défilement du board, l’en-tête du sprint, les filtres et les noms des colonnes restent
+visibles. Le bandeau d’un Goal reste sous les colonnes jusqu’à la fin de sa swimlane, puis le Goal
+suivant le pousse et prend sa place.
+
 **Compatible uniquement avec les boards Scrum Jira. Les boards Kanban ne sont pas pris en charge.**
 
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
