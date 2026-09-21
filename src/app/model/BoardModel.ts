@@ -562,6 +562,23 @@ export class BoardModel {
       // Couleurs des objectifs : mémorisées localement pour rester stables d'un sprint à l'autre.
       // Une couleur choisie PENDANT la lecture l'emporte sur celle connue à son début.
       const latest = this.configuration.value ?? configuration;
+      const previous = this.snapshot.value;
+      const knownGoalIds = new Set([
+        ...Object.keys(latest.goalColorIndex),
+        ...(previous?.goals.map((goal) => goal.id) ?? []),
+      ]);
+      const linkedGoalIds = new Set(
+        result.snapshot.scrumIssues.flatMap((issue) => (issue.goalId ? [issue.goalId] : [])),
+      );
+      // À la toute première lecture, les Goals constituent le board initial et restent visibles.
+      // Ensuite, un Goal inconnu introduit par un ticket arrive masqué : le ticket reste dans
+      // Build jusqu'à ce que l'utilisateur le réaffiche depuis « Goals masqués ».
+      const newLinkedGoalIds =
+        knownGoalIds.size === 0
+          ? []
+          : result.snapshot.goals
+              .filter((goal) => linkedGoalIds.has(goal.id) && !knownGoalIds.has(goal.id))
+              .map((goal) => goal.id);
       const colors = { ...result.goalColorIndex, ...latest.goalColorIndex };
       this.snapshot.value = {
         ...result.snapshot,
@@ -577,8 +594,12 @@ export class BoardModel {
       this.goalsWarnings.value = result.goalsWarnings;
       this.syncProblem.value = null;
 
-      if (!sameIndex(latest.goalColorIndex, colors)) {
-        await this.#updatePreferences((current) => ({ ...current, goalColorIndex: colors }));
+      if (!sameIndex(latest.goalColorIndex, colors) || newLinkedGoalIds.length > 0) {
+        await this.#updatePreferences((current) => ({
+          ...current,
+          goalColorIndex: { ...colors, ...current.goalColorIndex },
+          hiddenGoalIds: [...new Set([...current.hiddenGoalIds, ...newLinkedGoalIds])].sort(),
+        }));
       }
     } catch (error) {
       if (isStale()) return;

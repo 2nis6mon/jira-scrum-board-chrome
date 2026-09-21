@@ -2,10 +2,17 @@ import { describe, expect, it } from "vitest";
 import { BoardModel } from "../../src/app/model/BoardModel";
 import { loadActiveBoard, saveBoard } from "../../src/app/model/boardStore";
 import { normalizeSiteUrl } from "../../src/jira/site";
-import { BOARD_URL, boardSiteJira } from "../support/boardFixture";
+import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
+import {
+  BOARD_URL,
+  boardSiteJira,
+  GOALS_DOCUMENT,
+  SPRINT_GOAL_TEXT,
+  SPRINT_ISSUES,
+} from "../support/boardFixture";
 import { type FakeJira, isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
-import { makeConfiguration } from "../support/jiraFixtures";
+import { issueJson, makeConfiguration } from "../support/jiraFixtures";
 
 const SITE = normalizeSiteUrl("acme.atlassian.net");
 const NOW = new Date("2026-09-18T10:00:00Z");
@@ -107,6 +114,76 @@ describe("BoardModel — mise en place", () => {
 });
 
 describe("BoardModel — synchronisation", () => {
+  it("masque un Goal inconnu introduit par un ticket, puis permet de le réafficher", async () => {
+    const { jira, board, platform } = await detected();
+    const newGoalId = "g-nouveau";
+    const newIssue = issueJson("ABC-106", {
+      summary: "Ticket ajouté au sprint avec un nouveau Goal",
+      statusId: "3",
+      statusName: "En cours",
+    });
+    jira
+      .on("GET", "/rest/agile/1.0/board/7/sprint", {
+        status: 200,
+        json: {
+          isLast: true,
+          values: [
+            {
+              id: 42,
+              name: "Sprint 42",
+              state: "active",
+              goal: `${SPRINT_GOAL_TEXT}\n🎯 Nouveau Goal`,
+            },
+          ],
+        },
+      })
+      .on("GET", "/rest/agile/1.0/sprint/42/issue", {
+        status: 200,
+        json: { issues: [...SPRINT_ISSUES, newIssue], total: SPRINT_ISSUES.length + 1 },
+      })
+      .on("GET", `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.goals}`, {
+        status: 200,
+        json: {
+          value: {
+            ...GOALS_DOCUMENT,
+            goals: [
+              ...GOALS_DOCUMENT.goals,
+              { id: newGoalId, title: "Nouveau Goal", color: "goal3", position: 2 },
+            ],
+            links: { ...GOALS_DOCUMENT.links, "ABC-106": newGoalId },
+          },
+        },
+      });
+
+    await board.sync();
+
+    expect(board.snapshot.value?.goals.some((goal) => goal.id === newGoalId)).toBe(true);
+    expect(board.configuration.value?.hiddenGoalIds).toContain(newGoalId);
+    expect(board.hiddenGoals.value.map((goal) => goal.id)).toContain(newGoalId);
+    expect(
+      board.layout.value?.lanes
+        .find((lane) => lane.id === "build")
+        ?.cells.flatMap((cell) => cell.issues)
+        .map((issue) => issue.issue.key),
+    ).toContain("ABC-106");
+    expect((await loadActiveBoard(platform.store, SITE.origin))?.hiddenGoalIds).toContain(
+      newGoalId,
+    );
+
+    await board.setGoalHidden(newGoalId, false);
+
+    expect(board.hiddenGoals.value.map((goal) => goal.id)).not.toContain(newGoalId);
+    expect(
+      board.layout.value?.lanes
+        .find((lane) => lane.id === `goal:${newGoalId}`)
+        ?.cells.flatMap((cell) => cell.issues)
+        .map((issue) => issue.issue.key),
+    ).toEqual(["ABC-106"]);
+
+    await board.sync();
+    expect(board.configuration.value?.hiddenGoalIds).not.toContain(newGoalId);
+  });
+
   it("ne fait que lire", async () => {
     const { jira, board } = await detected();
     await board.sync();

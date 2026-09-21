@@ -902,6 +902,8 @@ details.filter-menu > summary.active {
 
 .lane {
   margin-top: 12px;
+  /* Le bandeau doit couvrir la largeur réelle du board, y compris les colonnes hors écran. */
+  min-width: calc(var(--column-count) * (var(--column-min) + 10px));
   /* Sous la bande des colonnes, collante, quand la barre latérale y amène. */
   scroll-margin-top: calc(var(--column-band-height) + 70px);
 }

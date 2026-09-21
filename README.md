@@ -21,6 +21,11 @@ L’en-tête indique le nombre de Goals atteints sur le nombre de Goals visibles
 swimlanes restent concentrés sur leur titre, le nombre de tickets et leur progression : épinglage,
 statut Atlassian et lien d’ouverture ne sont plus affichés à cet endroit.
 
+Les bandeaux des swimlanes couvrent toutes les colonnes, même lorsque le board défile
+horizontalement. Si un ticket nouvellement lu introduit un Goal encore inconnu du board, ce Goal
+est ajouté dans « Goals masqués » et le ticket reste dans Build. Le Goal peut ensuite être
+réaffiché depuis cette section, sans modifier son rattachement dans Jira.
+
 **Compatible uniquement avec les boards Scrum Jira. Les boards Kanban ne sont pas pris en charge.**
 
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
