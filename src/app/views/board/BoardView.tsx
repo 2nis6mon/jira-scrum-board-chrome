@@ -22,6 +22,7 @@ import { blockingRequiredFields } from "../../../jira/models";
 import { atlassianLink } from "../../../jira/site";
 import type { BoardModel } from "../../model/BoardModel";
 import { formatDay, formatPoints, formatTime, goalStatusLabel, plural, toggled } from "../format";
+import { GoalMarker } from "../GoalMarker";
 import { HealthPanel } from "../health/HealthPanel";
 import { Icon } from "../Icon";
 import { publisher, when } from "../settings/TeamSettings";
@@ -784,7 +785,9 @@ function LaneView(props: {
         void board.dropLane(dragged, target);
       }}
     >
-      <header class="lane-header">
+      <header
+        class={`lane-header${progress?.state === "completed" ? " lane-header-completed" : ""}`}
+      >
         <span
           class="lane-grip"
           draggable
@@ -818,7 +821,7 @@ function LaneView(props: {
             title={focused ? "Afficher tous les objectifs" : "N'afficher que cet objectif"}
             onClick={() => board.focusGoal(goal.id)}
           >
-            <span class="goal-ring" aria-hidden="true" />
+            <GoalMarker completed={progress?.state === "completed"} />
             {lane.title}
           </button>
         ) : (

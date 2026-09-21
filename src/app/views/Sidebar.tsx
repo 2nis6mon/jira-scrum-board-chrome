@@ -4,6 +4,7 @@ import { type LaneSummary, laneSummaries } from "../../core/boardPreferences";
 import { type AppModel, clampSidebarWidth, SIDEBAR_WIDTH } from "../model/AppModel";
 import type { BoardModel, BoardSummary } from "../model/BoardModel";
 import { LANE_DRAG_TYPE, revealLane } from "./board/lanes";
+import { GoalMarker } from "./GoalMarker";
 import { Icon, type IconName } from "./Icon";
 
 /**
@@ -435,7 +436,7 @@ function LaneRow(props: {
         {icon ? (
           <Icon name={icon} size={14} />
         ) : (
-          <span class="goal-ring sidebar-ring" aria-hidden="true" />
+          <GoalMarker completed={lane.count > 0 && lane.done === lane.count} sidebar />
         )}
         {goal ? (
           <span class="sidebar-lane-text">

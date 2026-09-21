@@ -8,3 +8,7 @@ coverage/
 .DS_Store
 *.log
 .vite/
+
+# Fichiers générés conservés de la branche d’exploration Jira.
+dist-jira-test/
+artifacts/demo-sprint-goals/

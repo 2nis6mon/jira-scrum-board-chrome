@@ -6,8 +6,13 @@ import {
   parseBlockIdentifier,
   resolveBlocks,
 } from "./boardBlocks";
-import { type BoardConfiguration, displayedGoalId, isGoalHidden } from "./boardConfiguration";
-import { type BoardSnapshot, isIssueDone } from "./boardIssue";
+import {
+  type BoardConfiguration,
+  displayedGoalId,
+  isGoalHidden,
+  visibleColumns,
+} from "./boardConfiguration";
+import { type BoardSnapshot, goalProgress, isIssueDone } from "./boardIssue";
 import { GOAL_COLOR_COUNT, type SprintGoal } from "./sprintGoals";
 
 // Réglages d'affichage modifiés depuis le board : ordre, repli, masquage, couleur des objectifs.
@@ -83,7 +88,20 @@ export function laneSummaries(
     const title =
       goal?.title ?? (block.kind === "run" ? "RUN" : configuration.buildSectionLabel || "Build");
     return [
-      { id, block, title, goal, count: issues.length, done: issues.filter(isIssueDone).length },
+      {
+        id,
+        block,
+        title,
+        goal,
+        count: issues.length,
+        done: goal
+          ? goalProgress(
+              goal,
+              issues,
+              visibleColumns(configuration.scrumColumns).at(-1)?.id ?? null,
+            ).done
+          : issues.filter(isIssueDone).length,
+      },
     ];
   });
 }

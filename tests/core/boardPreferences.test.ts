@@ -51,9 +51,9 @@ describe("swimlanes de la barre latérale", () => {
     ...snapshot(),
     scrumIssues: assembled(
       [
-        makeIssue("ABC-1", { category: "done" }),
+        makeIssue("ABC-1", { category: "done", statusId: "6" }),
         makeIssue("ABC-2"),
-        makeIssue("ABC-3", { category: "done" }),
+        makeIssue("ABC-3", { category: "done", statusId: "6" }),
         makeIssue("ABC-4"),
       ],
       { "ABC-1": "g1", "ABC-2": "g1", "ABC-3": "g2" },

@@ -114,6 +114,7 @@ export function buildBoardLayout(
         ? goalProgress(
             goal,
             snapshot.scrumIssues.filter((issue) => issue.goalId === goal.id),
+            columns.at(-1)?.id ?? null,
           )
         : null,
       cells,

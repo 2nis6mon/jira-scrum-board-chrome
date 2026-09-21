@@ -3219,3 +3219,13 @@ dialog.transition-form::backdrop {
   margin: 0;
   font-size: 12px;
 }
+
+/* Objectif atteint : fond conservé, seuls le repère et la bordure deviennent verts. */
+.goal-completed {
+  display: inline-flex;
+  flex: none;
+  color: #16803d;
+}
+.lane-header-completed {
+  border-color: #16803d;
+}

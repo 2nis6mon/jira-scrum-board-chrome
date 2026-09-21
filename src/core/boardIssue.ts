@@ -131,9 +131,17 @@ export interface GoalProgress {
   readonly state: GoalProgressState;
 }
 
-export function goalProgress(goal: SprintGoal, issues: readonly BoardIssue[]): GoalProgress {
+export function goalProgress(
+  goal: SprintGoal,
+  issues: readonly BoardIssue[],
+  lastColumnId?: string | null,
+): GoalProgress {
   const total = issues.length;
-  const doneIssues = issues.filter(isIssueDone);
+  const doneIssues = issues.filter((issue) =>
+    lastColumnId === undefined
+      ? isIssueDone(issue)
+      : lastColumnId !== null && issue.columnId === lastColumnId,
+  );
   const done = doneIssues.length;
   const totalPoints = sumEstimates(issues);
   return {

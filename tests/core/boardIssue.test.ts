@@ -171,6 +171,30 @@ describe("assembleBoardIssues", () => {
 
 // GoalProgressTests
 describe("goalProgress", () => {
+  it("atteint seulement si tous les tickets sont dans la dernière colonne, puis revient en cours", () => {
+    const goal = makeSprintGoal({ id: "g1", title: "Objectif", position: 0 });
+    const issues = assemble([makeIssue("ABC-1"), makeIssue("ABC-2")]).map((issue) => ({
+      ...issue,
+      columnId: "last",
+    }));
+    expect(goalProgress(goal, issues, "last").state).toBe("completed");
+    expect(goalProgress(goal, issues, "last").done).toBe(2);
+    expect(
+      goalProgress(
+        goal,
+        issues.map((issue, index) => (index === 0 ? { ...issue, columnId: "previous" } : issue)),
+        "last",
+      ).state,
+    ).toBe("inProgress");
+    expect(goalProgress(goal, [], "last").state).toBe("empty");
+    expect(goalProgress(goal, issues, null).state).toBe("inProgress");
+    const categoryDone = assemble([makeIssue("ABC-3", { category: "done" })]).map((issue) => ({
+      ...issue,
+      columnId: "previous",
+    }));
+    expect(goalProgress(goal, categoryDone, "last").state).toBe("inProgress");
+  });
+
   function progress(done: number, total: number, points: (number | undefined)[] = []) {
     const raw = Array.from({ length: total }, (_, i) => {
       const isDone = i < done;

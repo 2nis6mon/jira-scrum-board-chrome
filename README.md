@@ -6,6 +6,11 @@ contribue. Ici, chaque Sprint Goal devient sa propre swimlane, avec ses tickets 
 avancement, dès l'ouverture du board — sans rien configurer. Les tickets sans objectif restent
 visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 
+Un Goal dont tous les tickets des sprints actifs sont dans la dernière colonne visible du
+board reçoit une coche verte et une bordure verte, sans changer de fond. La même coche apparaît
+dans la barre latérale. Les filtres ne changent pas ce calcul ; un Goal vide n’est pas atteint.
+Ce repère disparaît si un ticket quitte la dernière colonne et ne modifie aucun statut Atlassian.
+
 **Compatible uniquement avec les boards Scrum Jira. Les boards Kanban ne sont pas pris en charge.**
 
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
