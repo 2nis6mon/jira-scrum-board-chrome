@@ -3245,10 +3245,6 @@ dialog.transition-form::backdrop {
 .sidebar-lane-completed:hover {
   background: #d4eddd;
 }
-.sidebar-lane-completed .goal-completed {
-  width: 26px;
-  height: 26px;
-}
 .sidebar-lane-completed .sidebar-lane-title {
   font-weight: 700;
 }

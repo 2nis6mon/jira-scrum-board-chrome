@@ -434,7 +434,11 @@ function LaneRow(props: {
         onDragEnd={() => board.endLaneDrag()}
       >
         <span class="sidebar-grip" aria-hidden="true" />
-        {icon ? <Icon name={icon} size={14} /> : <GoalMarker completed={completed} sidebar />}
+        {icon ? (
+          <Icon name={icon} size={14} />
+        ) : (
+          !completed && <GoalMarker completed={false} sidebar />
+        )}
         {goal ? (
           <span class="sidebar-lane-text">
             <span class="sidebar-lane-title">{lane.title}</span>

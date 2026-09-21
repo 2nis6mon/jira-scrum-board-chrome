@@ -108,7 +108,10 @@ describe("barre latérale", () => {
     };
     await tick();
     expect(sidebarRow(goal.title).classList.contains("sidebar-lane-completed")).toBe(true);
-    expect(sidebarRow(goal.title).querySelector('[aria-label="Objectif atteint"]')).not.toBeNull();
+    expect(sidebarRow(goal.title).querySelector('[aria-label="Objectif atteint"]')).toBeNull();
+    expect(
+      document.querySelector('.lane-header-completed [aria-label="Objectif atteint"]'),
+    ).not.toBeNull();
     expect(sidebarRow(goal.title).querySelector(".sidebar-goal-complete-bar")).not.toBeNull();
     expect(
       document.querySelector(`[data-lane-id="goal:${goal.id}"] .lane-header-completed`),

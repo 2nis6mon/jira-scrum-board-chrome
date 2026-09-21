@@ -8,7 +8,7 @@ visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
 
 Un Goal dont tous les tickets des sprints actifs sont dans la dernière colonne visible du
 board reçoit une coche, une bordure et un fond verts. Dans la barre latérale, sa ligne devient
-verte avec une grande coche et une barre de progression pleine. Les filtres ne changent pas ce calcul ; un Goal vide n’est pas atteint.
+verte avec une barre de progression pleine, sans coche. Les filtres ne changent pas ce calcul ; un Goal vide n’est pas atteint.
 Le vert est réservé à cet indicateur : la palette propose neuf couleurs, dont le bleu ardoise,
 le rose et l’ambre. Les anciens choix vert et sarcelle deviennent respectivement ardoise et rose.
 Ce repère disparaît si un ticket quitte la dernière colonne et ne modifie aucun statut Atlassian.
