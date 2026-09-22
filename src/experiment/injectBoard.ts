@@ -147,29 +147,34 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
         }
         if (ready && transition && !transitionOpened) {
           const transitionName = normalized(transition.name);
-          const choices = [
+          const items = [
             ...doc.querySelectorAll<HTMLElement>(
               '[role="menuitem"],[role="option"],[role="menu"] button,[role="listbox"] button',
             ),
-          ].filter((element) => {
-            if (!visible(element)) return false;
-            const candidate = normalized(label(element));
-            return (
-              candidate === transitionName ||
-              candidate.endsWith(` ${transitionName}`) ||
-              candidate.startsWith(`${transitionName} `)
+          ].filter(visible);
+          // Cliquer un élément de ce menu exécute la transition dans Jira si elle n'a pas d'écran :
+          // une erreur d'élément serait une écriture non voulue. On ne clique donc que sur un
+          // élément sûr : il porte l'identifiant exact de la transition (valeur d'attribut
+          // délimitée) et son nom, ou, à défaut, son libellé est exactement le nom de la
+          // transition, sans autre candidat. Sinon, le menu reste ouvert : l'utilisateur choisit.
+          const idPattern = new RegExp(`(?:^|\\D)${transition.id}(?:\\D|$)`);
+          const mentions = items.filter((element) =>
+            normalized(label(element)).includes(transitionName),
+          );
+          if (mentions.length > 0) {
+            const identified = mentions.filter((element) =>
+              [...element.attributes].some(({ value }) => idPattern.test(value)),
             );
-          });
-          if (choices.length > 0) {
-            const identified = choices.filter((element) =>
-              [...element.attributes].some(({ value }) => value.includes(transition.id)),
-            );
+            const exact = items.filter((element) => normalized(label(element)) === transitionName);
             const choice =
-              identified.length === 1 ? identified[0] : choices.length === 1 ? choices[0] : null;
-            if (choice) {
-              transitionOpened = true;
-              choice.click();
-            }
+              identified.length === 1
+                ? identified[0]
+                : identified.length === 0 && exact.length === 1
+                  ? exact[0]
+                  : null;
+            // Choix automatique ou manuel, plus aucun clic n'est tenté pour cette transition.
+            transitionOpened = true;
+            choice?.click();
           } else if (
             !transitionMenuOpened ||
             (Date.now() - transitionMenuAttemptedAt > 1500 &&

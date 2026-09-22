@@ -364,3 +364,45 @@ Sources : [contrat de transition et opérations de champs](https://developer.atl
 [structure du worklog](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-worklogs/),
 [exemple officiel de `update.worklog` dans Issue Update](https://docs.atlassian.com/software/jira/docs/api/REST/1000.1497.0/).
 Tests unitaires, modèle et banc Chrome fictif ; validation Jira réel encore à effectuer.
+
+## Prototype d'ouverture directe dans Jira (0.19.8.2, durci en 0.19.9.2)
+
+Paquet d'essai distinct, non distribué, sur la branche `codex/test-ouverture-jira-directe`. Son
+manifest est généré à partir de celui du paquet autonome (`vite.config.ts`), qui reste inchangé.
+Il ajoute :
+- la permission `scripting` : un script de contenu sur le seul site autorisé, qui ne fait rien
+  hors d'une adresse de board suivie de `?sprintGoals=1`, et l'injection de l'overlay ;
+- `web_accessible_resources` : la page du board et ses ressources, exposées aux pages
+  `https://*.atlassian.net/*` ;
+- `frame-ancestors https://*.atlassian.net` au lieu de `'none'` pour les pages de l'extension ;
+- des messages `postMessage` entre la page Jira hôte et la page du board encadrée, origine et
+  fenêtre vérifiées, clés de ticket et identifiants de transition validés.
+
+Le paquet autonome n'est pas concerné : les constats 2.2 (« aucune page web ne peut encadrer
+l'extension », aucun script de contenu, aucune ressource exposée) restent vrais pour lui seul.
+
+| # | Constat | Gravité | État |
+|---|---|---|---|
+| S9 | La page du board, exposée à tout `*.atlassian.net` et encadrable par lui, pouvait être affichée par un autre site Atlassian (n'importe qui peut en créer un), chargée avec la session de l'utilisateur : glisser-déposer provoqué à son insu (écritures dans son Jira), et clé du ticket cliqué envoyée à la page hôte sans vérifier le site. | Moyenne | **Corrigé en 0.19.9.2** |
+| S10 | Le clic automatique dans le menu de statut de Jira reconnaissait la transition par un libellé qui commence ou finit par son nom. Un élément voisin sans écran (« Démarrer la revue » pour « Revue ») pouvait être cliqué, et Jira l'exécutait aussitôt : une transition non voulue, hors de l'inventaire `writes.ts`. | Moyenne | **Corrigé en 0.19.9.2** |
+| S11 | La reconnaissance de la fiche, du menu de statut et du formulaire dépend du DOM de Jira Cloud (rôles ARIA, libellés français et anglais). Une refonte d'Atlassian peut la mettre en défaut. | Information | Structurel, voir `DEVELOPER.md` §9 |
+
+**S9 — correctif.** `src/experiment/embeddingGuard.ts` (`embeddingTarget`) et `embeddedBoardTarget`
+(`embedded.ts`), appelés dans `main.tsx` **avant tout rendu et toute lecture** : la page encadrée
+ne démarre que si `location.ancestorOrigins` contient exactement une origine, égale à `jiraHost` et
+au site normalisé, si `jiraBoard` est une adresse de board de ce site marquée `sprintGoals=1`, et si
+ce site est autorisé dans Chrome. Sinon, elle affiche seulement « Sprint Goals ne s'affiche que dans
+la page Jira de votre site connecté. » La clé d'un ticket cliqué n'est envoyée que si le site
+connecté est celui de la page hôte. Tests : `tests/experiment/embedding.test.ts` ; Chrome :
+`verify:jira-direct-test` (refus sans autorisation, refus dans la page d'un autre site Atlassian).
+Piste complémentaire non retenue faute d'essai : `use_dynamic_url` sur la ressource exposée
+(l'adresse dynamique pourrait changer l'initiateur vu par la règle `Origin`).
+
+**S10 — correctif.** `injectBoard.ts` ne clique que sur l'élément qui porte l'identifiant exact de
+la transition (valeur d'attribut délimitée par des non-chiffres) et mentionne son nom, ou, sans
+élément identifié, sur un unique libellé exactement égal au nom. Sinon, aucun clic : le menu reste
+ouvert et l'utilisateur choisit (son propre geste). Chrome : `verify:jira-direct-test`, scénario
+« transition ambiguë » (il échoue avec l'ancien code, qui cliquait l'élément voisin).
+
+Non essayé sur Jira réel : la reconnaissance du menu et du formulaire sur les workflows de Denis.
+

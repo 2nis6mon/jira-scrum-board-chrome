@@ -1,11 +1,31 @@
 import { effect } from "@preact/signals";
 import type { AppModel } from "../app/model/AppModel";
+import type { Platform } from "../app/platform/types";
+import { type EmbeddingTarget, embeddingTarget } from "./embeddingGuard";
 
-/** Relie les cartes de l'application embarquée à la page Jira qui l'héberge. */
-export function installEmbeddedLinks(model: AppModel): void {
+/**
+ * Hébergement demandé à la page du board affichée dans un cadre : admis seulement dans la page
+ * Jira de premier niveau du site connecté et autorisé (voir `embeddingTarget`). `null` : la page
+ * ne doit rien lire ni rien afficher du board.
+ */
+export async function embeddedBoardTarget(
+  platform: Pick<Platform, "permissions">,
+  place: { readonly search: string; readonly ancestorOrigins?: ArrayLike<string> },
+): Promise<EmbeddingTarget | null> {
+  const params = new URLSearchParams(place.search);
+  const target = embeddingTarget({
+    jiraHost: params.get("jiraHost"),
+    jiraBoard: params.get("jiraBoard"),
+    ancestors: Array.from(place.ancestorOrigins ?? []),
+  });
+  if (!target) return null;
+  // Un site non autorisé n'est jamais proposé à la connexion depuis une page qui l'encadre.
+  return (await platform.permissions.contains(target.permissionPattern)) ? target : null;
+}
+
+/** Relie les cartes de l'application embarquée à la page Jira qui l'héberge, déjà vérifiée. */
+export function installEmbeddedLinks(model: AppModel, origin: string): void {
   if (window.parent === window) return;
-  const origin = new URL(location.href).searchParams.get("jiraHost");
-  if (!origin || !/^https:\/\/[a-z0-9-]+\.atlassian\.net$/.test(origin)) return;
 
   effect(() => {
     const connection = model.connection.value;
@@ -52,6 +72,9 @@ export function installEmbeddedLinks(model: AppModel): void {
         ? target.closest<HTMLAnchorElement>("a.card[data-issue-key]")
         : null;
     if (!link) return;
+    // La clé d'un ticket ne part que vers la page Jira du site connecté.
+    const connection = model.connection.peek();
+    if (connection.state !== "connected" || connection.board.site.origin !== origin) return;
     event.preventDefault();
     window.parent.postMessage(
       { type: "sprint-goals:open-issue", key: link.dataset.issueKey },

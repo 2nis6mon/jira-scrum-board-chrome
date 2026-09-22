@@ -8,7 +8,10 @@ import { fileURLToPath } from "node:url";
 
 const chromePath =
   process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const dist = fileURLToPath(new URL("../dist-jira-direct-test", import.meta.url));
+// JIRA_DIRECT_DIST : un autre dossier construit, pour ne pas reconstruire le paquet en essai.
+const dist =
+  process.env.JIRA_DIRECT_DIST ??
+  fileURLToPath(new URL("../dist-jira-direct-test", import.meta.url));
 if (!existsSync(join(dist, "manifest.json"))) process.exit(2);
 
 const profile = mkdtempSync(join(tmpdir(), "sprint-goals-direct-"));
@@ -81,7 +84,7 @@ try {
     <aside id="ticket" hidden style="position:fixed;right:0;top:0;width:600px;height:100vh;background:white">
       <button aria-label="Fermer" onclick="history.pushState(null,'',location.pathname);this.parentElement.hidden=true">Fermer</button>
       <a href="/browse/ABC-102">ABC-102</a><h1>Ticket Jira réel</h1>
-      <button aria-label="Code Review - Changer le statut" onclick="setTimeout(()=>{const menu=document.createElement('div');menu.setAttribute('role','menu');menu.innerHTML='<button role=menuitem data-transition-id=21>Démarrer</button>';menu.querySelector('button').onclick=()=>{const form=document.createElement('div');form.setAttribute('role','dialog');form.style.cssText='position:fixed;width:680px;height:500px';form.innerHTML='<h2>Démarrer</h2><form id=transition-jira><label>Temps passé <input required></label><button type=submit>Valider</button></form>';document.body.append(form)};document.body.append(menu)},100)">Code Review</button>
+      <button aria-label="Code Review - Changer le statut" onclick="setTimeout(()=>{const menu=document.createElement('div');menu.setAttribute('role','menu');menu.innerHTML='<button role=menuitem data-transition-id=21>Démarrer</button><button role=menuitem data-transition-id=31>Démarrer la revue</button>';menu.querySelectorAll('button')[1].onclick=()=>{document.body.dataset.executed='31'};menu.querySelector('button').onclick=()=>{const form=document.createElement('div');form.setAttribute('role','dialog');form.style.cssText='position:fixed;width:680px;height:500px';form.innerHTML='<h2>Démarrer</h2><form id=transition-jira><label>Temps passé <input required></label><button type=submit>Valider</button></form>';document.body.append(form)};document.body.append(menu)},100)">Code Review</button>
     </aside>
     <script>if(new URL(location.href).searchParams.has('selectedIssue'))document.querySelector('#ticket').hidden=false;</script>
   </body></html>`;
@@ -144,6 +147,15 @@ try {
       targetId: boardFrame.targetId,
       flatten: true,
     });
+    const REFUSAL = "ne s'affiche que dans la page Jira de votre site connecté";
+    // Profil vierge : le site n'est pas autorisé dans Chrome, la page encadrée ne lit rien.
+    assert(
+      await evaluate(
+        child.sessionId,
+        `document.body.innerText.includes(${JSON.stringify(REFUSAL)}) && !document.querySelector('.workspace, .connection')`,
+      ),
+      "sans autorisation Chrome du site, la page encadrée n'affiche que le refus",
+    );
     await evaluate(
       child.sessionId,
       "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102'},'https://acme.atlassian.net')",
@@ -197,6 +209,54 @@ try {
         "!document.querySelector('dialog iframe').contentDocument.querySelector('#transition-jira').matches(':valid')",
       ),
       "le formulaire requis reste à remplir et n'est jamais validé automatiquement",
+    );
+    // Transition ambiguë : « Démarrer la revue » (31, sans écran : la cliquer l'exécute) mentionne
+    // « Revue » (99) sans porter son identifiant ni avoir exactement ce libellé. Rien n'est cliqué ;
+    // le menu reste ouvert pour l'utilisateur.
+    await evaluate(
+      sessionId,
+      "document.querySelector('dialog[open]').dispatchEvent(new Event('cancel'))",
+    );
+    await sleep(300);
+    await evaluate(
+      child.sessionId,
+      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',transition:{id:'99',name:'Revue'}},'https://acme.atlassian.net')",
+    );
+    await sleep(1600);
+    assert(
+      await evaluate(
+        sessionId,
+        "(()=>{const doc=document.querySelector('dialog iframe').contentDocument;return !doc.body.dataset.executed&&!doc.querySelector('#transition-jira')&&Boolean(doc.querySelector('[role=menu]'))})()",
+      ),
+      "une transition ambiguë n'est jamais cliquée : le menu Jira reste au choix de l'utilisateur",
+    );
+    // Un autre site Atlassian qui encadre la page du board, en annonçant le vôtre : refusé.
+    await send(
+      "Page.navigate",
+      { url: "https://evil.atlassian.net/jira/software/c/projects/ABC/boards/7" },
+      sessionId,
+    );
+    await sleep(700);
+    await evaluate(
+      sessionId,
+      `(()=>{const frame=document.createElement('iframe');const url=new URL('chrome-extension://${extensionId}/board.html');url.searchParams.set('jiraHost','https://acme.atlassian.net');url.searchParams.set('jiraBoard',${JSON.stringify(special)});url.searchParams.set('probe','autre-site');frame.src=url.href;document.body.append(frame)})()`,
+    );
+    await sleep(1200);
+    const { targetInfos: afterEvil } = await send("Target.getTargets");
+    const evilFrame = afterEvil.find(
+      (target) => target.type === "iframe" && target.url.includes("probe=autre-site"),
+    );
+    assert(evilFrame, "un autre site Atlassian peut charger la page (ressource exposée)");
+    const evil = await send("Target.attachToTarget", {
+      targetId: evilFrame.targetId,
+      flatten: true,
+    });
+    assert(
+      await evaluate(
+        evil.sessionId,
+        `document.body.innerText.includes(${JSON.stringify(REFUSAL)}) && !document.querySelector('.workspace, .connection')`,
+      ),
+      "encadrée par un autre site Atlassian, la page n'affiche que le refus",
     );
     await send(
       "Page.navigate",
