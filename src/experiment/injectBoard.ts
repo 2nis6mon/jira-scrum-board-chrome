@@ -80,6 +80,18 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
     let transitionMenuAttemptedAt = 0;
     let transitionOpened = false;
     let focusedTransitionDialog: HTMLElement | null = null;
+    // Fenêtres déjà présentes au choix de la transition (fiche du ticket comprise) : celle du
+    // formulaire est celle qui apparaît ensuite.
+    let dialogsBefore: Set<Element> | null = null;
+    let lastDialogSize = "";
+    let stableTicks = 0;
+    // Transition : la fiche reste cachée jusqu'à ce que son formulaire soit isolé ; passé ce délai
+    // sans formulaire reconnu, elle est montrée pour que l'utilisateur agisse lui-même.
+    let transitionDeadline = 0;
+    const revealTicket = () => {
+      ticket.style.visibility = "visible";
+      hint.remove();
+    };
     let transitionDialogMissingSince = 0;
     const expires = Date.now() + 30000;
     ticketTimer = setInterval(() => {
@@ -139,8 +151,12 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
             panel.setAttribute("data-sprint-goals-ticket", "");
             panel.style.cssText +=
               ";position:fixed!important;inset:0!important;width:100%!important;height:100vh!important;max-width:none!important;max-height:none!important;margin:0!important;box-sizing:border-box!important;background:white;z-index:10;overflow:auto";
-            ticket.style.visibility = "visible";
-            hint.remove();
+            if (transition) {
+              hint.textContent = `Ouverture de « ${transition.name} »…`;
+              transitionDeadline = Date.now() + 8000;
+            } else {
+              revealTicket();
+            }
             ready = true;
             ticketPanel = panel;
           }
@@ -174,7 +190,10 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
                   : null;
             // Choix automatique ou manuel, plus aucun clic n'est tenté pour cette transition.
             transitionOpened = true;
-            choice?.click();
+            dialogsBefore = new Set(doc.querySelectorAll('[role="dialog"]'));
+            // Sans choix sûr, la fiche est montrée : l'utilisateur choisit dans le menu de Jira.
+            if (choice) choice.click();
+            else revealTicket();
           } else if (
             !transitionMenuOpened ||
             (Date.now() - transitionMenuAttemptedAt > 1500 &&
@@ -210,36 +229,69 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
         if (ready && transition && transitionOpened) {
           if (!focusedTransitionDialog) {
             const transitionName = normalized(transition.name);
-            const candidates = [...doc.querySelectorAll<HTMLElement>('[role="dialog"]')].filter(
+            // Fenêtre apparue depuis le choix de la transition, avec un formulaire ou une iframe :
+            // Jira affiche certains écrans de transition « classiques » (temps passé, estimation
+            // restante, commentaire) dans une iframe de même origine, où se trouvent les champs
+            // et même le titre.
+            const fresh = [...doc.querySelectorAll<HTMLElement>('[role="dialog"]')].filter(
               (element) =>
+                !dialogsBefore?.has(element) &&
                 element !== ticketPanel &&
+                !(ticketPanel && element.contains(ticketPanel)) &&
                 visible(element) &&
                 Boolean(
                   element.querySelector(
-                    'form,input,textarea,select,[role="combobox"],[contenteditable="true"]',
+                    'form,input,textarea,select,[role="combobox"],[contenteditable="true"],iframe',
                   ),
-                ) &&
-                normalized(element.textContent ?? "").includes(transitionName),
+                ),
             );
-            if (candidates.length === 1) {
-              focusedTransitionDialog = candidates[0] ?? null;
-              if (focusedTransitionDialog) {
-                const box = focusedTransitionDialog.getBoundingClientRect();
-                const crop = doc.createElement("style");
-                crop.setAttribute("data-sprint-goals-transition-style", "");
-                crop.textContent =
-                  'body *,[data-sprint-goals-ticket],[data-sprint-goals-ticket] *{visibility:hidden!important}[data-sprint-goals-transition],[data-sprint-goals-transition] *{visibility:visible!important}[role="menu"],[role="menu"] *,[role="listbox"],[role="listbox"] *{visibility:visible!important}';
-                doc.head.append(crop);
-                focusedTransitionDialog.setAttribute("data-sprint-goals-transition", "");
-                focusedTransitionDialog.style.cssText +=
-                  ";position:fixed!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;margin:0!important;box-sizing:border-box!important;overflow:auto!important";
-                const width = Math.max(320, Math.min(box.width, win.innerWidth - 32));
-                const height = Math.max(240, Math.min(box.height, win.innerHeight - 32));
-                dialog.style.width = `${Math.round(width)}px`;
-                dialog.style.height = `${Math.round(height)}px`;
-                dialog.style.maxWidth = "calc(100vw - 32px)";
-                dialog.style.maxHeight = "calc(100vh - 32px)";
+            const text = (element: HTMLElement) => {
+              let content = element.textContent ?? "";
+              for (const frame of element.querySelectorAll("iframe")) {
+                try {
+                  content += ` ${frame.contentDocument?.body?.textContent ?? ""}`;
+                } catch {
+                  // Iframe d'une autre origine : son texte n'est pas lisible, on s'en passe.
+                }
               }
+              return normalized(content);
+            };
+            const named = fresh.filter((element) => text(element).includes(transitionName));
+            const candidate = named.length === 1 ? named[0] : fresh.length === 1 ? fresh[0] : null;
+            // La taille de la fenêtre donne celle de la popin.
+            const box = candidate?.getBoundingClientRect();
+            const size = box ? `${Math.round(box.width)}x${Math.round(box.height)}` : "";
+            // Iframes chargées et taille inchangée pendant trois passages (environ une seconde) : un
+            // écran classique grandit après le chargement de son iframe.
+            const loaded =
+              candidate !== null &&
+              candidate !== undefined &&
+              [...candidate.querySelectorAll("iframe")].every((frame) => {
+                try {
+                  return frame.contentDocument?.readyState === "complete";
+                } catch {
+                  return true;
+                }
+              });
+            stableTicks = loaded && size === lastDialogSize ? stableTicks + 1 : 0;
+            lastDialogSize = size;
+            if (stableTicks >= 3 && box && candidate) {
+              revealTicket();
+              focusedTransitionDialog = candidate;
+              const crop = doc.createElement("style");
+              crop.setAttribute("data-sprint-goals-transition-style", "");
+              crop.textContent =
+                'body *,[data-sprint-goals-ticket],[data-sprint-goals-ticket] *{visibility:hidden!important}[data-sprint-goals-transition],[data-sprint-goals-transition] *{visibility:visible!important}[role="menu"],[role="menu"] *,[role="listbox"],[role="listbox"] *{visibility:visible!important}';
+              doc.head.append(crop);
+              focusedTransitionDialog.setAttribute("data-sprint-goals-transition", "");
+              focusedTransitionDialog.style.cssText +=
+                ";position:fixed!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;margin:0!important;box-sizing:border-box!important;overflow:auto!important";
+              const width = Math.max(320, Math.min(box.width, win.innerWidth - 32));
+              const height = Math.max(240, Math.min(box.height, win.innerHeight - 32));
+              dialog.style.width = `${Math.round(width)}px`;
+              dialog.style.height = `${Math.round(height)}px`;
+              dialog.style.maxWidth = "calc(100vw - 32px)";
+              dialog.style.maxHeight = "calc(100vh - 32px)";
             }
           } else if (!focusedTransitionDialog.isConnected || !visible(focusedTransitionDialog)) {
             if (transitionDialogMissingSince === 0) transitionDialogMissingSince = Date.now();
@@ -248,6 +300,9 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
             transitionDialogMissingSince = 0;
           }
         }
+        // Menu ou formulaire jamais reconnu : la fiche est montrée, l'utilisateur agit dans Jira.
+        if (ready && transition && !focusedTransitionDialog && Date.now() > transitionDeadline)
+          revealTicket();
       } catch {
         // Jira peut momentanément reconstruire son panneau pendant son chargement.
       }

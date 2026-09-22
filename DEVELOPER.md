@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **22 septembre 2026**  
 Branche décrite : **`codex/test-ouverture-jira-directe`**  
-Produit autonome : **0.19.9**  
-Prototype d’intégration Jira : **0.19.9.2**
+Produit autonome : **0.19.10**  
+Prototype d’intégration Jira : **0.19.10.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -47,7 +47,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.19.9`  
+Version : `0.19.10`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -69,7 +69,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist-jira-direct-test/`  
-Version générée : `0.19.9.2`  
+Version générée : `0.19.10.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Ce paquet est volontairement distinct : la clé stable est retirée pendant la construction. Il a
@@ -94,6 +94,14 @@ Depuis la 0.19.9.2 (audit, constats S9 et S10) :
 - le clic automatique dans le menu de statut Jira n’a lieu que sur l’élément qui porte l’identifiant
   exact de la transition, ou sur un unique libellé strictement égal à son nom ; sinon le menu reste
   au choix de l’utilisateur.
+
+Depuis la 0.19.10.2, le formulaire isolé est la fenêtre apparue après le choix de la transition,
+y compris un écran « classique » chargé par Jira dans une iframe ; la fiche reste cachée pendant
+l’ouverture, puis la popin prend la taille de ce seul formulaire une fois chargé.
+
+Ne pas confondre avec l’ancien prototype `dist-jira-test` (« Sprint Goals — prototype dans Jira »,
+branche `codex/test-board-dans-jira`, 0.19.1.x) : il ajoute un onglet « Sprint Goals » dans Jira et
+ouvre le formulaire de l’extension, pas celui de Jira. Le désactiver pour essayer ce paquet-ci.
 
 #### Activation
 

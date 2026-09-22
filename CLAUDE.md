@@ -397,6 +397,20 @@ Le greffon du manifest d'essai respecte désormais `--outDir`. `verify:jira-dire
 scénarios ajoutés (refus sans autorisation, refus chez un autre site Atlassian, transition ambiguë
 jamais cliquée ; le script échoue avec l'ancien `injectBoard.ts`).
 
+0.19.10 (signalé par Denis) : un écran de transition « classique » (temps passé, date de début,
+estimation restante, commentaire) s'affichait par-dessus la fiche complète au lieu d'être isolé :
+Jira le charge dans une iframe, où sont ses champs et son titre, et le repérage cherchait les
+champs et le nom de la transition dans la fenêtre elle-même. `injectBoard.ts` retient désormais la
+fenêtre APPARUE après le choix de la transition (celles déjà présentes, fiche comprise, sont
+écartées), avec un formulaire ou une iframe ; le nom est aussi cherché dans ses iframes de même
+origine. La popin est dimensionnée quand ses iframes sont chargées et sa taille stable pendant trois
+passages (environ une seconde). Pendant ce temps, la fiche reste cachée (« Ouverture de « … »… ») ;
+elle est montrée si l'extension laisse le choix de la transition à l'utilisateur, ou après 8 s sans
+formulaire reconnu. `verify:jira-direct-test` : scénario d'écran classique (échoue avec 0.19.9).
+Attention : l'ancien prototype `dist-jira-test` (« prototype dans Jira », branche
+`codex/test-board-dans-jira`, 0.19.1.x, onglet « Sprint Goals » ajouté dans Jira) n'a pas ces
+corrections et ouvre le formulaire de l'extension ; ne pas le confondre avec `dist-jira-direct-test`.
+
 Ne pas reconstruire `dist/` ni `dist-jira-direct-test/` pendant que Denis teste l'extension :
 construire ailleurs avec `npx vite build [--mode jira-direct-test] --outDir <scratchpad>`.
 

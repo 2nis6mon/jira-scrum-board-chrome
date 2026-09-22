@@ -31,7 +31,7 @@ réaffiché depuis cette section, sans modifier son rattachement dans Jira.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.19.9 (paquet autonome) et 0.19.9.2 (prototype d'ouverture directe dans Jira, voir
+> **État : 0.19.10 (paquet autonome) et 0.19.10.2 (prototype d'ouverture directe dans Jira, voir
 > plus bas).** Point d'entrée pour reprendre le projet : [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
 > santé du sprint (6a), plusieurs boards (6b), audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)), empaquetage (6e) à venir. Board du
@@ -511,6 +511,12 @@ Durcissements de la 0.19.9.2 :
   l'identifiant exact de la transition, ou, à défaut, sur un unique libellé strictement égal à son
   nom. Sinon, rien n'est cliqué et le menu reste au choix de l'utilisateur : un élément voisin
   sans écran (« Démarrer la revue » pour « Revue ») aurait été exécuté aussitôt par Jira.
+
+Depuis la 0.19.10.2, un écran de transition « classique » (temps passé, date de début,
+estimation restante, commentaire), que Jira charge dans une iframe, s'affiche seul comme dans le
+board Jira, et non plus par-dessus la fiche du ticket ; la fiche reste cachée pendant l'ouverture.
+À charger : `dist-jira-direct-test/` (« Sprint Goals — test ouverture Jira »), pas l'ancien
+`dist-jira-test/` (« prototype dans Jira »).
 
 Vérifié dans Chrome (faux Jira, profil vierge) par `verify:jira-direct-test`, dont trois
 scénarios ajoutés : refus sans autorisation du site, refus dans la page d'un autre site Atlassian,

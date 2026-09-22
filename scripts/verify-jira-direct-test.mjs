@@ -84,9 +84,28 @@ try {
     <aside id="ticket" hidden style="position:fixed;right:0;top:0;width:600px;height:100vh;background:white">
       <button aria-label="Fermer" onclick="history.pushState(null,'',location.pathname);this.parentElement.hidden=true">Fermer</button>
       <a href="/browse/ABC-102">ABC-102</a><h1>Ticket Jira réel</h1>
-      <button aria-label="Code Review - Changer le statut" onclick="setTimeout(()=>{const menu=document.createElement('div');menu.setAttribute('role','menu');menu.innerHTML='<button role=menuitem data-transition-id=21>Démarrer</button><button role=menuitem data-transition-id=31>Démarrer la revue</button>';menu.querySelectorAll('button')[1].onclick=()=>{document.body.dataset.executed='31'};menu.querySelector('button').onclick=()=>{const form=document.createElement('div');form.setAttribute('role','dialog');form.style.cssText='position:fixed;width:680px;height:500px';form.innerHTML='<h2>Démarrer</h2><form id=transition-jira><label>Temps passé <input required></label><button type=submit>Valider</button></form>';document.body.append(form)};document.body.append(menu)},100)">Code Review</button>
+      <button aria-label="Code Review - Changer le statut" onclick="openStatusMenu()">Code Review</button>
     </aside>
-    <script>if(new URL(location.href).searchParams.has('selectedIssue'))document.querySelector('#ticket').hidden=false;</script>
+    <script>if(new URL(location.href).searchParams.has('selectedIssue'))document.querySelector('#ticket').hidden=false;
+    // Menu de statut du faux Jira : 21 a un écran moderne, 31 s'exécute sans écran, 41 a un écran
+    // « classique » dont le titre et les champs sont dans une iframe qui grandit en se chargeant.
+    function openStatusMenu(){setTimeout(function(){
+      var menu=document.createElement('div');menu.setAttribute('role','menu');
+      menu.innerHTML='<button role=menuitem data-transition-id=21>Démarrer</button><button role=menuitem data-transition-id=31>Démarrer la revue</button><button role=menuitem data-transition-id=41>Merge into develop</button>';
+      var items=menu.querySelectorAll('button');
+      items[0].onclick=function(){var form=document.createElement('div');form.setAttribute('role','dialog');form.style.cssText='position:fixed;width:680px;height:500px';form.innerHTML='<h2>Démarrer</h2><form id=transition-jira><label>Temps passé <input required></label><button type=submit>Valider</button></form>';document.body.append(form);};
+      items[1].onclick=function(){document.body.dataset.executed='31';};
+      items[2].onclick=function(){
+        var legacy=document.createElement('div');legacy.setAttribute('role','dialog');legacy.id='legacy-dialog';
+        legacy.style.cssText='position:fixed;left:100px;top:40px;width:620px;height:200px;background:white';
+        var frame=document.createElement('iframe');frame.style.cssText='border:0;width:100%;height:100%';
+        frame.srcdoc='<h2>Merge into develop</h2><form id=legacy-form><label>Time Spent <input required></label></form>';
+        legacy.append(frame);document.body.append(legacy);
+        setTimeout(function(){legacy.style.height='560px';},400);
+      };
+      document.body.append(menu);
+    },100);}
+    </script>
   </body></html>`;
   let handling = false;
   const pump = setInterval(async () => {
@@ -188,7 +207,15 @@ try {
       child.sessionId,
       "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',transition:{id:'21',name:'Démarrer'}},'https://acme.atlassian.net')",
     );
-    await sleep(1600);
+    await sleep(600);
+    assert(
+      await evaluate(
+        sessionId,
+        "(()=>{const d=document.querySelector('dialog[open]');return Boolean(d)&&d.querySelector('iframe').style.visibility==='hidden'&&d.textContent.includes('Ouverture de « Démarrer »')})()",
+      ),
+      "pendant l'ouverture d'une transition, la fiche du ticket reste cachée",
+    );
+    await sleep(2000);
     assert(
       await evaluate(
         sessionId,
@@ -229,6 +256,25 @@ try {
         "(()=>{const doc=document.querySelector('dialog iframe').contentDocument;return !doc.body.dataset.executed&&!doc.querySelector('#transition-jira')&&Boolean(doc.querySelector('[role=menu]'))})()",
       ),
       "une transition ambiguë n'est jamais cliquée : le menu Jira reste au choix de l'utilisateur",
+    );
+    // Écran de transition « classique » : rien dans la fenêtre elle-même, titre et champs dans une
+    // iframe. La popin se recadre sur cette seule fenêtre, à sa taille une fois chargée.
+    await evaluate(
+      sessionId,
+      "document.querySelector('dialog[open]').dispatchEvent(new Event('cancel'))",
+    );
+    await sleep(300);
+    await evaluate(
+      child.sessionId,
+      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',transition:{id:'41',name:'Merge into develop'}},'https://acme.atlassian.net')",
+    );
+    await sleep(3200);
+    assert(
+      await evaluate(
+        sessionId,
+        "(()=>{const popin=document.querySelector('dialog[open]');const doc=document.querySelector('dialog iframe').contentDocument;const legacy=doc.querySelector('#legacy-dialog');if(!popin||!legacy)return false;const r=popin.getBoundingClientRect();return legacy.hasAttribute('data-sprint-goals-transition')&&getComputedStyle(doc.querySelector('#ticket')).visibility==='hidden'&&Math.abs(r.width-620)<4&&r.height>Math.min(540,innerHeight-40)})()",
+      ),
+      "un écran de transition classique (champs dans une iframe) s'affiche seul, à sa taille",
     );
     // Un autre site Atlassian qui encadre la page du board, en annonçant le vôtre : refusé.
     await send(
