@@ -81,6 +81,7 @@ try {
     <aside id="ticket" hidden style="position:fixed;right:0;top:0;width:600px;height:100vh;background:white">
       <button aria-label="Fermer" onclick="history.pushState(null,'',location.pathname);this.parentElement.hidden=true">Fermer</button>
       <a href="/browse/ABC-102">ABC-102</a><h1>Ticket Jira réel</h1>
+      <button aria-label="Code Review - Changer le statut" onclick="setTimeout(()=>{const menu=document.createElement('div');menu.setAttribute('role','menu');menu.innerHTML='<button role=menuitem data-transition-id=21>Démarrer</button>';menu.querySelector('button').onclick=()=>{const form=document.createElement('div');form.setAttribute('role','dialog');form.innerHTML='<form id=transition-jira><label>Temps passé <input required></label><button type=submit>Valider</button></form>';document.body.append(form)};document.body.append(menu)},100)">Code Review</button>
     </aside>
     <script>if(new URL(location.href).searchParams.has('selectedIssue'))document.querySelector('#ticket').hidden=false;</script>
   </body></html>`;
@@ -98,7 +99,7 @@ try {
           {
             requestId: event.params.requestId,
             responseCode: 200,
-            responseHeaders: [{ name: "Content-Type", value: "text/html" }],
+            responseHeaders: [{ name: "Content-Type", value: "text/html; charset=utf-8" }],
             body: Buffer.from(fixture).toString("base64"),
           },
           sessionId,
@@ -120,7 +121,7 @@ try {
       sessionId,
       `${injectSource};injectBoard('chrome-extension://${extensionId}/board.html',${JSON.stringify(special)})`,
     );
-    await sleep(900);
+    await sleep(1600);
     assert(
       await evaluate(sessionId, "Boolean(document.querySelector('#sprint-goals-direct'))"),
       "l'URL spéciale affiche le board Sprint Goals",
@@ -145,9 +146,9 @@ try {
     });
     await evaluate(
       child.sessionId,
-      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102'},'https://acme.atlassian.net')",
+      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',transition:{id:'21',name:'Démarrer'}},'https://acme.atlassian.net')",
     );
-    await sleep(900);
+    await sleep(1600);
     assert(
       await evaluate(
         sessionId,
@@ -161,6 +162,20 @@ try {
         "document.querySelector('dialog iframe').style.visibility==='visible'",
       ),
       "le panneau natif du ticket est visible dans la popin",
+    );
+    assert(
+      await evaluate(
+        sessionId,
+        "Boolean(document.querySelector('dialog iframe').contentDocument.querySelector('#transition-jira'))",
+      ),
+      "le formulaire Jira de la transition est ouvert directement",
+    );
+    assert(
+      await evaluate(
+        sessionId,
+        "!document.querySelector('dialog iframe').contentDocument.querySelector('#transition-jira').matches(':valid')",
+      ),
+      "le formulaire requis reste à remplir et n'est jamais validé automatiquement",
     );
     await send(
       "Page.navigate",

@@ -75,7 +75,9 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
     dialog.showModal();
 
     let ready = false;
+    let ticketPanel: HTMLElement | null = null;
     let transitionMenuOpened = false;
+    let transitionMenuAttemptedAt = 0;
     let transitionOpened = false;
     const expires = Date.now() + 30000;
     ticketTimer = setInterval(() => {
@@ -97,6 +99,13 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
         };
         const label = (element: HTMLElement) =>
           (element.getAttribute("aria-label") ?? element.textContent ?? "").trim();
+        const normalized = (value: string) =>
+          value
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLocaleLowerCase();
         if (!ready) {
           const close = [...doc.querySelectorAll<HTMLElement>('button,[role="button"]')].find(
             (element) => /^(Close|Fermer)$/.test(label(element)) && visible(element),
@@ -131,24 +140,63 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
             ticket.style.visibility = "visible";
             hint.remove();
             ready = true;
+            ticketPanel = panel;
           }
         }
         if (ready && transition && !transitionOpened) {
-          if (!transitionMenuOpened) {
+          const transitionName = normalized(transition.name);
+          const choices = [
+            ...doc.querySelectorAll<HTMLElement>(
+              '[role="menuitem"],[role="option"],[role="menu"] button,[role="listbox"] button',
+            ),
+          ].filter((element) => {
+            if (!visible(element)) return false;
+            const candidate = normalized(label(element));
+            return (
+              candidate === transitionName ||
+              candidate.endsWith(` ${transitionName}`) ||
+              candidate.startsWith(`${transitionName} `)
+            );
+          });
+          if (choices.length > 0) {
+            const identified = choices.filter((element) =>
+              [...element.attributes].some(({ value }) => value.includes(transition.id)),
+            );
+            const choice =
+              identified.length === 1 ? identified[0] : choices.length === 1 ? choices[0] : null;
+            if (choice) {
+              transitionOpened = true;
+              choice.click();
+            }
+          } else if (
+            !transitionMenuOpened ||
+            (Date.now() - transitionMenuAttemptedAt > 1500 &&
+              ![...doc.querySelectorAll<HTMLElement>('[role="menu"],[role="listbox"]')].some(
+                visible,
+              ))
+          ) {
+            const scope = ticketPanel ?? doc.body;
             const statusButtons = [
-              ...doc.querySelectorAll<HTMLElement>('button,[role="button"]'),
-            ].filter((element) => / - Change status$/.test(label(element)) && visible(element));
+              ...scope.querySelectorAll<HTMLElement>('button,[role="button"]'),
+            ].filter((element) => {
+              if (!visible(element)) return false;
+              const description = normalized(
+                `${element.getAttribute("aria-label") ?? ""} ${element.getAttribute("title") ?? ""}`,
+              );
+              const testId = normalized(
+                `${element.getAttribute("data-testid") ?? ""} ${element.getAttribute("data-test-id") ?? ""}`,
+              );
+              return (
+                /(?:change|changer|modifier).*(?:status|statut)|(?:status|statut).*(?:change|changer|modifier)/.test(
+                  description,
+                ) ||
+                (testId.includes("status") && element.getAttribute("aria-haspopup") !== null)
+              );
+            });
             if (statusButtons.length === 1) {
               transitionMenuOpened = true;
+              transitionMenuAttemptedAt = Date.now();
               statusButtons[0]?.click();
-            }
-          } else {
-            const choices = [...doc.querySelectorAll<HTMLElement>('[role="menuitem"]')].filter(
-              (element) => label(element) === transition.name && visible(element),
-            );
-            if (choices.length === 1) {
-              transitionOpened = true;
-              choices[0]?.click();
             }
           }
         }
