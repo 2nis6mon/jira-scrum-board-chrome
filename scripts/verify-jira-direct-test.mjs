@@ -84,29 +84,24 @@ try {
     <aside id="ticket" hidden style="position:fixed;right:0;top:0;width:600px;height:100vh;background:white">
       <button aria-label="Fermer" onclick="history.pushState(null,'',location.pathname);this.parentElement.hidden=true">Fermer</button>
       <a href="/browse/ABC-102">ABC-102</a><h1>Ticket Jira réel</h1>
-      <button aria-label="Code Review - Changer le statut" onclick="openStatusMenu()">Code Review</button>
     </aside>
     <script>if(new URL(location.href).searchParams.has('selectedIssue'))document.querySelector('#ticket').hidden=false;
-    // Menu de statut du faux Jira : 21 a un écran moderne, 31 s'exécute sans écran, 41 a un écran
-    // « classique » dont le titre et les champs sont dans une iframe qui grandit en se chargeant.
-    function openStatusMenu(){setTimeout(function(){
-      var menu=document.createElement('div');menu.setAttribute('role','menu');
-      menu.innerHTML='<button role=menuitem data-transition-id=21>Démarrer</button><button role=menuitem data-transition-id=31>Démarrer la revue</button><button role=menuitem data-transition-id=41>Merge into develop</button>';
-      var items=menu.querySelectorAll('button');
-      items[0].onclick=function(){var form=document.createElement('div');form.setAttribute('role','dialog');form.style.cssText='position:fixed;width:680px;height:500px';form.innerHTML='<h2>Démarrer</h2><form id=transition-jira><label>Temps passé <input required></label><button type=submit>Valider</button></form>';document.body.append(form);};
-      items[1].onclick=function(){document.body.dataset.executed='31';};
-      items[2].onclick=function(){
-        var legacy=document.createElement('div');legacy.setAttribute('role','dialog');legacy.id='legacy-dialog';
-        legacy.style.cssText='position:fixed;left:100px;top:40px;width:620px;height:200px;background:white';
-        var frame=document.createElement('iframe');frame.style.cssText='border:0;width:100%;height:100%';
-        frame.srcdoc='<h2>Merge into develop</h2><form id=legacy-form><label>Time Spent <input required></label></form>';
-        legacy.append(frame);document.body.append(legacy);
-        setTimeout(function(){legacy.style.height='560px';},400);
-      };
-      document.body.append(menu);
-    },100);}
     </script>
   </body></html>`;
+  // Écran de la transition 41 du ticket 10002, tel que Jira le sert : navigation autour, formulaire
+  // dont l'action est CommentAssignIssue.jspa, validation et lien « Cancel » vers le ticket.
+  const transitionScreen = `<!doctype html><html><body><header id="jira-nav" style="height:80px">Navigation Jira</header>
+    <main><h1>Merge into develop</h1>
+      <form id="transition-form" action="/secure/CommentAssignIssue.jspa" method="post">
+        <label>Time Spent <input name="worklog_timeLogged" required></label>
+        <div style="height:220px">Remaining Estimate, Comment…</div>
+        <input type="submit" value="Merge into develop"> <a id="cancel" href="/browse/ABC-102">Cancel</a>
+      </form>
+    </main></body></html>`;
+  const pageFor = (address) =>
+    new URL(address).pathname === "/secure/CommentAssignIssue!default.jspa"
+      ? transitionScreen
+      : fixture;
   let handling = false;
   const pump = setInterval(async () => {
     if (handling) return;
@@ -122,7 +117,7 @@ try {
             requestId: event.params.requestId,
             responseCode: 200,
             responseHeaders: [{ name: "Content-Type", value: "text/html; charset=utf-8" }],
-            body: Buffer.from(fixture).toString("base64"),
+            body: Buffer.from(pageFor(event.params.request.url)).toString("base64"),
           },
           sessionId,
         );
@@ -203,78 +198,49 @@ try {
       await evaluate(sessionId, "!document.querySelector('dialog[open]')"),
       "fermer une fiche conserve le board",
     );
+    // Transition du workflow qui exige des champs : son écran, par identifiants, sans fiche ni menu.
     await evaluate(
       child.sessionId,
-      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',transition:{id:'21',name:'Démarrer'}},'https://acme.atlassian.net')",
+      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',issueId:'10002',transition:{id:'41',name:'Merge into develop'}},'https://acme.atlassian.net')",
     );
-    await sleep(600);
+    await sleep(150);
     assert(
       await evaluate(
         sessionId,
-        "(()=>{const d=document.querySelector('dialog[open]');return Boolean(d)&&d.querySelector('iframe').style.visibility==='hidden'&&d.textContent.includes('Ouverture de « Démarrer »')})()",
+        "(()=>{const d=document.querySelector('dialog[open]');return Boolean(d)&&d.querySelector('iframe').style.visibility==='hidden'&&d.textContent.includes('Ouverture de « Merge into develop »')})()",
       ),
-      "pendant l'ouverture d'une transition, la fiche du ticket reste cachée",
+      "pendant l'ouverture de l'écran de transition, rien d'autre ne s'affiche",
     );
     await sleep(2000);
     assert(
       await evaluate(
         sessionId,
-        "Boolean(document.querySelector('dialog iframe').contentDocument.querySelector('#transition-jira'))",
+        "(()=>{const f=document.querySelector('dialog[open] iframe');const u=new URL(f.contentWindow.location.href);return u.pathname==='/secure/CommentAssignIssue!default.jspa'&&u.searchParams.get('id')==='10002'&&u.searchParams.get('action')==='41'})()",
       ),
-      "le formulaire Jira de la transition est ouvert directement",
+      "l'écran de la transition est ouvert par l'identifiant du ticket et celui de la transition",
     );
     assert(
       await evaluate(
         sessionId,
-        "(()=>{const outer=document.querySelector('dialog[open]').getBoundingClientRect();const doc=document.querySelector('dialog iframe').contentDocument;const transition=doc.querySelector('[data-sprint-goals-transition]');return outer.width<1280&&getComputedStyle(doc.querySelector('#ticket')).visibility==='hidden'&&transition&&getComputedStyle(transition).visibility==='visible'})()",
+        "(()=>{const d=document.querySelector('dialog[open]');const f=d.querySelector('iframe');const doc=f.contentDocument;const form=doc.querySelector('#transition-form');const r=d.getBoundingClientRect();return f.style.visibility==='visible'&&form.hasAttribute('data-sprint-goals-transition')&&getComputedStyle(doc.querySelector('#jira-nav')).visibility==='hidden'&&getComputedStyle(form).visibility==='visible'&&r.width<1280&&r.height<innerHeight-40&&!doc.querySelector('#ticket')})()",
       ),
-      "une transition recadre la popin sur le seul formulaire Jira",
+      "seul le formulaire de Jira est affiché, dans une popin à sa taille (ni fiche, ni navigation)",
     );
     assert(
       await evaluate(
         sessionId,
-        "!document.querySelector('dialog iframe').contentDocument.querySelector('#transition-jira').matches(':valid')",
+        "!document.querySelector('dialog iframe').contentDocument.querySelector('#transition-form').matches(':valid')",
       ),
       "le formulaire requis reste à remplir et n'est jamais validé automatiquement",
     );
-    // Transition ambiguë : « Démarrer la revue » (31, sans écran : la cliquer l'exécute) mentionne
-    // « Revue » (99) sans porter son identifiant ni avoir exactement ce libellé. Rien n'est cliqué ;
-    // le menu reste ouvert pour l'utilisateur.
     await evaluate(
       sessionId,
-      "document.querySelector('dialog[open]').dispatchEvent(new Event('cancel'))",
+      "document.querySelector('dialog iframe').contentDocument.querySelector('#cancel').click()",
     );
-    await sleep(300);
-    await evaluate(
-      child.sessionId,
-      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',transition:{id:'99',name:'Revue'}},'https://acme.atlassian.net')",
-    );
-    await sleep(1600);
+    await sleep(900);
     assert(
-      await evaluate(
-        sessionId,
-        "(()=>{const doc=document.querySelector('dialog iframe').contentDocument;return !doc.body.dataset.executed&&!doc.querySelector('#transition-jira')&&Boolean(doc.querySelector('[role=menu]'))})()",
-      ),
-      "une transition ambiguë n'est jamais cliquée : le menu Jira reste au choix de l'utilisateur",
-    );
-    // Écran de transition « classique » : rien dans la fenêtre elle-même, titre et champs dans une
-    // iframe. La popin se recadre sur cette seule fenêtre, à sa taille une fois chargée.
-    await evaluate(
-      sessionId,
-      "document.querySelector('dialog[open]').dispatchEvent(new Event('cancel'))",
-    );
-    await sleep(300);
-    await evaluate(
-      child.sessionId,
-      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',transition:{id:'41',name:'Merge into develop'}},'https://acme.atlassian.net')",
-    );
-    await sleep(3200);
-    assert(
-      await evaluate(
-        sessionId,
-        "(()=>{const popin=document.querySelector('dialog[open]');const doc=document.querySelector('dialog iframe').contentDocument;const legacy=doc.querySelector('#legacy-dialog');if(!popin||!legacy)return false;const r=popin.getBoundingClientRect();return legacy.hasAttribute('data-sprint-goals-transition')&&getComputedStyle(doc.querySelector('#ticket')).visibility==='hidden'&&Math.abs(r.width-620)<4&&r.height>Math.min(540,innerHeight-40)})()",
-      ),
-      "un écran de transition classique (champs dans une iframe) s'affiche seul, à sa taille",
+      await evaluate(sessionId, "!document.querySelector('dialog[open]')"),
+      "quitter l'écran de Jira (Cancel) referme la popin et garde le board",
     );
     // Un autre site Atlassian qui encadre la page du board, en annonçant le vôtre : refusé.
     await send(

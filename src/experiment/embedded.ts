@@ -31,13 +31,16 @@ export function installEmbeddedLinks(model: AppModel, origin: string): void {
     const connection = model.connection.value;
     if (connection.state !== "connected") return;
     const board = connection.board;
-    board.nativeTransitionHandler = (key, transition) => {
+    board.nativeTransitionHandler = (key, issueId, transition) => {
       if (board.site.origin !== origin) return false;
       model.exitPresentation();
       window.parent.postMessage(
         {
           type: "sprint-goals:open-issue",
           key,
+          // L'écran de la transition du workflow est ouvert par l'identifiant du ticket et celui
+          // de la transition, jamais par un libellé.
+          issueId,
           transition: { id: transition.id, name: transition.name },
         },
         origin,

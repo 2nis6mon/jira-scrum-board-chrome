@@ -411,6 +411,19 @@ Attention : l'ancien prototype `dist-jira-test` (« prototype dans Jira », bran
 `codex/test-board-dans-jira`, 0.19.1.x, onglet « Sprint Goals » ajouté dans Jira) n'a pas ces
 corrections et ouvre le formulaire de l'extension ; ne pas le confondre avec `dist-jira-direct-test`.
 
+0.19.11 (demande de Denis : « par la transition du workflow, pas par le libellé ») : l'essai de
+la 0.19.10.2 sur son Jira a montré que le menu de statut affiche « Merge into develop → To merge
+into develop » sans identifiant : la règle S10 laissait le menu ouvert. Toute la mécanique fiche +
+menu + clic est retirée pour les transitions à champs : `injectBoard.ts` (`openTransition`) charge
+directement l'écran de la transition, `/secure/CommentAssignIssue!default.jspa?id=<id du ticket>&
+action=<id de la transition>` (`!default` affiche sans exécuter ; adresse documentée pour Data
+Center, PAS dans la doc Cloud : à constater chez Denis). Popin cadrée sur le formulaire dont
+l'action contient `CommentAssignIssue`, hauteur = son contenu une fois stable ; fermée quand Jira
+quitte l'écran (validation, Cancel), puis relecture ; page montrée telle quelle après 10 s sans
+formulaire. `BoardModel.nativeTransitionHandler(key, issueId, transition)` transmet l'identifiant
+du ticket ; l'hôte exige des identifiants numériques. Le clic sur une carte (fiche complète) est
+inchangé. `verify:jira-direct-test` : écran servi à cette adresse, 15 contrôles.
+
 Ne pas reconstruire `dist/` ni `dist-jira-direct-test/` pendant que Denis teste l'extension :
 construire ailleurs avec `npx vite build [--mode jira-direct-test] --outDir <scratchpad>`.
 

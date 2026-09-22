@@ -696,6 +696,56 @@ describe("écran de transition dynamique", () => {
     });
     return result;
   }
+  it("vue intégrée à Jira : l'écran de la transition est délégué par identifiants, sans écriture", async () => {
+    const { board, jira, writes } = await boardWith();
+    jira.on("GET", "/rest/api/3/issue/ABC-102", {
+      status: 200,
+      json: { fields: { status: statusJson("1", "À faire") } },
+    });
+    jira.on("GET", path, {
+      status: 200,
+      json: {
+        transitions: [
+          {
+            id: "21",
+            name: "Démarrer",
+            hasScreen: true,
+            to: statusJson("3", "En cours"),
+            fields: {
+              resolution: {
+                name: "Résolution",
+                required: true,
+                operations: ["set"],
+                schema: { type: "resolution" },
+                allowedValues: [{ id: "1", name: "Résolu" }],
+              },
+            },
+          },
+        ],
+      },
+    });
+    const calls: [string, string, string][] = [];
+    board.nativeTransitionHandler = (key, issueId, transition) => {
+      calls.push([key, issueId, transition.id]);
+      return true;
+    };
+    const issueId = board.snapshot.value?.scrumIssues.find((i) => i.issue.key === "ABC-102")?.issue
+      .id;
+    await board.dropIssue({
+      issueKey: "ABC-102",
+      block: goalBlock("g-paiement"),
+      columnId: DOING,
+      beforeKey: null,
+    });
+    // Identifiant du ticket tel que Jira l'a fourni (numérique dans Jira ; la clé dans ces données
+    // fictives) : c'est lui, avec celui de la transition, qui désigne l'écran à ouvrir.
+    expect(issueId).toBeDefined();
+    expect(calls).toEqual([["ABC-102", issueId, "21"]]);
+    expect(board.transitionForm.value).toBeNull();
+    expect(board.nativeTransitionPending.value).toBe(true);
+    expect(writes()).toEqual([]);
+    board.dispose();
+  });
   it("détecte les champs, ne fait aucune écriture avant validation et permet l’annulation", async () => {
     const { board, writes } = await prepareForm();
     expect(board.transitionForm.value?.transition.fields.resolution?.name).toBe("Résolution");

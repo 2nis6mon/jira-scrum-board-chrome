@@ -384,7 +384,7 @@ l'extension », aucun script de contenu, aucune ressource exposée) restent vrai
 | # | Constat | Gravité | État |
 |---|---|---|---|
 | S9 | La page du board, exposée à tout `*.atlassian.net` et encadrable par lui, pouvait être affichée par un autre site Atlassian (n'importe qui peut en créer un), chargée avec la session de l'utilisateur : glisser-déposer provoqué à son insu (écritures dans son Jira), et clé du ticket cliqué envoyée à la page hôte sans vérifier le site. | Moyenne | **Corrigé en 0.19.9.2** |
-| S10 | Le clic automatique dans le menu de statut de Jira reconnaissait la transition par un libellé qui commence ou finit par son nom. Un élément voisin sans écran (« Démarrer la revue » pour « Revue ») pouvait être cliqué, et Jira l'exécutait aussitôt : une transition non voulue, hors de l'inventaire `writes.ts`. | Moyenne | **Corrigé en 0.19.9.2** |
+| S10 | Le clic automatique dans le menu de statut de Jira reconnaissait la transition par un libellé qui commence ou finit par son nom. Un élément voisin sans écran (« Démarrer la revue » pour « Revue ») pouvait être cliqué, et Jira l'exécutait aussitôt : une transition non voulue, hors de l'inventaire `writes.ts`. | Moyenne | **Corrigé en 0.19.9.2 ; sans objet depuis 0.19.11.2 (plus aucun clic)** |
 | S11 | La reconnaissance de la fiche, du menu de statut et du formulaire dépend du DOM de Jira Cloud (rôles ARIA, libellés français et anglais). Une refonte d'Atlassian peut la mettre en défaut. | Information | Structurel, voir `DEVELOPER.md` §9 |
 
 **S9 — correctif.** `src/experiment/embeddingGuard.ts` (`embeddingTarget`) et `embeddedBoardTarget`
@@ -404,5 +404,17 @@ la transition (valeur d'attribut délimitée par des non-chiffres) et mentionne 
 ouvert et l'utilisateur choisit (son propre geste). Chrome : `verify:jira-direct-test`, scénario
 « transition ambiguë » (il échoue avec l'ancien code, qui cliquait l'élément voisin).
 
-Non essayé sur Jira réel : la reconnaissance du menu et du formulaire sur les workflows de Denis.
+**0.19.11.2 — plus aucun clic dans Jira.** À la demande de Denis, une transition qui exige des
+champs n'ouvre plus la fiche ni le menu de statut : la popin charge directement l'écran de cette
+transition par identifiants, `/secure/CommentAssignIssue!default.jspa?id=<ticket>&action=<transition>`
+(identifiants numériques validés par la page hôte). `!default` affiche le formulaire sans rien
+exécuter ; la transition n'a lieu que si l'utilisateur le valide, dans l'interface de Jira. S10
+devient sans objet : l'extension ne clique plus aucun élément de Jira, et ne peut donc plus
+déclencher une transition voisine. Écart à noter (règle 8) : cette adresse de l'interface Jira est
+documentée pour Data Center (communauté Atlassian, Jira 9.12), pas dans la documentation Cloud ; ce
+n'est pas une écriture de l'extension (aucune requête émise par son transport), mais son existence
+sur Cloud n'est constatée que par l'essai de Denis. Si Jira répond autre chose qu'un formulaire, sa
+page est montrée telle quelle.
+
+Non essayé sur Jira réel : l'écran de transition sur les workflows de Denis.
 
