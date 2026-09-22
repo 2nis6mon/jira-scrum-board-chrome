@@ -81,7 +81,7 @@ try {
     <aside id="ticket" hidden style="position:fixed;right:0;top:0;width:600px;height:100vh;background:white">
       <button aria-label="Fermer" onclick="history.pushState(null,'',location.pathname);this.parentElement.hidden=true">Fermer</button>
       <a href="/browse/ABC-102">ABC-102</a><h1>Ticket Jira réel</h1>
-      <button aria-label="Code Review - Changer le statut" onclick="setTimeout(()=>{const menu=document.createElement('div');menu.setAttribute('role','menu');menu.innerHTML='<button role=menuitem data-transition-id=21>Démarrer</button>';menu.querySelector('button').onclick=()=>{const form=document.createElement('div');form.setAttribute('role','dialog');form.innerHTML='<form id=transition-jira><label>Temps passé <input required></label><button type=submit>Valider</button></form>';document.body.append(form)};document.body.append(menu)},100)">Code Review</button>
+      <button aria-label="Code Review - Changer le statut" onclick="setTimeout(()=>{const menu=document.createElement('div');menu.setAttribute('role','menu');menu.innerHTML='<button role=menuitem data-transition-id=21>Démarrer</button>';menu.querySelector('button').onclick=()=>{const form=document.createElement('div');form.setAttribute('role','dialog');form.style.cssText='position:fixed;width:680px;height:500px';form.innerHTML='<h2>Démarrer</h2><form id=transition-jira><label>Temps passé <input required></label><button type=submit>Valider</button></form>';document.body.append(form)};document.body.append(menu)},100)">Code Review</button>
     </aside>
     <script>if(new URL(location.href).searchParams.has('selectedIssue'))document.querySelector('#ticket').hidden=false;</script>
   </body></html>`;
@@ -146,9 +146,9 @@ try {
     });
     await evaluate(
       child.sessionId,
-      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',transition:{id:'21',name:'Démarrer'}},'https://acme.atlassian.net')",
+      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102'},'https://acme.atlassian.net')",
     );
-    await sleep(1600);
+    await sleep(900);
     assert(
       await evaluate(
         sessionId,
@@ -163,12 +163,33 @@ try {
       ),
       "le panneau natif du ticket est visible dans la popin",
     );
+    await evaluate(
+      sessionId,
+      "document.querySelector('dialog iframe').contentDocument.querySelector('#ticket [aria-label=Fermer]').click()",
+    );
+    await sleep(700);
+    assert(
+      await evaluate(sessionId, "!document.querySelector('dialog[open]')"),
+      "fermer une fiche conserve le board",
+    );
+    await evaluate(
+      child.sessionId,
+      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',transition:{id:'21',name:'Démarrer'}},'https://acme.atlassian.net')",
+    );
+    await sleep(1600);
     assert(
       await evaluate(
         sessionId,
         "Boolean(document.querySelector('dialog iframe').contentDocument.querySelector('#transition-jira'))",
       ),
       "le formulaire Jira de la transition est ouvert directement",
+    );
+    assert(
+      await evaluate(
+        sessionId,
+        "(()=>{const outer=document.querySelector('dialog[open]').getBoundingClientRect();const doc=document.querySelector('dialog iframe').contentDocument;const transition=doc.querySelector('[data-sprint-goals-transition]');return outer.width<1280&&getComputedStyle(doc.querySelector('#ticket')).visibility==='hidden'&&transition&&getComputedStyle(transition).visibility==='visible'})()",
+      ),
+      "une transition recadre la popin sur le seul formulaire Jira",
     );
     assert(
       await evaluate(

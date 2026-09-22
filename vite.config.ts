@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => ({
               const manifest = JSON.parse(readFileSync(`${root}public/manifest.json`, "utf8"));
               delete manifest.key;
               manifest.name = "Sprint Goals — test ouverture Jira";
-              manifest.version = `${manifest.version}.1`;
+              manifest.version = `${manifest.version}.2`;
               manifest.permissions.push("scripting");
               manifest.background.service_worker = "jira-direct-worker.js";
               manifest.web_accessible_resources = [
