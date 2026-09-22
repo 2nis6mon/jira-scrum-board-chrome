@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **22 septembre 2026**  
 Branche décrite : **`codex/test-ouverture-jira-directe`**  
-Produit autonome : **0.19.8**  
-Prototype d’intégration Jira : **0.19.8.2**
+Produit autonome : **0.19.9**  
+Prototype d’intégration Jira : **0.19.9.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -47,7 +47,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.19.8`  
+Version : `0.19.9`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -69,7 +69,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist-jira-direct-test/`  
-Version générée : `0.19.8.2`  
+Version générée : `0.19.9.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Ce paquet est volontairement distinct : la clé stable est retirée pendant la construction. Il a
@@ -85,6 +85,15 @@ Le prototype ajoute uniquement au manifest généré :
 
 Il ne faut pas reporter ces permissions dans `public/manifest.json` sans décision explicite de
 faire de ce prototype le produit principal et sans mise à jour de l’audit de sécurité.
+
+Depuis la 0.19.9.2 (audit, constats S9 et S10) :
+
+- la page du board encadrée ne s’affiche et ne lit Jira que dans la page de premier niveau du site
+  qu’elle annonce (`location.ancestorOrigins`), pour un board de ce site autorisé dans Chrome
+  (`src/experiment/embeddingGuard.ts`) ; sinon elle affiche un simple refus ;
+- le clic automatique dans le menu de statut Jira n’a lieu que sur l’élément qui porte l’identifiant
+  exact de la transition, ou sur un unique libellé strictement égal à son nom ; sinon le menu reste
+  au choix de l’utilisateur.
 
 #### Activation
 
@@ -341,7 +350,15 @@ npm run build:jira-direct-test
 npm run verify:jira-direct-test
 ```
 
-`verify:jira-direct-test` utilise un profil Chrome temporaire et un faux Jira. Il vérifie :
+`verify:jira-direct-test` utilise un profil Chrome temporaire et un faux Jira. Pour ne pas
+reconstruire un paquet d’essai chargé dans Chrome, construire ailleurs puis vérifier ce dossier :
+
+```bash
+npx vite build --mode jira-direct-test --outDir <dossier>
+JIRA_DIRECT_DIST=<dossier> node scripts/verify-jira-direct-test.mjs
+```
+
+Il vérifie :
 
 - l’overlay uniquement sur l’URL spéciale ;
 - le recouvrement plein écran ;
@@ -350,6 +367,8 @@ npm run verify:jira-direct-test
 - le formulaire natif ouvert directement lors d’une transition ;
 - le recadrage sur ce seul formulaire ;
 - l’absence de validation automatique ;
+- l’absence de clic sur une transition ambiguë ;
+- le refus d’afficher le board sans autorisation du site ou dans la page d’un autre site Atlassian ;
 - l’absence d’effet sur une URL Jira normale.
 
 Les essais Chrome automatisés n’utilisent ni la session ni les données Jira de l’utilisateur.
@@ -389,7 +408,7 @@ un dossier temporaire lorsqu’une autre version est active dans Chrome.
    le schéma GraphQL, gérer plus de 100 liens ou signaler explicitement une lecture tronquée.
 
 2. **Documentation historique partiellement obsolète**  
-   Le README annonce encore un ancien état `0.19.1` à certains endroits et `TODO.md` présente
+   `CLAUDE.md`, le README et l’audit sont à jour depuis la 0.19.9. `TODO.md` présente encore
    l’intégration Jira comme une simple piste. Ne pas se fier aux numéros historiques sans comparer
    au manifest, à `package.json` et à ce document.
 
@@ -500,5 +519,8 @@ l’intégration directe :
 
 - `66e865e` — ouverture directe du board dans Jira ;
 - `b3d2c09` — ouverture automatique du formulaire Jira des transitions ;
-- `5161b49` — recadrage de la popin sur le seul formulaire.
+- `5161b49` — recadrage de la popin sur le seul formulaire ;
+
+puis les durcissements de la 0.19.9 (hébergement du board, clic de transition) et la mise à jour de
+`CLAUDE.md`, du README et de l’audit.
 

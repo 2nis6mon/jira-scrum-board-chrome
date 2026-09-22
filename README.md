@@ -31,9 +31,10 @@ réaffiché depuis cette section, sans modifier son rattachement dans Jira.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.19.1 — étape 6 en cours : santé du sprint (6a, panneau de la vue Sprint depuis
-> 0.14.0), plusieurs boards (6b), réglages d'équipe partagés par Jira, audit de sécurité (6d,
-> [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)).** Board du
+> **État : 0.19.9 (paquet autonome) et 0.19.9.2 (prototype d'ouverture directe dans Jira, voir
+> plus bas).** Point d'entrée pour reprendre le projet : [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
+> santé du sprint (6a), plusieurs boards (6b), audit de sécurité (6d,
+> [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)), empaquetage (6e) à venir. Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
 > du board Jira ; glisser-déposer qui écrit dans Jira : transition, rang, et lien natif
 > ticket↔Goal ; épinglage de Goals au sprint, gardé dans le navigateur si Jira le refuse ; ordre,
@@ -239,7 +240,7 @@ Cinq catégories, rien d'autre, chacune sur un geste explicite :
 
 | Écriture | Geste | Requête |
 |---|---|---|
-| Transition d'un ticket | glisser-déposer vers une colonne | `POST /rest/api/3/issue/{clé}/transitions` |
+| Transition d'un ticket | glisser-déposer vers un statut d'une autre colonne ; avec écran de transition, après « Valider la transition » (champs de l'écran, commentaire, temps passé, Story Points dans le même POST, 0.19.0–0.19.1) | `POST /rest/api/3/issue/{clé}/transitions` |
 | Rang d'un ticket | glisser-déposer devant une carte | `PUT /rest/agile/1.0/issue/rank` |
 | Lien ticket↔Goal | glisser-déposer vers un Goal ou vers *Build* | mutations GraphQL `goals_linkWorkItem` / `goals_unlinkWorkItem` |
 | Propriété du sprint | épinglage de Goals ; rattachement en mode texte du sprint | `PUT /rest/agile/1.0/sprint/{id}/properties/com.scrumboardmac.sprintgoals.v1` |
@@ -282,6 +283,23 @@ Reconstruit `dist/` à chaque modification.
 npm run harness
 ```
 
+```bash
+npm run verify:drag
+npm run verify:transition
+```
+
+Vrais gestes de glisser-déposer et formulaire de transition dans Chrome, sur le faux Jira et un
+profil temporaire vierge.
+
+```bash
+npm run verify:jira-direct-test
+```
+
+Construit le prototype d'ouverture directe dans `dist-jira-direct-test/` puis le vérifie dans
+Chrome (faux Jira, profil vierge). Pour ne pas écraser un paquet d'essai en cours d'utilisation :
+`npx vite build --mode jira-direct-test --outDir <dossier>` puis
+`JIRA_DIRECT_DIST=<dossier> node scripts/verify-jira-direct-test.mjs`.
+
 Banc d'essai visuel sur <http://localhost:5199/?scenario=board> (scénarios listés en tête de
 [`tests/harness/harness.tsx`](tests/harness/harness.tsx), dont `board-goals` et `board-epingle`) :
 l'interface réelle branchée sur le faux Jira des tests. Données fictives, réservé au
@@ -291,7 +309,7 @@ développement, jamais inclus dans `dist/`.
 
 ### ✅ Vérifié sur cette machine
 
-- Types, lint, 693 tests, construction.
+- Types, lint, 759 tests, construction (0.19.9).
 - Chargement réel dans Chrome 153 (sans interface, profil temporaire vierge) : manifest accepté,
   identifiant conforme, permissions `storage` et `declarativeNetRequestWithHostAccess` seules,
   aucun hôte accordé à l'installation, formulaire de connexion sans erreur, hôte hors
@@ -469,3 +487,32 @@ Points, commentaire et `update.worklog` sont envoyés dans le même POST de tran
 appel séparé n’ajoute du temps avant la transition. En cas de réponse perdue, aucune relance
 pour éviter un doublon. Les champs calculés (`timespent`) et le widget d’estimations
 `timetracking` ne sont pas assimilés à une saisie de temps passé.
+
+### Prototype d'ouverture directe dans Jira (0.19.8.2, durci en 0.19.9.2)
+
+Paquet d'essai distinct (`npm run build:jira-direct-test` → `dist-jira-direct-test/`, autre
+identifiant Chrome, stockage séparé), décrit en détail dans [`DEVELOPER.md`](DEVELOPER.md) et
+[`TEST-JIRA-DIRECT.md`](TEST-JIRA-DIRECT.md). Sur une adresse de board suivie de
+`?sprintGoals=1`, le board Sprint Goals recouvre la page Jira ; un clic sur une carte ouvre la
+fiche Jira dans une popin ; une transition qui exige des champs ouvre le formulaire Jira natif,
+que l'utilisateur remplit et valide lui-même. Son manifest ajoute `scripting`, expose la page du
+board aux sites `*.atlassian.net` et autorise leur `frame-ancestors` : rien de cela n'est reporté
+dans le paquet autonome.
+
+Durcissements de la 0.19.9.2 :
+
+- **Page du board encadrée** : elle ne s'affiche et ne lit Jira que si elle est posée directement
+  dans la page de premier niveau du site qu'elle annonce, pour un board de ce site, et si ce site
+  est autorisé dans Chrome (`src/experiment/embeddingGuard.ts`). Sinon, elle n'affiche qu'un
+  refus. Un autre site Atlassian (n'importe qui peut en créer un) ne peut donc plus afficher
+  votre board dans sa page ni vous faire glisser des cartes à votre insu. Un clic sur une carte
+  n'envoie la clé du ticket qu'à la page du site connecté.
+- **Transition native** : l'extension ne clique dans le menu Jira que sur l'élément qui porte
+  l'identifiant exact de la transition, ou, à défaut, sur un unique libellé strictement égal à son
+  nom. Sinon, rien n'est cliqué et le menu reste au choix de l'utilisateur : un élément voisin
+  sans écran (« Démarrer la revue » pour « Revue ») aurait été exécuté aussitôt par Jira.
+
+Vérifié dans Chrome (faux Jira, profil vierge) par `verify:jira-direct-test`, dont trois
+scénarios ajoutés : refus sans autorisation du site, refus dans la page d'un autre site Atlassian,
+transition ambiguë jamais cliquée (le script échoue avec l'ancien code). **Non essayé sur votre
+Jira** : la reconnaissance du menu de statut et du formulaire sur vos workflows réels.

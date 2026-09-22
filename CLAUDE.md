@@ -7,6 +7,8 @@ connectée à Jira Cloud. Projet **distinct** de l'app Mac, qui reste maintenue 
 
 ## Références
 
+- **Point d'entrée pour reprendre le projet : `DEVELOPER.md`** (état réel, deux paquets, décisions,
+  invariants, procédures, problèmes connus). Tenu à jour avec ce fichier.
 - Spécification fonctionnelle commune aux deux projets : `docs/reference-app-mac/PROMPT.md`.
 - API Atlassian vérifiées, audit de sécurité et README du Mac : même dossier. Ce sont des copies
   conformes (voir `LISEZ-MOI.md` pour le commit d'origine) : ne pas les modifier ici.
@@ -66,6 +68,16 @@ pour les seuls POST émis par l'extension (`initiatorDomains: [id]`) vers l'adre
 requêtes des pages web vers la passerelle et affaiblirait sa protection : ne jamais l'élargir. Un
 garde-fou (`tests/guards/sources.test.ts`) confine `declarativeNetRequest` à `platform/chrome.ts`.
 
+Le **prototype d'ouverture directe dans Jira** (paquet d'essai distinct, `npm run
+build:jira-direct-test`) a un manifest GÉNÉRÉ par `vite.config.ts` à partir de celui-ci : clé
+retirée (autre identifiant, stockage séparé), version `x.y.z.2`, permission `scripting`, page du
+board exposée aux sites `*.atlassian.net` (`web_accessible_resources`) et `frame-ancestors
+https://*.atlassian.net`. Ces droits ne doivent **jamais** passer dans `public/manifest.json` sans
+décision explicite de Denis et mise à jour de l'audit. Comme n'importe quel site Atlassian peut
+donc encadrer la page, `src/experiment/embeddingGuard.ts` n'autorise l'affichage (et toute lecture)
+que dans la page Jira de premier niveau du site annoncé, pour un board de ce site autorisé dans
+Chrome.
+
 `.secrets/extension-key.pem` est la clé privée qui correspond au champ `key` du manifest (elle
 fige l'identifiant de l'extension). Elle est ignorée par git : ne jamais la committer.
 
@@ -82,6 +94,9 @@ src/app/views/        vues Preact ; Sidebar = barre latérale ; views/board/ = e
                       swimlanes, cartes ; views/health/ = panneau Santé du sprint ;
                       views/settings/ = Administration (réglages, diagnostic, déconnexion)
 src/background/       service worker (ouvre la page, rien d'autre)
+src/experiment/       prototype d'ouverture directe dans Jira (paquet d'essai seulement) : route
+                      `?sprintGoals=1`, service worker, script de contenu, injection de l'iframe,
+                      popin de la fiche et du formulaire Jira natifs, garde-fou d'hébergement
 src/jira/             site, erreurs, transport HTTP, inventaire des écritures, diagnostic,
                       modèles Jira et leur décodage, client REST (lectures), transitions
 src/core/             logique métier pure, portée de l'app Mac (voir ci-dessous)
@@ -150,7 +165,17 @@ npm run check         # types + lint + tests + construction
 npm run verify:load   # construit puis charge dist/ dans un Chrome temporaire sans interface
 npm run watch         # reconstruit dist/ à chaque modification
 npm run harness       # banc d'essai visuel, données fictives, http://localhost:5199/?scenario=board
+npm run verify:drag         # vrais gestes de glisser-déposer dans Chrome (faux Jira)
+npm run verify:transition   # formulaire de transition dans Chrome (faux Jira)
+npm run verify:jira-direct-test  # construit dist-jira-direct-test/ puis le vérifie dans Chrome
 ```
+
+Prototype sans toucher au paquet d'essai de Denis : `npx vite build --mode jira-direct-test
+--outDir <dossier>` puis `JIRA_DIRECT_DIST=<dossier> node scripts/verify-jira-direct-test.mjs`.
+
+Git (depuis le 20/09/2026) : travail sur des branches `codex/...` ; ne pousser ni fusionner que sur
+demande. Branche du prototype : `codex/test-ouverture-jira-directe`, non fusionnée tant que
+l'intégration directe n'est pas validée.
 
 Dépendances en versions exactes (`.npmrc` : `save-exact`, `ignore-scripts`). Toute nouvelle
 dépendance d'exécution se justifie : il y en a deux aujourd'hui (`preact`, `@preact/signals`).
@@ -328,8 +353,52 @@ explicitement, sans restauration automatique. Sans position précise dans une zo
 le rang est conservé. Banc d'essai : `board-statuts` (zones), `board-choix` (fenêtre), `board-dnd`
 (déplacement), `board-erreur` (refus). Aucun essai contre le Jira réel dans ce lot.
 
-Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
-`npx vite build --outDir <scratchpad>`.
+0.17.0 : recherche des boards par nom (`GET /rest/agile/1.0/board`, filtré par Jira selon les droits,
+300 ms de pause, cinq boards Scrum au plus), confirmation avant la déconnexion. 0.18.0 : carte
+projetée à destination pendant un déplacement (`core/pendingMove.ts`), compteurs basés sur les
+seules données confirmées ; repère rouge « Déplacement à vérifier » en cas de refus. 0.18.1–0.18.2 :
+autocomplétion des boards sous le champ ; ajout d'un board uniquement par la recherche (saisie
+d'URL retirée) ; boards Scrum seulement, Kanban hors périmètre. 0.18.3 : zones de statut
+superposées aux colonnes (plus de décalage au début du geste) ; plus de repère vert après
+réussite, seules les erreurs gardent un repère rouge (quatre secondes) ; `verify:drag`.
+
+0.19.0 : écrans de transition dans un formulaire dynamique (`jira/transitionFields.ts`,
+`TransitionFormDialog.tsx`, `expand=transitions.fields`) : valeurs préremplies, seules les valeurs
+modifiées envoyées avec la transition (`fields`, `update.comment`), statut et métadonnées relus à la
+validation, widgets non pris en charge signalés avec un lien vers Jira. 0.19.1 (demande de Denis
+du 20/09/2026, règle 1) : Story Points (champ numérique repéré par les métadonnées) et temps passé
+(`update.worklog` `add`, seulement si la transition l'expose), dans le même POST ; jamais d'ajout de
+temps séparé. `verify:transition`.
+
+0.19.2–0.19.7 : Goals atteints (tous leurs tickets dans la dernière colonne visible ; un Goal vide
+ne l'est jamais) en vert sur le board et dans la barre latérale, sans coche ni barre d'avancement
+dans la barre ; le vert est retiré de la palette des swimlanes ; en-tête, filtres, colonnes et
+bandeau du Goal courant fixes au défilement ; compteur des Goals atteints dans l'en-tête. 0.19.8 :
+bandeaux des swimlanes sur toute la largeur du board ; un Goal découvert par un nouveau ticket
+arrive masqué (ticket dans Build jusqu'à ce qu'on réaffiche le Goal).
+
+0.19.8.2 (paquet d'essai, branche `codex/test-ouverture-jira-directe`) : ouverture directe dans
+Jira sur `?sprintGoals=1` (overlay plein écran, iframe de l'application), fiche Jira dans une popin
+de 1 280 px, transition exigeant des champs ouverte dans le formulaire Jira natif, recadré, jamais
+rempli ni validé par l'extension. `DEVELOPER.md` décrit le fonctionnement et ses fragilités.
+
+0.19.9 (demandes de Denis après relecture) : deux durcissements du prototype.
+1. Hébergement : la page du board encadrée ne s'affiche et ne lit Jira que si
+   `location.ancestorOrigins` est exactement l'origine annoncée (`jiraHost`), que le board
+   (`jiraBoard`) est de ce site et que ce site est autorisé dans Chrome
+   (`embeddingGuard.ts`, `embeddedBoardTarget` dans `embedded.ts`, vérifié AVANT tout rendu dans
+   `main.tsx`) ; sinon un simple refus. Clic sur une carte : clé envoyée seulement si le site
+   connecté est la page hôte.
+2. Transition native (`injectBoard.ts`) : clic seulement sur l'élément qui porte l'identifiant de
+   la transition (valeur d'attribut délimitée) et mentionne son nom, ou à défaut sur un unique
+   libellé exactement égal ; sinon aucun clic, le menu reste au choix de l'utilisateur. Cliquer un
+   mauvais élément exécuterait une transition sans écran : une écriture hors de `writes.ts`.
+Le greffon du manifest d'essai respecte désormais `--outDir`. `verify:jira-direct-test` : trois
+scénarios ajoutés (refus sans autorisation, refus chez un autre site Atlassian, transition ambiguë
+jamais cliquée ; le script échoue avec l'ancien `injectBoard.ts`).
+
+Ne pas reconstruire `dist/` ni `dist-jira-direct-test/` pendant que Denis teste l'extension :
+construire ailleurs avec `npx vite build [--mode jira-direct-test] --outDir <scratchpad>`.
 
 Plan validé le 18/09/2026 : 0 socle · 1 connexion et diagnostic (essai XSRF par Denis) ·
 2 logique métier · 3 board en lecture seule · 4 les quatre écritures · 5 réglages locaux ·
