@@ -2313,6 +2313,43 @@ details.board-switcher .menu-panel {
   overflow-y: auto;
 }
 
+/* Administration : le bouton reste en tête du bloc, ses sections défilent au-dessous. Dépliée,
+   elle se pose sur un panneau blanc, nettement détaché du fond de la barre latérale. */
+.sidebar-admin-block {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-admin-block > .sidebar-nav-item {
+  flex: none;
+  margin: 0 8px;
+}
+
+.sidebar-admin-block.is-open {
+  margin: 0 6px;
+  padding: 4px 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(21 24 29 / 6%);
+}
+
+.sidebar-admin-block.is-open > .sidebar-nav-item {
+  margin: 0 4px;
+}
+
+.sidebar-admin-block.is-open > .sidebar-nav-item[aria-current="page"] {
+  border-color: transparent;
+  background: none;
+}
+
+/* Sur le panneau blanc, la section courante se distingue par le fond de la barre. */
+.sidebar-admin-block.is-open .settings-tab[aria-pressed="true"] {
+  background: var(--sidebar);
+}
+
 .sidebar-section-title {
   display: flex;
   justify-content: space-between;

@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **22 septembre 2026**  
 Branche décrite : **`codex/test-ouverture-jira-directe`**  
-Produit autonome : **0.19.13**  
-Prototype d’intégration Jira : **0.19.13.2**
+Produit autonome : **0.19.14**  
+Prototype d’intégration Jira : **0.19.14.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -47,7 +47,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.19.13`  
+Version : `0.19.14`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -69,7 +69,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.19.13.2`  
+Version générée : `0.19.14.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -126,17 +126,23 @@ Deux comportements doivent rester distincts :
 
 1. **Clic normal sur une carte** : la fiche Jira complète est affichée dans une popin de `1280 px`
    de large, avec des marges adaptatives de `16 à 60 px`.
-2. **Transition du workflow exigeant des champs** (0.19.13.2) : deux essais, dans cet ordre.
-   1. L’écran de CETTE transition par identifiants :
-      `/secure/CommentAssignIssue!default.jspa?id=<id du ticket>&action=<id de la transition>`.
-      `!default` affiche le formulaire sans rien exécuter. Adresse documentée pour Jira Data
-      Center ; **sur le Jira Cloud de Denis (23/09/2026), elle renvoie une page vide**.
-   2. Sans formulaire au bout de 3 s : la fiche du ticket, cachée, où l’extension ouvre le menu de
-      statut de Jira et clique la transition — seulement si le libellé d’un élément, comparé sans
-      accents, espaces, flèches ni ponctuation, vaut exactement son nom ou « nom + statut
-      d’arrivée ». Sinon rien n’est cliqué et la fiche est montrée : l’utilisateur choisit. Jira
-      dessine alors sa fenêtre moderne, que la popin isole et dimensionne.
+2. **Transition du workflow exigeant des champs** (0.19.14.2) : un seul chemin. La fiche du
+   ticket est chargée **cachée** dans la popin ; l’extension y ouvre le menu de statut de Jira et
+   clique la transition — seulement si le libellé d’un élément, comparé sans accents, espaces,
+   flèches ni ponctuation, vaut exactement son nom ou « nom + statut d’arrivée ». Sinon rien n’est
+   cliqué et la fiche est montrée : l’utilisateur choisit. Jira dessine alors sa fenêtre (moderne,
+   ou « classique » dans son iframe), que la popin isole et dimensionne.
    L’extension ne remplit ni ne valide aucun champ.
+   Jira Cloud n’a **aucune adresse** qui serve cette fenêtre : elle est dessinée par son
+   application. L’essai par `/secure/CommentAssignIssue!default.jspa` (0.19.11 à 0.19.13,
+   documenté pour Data Center) est retiré — sur le Jira de Denis il renvoyait une page vide, et
+   quand Jira refusait d’encadrer cette adresse, le cadre restait sur `about:blank` : la popin ne
+   sortait alors jamais de son message d’attente.
+   Garde-fous d’affichage : fiche jamais reconnue au bout de 12 s → la page de Jira est montrée
+   telle quelle ; cadre jamais accessible au bout de 20 s → la popin se ferme et le dit. Une popin
+   blanche qui ne bouge plus n’est jamais un état d’arrivée. Les étapes sont tracées dans la
+   console de l’onglet (`Sprint Goals — …`) : c’est le seul moyen de savoir où l’ouverture s’arrête
+   sur un Jira auquel le développeur n’a pas accès.
 
 La fermeture de la fiche ou du formulaire conserve le board Sprint Goals et provoque une relecture
 de Jira.
@@ -452,9 +458,11 @@ reproduit :
 
 - L’extraction de la fiche (clic sur une carte) dépend du DOM accessible de Jira Cloud : boutons
   Fermer/Close, lien `/browse/{clé}`.
-- L’écran de transition dépend de l’adresse `CommentAssignIssue!default.jspa` (non documentée
-  pour Cloud) et d’un formulaire dont l’action contient `CommentAssignIssue`. Si Atlassian les
-  retire, la page de Jira est montrée telle quelle.
+- L’ouverture d’une transition dépend du DOM de Jira : un bouton de statut reconnaissable
+  (`aria-label`/`title` « changer le statut », ou un `data-testid` contenant `status` avec
+  `aria-haspopup`), puis un élément de menu dont le libellé vaut le nom de la transition, seul ou
+  suivi de son statut d’arrivée. Si Atlassian change ces libellés, rien n’est cliqué et la fiche
+  est rendue à l’utilisateur — jamais une transition voisine.
 - La hauteur de la popin suit celle du formulaire, limitée à la fenêtre du navigateur avec une
   marge de 16 px.
 - Le mode direct reconnaît les routes modernes `/jira/.../boards/{id}` et requiert une clé projet

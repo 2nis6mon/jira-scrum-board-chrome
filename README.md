@@ -31,7 +31,7 @@ réaffiché depuis cette section, sans modifier son rattachement dans Jira.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.19.13 (paquet autonome) et 0.19.13.2 (prototype d'ouverture directe dans Jira, voir
+> **État : 0.19.14 (paquet autonome) et 0.19.14.2 (prototype d'ouverture directe dans Jira, voir
 > plus bas).** Point d'entrée pour reprendre le projet : [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
 > santé du sprint (6a), plusieurs boards (6b), audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)), empaquetage (6e) à venir. Board du
@@ -511,13 +511,13 @@ Durcissements de la 0.19.9.2 :
   votre board dans sa page ni vous faire glisser des cartes à votre insu. Un clic sur une carte
   n'envoie la clé du ticket qu'à la page du site connecté.
 Une transition du workflow qui exige des champs ouvre la **fenêtre native de Jira**, seule dans la
-popin. Deux essais successifs (0.19.13.2) : d'abord l'écran de cette transition par identifiants
-(`/secure/CommentAssignIssue!default.jspa?id=…&action=…`, documenté pour Jira Data Center, absent
-de certaines instances Cloud) ; sinon la fiche du ticket, où l'extension ouvre le menu de statut de
-Jira et choisit la transition — uniquement si le libellé vaut exactement son nom, ou son nom suivi
-du statut d'arrivée. Jira dessine alors sa fenêtre moderne, que la popin isole. Sans
-correspondance certaine, rien n'est cliqué : le menu reste à votre main. C'est vous qui validez le
-formulaire ; valider ou annuler referme la popin et relit le board.
+popin (0.19.14.2). Jira Cloud n'a aucune adresse qui serve cette fenêtre : elle est dessinée par
+son application. L'extension charge donc la fiche du ticket sans la montrer, ouvre le menu de
+statut de Jira et choisit la transition — uniquement si le libellé vaut exactement son nom, ou son
+nom suivi du statut d'arrivée. Jira dessine alors sa fenêtre, que la popin isole et met à sa
+taille. Sans correspondance certaine, rien n'est cliqué : la fiche vous est rendue, le menu reste
+à votre main. C'est vous qui validez le formulaire ; valider ou annuler referme la popin et relit
+le board.
 À charger : `dist/`, après `npm run build:jira-direct-test` ; la barre latérale affiche alors
 « Sprint Goals — test ouverture Jira » et une version en `.2`.
 

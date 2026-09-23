@@ -47,14 +47,18 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
       </div>
       <HiddenGoals board={board} />
       <div class="sidebar-divider" />
-      {view === "admin" && <AdminMenu model={model} board={board} />}
-      <NavButton
-        icon="settings"
-        label="Administration"
-        current={view === "admin"}
-        expanded={view === "admin"}
-        onClick={() => model.toggleAdmin()}
-      />
+      {/* Administration : son bouton reste en tête, ses sections se déplient dessous, sur un fond
+          distinct de celui de la barre. */}
+      <div class={`sidebar-admin-block${view === "admin" ? " is-open" : ""}`}>
+        <NavButton
+          icon="settings"
+          label="Administration"
+          current={view === "admin"}
+          expanded={view === "admin"}
+          onClick={() => model.toggleAdmin()}
+        />
+        {view === "admin" && <AdminMenu model={model} board={board} />}
+      </div>
     </aside>
   );
 }
@@ -136,8 +140,8 @@ function SidebarResizer({ model }: { model: AppModel }) {
 }
 
 /**
- * Sections de l'administration, dépliées dans la barre latérale au-dessus de son bouton : réglages
- * du board affiché, diagnostic, puis le site et sa déconnexion.
+ * Sections de l'administration, dépliées dans la barre latérale sous son bouton : réglages du
+ * board affiché, diagnostic, puis le site et sa déconnexion.
  */
 function AdminMenu({ model, board }: { model: AppModel; board: BoardModel }) {
   const configuration = board.configuration.value;
@@ -199,7 +203,7 @@ function NavButton(props: {
   label: string;
   current: boolean;
   onClick: () => void;
-  /** Bouton qui déplie une liste juste au-dessus de lui (Administration). */
+  /** Bouton qui déplie ses sections juste au-dessous de lui (Administration). */
   expanded?: boolean;
 }) {
   return (

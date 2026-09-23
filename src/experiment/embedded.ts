@@ -31,17 +31,15 @@ export function installEmbeddedLinks(model: AppModel, origin: string): void {
     const connection = model.connection.value;
     if (connection.state !== "connected") return;
     const board = connection.board;
-    board.nativeTransitionHandler = (key, issueId, transition) => {
+    board.nativeTransitionHandler = (key, transition) => {
       if (board.site.origin !== origin) return false;
       model.exitPresentation();
       window.parent.postMessage(
         {
           type: "sprint-goals:open-issue",
           key,
-          // L'écran de la transition du workflow est ouvert par l'identifiant du ticket et celui
-          // de la transition, jamais par un libellé.
-          issueId,
-          // Le statut d'arrivée distingue, dans le menu de Jira, deux transitions de même nom.
+          // Identifiant, nom et statut d'arrivée de la transition : la page hôte ouvre le menu de
+          // statut de Jira et n'y clique que l'élément qui désigne à coup sûr CETTE transition.
           transition: { id: transition.id, name: transition.name, to: transition.to.name },
         },
         origin,

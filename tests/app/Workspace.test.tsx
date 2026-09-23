@@ -563,8 +563,9 @@ describe("administration", () => {
     const menu = document.querySelector(".sidebar .sidebar-admin");
     expect(menu).not.toBeNull();
     expect(button("Administration").getAttribute("aria-expanded")).toBe("true");
-    // Le panneau est juste au-dessus de son bouton.
-    expect(menu?.nextElementSibling).toBe(button("Administration"));
+    // Le bouton reste en tête de son panneau, ses sections juste au-dessous, sur un fond à part.
+    expect(menu?.previousElementSibling).toBe(button("Administration"));
+    expect(button("Administration").parentElement?.classList.contains("is-open")).toBe(true);
     expect(menu?.querySelector(".settings-site")?.textContent).toBe("acme.atlassian.net");
 
     // Un second clic replie et ramène au sprint.

@@ -447,6 +447,24 @@ ponctuation, vaut exactement le nom de la transition ou « nom + statut d'arriv�
 est isolée dans la popin (repérage 0.19.10). `verify:jira-direct-test` : 16 contrôles, dont le repli
 (écran absent, fenêtre moderne isolée, transition voisine de même nom jamais cliquée).
 
+0.19.14 (essai de Denis, 23/09/2026) : sa popin restait blanche sur « Ouverture de « TEST OK »… »
+sans jamais se replier. Cause : l'essai par adresse directe ne se repliait que si le document du
+cadre était LISIBLE ; Jira n'encadrant pas `/secure/CommentAssignIssue!default.jspa`, le cadre
+restait sur `about:blank` et la boucle sortait à chaque passage avant le délai de 3 s. Cet essai est
+supprimé : une transition à champs passe désormais par le seul chemin qui fasse dessiner sa fenêtre
+à Jira Cloud — la fiche chargée cachée, le menu de statut, et le clic strictement encadré de
+0.19.13. L'identifiant du ticket ne sert plus à rien et sort du message
+(`nativeTransitionHandler(key, transition)`). Deux garde-fous : fiche non reconnue en 12 s, la page
+de Jira est montrée telle quelle ; cadre jamais accessible en 20 s, la popin se ferme et le dit —
+une popin blanche figée n'est jamais un état d'arrivée. Les étapes sont tracées dans la console de
+l'onglet (`Sprint Goals — …`, prototype seulement), seul moyen de savoir où l'ouverture s'arrête sur
+un Jira auquel je n'ai pas accès. `verify:jira-direct-test` : 15 contrôles (fenêtre de Jira isolée à
+sa taille, transition ambiguë jamais cliquée et fiche rendue).
+
+0.19.14 (demande de Denis) : l'administration dépliée est un panneau à part en pied de barre
+latérale — son bouton reste EN TÊTE, ses sections se déplient au-dessous, sur un fond blanc bordé et
+arrondi qui le détache du gris de la barre (`sidebar-admin-block`, classe `is-open`).
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

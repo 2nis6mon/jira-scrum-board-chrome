@@ -724,23 +724,20 @@ describe("écran de transition dynamique", () => {
         ],
       },
     });
-    const calls: [string, string, string][] = [];
-    board.nativeTransitionHandler = (key, issueId, transition) => {
-      calls.push([key, issueId, transition.id]);
+    const calls: [string, string][] = [];
+    board.nativeTransitionHandler = (key, transition) => {
+      calls.push([key, transition.id]);
       return true;
     };
-    const issueId = board.snapshot.value?.scrumIssues.find((i) => i.issue.key === "ABC-102")?.issue
-      .id;
     await board.dropIssue({
       issueKey: "ABC-102",
       block: goalBlock("g-paiement"),
       columnId: DOING,
       beforeKey: null,
     });
-    // Identifiant du ticket tel que Jira l'a fourni (numérique dans Jira ; la clé dans ces données
-    // fictives) : c'est lui, avec celui de la transition, qui désigne l'écran à ouvrir.
-    expect(issueId).toBeDefined();
-    expect(calls).toEqual([["ABC-102", issueId, "21"]]);
+    // Clé du ticket et identifiant de la transition : de quoi ouvrir la fiche et y désigner la
+    // transition dans le menu de statut de Jira.
+    expect(calls).toEqual([["ABC-102", "21"]]);
     expect(board.transitionForm.value).toBeNull();
     expect(board.nativeTransitionPending.value).toBe(true);
     expect(writes()).toEqual([]);

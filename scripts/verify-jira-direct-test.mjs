@@ -103,23 +103,6 @@ try {
     },100);}
     </script>
   </body></html>`;
-  // Écran de la transition 41 du ticket 10002, tel que Jira le sert : navigation autour, formulaire
-  // dont l'action est CommentAssignIssue.jspa, validation et lien « Cancel » vers le ticket.
-  const transitionScreen = `<!doctype html><html><body><header id="jira-nav" style="height:80px">Navigation Jira</header>
-    <main><h1>Merge into develop</h1>
-      <form id="transition-form" action="/secure/CommentAssignIssue.jspa" method="post">
-        <label>Time Spent <input name="worklog_timeLogged" required></label>
-        <div style="height:220px">Remaining Estimate, Comment…</div>
-        <input type="submit" value="Merge into develop"> <a id="cancel" href="/browse/ABC-102">Cancel</a>
-      </form>
-    </main></body></html>`;
-  const emptyScreen = "<!doctype html><html><body></body></html>";
-  const pageFor = (address) => {
-    const url = new URL(address);
-    if (url.pathname !== "/secure/CommentAssignIssue!default.jspa") return fixture;
-    // Comme sur le Jira de Denis, certaines transitions n'ont pas d'écran à cette adresse.
-    return url.searchParams.get("action") === "41" ? transitionScreen : emptyScreen;
-  };
   let handling = false;
   const pump = setInterval(async () => {
     if (handling) return;
@@ -135,7 +118,7 @@ try {
             requestId: event.params.requestId,
             responseCode: 200,
             responseHeaders: [{ name: "Content-Type", value: "text/html; charset=utf-8" }],
-            body: Buffer.from(pageFor(event.params.request.url)).toString("base64"),
+            body: Buffer.from(fixture).toString("base64"),
           },
           sessionId,
         );
@@ -216,64 +199,59 @@ try {
       await evaluate(sessionId, "!document.querySelector('dialog[open]')"),
       "fermer une fiche conserve le board",
     );
-    // Transition du workflow qui exige des champs : son écran, par identifiants, sans fiche ni menu.
+    // Transition du workflow qui exige des champs : Jira Cloud n'a AUCUNE adresse qui serve sa
+    // fenêtre. On ouvre donc la fiche sans la montrer, on déroule le menu de statut et on n'y clique
+    // que l'élément qui porte le nom de la transition ET son statut d'arrivée ; celui de même nom
+    // vers un autre statut, qui s'exécuterait sans écran, n'est jamais cliqué.
     await evaluate(
       child.sessionId,
-      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',issueId:'10002',transition:{id:'41',name:'Merge into develop'}},'https://acme.atlassian.net')",
+      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',transition:{id:'51',name:'TEST OK',to:'Validé'}},'https://acme.atlassian.net')",
     );
-    await sleep(150);
+    await sleep(600);
     assert(
       await evaluate(
         sessionId,
-        "(()=>{const d=document.querySelector('dialog[open]');return Boolean(d)&&d.querySelector('iframe').style.visibility==='hidden'&&d.textContent.includes('Ouverture de « Merge into develop »')})()",
+        "(()=>{const d=document.querySelector('dialog[open]');return Boolean(d)&&d.querySelector('iframe').style.visibility==='hidden'&&d.textContent.includes('Ouverture de « TEST OK »')})()",
       ),
-      "pendant l'ouverture de l'écran de transition, rien d'autre ne s'affiche",
+      "pendant l'ouverture de la transition, ni la fiche ni le menu ne s'affichent",
     );
-    await sleep(2000);
+    await sleep(2400);
     assert(
       await evaluate(
         sessionId,
-        "(()=>{const f=document.querySelector('dialog[open] iframe');const u=new URL(f.contentWindow.location.href);return u.pathname==='/secure/CommentAssignIssue!default.jspa'&&u.searchParams.get('id')==='10002'&&u.searchParams.get('action')==='41'})()",
+        "(()=>{const d=document.querySelector('dialog[open]');const doc=d&&d.querySelector('iframe').contentDocument;const modal=doc&&doc.querySelector('#jira-modal');if(!modal)return false;const r=d.getBoundingClientRect();return !doc.body.dataset.executed&&modal.hasAttribute('data-sprint-goals-transition')&&getComputedStyle(doc.querySelector('#ticket')).visibility==='hidden'&&getComputedStyle(modal).visibility==='visible'&&Math.abs(r.width-640)<4&&Math.abs(r.height-480)<4})()",
       ),
-      "l'écran de la transition est ouvert par l'identifiant du ticket et celui de la transition",
-    );
-    assert(
-      await evaluate(
-        sessionId,
-        "(()=>{const d=document.querySelector('dialog[open]');const f=d.querySelector('iframe');const doc=f.contentDocument;const form=doc.querySelector('#transition-form');const r=d.getBoundingClientRect();return f.style.visibility==='visible'&&form.hasAttribute('data-sprint-goals-transition')&&getComputedStyle(doc.querySelector('#jira-nav')).visibility==='hidden'&&getComputedStyle(form).visibility==='visible'&&r.width<1280&&r.height<innerHeight-40&&!doc.querySelector('#ticket')})()",
-      ),
-      "seul le formulaire de Jira est affiché, dans une popin à sa taille (ni fiche, ni navigation)",
+      "la fenêtre de Jira s'ouvre seule, à sa taille, sans la fiche autour",
     );
     assert(
       await evaluate(
         sessionId,
-        "!document.querySelector('dialog iframe').contentDocument.querySelector('#transition-form').matches(':valid')",
+        "!document.querySelector('dialog[open] iframe').contentDocument.querySelector('#jira-modal-form').matches(':valid')",
       ),
-      "le formulaire requis reste à remplir et n'est jamais validé automatiquement",
+      "le formulaire de Jira reste à remplir et n'est jamais validé automatiquement",
     );
     await evaluate(
       sessionId,
-      "document.querySelector('dialog iframe').contentDocument.querySelector('#cancel').click()",
+      "document.querySelector('dialog[open] iframe').contentDocument.querySelector('#jira-modal').remove()",
     );
-    await sleep(900);
+    await sleep(1200);
     assert(
       await evaluate(sessionId, "!document.querySelector('dialog[open]')"),
-      "quitter l'écran de Jira (Cancel) referme la popin et garde le board",
+      "quitter la fenêtre de Jira referme la popin et garde le board",
     );
-    // Écran absent à l'adresse directe (page vide) : repli sur la fiche, où Jira ouvre lui-même sa
-    // fenêtre moderne. L'élément du menu est reconnu par son nom ET son statut d'arrivée ; celui de
-    // même nom vers un autre statut, qui s'exécuterait sans écran, n'est jamais cliqué.
+    // Même transition annoncée sans son statut d'arrivée : deux éléments du menu portent ce nom,
+    // aucun n'est cliqué, la fiche est montrée pour que l'utilisateur choisisse lui-même.
     await evaluate(
       child.sessionId,
-      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',issueId:'10002',transition:{id:'51',name:'TEST OK',to:'Validé'}},'https://acme.atlassian.net')",
+      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',transition:{id:'51',name:'TEST OK'}},'https://acme.atlassian.net')",
     );
-    await sleep(6000);
+    await sleep(3000);
     assert(
       await evaluate(
         sessionId,
-        "(()=>{const d=document.querySelector('dialog[open]');const doc=d&&d.querySelector('iframe').contentDocument;const modal=doc&&doc.querySelector('#jira-modal');if(!modal)return false;const r=d.getBoundingClientRect();return !doc.body.dataset.executed&&modal.hasAttribute('data-sprint-goals-transition')&&getComputedStyle(doc.querySelector('#ticket')).visibility==='hidden'&&Math.abs(r.width-640)<4})()",
+        "(()=>{const d=document.querySelector('dialog[open]');const doc=d&&d.querySelector('iframe').contentDocument;return Boolean(doc)&&!doc.body.dataset.executed&&!doc.querySelector('#jira-modal')&&d.querySelector('iframe').style.visibility==='visible'})()",
       ),
-      "écran absent à l'adresse directe : la fenêtre moderne de Jira s'ouvre seule, jamais la transition voisine",
+      "transition ambiguë : rien n'est cliqué et la fiche est rendue à l'utilisateur",
     );
     await evaluate(
       sessionId,

@@ -203,9 +203,7 @@ export interface BoardModelOptions {
 /** Board du site connecté : configuration locale, photographie Jira, filtres. Lecture seule. */
 export class BoardModel {
   /** Adaptateur facultatif de la vue hébergée dans Jira ; absent dans l'application autonome. */
-  nativeTransitionHandler:
-    | ((key: string, issueId: string, transition: JiraTransition) => boolean)
-    | null = null;
+  nativeTransitionHandler: ((key: string, transition: JiraTransition) => boolean) | null = null;
   readonly nativeTransitionPending = signal(false);
   readonly site: JiraSite;
 
@@ -1438,7 +1436,7 @@ export class BoardModel {
         if (this.transitionForm.value) await this.sync();
         return false;
       case "requiresFields": {
-        if (this.nativeTransitionHandler?.(issueKey, issue.issue.id, outcome.transition)) {
+        if (this.nativeTransitionHandler?.(issueKey, outcome.transition)) {
           this.nativeTransitionPending.value = true;
           this.writeNotice.value = {
             tone: "warning",

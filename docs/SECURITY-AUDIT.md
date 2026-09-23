@@ -404,6 +404,15 @@ la transition (valeur d'attribut délimitée par des non-chiffres) et mentionne 
 ouvert et l'utilisateur choisit (son propre geste). Chrome : `verify:jira-direct-test`, scénario
 « transition ambiguë » (il échoue avec l'ancien code, qui cliquait l'élément voisin).
 
+**0.19.14.2 — un seul chemin, celui du menu de statut.** L'essai par adresse directe est retiré :
+sur le Jira Cloud de Denis il renvoyait une page vide, et lorsque Jira refusait d'encadrer cette
+adresse, le cadre restait sur `about:blank` — la popin n'atteignait alors jamais son repli et
+restait indéfiniment sur son message d'attente. Le comportement de 0.19.13.2 ci-dessous devient le
+seul, avec deux garde-fous d'affichage (fiche non reconnue en 12 s : la page de Jira est montrée
+telle quelle ; cadre inaccessible en 20 s : la popin se ferme et le dit) et une trace en console de
+l'onglet. Aucun droit, aucune écriture, aucune règle de clic modifiés : S10 reste couvert par la
+règle de 0.19.13.2.
+
 **0.19.13.2 — le clic revient, encadré.** Sur le Jira Cloud de Denis, l'adresse directe renvoie une
 page vide : la seule façon d'obtenir la fenêtre moderne de Jira reste de choisir la transition dans
 son menu de statut. L'extension n'y clique que si le libellé d'un élément, comparé sans accents,

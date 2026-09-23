@@ -80,6 +80,21 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
     return { dialog, hint, page, reveal };
   };
 
+  /**
+   * Trace locale, dans la console de l'onglet : c'est le seul moyen de savoir où l'ouverture
+   * s'arrête sur un Jira auquel le développeur n'a pas accès. Paquet d'essai seulement.
+   */
+  const trace = (step: string, detail: unknown = "") =>
+    // biome-ignore lint/suspicious/noConsole: journal de diagnostic du prototype, voir ci-dessus.
+    console.info("Sprint Goals —", step, detail);
+
+  /**
+   * Fiche du ticket, chargée cachée dans la popin. Sans transition, elle est montrée telle quelle.
+   * Avec une transition qui exige des champs, la fiche reste cachée : on ouvre le menu de statut de
+   * Jira, on y choisit la transition, et la fenêtre que Jira dessine lui-même (moderne ou
+   * « classique » dans son iframe) est isolée dans la popin. C'est le seul chemin qui fait ouvrir sa
+   * fenêtre à Jira Cloud : elle n'a pas d'adresse à laquelle la demander.
+   */
   const openTicket = (
     key: string,
     transition: { id: string; name: string; to: string | null } | null = null,
@@ -100,10 +115,12 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
     address.searchParams.set("selectedIssue", key);
     ticket.src = address.href;
 
+    let reachable = false;
     let ready = false;
     let ticketPanel: HTMLElement | null = null;
     let transitionMenuOpened = false;
     let transitionMenuAttemptedAt = 0;
+    let statusButtonTraced = false;
     let transitionOpened = false;
     let focusedTransitionDialog: HTMLElement | null = null;
     // Fenêtres déjà présentes au choix de la transition (fiche du ticket comprise) : celle du
@@ -116,7 +133,10 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
     let transitionDeadline = 0;
     const revealTicket = reveal;
     let transitionDialogMissingSince = 0;
-    const expires = Date.now() + 30000;
+    // Fiche jamais reconnue : la page est montrée telle quelle, plutôt qu'une popin blanche.
+    const revealAt = Date.now() + 12000;
+    // Page jamais accessible (cadre refusé par Jira) : la popin se ferme et le dit.
+    const expires = Date.now() + 20000;
     ticketTimer = setInterval(() => {
       if (!host.isConnected) {
         closeTicket();
@@ -126,6 +146,7 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
         const doc = ticket.contentDocument;
         const win = ticket.contentWindow;
         if (!doc || !win) throw new Error("frame inaccessible");
+        reachable = true;
         if (ready && !new URL(win.location.href).searchParams.has("selectedIssue")) {
           closeTicket();
           return;
@@ -173,6 +194,7 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
             if (transition) {
               hint.textContent = `Ouverture de « ${transition.name} »…`;
               transitionDeadline = Date.now() + 8000;
+              trace("fiche reconnue, ouverture du menu de statut", transition.name);
             } else {
               revealTicket();
             }
@@ -226,8 +248,16 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
             transitionOpened = true;
             dialogsBefore = new Set(doc.querySelectorAll('[role="dialog"]'));
             // Sans choix sûr, la fiche est montrée : l'utilisateur choisit dans le menu de Jira.
-            if (choice) choice.click();
-            else revealTicket();
+            if (choice) {
+              trace("transition choisie dans le menu de Jira", label(choice));
+              choice.click();
+            } else {
+              trace("aucun élément sûr, le menu reste au choix de l'utilisateur", {
+                attendu: wanted,
+                proposés: items.map(label),
+              });
+              revealTicket();
+            }
           } else if (
             !transitionMenuOpened ||
             (Date.now() - transitionMenuAttemptedAt > 1500 &&
@@ -257,6 +287,9 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
               transitionMenuOpened = true;
               transitionMenuAttemptedAt = Date.now();
               statusButtons[0]?.click();
+            } else if (!statusButtonTraced) {
+              statusButtonTraced = true;
+              trace("bouton de statut pas encore reconnu, candidats", statusButtons.length);
             }
           }
         }
@@ -310,6 +343,7 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
             stableTicks = loaded && size === lastDialogSize ? stableTicks + 1 : 0;
             lastDialogSize = size;
             if (stableTicks >= 3 && box && candidate) {
+              trace("fenêtre de Jira isolée", size);
               revealTicket();
               focusedTransitionDialog = candidate;
               const crop = doc.createElement("style");
@@ -337,97 +371,18 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
         // Menu ou formulaire jamais reconnu : la fiche est montrée, l'utilisateur agit dans Jira.
         if (ready && transition && !focusedTransitionDialog && Date.now() > transitionDeadline)
           revealTicket();
+        // Fiche elle-même jamais reconnue : la page de Jira est montrée telle quelle. Une popin
+        // blanche qui ne bouge plus n'est jamais une réponse acceptable.
+        if (!ready && Date.now() > revealAt) revealTicket();
       } catch {
         // Jira peut momentanément reconstruire son panneau pendant son chargement.
       }
-      if (!ready && Date.now() > expires) {
+      if (!reachable && Date.now() > expires) {
+        trace("page du ticket inaccessible dans un cadre");
         closeTicket();
         host.setAttribute("data-error", "");
         status.textContent =
           "Jira n'a pas permis d'afficher ce ticket ici. Rechargez la vue puis réessayez.";
-      }
-    }, 300);
-  };
-
-  /**
-   * Écran d'une transition qui exige des champs. Premier essai, sans rien cliquer : l'écran de
-   * CETTE transition, désigné par les identifiants du ticket et de la transition
-   * (`CommentAssignIssue!default.jspa`, documenté pour Jira Data Center ; `!default` affiche le
-   * formulaire sans rien exécuter). Si Jira ne sert pas cet écran — c'est le cas sur certaines
-   * instances Cloud, qui renvoient une page vide —, on se rabat sur la fiche du ticket, où Jira
-   * ouvre lui-même sa fenêtre moderne quand on choisit la transition dans son menu de statut.
-   */
-  const openTransition = (
-    key: string,
-    issueId: string,
-    transition: { id: string; name: string; to: string | null },
-  ) => {
-    const { dialog, hint, page, reveal } = popin(
-      `${transition.name} — ${key}`,
-      "width:min(760px,calc(100vw - 32px));height:min(640px,calc(100vh - 32px))",
-    );
-    hint.textContent = `Ouverture de « ${transition.name} »…`;
-    const address = new URL("/secure/CommentAssignIssue!default.jspa", location.origin);
-    address.searchParams.set("id", issueId);
-    address.searchParams.set("action", transition.id);
-    page.src = address.href;
-
-    let shown = false;
-    let croppedDocument: Document | null = null;
-    let lastHeight = -1;
-    let stable = 0;
-    // Sans formulaire servi à cette adresse, on passe par la fiche du ticket.
-    const fallbackAt = Date.now() + 3000;
-    ticketTimer = setInterval(() => {
-      if (!host.isConnected) {
-        closeTicket();
-        return;
-      }
-      try {
-        const doc = page.contentDocument;
-        const win = page.contentWindow;
-        if (!doc || !win || win.location.href === "about:blank") return;
-        const onScreen = win.location.pathname.startsWith("/secure/CommentAssignIssue");
-        // Écran quitté (validé, annulé, redirigé) après avoir été affiché : on relit le board.
-        if (!onScreen && shown) {
-          closeTicket();
-          return;
-        }
-        const form = onScreen
-          ? [...doc.querySelectorAll<HTMLFormElement>("form")].find(
-              (candidate) => candidate.action.includes("CommentAssignIssue") && visible(candidate),
-            )
-          : undefined;
-        if (!form) {
-          if (!shown && Date.now() > fallbackAt) openTicket(key, transition);
-          return;
-        }
-        if (croppedDocument !== doc) {
-          // Nouveau document : premier affichage, ou erreurs de saisie renvoyées par Jira.
-          croppedDocument = doc;
-          stable = 0;
-          lastHeight = -1;
-          const crop = doc.createElement("style");
-          crop.textContent =
-            "body *{visibility:hidden!important}[data-sprint-goals-transition],[data-sprint-goals-transition] *{visibility:visible!important}";
-          doc.head.append(crop);
-          form.setAttribute("data-sprint-goals-transition", "");
-          form.style.cssText +=
-            ";position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:auto!important;width:auto!important;height:auto!important;max-width:none!important;max-height:100%!important;margin:0!important;padding:20px 24px!important;box-sizing:border-box!important;overflow:auto!important;background:white!important;z-index:2147483647!important";
-        }
-        // Hauteur du contenu une fois stable (ses éditeurs se chargent) : celle de la popin.
-        const height = form.scrollHeight;
-        stable = height === lastHeight ? stable + 1 : 0;
-        lastHeight = height;
-        if (stable >= 2) {
-          dialog.style.height = `${Math.min(Math.max(height, 240), window.innerHeight - 32)}px`;
-          if (!shown) {
-            shown = true;
-            reveal();
-          }
-        }
-      } catch {
-        // Page en cours de chargement ou momentanément inaccessible : on réessaie.
       }
     }, 300);
   };
@@ -453,10 +408,6 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
           }
         : null;
     host.removeAttribute("data-error");
-    if (transition && typeof data.issueId === "string" && /^\d+$/.test(data.issueId)) {
-      openTransition(data.key, data.issueId, transition);
-      return;
-    }
     openTicket(data.key, transition);
   };
   window.addEventListener("message", onMessage);
