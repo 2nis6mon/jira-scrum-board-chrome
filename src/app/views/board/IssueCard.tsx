@@ -36,6 +36,9 @@ interface Props {
   feedback?: "warning" | undefined;
   /** Couleur de fond donnée par une règle de couleur (nom de la palette). */
   tint?: string | null;
+  /** Carte de la famille survolée (une story et ses sous-tâches) : entourée de rouge, éclairée. */
+  highlighted?: boolean;
+  onHoverChange?: (hovering: boolean) => void;
   dragging?: boolean;
   onDragStart?: (event: DragEvent) => void;
   onDragEnd?: () => void;
@@ -63,7 +66,7 @@ export function IssueCard(props: Props) {
 
   return (
     <a
-      class={`card${issue.isBlocked ? " card-blocked" : ""}${props.pending ? " card-pending" : ""}${props.dragging ? " card-dragging" : ""}`}
+      class={`card${issue.isBlocked ? " card-blocked" : ""}${props.pending ? " card-pending" : ""}${props.dragging ? " card-dragging" : ""}${props.highlighted ? " card-family" : ""}`}
       href={browseUrl(props.siteOrigin, issue.issue.key)}
       target="_blank"
       rel="noopener noreferrer"
@@ -73,6 +76,8 @@ export function IssueCard(props: Props) {
       draggable={props.onDragStart !== undefined && !props.pending}
       onDragStart={props.onDragStart}
       onDragEnd={props.onDragEnd}
+      onMouseEnter={() => props.onHoverChange?.(true)}
+      onMouseLeave={() => props.onHoverChange?.(false)}
       aria-busy={props.pending ? true : undefined}
     >
       {props.pending && <span class="card-pending-label">Déplacement en cours…</span>}

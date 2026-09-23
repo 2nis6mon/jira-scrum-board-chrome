@@ -1145,6 +1145,16 @@ button.lane-title[aria-pressed="true"] {
   color: var(--run);
 }
 
+/* Survol d'une story ou d'une de ses sous-tâches : toute la famille s'entoure de rouge et s'éclaire,
+   pour la retrouver d'un coup d'œil dans la swimlane. */
+.card.card-family {
+  outline: 2px solid var(--blocked);
+  outline-offset: 1px;
+  box-shadow:
+    0 0 0 5px rgb(220 38 38 / 12%),
+    0 6px 18px rgb(220 38 38 / 22%);
+}
+
 /* Ticket terminé sur le board alors que des sous-tâches restent ouvertes. */
 .badge-subtasks-open {
   background: #fdf6e7;

@@ -190,16 +190,13 @@ export function filterOptions(snapshot: BoardSnapshot): FilterOptions {
   let unassignedCount = 0;
   let withoutParentCount = 0;
 
-  for (const card of issues) {
-    const { issue } = card;
+  for (const { issue } of issues) {
     const fields = issue.fields;
-    // Personnes : l'assigné du ticket et ceux de ses sous-tâches, chacun compté une fois par carte.
-    const people = new Map<string, string>();
-    for (const user of [fields.assignee, ...card.subtasks.map((subtask) => subtask.assignee)]) {
-      if (user?.accountId) people.set(user.accountId, user.displayName);
+    if (fields.assignee?.accountId) {
+      add(assignees, fields.assignee.accountId, fields.assignee.displayName);
+    } else if (fields.assignee === null) {
+      unassignedCount += 1;
     }
-    for (const [accountId, displayName] of people) add(assignees, accountId, displayName);
-    if (fields.assignee === null) unassignedCount += 1;
     add(types, fields.issuetype.id, fields.issuetype.name);
     if (fields.priority) add(priorities, fields.priority.name, fields.priority.name);
     add(statuses, fields.status.id, fields.status.name);

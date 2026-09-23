@@ -67,6 +67,15 @@ export interface Subtask {
   readonly assignee: JiraUser | null;
 }
 
+/**
+ * Famille d'une carte, pour la mettre en évidence avec les siennes : la story elle-même, ou la
+ * story d'une sous-tâche. Le parent d'une story (son epic) n'en fait pas partie.
+ */
+export function familyKey(issue: BoardIssue): string {
+  const fields = issue.issue.fields;
+  return fields.issuetype.subtask === true && fields.parent ? fields.parent.key : issue.issue.key;
+}
+
 /** Une sous-tâche sans statut connu compte comme ouverte : on ne présume jamais la fin. */
 export function isSubtaskDone(subtask: Subtask): boolean {
   return subtask.statusCategoryKey === "done";

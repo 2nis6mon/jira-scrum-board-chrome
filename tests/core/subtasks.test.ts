@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   assembleBoardIssues,
-  type BoardIssue,
+  familyKey,
   sprintMetrics,
   subtaskProgress,
 } from "../../src/core/boardIssue";
-import { filterOptions } from "../../src/core/boardLayout";
-import { foldSubtasks, loadSnapshot } from "../../src/core/boardSync";
-import { applyFilters, NO_FILTERS } from "../../src/core/filters";
+import { type AtlassianGoalsLoader, loadSnapshot, subtaskFamilies } from "../../src/core/boardSync";
+import { makeSprintGoal } from "../../src/core/sprintGoals";
 import { JiraClient } from "../../src/jira/client";
 import { decodeIssue } from "../../src/jira/models";
 import { JiraTransport } from "../../src/jira/transport";
@@ -15,8 +14,9 @@ import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { ACME, FakeJira } from "../support/fakeJira";
 import { issueJson, makeConfiguration, makeIssue, statusJson } from "../support/jiraFixtures";
 
-// Données FICTIVES. Sous-tâches repliées dans la carte de leur parent (elles ne se déplacent pas
-// sur le board), Goal du parent pour celles dont le parent n'est pas sur le board.
+// Données FICTIVES. Les sous-tâches gardent leur carte et suivent leur story : son Goal quand elles
+// n'en ont pas en propre, son bloc (Scrum ou RUN) quand elle est sur le board. La story montre
+// l'avancement de ses sous-tâches et signale les incohérences.
 
 const NOW = new Date("2026-09-18T12:00:00Z");
 const SUBTASK_TYPE = { id: "10003", name: "Sous-tâche", subtask: true };
@@ -66,23 +66,44 @@ function storyJson(key: string, subtasks: unknown[], options: { assigneeId?: str
   });
 }
 
-describe("répartition des sous-tâches", () => {
-  it("replie celles dont le parent est sur le board, et seulement celles-là", () => {
+describe("familles des sous-tâches", () => {
+  it("relie chaque sous-tâche à son parent quand il est un ticket du sprint", () => {
     const issues = [
       makeIssue("ABC-1"),
       decode(subtaskJson("ABC-2", "ABC-1")),
       decode(subtaskJson("ABC-3", "XYZ-9")),
     ];
-    const { folded, subtaskIssues } = foldSubtasks(issues, {});
-    expect([...folded]).toEqual(["ABC-2"]);
+    const { parentOf, subtaskIssues } = subtaskFamilies(issues, {});
+    expect([...parentOf].map(([key, parent]) => [key, parent.key])).toEqual([["ABC-2", "ABC-1"]]);
     expect([...subtaskIssues.keys()].sort()).toEqual(["ABC-2", "ABC-3"]);
   });
 
-  it("donne à une sous-tâche sans parent sur le board le Goal de son parent", () => {
-    const decoded = [decode(subtaskJson("ABC-3", "XYZ-9")), decode(subtaskJson("ABC-4", "XYZ-9"))];
-    const { inheritedLinks } = foldSubtasks(decoded, { "XYZ-9": "g-1", "ABC-4": "g-2" });
-    // ABC-4 a son propre rattachement : il l'emporte, rien n'est hérité.
-    expect(inheritedLinks).toEqual({ "ABC-3": "g-1" });
+  it("donne le Goal du parent à toute sous-tâche qui n'en a pas en propre", () => {
+    const issues = [
+      makeIssue("ABC-1"),
+      decode(subtaskJson("ABC-2", "ABC-1")),
+      decode(subtaskJson("ABC-3", "XYZ-9")),
+      decode(subtaskJson("ABC-4", "XYZ-9")),
+    ];
+    const { inheritedLinks } = subtaskFamilies(issues, {
+      "ABC-1": "g-1",
+      "XYZ-9": "g-2",
+      "ABC-4": "g-3",
+    });
+    // Parent sur le board ou non, le Goal suit ; ABC-4 a son propre rattachement, il l'emporte.
+    expect(inheritedLinks).toEqual({ "ABC-2": "g-1", "ABC-3": "g-2" });
+  });
+
+  it("une story et ses sous-tâches forment une famille ; l'epic d'une story n'en fait pas partie", () => {
+    const configuration = makeConfiguration();
+    const cards = assembleBoardIssues({
+      issues: [makeIssue("ABC-1", { parent: "EPIC-1" }), decode(subtaskJson("ABC-2", "ABC-1"))],
+      configuration,
+      columns: configuration.scrumColumns,
+      links: {},
+      now: NOW,
+    });
+    expect(cards.map(familyKey)).toEqual(["ABC-1", "ABC-1"]);
   });
 });
 
@@ -155,99 +176,64 @@ describe("avancement des sous-tâches", () => {
   });
 });
 
-describe("filtres et sous-tâches repliées", () => {
-  const configuration = makeConfiguration();
-  const [story] = assembleBoardIssues({
-    issues: [decode(storyJson("ABC-1", [subtaskRef("ABC-2", "new")], { assigneeId: "po" }))],
-    configuration,
-    columns: configuration.scrumColumns,
-    links: {},
-    subtaskIssues: new Map([
-      [
-        "ABC-2",
-        decode(subtaskJson("ABC-2", "ABC-1", { assigneeId: "dev-1", assigneeName: "Dana Dev" })),
-      ],
-    ]),
-    now: NOW,
-  });
-  if (!story) throw new Error("carte attendue");
-  const cards: BoardIssue[] = [story];
-
-  it("le filtre Personne retrouve la story par l'assigné d'une de ses sous-tâches", () => {
-    expect(applyFilters({ ...NO_FILTERS, assigneeIds: new Set(["dev-1"]) }, cards)).toEqual(cards);
-    expect(applyFilters({ ...NO_FILTERS, assigneeIds: new Set(["autre"]) }, cards)).toEqual([]);
-  });
-
-  it("« Non assigné » ne regarde que le ticket lui-même", () => {
-    expect(applyFilters({ ...NO_FILTERS, includeUnassigned: true }, cards)).toEqual([]);
-  });
-
-  it("la recherche trouve la story par la clé, le résumé ou l'assigné d'une sous-tâche", () => {
-    for (const text of ["ABC-2", "morceau", "dana"]) {
-      expect(applyFilters({ ...NO_FILTERS, searchText: text }, cards)).toEqual(cards);
-    }
-  });
-
-  it("un filtre rapide Jira qui retient une sous-tâche retient sa story", () => {
-    expect(applyFilters({ ...NO_FILTERS, jiraQuickFilterKeys: new Set(["ABC-2"]) }, cards)).toEqual(
-      cards,
-    );
-  });
-
-  it("le menu Personne propose l'assigné d'une sous-tâche, compté une fois par carte", () => {
-    const snapshot = {
-      sprint: null,
-      activeSprints: [],
-      goals: [],
-      goalsOrigin: "sprintText" as const,
-      scrumIssues: cards,
-      runIssues: [],
-      syncedAt: NOW,
-      currentUser: null,
-      goalsReadOnly: false,
-      pinnedGoalIds: null,
-      localPinnedGoalIds: null,
-    };
-    const people = filterOptions(snapshot).assignees;
-    expect(people.map((person) => [person.value, person.count]).sort()).toEqual([
-      ["dev-1", 1],
-      ["po", 1],
-    ]);
-  });
-});
-
 describe("board complet", () => {
-  it("une story et ses deux sous-tâches font une seule carte, comptée une fois", async () => {
-    const jira = new FakeJira()
+  function sprintJira(issues: unknown[]) {
+    return new FakeJira()
       .on("GET", "/rest/agile/1.0/board/1/sprint", {
         status: 200,
         json: { values: [{ id: 42, name: "Sprint 42", state: "active" }], isLast: true },
       })
       .on("GET", "/rest/agile/1.0/sprint/42/issue", {
         status: 200,
-        json: {
-          issues: [
-            storyJson("ABC-1", [subtaskRef("ABC-2", "done"), subtaskRef("ABC-3", "new")]),
-            subtaskJson("ABC-2", "ABC-1", { category: "done" }),
-            subtaskJson("ABC-3", "ABC-1"),
-          ],
-          total: 3,
-        },
+        json: { issues, total: issues.length },
       })
       .on("GET", `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.goals}`, {
         status: 404,
       });
-    const { snapshot } = await loadSnapshot({
+  }
+  const loader: AtlassianGoalsLoader = {
+    load: async () => ({
+      goals: [makeSprintGoal({ id: "g-1", title: "Paiement", position: 0 })],
+      links: { "ABC-1": "g-1" },
+    }),
+  };
+  const sync = (issues: unknown[]) =>
+    loadSnapshot({
       reader: new JiraClient(
-        new JiraTransport({ site: ACME, fetch: jira.fetch, maxGetAttempts: 1 }),
+        new JiraTransport({ site: ACME, fetch: sprintJira(issues).fetch, maxGetAttempts: 1 }),
       ),
-      configuration: makeConfiguration(),
+      configuration: makeConfiguration({ goalSource: "atlassianGoals" }),
       currentUser: null,
-      goalsLoader: null,
+      goalsLoader: loader,
       now: NOW,
     });
-    expect(snapshot.scrumIssues.map((issue) => issue.issue.key)).toEqual(["ABC-1"]);
+
+  it("la story et ses sous-tâches gardent chacune leur carte, dans la swimlane de la story", async () => {
+    const { snapshot } = await sync([
+      storyJson("ABC-1", [subtaskRef("ABC-2", "done"), subtaskRef("ABC-3", "new")]),
+      subtaskJson("ABC-2", "ABC-1", { category: "done" }),
+      subtaskJson("ABC-3", "ABC-1"),
+    ]);
+    expect(snapshot.scrumIssues.map((issue) => [issue.issue.key, issue.goalId])).toEqual([
+      ["ABC-1", "g-1"],
+      ["ABC-2", "g-1"],
+      ["ABC-3", "g-1"],
+    ]);
+    // La story garde l'avancement de ses sous-tâches ; chacune compte comme un ticket.
     expect(snapshot.scrumIssues[0]?.subtasks.map((sub) => sub.key)).toEqual(["ABC-2", "ABC-3"]);
-    expect(sprintMetrics(snapshot, 99).totalIssues).toBe(1);
+    expect(sprintMetrics(snapshot, 99).totalIssues).toBe(3);
+  });
+
+  it("les sous-tâches d'un ticket RUN vont dans le bloc RUN, avec lui", async () => {
+    const { snapshot } = await sync([
+      issueJson("RUN-1", {
+        typeId: "10004",
+        typeName: "Anomalie Prod",
+        extraFields: { subtasks: [subtaskRef("RUN-2", "new")] },
+      }),
+      subtaskJson("RUN-2", "RUN-1"),
+    ]);
+    expect(snapshot.runIssues.map((issue) => issue.issue.key)).toEqual(["RUN-1", "RUN-2"]);
+    expect(snapshot.scrumIssues).toEqual([]);
   });
 });

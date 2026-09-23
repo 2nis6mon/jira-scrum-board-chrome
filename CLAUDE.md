@@ -527,6 +527,20 @@ fois par carte. Conséquence voulue : les sous-tâches repliées ne comptent plu
 les limites WIP, l'en-tête, la santé du sprint ni les Goals atteints. Écart avec le Mac, qui les
 affiche comme des tickets. Banc d'essai : `board-soustaches`.
 
+0.19.20 (demande de Denis, révise 0.19.19) : « maintenant que les sous-tâches sont dans le même
+objectif, on peut les garder comme fiches ». Plus de repliement : chaque sous-tâche a de nouveau sa
+carte. `subtaskFamilies` (remplace `foldSubtasks`) donne le Goal du parent à TOUTE sous-tâche sans
+Goal propre, parent sur le board ou non, et place la sous-tâche dans le bloc de son parent (Scrum ou
+RUN) quand il est sur le board : la famille reste dans la même swimlane. Survol : `familyKey`
+(`core/boardIssue.ts` ; la story elle-même, ou le parent d'une sous-tâche — jamais l'epic d'une
+story) ; `BoardGrid` garde la famille survolée et la transmet à `LaneView` ; `IssueCard` reçoit
+`highlighted` et `onHoverChange`, classe `card-family` (contour rouge `--blocked` et halo). Rien ne
+s'éclaire pour une famille d'une seule carte affichée, ni pendant un glissé. Jauge et signaux de
+0.19.19 conservés sur la carte de la story. Filtres, recherche, filtres rapides et menu Personne
+reviennent au comportement d'avant 0.19.19 : chaque carte pour elle-même. Conséquence : les
+sous-tâches comptent de nouveau dans les colonnes, les limites WIP et l'en-tête, et désormais aussi
+dans l'avancement et l'atteinte du Goal de leur story (elles y sont rattachées).
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

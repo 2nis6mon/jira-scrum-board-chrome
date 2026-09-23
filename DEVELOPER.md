@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **23 septembre 2026**  
 Branche décrite : **`main`** (seule branche du dépôt depuis le 23/09/2026)  
-Produit autonome : **0.19.19**  
-Prototype d’intégration Jira : **0.19.19.2**
+Produit autonome : **0.19.20**  
+Prototype d’intégration Jira : **0.19.20.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -47,7 +47,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.19.19`  
+Version : `0.19.20`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -69,7 +69,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.19.19.2`  
+Version générée : `0.19.20.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -184,18 +184,16 @@ de Jira.
   board. Il ne déclenche pas le plein écran du navigateur.
 - L’administration se déplie dans la barre latérale, sous son bouton, dans le gris de la barre ;
   elle se replie au second clic ou dès qu’une autre entrée de la barre est choisie.
-- Sous-tâches (0.19.19, choix de Denis : seules les stories se déplacent sur le board). Une
-  sous-tâche dont le parent est sur le board n’a pas de carte : elle est repliée dans celle de son
-  parent (`foldSubtasks`, `core/boardSync.ts`) et ne compte nulle part ailleurs (colonnes, limites
-  WIP, en-tête, santé du sprint, Goals atteints). La carte parent porte une jauge, un segment par
-  sous-tâche (foncé = terminée, bleu clair = en cours, gris = à faire), et « terminées / total » ;
-  le détail est au survol. Toutes terminées avant la dernière colonne : jauge verte et coche, le
-  ticket peut avancer. Parent dans la dernière colonne avec des sous-tâches ouvertes : pastille
-  d’alerte. Filtre Personne, recherche et filtres rapides Jira retrouvent la story par ses
-  sous-tâches ; « Non assigné » ne regarde que la story. Une sous-tâche dont le parent n’est pas
-  sur le board garde sa carte et suit le Goal de son parent (un rattachement propre l’emporte).
-  Aucun appel Jira de plus : la liste vient du champ `subtasks` du parent, l’assigné des tickets
-  du sprint.
+- Sous-tâches (0.19.20, choix de Denis). Chacune garde sa carte, mais suit sa story : sans Goal
+  propre, elle prend celui de son parent, et quand le parent est sur le board elle va dans le même
+  bloc que lui, Scrum ou RUN (`subtaskFamilies`, `core/boardSync.ts`). Elles comptent comme des
+  tickets (colonnes, limites WIP, en-tête, santé du sprint, avancement et Goals atteints). Survoler
+  une story ou une de ses sous-tâches entoure de rouge et éclaire toute la famille (`familyKey`,
+  classe `card-family`), seulement si la famille a au moins deux cartes affichées et hors glissé.
+  La carte de la story garde la jauge de ses sous-tâches (foncé = terminée, bleu clair = en cours,
+  gris = à faire), la jauge verte quand toutes sont terminées avant la dernière colonne, et la
+  pastille d'alerte quand elle est dans la dernière colonne avec des sous-tâches ouvertes. Les
+  filtres s'appliquent carte par carte, comme dans Jira. Aucun appel Jira de plus.
 
 ### Glisser-déposer et transitions
 

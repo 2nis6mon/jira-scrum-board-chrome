@@ -109,22 +109,15 @@ export function applyFilters(filters: BoardFilters, issues: readonly BoardIssue[
   return issues.filter((issue) => {
     const fields = issue.issue.fields;
 
-    // Filtres rapides du board : la sélection a été faite par Jira via JQL. Une sous-tâche retenue
-    // (« Mes tickets », par exemple) retient la carte de son parent, où elle est repliée.
-    const quickKeys = filters.jiraQuickFilterKeys;
-    if (
-      quickKeys &&
-      !quickKeys.has(issue.issue.key) &&
-      !issue.subtasks.some((subtask) => quickKeys.has(subtask.key))
-    ) {
+    // Filtres rapides du board : la sélection a été faite par Jira via JQL.
+    if (filters.jiraQuickFilterKeys && !filters.jiraQuickFilterKeys.has(issue.issue.key)) {
       return false;
     }
     if (needle !== "" && !matchesSearch(issue, needle)) return false;
 
     if (filters.assigneeIds.size > 0 || filters.includeUnassigned) {
-      // La carte d'une story vaut aussi pour les assignés de ses sous-tâches : c'est là qu'est
-      // leur travail. « Non assigné » ne regarde que le ticket lui-même.
-      const matchesAssignee = assigneesOf(issue).some((id) => filters.assigneeIds.has(id));
+      const accountId = fields.assignee?.accountId ?? null;
+      const matchesAssignee = accountId !== null && filters.assigneeIds.has(accountId);
       const matchesUnassigned = filters.includeUnassigned && fields.assignee === null;
       if (!matchesAssignee && !matchesUnassigned) return false;
     }
@@ -169,15 +162,6 @@ export function applyFilters(filters: BoardFilters, issues: readonly BoardIssue[
   });
 }
 
-/** Comptes assignés au ticket et à ses sous-tâches, sans doublon. */
-export function assigneesOf(issue: BoardIssue): string[] {
-  const ids = [
-    issue.issue.fields.assignee?.accountId,
-    ...issue.subtasks.map((subtask) => subtask.assignee?.accountId),
-  ].filter((id): id is string => typeof id === "string" && id !== "");
-  return [...new Set(ids)];
-}
-
 function matchesSearch(issue: BoardIssue, needle: string): boolean {
   const fields = issue.issue.fields;
   const contains = (text: string | null | undefined) =>
@@ -190,14 +174,7 @@ function matchesSearch(issue: BoardIssue, needle: string): boolean {
     contains(fields.issuetype.name) ||
     fields.labels.some(contains) ||
     contains(fields.parent?.key) ||
-    contains(fields.parent?.summary) ||
-    // Une sous-tâche cherchée par sa clé, son résumé ou son assigné montre la carte de son parent.
-    issue.subtasks.some(
-      (subtask) =>
-        contains(subtask.key) ||
-        contains(subtask.summary) ||
-        contains(subtask.assignee?.displayName),
-    )
+    contains(fields.parent?.summary)
   );
 }
 

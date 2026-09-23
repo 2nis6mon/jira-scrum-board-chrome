@@ -1,5 +1,5 @@
 import { type ComponentChildren, Fragment } from "preact";
-import { useEffect } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import type { BoardConfiguration } from "../../../core/boardConfiguration";
 import {
   displayedCardFields,
@@ -10,6 +10,7 @@ import {
 import {
   type BoardSnapshot,
   browseUrl,
+  familyKey,
   goalProgress,
   type SprintMetrics,
   sprintMetrics,
@@ -769,6 +770,8 @@ function BoardGrid(props: {
   layout: BoardLayout;
 }) {
   const { board, configuration, layout } = props;
+  // Famille survolée (une story et ses sous-tâches) : ses cartes s'entourent de rouge et s'éclairent.
+  const [hoveredFamily, setHoveredFamily] = useState<string | null>(null);
   if (layout.lanes.length === 0) {
     return (
       <div class="board-empty">
@@ -782,6 +785,16 @@ function BoardGrid(props: {
 
   const snapshot = board.snapshot.value;
   const load = snapshot ? columnLoad(snapshot) : new Map<string, number>();
+  // Seules les familles d'au moins deux cartes affichées s'éclairent : une story seule ne dit rien.
+  const familySizes = new Map<string, number>();
+  for (const lane of layout.lanes) {
+    for (const cell of lane.cells) {
+      for (const issue of cell.issues) {
+        const family = familyKey(issue);
+        familySizes.set(family, (familySizes.get(family) ?? 0) + 1);
+      }
+    }
+  }
   // Ligne d'insertion de la swimlane glissée, à la couleur de son objectif.
   const draggedLane = layout.lanes.find((lane) => lane.id === board.draggingLane.value);
   const laneTarget = board.draggingLane.value === null ? undefined : board.laneDropTarget.value;
@@ -817,6 +830,12 @@ function BoardGrid(props: {
             layout={layout}
             lane={lane}
             nextLaneId={layout.lanes[index + 1]?.id ?? null}
+            hoveredFamily={hoveredFamily}
+            onHoverFamily={(family) =>
+              setHoveredFamily(
+                family !== null && (familySizes.get(family) ?? 0) > 1 ? family : null,
+              )
+            }
           />
         </Fragment>
       ))}
@@ -832,8 +851,12 @@ function LaneView(props: {
   lane: Lane;
   /** Swimlane affichée juste en dessous : un dépôt sur la moitié basse se place avant elle. */
   nextLaneId: string | null;
+  /** Famille survolée (une story et ses sous-tâches), à mettre en évidence ; `null` sinon. */
+  hoveredFamily: string | null;
+  /** Une carte est survolée (sa famille) ou quittée (`null`). */
+  onHoverFamily: (family: string | null) => void;
 }) {
-  const { board, configuration, layout, lane, nextLaneId } = props;
+  const { board, configuration, layout, lane, nextLaneId, hoveredFamily, onHoverFamily } = props;
   const goal = lane.goal;
   const progress = lane.progress;
   const focused = goal !== null && isGoalFocused(board.filters.value, goal.id);
@@ -1078,6 +1101,10 @@ function LaneView(props: {
                           agingThresholdDays={configuration.agingThresholdDays}
                           goalTitle={hiddenGoal}
                           lastColumnId={lane.cells.at(-1)?.column.id ?? null}
+                          highlighted={drag === null && hoveredFamily === familyKey(issue)}
+                          onHoverChange={(hovering) =>
+                            onHoverFamily(hovering ? familyKey(issue) : null)
+                          }
                           pending={board.pendingKeys.value.has(key)}
                           feedback={
                             board.moveFeedback.value?.issueKey === key
