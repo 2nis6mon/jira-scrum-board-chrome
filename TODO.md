@@ -4,6 +4,9 @@ Mis à jour le 20/09/2026 pour la version 0.19.1, après revue du code et préci
 Denis confirme utiliser la dernière version dans Chrome et que les fonctionnalités marchent.
 Ce retour ne constitue pas un relevé détaillé de chaque scénario testé sur son Jira.
 
+Ajouts du 24/09/2026 (0.19.20), à la demande de Denis : mode Daily (section 5) et relance du
+Sprint Planning (section 4). Le reste du fichier n'a pas été revu depuis la 0.19.1.
+
 Les décisions confirmées, les travaux restants et les pistes facultatives sont séparés ci-dessous.
 L'ordre des travaux est une proposition ; les choix encore ouverts ne sont pas des autorisations
 à développer de nouvelles écritures Jira ou à changer les permissions.
@@ -129,7 +132,8 @@ statut par défaut configuré dans l'extension.
 ## 4. Outil de Sprint Planning
 
 **Demande.** Préparer le sprint suivant : définir les objectifs, y associer des tickets, et
-démarrer le sprint.
+démarrer le sprint. Redemandée par Denis le 24/09/2026 : « un outil de Sprint Planning pour
+définir les objectifs et associer les stories avant de lancer le sprint ».
 
 **Contraintes à lever avec Denis avant tout code** (règles du projet, `CLAUDE.md`) :
 
@@ -158,14 +162,40 @@ démarrer le sprint.
 
 ---
 
-## 5. Installation et distribution
+## 5. Mode Daily
+
+**Demande de Denis (24/09/2026).** Un mode pour animer la daily :
+
+- un bouton « play » lance un **minuteur**, 15 min par défaut, réglable dans l'administration ;
+- le board passe en **plein écran** ;
+- on le présente **swimlane par swimlane**, un objectif à la fois, avec des boutons **Suivant** et
+  **Précédent** : à chaque étape, l'équipe est concentrée sur un seul objectif ;
+- **on continue à pouvoir déplacer les tickets** entre colonnes et statuts pendant la daily, pour
+  faire les mises à jour en direct.
+
+**Sur quoi s'appuyer.** Le mode présentation (0.15.0–0.15.1 : barre latérale et en-tête masqués,
+board agrandi, sortie par Échap), le focus sur un objectif (clic sur le titre d'une swimlane,
+filtre par objectif) et le glisser-déposer par statut (0.16.0). Déplacer un ticket reste une
+transition ou un rang, deux écritures déjà autorisées : le mode Daily n'en demande aucune nouvelle.
+
+**À trancher avant de coder.**
+
+- [ ] Plein écran **du navigateur** : il a été retiré à la demande de Denis en 0.10.1, et le mode
+  présentation n'y recourt pas. Le confirmer pour la daily (il se demande au clic sur « play »).
+- [ ] Étapes : l'ordre des swimlanes du board ? Build et RUN compris ? Les swimlanes masquées ou
+  vides sont-elles sautées ?
+- [ ] Minuteur : global seulement, ou aussi un temps indicatif par objectif ?
+- [ ] Fin du temps : signal visuel seul, ou sonore ? Arrêt, ou dépassement affiché ?
+- [ ] Réglage de la durée : propre à ce navigateur, ou dans les réglages d'équipe (partagé) ?
+
+## 6. Installation et distribution
 
 - [ ] **Empaquetage pour l'installation** (ancien lot 6e).
 - [ ] Choisir le mode de distribution et de mise à jour pour les autres utilisateurs.
 - [ ] Préparer le paquet et les instructions correspondantes, sans embarquer de clé privée
   ni les données du banc d'essai.
 
-## 6. Pistes facultatives — à décider selon les besoins
+## 7. Pistes facultatives — à décider selon les besoins
 
 Le partage des réglages d'équipe via Jira est déjà livré : il n'est plus à choisir ni à refaire.
 
@@ -186,7 +216,7 @@ Le partage des réglages d'équipe via Jira est déjà livré : il n'est plus à
   une étude et des validations spécifiques. Transformer le board natif serait une autre
   approche, plus dépendante de la structure de la page Jira.
 
-## 7. Suivi documentaire et validation
+## 8. Suivi documentaire et validation
 
 - [x] Nettoyer ce TODO : retirer les décisions devenues obsolètes et intégrer les choix confirmés.
 - [ ] Lors des prochains travaux, consigner les scénarios effectivement validés par Denis,

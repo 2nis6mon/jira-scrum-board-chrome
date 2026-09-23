@@ -514,11 +514,14 @@ reproduit :
 - Adapter la proposition Goals aux capacités réellement disponibles sur le board.
 - Déploiement Chrome géré via `storage.managed` si un besoin IT apparaît.
 - Améliorer l’accessibilité du glisser-déposer si la décision d’abandon du clavier est réouverte.
+- Mode Daily (demande de Denis du 24/09/2026) : minuteur (15 min par défaut, réglable),
+  plein écran, présentation swimlane par swimlane avec Suivant/Précédent, tickets toujours
+  déplaçables. Aucune nouvelle écriture Jira ; points à trancher dans `TODO.md`, section 5.
 
 ### Sprint Planning, non autorisé à ce jour
 
-Une vue de préparation du prochain sprint a été envisagée : objectifs, tickets, capacité et
-éventuellement démarrage du sprint. Elle demanderait de nouvelles écritures Jira : ajout au sprint,
+Une vue de préparation du prochain sprint a été envisagée, puis redemandée par Denis le
+24/09/2026 : objectifs, tickets, capacité et éventuellement démarrage du sprint. Elle demanderait de nouvelles écritures Jira : ajout au sprint,
 démarrage du sprint et peut-être création de Goal. Ne rien implémenter avant d’avoir décidé :
 
 - préparation seule ou démarrage inclus ;
