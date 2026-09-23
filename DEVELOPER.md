@@ -1,7 +1,7 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
 Dernière mise à jour : **23 septembre 2026**  
-Branche décrite : **`main`** (le prototype y a été fusionné le 23/09/2026)  
+Branche décrite : **`main`** (seule branche du dépôt depuis le 23/09/2026)  
 Produit autonome : **0.19.15**  
 Prototype d’intégration Jira : **0.19.15.2**
 
@@ -539,7 +539,9 @@ Avant de modifier le projet :
     directe dans Jira n’est toujours pas validée sur l’instance de Denis.
 
 État Git : `codex/test-ouverture-jira-directe` a été fusionnée dans `main` le 23/09/2026 à la
-demande de Denis (avance rapide, 27 commits, aucun conflit). L’intégration directe y a suivi ce
+demande de Denis (avance rapide, 27 commits, aucun conflit), puis supprimée, comme
+`codex/board-search-confirmation` (déjà fusionnée) et `codex/test-board-dans-jira` (ancien
+prototype à onglet, abandonné, 17 commits perdus volontairement). `main` est la seule branche. L’intégration directe y a suivi ce
 chemin : ouverture du board dans Jira (`66e865e`), ouverture du formulaire de transition
 (`b3d2c09`), recadrage de la popin (`5161b49`), durcissements de la 0.19.9 (hébergement du board,
 clic de transition), essai par adresse directe (0.19.11 à 0.19.13) puis son retrait au profit du

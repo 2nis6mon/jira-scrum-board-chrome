@@ -175,7 +175,9 @@ Prototype sans toucher au paquet d'essai de Denis : `npx vite build --mode jira-
 
 Git (depuis le 20/09/2026) : travail sur des branches `codex/...` ; ne pousser ni fusionner que sur
 demande. La branche du prototype `codex/test-ouverture-jira-directe` a été fusionnée dans `main` à
-la demande de Denis le 23/09/2026 (avance rapide, 27 commits). Le prototype vit donc dans `main`,
+la demande de Denis le 23/09/2026 (avance rapide, 27 commits), puis supprimée avec les autres
+branches `codex/...` : `main` est désormais la seule branche du dépôt. Le prototype vit donc dans
+`main`,
 mais reste un paquet d'essai : ses droits supplémentaires n'existent que dans le manifest GÉNÉRÉ
 par `build:jira-direct-test`, jamais dans `public/manifest.json`, et l'intégration directe dans
 Jira n'est toujours PAS validée sur l'instance de Denis.
