@@ -1656,29 +1656,20 @@ details.lane-menu[open] > summary {
 
 .settings {
   flex: 1;
-  display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   min-height: 0;
 }
 
-/* Fixe à l'écran, comme la barre latérale : la déconnexion reste visible en bas. */
-.settings-nav {
-  position: sticky;
-  top: 0;
-  height: 100vh;
+/* Sections de l'administration, dépliées dans la barre latérale au-dessus de son bouton. */
+.sidebar-admin {
+  flex: 0 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  padding: 16px 10px;
+  padding: 2px 0 6px;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: var(--surface);
-  border-right: 1px solid var(--line);
-}
-
-.settings-title {
-  padding: 0 12px 6px;
-  font-size: 15px;
-  font-weight: 650;
 }
 
 .settings-tab {
@@ -1705,7 +1696,7 @@ details.lane-menu[open] > summary {
 }
 
 .settings-account {
-  margin-top: auto;
+  margin-top: 10px;
   padding: 14px 12px 0;
   display: flex;
   flex-direction: column;
@@ -2005,27 +1996,6 @@ select {
 
 .settings-wrap {
   flex-wrap: wrap;
-}
-
-@media (max-width: 760px) {
-  .settings {
-    grid-template-columns: 1fr;
-  }
-
-  /* En bandeau au-dessus du contenu : ni fixe, ni haute comme l'écran. */
-  .settings-nav {
-    position: static;
-    height: auto;
-    overflow: visible;
-    flex-direction: row;
-    flex-wrap: wrap;
-    border-right: none;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .settings-account {
-    margin-top: 8px;
-  }
 }
 
 /* La barre « Annuler / Appliquer » d'une section reste visible pendant le défilement. */

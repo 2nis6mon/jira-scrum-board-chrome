@@ -6,11 +6,13 @@ import type { BoardModel, BoardSummary } from "../model/BoardModel";
 import { LANE_DRAG_TYPE, revealLane } from "./board/lanes";
 import { GoalMarker } from "./GoalMarker";
 import { Icon, type IconName } from "./Icon";
+import { BOARD_SECTIONS } from "./settings/AdminView";
 
 /**
  * Barre latérale, reprise de l'app Mac. De haut en bas : board affiché (et son menu), vue du sprint
  * (la santé du sprint y est un panneau), swimlanes dans l'ordre du board (un clic y mène, un glissé
- * les réordonne), objectifs masqués, et Administration en pied de barre.
+ * les réordonne), objectifs masqués, et Administration en pied de barre : son bouton déplie ses
+ * sections au-dessus de lui, et les replie au clic suivant ou dès qu'une autre vue est choisie.
  */
 export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }) {
   const view = model.view.value;
@@ -45,11 +47,13 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
       </div>
       <HiddenGoals board={board} />
       <div class="sidebar-divider" />
+      {view === "admin" && <AdminMenu model={model} board={board} />}
       <NavButton
         icon="settings"
         label="Administration"
         current={view === "admin"}
-        onClick={() => model.showAdmin()}
+        expanded={view === "admin"}
+        onClick={() => model.toggleAdmin()}
       />
     </aside>
   );
@@ -131,17 +135,79 @@ function SidebarResizer({ model }: { model: AppModel }) {
   );
 }
 
+/**
+ * Sections de l'administration, dépliées dans la barre latérale au-dessus de son bouton : réglages
+ * du board affiché, diagnostic, puis le site et sa déconnexion.
+ */
+function AdminMenu({ model, board }: { model: AppModel; board: BoardModel }) {
+  const configuration = board.configuration.value;
+  const section = model.adminSection.value;
+  const host = board.site.host;
+  return (
+    <nav class="sidebar-admin" aria-label="Sections de l'administration">
+      <p class="settings-group">{configuration?.boardName ?? "Board"}</p>
+      {BOARD_SECTIONS.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          class="settings-tab"
+          aria-pressed={section === item.id}
+          disabled={!configuration}
+          onClick={() => model.showAdmin(item.id)}
+        >
+          {item.label}
+        </button>
+      ))}
+      <p class="hint settings-local">
+        {configuration
+          ? "Réglages de ce navigateur, pour ce board. Seuls les réglages d'équipe, publiés à votre demande, sont écrits dans Jira."
+          : "Choisissez d'abord un board : ces réglages portent sur lui."}
+      </p>
+      <p class="settings-group">Site Jira</p>
+      <button
+        type="button"
+        class="settings-tab"
+        aria-pressed={section === "diagnostic"}
+        onClick={() => model.showDiagnostic()}
+      >
+        Diagnostic
+      </button>
+      <div class="settings-account">
+        <span class="settings-site">{host}</span>
+        <button
+          type="button"
+          class="settings-signout"
+          onClick={() => {
+            if (
+              window.confirm(
+                `Se déconnecter de ${host} ?\n\nLes boards et leurs réglages enregistrés dans ce navigateur seront effacés et l’autorisation d’accès au site sera retirée. Rien ne sera modifié dans Jira.`,
+              )
+            )
+              void model.disconnect();
+          }}
+        >
+          <Icon name="signOut" />
+          Se déconnecter
+        </button>
+      </div>
+    </nav>
+  );
+}
+
 function NavButton(props: {
   icon: IconName;
   label: string;
   current: boolean;
   onClick: () => void;
+  /** Bouton qui déplie une liste juste au-dessus de lui (Administration). */
+  expanded?: boolean;
 }) {
   return (
     <button
       type="button"
       class="sidebar-nav-item"
       aria-current={props.current ? "page" : undefined}
+      aria-expanded={props.expanded}
       onClick={props.onClick}
     >
       <Icon name={props.icon} size={16} />

@@ -1,7 +1,6 @@
 import type { AdminSection, AppModel, Connection } from "../../model/AppModel";
 import { PinGoalsDialog } from "../board/PinGoalsDialog";
 import { DiagnosticView } from "../DiagnosticView";
-import { Icon } from "../Icon";
 import { BoardSettings } from "./BoardSettings";
 import { CardColorSettings } from "./CardColorSettings";
 import { CardFieldSettings } from "./CardFieldSettings";
@@ -10,7 +9,8 @@ import { TeamSettings } from "./TeamSettings";
 
 type BoardSection = Exclude<AdminSection, "diagnostic">;
 
-const BOARD_SECTIONS: readonly { id: BoardSection; label: string }[] = [
+/** Sections des réglages du board, dépliées dans la barre latérale. */
+export const BOARD_SECTIONS: readonly { id: BoardSection; label: string }[] = [
   { id: "team", label: "Réglages d'équipe" },
   { id: "board", label: "Board" },
   { id: "goals", label: "Objectifs" },
@@ -19,9 +19,9 @@ const BOARD_SECTIONS: readonly { id: BoardSection; label: string }[] = [
 ];
 
 /**
- * Administration, ouverte depuis le pied de la barre latérale : réglages du board affiché (portés
- * de l'administration du Mac, tous gardés dans ce navigateur, jamais écrits dans Jira), puis le
- * diagnostic et la déconnexion du site.
+ * Contenu de l'administration : réglages du board affiché (portés de l'administration du Mac, tous
+ * gardés dans ce navigateur, jamais écrits dans Jira) ou diagnostic. Les sections, le site et la
+ * déconnexion se choisissent dans la barre latérale, sous le bouton Administration.
  */
 export function AdminView({
   model,
@@ -30,64 +30,12 @@ export function AdminView({
   model: AppModel;
   connection: Extract<Connection, { state: "connected" }>;
 }) {
-  const { board, diagnostic, site } = connection;
+  const { board, diagnostic } = connection;
   const configuration = board.configuration.value;
   const section = model.adminSection.value;
 
   return (
     <main class="settings">
-      <nav class="settings-nav" aria-label="Sections de l'administration">
-        <h2 class="settings-title">Administration</h2>
-        <p class="settings-group">{configuration?.boardName ?? "Board"}</p>
-        {BOARD_SECTIONS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            class="settings-tab"
-            aria-pressed={section === item.id}
-            disabled={!configuration}
-            onClick={() => model.showAdmin(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
-        <p class="hint settings-local">
-          {configuration
-            ? "Réglages de ce navigateur, pour ce board. Seuls les réglages d'équipe, publiés à votre demande, sont écrits dans Jira."
-            : "Choisissez d'abord un board : ces réglages portent sur lui."}
-        </p>
-        <p class="settings-group">Site Jira</p>
-        <button
-          type="button"
-          class="settings-tab"
-          aria-pressed={section === "diagnostic"}
-          onClick={() => model.showDiagnostic()}
-        >
-          Diagnostic
-        </button>
-        <div class="settings-account">
-          <span class="settings-site">{site.host}</span>
-          <button
-            type="button"
-            class="settings-signout"
-            onClick={() => {
-              if (
-                window.confirm(
-                  `Se déconnecter de ${site.host} ?\n\nLes boards et leurs réglages enregistrés dans ce navigateur seront effacés et l’autorisation d’accès au site sera retirée. Rien ne sera modifié dans Jira.`,
-                )
-              )
-                void model.disconnect();
-            }}
-          >
-            <Icon name="signOut" />
-            Se déconnecter
-          </button>
-          <p class="hint">
-            Rend l'accès au site à Chrome et oublie, dans ce navigateur, ses boards et leurs
-            réglages. Rien n'est modifié dans Jira.
-          </p>
-        </div>
-      </nav>
       <div class="settings-content">
         {section === "diagnostic" ? (
           <DiagnosticView diagnostic={diagnostic} />

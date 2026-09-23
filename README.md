@@ -31,7 +31,7 @@ réaffiché depuis cette section, sans modifier son rattachement dans Jira.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.19.11 (paquet autonome) et 0.19.11.2 (prototype d'ouverture directe dans Jira, voir
+> **État : 0.19.12 (paquet autonome) et 0.19.12.2 (prototype d'ouverture directe dans Jira, voir
 > plus bas).** Point d'entrée pour reprendre le projet : [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
 > santé du sprint (6a), plusieurs boards (6b), audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)), empaquetage (6e) à venir. Board du
@@ -98,7 +98,9 @@ carte ouvre le ticket dans Jira, dans un nouvel onglet. La flèche ronde de l'en
   navigateur sont effacés, rien dans Jira). Le dernier board affiché revient à l'ouverture ; la vue
   *Sprint* (les swimlanes, et la santé du sprint dans un panneau) ; les swimlanes dans l'ordre du
   board, avec leur avancement — un clic y mène (en la dépliant), un glissé les réordonne, sur le
-  board comme dans la barre ; et *Administration* en pied de barre. Le bouton en haut à gauche
+  board comme dans la barre ; et *Administration* en pied de barre. Son bouton déplie ses sections
+  au-dessus de lui, dans la barre (réglages du board, Diagnostic, site et déconnexion) ; un second
+  clic, ou le choix d'une autre entrée, les replie et ramène au sprint (0.19.12). Le bouton en haut à gauche
   de l'en-tête masque la barre. Sa bordure droite se tire (curseur ↔) pour l'élargir ou la
   rétrécir, de 200 px à la moitié de la fenêtre ; flèches du clavier quand elle a le focus,
   double-clic pour revenir à la largeur par défaut. La largeur est gardée dans ce navigateur.

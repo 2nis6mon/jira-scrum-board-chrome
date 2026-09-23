@@ -166,6 +166,15 @@ export class AppModel {
     this.presenting.value = false;
   }
 
+  /**
+   * Bouton Administration de la barre latérale : déplie ses sections au-dessus de lui, ou les
+   * replie et revient au sprint.
+   */
+  toggleAdmin(): void {
+    if (this.view.value === "admin") this.showBoard();
+    else this.showAdmin();
+  }
+
   /** Administration : réglages locaux du board, diagnostic, déconnexion. */
   showAdmin(section: AdminSection = this.adminSection.value): void {
     this.presenting.value = false;

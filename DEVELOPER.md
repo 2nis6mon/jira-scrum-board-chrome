@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **22 septembre 2026**  
 Branche décrite : **`codex/test-ouverture-jira-directe`**  
-Produit autonome : **0.19.11**  
-Prototype d’intégration Jira : **0.19.11.2**
+Produit autonome : **0.19.12**  
+Prototype d’intégration Jira : **0.19.12.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -47,7 +47,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.19.11`  
+Version : `0.19.12`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -69,7 +69,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist-jira-direct-test/`  
-Version générée : `0.19.11.2`  
+Version générée : `0.19.12.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Ce paquet est volontairement distinct : la clé stable est retirée pendant la construction. Il a
@@ -172,6 +172,8 @@ de Jira.
 - L’en-tête affiche le nombre de Goals atteints parmi les Goals visibles.
 - Le mode présentation masque la barre latérale et l’en-tête, conserve les filtres et agrandit le
   board. Il ne déclenche pas le plein écran du navigateur.
+- L’administration se déplie dans la barre latérale, au-dessus de son bouton ; elle se replie au
+  second clic ou dès qu’une autre entrée de la barre est choisie.
 
 ### Glisser-déposer et transitions
 

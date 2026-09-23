@@ -554,6 +554,35 @@ describe("administration", () => {
     expect(jira.sent("PUT", property)).toHaveLength(1);
   });
 
+  it("se déplie dans la barre latérale, sous son bouton, et se replie", async () => {
+    const { model } = await connectedBoard();
+    expect(document.querySelector(".sidebar-admin")).toBeNull();
+
+    button("Administration").click();
+    await tick();
+    const menu = document.querySelector(".sidebar .sidebar-admin");
+    expect(menu).not.toBeNull();
+    expect(button("Administration").getAttribute("aria-expanded")).toBe("true");
+    // Le panneau est juste au-dessus de son bouton.
+    expect(menu?.nextElementSibling).toBe(button("Administration"));
+    expect(menu?.querySelector(".settings-site")?.textContent).toBe("acme.atlassian.net");
+
+    // Un second clic replie et ramène au sprint.
+    button("Administration").click();
+    await tick();
+    expect(document.querySelector(".sidebar-admin")).toBeNull();
+    expect(model.view.value).toBe("board");
+    expect(cardKeys()).toContain("ABC-101");
+
+    // Choisir une autre entrée de la barre replie aussi.
+    button("Administration").click();
+    await tick();
+    button("Sprint").click();
+    await tick();
+    expect(document.querySelector(".sidebar-admin")).toBeNull();
+    expect(model.view.value).toBe("board");
+  });
+
   it("regroupe les réglages du board, le diagnostic et la déconnexion", async () => {
     await connectedBoard();
     button("Administration").click();

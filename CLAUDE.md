@@ -424,6 +424,12 @@ formulaire. `BoardModel.nativeTransitionHandler(key, issueId, transition)` trans
 du ticket ; l'hôte exige des identifiants numériques. Le clic sur une carte (fiche complète) est
 inchangé. `verify:jira-direct-test` : écran servi à cette adresse, 15 contrôles.
 
+0.19.12 (demande de Denis) : l'administration ne remplace plus la vue par sa propre colonne. Son
+bouton, en pied de barre latérale, déplie ses sections juste au-dessus de lui (`AdminMenu` dans
+`Sidebar.tsx` : board affiché, cinq sections, Diagnostic, site et déconnexion) ; un second clic, ou
+le choix d'une autre entrée de la barre, les replie et ramène au sprint (`AppModel.toggleAdmin`).
+`AdminView.tsx` ne garde que le contenu (`BOARD_SECTIONS` y reste, exporté pour la barre).
+
 Ne pas reconstruire `dist/` ni `dist-jira-direct-test/` pendant que Denis teste l'extension :
 construire ailleurs avec `npx vite build [--mode jira-direct-test] --outDir <scratchpad>`.
 
