@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **22 septembre 2026**  
 Branche décrite : **`codex/test-ouverture-jira-directe`**  
-Produit autonome : **0.19.12**  
-Prototype d’intégration Jira : **0.19.12.2**
+Produit autonome : **0.19.13**  
+Prototype d’intégration Jira : **0.19.13.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -47,7 +47,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.19.12`  
+Version : `0.19.13`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -69,7 +69,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.19.12.2`  
+Version générée : `0.19.13.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -92,8 +92,9 @@ Depuis la 0.19.9.2 (audit, constats S9 et S10) :
 - la page du board encadrée ne s’affiche et ne lit Jira que dans la page de premier niveau du site
   qu’elle annonce (`location.ancestorOrigins`), pour un board de ce site autorisé dans Chrome
   (`src/experiment/embeddingGuard.ts`) ; sinon elle affiche un simple refus ;
-- depuis la 0.19.11.2, plus aucun clic de l’extension dans Jira : l’écran de la transition du workflow est ouvert directement par l’identifiant du ticket et celui de la transition (voir
-  « Ouverture des tickets »).
+- l’écran d’une transition est d’abord demandé par identifiants ; à défaut seulement, l’extension
+  ouvre le menu de statut de Jira et ne clique qu’une correspondance certaine (voir « Ouverture des
+  tickets »).
 
 L’ancien prototype « Sprint Goals — prototype dans Jira » (branche `codex/test-board-dans-jira`,
 0.19.1.x, onglet « Sprint Goals » ajouté dans Jira) n’a plus de dossier : s’il reste chargé dans
@@ -125,18 +126,17 @@ Deux comportements doivent rester distincts :
 
 1. **Clic normal sur une carte** : la fiche Jira complète est affichée dans une popin de `1280 px`
    de large, avec des marges adaptatives de `16 à 60 px`.
-2. **Transition du workflow exigeant des champs** (depuis 0.19.11.2, demande de Denis) : la popin
-   charge directement l’écran de CETTE transition, par identifiants :
-   `/secure/CommentAssignIssue!default.jspa?id=<id du ticket>&action=<id de la transition>`.
-   `!default` ne fait qu’afficher le formulaire de Jira ; c’est l’utilisateur qui le valide. Pas de
-   fiche, pas de menu de statut, aucun clic ni libellé à reconnaître. La popin est cadrée sur le
-   formulaire dont l’action est `CommentAssignIssue` (navigation Jira masquée) et prend sa hauteur ;
-   pendant le chargement, seul « Ouverture de « … »… » s’affiche. Quand Jira quitte cet écran
-   (validation, « Cancel »), la popin se ferme et le board est relu ; si Jira répond autre chose
-   qu’un formulaire (droits, erreur), sa page est montrée telle quelle après 10 s.
-   Cette adresse est documentée pour Jira Data Center (communauté Atlassian, Jira 9.12), pas dans
-   la documentation Cloud : son fonctionnement sur Jira Cloud n’est constaté que par l’essai de
-   Denis.
+2. **Transition du workflow exigeant des champs** (0.19.13.2) : deux essais, dans cet ordre.
+   1. L’écran de CETTE transition par identifiants :
+      `/secure/CommentAssignIssue!default.jspa?id=<id du ticket>&action=<id de la transition>`.
+      `!default` affiche le formulaire sans rien exécuter. Adresse documentée pour Jira Data
+      Center ; **sur le Jira Cloud de Denis (23/09/2026), elle renvoie une page vide**.
+   2. Sans formulaire au bout de 3 s : la fiche du ticket, cachée, où l’extension ouvre le menu de
+      statut de Jira et clique la transition — seulement si le libellé d’un élément, comparé sans
+      accents, espaces, flèches ni ponctuation, vaut exactement son nom ou « nom + statut
+      d’arrivée ». Sinon rien n’est cliqué et la fiche est montrée : l’utilisateur choisit. Jira
+      dessine alors sa fenêtre moderne, que la popin isole et dimensionne.
+   L’extension ne remplit ni ne valide aucun champ.
 
 La fermeture de la fiche ou du formulaire conserve le board Sprint Goals et provoque une relecture
 de Jira.

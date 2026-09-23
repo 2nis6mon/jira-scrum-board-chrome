@@ -41,7 +41,8 @@ export function installEmbeddedLinks(model: AppModel, origin: string): void {
           // L'écran de la transition du workflow est ouvert par l'identifiant du ticket et celui
           // de la transition, jamais par un libellé.
           issueId,
-          transition: { id: transition.id, name: transition.name },
+          // Le statut d'arrivée distingue, dans le menu de Jira, deux transitions de même nom.
+          transition: { id: transition.id, name: transition.name, to: transition.to.name },
         },
         origin,
       );

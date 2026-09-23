@@ -82,8 +82,25 @@ try {
     <aside id="ticket" hidden style="position:fixed;right:0;top:0;width:600px;height:100vh;background:white">
       <button aria-label="Fermer" onclick="history.pushState(null,'',location.pathname);this.parentElement.hidden=true">Fermer</button>
       <a href="/browse/ABC-102">ABC-102</a><h1>Ticket Jira réel</h1>
+      <button aria-label="Code Review - Changer le statut" onclick="openStatusMenu()">Code Review</button>
     </aside>
     <script>if(new URL(location.href).searchParams.has('selectedIssue'))document.querySelector('#ticket').hidden=false;
+    // Menu de statut du faux Jira, libellés « nom → statut d'arrivée » sans identifiant, comme
+    // dans Jira Cloud. « TEST OK → Validé » ouvre la fenêtre moderne ; « TEST OK → Refusé », même
+    // nom mais autre statut, s'exécuterait sans écran et ne doit jamais être cliqué.
+    function openStatusMenu(){setTimeout(function(){
+      var menu=document.createElement('div');menu.setAttribute('role','menu');
+      menu.innerHTML='<button role=menuitem>TEST OK<span aria-hidden=true> → </span><span>Validé</span></button><button role=menuitem>TEST OK<span>Refusé</span></button>';
+      var items=menu.querySelectorAll('button');
+      items[0].onclick=function(){
+        var modal=document.createElement('div');modal.setAttribute('role','dialog');modal.id='jira-modal';
+        modal.style.cssText='position:fixed;left:120px;top:60px;width:640px;height:480px;background:white';
+        modal.innerHTML='<h2>TEST OK</h2><form id=jira-modal-form><label>Requested Version/s <input required></label><button type=submit>Update</button></form>';
+        document.body.append(modal);
+      };
+      items[1].onclick=function(){document.body.dataset.executed='refuse';};
+      document.body.append(menu);
+    },100);}
     </script>
   </body></html>`;
   // Écran de la transition 41 du ticket 10002, tel que Jira le sert : navigation autour, formulaire
@@ -96,10 +113,13 @@ try {
         <input type="submit" value="Merge into develop"> <a id="cancel" href="/browse/ABC-102">Cancel</a>
       </form>
     </main></body></html>`;
-  const pageFor = (address) =>
-    new URL(address).pathname === "/secure/CommentAssignIssue!default.jspa"
-      ? transitionScreen
-      : fixture;
+  const emptyScreen = "<!doctype html><html><body></body></html>";
+  const pageFor = (address) => {
+    const url = new URL(address);
+    if (url.pathname !== "/secure/CommentAssignIssue!default.jspa") return fixture;
+    // Comme sur le Jira de Denis, certaines transitions n'ont pas d'écran à cette adresse.
+    return url.searchParams.get("action") === "41" ? transitionScreen : emptyScreen;
+  };
   let handling = false;
   const pump = setInterval(async () => {
     if (handling) return;
@@ -240,6 +260,26 @@ try {
       await evaluate(sessionId, "!document.querySelector('dialog[open]')"),
       "quitter l'écran de Jira (Cancel) referme la popin et garde le board",
     );
+    // Écran absent à l'adresse directe (page vide) : repli sur la fiche, où Jira ouvre lui-même sa
+    // fenêtre moderne. L'élément du menu est reconnu par son nom ET son statut d'arrivée ; celui de
+    // même nom vers un autre statut, qui s'exécuterait sans écran, n'est jamais cliqué.
+    await evaluate(
+      child.sessionId,
+      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',issueId:'10002',transition:{id:'51',name:'TEST OK',to:'Validé'}},'https://acme.atlassian.net')",
+    );
+    await sleep(6000);
+    assert(
+      await evaluate(
+        sessionId,
+        "(()=>{const d=document.querySelector('dialog[open]');const doc=d&&d.querySelector('iframe').contentDocument;const modal=doc&&doc.querySelector('#jira-modal');if(!modal)return false;const r=d.getBoundingClientRect();return !doc.body.dataset.executed&&modal.hasAttribute('data-sprint-goals-transition')&&getComputedStyle(doc.querySelector('#ticket')).visibility==='hidden'&&Math.abs(r.width-640)<4})()",
+      ),
+      "écran absent à l'adresse directe : la fenêtre moderne de Jira s'ouvre seule, jamais la transition voisine",
+    );
+    await evaluate(
+      sessionId,
+      "document.querySelector('dialog[open]').dispatchEvent(new Event('cancel'))",
+    );
+    await sleep(400);
     // Un autre site Atlassian qui encadre la page du board, en annonçant le vôtre : refusé.
     await send(
       "Page.navigate",

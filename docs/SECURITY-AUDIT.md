@@ -404,7 +404,15 @@ la transition (valeur d'attribut délimitée par des non-chiffres) et mentionne 
 ouvert et l'utilisateur choisit (son propre geste). Chrome : `verify:jira-direct-test`, scénario
 « transition ambiguë » (il échoue avec l'ancien code, qui cliquait l'élément voisin).
 
-**0.19.11.2 — plus aucun clic dans Jira.** À la demande de Denis, une transition qui exige des
+**0.19.13.2 — le clic revient, encadré.** Sur le Jira Cloud de Denis, l'adresse directe renvoie une
+page vide : la seule façon d'obtenir la fenêtre moderne de Jira reste de choisir la transition dans
+son menu de statut. L'extension n'y clique que si le libellé d'un élément, comparé sans accents,
+espaces, flèches ni ponctuation, vaut exactement le nom de la transition ou « nom + statut
+d'arrivée » — le statut d'arrivée distingue deux transitions de même nom, dont l'une pourrait
+s'exécuter sans écran. Sans correspondance certaine, aucun clic : le menu reste ouvert et
+l'utilisateur choisit (S10 reste couvert à ce titre).
+
+**0.19.11.2 — première tentative sans clic.** À la demande de Denis, une transition qui exige des
 champs n'ouvre plus la fiche ni le menu de statut : la popin charge directement l'écran de cette
 transition par identifiants, `/secure/CommentAssignIssue!default.jspa?id=<ticket>&action=<transition>`
 (identifiants numériques validés par la page hôte). `!default` affiche le formulaire sans rien

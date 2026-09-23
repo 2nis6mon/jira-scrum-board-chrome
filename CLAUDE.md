@@ -436,6 +436,17 @@ manifest : même identifiant Chrome et même stockage que le paquet autonome, do
 réglages conservés en passant de l'un à l'autre (une seule entrée dans `chrome://extensions`). La
 permission `scripting` n'existe que tant que le paquet d'essai est chargé.
 
+0.19.13 (essai de Denis, 23/09/2026) : sur son Jira Cloud, `CommentAssignIssue!default.jspa` renvoie
+une page VIDE — l'adresse documentée pour Data Center n'y sert pas l'écran. La fenêtre qu'il veut est
+la fenêtre moderne de Jira Cloud, dessinée par l'application quand on choisit la transition dans son
+menu de statut : elle n'a pas d'adresse. `injectBoard.ts` enchaîne donc deux essais : l'écran direct
+par identifiants (3 s), puis, sans formulaire, la fiche du ticket où l'on ouvre le menu de statut et
+où l'on ne clique QUE l'élément dont le libellé, comparé sans accents, espaces, flèches ni
+ponctuation, vaut exactement le nom de la transition ou « nom + statut d'arrivée » (`to` transmis par
+`embedded.ts`) ; sinon rien n'est cliqué et l'utilisateur choisit. La fenêtre qui apparaît ensuite
+est isolée dans la popin (repérage 0.19.10). `verify:jira-direct-test` : 16 contrôles, dont le repli
+(écran absent, fenêtre moderne isolée, transition voisine de même nom jamais cliquée).
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).
