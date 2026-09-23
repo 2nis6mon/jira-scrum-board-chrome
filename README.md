@@ -31,7 +31,7 @@ réaffiché depuis cette section, sans modifier son rattachement dans Jira.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.19.14 (paquet autonome) et 0.19.14.2 (prototype d'ouverture directe dans Jira, voir
+> **État : 0.19.15 (paquet autonome) et 0.19.15.2 (prototype d'ouverture directe dans Jira, voir
 > plus bas).** Point d'entrée pour reprendre le projet : [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
 > santé du sprint (6a), plusieurs boards (6b), audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)), empaquetage (6e) à venir. Board du
@@ -511,7 +511,7 @@ Durcissements de la 0.19.9.2 :
   votre board dans sa page ni vous faire glisser des cartes à votre insu. Un clic sur une carte
   n'envoie la clé du ticket qu'à la page du site connecté.
 Une transition du workflow qui exige des champs ouvre la **fenêtre native de Jira**, seule dans la
-popin (0.19.14.2). Jira Cloud n'a aucune adresse qui serve cette fenêtre : elle est dessinée par
+popin (0.19.15.2). Jira Cloud n'a aucune adresse qui serve cette fenêtre : elle est dessinée par
 son application. L'extension charge donc la fiche du ticket sans la montrer, ouvre le menu de
 statut de Jira et choisit la transition — uniquement si le libellé vaut exactement son nom, ou son
 nom suivi du statut d'arrivée. Jira dessine alors sa fenêtre, que la popin isole et met à sa

@@ -465,6 +465,11 @@ sa taille, transition ambiguë jamais cliquée et fiche rendue).
 latérale — son bouton reste EN TÊTE, ses sections se déplient au-dessous, sur un fond blanc bordé et
 arrondi qui le détache du gris de la barre (`sidebar-admin-block`, classe `is-open`).
 
+0.19.15 (signalé par Denis) : le bouton « Administration » changeait d'aspect en s'ouvrant (fond
+blanc du panneau, icône bleue de `aria-current`). Le panneau blanc ne couvre plus que les sections
+(`.is-open > .sidebar-admin`) et le bouton s'affiche à l'identique ouvert ou fermé : fond et bordure
+transparents, graisse normale, icône `--ink-3`.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

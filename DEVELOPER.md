@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **22 septembre 2026**  
 Branche décrite : **`codex/test-ouverture-jira-directe`**  
-Produit autonome : **0.19.14**  
-Prototype d’intégration Jira : **0.19.14.2**
+Produit autonome : **0.19.15**  
+Prototype d’intégration Jira : **0.19.15.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -47,7 +47,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.19.14`  
+Version : `0.19.15`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -69,7 +69,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.19.14.2`  
+Version générée : `0.19.15.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -126,7 +126,7 @@ Deux comportements doivent rester distincts :
 
 1. **Clic normal sur une carte** : la fiche Jira complète est affichée dans une popin de `1280 px`
    de large, avec des marges adaptatives de `16 à 60 px`.
-2. **Transition du workflow exigeant des champs** (0.19.14.2) : un seul chemin. La fiche du
+2. **Transition du workflow exigeant des champs** (0.19.15.2) : un seul chemin. La fiche du
    ticket est chargée **cachée** dans la popin ; l’extension y ouvre le menu de statut de Jira et
    clique la transition — seulement si le libellé d’un élément, comparé sans accents, espaces,
    flèches ni ponctuation, vaut exactement son nom ou « nom + statut d’arrivée ». Sinon rien n’est

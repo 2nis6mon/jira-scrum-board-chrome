@@ -2327,22 +2327,24 @@ details.board-switcher .menu-panel {
   margin: 0 8px;
 }
 
-.sidebar-admin-block.is-open {
-  margin: 0 6px;
+/* Le bouton s'affiche exactement pareil ouvert et fermé : c'est le panneau au-dessous, lui seul,
+   qui change. Sans cela, « Administration » passait du gris de la barre au blanc du panneau, et
+   son icône du gris au bleu. */
+.sidebar-admin-block.is-open > .sidebar-nav-item[aria-current="page"] {
+  border-color: transparent;
+  background: none;
+  font-weight: normal;
+  --icon-color: var(--ink-3);
+}
+
+/* Sections dépliées : panneau blanc bordé, nettement détaché du gris de la barre. */
+.sidebar-admin-block.is-open > .sidebar-admin {
+  margin: 4px 6px 0;
   padding: 4px 0 6px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface);
   box-shadow: 0 1px 2px rgb(21 24 29 / 6%);
-}
-
-.sidebar-admin-block.is-open > .sidebar-nav-item {
-  margin: 0 4px;
-}
-
-.sidebar-admin-block.is-open > .sidebar-nav-item[aria-current="page"] {
-  border-color: transparent;
-  background: none;
 }
 
 /* Sur le panneau blanc, la section courante se distingue par le fond de la barre. */
