@@ -1077,6 +1077,7 @@ function LaneView(props: {
                           parentColor={parentKey ? (parentColors.get(parentKey) ?? null) : null}
                           agingThresholdDays={configuration.agingThresholdDays}
                           goalTitle={hiddenGoal}
+                          lastColumnId={lane.cells.at(-1)?.column.id ?? null}
                           pending={board.pendingKeys.value.has(key)}
                           feedback={
                             board.moveFeedback.value?.issueKey === key

@@ -128,6 +128,15 @@ const PATHS = {
   /** Flèches rentrantes : quitter le mode présentation. */
   exitPresent: <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  /** Liste cochée : les sous-tâches d'un ticket. */
+  subtasks: (
+    <>
+      <rect x="3.5" y="4.5" width="3.5" height="3.5" rx="0.8" />
+      <rect x="3.5" y="10.25" width="3.5" height="3.5" rx="0.8" />
+      <rect x="3.5" y="16" width="3.5" height="3.5" rx="0.8" />
+      <path d="M10 6.25h10.5M10 12h10.5M10 17.75h10.5" />
+    </>
+  ),
   signOut: <path d="M10 4H5v16h5M9.5 12h11M16.5 8l4 4-4 4" />,
 } satisfies Record<string, ComponentChildren>;
 

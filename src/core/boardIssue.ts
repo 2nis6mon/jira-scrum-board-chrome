@@ -53,6 +53,25 @@ export function blockerProjectKey(blocker: Blocker): string {
   return blocker.key.split("-").slice(0, -1).join("-");
 }
 
+/**
+ * Sous-tâche d'un ticket du board. Elle n'a pas de carte : elle est repliée dans celle de son
+ * parent, qui en montre l'avancement. Les sous-tâches ne se déplacent pas sur le board.
+ */
+export interface Subtask {
+  readonly key: string;
+  readonly summary: string | null;
+  readonly statusName: string | null;
+  /** `new` | `indeterminate` | `done`, ou `null` si Jira ne l'a pas fourni. */
+  readonly statusCategoryKey: string | null;
+  /** Assigné, connu quand la sous-tâche figure parmi les tickets du sprint ; sinon `null`. */
+  readonly assignee: JiraUser | null;
+}
+
+/** Une sous-tâche sans statut connu compte comme ouverte : on ne présume jamais la fin. */
+export function isSubtaskDone(subtask: Subtask): boolean {
+  return subtask.statusCategoryKey === "done";
+}
+
 /** Où se trouve un bloquant, pour la bulle de survol. */
 export type BlockerLocation =
   /** Le bloquant est sur le board : sa colonne et son assigné sont connus. */
@@ -92,6 +111,8 @@ export interface BoardIssue {
   readonly addedAfterSprintStart: boolean | null;
   /** Bugs rattachés à ce ticket, ouverts ou non. */
   readonly linkedBugs: readonly LinkedBug[];
+  /** Sous-tâches du ticket, dans l'ordre de Jira. Vide pour une sous-tâche. */
+  readonly subtasks: readonly Subtask[];
 }
 
 export function isIssueDone(issue: BoardIssue): boolean {
@@ -108,6 +129,35 @@ export function blockingKeys(issue: BoardIssue): string[] {
 
 export function browseUrl(siteOrigin: string, issueKey: string): string {
   return `${siteOrigin}/browse/${encodeURIComponent(issueKey)}`;
+}
+
+/** Avancement des sous-tâches d'un ticket, et ses incohérences avec la place du ticket. */
+export interface SubtaskProgress {
+  readonly total: number;
+  readonly done: number;
+  /** Toutes les sous-tâches sont terminées alors que le ticket n'a pas atteint la dernière colonne. */
+  readonly allDoneBeforeLastColumn: boolean;
+  /** Ticket dans la dernière colonne alors que des sous-tâches restent ouvertes. */
+  readonly openInLastColumn: readonly Subtask[];
+}
+
+/**
+ * `lastColumnId` : dernière colonne visible du bloc du ticket, comme pour les Goals atteints.
+ * `null` pour un ticket sans sous-tâche.
+ */
+export function subtaskProgress(
+  issue: BoardIssue,
+  lastColumnId: string | null,
+): SubtaskProgress | null {
+  if (issue.subtasks.length === 0) return null;
+  const done = issue.subtasks.filter(isSubtaskDone).length;
+  const inLastColumn = lastColumnId !== null && issue.columnId === lastColumnId;
+  return {
+    total: issue.subtasks.length,
+    done,
+    allDoneBeforeLastColumn: done === issue.subtasks.length && !inLastColumn,
+    openInLastColumn: inLastColumn ? issue.subtasks.filter((sub) => !isSubtaskDone(sub)) : [],
+  };
 }
 
 // ─── Avancement d'un objectif ────────────────────────────────────────────────
@@ -300,9 +350,12 @@ export function assembleBoardIssues(input: {
   /** Rattachement ticket → objectif, clé = clé Jira du ticket. */
   links: Readonly<Record<string, string>>;
   sprint?: JiraSprint | null;
+  /** Sous-tâches présentes parmi les tickets du sprint, par clé : leur assigné en vient. */
+  subtaskIssues?: ReadonlyMap<string, JiraIssue>;
   now?: Date;
 }): BoardIssue[] {
   const { configuration } = input;
+  const subtaskIssues = input.subtaskIssues ?? new Map<string, JiraIssue>();
   const now = input.now ?? new Date();
   const sprint = input.sprint ?? null;
 
@@ -365,6 +418,41 @@ export function assembleBoardIssues(input: {
           statusName: ref.status?.name ?? null,
           isDone: ref.status ? isDoneStatus(ref.status) : null,
         })),
+      subtasks: subtasksOf(issue, subtaskIssues),
     };
   });
+}
+
+/**
+ * Sous-tâches d'un ticket : la liste complète que Jira joint au ticket (`subtasks`), complétée par
+ * celles du sprint qui y manqueraient. Le statut et l'assigné viennent du ticket du sprint quand il
+ * y est : c'est la lecture la plus complète.
+ */
+function subtasksOf(issue: JiraIssue, sprintSubtasks: ReadonlyMap<string, JiraIssue>): Subtask[] {
+  if (issue.fields.issuetype.subtask === true) return [];
+  const fromSprint = (key: string) => sprintSubtasks.get(key) ?? null;
+  const listed = issue.fields.subtasks.map((ref): Subtask => {
+    const full = fromSprint(ref.key);
+    const status = full?.fields.status ?? ref.status;
+    return {
+      key: ref.key,
+      summary: full?.fields.summary ?? ref.summary,
+      statusName: status?.name ?? null,
+      statusCategoryKey: status?.statusCategory?.key ?? null,
+      assignee: full?.fields.assignee ?? null,
+    };
+  });
+  const known = new Set(listed.map((subtask) => subtask.key));
+  const missing = [...sprintSubtasks.values()]
+    .filter((sub) => sub.fields.parent?.key === issue.key && !known.has(sub.key))
+    .map(
+      (sub): Subtask => ({
+        key: sub.key,
+        summary: sub.fields.summary,
+        statusName: sub.fields.status.name,
+        statusCategoryKey: sub.fields.status.statusCategory?.key ?? null,
+        assignee: sub.fields.assignee,
+      }),
+    );
+  return [...listed, ...missing];
 }

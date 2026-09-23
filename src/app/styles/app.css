@@ -1145,6 +1145,65 @@ button.lane-title[aria-pressed="true"] {
   color: var(--run);
 }
 
+/* Ticket terminé sur le board alors que des sous-tâches restent ouvertes. */
+.badge-subtasks-open {
+  background: #fdf6e7;
+  color: #713f12;
+}
+
+/* Sous-tâches repliées dans la carte : un segment par sous-tâche, les terminées d'abord. Elle se lit
+   comme une jauge : foncé = terminée (l'ardoise des statuts terminés), bleu clair = en cours,
+   gris = à faire ou statut inconnu. */
+.card-subtasks {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.subtask-bar {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 2px;
+}
+
+.subtask-bar i {
+  flex: 1;
+  min-width: 3px;
+  height: 4px;
+  border-radius: 2px;
+  background: #d4d9e1;
+}
+
+.subtask-bar i[data-status="indeterminate"] {
+  background: #93b8f5;
+}
+
+.subtask-bar i[data-status="done"] {
+  background: var(--done);
+}
+
+.subtask-count {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Toutes terminées avant la dernière colonne : une réussite calculée, d'où le vert, réservé à ça. */
+.card-subtasks-ready .subtask-bar i {
+  background: #16803d;
+}
+
+.card-subtasks-ready .subtask-count {
+  color: #16803d;
+  font-weight: 600;
+}
+
 /* Parent et champs choisis : une ligne, coupée par « … » si le texte déborde de la carte. */
 .badge-parent,
 .badge-field {

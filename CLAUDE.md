@@ -509,6 +509,24 @@ forçant des barres classiques. `scrollbar-gutter: stable` sur `.sidebar-scroll`
 réserve cette place en permanence : plus de décalage. La barre latérale elle-même garde sa largeur
 (248 px mesurés dans les deux états, board débordant compris).
 
+0.19.19 (choix de Denis : seules les stories se déplacent ; couches A, B et D proposées) :
+sous-tâches repliées dans la carte de leur parent. Avant, elles avaient chacune une carte (leur
+type, exclu des réglages, tombait dans Scrum par défaut) et, faute de Goal propre, tombaient dans
+Build, loin de leur story. A : `foldSubtasks` (`core/boardSync.ts`) retire du board toute
+sous-tâche (`issuetype.subtask`) dont le parent est un ticket du sprint ; les autres gardent leur
+carte et héritent du Goal du parent quand elles n'en ont pas. B : `BoardIssue.subtasks`
+(`core/boardIssue.ts`), lu dans le champ `subtasks` du parent, statut et assigné repris du ticket
+du sprint quand il y est ; `SubtaskBar` dans `IssueCard.tsx`, un segment par sous-tâche, terminées
+d'abord, détail au survol (pas de bouton dans la carte : c'est un lien, un élément interactif y
+serait invalide). D : `subtaskProgress` — toutes terminées avant la dernière colonne visible
+(même notion que les Goals atteints) : jauge verte ; parent dans la dernière colonne avec des
+sous-tâches ouvertes : pastille `badge-subtasks-open`. Une sous-tâche sans statut compte comme
+ouverte. Filtres (`core/filters.ts`) : Personne (`assigneesOf`), recherche et filtres rapides Jira
+passent par les sous-tâches ; « Non assigné » non. Menu Personne : assignés des sous-tâches, une
+fois par carte. Conséquence voulue : les sous-tâches repliées ne comptent plus dans les colonnes,
+les limites WIP, l'en-tête, la santé du sprint ni les Goals atteints. Écart avec le Mac, qui les
+affiche comme des tickets. Banc d'essai : `board-soustaches`.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

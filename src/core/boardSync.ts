@@ -258,28 +258,38 @@ export async function loadSnapshot(input: {
   const types = new Map(configuration.issueTypes.map((type) => [type.id, type.category]));
   const categoryOf = (issue: JiraIssue) => types.get(issue.fields.issuetype.id) ?? "SCRUM";
 
+  // Sous-tâches : elles ne se déplacent pas sur le board. Celle dont le parent est sur le board
+  // n'a pas de carte : elle est repliée dans celle de son parent, et ne compte nulle part ailleurs.
+  // Celle dont le parent n'y est pas garde sa carte, et suit le Goal de son parent plutôt que de
+  // tomber dans Build (un rattachement propre à la sous-tâche reste prioritaire).
+  const { folded, subtaskIssues, inheritedLinks } = foldSubtasks(sprintIssues, links);
+  const scrumLinks = { ...links, ...inheritedLinks };
+
   // Chaque ticket est daté par rapport à SON sprint, pas par rapport au premier : « ajouté en
   // cours de sprint » reste juste avec plusieurs sprints actifs.
   const scrumIssues: BoardIssue[] = [];
   const runIssues: BoardIssue[] = [];
   for (const entry of issuesBySprint) {
+    const cards = entry.issues.filter((issue) => !folded.has(issue.key));
     scrumIssues.push(
       ...assembleBoardIssues({
-        issues: entry.issues.filter((issue) => categoryOf(issue) === "SCRUM"),
+        issues: cards.filter((issue) => categoryOf(issue) === "SCRUM"),
         configuration,
         columns: configuration.scrumColumns,
-        links,
+        links: scrumLinks,
         sprint: entry.sprint,
+        subtaskIssues,
         now,
       }),
     );
     runIssues.push(
       ...assembleBoardIssues({
-        issues: entry.issues.filter((issue) => categoryOf(issue) === "RUN"),
+        issues: cards.filter((issue) => categoryOf(issue) === "RUN"),
         configuration,
         columns: configuration.runColumns,
         links: {},
         sprint: entry.sprint,
+        subtaskIssues,
         now,
       }),
     );
@@ -314,6 +324,37 @@ export async function loadSnapshot(input: {
     goalsWarnings,
     goalColorIndex,
   };
+}
+
+/**
+ * Répartit les sous-tâches du sprint. `folded` : celles dont le parent est un ticket du sprint,
+ * repliées dans sa carte. `inheritedLinks` : Goal du parent pour les autres, quand le parent en a un.
+ */
+export function foldSubtasks(
+  sprintIssues: readonly JiraIssue[],
+  links: Readonly<Record<string, string>>,
+): {
+  folded: ReadonlySet<string>;
+  subtaskIssues: ReadonlyMap<string, JiraIssue>;
+  inheritedLinks: Record<string, string>;
+} {
+  const isSubtask = (issue: JiraIssue) => issue.fields.issuetype.subtask === true;
+  const parentsOnBoard = new Set(
+    sprintIssues.filter((issue) => !isSubtask(issue)).map((issue) => issue.key),
+  );
+  const folded = new Set<string>();
+  const subtaskIssues = new Map<string, JiraIssue>();
+  const inheritedLinks: Record<string, string> = {};
+  for (const issue of sprintIssues) {
+    const parentKey = issue.fields.parent?.key;
+    if (!isSubtask(issue) || parentKey === undefined) continue;
+    subtaskIssues.set(issue.key, issue);
+    if (parentsOnBoard.has(parentKey)) folded.add(issue.key);
+    // Un rattachement propre à la sous-tâche l'emporte toujours sur celui de son parent.
+    else if (links[issue.key] === undefined && links[parentKey] !== undefined)
+      inheritedLinks[issue.key] = links[parentKey];
+  }
+  return { folded, subtaskIssues, inheritedLinks };
 }
 
 function emptySnapshot(now: Date, currentUser: JiraUser | null): BoardSnapshot {

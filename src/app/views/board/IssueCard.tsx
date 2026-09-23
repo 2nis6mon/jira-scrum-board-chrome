@@ -1,4 +1,12 @@
-import { type BoardIssue, browseUrl, isOpenBug } from "../../../core/boardIssue";
+import {
+  type BoardIssue,
+  browseUrl,
+  isOpenBug,
+  isSubtaskDone,
+  type Subtask,
+  type SubtaskProgress,
+  subtaskProgress,
+} from "../../../core/boardIssue";
 import {
   type CardField,
   cardFieldId,
@@ -21,6 +29,8 @@ interface Props {
   agingThresholdDays: number;
   /** Titre de l'objectif, montré quand le ticket n'est pas dans la swimlane de son objectif. */
   goalTitle: string | null;
+  /** Dernière colonne visible du bloc du ticket : c'est là qu'un ticket est terminé sur le board. */
+  lastColumnId: string | null;
   /** Une écriture est en cours sur ce ticket : il attend la réponse de Jira. */
   pending?: boolean;
   feedback?: "warning" | undefined;
@@ -36,6 +46,8 @@ export function IssueCard(props: Props) {
   const { issue } = props;
   const fields = issue.issue.fields;
   const openBugs = issue.linkedBugs.filter(isOpenBug);
+  const subtasks = subtaskProgress(issue, props.lastColumnId);
+  const openInLastColumn = subtasks?.openInLastColumn ?? [];
   const aging =
     issue.daysInColumn !== null &&
     issue.daysInColumn >= props.agingThresholdDays &&
@@ -121,9 +133,25 @@ export function IssueCard(props: Props) {
         </div>
       )}
 
+      {subtasks && <SubtaskBar subtasks={issue.subtasks} progress={subtasks} />}
+
       {/* Dernière ligne : les alertes, compactes (icône, détail au survol), puis points et assigné. */}
       <div class="card-bottom">
         <div class="card-alerts">
+          {openInLastColumn.length > 0 && (
+            <span
+              class="badge badge-subtasks-open"
+              role="img"
+              aria-label={`Terminé sur le board, ${plural(openInLastColumn.length, "sous-tâche encore ouverte", "sous-tâches encore ouvertes")}`}
+              title={[
+                `Ticket dans la dernière colonne, mais ${plural(openInLastColumn.length, "sous-tâche encore ouverte", "sous-tâches encore ouvertes")} :`,
+                ...openInLastColumn.map(subtaskLine),
+              ].join("\n")}
+            >
+              <Icon name="subtasks" size={13} />
+              {openInLastColumn.length}
+            </span>
+          )}
           {issue.isBlocked && (
             <span
               class="badge badge-blocked"
@@ -204,6 +232,52 @@ export function IssueCard(props: Props) {
       </div>
     </a>
   );
+}
+
+/** Ordre des segments : terminées, en cours, puis à faire ; la barre se remplit de gauche à droite. */
+const SEGMENT_ORDER: Record<string, number> = { done: 0, indeterminate: 1, new: 2 };
+
+/**
+ * Avancement des sous-tâches, repliées dans la carte : un segment par sous-tâche, coloré selon son
+ * statut, et « terminées / total ». Le détail s'affiche au survol, comme les autres alertes.
+ */
+function SubtaskBar(props: { subtasks: readonly Subtask[]; progress: SubtaskProgress }) {
+  const { progress } = props;
+  const segments = [...props.subtasks].sort(
+    (a, b) =>
+      (SEGMENT_ORDER[a.statusCategoryKey ?? ""] ?? 3) -
+      (SEGMENT_ORDER[b.statusCategoryKey ?? ""] ?? 3),
+  );
+  const headline = progress.allDoneBeforeLastColumn
+    ? "Toutes les sous-tâches sont terminées : le ticket peut avancer."
+    : `Sous-tâches : ${progress.done} sur ${progress.total} terminées.`;
+  return (
+    <div
+      class={`card-subtasks${progress.allDoneBeforeLastColumn ? " card-subtasks-ready" : ""}`}
+      role="img"
+      aria-label={headline}
+      title={[headline, ...props.subtasks.map(subtaskLine)].join("\n")}
+    >
+      <span class="subtask-bar" aria-hidden="true">
+        {segments.map((subtask) => (
+          <i key={subtask.key} data-status={subtask.statusCategoryKey ?? "unknown"} />
+        ))}
+      </span>
+      <span class="subtask-count">
+        {progress.allDoneBeforeLastColumn && <Icon name="check" size={12} />}
+        {progress.done}/{progress.total}
+      </span>
+    </div>
+  );
+}
+
+/** Une ligne de sous-tâche pour une info-bulle : coche, clé, résumé, statut, assigné. */
+function subtaskLine(subtask: Subtask): string {
+  const parts = [`${isSubtaskDone(subtask) ? "✓" : "○"} ${subtask.key}`];
+  if (subtask.summary) parts.push(`— ${subtask.summary}`);
+  if (subtask.statusName) parts.push(`(${subtask.statusName})`);
+  if (subtask.assignee) parts.push(`· ${subtask.assignee.displayName}`);
+  return parts.join(" ");
 }
 
 /** Teinte d'un parent dont la couleur n'a pas été calculée (ne devrait pas arriver). */

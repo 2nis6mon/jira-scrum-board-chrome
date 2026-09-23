@@ -4,8 +4,8 @@
 //
 //   npm run harness   puis   http://localhost:5199/?scenario=board|board-filtre|board-session|
 //                            board-vide|board-dnd|board-choix|board-statuts|board-erreur|board-goals|
-//                            board-epingle|board-epingle-refus|board-multi|ok|xsrf|refuse|session|
-//                            deconnecte
+//                            board-epingle|board-epingle-refus|board-multi|board-infos|
+//                            board-soustaches|ok|xsrf|refuse|session|deconnecte
 import { render } from "preact";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
@@ -77,7 +77,8 @@ async function simulateDrop(
 
 if (scenario.startsWith("board")) {
   const pinning = scenario === "board-epingle" || scenario === "board-epingle-refus";
-  const withGoals = scenario === "board-goals" || pinning;
+  const withSubtasks = scenario === "board-soustaches";
+  const withGoals = scenario === "board-goals" || pinning || withSubtasks;
   // Filtres rapides FICTIFS du board ; le faux Jira « évalue » leur JQL par table.
   const quickFilters = [
     { id: 1, name: "Mes tickets", jql: "assignee = currentUser()", position: 0 },
@@ -135,6 +136,55 @@ if (scenario.startsWith("board")) {
         }
       : { quickFilters },
   );
+  // Tickets du sprint servis par le faux Jira (sous-tâches comprises pour `board-soustaches`).
+  let sprintSource: Record<string, unknown>[] = SPRINT_ISSUES;
+  if (withSubtasks) {
+    // Sous-tâches FICTIVES : ABC-101 en cours (1/3), ABC-102 à faire mais toutes terminées,
+    // ABC-103 terminé avec une sous-tâche encore ouverte.
+    const SUBTASK = { id: "10003", name: "Sous-tâche", subtask: true };
+    const status = {
+      new: statusJson("1", "À faire", "new"),
+      indeterminate: statusJson("3", "En cours", "indeterminate"),
+      done: statusJson("6", "Terminé", "done"),
+    };
+    const subtask = (
+      key: string,
+      parent: string,
+      summary: string,
+      category: keyof typeof status,
+      assignee?: [string, string],
+    ) =>
+      issueJson(key, {
+        summary,
+        ...(assignee ? { assigneeId: assignee[0], assigneeName: assignee[1] } : {}),
+        extraFields: {
+          issuetype: SUBTASK,
+          status: status[category],
+          parent: { key: parent, fields: { summary: parent } },
+        },
+      });
+    const subtasks = [
+      subtask("ABC-111", "ABC-101", "Maquette du récapitulatif", "done", ["u2", "Alex Martin"]),
+      subtask("ABC-112", "ABC-101", "Écran récapitulatif", "indeterminate", [
+        "u1",
+        "Camille Durand",
+      ]),
+      subtask("ABC-113", "ABC-101", "Tests de bout en bout", "new"),
+      subtask("ABC-121", "ABC-102", "Contrat d'API du prestataire", "done", ["u2", "Alex Martin"]),
+      subtask("ABC-122", "ABC-102", "Client HTTP", "done", ["u2", "Alex Martin"]),
+      subtask("ABC-131", "ABC-103", "Mesure après mise en production", "indeterminate"),
+    ];
+    const refs = (parent: string) =>
+      subtasks
+        .filter((json) => (json.fields as { parent: { key: string } }).parent.key === parent)
+        .map((json) => ({ key: json.key, fields: json.fields }));
+    const withRefs = SPRINT_ISSUES.map((issue) => ({
+      ...issue,
+      fields: { ...(issue.fields as object), subtasks: refs(issue.key as string) },
+    }));
+    // Servis par la route commune des tickets du sprint, déclarée plus bas (la dernière gagne).
+    sprintSource = [...withRefs, ...subtasks];
+  }
   jira.on("GET", "/rest/agile/1.0/board/7/issue", (request) => {
     const jql = request.url.searchParams.get("jql");
     const keys = jql === null ? null : quickFilterAnswers[jql];
@@ -233,17 +283,19 @@ if (scenario.startsWith("board")) {
   // Faux Jira qui évolue : après la transition, ABC-102 est « En cours ».
   let moved: { id: string; name: string } | null = null;
   const issues = () =>
-    SPRINT_ISSUES.map((issue) =>
-      moved && issue.key === "ABC-102"
-        ? issueJson("ABC-102", {
-            summary: "Brancher le prestataire de paiement",
-            statusId: moved.id,
-            statusName: moved.name,
-            points: 8,
-            extraFields: { issuelinks: (issue.fields as { issuelinks: unknown }).issuelinks },
-          })
-        : issue,
-    ).map(decorated);
+    sprintSource
+      .map((issue) =>
+        moved && issue.key === "ABC-102"
+          ? issueJson("ABC-102", {
+              summary: "Brancher le prestataire de paiement",
+              statusId: moved.id,
+              statusName: moved.name,
+              points: 8,
+              extraFields: { issuelinks: (issue.fields as { issuelinks: unknown }).issuelinks },
+            })
+          : issue,
+      )
+      .map(decorated);
   jira.on("GET", "/rest/agile/1.0/sprint/42/issue", () => ({
     status: 200,
     json: { issues: issues(), total: issues().length },
