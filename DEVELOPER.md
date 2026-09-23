@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **23 septembre 2026**  
 Branche décrite : **`main`** (seule branche du dépôt depuis le 23/09/2026)  
-Produit autonome : **0.19.15**  
-Prototype d’intégration Jira : **0.19.15.2**
+Produit autonome : **0.19.16**  
+Prototype d’intégration Jira : **0.19.16.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -47,7 +47,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.19.15`  
+Version : `0.19.16`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -69,7 +69,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.19.15.2`  
+Version générée : `0.19.16.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -115,6 +115,9 @@ https://site.atlassian.net/jira/software/c/projects/PROJET/boards/123?sprintGoal
 ```
 
 - Un clic sur l’icône construit cette URL avec le board actif.
+- Sans board enregistré, l’icône ouvre la page de l’extension ; dès que le premier board y est
+  choisi, l’onglet rejoint lui-même cette URL (`followBoardToJira`, 0.19.16.2). Les ouvertures
+  suivantes sur un board déjà enregistré restent dans la page, qui garde son administration.
 - L’URL peut être enregistrée dans les favoris.
 - Une URL Jira sans ce paramètre reste entièrement normale.
 - Aucun onglet, bouton ou lien Sprint Goals n’est ajouté à l’interface Jira.

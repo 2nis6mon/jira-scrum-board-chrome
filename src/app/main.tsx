@@ -30,5 +30,12 @@ if (embedded) {
   );
 } else {
   render(<App model={model} />, container);
+  // Paquet d'essai, page ouverte seule : une fois le premier board choisi, l'onglet rejoint la
+  // page Jira de ce board, où la vue se superpose.
+  if (import.meta.env.MODE === "jira-direct-test") {
+    void import("../experiment/openInJira").then(({ followBoardToJira }) =>
+      followBoardToJira(model),
+    );
+  }
   void model.start();
 }

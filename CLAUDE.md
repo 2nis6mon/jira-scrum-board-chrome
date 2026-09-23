@@ -475,6 +475,16 @@ blanc du panneau, icône bleue de `aria-current`). Le panneau blanc ne couvre pl
 (`.is-open > .sidebar-admin`) et le bouton s'affiche à l'identique ouvert ou fermé : fond et bordure
 transparents, graisse normale, icône `--ink-3`.
 
+0.19.16 (signalé par Denis, paquet d'essai) : au premier lancement, aucun board n'étant enregistré,
+l'icône ouvre la page de l'extension ; on y saisissait le site, on y cherchait le board, et rien ne
+menait ensuite à Jira — il fallait recliquer sur l'icône pour obtenir la superposition. L'onglet
+rejoint désormais de lui-même la page Jira du board choisi (`src/experiment/openInJira.ts`,
+`followBoardToJira`, branché dans `main.tsx` pour le seul mode `jira-direct-test` hors cadre).
+Seul le PREMIER board configuré déclenche le saut : une page rouverte sur un board déjà enregistré
+reste dans l'onglet, sinon son administration deviendrait inatteignable. Board sans clé de projet
+utilisable : on reste dans l'onglet. L'adresse est construite par `boardPageAddress`, extraite de
+`launchAddress.ts` et partagée avec l'icône.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).
