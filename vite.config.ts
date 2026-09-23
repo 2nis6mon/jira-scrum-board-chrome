@@ -10,8 +10,8 @@ const root = fileURLToPath(new URL(".", import.meta.url));
 // dans dist/ (`npm run build` ou `npm run watch`) et Chrome charge ce dossier.
 export default defineConfig(({ mode }) => {
   // Dossier réellement produit (`--outDir` compris) : le manifest d'essai y est écrit, jamais
-  // ailleurs, pour ne pas toucher un paquet que Denis est en train d'essayer.
-  let outDir = resolve(root, "dist-jira-direct-test");
+  // ailleurs. Les deux paquets sortent dans `dist/` (choix de Denis du 23/09/2026).
+  let outDir = resolve(root, "dist");
   return {
     root,
     base: "",
@@ -26,7 +26,8 @@ export default defineConfig(({ mode }) => {
               },
               closeBundle() {
                 const manifest = JSON.parse(readFileSync(`${root}public/manifest.json`, "utf8"));
-                delete manifest.key;
+                // La clé est gardée : même identifiant Chrome et même stockage que le paquet
+                // autonome, donc site et board conservés en passant de l'un à l'autre.
                 manifest.name = "Sprint Goals — test ouverture Jira";
                 manifest.version = `${manifest.version}.2`;
                 manifest.permissions.push("scripting");
@@ -48,7 +49,7 @@ export default defineConfig(({ mode }) => {
           ]
         : [],
     build: {
-      outDir: mode === "jira-direct-test" ? "dist-jira-direct-test" : "dist",
+      outDir: "dist",
       emptyOutDir: true,
       target: "chrome116",
       sourcemap: mode === "development",

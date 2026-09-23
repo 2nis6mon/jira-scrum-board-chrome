@@ -1,16 +1,16 @@
 # Test — ouverture directe dans Jira
 
-Cette expérimentation reste sur la branche `codex/test-ouverture-jira-directe`. Elle ne modifie pas
-le paquet autonome `dist/`.
+Cette expérimentation reste sur la branche `codex/test-ouverture-jira-directe`. Elle remplace, dans
+`dist/`, le paquet autonome par le paquet d'essai : `npm run build` remet l'autonome.
 
 ## Installer le paquet d'essai
 
-1. Construire le paquet avec `npm run build:jira-direct-test`.
-2. Dans `chrome://extensions`, charger le dossier `dist-jira-direct-test` en mode développeur.
-3. Ouvrir une première fois l'extension et connecter le site Jira puis choisir le board Scrum.
-
-Le paquet d'essai est une extension distincte. Cette première configuration lui accorde uniquement
-l'accès au site Jira choisi.
+1. Construire le paquet avec `npm run build:jira-direct-test` : il sort dans `dist/`.
+2. Dans `chrome://extensions`, recharger l'extension (ou charger `dist/` en mode développeur la
+   première fois). Son nom devient « Sprint Goals — test ouverture Jira » et sa version finit
+   par `.2`.
+3. Le site connecté, le board et les réglages sont conservés : l'identifiant Chrome est le même
+   que celui du paquet autonome. La permission `scripting` s'ajoute tant que ce paquet est chargé.
 
 ## Comportement attendu
 

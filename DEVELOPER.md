@@ -68,13 +68,14 @@ Commande :
 npm run build:jira-direct-test
 ```
 
-Sortie : `dist-jira-direct-test/`  
+Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
 Version générée : `0.19.12.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
-Ce paquet est volontairement distinct : la clé stable est retirée pendant la construction. Il a
-donc un autre identifiant Chrome, un stockage séparé et doit être connecté/configuré une première
-fois.
+Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
+seule entrée dans `chrome://extensions` ; passer d’un paquet à l’autre demande seulement de
+reconstruire puis de recharger l’extension, en conservant le site connecté, le board et les
+réglages. Le nom et la version (`x.y.z.2`) disent lequel est chargé.
 
 Le prototype ajoute uniquement au manifest généré :
 
@@ -94,9 +95,9 @@ Depuis la 0.19.9.2 (audit, constats S9 et S10) :
 - depuis la 0.19.11.2, plus aucun clic de l’extension dans Jira : l’écran de la transition du workflow est ouvert directement par l’identifiant du ticket et celui de la transition (voir
   « Ouverture des tickets »).
 
-Ne pas confondre avec l’ancien prototype `dist-jira-test` (« Sprint Goals — prototype dans Jira »,
-branche `codex/test-board-dans-jira`, 0.19.1.x) : il ajoute un onglet « Sprint Goals » dans Jira et
-ouvre le formulaire de l’extension, pas celui de Jira. Le désactiver pour essayer ce paquet-ci.
+L’ancien prototype « Sprint Goals — prototype dans Jira » (branche `codex/test-board-dans-jira`,
+0.19.1.x, onglet « Sprint Goals » ajouté dans Jira) n’a plus de dossier : s’il reste chargé dans
+Chrome, le retirer pour éviter toute confusion.
 
 #### Activation
 
@@ -397,7 +398,8 @@ Les essais Chrome automatisés n’utilisent ni la session ni les données Jira 
 - Ne pousser et ne fusionner que sur demande explicite.
 - Ne jamais committer `.secrets/extension-key.pem`, un profil Chrome, des cookies, des captures de
   données Jira ou un paquet contenant des secrets.
-- Les dossiers `dist/` et `dist-jira-direct-test/` sont générés et ignorés par Git.
+- `dist/` est généré et ignoré par Git ; il reçoit le paquet autonome ou le prototype, selon la
+  dernière construction.
 
 Avant un commit :
 

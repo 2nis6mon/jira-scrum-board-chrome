@@ -297,7 +297,7 @@ profil temporaire vierge.
 npm run verify:jira-direct-test
 ```
 
-Construit le prototype d'ouverture directe dans `dist-jira-direct-test/` puis le vérifie dans
+Construit le prototype d'ouverture directe dans `dist/` puis le vérifie dans
 Chrome (faux Jira, profil vierge). Pour ne pas écraser un paquet d'essai en cours d'utilisation :
 `npx vite build --mode jira-direct-test --outDir <dossier>` puis
 `JIRA_DIRECT_DIST=<dossier> node scripts/verify-jira-direct-test.mjs`.
@@ -492,8 +492,9 @@ pour éviter un doublon. Les champs calculés (`timespent`) et le widget d’est
 
 ### Prototype d'ouverture directe dans Jira (0.19.8.2, durci en 0.19.9.2)
 
-Paquet d'essai distinct (`npm run build:jira-direct-test` → `dist-jira-direct-test/`, autre
-identifiant Chrome, stockage séparé), décrit en détail dans [`DEVELOPER.md`](DEVELOPER.md) et
+Paquet d'essai construit par `npm run build:jira-direct-test`, dans `dist/` comme le paquet
+autonome et avec le même identifiant Chrome (donc le même stockage : site, board et réglages
+conservés d'un paquet à l'autre). Il est décrit en détail dans [`DEVELOPER.md`](DEVELOPER.md) et
 [`TEST-JIRA-DIRECT.md`](TEST-JIRA-DIRECT.md). Sur une adresse de board suivie de
 `?sprintGoals=1`, le board Sprint Goals recouvre la page Jira ; un clic sur une carte ouvre la
 fiche Jira dans une popin ; une transition qui exige des champs ouvre le formulaire Jira natif,
@@ -516,8 +517,8 @@ dans le board Jira : ni fiche du ticket, ni menu de statut, aucun clic de l'exte
 qu'afficher le formulaire ; c'est vous qui le validez. Valider ou « Cancel » referme la popin et
 relit le board. Adresse documentée pour Jira Data Center, pas pour Cloud : à constater sur votre
 Jira.
-À charger : `dist-jira-direct-test/` (« Sprint Goals — test ouverture Jira »), pas l'ancien
-`dist-jira-test/` (« prototype dans Jira »).
+À charger : `dist/`, après `npm run build:jira-direct-test` ; la barre latérale affiche alors
+« Sprint Goals — test ouverture Jira » et une version en `.2`.
 
 Vérifié dans Chrome (faux Jira, profil vierge) par `verify:jira-direct-test` : refus sans
 autorisation du site, refus dans la page d'un autre site Atlassian, écran de transition ouvert

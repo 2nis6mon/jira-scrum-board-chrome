@@ -167,7 +167,7 @@ npm run watch         # reconstruit dist/ à chaque modification
 npm run harness       # banc d'essai visuel, données fictives, http://localhost:5199/?scenario=board
 npm run verify:drag         # vrais gestes de glisser-déposer dans Chrome (faux Jira)
 npm run verify:transition   # formulaire de transition dans Chrome (faux Jira)
-npm run verify:jira-direct-test  # construit dist-jira-direct-test/ puis le vérifie dans Chrome
+npm run verify:jira-direct-test  # construit le prototype dans dist/ puis le vérifie dans Chrome
 ```
 
 Prototype sans toucher au paquet d'essai de Denis : `npx vite build --mode jira-direct-test
@@ -407,9 +407,9 @@ origine. La popin est dimensionnée quand ses iframes sont chargées et sa taill
 passages (environ une seconde). Pendant ce temps, la fiche reste cachée (« Ouverture de « … »… ») ;
 elle est montrée si l'extension laisse le choix de la transition à l'utilisateur, ou après 8 s sans
 formulaire reconnu. `verify:jira-direct-test` : scénario d'écran classique (échoue avec 0.19.9).
-Attention : l'ancien prototype `dist-jira-test` (« prototype dans Jira », branche
-`codex/test-board-dans-jira`, 0.19.1.x, onglet « Sprint Goals » ajouté dans Jira) n'a pas ces
-corrections et ouvre le formulaire de l'extension ; ne pas le confondre avec `dist-jira-direct-test`.
+Attention : l'ancien prototype « prototype dans Jira » (branche `codex/test-board-dans-jira`,
+0.19.1.x, onglet « Sprint Goals » ajouté dans Jira) n'a pas ces corrections et ouvre le formulaire
+de l'extension ; son dossier n'existe plus.
 
 0.19.11 (demande de Denis : « par la transition du workflow, pas par le libellé ») : l'essai de
 la 0.19.10.2 sur son Jira a montré que le menu de statut affiche « Merge into develop → To merge
@@ -430,8 +430,15 @@ bouton, en pied de barre latérale, déplie ses sections juste au-dessus de lui 
 le choix d'une autre entrée de la barre, les replie et ramène au sprint (`AppModel.toggleAdmin`).
 `AdminView.tsx` ne garde que le contenu (`BOARD_SECTIONS` y reste, exporté pour la barre).
 
-Ne pas reconstruire `dist/` ni `dist-jira-direct-test/` pendant que Denis teste l'extension :
-construire ailleurs avec `npx vite build [--mode jira-direct-test] --outDir <scratchpad>`.
+0.19.12.1 (demande de Denis du 23/09/2026) : un seul dossier construit, `dist/`. Les dossiers
+`dist-jira-test/` et `dist-jira-direct-test/` sont supprimés, et le prototype GARDE la clé du
+manifest : même identifiant Chrome et même stockage que le paquet autonome, donc site, board et
+réglages conservés en passant de l'un à l'autre (une seule entrée dans `chrome://extensions`). La
+permission `scripting` n'existe que tant que le paquet d'essai est chargé.
+
+Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
+`npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
+`--outDir`).
 
 Plan validé le 18/09/2026 : 0 socle · 1 connexion et diagnostic (essai XSRF par Denis) ·
 2 logique métier · 3 board en lecture seule · 4 les quatre écritures · 5 réglages locaux ·

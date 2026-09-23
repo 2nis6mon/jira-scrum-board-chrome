@@ -9,9 +9,7 @@ import { fileURLToPath } from "node:url";
 const chromePath =
   process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 // JIRA_DIRECT_DIST : un autre dossier construit, pour ne pas reconstruire le paquet en essai.
-const dist =
-  process.env.JIRA_DIRECT_DIST ??
-  fileURLToPath(new URL("../dist-jira-direct-test", import.meta.url));
+const dist = process.env.JIRA_DIRECT_DIST ?? fileURLToPath(new URL("../dist", import.meta.url));
 if (!existsSync(join(dist, "manifest.json"))) process.exit(2);
 
 const profile = mkdtempSync(join(tmpdir(), "sprint-goals-direct-"));
