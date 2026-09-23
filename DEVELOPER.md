@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **23 septembre 2026**  
 Branche décrite : **`main`** (seule branche du dépôt depuis le 23/09/2026)  
-Produit autonome : **0.19.16**  
-Prototype d’intégration Jira : **0.19.16.2**
+Produit autonome : **0.19.17**  
+Prototype d’intégration Jira : **0.19.17.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -47,7 +47,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.19.16`  
+Version : `0.19.17`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -69,7 +69,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.19.16.2`  
+Version générée : `0.19.17.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -324,6 +324,8 @@ Principales clés `chrome.storage.local` :
 - `connection.v1` : origine Jira connectée ;
 - `boards.v1` : boards et board actif, groupés par origine ;
 - `interface.v1` : largeur/repli de la barre, panneau santé et préférences d’interface ;
+- `dismissedNotices.v1` : explications du board fermées pour de bon, par site et par board
+  (`src/app/model/noticeStore.ts`) ; effacées avec le board retiré ou à la déconnexion ;
 - réglage de variante GraphQL par site ;
 - journal d’audit local.
 

@@ -453,6 +453,21 @@ if (scenario.startsWith("board")) {
       jira.on("GET", "/rest/agile/1.0/board/7/sprint", { status: 401 });
       await connection.board.sync();
     }
+    if (scenario === "board-infos") {
+      // Explications flottantes : propriété du sprint illisible et tickets hors colonnes visibles.
+      const snapshot = connection.board.snapshot.value;
+      const [first] = snapshot?.scrumIssues ?? [];
+      if (snapshot && first) {
+        connection.board.snapshot.value = {
+          ...snapshot,
+          goalsReadOnly: true,
+          scrumIssues: [
+            ...snapshot.scrumIssues,
+            { ...first, issue: { ...first.issue, key: "ABC-999" }, columnId: null },
+          ],
+        };
+      }
+    }
   }
 } else {
   const jira = new FakeJira()

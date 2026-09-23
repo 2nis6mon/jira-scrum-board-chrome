@@ -1385,6 +1385,54 @@ ul.lane-cell {
   padding-left: 18px;
 }
 
+/* Explications fermables : elles flottent en bas à droite, au-dessus du board, sans le décaler.
+   Au-dessus des bandes collantes du board et de la barre latérale (30), sous les menus (40) et les
+   fenêtres (50). La colonne ne capte pas la souris : seul chaque bandeau la capte. */
+.floating-notices {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 35;
+  width: min(420px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.floating-notice {
+  margin: 0;
+  max-width: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: auto;
+  box-shadow:
+    0 8px 24px rgb(21 24 29 / 14%),
+    0 1px 3px rgb(21 24 29 / 8%);
+}
+
+.floating-notice-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.floating-notice-close {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: -3px -4px 0 0;
+  padding: 0;
+  border-color: transparent;
+  background: none;
+  color: var(--ink-3);
+  font-size: 17px;
+  line-height: 1;
+}
+
 /* ─── Épinglage des Goals au sprint ──────────────────────────────────────── */
 
 .dialog-wide {

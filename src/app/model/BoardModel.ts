@@ -77,6 +77,12 @@ import {
 } from "./boardStore";
 import { ImageCache } from "./ImageCache";
 import { toMessage, type UserMessage } from "./messages";
+import {
+  forgetDismissedNotices,
+  loadDismissedNotices,
+  type NoticeId,
+  saveDismissedNotice,
+} from "./noticeStore";
 
 export interface SyncProblem extends UserMessage {
   /** La session Jira du navigateur n'est plus reconnue : il faut se reconnecter à Jira. */
@@ -231,6 +237,11 @@ export class BoardModel {
   readonly goalsNotice = signal<string | null>(null);
   /** Lectures partielles des Goals Atlassian. */
   readonly goalsWarnings = signal<readonly string[]>([]);
+  /**
+   * Bandeaux d'information fermés pour de bon sur ce board. `null` tant qu'ils n'ont pas été relus :
+   * les bandeaux fermables restent alors cachés, pour ne pas apparaître une fraction de seconde.
+   */
+  readonly dismissedNotices = signal<ReadonlySet<NoticeId> | null>(null);
 
   readonly filters = signal<BoardFilters>(NO_FILTERS);
 
@@ -382,6 +393,7 @@ export class BoardModel {
     }
     const configuration = await loadActiveBoard(this.#platform.store, this.site.origin);
     this.configuration.value = configuration;
+    void this.#loadDismissedNotices(configuration);
     await this.#refreshBoards();
     this.loaded.value = true;
     this.#restartAutoRefresh();
@@ -452,6 +464,7 @@ export class BoardModel {
     const next = await this.#queued(() =>
       removeBoard(this.#platform.store, this.site.origin, boardId),
     );
+    await forgetDismissedNotices(this.#platform.store, this.site.origin, boardId).catch(() => {});
     await this.#refreshBoards();
     if (!shown) return;
     const configuration =
@@ -1914,6 +1927,35 @@ export class BoardModel {
   }
 
   /**
+   * Ferme un bandeau d'information pour de bon sur ce board. Il disparaît tout de suite ; si le
+   * navigateur refuse de l'enregistrer, il reste fermé jusqu'au prochain rechargement.
+   */
+  async dismissNotice(id: NoticeId): Promise<void> {
+    const configuration = this.configuration.value;
+    if (!configuration) return;
+    this.dismissedNotices.value = new Set([...(this.dismissedNotices.value ?? []), id]);
+    await saveDismissedNotice(
+      this.#platform.store,
+      this.site.origin,
+      configuration.boardId,
+      id,
+    ).catch(() => {});
+  }
+
+  /** Relit les bandeaux fermés du board affiché ; un résultat arrivé après un changement est jeté. */
+  async #loadDismissedNotices(configuration: BoardConfiguration | null): Promise<void> {
+    if (!configuration) return;
+    const generation = this.#generation;
+    const dismissed = await loadDismissedNotices(
+      this.#platform.store,
+      this.site.origin,
+      configuration.boardId,
+    ).catch(() => new Set<NoticeId>());
+    if (generation !== this.#generation) return;
+    this.dismissedNotices.value = dismissed;
+  }
+
+  /**
    * Affiche un board (ou aucun) : tout ce qui appartenait au board précédent est oublié. Une
    * synchronisation encore en cours appartient à l'ancien board : son résultat sera ignoré.
    */
@@ -1945,7 +1987,9 @@ export class BoardModel {
       this.team.value = { kind: "unknown" };
       this.teamApplied.value = null;
       this.teamNotice.value = null;
+      this.dismissedNotices.value = null;
     });
+    void this.#loadDismissedNotices(configuration);
     this.#adoptTeamOnRead = false;
     this.#colorMatches = {};
     this.#quickFiltersBoardId = null;

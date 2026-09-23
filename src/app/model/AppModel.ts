@@ -8,6 +8,7 @@ import { forgetSite } from "./boardStore";
 import { DiagnosticModel } from "./DiagnosticModel";
 import { GraphqlOrigin } from "./graphqlOrigin";
 import { toMessage, type UserMessage } from "./messages";
+import { forgetDismissedNotices } from "./noticeStore";
 
 const CONNECTION_KEY = "connection.v1";
 /** Préférences d'affichage de ce navigateur, communes à tous les sites et boards. */
@@ -137,6 +138,7 @@ export class AppModel {
     await this.#platform.permissions.remove(current.site.permissionPattern);
     await this.#platform.store.remove(CONNECTION_KEY);
     await forgetSite(this.#platform.store, current.site.origin);
+    await forgetDismissedNotices(this.#platform.store, current.site.origin).catch(() => {});
     await this.#audit.forgetSite(current.site.origin);
     this.connectionError.value = null;
     this.view.value = "board";

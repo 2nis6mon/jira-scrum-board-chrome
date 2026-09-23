@@ -485,6 +485,20 @@ reste dans l'onglet, sinon son administration deviendrait inatteignable. Board s
 utilisable : on reste dans l'onglet. L'adresse est construite par `boardPageAddress`, extraite de
 `launchAddress.ts` et partagée avec l'icône.
 
+0.19.17 (demande de Denis) : les explications d'un état stable du board — aucun Goal rattaché au
+sprint, tickets dont le statut n'est dans aucune colonne visible, propriété du sprint illisible par le
+compte — ne décalent plus les swimlanes. Elles flottent en bas à droite au-dessus du board
+(`FloatingNotices` dans `BoardView.tsx`, `z-index` 35 : au-dessus des bandes collantes et de la barre
+latérale, sous les menus et les fenêtres), chacune avec une croix qui la ferme POUR DE BON sur ce
+board, rechargement compris (`src/app/model/noticeStore.ts`, clé locale `dismissedNotices.v1`, par
+site et par board ; oubliée avec le board retiré ou à la déconnexion ; jamais dans les réglages
+d'équipe ni dans Jira). Tant que les fermetures ne sont pas relues, ces bandeaux restent cachés
+(`dismissedNotices` vaut `null`) plutôt que de clignoter. Restent dans le flux, SANS fermeture
+définitive, les erreurs de synchronisation, les résultats d'écriture, la décision sur les réglages
+d'équipe et les lectures en échec (« Goals Atlassian illisibles », lecture partielle des Goals,
+propriété du sprint non lue) : les masquer pour de bon cacherait le prochain incident. Banc
+d'essai : scénario `board-infos`.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

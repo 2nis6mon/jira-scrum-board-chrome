@@ -26,6 +26,7 @@ import {
 import { goalColorName } from "../../../core/sprintGoals";
 import { blockingRequiredFields } from "../../../jira/models";
 import type { BoardModel } from "../../model/BoardModel";
+import type { NoticeId } from "../../model/noticeStore";
 import { formatDay, formatPoints, formatTime, plural, toggled } from "../format";
 import { GoalMarker } from "../GoalMarker";
 import { HealthPanel } from "../health/HealthPanel";
@@ -71,7 +72,8 @@ export function BoardView({
       ) : (
         exit && <div class="filter-bar">{exit}</div>
       )}
-      <Notices board={board} snapshot={snapshot} layout={layout} />
+      <Notices board={board} snapshot={snapshot} />
+      <FloatingNotices board={board} snapshot={snapshot} layout={layout} />
       {health && (
         <HealthPanel
           board={board}
@@ -537,12 +539,13 @@ function JiraQuickFilters({ board }: { board: BoardModel }) {
 
 // ─── Bandeaux ────────────────────────────────────────────────────────────────
 
-function Notices(props: {
-  board: BoardModel;
-  snapshot: BoardSnapshot | null;
-  layout: BoardLayout | null;
-}) {
-  const { board, snapshot, layout } = props;
+/**
+ * Bandeaux qui restent dans le flux, au-dessus du board : erreurs, résultats d'écriture, décisions à
+ * prendre, lectures en échec. Ils signalent un incident ou attendent un choix : les masquer pour de
+ * bon cacherait le prochain. Les simples explications flottent à part (`FloatingNotices`).
+ */
+function Notices(props: { board: BoardModel; snapshot: BoardSnapshot | null }) {
+  const { board, snapshot } = props;
   const problem = board.syncProblem.value;
   const writeNotice = board.writeNotice.value;
   const teamApplied = board.teamApplied.value;
@@ -634,22 +637,6 @@ function Notices(props: {
           </ul>
         </div>
       )}
-      {snapshot?.goalsOrigin === "atlassianGoals" && snapshot.goals.length === 0 && (
-        <div class="notice notice-info">
-          <p>
-            Aucun Goal Atlassian n'est rattaché aux tickets de ce sprint. Rattachez un ticket à un
-            Goal dans Jira, ou épinglez un Goal au sprint : l'objectif apparaîtra ici avec sa
-            swimlane.
-          </p>
-          {board.canPinGoals.value && (
-            <div class="row">
-              <button type="button" onClick={() => board.openPinEditor()}>
-                Épingler des Goals…
-              </button>
-            </div>
-          )}
-        </div>
-      )}
       {snapshot?.localPinnedGoalIds && (
         <div class="notice notice-info">
           <p>
@@ -680,26 +667,97 @@ function Notices(props: {
           </div>
         </div>
       )}
-      {snapshot?.goalsReadOnly && (
-        <p class="notice notice-info">
-          Votre compte ne peut pas lire la propriété du sprint qui porte les objectifs épinglés et
-          les rattachements : les objectifs sont affichés sans eux.
-        </p>
-      )}
       {snapshot?.sprint && snapshot.pinnedGoalIds === null && !snapshot.goalsReadOnly && (
         <p class="notice notice-info">
           La propriété du sprint qui porte les objectifs épinglés et les rattachements n'a pas pu
           être lue : le board s'affiche sans elle. Actualisez pour la relire.
         </p>
       )}
-      {layout && layout.unmappedCount > 0 && (
-        <p class="notice notice-info">
+    </>
+  );
+}
+
+/**
+ * Explications d'un état stable du board. Elles flottent en bas à droite, au-dessus du board, sans
+ * décaler les swimlanes ; leur croix les ferme pour de bon sur ce board, rechargement compris.
+ */
+function FloatingNotices(props: {
+  board: BoardModel;
+  snapshot: BoardSnapshot | null;
+  layout: BoardLayout | null;
+}) {
+  const { board, snapshot, layout } = props;
+  const dismissed = board.dismissedNotices.value;
+  // Fermetures pas encore relues : rien n'est montré, plutôt qu'un bandeau qui clignote.
+  if (dismissed === null) return null;
+  const open = (id: NoticeId) => !dismissed.has(id);
+
+  const notices: ComponentChildren[] = [];
+  if (
+    open("no-goals") &&
+    snapshot?.goalsOrigin === "atlassianGoals" &&
+    snapshot.goals.length === 0
+  ) {
+    notices.push(
+      <FloatingNotice key="no-goals" board={board} id="no-goals">
+        <p>
+          Aucun Goal Atlassian n'est rattaché aux tickets de ce sprint. Rattachez un ticket à un
+          Goal dans Jira, ou épinglez un Goal au sprint : l'objectif apparaîtra ici avec sa
+          swimlane.
+        </p>
+        {board.canPinGoals.value && (
+          <div class="row">
+            <button type="button" onClick={() => board.openPinEditor()}>
+              Épingler des Goals…
+            </button>
+          </div>
+        )}
+      </FloatingNotice>,
+    );
+  }
+  if (open("goals-read-only") && snapshot?.goalsReadOnly) {
+    notices.push(
+      <FloatingNotice key="goals-read-only" board={board} id="goals-read-only">
+        <p>
+          Votre compte ne peut pas lire la propriété du sprint qui porte les objectifs épinglés et
+          les rattachements : les objectifs sont affichés sans eux.
+        </p>
+      </FloatingNotice>,
+    );
+  }
+  if (open("unmapped-statuses") && layout && layout.unmappedCount > 0) {
+    notices.push(
+      <FloatingNotice key="unmapped-statuses" board={board} id="unmapped-statuses">
+        <p>
           {plural(layout.unmappedCount, "ticket")} du sprint{" "}
           {layout.unmappedCount > 1 ? "ont" : "a"} un statut qui n'appartient à aucune colonne
           visible du board : non affichés, comme dans Jira.
         </p>
-      )}
-    </>
+      </FloatingNotice>,
+    );
+  }
+  if (notices.length === 0) return null;
+  return (
+    <aside class="floating-notices" aria-label="Informations sur le board">
+      {notices}
+    </aside>
+  );
+}
+
+function FloatingNotice(props: { board: BoardModel; id: NoticeId; children: ComponentChildren }) {
+  return (
+    <div class="notice notice-info floating-notice" role="status">
+      <div class="floating-notice-body">{props.children}</div>
+      <button
+        type="button"
+        class="floating-notice-close"
+        aria-label="Fermer ce message, il ne reviendra plus"
+        title="Fermer — ce message ne reviendra plus sur ce board"
+        onClick={() => void props.board.dismissNotice(props.id)}
+      >
+        ×
+      </button>
+    </div>
   );
 }
 

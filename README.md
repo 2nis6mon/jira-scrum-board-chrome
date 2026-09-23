@@ -31,7 +31,7 @@ réaffiché depuis cette section, sans modifier son rattachement dans Jira.
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.19.16 (paquet autonome) et 0.19.16.2 (prototype d'ouverture directe dans Jira, voir
+> **État : 0.19.17 (paquet autonome) et 0.19.17.2 (prototype d'ouverture directe dans Jira, voir
 > plus bas).** Point d'entrée pour reprendre le projet : [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
 > santé du sprint (6a), plusieurs boards (6b), audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)), empaquetage (6e) à venir. Board du
