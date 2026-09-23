@@ -499,6 +499,16 @@ d'équipe et les lectures en échec (« Goals Atlassian illisibles », lecture p
 propriété du sprint non lue) : les masquer pour de bon cacherait le prochain incident. Banc
 d'essai : scénario `board-infos`.
 
+0.19.18 (signalé par Denis) : deux corrections de l'administration dépliée. 1. Style : plus de
+panneau blanc en retrait ; ses sections sont dans le gris de la barre, en retrait sous le libellé
+« Administration », et la section affichée prend l'aspect de l'entrée courante de la barre (fond
+blanc bordé), comme « Sprint ». 2. Largeur : à l'ouverture, la liste des objectifs rapetisse et se
+met à défiler ; avec des barres de défilement classiques (macOS avec souris, ou « toujours
+afficher »), sa barre de 15 px rétrécissait toutes les lignes — 247 → 232 px, mesuré dans Chrome en
+forçant des barres classiques. `scrollbar-gutter: stable` sur `.sidebar-scroll` et `.sidebar-admin`
+réserve cette place en permanence : plus de décalage. La barre latérale elle-même garde sa largeur
+(248 px mesurés dans les deux états, board débordant compris).
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

@@ -1714,6 +1714,7 @@ details.lane-menu[open] > summary {
   flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 2px 0 6px;
   display: flex;
   flex-direction: column;
@@ -2355,14 +2356,18 @@ details.board-switcher .menu-panel {
   --icon-color: var(--in-progress);
 }
 
+/* Place de la barre de défilement réservée en permanence : quand l'administration s'ouvre, la liste
+   rapetisse et se met à défiler. Avec des barres de défilement classiques (macOS avec souris, ou
+   réglage « toujours afficher »), sa barre de 15 px rétrécissait alors toutes les lignes. */
 .sidebar-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
-/* Administration : le bouton reste en tête du bloc, ses sections défilent au-dessous. Dépliée,
-   elle se pose sur un panneau blanc, nettement détaché du fond de la barre latérale. */
+/* Administration : le bouton reste en tête du bloc, ses sections se déplient au-dessous, dans le
+   style du reste de la barre latérale (même fond gris, même largeur, mêmes éléments). */
 .sidebar-admin-block {
   flex: 0 1 auto;
   min-height: 0;
@@ -2375,9 +2380,7 @@ details.board-switcher .menu-panel {
   margin: 0 8px;
 }
 
-/* Le bouton s'affiche exactement pareil ouvert et fermé : c'est le panneau au-dessous, lui seul,
-   qui change. Sans cela, « Administration » passait du gris de la barre au blanc du panneau, et
-   son icône du gris au bleu. */
+/* Le bouton s'affiche exactement pareil ouvert et fermé : seules ses sections apparaissent. */
 .sidebar-admin-block.is-open > .sidebar-nav-item[aria-current="page"] {
   border-color: transparent;
   background: none;
@@ -2385,19 +2388,21 @@ details.board-switcher .menu-panel {
   --icon-color: var(--ink-3);
 }
 
-/* Sections dépliées : panneau blanc bordé, nettement détaché du gris de la barre. */
-.sidebar-admin-block.is-open > .sidebar-admin {
-  margin: 4px 6px 0;
-  padding: 4px 0 6px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: 0 1px 2px rgb(21 24 29 / 6%);
+/* Sections : comme les entrées de la barre, en retrait sous le libellé « Administration ». La
+   section affichée prend l'aspect de l'entrée courante de la barre (fond blanc bordé). */
+.sidebar-admin-block .settings-tab {
+  margin: 0 8px;
+  padding: 0 10px 0 36px;
 }
 
-/* Sur le panneau blanc, la section courante se distingue par le fond de la barre. */
-.sidebar-admin-block.is-open .settings-tab[aria-pressed="true"] {
-  background: var(--sidebar);
+.sidebar-admin-block .settings-group,
+.sidebar-admin-block .settings-local {
+  padding: 0 16px;
+}
+
+.sidebar-admin-block .settings-account {
+  margin: 10px 8px 0;
+  padding: 12px 8px 0;
 }
 
 .sidebar-section-title {
