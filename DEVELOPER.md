@@ -1,7 +1,7 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Dernière mise à jour : **22 septembre 2026**  
-Branche décrite : **`codex/test-ouverture-jira-directe`**  
+Dernière mise à jour : **23 septembre 2026**  
+Branche décrite : **`main`** (le prototype y a été fusionné le 23/09/2026)  
 Produit autonome : **0.19.15**  
 Prototype d’intégration Jira : **0.19.15.2**
 
@@ -535,15 +535,13 @@ Avant de modifier le projet :
 7. préserver les deux comportements d’ouverture de ticket ;
 8. tester toute modification de transition avec un cas sans champ et un cas avec champ requis ;
 9. noter clairement ce qui a été testé localement et ce qui a été essayé sur Jira réel ;
-10. garder la branche non fusionnée tant que l’intégration directe n’est pas validée.
+10. ne jamais faire passer les droits du paquet d’essai dans `public/manifest.json` : l’intégration
+    directe dans Jira n’est toujours pas validée sur l’instance de Denis.
 
-État Git au moment de cette rédaction : la branche contient trois commits fonctionnels dédiés à
-l’intégration directe :
-
-- `66e865e` — ouverture directe du board dans Jira ;
-- `b3d2c09` — ouverture automatique du formulaire Jira des transitions ;
-- `5161b49` — recadrage de la popin sur le seul formulaire ;
-
-puis les durcissements de la 0.19.9 (hébergement du board, clic de transition) et la mise à jour de
-`CLAUDE.md`, du README et de l’audit.
+État Git : `codex/test-ouverture-jira-directe` a été fusionnée dans `main` le 23/09/2026 à la
+demande de Denis (avance rapide, 27 commits, aucun conflit). L’intégration directe y a suivi ce
+chemin : ouverture du board dans Jira (`66e865e`), ouverture du formulaire de transition
+(`b3d2c09`), recadrage de la popin (`5161b49`), durcissements de la 0.19.9 (hébergement du board,
+clic de transition), essai par adresse directe (0.19.11 à 0.19.13) puis son retrait au profit du
+seul menu de statut (0.19.14).
 

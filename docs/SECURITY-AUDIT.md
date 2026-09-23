@@ -367,7 +367,8 @@ Tests unitaires, modèle et banc Chrome fictif ; validation Jira réel encore à
 
 ## Prototype d'ouverture directe dans Jira (0.19.8.2, durci en 0.19.9.2)
 
-Paquet d'essai distinct, non distribué, sur la branche `codex/test-ouverture-jira-directe`. Son
+Paquet d'essai distinct, non distribué (fusionné dans `main` le 23/09/2026, toujours construit à
+part par `build:jira-direct-test`). Son
 manifest est généré à partir de celui du paquet autonome (`vite.config.ts`), qui reste inchangé.
 Il ajoute :
 - la permission `scripting` : un script de contenu sur le seul site autorisé, qui ne fait rien

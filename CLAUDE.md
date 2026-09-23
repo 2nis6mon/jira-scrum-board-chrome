@@ -174,8 +174,11 @@ Prototype sans toucher au paquet d'essai de Denis : `npx vite build --mode jira-
 --outDir <dossier>` puis `JIRA_DIRECT_DIST=<dossier> node scripts/verify-jira-direct-test.mjs`.
 
 Git (depuis le 20/09/2026) : travail sur des branches `codex/...` ; ne pousser ni fusionner que sur
-demande. Branche du prototype : `codex/test-ouverture-jira-directe`, non fusionnée tant que
-l'intégration directe n'est pas validée.
+demande. La branche du prototype `codex/test-ouverture-jira-directe` a été fusionnée dans `main` à
+la demande de Denis le 23/09/2026 (avance rapide, 27 commits). Le prototype vit donc dans `main`,
+mais reste un paquet d'essai : ses droits supplémentaires n'existent que dans le manifest GÉNÉRÉ
+par `build:jira-direct-test`, jamais dans `public/manifest.json`, et l'intégration directe dans
+Jira n'est toujours PAS validée sur l'instance de Denis.
 
 Dépendances en versions exactes (`.npmrc` : `save-exact`, `ignore-scripts`). Toute nouvelle
 dépendance d'exécution se justifie : il y en a deux aujourd'hui (`preact`, `@preact/signals`).
