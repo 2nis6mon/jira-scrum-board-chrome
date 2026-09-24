@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **24 septembre 2026**  
 Branche décrite : **`codex/reglages-automatiques`** (issue de `main` le 24/09/2026)  
-Produit autonome : **0.22.4**  
-Prototype d’intégration Jira : **0.22.4.2**
+Produit autonome : **0.22.5**  
+Prototype d’intégration Jira : **0.22.5.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -49,7 +49,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.22.4`  
+Version : `0.22.5`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -71,7 +71,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.22.4.2`  
+Version générée : `0.22.5.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -193,7 +193,8 @@ de Jira.
   `BoardView.tsx`, à repasser à `true` pour la réafficher.
 - La daily se lance par le bouton plein « ▶ Daily », en tête des actions de l’en-tête (0.22.2).
 - Épinglage des Goals au sprint directement dans Administration → Objectifs, sans fenêtre
-  (`PinGoalsPanel.tsx`, 0.22.4). « Goals associés au board » n’existe plus.
+  (0.22.4). « Goals associés au board » n’existe plus. Depuis 0.22.5, une seule section
+  « Objectifs du sprint » (`SprintGoalsPanel.tsx`) : couleur, masquage et épinglage par objectif.
 - Le mode présentation masque la barre latérale et l’en-tête, conserve les filtres et agrandit le
   board. Depuis 0.21.1, il passe aussi en plein écran, comme la daily (`views/fullscreen.tsx`).
   Échap ramène au mode normal (0.21.2) : en plein écran, c’est la sortie du plein écran

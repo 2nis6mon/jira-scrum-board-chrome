@@ -1544,28 +1544,6 @@ ul.lane-cell {
   font: inherit;
 }
 
-.pin-selected {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.pin-selected li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.pin-remove {
-  flex: none;
-  height: 22px;
-  padding: 0 7px;
-}
-
 .pin-list {
   margin: 0;
   padding: 0;
@@ -1604,17 +1582,6 @@ ul.lane-cell {
 .pin-meta {
   color: var(--ink-3);
   font-size: 11px;
-}
-
-.pin-rank {
-  flex: none;
-  min-width: 18px;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-
-.pin-selected .pin-name {
-  flex: 1;
 }
 
 /* ─── Réglages d'affichage des swimlanes ─────────────────────────────────── */
@@ -2088,6 +2055,17 @@ select {
   padding: 6px 10px;
   border-radius: 6px;
   background: var(--column);
+}
+
+.settings-pin-toggle {
+  flex: none;
+  min-width: 96px;
+}
+
+/* Épinglé dans le brouillon, sans swimlane tant que l'épinglage n'est pas enregistré. */
+.settings-row-pending {
+  background: transparent;
+  border: 1px dashed var(--line);
 }
 
 .settings-goal-title {

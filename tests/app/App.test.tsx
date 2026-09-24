@@ -310,9 +310,13 @@ describe("App", () => {
 
     // Pas de fenêtre : la liste est dans la section Goals de l'administration.
     expect(document.querySelector("[role=dialog]")).toBeNull();
-    expect(document.querySelector("#settings-pin")).not.toBeNull();
+    // Une seule section : couleur, masquage et épinglage de chaque objectif.
+    const section = document.querySelector("#settings-sprint-goals")?.closest("section");
+    expect(section?.querySelector(".settings-swatches")).not.toBeNull();
+    expect(section?.querySelector(".pin-list")).not.toBeNull();
+    expect(document.querySelector("#settings-goal-colors")).toBeNull();
     button("Enregistrer dans Jira").click();
-    await expect.poll(() => text()).toContain("Enregistré dans Jira.");
+    await expect.poll(() => text()).toContain("Épinglage enregistré dans Jira.");
     expect(jira.requests.filter(isWriteRequest).map((r) => r.method)).toEqual(["PUT"]);
     // Le brouillon repart de la sélection relue dans Jira : plus rien à enregistrer.
     await expect.poll(() => button("Enregistrer dans Jira").disabled).toBe(true);

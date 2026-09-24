@@ -1,8 +1,6 @@
 import type { BoardConfiguration, GoalSource } from "../../../core/boardConfiguration";
-import { GOAL_COLOR_NAMES } from "../../../core/boardPreferences";
-import { goalColorName, type SprintGoal } from "../../../core/sprintGoals";
 import type { BoardModel } from "../../model/BoardModel";
-import { PinGoalsPanel } from "./PinGoalsPanel";
+import { SprintGoalsPanel } from "./SprintGoalsPanel";
 
 const SOURCES: readonly { id: GoalSource; label: string; help: string }[] = [
   {
@@ -17,7 +15,7 @@ const SOURCES: readonly { id: GoalSource; label: string; help: string }[] = [
   },
 ];
 
-/** Source des objectifs, épinglage, couleurs et visibilité. */
+/** Source des objectifs, puis les objectifs du sprint : couleur, masquage, épinglage. */
 export function GoalSettings({
   board,
   configuration,
@@ -58,64 +56,7 @@ export function GoalSettings({
         {board.goalsNotice.value && <p class="notice notice-info">{board.goalsNotice.value}</p>}
       </section>
 
-      {source === "atlassianGoals" && <PinGoalsPanel board={board} />}
-
-      <GoalAppearance board={board} />
+      <SprintGoalsPanel board={board} pinning={source === "atlassianGoals"} />
     </div>
-  );
-}
-
-/** Couleur de chaque objectif du sprint, et objectifs masqués du board. */
-function GoalAppearance({ board }: { board: BoardModel }) {
-  const goals = board.snapshot.value?.goals ?? [];
-  const byId = new Map(goals.map((goal) => [goal.id, goal]));
-  const shown = board.laneOrder.value
-    .filter((id) => id.startsWith("goal:"))
-    .map((id) => byId.get(id.slice("goal:".length)))
-    .filter((goal): goal is SprintGoal => goal !== undefined);
-  const hidden = board.hiddenGoals.value;
-
-  return (
-    <section class="panel" aria-labelledby="settings-goal-colors">
-      <h2 id="settings-goal-colors">Couleur et visibilité des objectifs</h2>
-      <p class="hint">
-        Un objectif garde sa couleur d'un sprint à l'autre. Masquer un objectif fait passer ses
-        tickets dans Build, sans toucher à leur rattachement dans Jira.
-      </p>
-      {shown.length + hidden.length === 0 ? (
-        <p class="hint">Aucun objectif sur ce sprint.</p>
-      ) : (
-        <ul class="settings-goals">
-          {[...shown, ...hidden].map((goal) => {
-            const isHidden = hidden.includes(goal);
-            return (
-              <li key={goal.id} class="settings-row" data-goal-color={goal.color}>
-                <span class="goal-ring" aria-hidden="true" />
-                <span class="settings-goal-title">{goal.title}</span>
-                {isHidden && <span class="settings-tag">masqué</span>}
-                <fieldset class="settings-swatches">
-                  <legend class="visually-hidden">Couleur de « {goal.title} »</legend>
-                  {GOAL_COLOR_NAMES.map((name, index) => (
-                    <button
-                      key={name}
-                      type="button"
-                      class="swatch"
-                      data-goal-color={goalColorName(index)}
-                      aria-label={name}
-                      title={name}
-                      aria-pressed={goal.color === goalColorName(index)}
-                      onClick={() => void board.setGoalColor(goal.id, index)}
-                    />
-                  ))}
-                </fieldset>
-                <button type="button" onClick={() => void board.setGoalHidden(goal.id, !isHidden)}>
-                  {isHidden ? "Réafficher" : "Masquer"}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
   );
 }

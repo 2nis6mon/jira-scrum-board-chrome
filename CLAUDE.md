@@ -649,6 +649,15 @@ board, bandeaux « Épingler des Goals… », « Réessayer dans Jira… ») ouv
 n'apparaissent que si les réglages du board sont modifiables (sinon l'administration est réduite
 au Diagnostic).
 
+0.22.5 (demande de Denis : « pour ne pas gérer les choses deux fois ») : « Couleur et visibilité des
+objectifs » fusionnée avec l'épinglage dans une seule section, « Objectifs du sprint « nom » »
+(`views/settings/SprintGoalsPanel.tsx`, ex-`PinGoalsPanel`). Une ligne par objectif (swimlanes
+affichées puis masquées) : couleur, Masquer/Réafficher (réglages partagés, écrits aussitôt) et, en
+Goals Atlassian, Épingler/Désépingler (brouillon, étiquette « à enregistrer »). Un Goal épinglé sans
+swimlane encore apparaît en pointillés jusqu'à l'enregistrement. Dessous, « Épingler un Goal du
+site » (recherche) puis Annuler / « Enregistrer dans Jira », une seule écriture. En « Texte du
+sprint », la section ne garde que couleur et masquage.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).
