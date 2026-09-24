@@ -431,7 +431,8 @@ Les essais Chrome automatisés n’utilisent ni la session ni les données Jira 
 - Travailler dans une branche `codex/...` dédiée.
 - Faire un commit cohérent par correction ou fonctionnalité.
 - Utiliser l’identité `2nis6mon <denis.simon@gmail.com>`.
-- Ne pousser et ne fusionner que sur demande explicite.
+- Pousser chaque commit sur sa branche (consigne de Denis du 24/09/2026) ; ne fusionner dans
+  `main` que sur demande explicite.
 - Ne jamais committer `.secrets/extension-key.pem`, un profil Chrome, des cookies, des captures de
   données Jira ou un paquet contenant des secrets.
 - `dist/` est généré et ignoré par Git ; il reçoit le paquet autonome ou le prototype, selon la

@@ -51,7 +51,8 @@ connectée à Jira Cloud. Projet **distinct** de l'app Mac, qui reste maintenue 
 - Répondre en français. Code, commentaires et messages de commit en français.
 - Commits : `git -c user.name="2nis6mon" -c user.email="denis.simon@gmail.com" commit …`, avec le
   trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
-- Ne pusher que sur demande explicite.
+- Pousser chaque commit sur sa branche, toujours (consigne de Denis du 24/09/2026). Fusionner
+  dans `main` seulement sur demande explicite.
 
 ## Droits de l'extension
 
@@ -173,8 +174,8 @@ npm run verify:jira-direct-test  # construit le prototype dans dist/ puis le vé
 Prototype sans toucher au paquet d'essai de Denis : `npx vite build --mode jira-direct-test
 --outDir <dossier>` puis `JIRA_DIRECT_DIST=<dossier> node scripts/verify-jira-direct-test.mjs`.
 
-Git (depuis le 20/09/2026) : travail sur des branches `codex/...` ; ne pousser ni fusionner que sur
-demande. La branche du prototype `codex/test-ouverture-jira-directe` a été fusionnée dans `main` à
+Git (depuis le 20/09/2026) : travail sur des branches `codex/...` ; chaque commit est poussé
+(24/09/2026), la fusion dans `main` se fait sur demande. La branche du prototype `codex/test-ouverture-jira-directe` a été fusionnée dans `main` à
 la demande de Denis le 23/09/2026 (avance rapide, 27 commits), puis supprimée avec les autres
 branches `codex/...` : `main` est désormais la seule branche du dépôt. Le prototype vit donc dans
 `main`,
