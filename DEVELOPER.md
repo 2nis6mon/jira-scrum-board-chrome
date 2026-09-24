@@ -1,7 +1,7 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
 Dernière mise à jour : **24 septembre 2026**  
-Branche décrite : **`codex/mode-daily`** (issue de `main` le 24/09/2026 pour le mode Daily)  
+Branche décrite : **`codex/mode-daily`** (issue de `main` le 24/09/2026 pour le mode Daily ; contient 0.19.21)  
 Produit autonome : **0.20.0**  
 Prototype d’intégration Jira : **0.20.0.2**
 
@@ -174,6 +174,13 @@ de Jira.
 ### Board et affichage
 
 - Scrum seulement ; Kanban n’est pas pris en charge.
+- Périmètre (0.19.21, signalé par Denis) : les tickets d’un sprint sont lus depuis le board,
+  `GET /rest/agile/1.0/board/{board}/sprint/{sprint}/issue`, et non plus par le sprint seul, qui
+  ramenait aussi les tickets des autres boards d’un sprint partagé. Un sprint actif sans aucun
+  ticket du board (sprint d’un autre board qui contenait un de nos tickets) n’est plus affiché
+  dans l’en-tête, et l’épinglage des Goals se fait sur le premier sprint AFFICHÉ ; si aucun n’a
+  de ticket, le premier reste. Filtrage par le filtre du board : décrit par la spécification
+  (« from the board »), à constater sur le Jira de Denis.
 - Les swimlanes couvrent toute la largeur logique du board, même avec défilement horizontal.
 - L’en-tête, les filtres et les colonnes restent fixes pendant le défilement vertical.
 - Le titre du Goal courant reste fixe sous les colonnes jusqu’à ce que le suivant le pousse.

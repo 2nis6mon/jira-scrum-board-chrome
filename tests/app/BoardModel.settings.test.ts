@@ -9,7 +9,7 @@ import { goalsGateway } from "../support/goalsGateway";
 
 const SITE = normalizeSiteUrl("acme.atlassian.net");
 const SPRINTS = "/rest/agile/1.0/board/7/sprint";
-const SPRINT_ISSUES = "/rest/agile/1.0/sprint/42/issue";
+const SPRINT_ISSUES = "/rest/agile/1.0/board/7/sprint/42/issue";
 
 async function settingsBoard(jira = boardSiteJira()) {
   const platform = fakePlatform(jira);

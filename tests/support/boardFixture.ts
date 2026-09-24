@@ -176,7 +176,7 @@ export function boardSiteJira(
           ],
         },
       })
-      .on("GET", "/rest/agile/1.0/sprint/42/issue", {
+      .on("GET", "/rest/agile/1.0/board/7/sprint/42/issue", {
         status: 200,
         json: { issues, total: issues.length },
       })
@@ -226,7 +226,7 @@ export function withSecondBoard(jira: FakeJira): FakeJira {
         values: [{ id: 77, name: "Compte 3", state: "active", goal: "🎯 Refonte du compte" }],
       },
     })
-    .on("GET", "/rest/agile/1.0/sprint/77/issue", {
+    .on("GET", "/rest/agile/1.0/board/12/sprint/77/issue", {
       status: 200,
       json: { issues, total: issues.length },
     });

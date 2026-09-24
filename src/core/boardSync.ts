@@ -165,12 +165,11 @@ export async function loadSnapshot(input: {
   const now = input.now ?? new Date();
 
   // Le board montre les sprints ACTIFS, tous ensemble. Aucun autre sprint n'est consultable.
-  const activeSprints = (await reader.sprints(configuration.boardId, ["active"]))
+  const candidateSprints = (await reader.sprints(configuration.boardId, ["active"]))
     .filter((sprint) => sprint.state === "active")
     .sort((a, b) => (a.startDate?.getTime() ?? 0) - (b.startDate?.getTime() ?? 0));
 
-  const sprint = activeSprints[0];
-  if (!sprint) {
+  if (candidateSprints.length === 0) {
     return {
       snapshot: emptySnapshot(now, input.currentUser),
       document: null,
@@ -186,25 +185,38 @@ export async function loadSnapshot(input: {
     ...displayedCardFields(configuration).map(cardFieldJiraId),
   ].filter((id): id is string => id !== null);
 
-  // Un ticket peut appartenir à plusieurs sprints : on garde sa première apparition, et avec
-  // elle le sprint qui date son entrée de périmètre.
-  const issuesBySprint: { sprint: JiraSprint; issues: JiraIssue[] }[] = [];
-  const seenKeys = new Set<string>();
-  for (const active of activeSprints) {
-    const issues = await reader.sprintIssues(active.id, {
-      estimationFieldId: configuration.estimationFieldId,
-      includeChangelog: true,
-      extraFieldIds,
-    });
-    issuesBySprint.push({
-      sprint: active,
-      issues: issues.filter((issue) => {
-        if (seenKeys.has(issue.key)) return false;
-        seenKeys.add(issue.key);
-        return true;
+  // Tickets du sprint RETENUS PAR LE FILTRE DU BOARD, comme sur le board Jira : un sprint peut
+  // mêler les tickets de plusieurs boards (sprint partagé, ou sprint d'un autre board qui contient
+  // un de nos tickets). Un sprint actif sans aucun ticket du board n'est pas affiché ; si aucun
+  // n'en a, le premier reste (sprint qui vient de démarrer, vide).
+  const read: { sprint: JiraSprint; issues: JiraIssue[] }[] = [];
+  for (const candidate of candidateSprints) {
+    read.push({
+      sprint: candidate,
+      issues: await reader.sprintIssues(configuration.boardId, candidate.id, {
+        estimationFieldId: configuration.estimationFieldId,
+        includeChangelog: true,
+        extraFieldIds,
       }),
     });
   }
+  const withIssues = read.filter((entry) => entry.issues.length > 0);
+  const shown = withIssues.length > 0 ? withIssues : read.slice(0, 1);
+  const activeSprints = shown.map((entry) => entry.sprint);
+  // Premier sprint affiché : celui dont la propriété porte l'épinglage des Goals.
+  const sprint = activeSprints[0] as JiraSprint;
+
+  // Un ticket peut appartenir à plusieurs sprints : on garde sa première apparition, et avec
+  // elle le sprint qui date son entrée de périmètre.
+  const seenKeys = new Set<string>();
+  const issuesBySprint = shown.map((entry) => ({
+    sprint: entry.sprint,
+    issues: entry.issues.filter((issue) => {
+      if (seenKeys.has(issue.key)) return false;
+      seenKeys.add(issue.key);
+      return true;
+    }),
+  }));
   const sprintIssues = issuesBySprint.flatMap((entry) => entry.issues);
 
   // Propriété d'entité du sprint : épinglage des Goals, et liens du mode texte.

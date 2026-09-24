@@ -542,6 +542,15 @@ reviennent au comportement d'avant 0.19.19 : chaque carte pour elle-même. Cons�
 sous-tâches comptent de nouveau dans les colonnes, les limites WIP et l'en-tête, et désormais aussi
 dans l'avancement et l'atteinte du Goal de leur story (elles y sont rattachées).
 
+0.19.21 (signalé par Denis le 24/09/2026, branche `codex/tickets-du-board`) : le board affichait
+les tickets d'un sprint partagé avec un autre board, et le sprint actif d'un autre board qui
+contenait un de ses tickets (« Sprint A + Sprint B »). Les tickets sont désormais lus par
+`GET /rest/agile/1.0/board/{boardId}/sprint/{sprintId}/issue` (spécification OpenAPI de Jira
+Software vérifiée le 24/09/2026 : « issues […] that belong to the sprint from the board », mêmes
+paramètres ; le filtrage par le filtre du board reste à CONSTATER sur son Jira). `loadSnapshot`
+n'affiche que les sprints actifs ayant au moins un ticket du board (à défaut, le premier), et le
+premier sprint affiché porte l'épinglage : il ne peut plus s'écrire sur le sprint d'un autre board.
+
 0.20.0 (demande de Denis du 24/09/2026, branche `codex/mode-daily`, choix validés un par un) :
 mode Daily. Bouton ▶ de l'en-tête (`daily-start`) : plein écran du navigateur demandé au clic
 (refusé, la daily se déroule dans la fenêtre), mise en page de la présentation et UNE swimlane à la

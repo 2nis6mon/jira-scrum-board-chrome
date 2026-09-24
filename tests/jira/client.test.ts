@@ -133,11 +133,11 @@ describe("JiraClient", () => {
   it("lit les tickets d'un sprint : champs utiles, historique, pagination par total", async () => {
     const jira = new FakeJira().on(
       "GET",
-      "/rest/agile/1.0/sprint/42/issue",
+      "/rest/agile/1.0/board/7/sprint/42/issue",
       { status: 200, json: { issues: [issueJson("ABC-1"), issueJson("ABC-2")], total: 3 } },
       { status: 200, json: { issues: [issueJson("ABC-3")], total: 3 } },
     );
-    const issues = await clientFor(jira).sprintIssues(42, {
+    const issues = await clientFor(jira).sprintIssues(7, 42, {
       estimationFieldId: "customfield_10016",
       includeChangelog: true,
       extraFieldIds: ["customfield_10100"],

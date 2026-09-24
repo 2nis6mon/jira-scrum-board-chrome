@@ -282,13 +282,20 @@ export class JiraClient {
     return result.sort((a, b) => a.position - b.position);
   }
 
-  sprintIssues(sprintId: number, query: IssueQuery): Promise<JiraIssue[]> {
+  /**
+   * Tickets d'un sprint vus depuis le board : `GET /rest/agile/1.0/board/{boardId}/sprint/
+   * {sprintId}/issue` (spécification OpenAPI de Jira Software, vérifiée le 24/09/2026 : « issues
+   * […] that belong to the sprint from the board », mêmes paramètres que `sprint/{id}/issue`).
+   * L'ancienne lecture par le sprint seul ramenait aussi les tickets des autres boards du sprint.
+   */
+  sprintIssues(boardId: number, sprintId: number, query: IssueQuery): Promise<JiraIssue[]> {
+    assertEntityId(boardId, "board");
     assertEntityId(sprintId, "sprint");
     return this.#paginatedIssues(
-      `/rest/agile/1.0/sprint/${sprintId}/issue`,
+      `/rest/agile/1.0/board/${boardId}/sprint/${sprintId}/issue`,
       null,
       query,
-      `les tickets du sprint ${sprintId}`,
+      `les tickets du sprint ${sprintId} sur le board ${boardId}`,
     );
   }
 

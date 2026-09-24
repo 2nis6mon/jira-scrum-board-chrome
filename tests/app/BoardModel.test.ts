@@ -137,7 +137,7 @@ describe("BoardModel — synchronisation", () => {
           ],
         },
       })
-      .on("GET", "/rest/agile/1.0/sprint/42/issue", {
+      .on("GET", "/rest/agile/1.0/board/7/sprint/42/issue", {
         status: 200,
         json: { issues: [...SPRINT_ISSUES, newIssue], total: SPRINT_ISSUES.length + 1 },
       })
@@ -218,14 +218,14 @@ describe("BoardModel — synchronisation", () => {
 
   it("une demande pendant une synchronisation en relance une seule après elle", async () => {
     const { jira, board } = await detected();
-    const before = jira.sent("GET", "/rest/agile/1.0/sprint/42/issue").length;
+    const before = jira.sent("GET", "/rest/agile/1.0/board/7/sprint/42/issue").length;
 
     const first = board.sync();
     void board.sync();
     void board.sync();
     await first;
 
-    expect(jira.sent("GET", "/rest/agile/1.0/sprint/42/issue").length - before).toBe(2);
+    expect(jira.sent("GET", "/rest/agile/1.0/board/7/sprint/42/issue").length - before).toBe(2);
     expect(board.syncing.value).toBe(false);
   });
 
