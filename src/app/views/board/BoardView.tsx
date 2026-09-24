@@ -53,6 +53,12 @@ import { LANE_DRAG_TYPE, revealLane } from "./lanes";
 import { PinGoalsDialog } from "./PinGoalsDialog";
 import { TransitionFormDialog } from "./TransitionFormDialog";
 
+/**
+ * Santé du sprint : bouton de l'en-tête et panneau. Masquée à la demande de Denis (24/09/2026,
+ * « pour l'instant ») ; le code reste, il suffit de repasser à `true` pour la réafficher.
+ */
+export const SPRINT_HEALTH_ENABLED = false;
+
 export function BoardView({
   board,
   configuration,
@@ -68,7 +74,10 @@ export function BoardView({
   const presenting = controls.presenting;
   // La daily reprend la mise en page de la présentation : ni en-tête ni santé, board agrandi.
   const compact = presenting || daily !== null;
-  const health = controls.healthOpen && !compact && snapshot?.sprint ? board.health.value : null;
+  const health =
+    SPRINT_HEALTH_ENABLED && controls.healthOpen && !compact && snapshot?.sprint
+      ? board.health.value
+      : null;
   // En daily, une seule swimlane à la fois, toujours dépliée (son repli enregistré n'est pas touché).
   const steps = daily && layout ? dailySteps(layout.lanes) : [];
   const stepIndex = daily ? currentStepIndex(steps, daily) : -1;
@@ -361,7 +370,7 @@ function SprintHeader(props: {
               ? `Jira · ${formatTime(snapshot.syncedAt)}`
               : ""}
         </span>
-        {sprint && (
+        {SPRINT_HEALTH_ENABLED && sprint && (
           <button
             type="button"
             class="icon-button health-toggle"

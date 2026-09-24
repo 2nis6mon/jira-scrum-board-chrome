@@ -3,6 +3,7 @@ import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App, PRESENTATION_HINT_MS } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
+import { SPRINT_HEALTH_ENABLED } from "../../src/app/views/board/BoardView";
 import { visibleColumns } from "../../src/core/boardConfiguration";
 import { BOARD_PROPERTY_KEYS } from "../../src/jira/writes";
 import {
@@ -311,59 +312,73 @@ describe("barre latérale", () => {
     expect(document.querySelector(".connection h2")?.textContent).toBe("Quel board afficher ?");
   });
 
-  it("santé du sprint : panneau au-dessus des swimlanes, comptages, filtres appliqués", async () => {
-    const { jira, board, model } = await connectedBoard();
-    const toggle = labelled("Santé du sprint");
-    expect(toggle.getAttribute("aria-pressed")).toBe("false");
-    expect(document.querySelector(".health-panel")).toBeNull();
+  it.skipIf(SPRINT_HEALTH_ENABLED)(
+    "santé du sprint masquée pour l'instant : ni bouton ni panneau, même laissée ouverte",
+    async () => {
+      const { model } = await connectedBoard();
+      model.healthOpen.value = true;
+      await tick();
+      expect(document.querySelector('button[aria-label="Santé du sprint"]')).toBeNull();
+      expect(document.querySelector(".health-panel")).toBeNull();
+    },
+  );
 
-    toggle.click();
-    await tick();
-    expect(labelled("Santé du sprint").getAttribute("aria-pressed")).toBe("true");
-    const panel = document.querySelector(".health-panel");
-    expect(panel?.querySelector("h2")?.textContent).toBe("Santé du sprint");
-    // Le panneau s'ouvre entre les filtres et les swimlanes, qui restent affichées.
-    const screen = document.querySelector("main.board-screen");
-    const order = [...(screen?.children ?? [])].map((child) => child.className);
-    expect(order.indexOf("health-panel")).toBeGreaterThan(order.indexOf("filter-bar"));
-    expect(order.indexOf("health-panel")).toBeLessThan(order.indexOf("board"));
-    expect(cardKeys()).toContain("ABC-101");
-    expect(model.view.value).toBe("board");
+  it.skipIf(!SPRINT_HEALTH_ENABLED)(
+    "santé du sprint : panneau au-dessus des swimlanes, comptages, filtres appliqués",
+    async () => {
+      const { jira, board, model } = await connectedBoard();
+      const toggle = labelled("Santé du sprint");
+      expect(toggle.getAttribute("aria-pressed")).toBe("false");
+      expect(document.querySelector(".health-panel")).toBeNull();
 
-    const kpis = () =>
-      [...document.querySelectorAll(".health-kpi")].map((kpi) => kpi.textContent ?? "");
-    expect(kpis()).toEqual([
-      "Story points livrés3 / 1718 % du sprint",
-      "Tickets terminés1 / 52 en cours · 2 à faire",
-      "Bloqués1 / 6lien Jira « est bloqué par » ou label",
-    ]);
-    // Sans historique Jira, rien n'est affirmé sur le périmètre ajouté.
-    expect(text()).toContain("Jira n'a pas fourni l'historique du sprint");
-    expect(
-      [...document.querySelectorAll(".health-goal-title")].map((title) => title.textContent),
-    ).toEqual(["Finaliser le parcours de paiement", "Améliorer la stabilité"]);
+      toggle.click();
+      await tick();
+      expect(labelled("Santé du sprint").getAttribute("aria-pressed")).toBe("true");
+      const panel = document.querySelector(".health-panel");
+      expect(panel?.querySelector("h2")?.textContent).toBe("Santé du sprint");
+      // Le panneau s'ouvre entre les filtres et les swimlanes, qui restent affichées.
+      const screen = document.querySelector("main.board-screen");
+      const order = [...(screen?.children ?? [])].map((child) => child.className);
+      expect(order.indexOf("health-panel")).toBeGreaterThan(order.indexOf("filter-bar"));
+      expect(order.indexOf("health-panel")).toBeLessThan(order.indexOf("board"));
+      expect(cardKeys()).toContain("ABC-101");
+      expect(model.view.value).toBe("board");
 
-    const watched = [...document.querySelectorAll(".health-watch tbody tr")];
-    expect(watched).toHaveLength(1);
-    const link = watched[0]?.querySelector<HTMLAnchorElement>("a");
-    expect(link?.textContent).toBe("ABC-102");
-    expect(link?.href).toBe("https://acme.atlassian.net/browse/ABC-102");
-    expect(link?.target).toBe("_blank");
-    expect(watched[0]?.textContent).toContain("Bloqué");
+      const kpis = () =>
+        [...document.querySelectorAll(".health-kpi")].map((kpi) => kpi.textContent ?? "");
+      expect(kpis()).toEqual([
+        "Story points livrés3 / 1718 % du sprint",
+        "Tickets terminés1 / 52 en cours · 2 à faire",
+        "Bloqués1 / 6lien Jira « est bloqué par » ou label",
+      ]);
+      // Sans historique Jira, rien n'est affirmé sur le périmètre ajouté.
+      expect(text()).toContain("Jira n'a pas fourni l'historique du sprint");
+      expect(
+        [...document.querySelectorAll(".health-goal-title")].map((title) => title.textContent),
+      ).toEqual(["Finaliser le parcours de paiement", "Améliorer la stabilité"]);
 
-    // Les filtres de la barre s'appliquent.
-    board.setSearch("paiement");
-    await tick();
-    // ABC-101 (en cours) et ABC-102 (à faire) parlent de paiement.
-    expect(kpis()[1]).toBe("Tickets terminés0 / 21 en cours · 1 à faire");
+      const watched = [...document.querySelectorAll(".health-watch tbody tr")];
+      expect(watched).toHaveLength(1);
+      const link = watched[0]?.querySelector<HTMLAnchorElement>("a");
+      expect(link?.textContent).toBe("ABC-102");
+      expect(link?.href).toBe("https://acme.atlassian.net/browse/ABC-102");
+      expect(link?.target).toBe("_blank");
+      expect(watched[0]?.textContent).toContain("Bloqué");
 
-    // Le bouton du panneau le referme, comme celui de l'en-tête.
-    labelled("Masquer la santé du sprint").click();
-    await tick();
-    expect(document.querySelector(".health-panel")).toBeNull();
-    expect(labelled("Santé du sprint").getAttribute("aria-pressed")).toBe("false");
-    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
-  });
+      // Les filtres de la barre s'appliquent.
+      board.setSearch("paiement");
+      await tick();
+      // ABC-101 (en cours) et ABC-102 (à faire) parlent de paiement.
+      expect(kpis()[1]).toBe("Tickets terminés0 / 21 en cours · 1 à faire");
+
+      // Le bouton du panneau le referme, comme celui de l'en-tête.
+      labelled("Masquer la santé du sprint").click();
+      await tick();
+      expect(document.querySelector(".health-panel")).toBeNull();
+      expect(labelled("Santé du sprint").getAttribute("aria-pressed")).toBe("false");
+      expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+    },
+  );
 });
 
 describe("en-tête du sprint", () => {

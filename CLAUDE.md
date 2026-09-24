@@ -625,6 +625,11 @@ partagés. Droit d'édition : `JiraClient.boardCanEdit`, champ `canEdit` de `GET
 Descendre ; le repli reste. Échec réseau : la modification sera remplacée au prochain chargement
 (accepté par Denis). Banc d'essai : `board-lecture-seule`.
 
+0.22.1 (demande de Denis : « pour l'instant je ne veux pas l'afficher ») : santé du sprint masquée —
+ni bouton dans l'en-tête ni panneau, même si `healthOpen` était resté vrai. Interrupteur
+`SPRINT_HEALTH_ENABLED` dans `BoardView.tsx` ; le code et ses tests restent (test du panneau
+suspendu par `it.skipIf`).
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

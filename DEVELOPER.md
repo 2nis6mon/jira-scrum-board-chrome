@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **24 septembre 2026**  
 Branche décrite : **`codex/reglages-automatiques`** (issue de `main` le 24/09/2026)  
-Produit autonome : **0.22.0**  
-Prototype d’intégration Jira : **0.22.0.2**
+Produit autonome : **0.22.1**  
+Prototype d’intégration Jira : **0.22.1.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -49,7 +49,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.22.0`  
+Version : `0.22.1`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -71,7 +71,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.22.0.2`  
+Version générée : `0.22.1.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -189,6 +189,8 @@ de Jira.
 - Les Goals atteints sont verts sur le board et dans la barre latérale.
 - Dans la barre latérale, un Goal atteint n’affiche ni coche ni barre de progression.
 - L’en-tête affiche le nombre de Goals atteints parmi les Goals visibles.
+- Santé du sprint masquée pour l’instant (0.22.1, choix de Denis) : `SPRINT_HEALTH_ENABLED` dans
+  `BoardView.tsx`, à repasser à `true` pour la réafficher.
 - Le mode présentation masque la barre latérale et l’en-tête, conserve les filtres et agrandit le
   board. Depuis 0.21.1, il passe aussi en plein écran, comme la daily (`views/fullscreen.tsx`).
   Échap ramène au mode normal (0.21.2) : en plein écran, c’est la sortie du plein écran
