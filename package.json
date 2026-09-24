@@ -1,6 +1,6 @@
 {
   "name": "jira-scrum-board-chrome",
-  "version": "0.21.0",
+  "version": "0.21.1",
   "private": true,
   "description": "Swimlanes automatiques par Sprint Goal pour les boards Scrum Jira uniquement. Les boards Kanban ne sont pas pris en charge.",
   "type": "module",

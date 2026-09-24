@@ -3,6 +3,7 @@ import type { AppModel, Connection } from "./model/AppModel";
 import { BoardSetupView } from "./views/BoardSetupView";
 import { BoardView, type ScreenControls } from "./views/board/BoardView";
 import { ConnectionView } from "./views/ConnectionView";
+import { exitFullscreen } from "./views/fullscreen";
 import { Sidebar } from "./views/Sidebar";
 import { AdminView } from "./views/settings/AdminView";
 
@@ -42,11 +43,11 @@ function Workspace({
   const daily = view === "board" ? model.daily.value : null;
   const dailyRunning = daily !== null;
 
-  // Fin de la daily : le plein écran demandé à son lancement est rendu.
+  // Fin de la daily ou de la présentation : le plein écran demandé à leur lancement est rendu.
+  const immersive = dailyRunning || presenting;
   useEffect(() => {
-    if (dailyRunning || !document.fullscreenElement) return;
-    document.exitFullscreen?.().catch(() => {});
-  }, [dailyRunning]);
+    if (!immersive) exitFullscreen();
+  }, [immersive]);
 
   // Un clic hors d'un menu ouvert le referme.
   useEffect(() => {
@@ -64,6 +65,8 @@ function Workspace({
     if (!presenting) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
+      // En plein écran, Échap appartient au navigateur : il en sort, la présentation continue.
+      if (document.fullscreenElement) return;
       // Une fenêtre ouverte (choix de transition, épinglage…) se referme d'abord : elle écoute Échap.
       if (document.querySelector('[role="dialog"], dialog[open]')) return;
       // Un menu ouvert se referme d'abord.

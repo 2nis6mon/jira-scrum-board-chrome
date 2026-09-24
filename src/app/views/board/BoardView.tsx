@@ -42,6 +42,7 @@ import { blockingRequiredFields } from "../../../jira/models";
 import type { BoardModel } from "../../model/BoardModel";
 import type { NoticeId } from "../../model/noticeStore";
 import { formatDay, formatPoints, formatTime, plural, toggled } from "../format";
+import { FullscreenButton, requestFullscreen, useFullscreen } from "../fullscreen";
 import { GoalMarker } from "../GoalMarker";
 import { HealthPanel } from "../health/HealthPanel";
 import { Icon } from "../Icon";
@@ -394,7 +395,7 @@ function SprintHeader(props: {
             onClick={() => {
               // Le plein écran exige le geste de l'utilisateur : demandé avant tout le reste. Refusé
               // (cadre sans droit, navigateur), la daily se déroule simplement dans la fenêtre.
-              document.documentElement.requestFullscreen?.().catch(() => {});
+              requestFullscreen();
               const layout = board.layout.value;
               const first = layout ? (dailySteps(layout.lanes)[0]?.id ?? null) : null;
               controls.onStartDaily(configuration.dailyMinutes, first);
@@ -407,8 +408,12 @@ function SprintHeader(props: {
           type="button"
           class="icon-button"
           aria-label="Mode présentation"
-          title="Mode présentation : masque la barre latérale et l'en-tête (Échap pour revenir)"
-          onClick={controls.onEnterPresentation}
+          title="Mode présentation : plein écran, sans barre latérale ni en-tête (Échap pour revenir)"
+          onClick={() => {
+            // Le plein écran exige le geste de l'utilisateur : demandé avant tout le reste.
+            requestFullscreen();
+            controls.onEnterPresentation();
+          }}
         >
           <Icon name="present" size={17} />
         </button>
@@ -417,19 +422,26 @@ function SprintHeader(props: {
   );
 }
 
-/** Sortie du mode présentation, toujours visible pendant la présentation. */
+/**
+ * Sortie du mode présentation, toujours visible pendant la présentation ; à côté, le retour au
+ * plein écran si l'on en est sorti (Échap en plein écran appartient au navigateur).
+ */
 function PresentationExit({ onExit }: { onExit: () => void }) {
+  const fullscreen = useFullscreen();
   return (
-    <button
-      type="button"
-      class="presentation-exit"
-      aria-label="Quitter le mode présentation"
-      title="Quitter le mode présentation (Échap)"
-      onClick={onExit}
-    >
-      <Icon name="exitPresent" />
-      Quitter
-    </button>
+    <span class="presentation-exit">
+      <FullscreenButton fullscreen={fullscreen} />
+      <button
+        type="button"
+        class="presentation-exit-button"
+        aria-label="Quitter le mode présentation"
+        title={fullscreen ? "Quitter le mode présentation" : "Quitter le mode présentation (Échap)"}
+        onClick={onExit}
+      >
+        <Icon name="exitPresent" />
+        Quitter
+      </button>
+    </span>
   );
 }
 
@@ -437,7 +449,8 @@ function PresentationExit({ onExit }: { onExit: () => void }) {
 
 /**
  * Barre de la daily, dans l'ordre voulu par Denis : minuteur, Précédent, Suivant, puis la swimlane
- * présentée (objectif, Build ou Kanban, avec le temps passé dessus) ; à droite pause, plein écran, fin. Clavier : ← et →, Espace, Échap. Le board reste manipulable :
+ * présentée (objectif, Build ou Kanban, avec le temps passé dessus) ; à droite pause, plein écran,
+ * fin. Clavier : ← et →, Espace, Échap. Le board reste manipulable :
  * déplacer une carte y est la même transition ou le même rang qu'ailleurs.
  */
 function DailyBar(props: {
@@ -448,15 +461,12 @@ function DailyBar(props: {
 }) {
   const { session, steps, index, controls } = props;
   const [now, setNow] = useState(() => Date.now());
-  const [fullscreen, setFullscreen] = useState(() => document.fullscreenElement != null);
+  const fullscreen = useFullscreen();
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 500);
-    const onFullscreen = () => setFullscreen(document.fullscreenElement != null);
-    document.addEventListener("fullscreenchange", onFullscreen);
     return () => {
       clearInterval(timer);
-      document.removeEventListener("fullscreenchange", onFullscreen);
     };
   }, []);
 
@@ -568,17 +578,7 @@ function DailyBar(props: {
         >
           <Icon name={paused ? "play" : "pause"} size={17} />
         </button>
-        {!fullscreen && document.fullscreenEnabled && (
-          <button
-            type="button"
-            class="icon-button"
-            aria-label="Plein écran"
-            title="Plein écran"
-            onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})}
-          >
-            <Icon name="fullscreen" size={17} />
-          </button>
-        )}
+        <FullscreenButton fullscreen={fullscreen} />
         <button
           type="button"
           class="daily-stop"

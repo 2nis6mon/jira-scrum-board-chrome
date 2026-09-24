@@ -402,7 +402,9 @@ describe("mode présentation", () => {
       "Mode présentation · Échap pour revenir",
     );
     // Le chemin du retour ne disparaît jamais : au bout de la barre de filtres.
-    expect(document.querySelector(".filter-bar")?.lastElementChild).toBe(exitButton());
+    expect(document.querySelector(".filter-bar")?.lastElementChild?.contains(exitButton())).toBe(
+      true,
+    );
 
     exitButton()?.click();
     await tick();
@@ -412,6 +414,44 @@ describe("mode présentation", () => {
     expect(document.querySelector(".presentation-hint")).toBeNull();
     expect(exitButton()).toBeNull();
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+  });
+
+  it("demande le plein écran et le rend en sortant ; en plein écran, Échap reste au navigateur", async () => {
+    const { model } = await connectedBoard();
+    // Effets de Preact posés (ils suivent l'affichage) avant le geste.
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    let fullscreenElement: Element | null = null;
+    const request = vi.fn(async () => {
+      fullscreenElement = document.documentElement;
+    });
+    const exit = vi.fn(async () => {
+      fullscreenElement = null;
+    });
+    document.documentElement.requestFullscreen = request;
+    document.exitFullscreen = exit;
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => fullscreenElement,
+    });
+    try {
+      labelled("Mode présentation").click();
+      await tick();
+      expect(request).toHaveBeenCalledOnce();
+      // Échap en plein écran : le navigateur en sort, la présentation continue.
+      pressEscape();
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      expect(model.presenting.value).toBe(true);
+
+      exitButton()?.click();
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      expect(model.presenting.value).toBe(false);
+      expect(exit).toHaveBeenCalledOnce();
+    } finally {
+      fullscreenElement = null;
+      Reflect.deleteProperty(document, "fullscreenElement");
+      Reflect.deleteProperty(document, "exitFullscreen");
+      Reflect.deleteProperty(document.documentElement, "requestFullscreen");
+    }
   });
 
   it("Échap revient au mode normal, après un menu ouvert, une fenêtre ou une recherche remplie", async () => {

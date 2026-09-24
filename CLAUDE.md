@@ -283,7 +283,8 @@ défile horizontalement sous environ 1 550 px de fenêtre (1 410 avant).
 Étape 6, découpée en lots (annoncés à Denis) : 6a Sprint Health · 6b plusieurs boards · 6c déplacer
 une carte au clavier (abandonné le 19/09/2026) · 6d audit de sécurité (0.14.1) · 6e empaquetage. Le plein
 écran du navigateur reste retiré (0.10.1) ; un mode présentation sans plein écran est revenu en
-0.15.0, à la demande de Denis. Seul le mode Daily (0.20.0) le demande, à son lancement.
+0.15.0, à la demande de Denis. Le mode Daily (0.20.0) puis le mode présentation (0.21.1) le
+demandent à leur lancement.
 
 0.11.0 : lot 6a, Sprint Health (`core/sprintHealth.ts`, port de `SprintHealthView`) : comptages
 directs, filtres appliqués, aucun score. Écart voulu : la charge par colonne ignore les filtres,
@@ -589,6 +590,13 @@ libellés et tests. Nouveau réglage `kanbanSectionLabel` (« Kanban » par déf
 Build. Anciens formats relus : configuration locale et propriété d'équipe (`runColumns`,
 `showRunSection`, `dailyRunStockLimit`, catégorie `RUN`, bloc `run` dans l'ordre et le repli) ; la
 publication suivante écrit le nouveau format et retire `runColumns` et `showRunSection`.
+
+0.21.1 (demande de Denis) : le mode présentation passe aussi en plein écran, comme la daily.
+`views/fullscreen.tsx` (demande, sortie, suivi par `fullscreenchange`, bouton « Plein écran »)
+sert aux deux. Plein écran demandé au clic sur le chevalet, rendu en quittant la présentation ou
+la daily (effet de `Workspace`). En plein écran, Échap appartient au navigateur : il en sort, la
+présentation continue ; un bouton « Plein écran » apparaît alors à côté de « Quitter », et un
+second Échap quitte la présentation.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit

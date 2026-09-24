@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **24 septembre 2026**  
 Branche décrite : **`codex/mode-daily`** (issue de `main` le 24/09/2026 pour le mode Daily ; contient 0.19.21)  
-Produit autonome : **0.21.0**  
-Prototype d’intégration Jira : **0.21.0.2**
+Produit autonome : **0.21.1**  
+Prototype d’intégration Jira : **0.21.1.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -49,7 +49,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.21.0`  
+Version : `0.21.1`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -71,7 +71,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.21.0.2`  
+Version générée : `0.21.1.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -190,7 +190,8 @@ de Jira.
 - Dans la barre latérale, un Goal atteint n’affiche ni coche ni barre de progression.
 - L’en-tête affiche le nombre de Goals atteints parmi les Goals visibles.
 - Le mode présentation masque la barre latérale et l’en-tête, conserve les filtres et agrandit le
-  board. Il ne déclenche pas le plein écran du navigateur.
+  board. Depuis 0.21.1, il passe aussi en plein écran, comme la daily (`views/fullscreen.tsx`) :
+  Échap en sort d’abord, un bouton « Plein écran » permet d’y revenir, un second Échap quitte.
 - Mode Daily (0.20.0, choix de Denis du 24/09/2026). Bouton ▶ de l’en-tête : plein écran du
   navigateur (demandé au clic ; refusé, la daily se déroule dans la fenêtre), mise en page de la
   présentation, UNE swimlane à la fois. Étapes = swimlanes affichées dans l’ordre du board, Build

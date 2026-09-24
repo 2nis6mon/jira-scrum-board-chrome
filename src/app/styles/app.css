@@ -801,10 +801,17 @@ details.filter-menu > summary.active {
   color: var(--ink-2);
 }
 
-/* Sortie du mode présentation : toujours visible, au bout de la barre de filtres. */
+/* Sortie du mode présentation : toujours visible, au bout de la barre de filtres, avec le retour
+   au plein écran quand on en est sorti. */
 .presentation-exit {
-  height: 30px;
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.presentation-exit-button {
+  height: 30px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
