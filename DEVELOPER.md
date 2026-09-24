@@ -564,9 +564,17 @@ Chaque nouvelle écriture devra suivre le processus de sécurité décrit plus h
 
 ### Distribution
 
-- Choisir le mode de distribution : Chrome Web Store, paquet interne ou déploiement géré.
-- Préparer la signature, la politique de mise à jour et les instructions utilisateurs.
-- Vérifier qu’aucune clé privée ni donnée de banc d’essai n’entre dans le paquet.
+- Chrome Web Store, visibilité publique, paquet AUTONOME (choix de Denis du 24/09/2026).
+- `npm run package` : `release/sprint-goals-board-<version>.zip`, construit hors de `dist/`, sans
+  le champ `key` (le Store attribue son identifiant : c'est une autre extension que celle de
+  développement), refusé s'il contient un droit du prototype, une carte de sources, une clé ou le
+  banc d'essai. `EXTENSION_DIR=release/build node scripts/verify-load.mjs` le charge dans un
+  Chrome vierge.
+- Fiche du Store (textes, justifications des droits, déclarations) : `docs/store/fiche.md` ;
+  captures : `npm run store:screenshots` → `docs/store/captures/`.
+- Politique de confidentialité : `docs/privacy/index.html`, publiée par GitHub Pages depuis le
+  dépôt public `2nis6mon/sprint-goals-privacy` : https://2nis6mon.github.io/sprint-goals-privacy/
+  (y recopier le fichier à chaque modification).
 
 ---
 

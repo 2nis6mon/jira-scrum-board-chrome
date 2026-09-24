@@ -17,7 +17,8 @@ import { fileURLToPath } from "node:url";
 const CHROME =
   process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const EXPECTED_ID = "efhpkdoiimdggndnfcgdoaniobdcmokb";
-const dist = fileURLToPath(new URL("../dist", import.meta.url));
+// EXTENSION_DIR : autre dossier à charger (par exemple release/build, le paquet du Store).
+const dist = process.env.EXTENSION_DIR ?? fileURLToPath(new URL("../dist", import.meta.url));
 const screenshotPath = process.argv[2];
 
 if (!existsSync(join(dist, "manifest.json"))) {
@@ -96,7 +97,9 @@ try {
 
   const { id } = await send("Extensions.loadUnpacked", { path: dist });
   check("Chrome accepte le manifest", true);
-  check("identifiant figé par la clé", id === EXPECTED_ID, id);
+  // Le paquet du Store n'a pas de clé : c'est le Store qui attribue l'identifiant.
+  if ("key" in manifest) check("identifiant figé par la clé", id === EXPECTED_ID, id);
+  else console.log(`· sans clé (paquet du Store) : identifiant provisoire ${id}`);
 
   await sleep(1000);
   const { targetInfos } = await send("Target.getTargets");
