@@ -193,9 +193,10 @@ de Jira.
   navigateur (demandé au clic ; refusé, la daily se déroule dans la fenêtre), mise en page de la
   présentation, UNE swimlane à la fois. Étapes = swimlanes affichées dans l’ordre du board, Build
   et RUN compris, objectifs masqués et swimlanes sans ticket affiché sautés (`core/daily.ts`).
-  Barre de daily, dans cet ordre (0.20.1) : minuteur global (orange dans les 2 dernières minutes, rouge avec le
-  dépassement « +mm:ss » ensuite, jamais d’arrêt ni de son), temps passé sur l’étape, Précédent,
-  Suivant, pause, plein écran, Terminer. Clavier : ← →, Espace, Échap (en plein écran, Échap
+  Barre de daily, dans cet ordre (0.20.1) : minuteur global (orange dans les 2 dernières minutes,
+  rouge avec le dépassement « +mm:ss » ensuite, jamais d’arrêt ni de son), Précédent, Suivant,
+  swimlane présentée (objectif, Build ou RUN) avec le temps passé dessus, « En pause » s’il y a
+  lieu ; à droite pause, plein écran, Terminer. Clavier : ← →, Espace, Échap (en plein écran, Échap
   appartient au navigateur : il en sort et la daily continue). Le temps est recalculé depuis
   l’heure de départ, pauses exclues. Les cartes restent déplaçables (mêmes transitions et rangs,
   aucune nouvelle écriture) ; changer de Goal par glissé n’est pas possible, une seule swimlane
