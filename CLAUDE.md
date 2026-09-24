@@ -175,6 +175,8 @@ npm run harness       # banc d'essai visuel, données fictives, http://localhost
 npm run verify:drag         # vrais gestes de glisser-déposer dans Chrome (faux Jira)
 npm run verify:transition   # formulaire de transition dans Chrome (faux Jira)
 npm run verify:jira-direct-test  # construit le prototype dans dist/ puis le vérifie dans Chrome
+npm run package       # zip du Chrome Web Store (paquet autonome, sans key) dans release/
+npm run store:screenshots   # captures 1280 × 800 du Store, banc d'essai, docs/store/captures/
 ```
 
 Prototype sans toucher au paquet d'essai de Denis : `npx vite build --mode jira-direct-test
