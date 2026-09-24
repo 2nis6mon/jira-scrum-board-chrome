@@ -175,8 +175,8 @@ export function PinGoalsDialog({ board }: { board: BoardModel }) {
         )}
 
         <p class="hint">
-          Enregistré dans une propriété du sprint, partagée avec l'app Mac. Le champ « Objectif » du
-          sprint n'est pas modifié, ni aucun ticket.
+          Pour ce sprint seulement, enregistré dans une propriété du sprint. Le champ « Objectif »
+          du sprint n'est pas modifié, ni aucun ticket.
         </p>
         <div class="row">
           <button

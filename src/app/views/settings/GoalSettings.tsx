@@ -16,7 +16,7 @@ const SOURCES: readonly { id: GoalSource; label: string; help: string }[] = [
   {
     id: "sprintText",
     label: "Texte du sprint",
-    help: "Les objectifs sont les lignes du champ « Objectif » du sprint, lu sans jamais être modifié. Le rattachement est enregistré dans la propriété du sprint, partagée avec l'app Mac.",
+    help: "Les objectifs sont les lignes du champ « Objectif » du sprint, lu sans jamais être modifié. Le rattachement est enregistré dans Jira, dans une propriété du sprint.",
   },
 ];
 
@@ -71,9 +71,10 @@ export function GoalSettings({
         <section class="panel" aria-labelledby="settings-pin">
           <h2 id="settings-pin">Goals épinglés au sprint</h2>
           <p class="hint">
-            Les objectifs du sprint sont déduits de ses tickets. Un Goal épinglé s'affiche aussi
-            sans ticket. L'épinglage est enregistré dans Jira, dans la propriété du sprint partagée
-            avec l'app Mac : c'est une écriture, faite sur votre geste seulement.
+            Pour CE sprint seulement : un Goal épinglé a sa swimlane même sans aucun ticket (utile
+            en début de sprint). Les autres objectifs sont déduits des tickets. Le sprint suivant
+            repart sans épinglage. Enregistré dans Jira, dans une propriété du sprint, sur votre
+            geste seulement.
           </p>
           <div class="row">
             <button
@@ -95,7 +96,7 @@ export function GoalSettings({
 /**
  * Goals associés au board : les seuls interrogés, avec les épinglés et ceux que déclarent les
  * tickets, pour trouver les objectifs du sprint. Sans association, l'extension interroge tous les
- * Goals du site quand les tickets n'en déclarent aucun. Réglage local.
+ * Goals du site quand les tickets n'en déclarent aucun. Réglage du board partagé (0.22.0).
  */
 function BoardGoals({
   board,
@@ -129,9 +130,11 @@ function BoardGoals({
         </button>
       </header>
       <p class="hint">
-        Facultatif. Associer des Goals au board limite à ceux-ci la recherche des objectifs du
-        sprint (en plus des épinglés et de ceux que déclarent les tickets). Sans association,
-        l'extension interroge tous les Goals du site quand les tickets n'en déclarent aucun.
+        Facultatif, pour tous les sprints. Limite la recherche des objectifs du sprint à ces Goals
+        (plus les épinglés et ceux que déclarent les tickets). Un Goal associé ne s'affiche que s'il
+        a des tickets dans le sprint : pour l'afficher sans ticket, épinglez-le. Sans association,
+        l'extension interroge tous les Goals du site quand les tickets n'en déclarent aucun. Partagé
+        avec l'équipe.
       </p>
       {board.siteGoalsError.value && (
         <p class="notice notice-error" role="alert">

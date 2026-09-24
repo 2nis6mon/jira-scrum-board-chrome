@@ -633,6 +633,10 @@ suspendu par `it.skipIf`).
 0.22.2 (demande de Denis) : lancement de la daily plus visible — bouton plein « ▶ Daily » (icône
 et texte, couleur principale) déplacé en tête des actions de l'en-tête, avant l'heure de synchro.
 
+0.22.3 (demande de Denis) : textes d'aide des Goals revus — « associés au board » (filtre de
+recherche, tous les sprints, partagé ; n'affiche pas un Goal sans ticket) et « épinglés au sprint »
+(ce sprint seulement, swimlane même sans ticket) ; plus de mention de l'app Mac dans l'interface.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).
