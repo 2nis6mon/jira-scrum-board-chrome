@@ -72,7 +72,7 @@ npm run build:jira-direct-test
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
 Version générée : `0.21.2.2`  
-Nom généré : `Sprint Goals — test ouverture Jira`
+Nom : celui du paquet autonome (depuis le 24/09/2026)
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
 seule entrée dans `chrome://extensions` ; passer d’un paquet à l’autre demande seulement de
