@@ -4,6 +4,7 @@ import { loadActiveBoard } from "../../src/app/model/boardStore";
 import { goalBlock } from "../../src/core/boardBlocks";
 import { focusGoal, NO_FILTERS } from "../../src/core/filters";
 import { normalizeSiteUrl } from "../../src/jira/site";
+import { BOARD_PROPERTY_KEYS } from "../../src/jira/writes";
 import { BOARD_URL, boardSiteJira } from "../support/boardFixture";
 import { isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
@@ -21,19 +22,26 @@ async function preferencesBoard() {
   await board.load();
   await board.detect(BOARD_URL);
   const writesBefore = jira.requests.filter(isWriteRequest).length;
+  const teamProperty = `/rest/agile/1.0/board/7/properties/${BOARD_PROPERTY_KEYS.teamSettings}`;
+  const isTeamWrite = (r: { method: string; path: string }) =>
+    r.method === "PUT" && r.path === teamProperty;
   return {
     board,
     platform,
-    jiraWrites: () => jira.requests.filter(isWriteRequest).length - writesBefore,
+    /** Écritures Jira autres que les réglages partagés du board. */
+    jiraWrites: () =>
+      jira.requests.filter((r) => isWriteRequest(r) && !isTeamWrite(r)).length - writesBefore,
+    /** Écritures des réglages partagés (propriété du board), une par geste. */
+    teamWrites: () => jira.requests.filter(isTeamWrite).length,
     stored: () => loadActiveBoard(platform.store, SITE.origin),
   };
 }
 
 const laneIds = (board: BoardModel) => board.layout.value?.lanes.map((lane) => lane.id);
 
-describe("BoardModel — réglages d'affichage locaux", () => {
-  it("monter et descendre une swimlane : immédiat, enregistré, rien n'est écrit dans Jira", async () => {
-    const { board, jiraWrites, stored } = await preferencesBoard();
+describe("BoardModel — réglages d'affichage (partagés sauf le repli)", () => {
+  it("monter et descendre une swimlane : immédiat, enregistré, une écriture partagée par geste", async () => {
+    const { board, jiraWrites, teamWrites, stored } = await preferencesBoard();
     expect(laneIds(board)).toEqual([`goal:${PAIEMENT}`, `goal:${STABILITE}`, "build", "kanban"]);
 
     await board.moveLane("build", -1);
@@ -48,10 +56,11 @@ describe("BoardModel — réglages d'affichage locaux", () => {
       "kanban",
     ]);
     expect(jiraWrites()).toBe(0);
+    expect(teamWrites()).toBe(2);
   });
 
-  it("glisser-déposer une swimlane : elle prend la place visée, rien n'est écrit dans Jira", async () => {
-    const { board, stored, jiraWrites } = await preferencesBoard();
+  it("glisser-déposer une swimlane : elle prend la place visée, une écriture partagée", async () => {
+    const { board, stored, jiraWrites, teamWrites } = await preferencesBoard();
     board.startLaneDrag("kanban");
     board.setLaneDropTarget(`goal:${PAIEMENT}`);
     expect(board.laneDropTarget.value).toBe(`goal:${PAIEMENT}`);
@@ -66,6 +75,7 @@ describe("BoardModel — réglages d'affichage locaux", () => {
     ]);
     expect(board.draggingLane.value).toBeNull();
     expect(jiraWrites()).toBe(0);
+    expect(teamWrites()).toBe(1);
   });
 
   it("glisser une swimlane en dernier, puis à sa propre place : seule la première compte", async () => {
@@ -103,7 +113,7 @@ describe("BoardModel — réglages d'affichage locaux", () => {
   });
 
   it("replier une swimlane, puis toutes, puis tout déplier", async () => {
-    const { board, stored, jiraWrites } = await preferencesBoard();
+    const { board, stored, jiraWrites, teamWrites } = await preferencesBoard();
     await board.toggleLaneCollapsed(goalBlock(STABILITE));
     const collapsed = () =>
       board.layout.value?.lanes.filter((lane) => lane.collapsed).map((lane) => lane.id);
@@ -116,10 +126,12 @@ describe("BoardModel — réglages d'affichage locaux", () => {
     await board.setAllLanesCollapsed(false);
     expect(collapsed()).toEqual([]);
     expect(jiraWrites()).toBe(0);
+    // Le repli est personnel : jamais écrit dans Jira.
+    expect(teamWrites()).toBe(0);
   });
 
   it("masquer un objectif : ses tickets rejoignent Build ; le réafficher les ramène", async () => {
-    const { board, stored, jiraWrites } = await preferencesBoard();
+    const { board, stored, jiraWrites, teamWrites } = await preferencesBoard();
     const keysIn = (laneId: string) =>
       board.layout.value?.lanes
         .find((lane) => lane.id === laneId)
@@ -136,10 +148,11 @@ describe("BoardModel — réglages d'affichage locaux", () => {
     expect(board.hiddenGoals.value).toEqual([]);
     // Le rattachement dans Jira n'a jamais été touché.
     expect(jiraWrites()).toBe(0);
+    expect(teamWrites()).toBe(2);
   });
 
   it("couleur d'un objectif : immédiate, enregistrée, conservée par la relecture de Jira", async () => {
-    const { board, stored, jiraWrites } = await preferencesBoard();
+    const { board, stored, jiraWrites, teamWrites } = await preferencesBoard();
     const colorOf = (goalId: string) =>
       board.snapshot.value?.goals.find((goal) => goal.id === goalId)?.color;
     expect(colorOf(PAIEMENT)).toBe("goal1");
@@ -152,6 +165,7 @@ describe("BoardModel — réglages d'affichage locaux", () => {
     expect(colorOf(PAIEMENT)).toBe("goal6");
     expect(colorOf(STABILITE)).toBe("goal2");
     expect(jiraWrites()).toBe(0);
+    expect(teamWrites()).toBe(1);
   });
 
   it("une couleur choisie pendant une relecture n'est pas écrasée par elle", async () => {

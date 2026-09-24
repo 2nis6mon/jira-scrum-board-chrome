@@ -1,9 +1,9 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
 Dernière mise à jour : **24 septembre 2026**  
-Branche décrite : **`main`** (`codex/presentation-echap` fusionnée le 24/09/2026)  
-Produit autonome : **0.21.2**  
-Prototype d’intégration Jira : **0.21.2.2**
+Branche décrite : **`codex/reglages-automatiques`** (issue de `main` le 24/09/2026)  
+Produit autonome : **0.22.0**  
+Prototype d’intégration Jira : **0.22.0.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -49,7 +49,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.21.2`  
+Version : `0.22.0`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -71,7 +71,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.21.2.2`  
+Version générée : `0.22.0.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -243,8 +243,14 @@ de Jira.
 ### Réglages et partage
 
 - Les réglages personnels utilisent `chrome.storage.local`, jamais `storage.sync`.
-- Les réglages d’équipe sont publiés uniquement sur le geste « Publier pour l’équipe ».
-- Ils vivent dans la propriété de board `com.scrumboardmac.boardsettings.v1`.
+- Réglages du board partagés (0.22.0) : aucun réglage « local non enregistré ». Ils vivent dans la
+  propriété de board `com.scrumboardmac.boardsettings.v1`, relue et appliquée à chaque chargement ;
+  chaque modification par l’utilisateur y est écrite aussitôt, sur la version relue juste avant
+  (celles des collègues sont gardées), une seule tentative. Un changement automatique (couleur d’un
+  nouvel objectif) n’est jamais écrit seul. Échec réseau : la modification est perdue au prochain
+  chargement (accepté par Denis).
+- Sans droit de modifier le board (`canEdit`, ou refus de Jira) : administration réduite au
+  Diagnostic, ni ordre, ni couleur, ni masquage des swimlanes ; le repli reste personnel.
 - Les Goals épinglés vivent dans la propriété de sprint
   `com.scrumboardmac.sprintgoals.v1` (nom hérité de l’application Mac, abandonnée).
 - Les préférences personnelles ne sont jamais publiées dans Jira.

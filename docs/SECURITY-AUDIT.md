@@ -1,5 +1,10 @@
 # Audit de sécurité — Sprint Goals Board pour Jira 0.14.0 (extension Chrome)
 
+> **Suivi (0.22.0, 24/09/2026)** — E6 n'est plus écrite par « Publier pour l'équipe » mais à
+> chaque modification d'un réglage du board par l'utilisateur (demande de Denis) : même propriété,
+> même contenu, relue avant chaque écriture, une seule tentative, conflit détecté. Nouvelle
+> lecture : droit `canEdit` du board. Aucune nouvelle permission, aucun nouvel hôte.
+
 > **Suivi (0.14.1)** — S1 est corrigé et couvert par des tests (`tests/jira/site.test.ts`,
 > `tests/guards/sources.test.ts`). Les autres constats sont des informations : risques
 > structurels ou choix assumés, détaillés plus bas. Correctifs en fin de document.
@@ -67,7 +72,7 @@ Il n'existe **aucune autre écriture** que celles-ci.
 | E3 | Rattacher un ticket à un Goal | mutation `goals_linkWorkItem` | Déposer une carte dans la swimlane d'un Goal |
 | E4 | Détacher un ticket de son Goal | mutation `goals_unlinkWorkItem` | Déposer une carte dans *Build* ; implicite avant E3 quand le ticket change de Goal |
 | E5 | Enregistrer les objectifs du sprint | `PUT /rest/agile/1.0/sprint/{id}/properties/com.scrumboardmac.sprintgoals.v1` | « Épingler des Goals au sprint… » ; en mode « texte du sprint », déposer une carte dans la swimlane d'un objectif |
-| E6 | Publier les réglages d'équipe | `PUT /rest/agile/1.0/board/{id}/properties/com.scrumboardmac.boardsettings.v1` | « Publier pour l'équipe… » puis confirmation |
+| E6 | Enregistrer les réglages du board (partagés) | `PUT /rest/agile/1.0/board/{id}/properties/com.scrumboardmac.boardsettings.v1` | Depuis 0.22.0 : chaque modification d'un réglage du board par l'utilisateur (administration, ordre, couleur ou masquage d'une swimlane) ; jamais un changement automatique ni une préférence personnelle. Avant 0.22.0 : « Publier pour l'équipe… » puis confirmation |
 
 ### Écriture technique (diagnostic)
 
@@ -217,9 +222,12 @@ avant de le coller ailleurs.
 - **Propriété du sprint** (E5) : identifiants et titres des objectifs épinglés, rattachements du
   mode texte, date et identifiant de compte de la dernière modification. C'est le format partagé
   avec le Mac. Lisible par qui voit le sprint.
-- **Propriété du board** (E6) : réglages d'équipe (colonnes, types, labels, couleurs, ordre des
-  swimlanes, objectifs masqués, champs des cartes, règles de couleur et leur JQL), date de
-  publication. **S6** : elle contient aussi le nom affiché et l'identifiant de compte de la
+- **Propriété du board** (E6) : réglages du board (colonnes, types, labels, couleurs, ordre des
+  swimlanes, objectifs masqués, champs des cartes, règles de couleur et leur JQL, noms de Build et
+  Kanban, réglages de la daily), date de la dernière modification. Depuis 0.22.0, écrite à chaque
+  modification d'un de ces réglages, sur la version relue juste avant, une seule tentative ; la
+  lecture du droit `canEdit` (`GET /rest/agile/1.0/board?expand=permissions`) masque ces réglages
+  à qui ne peut pas modifier le board, et un refus de Jira fait de même. **S6** : elle contient aussi le nom affiché et l'identifiant de compte de la
   personne qui publie. Ces informations sont visibles de toute façon dans Jira par les mêmes
   personnes. Rien de personnel ne s'y trouve : les réglages personnels n'y sont jamais écrits.
 

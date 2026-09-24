@@ -16,9 +16,11 @@ import type { CardField } from "./cardFields";
 /**
  * Réglages d'équipe d'un board, partagés par une propriété du board dans Jira
  * (`com.scrumboardmac.boardsettings.v1`) et publiés sur un geste explicite. Validé par Denis le
- * 19/09/2026 : cinquième catégorie d'écriture, et seule exception à « réglages jamais écrits dans
- * Jira ». Les réglages PERSONNELS n'en font jamais partie : swimlanes repliées, rafraîchissement
- * automatique, épinglage gardé localement, filtres, largeur de la barre latérale.
+ * 19/09/2026 : cinquième catégorie d'écriture. Depuis 0.22.0 (demande de Denis du 24/09/2026), toute
+ * modification d'un de ces réglages par l'utilisateur est écrite aussitôt, et la version de Jira est
+ * appliquée à chaque chargement du board. Les réglages PERSONNELS n'en font jamais partie : swimlanes
+ * repliées, rafraîchissement automatique, épinglage gardé localement, filtres, largeur de la barre
+ * latérale.
  *
  * Toute personne qui voit le board peut lire la propriété : elle ne contient que des réglages
  * d'affichage, le nom et l'identifiant de compte de qui a publié, rien de personnel au-delà.
@@ -47,6 +49,9 @@ export interface TeamSettings {
   readonly buildSectionLabel: string;
   readonly kanbanSectionLabel: string;
   readonly agingThresholdDays: number;
+  /** Daily : durée du minuteur et cartes du stock Kanban (même daily pour toute l'équipe). */
+  readonly dailyMinutes: number;
+  readonly dailyKanbanStockLimit: number;
   readonly blockedLabels: readonly string[];
   readonly goalSource: GoalSource;
   readonly boardGoalIds: readonly string[];
@@ -65,6 +70,8 @@ const SETTINGS_KEYS = [
   "buildSectionLabel",
   "kanbanSectionLabel",
   "agingThresholdDays",
+  "dailyMinutes",
+  "dailyKanbanStockLimit",
   "blockedLabels",
   "goalSource",
   "boardGoalIds",
@@ -110,6 +117,8 @@ export function teamSettingsOf(configuration: BoardConfiguration): TeamSettings 
     showKanbanSection: configuration.showKanbanSection,
     buildSectionLabel: configuration.buildSectionLabel,
     kanbanSectionLabel: configuration.kanbanSectionLabel,
+    dailyMinutes: configuration.dailyMinutes,
+    dailyKanbanStockLimit: configuration.dailyKanbanStockLimit,
     agingThresholdDays: configuration.agingThresholdDays,
     blockedLabels: [...configuration.blockedLabels],
     goalSource: configuration.goalSource,
@@ -156,6 +165,8 @@ export function withTeamSettings(
     showKanbanSection: settings.showKanbanSection,
     buildSectionLabel: settings.buildSectionLabel,
     kanbanSectionLabel: settings.kanbanSectionLabel,
+    dailyMinutes: settings.dailyMinutes,
+    dailyKanbanStockLimit: settings.dailyKanbanStockLimit,
     agingThresholdDays: settings.agingThresholdDays,
     blockedLabels: [...settings.blockedLabels],
     goalSource: settings.goalSource,
@@ -177,6 +188,7 @@ const FAMILIES: readonly (readonly [string, (settings: TeamSettings) => unknown]
     (s) => [s.showKanbanSection, s.buildSectionLabel, s.kanbanSectionLabel, s.agingThresholdDays],
   ],
   ["Labels de blocage", (s) => s.blockedLabels],
+  ["Daily : durée et stock Kanban", (s) => [s.dailyMinutes, s.dailyKanbanStockLimit]],
   ["Source des objectifs et Goals du board", (s) => [s.goalSource, s.boardGoalIds]],
   ["Couleurs des objectifs", (s) => s.goalColorIndex],
   ["Ordre des swimlanes", (s) => s.blockOrder],
@@ -204,6 +216,11 @@ export function teamDifferences(
 }
 
 // ─── Document JSON ───────────────────────────────────────────────────────────
+
+/** Deux configurations ont-elles exactement les mêmes réglages d'équipe ? */
+export function sameTeamSettings(a: BoardConfiguration, b: BoardConfiguration): boolean {
+  return JSON.stringify(teamSettingsOf(a)) === JSON.stringify(teamSettingsOf(b));
+}
 
 export function encodeTeamSettings(settings: TeamSettings): JsonObject {
   return JSON.parse(JSON.stringify(settings)) as JsonObject;

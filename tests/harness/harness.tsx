@@ -134,7 +134,7 @@ if (scenario.startsWith("board")) {
             ],
           }),
         }
-      : { quickFilters },
+      : { quickFilters, canEdit: scenario !== "board-lecture-seule" },
   );
   // Tickets du sprint servis par le faux Jira (sous-tâches comprises pour `board-soustaches`).
   let sprintSource: Record<string, unknown>[] = SPRINT_ISSUES;

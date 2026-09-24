@@ -23,18 +23,21 @@ historiques.
 
 1. **Cinq catégories d'écriture dans Jira, rien d'autre** : propriété de sprint (épinglage des
    Goals), lien ticket↔Goal (`goals_linkWorkItem` / `goals_unlinkWorkItem`), transitions, rang,
-   et propriété du board pour les réglages d'équipe (validée par Denis le 19/09/2026, publiée
-   seulement par « Publier pour l'équipe »).
+   et propriété du board pour les réglages du board partagés (validée par Denis le 19/09/2026 ;
+   depuis 0.22.0, à sa demande du 24/09/2026, écrite à chaque modification d'un de ces réglages
+   par l'utilisateur, ce geste valant geste explicite ; jamais pour un changement automatique).
    Les transitions incluent les champs de leur formulaire validé, le commentaire et, depuis
    la demande explicite de Denis du 20/09/2026, le temps passé (`update.worklog`) et les
    Story Points. Seuls les champs exposés par la transition et les opérations autorisées
    par Jira sont envoyés, jamais un ajout de temps séparé avant la transition.
 2. **Ne JAMAIS réécrire le champ « Sprint Goal » du sprint.** Il est lu, jamais écrit.
-3. Ordre des swimlanes, couleurs des objectifs, champs des cartes, règles de couleur : réglages
-   **locaux** (`chrome.storage.local`), jamais dans `storage.sync`. Seule exception : leur part
-   d'équipe (`core/teamSettings.ts`) est écrite dans la propriété du board sur le geste explicite
-   « Publier pour l'équipe ». Les réglages personnels (swimlanes repliées, filtres,
-   rafraîchissement, épinglage local, largeur de la barre) ne sont jamais écrits dans Jira.
+3. Réglages du board (colonnes, types, ordre et couleurs des swimlanes, objectifs masqués, champs
+   des cartes, règles de couleur, noms de Build et Kanban, daily…, `core/teamSettings.ts`) :
+   PARTAGÉS par la propriété du board depuis 0.22.0 — relus et appliqués à chaque chargement,
+   écrits à chaque modification ; une copie reste dans `chrome.storage.local`, jamais dans
+   `storage.sync`. Sans droit de modifier le board (`canEdit` faux, ou refus de Jira), ils ne se
+   modifient pas. Les réglages personnels (swimlanes repliées, filtres, rafraîchissement, épinglage
+   local, largeur de la barre, panneau Santé) ne sont jamais écrits dans Jira.
 4. **Une seule tentative pour tout POST/PUT/DELETE.** Jamais de retry sur une écriture ; si
    l'issue est incertaine, on relit Jira.
 5. Pas de fiche ticket native : on ouvre la page Jira dans un onglet.
@@ -604,6 +607,23 @@ le navigateur garde la touche pour sortir du plein écran et ne la transmet pas 
 écoute `fullscreenchange` : sortir du plein écran pendant la présentation la quitte. Le bouton
 « Plein écran » à côté de « Quitter » est retiré (inutile). La daily garde son comportement :
 sortir du plein écran ne l'arrête pas.
+
+0.22.0 (demande de Denis du 24/09/2026, branche `codex/reglages-automatiques`) : plus de
+« paramètres locaux non enregistrés ». `BoardModel.#changeShared` : un geste qui change un réglage
+partagé (`sameTeamSettings`) l'applique à l'écran, puis `#saveShared` relit la propriété, rejoue le
+changement sur la version relue (les réglages d'un collègue sont gardés) et écrit UNE fois par
+`publishTeamSettings` (conflit s'il y a eu une écriture entre les deux lectures : rien n'est écrit,
+la version de Jira s'affiche, on le dit). Écritures enchaînées ; une relecture commencée avant une
+écriture est écartée. `#refreshTeamSettings` applique la version de Jira à chaque lecture (plus de
+bandeau « Appliquer / Garder les miens », plus d'onglet « Réglages d'équipe », plus de « Publier
+pour l'équipe »). Rien d'automatique n'est écrit (couleur d'un nouvel objectif, objectif découvert
+masqué) : cela part avec la prochaine modification. Durée de la daily et stock Kanban deviennent
+partagés. Droit d'édition : `JiraClient.boardCanEdit`, champ `canEdit` de `GET
+/rest/agile/1.0/board?name=…&projectKeyOrId=…&expand=permissions` (spécification OpenAPI vérifiée le
+24/09/2026 ; à CONSTATER sur le Jira de Denis) ; inconnu = modifiable, un 403 à l'écriture le passe
+à faux. Faux : administration réduite au Diagnostic, ni poignée, ni œil, ni couleur, ni Monter/
+Descendre ; le repli reste. Échec réseau : la modification sera remplacée au prochain chargement
+(accepté par Denis). Banc d'essai : `board-lecture-seule`.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit

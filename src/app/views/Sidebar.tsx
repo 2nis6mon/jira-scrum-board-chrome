@@ -145,12 +145,14 @@ function SidebarResizer({ model }: { model: AppModel }) {
  */
 function AdminMenu({ model, board }: { model: AppModel; board: BoardModel }) {
   const configuration = board.configuration.value;
-  const section = model.adminSection.value;
   const host = board.site.host;
+  // Sans droit de modifier le board dans Jira, ses réglages (partagés) ne se changent pas ici.
+  const editable = board.canEditSettings.value;
+  const section = editable ? model.adminSection.value : "diagnostic";
   return (
     <nav class="sidebar-admin" aria-label="Sections de l'administration">
       <p class="settings-group">{configuration?.boardName ?? "Board"}</p>
-      {BOARD_SECTIONS.map((item) => (
+      {(editable ? BOARD_SECTIONS : []).map((item) => (
         <button
           key={item.id}
           type="button"
@@ -163,9 +165,11 @@ function AdminMenu({ model, board }: { model: AppModel; board: BoardModel }) {
         </button>
       ))}
       <p class="hint settings-local">
-        {configuration
-          ? "Réglages de ce navigateur, pour ce board. Seuls les réglages d'équipe, publiés à votre demande, sont écrits dans Jira."
-          : "Choisissez d'abord un board : ces réglages portent sur lui."}
+        {!configuration
+          ? "Choisissez d'abord un board : ces réglages portent sur lui."
+          : editable
+            ? "Réglages du board, partagés avec l'équipe : chaque modification est enregistrée dans Jira."
+            : "Réglages du board en lecture seule : seules les personnes qui peuvent modifier le board dans Jira les changent."}
       </p>
       <p class="settings-group">Site Jira</p>
       <button
@@ -477,6 +481,8 @@ function LaneRow(props: {
   const { model, board, lane } = props;
   const goal = lane.goal;
   const completed = goal !== null && lane.count > 0 && lane.done === lane.count;
+  // Ordre et objectifs masqués sont des réglages partagés : sans droit sur le board, ni glissé ni œil.
+  const editable = board.canEditSettings.value;
   const icon: IconName | null = lane.block.kind === "kanban" ? "kanban" : goal ? null : "build";
   return (
     <div
@@ -487,7 +493,7 @@ function LaneRow(props: {
       <button
         type="button"
         class="sidebar-lane-main"
-        draggable
+        draggable={editable}
         title={goal ? lane.title : `Aller à ${lane.title}`}
         onClick={() => {
           model.showBoard();
@@ -503,7 +509,7 @@ function LaneRow(props: {
         }}
         onDragEnd={() => board.endLaneDrag()}
       >
-        <span class="sidebar-grip" aria-hidden="true" />
+        {editable && <span class="sidebar-grip" aria-hidden="true" />}
         {icon ? (
           <Icon name={icon} size={14} />
         ) : (
@@ -526,7 +532,7 @@ function LaneRow(props: {
           </>
         )}
       </button>
-      {goal && (
+      {goal && editable && (
         <EyeToggle
           hidden={false}
           label={`Masquer « ${lane.title} » du board`}
@@ -589,7 +595,7 @@ function HiddenGoals({ board }: { board: BoardModel }) {
         type="button"
         class="sidebar-section-title sidebar-section-toggle"
         aria-expanded={open}
-        title={`Leurs tickets sont affichés dans ${build}. Réglage de ce navigateur.`}
+        title={`Leurs tickets sont affichés dans ${build}. Réglage du board, partagé avec l'équipe.`}
         onClick={() => setOpen(!open)}
       >
         <span class="chevron" aria-hidden="true" />
@@ -602,11 +608,13 @@ function HiddenGoals({ board }: { board: BoardModel }) {
             <li key={goal.id} class="sidebar-hidden-item" data-goal-color={goal.color}>
               <span class="goal-ring" aria-hidden="true" />
               <span class="sidebar-hidden-title">{goal.title}</span>
-              <EyeToggle
-                hidden
-                label={`Réafficher « ${goal.title} » sur le board`}
-                onClick={() => void board.setGoalHidden(goal.id, false)}
-              />
+              {board.canEditSettings.value && (
+                <EyeToggle
+                  hidden
+                  label={`Réafficher « ${goal.title} » sur le board`}
+                  onClick={() => void board.setGoalHidden(goal.id, false)}
+                />
+              )}
             </li>
           ))}
         </ul>

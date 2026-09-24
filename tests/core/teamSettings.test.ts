@@ -91,7 +91,7 @@ describe("réglages d'équipe ↔ configuration", () => {
         settings,
       ),
     ).toEqual(["Objectifs masqués", "Champs des cartes"]);
-    expect(TEAM_FAMILIES).toHaveLength(10);
+    expect(TEAM_FAMILIES).toHaveLength(11);
     // Un réglage personnel changé n'est pas une différence.
     expect(teamDifferences({ ...changed, collapsedBlockIds: ["build"] }, settings)).toEqual([]);
   });

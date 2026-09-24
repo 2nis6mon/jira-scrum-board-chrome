@@ -43,9 +43,9 @@ import { goalColorName, type SprintGoal } from "../../core/sprintGoals";
 import { sprintHealth } from "../../core/sprintHealth";
 import {
   decodeTeamDocument,
-  decodeTeamSettings,
   encodeTeamSettings,
   publishTeamSettings,
+  sameTeamSettings,
   type TeamDocument,
   teamDifferences,
   teamSettingsOf,
@@ -183,18 +183,6 @@ export type TeamState =
   | { readonly kind: "unreadable"; readonly message: string }
   | { readonly kind: "published"; readonly document: TeamDocument };
 
-export interface TeamStatus {
-  readonly state: TeamState;
-  /** Version publiée dans Jira, si elle est lisible. */
-  readonly published: TeamDocument | null;
-  /** Familles de réglages modifiées dans ce navigateur depuis la version de référence. */
-  readonly localChanges: readonly string[];
-  /** Version publiée plus récente que la référence de ce navigateur, pas encore appliquée. */
-  readonly update: TeamDocument | null;
-  /** Ce que cette version changerait ici. */
-  readonly updateChanges: readonly string[];
-}
-
 export interface TeamNotice {
   readonly tone: "success" | "warning" | "error";
   readonly text: string;
@@ -222,10 +210,16 @@ export class BoardModel {
   readonly setupError = signal<UserMessage | null>(null);
   /** Réglages d'équipe publiés dans Jira pour le board affiché. */
   readonly team = signal<TeamState>({ kind: "unknown" });
-  /** Version d'équipe appliquée automatiquement à la dernière lecture, à signaler une fois. */
-  readonly teamApplied = signal<TeamDocument | null>(null);
-  readonly teamPublishing = signal(false);
+  /** Écritures des réglages partagés en cours (elles passent l'une après l'autre). */
+  readonly teamSaving = signal(0);
   readonly teamNotice = signal<TeamNotice | null>(null);
+  /**
+   * Le compte peut-il modifier le board dans Jira (champ `canEdit`) ? `null` : pas encore su, ou
+   * Jira ne le dit pas ; les réglages restent alors modifiables et un refus de Jira tranchera.
+   */
+  readonly canEditBoard = signal<boolean | null>(null);
+  /** Réglages partagés du board modifiables ici : faux seulement si Jira a dit non. */
+  readonly canEditSettings = computed(() => this.canEditBoard.value !== false);
 
   /** Boards enregistrés pour ce site, par ordre de nom (menu des boards). */
   readonly boards = signal<readonly BoardSummary[]>([]);
@@ -366,7 +360,11 @@ export class BoardModel {
   #colorMatches: Record<string, ReadonlySet<string>> = {};
   #colorRun = 0;
   /** Le prochain relevé des réglages d'équipe les applique sans demander (board tout juste ajouté). */
-  #adoptTeamOnRead = false;
+  /** Droit d'édition du board déjà demandé à Jira pour le board affiché. */
+  #canEditAsked = false;
+  /** Écritures des réglages partagés, enchaînées ; compteur pour écarter une relecture dépassée. */
+  #teamQueue: Promise<void> = Promise.resolve();
+  #teamWrites = 0;
 
   constructor(site: JiraSite, platform: Platform, options: BoardModelOptions = {}) {
     this.site = site;
@@ -412,26 +410,8 @@ export class BoardModel {
       !this.setupBusy.value &&
       this.pendingKeys.value.size === 0 &&
       this.pinEditor.value?.saving !== true &&
-      !this.teamPublishing.value,
+      this.teamSaving.value === 0,
   );
-
-  /** Où en est ce navigateur par rapport aux réglages de l'équipe. */
-  readonly teamStatus = computed((): TeamStatus | null => {
-    const configuration = this.configuration.value;
-    if (!configuration) return null;
-    const state = this.team.value;
-    const published = state.kind === "published" ? state.document : null;
-    const base = configuration.teamBase;
-    const baseSettings = base ? decodeTeamSettings(base.settings) : null;
-    const update = published && published.publishedAt !== base?.publishedAt ? published : null;
-    return {
-      state,
-      published,
-      localChanges: baseSettings ? teamDifferences(configuration, baseSettings) : [],
-      update,
-      updateChanges: update ? teamDifferences(configuration, update.settings) : [],
-    };
-  });
 
   /** Affiche un autre board déjà enregistré, avec ses réglages, puis le relit dans Jira. */
   async switchBoard(boardId: number): Promise<void> {
@@ -503,8 +483,6 @@ export class BoardModel {
       const configuration = await detectBoard(this.#client, urlText, existing);
       await this.#persist(configuration, { activate: true });
       this.#enterBoard(configuration);
-      // Board nouveau dans ce navigateur : il prend d'emblée les réglages de l'équipe, s'il y en a.
-      this.#adoptTeamOnRead = existing === null;
       await this.#refreshBoards();
     } catch (error) {
       this.setupError.value = toMessage(error);
@@ -756,7 +734,7 @@ export class BoardModel {
   }
 
   startLaneDrag(identifier: string): void {
-    if (!this.laneOrder.value.includes(identifier)) return;
+    if (!this.canEditSettings.value || !this.laneOrder.value.includes(identifier)) return;
     batch(() => {
       this.draggingLane.value = identifier;
       this.laneDropTarget.value = undefined;
@@ -788,15 +766,16 @@ export class BoardModel {
 
   #reorderLanes(order: readonly string[]): Promise<void> {
     if (sameOrder(order, this.laneOrder.value)) return Promise.resolve();
-    return this.#updatePreferences((current) => withBlockOrder(current, order));
+    return this.#changeShared((current) => withBlockOrder(current, order));
   }
 
   setGoalHidden(goalId: string, hidden: boolean): Promise<void> {
-    return this.#updatePreferences((current) => withGoalHidden(current, goalId, hidden));
+    return this.#changeShared((current) => withGoalHidden(current, goalId, hidden));
   }
 
   setGoalColor(goalId: string, index: number): Promise<void> {
-    const update = this.#updatePreferences((current) => withGoalColor(current, goalId, index));
+    if (!this.canEditSettings.value) return Promise.resolve();
+    const update = this.#changeShared((current) => withGoalColor(current, goalId, index));
     // La couleur change tout de suite à l'écran, sans attendre de relire Jira.
     const snapshot = this.snapshot.value;
     const chosen = this.configuration.value?.goalColorIndex[goalId];
@@ -1584,142 +1563,150 @@ export class BoardModel {
   }
 
   // ─── Réglages d'équipe (propriété du board) ───────────────────────────────
-
-  /** Applique ici la version publiée par l'équipe, puis relit le board. */
-  async applyTeamSettings(): Promise<void> {
-    const state = this.team.value;
-    if (state.kind !== "published") return;
-    await this.#applyTeamDocument(state.document);
-    this.teamApplied.value = null;
-    this.teamNotice.value = null;
-    await this.sync();
-  }
+  //
+  // Depuis 0.22.0 (demande de Denis du 24/09/2026), plus de publication manuelle : la version de
+  // Jira est appliquée à chaque lecture du board, et chaque modification d'un réglage partagé par
+  // l'utilisateur est écrite aussitôt (UNE écriture, sur la version la plus récente relue juste
+  // avant). Ce que l'extension change seule (couleur d'un nouvel objectif…) n'est jamais écrit :
+  // cela part avec la prochaine modification faite par quelqu'un.
 
   /**
-   * Garde les réglages de ce navigateur face à une nouvelle version de l'équipe : elle devient la
-   * référence, et ce qui en diffère ici apparaît comme « à publier ». Rien n'est écrit dans Jira.
+   * Modification faite par l'utilisateur : appliquée à l'écran et dans ce navigateur, puis, si elle
+   * touche un réglage partagé, écrite dans la propriété du board. Refusée d'emblée si Jira a dit
+   * que le compte ne peut pas modifier le board.
    */
-  async keepLocalSettings(): Promise<void> {
-    const state = this.team.value;
-    if (state.kind !== "published") return;
-    const { document } = state;
-    await this.#updatePreferences((current) => ({
-      ...current,
-      teamBase: {
-        publishedAt: document.publishedAt,
-        settings: encodeTeamSettings(document.settings),
-      },
-    }));
+  async #changeShared(
+    change: (configuration: BoardConfiguration) => BoardConfiguration,
+  ): Promise<void> {
+    const before = this.configuration.value;
+    if (!before) return;
+    const shared = !sameTeamSettings(before, change(before));
+    if (shared && !this.canEditSettings.value) return;
+    await this.#updatePreferences(change);
+    if (!shared) return;
+    this.#teamWrites += 1;
+    this.teamSaving.value += 1;
+    const task = this.#teamQueue.then(() => this.#saveShared(change));
+    this.#teamQueue = task.catch(() => {});
+    try {
+      await task;
+    } finally {
+      this.teamSaving.value -= 1;
+    }
   }
 
-  dismissTeamApplied(): void {
-    this.teamApplied.value = null;
-  }
-
-  /**
-   * Publie pour l'équipe les réglages d'équipe de ce navigateur (propriété du board). Geste
-   * explicite, UNE écriture ; relecture juste avant : si quelqu'un a publié depuis la version
-   * connue ici, rien n'est écrit.
-   */
-  async publishTeamSettings(): Promise<void> {
+  /** Écrit une modification des réglages partagés sur la version relue dans Jira. */
+  async #saveShared(change: (configuration: BoardConfiguration) => BoardConfiguration) {
     const configuration = this.configuration.value;
-    if (!configuration || this.teamPublishing.value) return;
-    this.teamPublishing.value = true;
-    this.teamNotice.value = null;
+    if (!configuration) return;
     const boardId = configuration.boardId;
+    const stale = () => this.configuration.value?.boardId !== boardId;
     const user = this.snapshot.value?.currentUser ?? this.#currentUser;
     const entry = {
       action: "réglages d'équipe",
       issueKey: null,
       from: null,
-      to: "publication",
+      to: "enregistrement",
     } as const;
+    this.teamNotice.value = null;
     try {
+      const raw = await this.#client.boardProperty(boardId, BOARD_PROPERTY_KEYS.teamSettings);
+      if (stale()) return;
+      const current = raw === null ? null : decodeTeamDocument(raw);
+      if (raw !== null && !current) {
+        this.teamNotice.value = {
+          tone: "error",
+          text: "Réglage non enregistré dans Jira : les réglages du board y sont dans un format inconnu.",
+          suggestion:
+            "Ils ne sont jamais écrasés. Une version plus récente de l'extension les a peut-être écrits.",
+        };
+        return;
+      }
+      // La modification est rejouée sur la version la plus récente : celles des autres sont gardées.
+      const next = current
+        ? change(withTeamSettings(configuration, current.settings))
+        : configuration;
       const outcome = await publishTeamSettings(this.#client, this.#transport, {
         boardId,
-        settings: teamSettingsOf(configuration),
-        basePublishedAt: configuration.teamBase?.publishedAt ?? null,
+        settings: teamSettingsOf(next),
+        basePublishedAt: current?.publishedAt ?? null,
         publishedBy: {
           accountId: user?.accountId ?? null,
           displayName: user?.displayName ?? null,
         },
         now: this.#now(),
       });
-      if (this.configuration.value?.boardId !== boardId) return;
+      if (stale()) return;
       if (outcome.kind === "published") {
-        const { document } = outcome;
-        this.team.value = { kind: "published", document };
-        await this.#updatePreferences((current) => ({
-          ...current,
-          teamBase: {
-            publishedAt: document.publishedAt,
-            settings: encodeTeamSettings(document.settings),
-          },
-        }));
-        this.teamNotice.value = {
-          tone: "success",
-          text: "Réglages publiés pour l'équipe.",
-          suggestion: "Chacun les reçoit à sa prochaine actualisation du board.",
-        };
-        await this.#record({ ...entry, outcome: "réussi", detail: "propriété du board" });
+        this.team.value = { kind: "published", document: outcome.document };
+        await this.#applyTeamDocument(outcome.document);
+        const changes = current ? teamDifferences(next, current.settings) : [];
+        await this.#record({
+          ...entry,
+          outcome: "réussi",
+          detail: changes.length > 0 ? changes.join(" ; ") : "réglages du board",
+        });
       } else {
         this.team.value = { kind: "published", document: outcome.current };
+        await this.#applyTeamDocument(outcome.current);
         const who = outcome.current.publishedBy.displayName ?? "Quelqu'un";
         this.teamNotice.value = {
           tone: "warning",
-          text: `Rien n'a été écrit : ${who} a publié d'autres réglages d'équipe entre-temps.`,
-          suggestion: "Appliquez-les ou gardez les vôtres, puis publiez de nouveau si besoin.",
+          text: `Réglage non enregistré : ${who} a modifié les réglages du board au même moment.`,
+          suggestion: "Ses réglages sont maintenant affichés ; refaites votre modification.",
         };
-        await this.#record({
-          ...entry,
-          outcome: "échec",
-          detail: "conflit : publiés par quelqu'un d'autre entre-temps",
-        });
+        await this.#record({ ...entry, outcome: "échec", detail: "modifiés au même moment" });
       }
     } catch (error) {
+      if (stale()) return;
       const jiraError = error instanceof JiraError ? error : null;
       const uncertain = jiraError?.isOutcomeUnknown ?? false;
-      const message = toMessage(error);
       const forbidden = jiraError?.info.kind === "forbidden";
-      this.teamNotice.value = uncertain
+      const message = toMessage(error);
+      if (forbidden) this.canEditBoard.value = false;
+      this.teamNotice.value = forbidden
         ? {
-            tone: "warning",
-            text: `Jira n'a pas confirmé la publication (${message.text.replace(/\.$/, "")}).`,
-            suggestion:
-              "Elle a peut-être eu lieu : les réglages d'équipe viennent d'être relus. Vérifiez-les avant de recommencer ; l'extension ne rejoue jamais une écriture.",
-          }
-        : {
             tone: "error",
-            text: forbidden
-              ? "Jira a refusé la publication : il faut pouvoir modifier le board dans Jira."
-              : message.text,
-            suggestion: forbidden
-              ? "Demandez à un administrateur du board de publier, ou de vous en donner le droit. Vos réglages restent dans ce navigateur."
-              : message.suggestion,
-          };
+            text: "Jira a refusé d'enregistrer ce réglage : il faut pouvoir modifier le board.",
+            suggestion:
+              "Les réglages du board sont maintenant en lecture seule ici ; ceux de l'équipe vont être rechargés.",
+          }
+        : uncertain
+          ? {
+              tone: "warning",
+              text: `Jira n'a pas confirmé l'enregistrement du réglage (${message.text.replace(/\.$/, "")}).`,
+              suggestion:
+                "Les réglages du board vont être relus. L'extension ne rejoue jamais une écriture.",
+            }
+          : {
+              tone: "error",
+              text: `Réglage non enregistré dans Jira (${message.text.replace(/\.$/, "")}).`,
+              suggestion: "Il sera remplacé par les réglages du board au prochain chargement.",
+            };
       await this.#record({
         ...entry,
         outcome: uncertain ? "incertain" : "échec",
         detail: message.text,
       });
-      if (uncertain) await this.#refreshTeamSettings();
-    } finally {
-      this.teamPublishing.value = false;
+      if (forbidden || uncertain) await this.#refreshTeamSettings({ force: true });
     }
   }
 
   /**
-   * Relit les réglages d'équipe du board (lecture seule) et, s'il y a une nouvelle version,
-   * l'applique d'emblée quand ce navigateur n'a rien modifié depuis la version de référence, ou
-   * quand le board vient d'être ajouté ici. Sinon, le choix est laissé à l'utilisateur.
+   * Relit les réglages d'équipe du board et applique la version de Jira : elle fait foi à chaque
+   * chargement. Une lecture commencée avant une écriture de réglage est écartée (elle la
+   * défairait). Demande aussi, une fois par board, si le compte peut le modifier.
    */
-  async #refreshTeamSettings(): Promise<void> {
+  async #refreshTeamSettings(options: { force?: boolean } = {}): Promise<void> {
     const configuration = this.configuration.value;
     if (!configuration) return;
+    void this.#askCanEdit(configuration);
     const generation = this.#generation;
+    const writes = this.#teamWrites;
     const stale = () =>
       generation !== this.#generation ||
-      this.configuration.value?.boardId !== configuration.boardId;
+      this.configuration.value?.boardId !== configuration.boardId ||
+      (!options.force && (writes !== this.#teamWrites || this.teamSaving.value > 0));
     let raw: unknown;
     try {
       raw = await this.#client.boardProperty(
@@ -1731,8 +1718,6 @@ export class BoardModel {
       return;
     }
     if (stale()) return;
-    const adopt = this.#adoptTeamOnRead;
-    this.#adoptTeamOnRead = false;
     if (raw === null) {
       this.team.value = { kind: "none" };
       return;
@@ -1742,23 +1727,41 @@ export class BoardModel {
       this.team.value = {
         kind: "unreadable",
         message:
-          "Les réglages d'équipe publiés dans Jira sont dans un format inconnu (version plus récente de l'extension ?) : ils ne sont pas appliqués.",
+          "Les réglages du board enregistrés dans Jira sont dans un format inconnu (version plus récente de l'extension ?) : ils ne sont pas appliqués.",
       };
       return;
     }
     this.team.value = { kind: "published", document };
     const latest = this.configuration.value;
-    const base = latest?.teamBase ?? null;
-    if (!latest || base?.publishedAt === document.publishedAt) return;
-    const baseSettings = base ? decodeTeamSettings(base.settings) : null;
-    const untouched = baseSettings !== null && teamDifferences(latest, baseSettings).length === 0;
-    if (!adopt && !untouched) {
-      // Une version plus récente attend un choix : l'annonce d'une version appliquée est périmée.
-      this.teamApplied.value = null;
+    if (
+      !latest ||
+      (latest.teamBase?.publishedAt === document.publishedAt &&
+        teamDifferences(latest, document.settings).length === 0)
+    ) {
       return;
     }
     await this.#applyTeamDocument(document);
-    this.teamApplied.value = document;
+  }
+
+  /** Droit d'édition du board, demandé une fois par board ; une erreur laisse « inconnu ». */
+  async #askCanEdit(configuration: BoardConfiguration): Promise<void> {
+    if (this.#canEditAsked) return;
+    this.#canEditAsked = true;
+    const generation = this.#generation;
+    try {
+      const canEdit = await this.#client.boardCanEdit(
+        configuration.boardId,
+        configuration.boardName,
+        configuration.projectKeys[0] ?? null,
+      );
+      if (generation === this.#generation && canEdit !== null) this.canEditBoard.value = canEdit;
+    } catch {
+      // Inconnu : les réglages restent modifiables, un refus de Jira tranchera.
+    }
+  }
+
+  dismissTeamNotice(): void {
+    this.teamNotice.value = null;
   }
 
   #applyTeamDocument(document: TeamDocument): Promise<void> {
@@ -1811,7 +1814,7 @@ export class BoardModel {
     change: (configuration: BoardConfiguration) => BoardConfiguration,
     options: { resync: boolean },
   ): Promise<void> {
-    await this.#updatePreferences(change);
+    await this.#changeShared(change);
     this.#restartAutoRefresh();
     if (options.resync) await this.sync();
   }
@@ -1985,12 +1988,12 @@ export class BoardModel {
       this.pinEditor.value = null;
       this.editingBoard.value = false;
       this.team.value = { kind: "unknown" };
-      this.teamApplied.value = null;
       this.teamNotice.value = null;
+      this.canEditBoard.value = null;
       this.dismissedNotices.value = null;
     });
     void this.#loadDismissedNotices(configuration);
-    this.#adoptTeamOnRead = false;
+    this.#canEditAsked = false;
     this.#colorMatches = {};
     this.#quickFiltersBoardId = null;
     this.#restartAutoRefresh();

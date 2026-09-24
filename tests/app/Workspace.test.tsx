@@ -65,6 +65,8 @@ function sidebarLink(title: string): HTMLButtonElement {
   return found;
 }
 
+const TEAM_PROPERTY = `/rest/agile/1.0/board/7/properties/${BOARD_PROPERTY_KEYS.teamSettings}`;
+
 async function connectedBoard(jira = boardSiteJira()) {
   const model = new AppModel(fakePlatform(jira));
   render(<App model={model} />, document.body);
@@ -195,7 +197,10 @@ describe("barre latérale", () => {
     expect(boardLanes()).toEqual(expected);
     expect(sidebarLanes()).toEqual(expected);
     expect(document.querySelector(".sidebar-drop-line")).toBeNull();
-    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+    // L'ordre est partagé : une écriture de la propriété du board, rien d'autre.
+    expect(jira.requests.filter(isWriteRequest).map((r) => `${r.method} ${r.path}`)).toEqual([
+      `PUT ${TEAM_PROPERTY}`,
+    ]);
   });
 
   it("l'œil d'un objectif le masque ; celui d'un objectif masqué le réaffiche", async () => {
@@ -221,7 +226,11 @@ describe("barre latérale", () => {
     expect(sidebarLanes()).toEqual(boardLanes());
     expect(sidebarLanes()).toContain("Améliorer la stabilité");
     expect(document.querySelector(".sidebar-hidden")).toBeNull();
-    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+    // Masquer puis réafficher : deux écritures des réglages partagés, rien d'autre.
+    expect(jira.requests.filter(isWriteRequest).map((r) => `${r.method} ${r.path}`)).toEqual([
+      `PUT ${TEAM_PROPERTY}`,
+      `PUT ${TEAM_PROPERTY}`,
+    ]);
   });
 
   it("la bordure de la barre latérale se règle au clavier et revient par double-clic", async () => {
@@ -555,51 +564,69 @@ describe("barre de filtres", () => {
 });
 
 describe("administration", () => {
-  it("réglages d'équipe : publiés après confirmation, relus dans Jira, proposés à un collègue", async () => {
-    const property = `/rest/agile/1.0/board/7/properties/${BOARD_PROPERTY_KEYS.teamSettings}`;
-    let stored: Record<string, unknown> | null = null;
-    const jira = boardSiteJira()
-      .on("GET", property, () =>
-        stored === null ? { status: 404 } : { status: 200, json: { value: stored } },
-      )
-      .on("PUT", property, (request) => {
-        stored = request.body as Record<string, unknown>;
-        return { status: 201 };
-      });
-    const { board } = await connectedBoard(jira);
+  it("réglages partagés : chaque modification est écrite dans Jira et reprise au chargement", async () => {
+    const jira = boardSiteJira();
+    const { model, board } = await connectedBoard(jira);
+    await board.moveLane("build", -1);
+    await expect.poll(() => jira.sent("PUT", TEAM_PROPERTY).length).toBe(1);
+    const written = jira.sent("PUT", TEAM_PROPERTY)[0]?.body as {
+      publishedBy: { displayName: string };
+      settings: { blockOrder: string[] };
+    };
+    expect(written.publishedBy.displayName).toBe("Camille Durand");
+    expect(written.settings.blockOrder.indexOf("build")).toBeLessThan(
+      written.settings.blockOrder.indexOf("goal:g-stabilite"),
+    );
+    // Plus de publication ni de choix à faire : ni onglet ni bandeau.
     button("Administration").click();
     await tick();
-    button("Réglages d'équipe").click();
-    await tick();
-    expect(text()).toContain("Aucun réglage d'équipe n'est encore publié");
+    expect(text()).not.toContain("Publier pour l'équipe");
+    expect(text()).toContain("chaque modification est enregistrée dans Jira");
+    model.showBoard();
 
-    button("Publier pour l'équipe…").click();
+    // Un collègue, dans un autre navigateur, retrouve l'ordre au chargement du board.
+    render(null, document.body);
+    const colleague = new AppModel(fakePlatform(jira));
+    render(<App model={colleague} />, document.body);
+    await colleague.connect("acme.atlassian.net");
+    const connection = colleague.connection.value;
+    if (connection.state !== "connected") throw new Error("connexion attendue");
+    await connection.board.detect(BOARD_URL);
     await tick();
-    const dialog = document.querySelector("[role=dialog]");
-    expect(dialog?.textContent).toContain("Première publication");
-    // Rien n'est écrit avant la confirmation.
-    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
-    dialog?.querySelector<HTMLButtonElement>("button.primary")?.click();
-    await expect.poll(() => jira.sent("PUT", property).length).toBe(1);
-    await expect.poll(() => text()).toContain("Réglages publiés pour l'équipe.");
-    expect(text()).toContain("Ce navigateur est à jour avec l'équipe.");
-    expect(document.querySelector(".report")?.textContent).toContain('"version": 1');
+    expect(boardLanes()).toEqual(sidebarLanes());
+    expect(boardLanes().indexOf("Build")).toBeLessThan(
+      boardLanes().indexOf("Améliorer la stabilité"),
+    );
+    // Lire n'écrit rien.
+    expect(jira.sent("PUT", TEAM_PROPERTY)).toHaveLength(1);
+  });
 
-    // Un collègue publie une autre version ; ici, une modification locale n'est pas publiée.
+  it("sans droit de modifier le board dans Jira : ni réglages du board, ni ordre, ni œil, ni couleur", async () => {
+    const jira = boardSiteJira({ canEdit: false });
+    const { board } = await connectedBoard(jira);
+    await expect.poll(() => board.canEditBoard.value).toBe(false);
+    await tick();
+    expect(document.querySelector(".lane-grip")).toBeNull();
+    expect(document.querySelector(".sidebar-grip")).toBeNull();
+    expect(document.querySelector(".eye-toggle")).toBeNull();
+    expect(
+      [...document.querySelectorAll(".lane-menu button")].map((b) => b.textContent?.trim()),
+    ).not.toContain("Descendre");
+    // Le repli reste possible : il est personnel.
+    expect(document.querySelector("[aria-label='Replier Build']")).not.toBeNull();
+
+    button("Administration").click();
+    await tick();
+    expect([...document.querySelectorAll(".settings-tab")].map((tab) => tab.textContent)).toEqual([
+      "Diagnostic",
+    ]);
+    expect(text()).toContain("Réglages du board en lecture seule");
+
+    // Même appelé directement, un réglage partagé n'est ni appliqué ni écrit.
+    const before = board.laneOrder.value;
     await board.moveLane("build", -1);
-    stored = {
-      ...(stored ?? {}),
-      publishedAt: "2030-01-01T08:00:00Z",
-      publishedBy: { accountId: "u9", displayName: "Alex Martin" },
-    };
-    button("Sprint").click();
-    await board.sync();
-    await tick();
-    expect(text()).toContain("Alex Martin a publié de nouveaux réglages d'équipe");
-    button("Garder les miens").click();
-    await tick();
-    expect(text()).not.toContain("a publié de nouveaux réglages");
-    expect(jira.sent("PUT", property)).toHaveLength(1);
+    expect(board.laneOrder.value).toEqual(before);
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
   it("se déplie dans la barre latérale, sous son bouton, et se replie", async () => {
@@ -639,7 +666,6 @@ describe("administration", () => {
 
     expect(button("Administration").getAttribute("aria-current")).toBe("page");
     expect([...document.querySelectorAll(".settings-tab")].map((tab) => tab.textContent)).toEqual([
-      "Réglages d'équipe",
       "Board",
       "Objectifs",
       "Champs des cartes",

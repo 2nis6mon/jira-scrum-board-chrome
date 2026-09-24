@@ -135,6 +135,8 @@ const ISSUE_PAGE_SIZE = 100;
 const MAX_SPRINTS = 2000;
 const MAX_QUICK_FILTERS = 500;
 const MAX_ISSUES = 5000;
+/** Boards parcourus au plus pour retrouver les droits sur un board (recherche par nom). */
+const MAX_BOARD_SEARCH = 500;
 
 /**
  * Lectures REST de Jira Cloud. Portée limitée aux endpoints vérifiés dans
@@ -187,6 +189,44 @@ export class JiraClient {
         projectKey: typeof location.projectKey === "string" ? location.projectKey : null,
       };
     });
+  }
+
+  /**
+   * Le compte peut-il modifier ce board (et donc écrire ses propriétés) ? Champ `canEdit` du board,
+   * rempli par `GET /rest/agile/1.0/board` avec `expand=permissions` (spécification OpenAPI de Jira
+   * Software vérifiée le 24/09/2026 : « Valid values: admins, permissions », `canEdit` : « Whether
+   * the board can be edited »). La liste est filtrée par nom (et projet) puis le board retrouvé
+   * par identifiant. `null` : board introuvable dans la liste ou champ absent — on ne sait pas.
+   */
+  async boardCanEdit(
+    boardId: number,
+    name: string,
+    projectKey: string | null,
+  ): Promise<boolean | null> {
+    assertEntityId(boardId, "board");
+    let startAt = 0;
+    for (;;) {
+      const { body } = await this.#transport.get("/rest/agile/1.0/board", {
+        query: {
+          name,
+          ...(projectKey ? { projectKeyOrId: projectKey } : {}),
+          expand: "permissions",
+          startAt: String(startAt),
+          maxResults: "50",
+        },
+        resource: `les droits sur le board ${boardId}`,
+      });
+      if (!isRecord(body) || !Array.isArray(body.values)) {
+        decodingFailure("boards", "values absent");
+      }
+      const found = body.values.find((item) => isRecord(item) && item.id === boardId);
+      if (found && isRecord(found)) {
+        return typeof found.canEdit === "boolean" ? found.canEdit : null;
+      }
+      if (body.isLast === true || body.values.length === 0) return null;
+      startAt += body.values.length;
+      if (startAt >= MAX_BOARD_SEARCH) return null;
+    }
   }
 
   async boardStructure(boardId: number): Promise<JiraBoardStructure> {

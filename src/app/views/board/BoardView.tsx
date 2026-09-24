@@ -46,7 +46,6 @@ import { FullscreenButton, requestFullscreen, useFullscreen } from "../fullscree
 import { GoalMarker } from "../GoalMarker";
 import { HealthPanel } from "../health/HealthPanel";
 import { Icon } from "../Icon";
-import { publisher, when } from "../settings/TeamSettings";
 import { FilterMenu } from "./FilterMenu";
 import { placeFloatingMenu } from "./floatingMenu";
 import { IssueCard } from "./IssueCard";
@@ -782,34 +781,18 @@ function Notices(props: { board: BoardModel; snapshot: BoardSnapshot | null }) {
   const { board, snapshot } = props;
   const problem = board.syncProblem.value;
   const writeNotice = board.writeNotice.value;
-  const teamApplied = board.teamApplied.value;
-  const teamUpdate = board.teamStatus.value?.update ?? null;
+  const teamNotice = board.teamNotice.value;
   return (
     <>
-      {teamApplied && !teamUpdate && (
-        <div class="notice notice-info notice-inline" role="status">
+      {teamNotice && (
+        <div class={`notice notice-${teamNotice.tone} notice-inline`} role="alert">
           <p>
-            Réglages d'équipe appliqués : publiés par {publisher(teamApplied)}, {when(teamApplied)}.
+            <strong>{teamNotice.text}</strong>
+            {teamNotice.suggestion && ` ${teamNotice.suggestion}`}
           </p>
-          <button type="button" aria-label="Fermer" onClick={() => board.dismissTeamApplied()}>
+          <button type="button" aria-label="Fermer" onClick={() => board.dismissTeamNotice()}>
             ×
           </button>
-        </div>
-      )}
-      {teamUpdate && (
-        <div class="notice notice-info">
-          <p>
-            <strong>{publisher(teamUpdate)} a publié de nouveaux réglages d'équipe</strong> (
-            {when(teamUpdate)}). Vos réglages ayant changé, ils ne sont pas appliqués d'office.
-          </p>
-          <div class="row">
-            <button type="button" onClick={() => void board.applyTeamSettings()}>
-              Appliquer les réglages de l'équipe
-            </button>
-            <button type="button" onClick={() => void board.keepLocalSettings()}>
-              Garder les miens
-            </button>
-          </div>
         </div>
       )}
       {writeNotice && (
@@ -1155,22 +1138,24 @@ function LaneView(props: {
       >
         {!daily && (
           <>
-            <span
-              class="lane-grip"
-              draggable
-              aria-hidden="true"
-              title="Glisser pour déplacer la swimlane (ou menu ⋯ : Monter, Descendre)"
-              onDragStart={(event) => {
-                if (!event.dataTransfer) return;
-                event.dataTransfer.setData(LANE_DRAG_TYPE, lane.id);
-                event.dataTransfer.effectAllowed = "move";
-                const header = event.currentTarget.closest(".lane-header");
-                if (header instanceof HTMLElement)
-                  event.dataTransfer.setDragImage?.(header, 12, 12);
-                board.startLaneDrag(lane.id);
-              }}
-              onDragEnd={() => board.endLaneDrag()}
-            />
+            {board.canEditSettings.value && (
+              <span
+                class="lane-grip"
+                draggable
+                aria-hidden="true"
+                title="Glisser pour déplacer la swimlane (ou menu ⋯ : Monter, Descendre)"
+                onDragStart={(event) => {
+                  if (!event.dataTransfer) return;
+                  event.dataTransfer.setData(LANE_DRAG_TYPE, lane.id);
+                  event.dataTransfer.effectAllowed = "move";
+                  const header = event.currentTarget.closest(".lane-header");
+                  if (header instanceof HTMLElement)
+                    event.dataTransfer.setDragImage?.(header, 12, 12);
+                  board.startLaneDrag(lane.id);
+                }}
+                onDragEnd={() => board.endLaneDrag()}
+              />
+            )}
             <button
               type="button"
               class="lane-toggle"
@@ -1442,6 +1427,8 @@ function LaneMenu({ board, lane }: { board: BoardModel; lane: Lane }) {
   const order = board.laneOrder.value;
   const position = order.indexOf(lane.id);
   const goal = lane.goal;
+  // Ordre, couleur et masquage sont partagés : réservés à qui peut modifier le board dans Jira.
+  const editable = board.canEditSettings.value;
   // Un choix fait, le menu se referme.
   const act = (event: Event, action: () => Promise<void>) => {
     (event.currentTarget as HTMLElement).closest("details")?.removeAttribute("open");
@@ -1457,20 +1444,24 @@ function LaneMenu({ board, lane }: { board: BoardModel; lane: Lane }) {
         ⋯
       </summary>
       <div class="menu-panel">
-        <button
-          type="button"
-          disabled={position <= 0}
-          onClick={(event) => act(event, () => board.moveLane(lane.id, -1))}
-        >
-          Monter
-        </button>
-        <button
-          type="button"
-          disabled={position < 0 || position >= order.length - 1}
-          onClick={(event) => act(event, () => board.moveLane(lane.id, 1))}
-        >
-          Descendre
-        </button>
+        {editable && (
+          <>
+            <button
+              type="button"
+              disabled={position <= 0}
+              onClick={(event) => act(event, () => board.moveLane(lane.id, -1))}
+            >
+              Monter
+            </button>
+            <button
+              type="button"
+              disabled={position < 0 || position >= order.length - 1}
+              onClick={(event) => act(event, () => board.moveLane(lane.id, 1))}
+            >
+              Descendre
+            </button>
+          </>
+        )}
         <button
           type="button"
           onClick={(event) => act(event, () => board.toggleLaneCollapsed(lane.block))}
@@ -1489,7 +1480,7 @@ function LaneMenu({ board, lane }: { board: BoardModel; lane: Lane }) {
         >
           Tout déplier
         </button>
-        {goal && (
+        {goal && editable && (
           <>
             <fieldset class="menu-colors">
               <legend>Couleur de l'objectif</legend>
@@ -1514,7 +1505,11 @@ function LaneMenu({ board, lane }: { board: BoardModel; lane: Lane }) {
             </button>
           </>
         )}
-        <p class="menu-note">Réglages de ce navigateur. Rien n'est écrit dans Jira.</p>
+        <p class="menu-note">
+          {editable
+            ? "Ordre, couleur et masquage sont partagés avec l'équipe (enregistrés dans Jira) ; le repli reste à vous."
+            : "Seul le repli se change ici : le reste est réservé à qui peut modifier le board dans Jira."}
+        </p>
       </div>
     </details>
   );

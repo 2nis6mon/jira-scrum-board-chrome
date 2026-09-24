@@ -44,6 +44,12 @@ function button(label: string): HTMLButtonElement {
   return found;
 }
 
+/** Écritures des réglages partagés du board (propriété du board), et toutes les autres. */
+const TEAM_PROPERTY = "/rest/agile/1.0/board/7/properties/com.scrumboardmac.boardsettings.v1";
+const teamWrites = (jira: FakeJira) => jira.sent("PUT", TEAM_PROPERTY).length;
+const otherWrites = (jira: FakeJira) =>
+  jira.requests.filter((r) => isWriteRequest(r) && r.path !== TEAM_PROPERTY);
+
 async function connectedBoard(jira = boardSiteJira()) {
   const model = new AppModel(fakePlatform(jira));
   render(<App model={model} />, document.body);
@@ -311,7 +317,7 @@ describe("App", () => {
     expect(document.querySelector(".goal-link")).toBeNull();
   });
 
-  it("menu d'une swimlane : descendre, replier, masquer, sans rien écrire dans Jira", async () => {
+  it("menu d'une swimlane : descendre et masquer partagés, replier personnel", async () => {
     const { jira } = await connectedBoard();
     const laneTitles = () =>
       [...document.querySelectorAll<HTMLElement>("section.lane")].map((lane) =>
@@ -351,7 +357,9 @@ describe("App", () => {
     labelled("Réafficher « Améliorer la stabilité » sur le board").click();
     await tick();
     expect(laneTitles()).toContain("Améliorer la stabilité");
-    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+    // Descendre, masquer et réafficher sont partagés (une écriture chacun) ; replier est personnel.
+    expect(otherWrites(jira)).toEqual([]);
+    expect(teamWrites(jira)).toBe(3);
   });
 
   it("filtres rapides du board Jira : des boutons comme dans Jira, évalués par Jira", async () => {
@@ -374,7 +382,7 @@ describe("App", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
-  it("Administration, section Board : chaque champ s'applique dès qu'il est validé, rien écrit dans Jira", async () => {
+  it("Administration, section Board : chaque champ validé est enregistré dans Jira pour l'équipe", async () => {
     const { jira } = await connectedBoard();
     button("Administration").click();
     await tick();
@@ -430,7 +438,9 @@ describe("App", () => {
     );
     expect(heads[0]).toBe("À prendre");
     expect(document.querySelector(".column-over .column-count")?.textContent).toBe("2 / 1");
-    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+    // Nom de colonne et limite WIP : une écriture partagée chacun ; la saisie invalide, aucune.
+    expect(otherWrites(jira)).toEqual([]);
+    expect(teamWrites(jira)).toBe(2);
   });
 
   it("couleurs des cartes : une règle JQL ajoutée dans Réglages colore la carte que Jira désigne", async () => {
@@ -472,7 +482,8 @@ describe("App", () => {
     ]);
     // Le bleu est pris par la règle intégrée : la nouvelle règle prend la première couleur libre.
     expect(colored).toEqual([["ABC-101", "teal"]]);
-    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+    expect(otherWrites(jira)).toEqual([]);
+    expect(teamWrites(jira)).toBeGreaterThan(0);
   });
 
   it("le diagnostic reste accessible depuis l'administration, même session perdue", async () => {

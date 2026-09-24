@@ -50,7 +50,7 @@ describe("BoardModel — couleurs des cartes", () => {
     expect(board.cardColors.value).toEqual({});
   });
 
-  it("appliquer une règle : Jira dit quels tickets colorer, la règle est enregistrée localement", async () => {
+  it("appliquer une règle : Jira dit quels tickets colorer, la règle est enregistrée et partagée", async () => {
     const { board, jira, platform } = await colorBoard();
     await board.applyColorRules([rule("haute", "priority = High", "red"), SCOPE_CHANGE_RULE]);
 
@@ -58,7 +58,10 @@ describe("BoardModel — couleurs des cartes", () => {
     expect(board.colorRuleCounts.value.haute).toBe(1);
     const stored = await loadActiveBoard(platform.store, SITE.origin);
     expect(stored?.cardColorRules.map((r) => r.id)).toEqual(["haute", SCOPE_CHANGE_RULE.id]);
-    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+    // Seule écriture : les réglages partagés du board, une fois.
+    expect(jira.requests.filter(isWriteRequest).map((r) => `${r.method} ${r.path}`)).toEqual([
+      "PUT /rest/agile/1.0/board/7/properties/com.scrumboardmac.boardsettings.v1",
+    ]);
   });
 
   it("deux règles pour un même ticket : la plus haute dans la liste l'emporte", async () => {

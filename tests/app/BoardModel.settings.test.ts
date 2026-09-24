@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 describe("BoardModel — page Réglages", () => {
-  it("un type passé en « Ignoré » disparaît du board après relecture ; rien n'est écrit", async () => {
+  it("un type passé en « Ignoré » disparaît du board après relecture ; réglage partagé écrit une fois", async () => {
     const { board, stored, jiraWrites } = await settingsBoard();
     expect(board.snapshot.value?.kanbanIssues.map((issue) => issue.issue.key)).toEqual(["RUN-7"]);
 
@@ -49,7 +49,8 @@ describe("BoardModel — page Réglages", () => {
     expect((await stored())?.issueTypes.find((type) => type.id === "10004")?.category).toBe(
       "IGNORED",
     );
-    expect(jiraWrites()).toBe(0);
+    // Une seule écriture : la propriété du board (réglages partagés), rien d'autre.
+    expect(jiraWrites()).toBe(1);
   });
 
   it("source des objectifs : le texte du sprint, même quand les Goals répondent", async () => {

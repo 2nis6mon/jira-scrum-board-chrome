@@ -101,11 +101,32 @@ export function boardSiteJira(
     graphql?: Reply | ((request: RecordedRequest) => Reply);
     /** Filtres rapides du board Jira ; aucun par défaut. */
     quickFilters?: unknown[];
+    /** Droit de modifier le board (`canEdit`) ; vrai par défaut, `null` : champ absent. */
+    canEdit?: boolean | null;
   } = {},
 ) {
   const issues = options.sprintIssues ?? SPRINT_ISSUES;
+  const property = `/rest/agile/1.0/board/7/properties/${BOARD_PROPERTY_KEYS.teamSettings}`;
+  // Propriété des réglages d'équipe tenue comme dans Jira : ce qui est écrit est relu ensuite.
+  let teamDocument: unknown = null;
+  const canEdit = options.canEdit === undefined ? true : options.canEdit;
   return (
     new FakeJira()
+      .on("GET", "/rest/agile/1.0/board", (request) => ({
+        status: 200,
+        json: {
+          isLast: true,
+          values:
+            request.url.searchParams.get("expand") === "permissions"
+              ? [{ id: 7, name: "Équipe Paiement", ...(canEdit === null ? {} : { canEdit }) }]
+              : [],
+        },
+      }))
+      .on("PUT", property, (request) => {
+        if (canEdit === false) return { status: 403, json: { errorMessages: ["Interdit"] } };
+        teamDocument = request.body;
+        return { status: 200, json: teamDocument };
+      })
       .on("POST", "/gateway/api/graphql", options.graphql ?? CORS_REFUSAL)
       .on(
         "GET",
@@ -120,9 +141,11 @@ export function boardSiteJira(
         json: { id: 7, name: "Équipe Paiement", type: "scrum", location: { projectKey: "ABC" } },
       })
       // Réglages d'équipe : rien de publié par défaut (Jira répond 404 à une propriété absente).
-      .on("GET", `/rest/agile/1.0/board/7/properties/${BOARD_PROPERTY_KEYS.teamSettings}`, {
-        status: 404,
-      })
+      .on("GET", property, () =>
+        teamDocument === null
+          ? { status: 404 }
+          : { status: 200, json: { key: BOARD_PROPERTY_KEYS.teamSettings, value: teamDocument } },
+      )
       .on("GET", "/rest/agile/1.0/board/7/quickfilter", {
         status: 200,
         json: { isLast: true, values: options.quickFilters ?? [] },
