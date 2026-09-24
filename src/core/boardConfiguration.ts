@@ -8,7 +8,7 @@ import { type CardField, MAX_CARD_FIELDS } from "./cardFields";
 import { foldText } from "./text";
 
 /** Classement d'un type de ticket Jira dans l'application. */
-export type IssueCategory = "SCRUM" | "RUN" | "IGNORED";
+export type IssueCategory = "SCRUM" | "KANBAN" | "IGNORED";
 
 /** Colonne affichée par l'application, adossée à des statuts Jira réels. */
 export interface ColumnConfiguration {
@@ -70,7 +70,7 @@ export interface BoardConfiguration {
   readonly flaggedFieldId: string | null;
 
   readonly scrumColumns: readonly ColumnConfiguration[];
-  readonly runColumns: readonly ColumnConfiguration[];
+  readonly kanbanColumns: readonly ColumnConfiguration[];
   readonly issueTypes: readonly IssueTypeConfiguration[];
 
   /**
@@ -85,11 +85,11 @@ export interface BoardConfiguration {
   /** Durée du minuteur du mode Daily, en minutes. Réglage local, jamais publié à l'équipe. */
   readonly dailyMinutes: number;
   /**
-   * Daily : cartes affichées dans la première colonne du RUN avant le bouton « + N autres ».
+   * Daily : cartes affichées dans la première colonne du Kanban avant le bouton « + N autres ».
    * Réglage local, jamais publié à l'équipe.
    */
-  readonly dailyRunStockLimit: number;
-  readonly showRunSection: boolean;
+  readonly dailyKanbanStockLimit: number;
+  readonly showKanbanSection: boolean;
   /** Objectifs masqués de l'affichage. Rien n'est supprimé dans Jira. */
   readonly hiddenGoalIds: readonly string[];
   /** Ordre d'affichage des blocs (identifiants `BoardBlock`). */
@@ -98,6 +98,8 @@ export interface BoardConfiguration {
   readonly collapsedBlockIds: readonly string[];
   /** Libellé du bloc regroupant les tickets non rattachés à un objectif. */
   readonly buildSectionLabel: string;
+  /** Libellé de la swimlane des tickets traités en mode Kanban (« Kanban » par défaut). */
+  readonly kanbanSectionLabel: string;
   readonly goalSource: GoalSource;
   /** Goals Atlassian associés à ce board, proposés en priorité à l'épinglage. */
   readonly boardGoalIds: readonly string[];
@@ -127,13 +129,14 @@ export interface TeamBase {
 }
 
 export const DEFAULT_BUILD_LABEL = "Build";
+export const DEFAULT_KANBAN_LABEL = "Kanban";
 
 /** Minuteur du mode Daily : 15 minutes par défaut, de 1 à 120. */
 export const DEFAULT_DAILY_MINUTES = 15;
 export const MAX_DAILY_MINUTES = 120;
-/** Stock du RUN en daily : 3 cartes par défaut avant le bouton, de 1 à 50. */
-export const DEFAULT_DAILY_RUN_STOCK = 3;
-export const MAX_DAILY_RUN_STOCK = 50;
+/** Stock Kanban en daily : 3 cartes par défaut avant le bouton, de 1 à 50. */
+export const DEFAULT_DAILY_KANBAN_STOCK = 3;
+export const MAX_DAILY_KANBAN_STOCK = 50;
 
 export function categoryForIssueType(config: BoardConfiguration, typeId: string): IssueCategory {
   return config.issueTypes.find((type) => type.id === typeId)?.category ?? "SCRUM";
@@ -187,8 +190,8 @@ export function visibleColumns(columns: readonly ColumnConfiguration[]): ColumnC
 
 // ─── Découverte : de ce que Jira déclare à la configuration ──────────────────
 
-/** Motifs par défaut pour classer un type de ticket en RUN. Ajustables ensuite par board. */
-const RUN_TYPE_PATTERNS = [
+/** Motifs par défaut pour classer un type de ticket en Kanban. Ajustables ensuite par board. */
+const KANBAN_TYPE_PATTERNS = [
   "anomalie",
   "incident",
   "bug",
@@ -206,7 +209,7 @@ export function looksLikeBug(typeName: string): boolean {
 
 export function defaultCategory(typeName: string): IssueCategory {
   const folded = foldText(typeName);
-  return RUN_TYPE_PATTERNS.some((pattern) => folded.includes(pattern)) ? "RUN" : "SCRUM";
+  return KANBAN_TYPE_PATTERNS.some((pattern) => folded.includes(pattern)) ? "KANBAN" : "SCRUM";
 }
 
 /** Ce que Jira déclare d'un board : `GET board/{id}` et `GET board/{id}/configuration`. */
@@ -263,18 +266,19 @@ export function buildConfiguration(input: {
     goalsFieldId: input.goalsFieldId,
     flaggedFieldId: input.flaggedFieldId,
     scrumColumns: columns,
-    runColumns: columns, // le RUN part du même workflow Jira, puis s'ajuste
+    kanbanColumns: columns, // le Kanban part du même workflow Jira, puis s'ajuste
     issueTypes,
     blockedLabels: [],
     agingThresholdDays: 3,
     autoRefreshSeconds: null,
     dailyMinutes: DEFAULT_DAILY_MINUTES,
-    dailyRunStockLimit: DEFAULT_DAILY_RUN_STOCK,
-    showRunSection: true,
+    dailyKanbanStockLimit: DEFAULT_DAILY_KANBAN_STOCK,
+    showKanbanSection: true,
     hiddenGoalIds: [],
     blockOrder: [],
     collapsedBlockIds: [],
     buildSectionLabel: DEFAULT_BUILD_LABEL,
+    kanbanSectionLabel: DEFAULT_KANBAN_LABEL,
     goalSource: "atlassianGoals",
     boardGoalIds: [],
     goalColorIndex: {},
@@ -311,17 +315,18 @@ export function mergeConfiguration(
     issueTypes,
     // Colonnes : la structure vient de Jira, l'affichage vient de l'utilisateur.
     scrumColumns: applyColumnPreferences(fresh.scrumColumns, existing.scrumColumns),
-    runColumns: applyColumnPreferences(fresh.runColumns, existing.runColumns),
+    kanbanColumns: applyColumnPreferences(fresh.kanbanColumns, existing.kanbanColumns),
     blockedLabels: existing.blockedLabels,
     agingThresholdDays: existing.agingThresholdDays,
     autoRefreshSeconds: existing.autoRefreshSeconds,
     dailyMinutes: existing.dailyMinutes,
-    dailyRunStockLimit: existing.dailyRunStockLimit,
-    showRunSection: existing.showRunSection,
+    dailyKanbanStockLimit: existing.dailyKanbanStockLimit,
+    showKanbanSection: existing.showKanbanSection,
     hiddenGoalIds: existing.hiddenGoalIds,
     blockOrder: existing.blockOrder,
     collapsedBlockIds: existing.collapsedBlockIds,
     buildSectionLabel: existing.buildSectionLabel,
+    kanbanSectionLabel: existing.kanbanSectionLabel,
     goalSource: existing.goalSource,
     boardGoalIds: existing.boardGoalIds,
     goalColorIndex: existing.goalColorIndex,
@@ -372,9 +377,10 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
     return null;
   }
   const scrumColumns = decodeColumns(value.scrumColumns);
-  const runColumns = decodeColumns(value.runColumns);
+  // Avant 0.21.0, le mode Kanban s'appelait Kanban : les anciennes clés restent lisibles.
+  const kanbanColumns = decodeColumns(value.kanbanColumns ?? value.runColumns);
   const issueTypes = decodeList(value.issueTypes, decodeIssueTypeConfiguration);
-  if (scrumColumns === null || runColumns === null || issueTypes === null) return null;
+  if (scrumColumns === null || kanbanColumns === null || issueTypes === null) return null;
 
   return {
     boardId: value.boardId,
@@ -387,7 +393,7 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
     goalsFieldId: textOrNull(value.goalsFieldId),
     flaggedFieldId: textOrNull(value.flaggedFieldId),
     scrumColumns,
-    runColumns,
+    kanbanColumns,
     issueTypes,
     blockedLabels: strings(value.blockedLabels),
     agingThresholdDays: isPositiveInteger(value.agingThresholdDays) ? value.agingThresholdDays : 3,
@@ -398,15 +404,15 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
       isPositiveInteger(value.dailyMinutes) && value.dailyMinutes <= MAX_DAILY_MINUTES
         ? value.dailyMinutes
         : DEFAULT_DAILY_MINUTES,
-    dailyRunStockLimit:
-      isPositiveInteger(value.dailyRunStockLimit) && value.dailyRunStockLimit <= MAX_DAILY_RUN_STOCK
-        ? value.dailyRunStockLimit
-        : DEFAULT_DAILY_RUN_STOCK,
-    showRunSection: typeof value.showRunSection === "boolean" ? value.showRunSection : true,
+    dailyKanbanStockLimit: decodeStockLimit(
+      value.dailyKanbanStockLimit ?? value.dailyRunStockLimit,
+    ),
+    showKanbanSection: decodeBoolean(value.showKanbanSection ?? value.showRunSection, true),
     hiddenGoalIds: strings(value.hiddenGoalIds),
-    blockOrder: strings(value.blockOrder),
-    collapsedBlockIds: strings(value.collapsedBlockIds),
+    blockOrder: legacyBlockIds(strings(value.blockOrder)),
+    collapsedBlockIds: legacyBlockIds(strings(value.collapsedBlockIds)),
     buildSectionLabel: textOr(value.buildSectionLabel, DEFAULT_BUILD_LABEL),
+    kanbanSectionLabel: textOr(value.kanbanSectionLabel, DEFAULT_KANBAN_LABEL),
     goalSource: value.goalSource === "sprintText" ? "sprintText" : "atlassianGoals",
     boardGoalIds: strings(value.boardGoalIds),
     goalColorIndex: decodeColorIndex(value.goalColorIndex),
@@ -415,6 +421,21 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
     localPinnedGoalIds: decodeLocalPins(value.localPinnedGoalIds),
     teamBase: decodeTeamBase(value.teamBase),
   };
+}
+
+function decodeStockLimit(value: unknown): number {
+  return isPositiveInteger(value) && value <= MAX_DAILY_KANBAN_STOCK
+    ? value
+    : DEFAULT_DAILY_KANBAN_STOCK;
+}
+
+function decodeBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+/** Bloc enregistré sous son ancien nom (`run`, avant 0.21.0) : c'est le bloc Kanban. */
+function legacyBlockIds(ids: string[]): string[] {
+  return ids.map((id) => (id === "run" ? "kanban" : id));
 }
 
 function decodeTeamBase(value: unknown): TeamBase | null {
@@ -480,8 +501,13 @@ function decodeColumns(value: unknown): ColumnConfiguration[] | null {
 
 function decodeIssueTypeConfiguration(item: unknown): IssueTypeConfiguration | null {
   if (!isObject(item) || typeof item.id !== "string" || typeof item.name !== "string") return null;
+  // « RUN » : nom de la catégorie Kanban avant 0.21.0.
   const category: IssueCategory =
-    item.category === "RUN" || item.category === "IGNORED" ? item.category : "SCRUM";
+    item.category === "KANBAN" || item.category === "RUN"
+      ? "KANBAN"
+      : item.category === "IGNORED"
+        ? "IGNORED"
+        : "SCRUM";
   return {
     id: item.id,
     name: item.name,

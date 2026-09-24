@@ -133,7 +133,7 @@ describe("BoardModel — réglages d'équipe", () => {
     expect(board.configuration.value?.agingThresholdDays).not.toBe(12);
     expect(board.teamStatus.value?.update?.publishedAt).toBe("2026-09-20T08:00:00Z");
     expect(board.teamStatus.value?.updateChanges).toEqual([
-      "Section RUN, nom de Build, seuil de vieillissement",
+      "Swimlane Kanban, noms de Build et de Kanban, seuil de vieillissement",
       "Ordre des swimlanes",
     ]);
 

@@ -151,7 +151,7 @@ describe("barre latérale", () => {
       "Finaliser le parcours de paiement0/2",
       "Améliorer la stabilité1/1",
       "Build2",
-      "RUN1",
+      "Kanban1",
     ]);
     expect(sidebarLanes()).toEqual(boardLanes());
   });
@@ -174,21 +174,21 @@ describe("barre latérale", () => {
     // happy-dom ne relie pas les événements de glissé aux gestionnaires de Preact : le geste
     // lui-même est vérifié dans Chrome (banc d'essai) ; ici, l'état qu'il partage entre les vues.
     const { jira, board } = await connectedBoard();
-    expect(sidebarLink("RUN").getAttribute("draggable")).toBe("true");
+    expect(sidebarLink("Kanban").getAttribute("draggable")).toBe("true");
     const stability = board.laneOrder.value[1] ?? "";
 
-    board.startLaneDrag("run");
+    board.startLaneDrag("kanban");
     board.setLaneDropTarget(stability);
     await tick();
-    expect(sidebarRow("RUN").classList.contains("lane-dragging")).toBe(true);
+    expect(sidebarRow("Kanban").classList.contains("lane-dragging")).toBe(true);
     expect(document.querySelector(".sidebar-drop-line")).not.toBeNull();
     expect(document.querySelector(".lane-drop-line")).not.toBeNull();
 
-    await board.dropLane("run", stability);
+    await board.dropLane("kanban", stability);
     await tick();
     const expected = [
       "Finaliser le parcours de paiement",
-      "RUN",
+      "Kanban",
       "Améliorer la stabilité",
       "Build",
     ];
@@ -200,9 +200,9 @@ describe("barre latérale", () => {
 
   it("l'œil d'un objectif le masque ; celui d'un objectif masqué le réaffiche", async () => {
     const { jira } = await connectedBoard();
-    // Seuls les objectifs ont un œil : Build et RUN ne se masquent pas.
+    // Seuls les objectifs ont un œil : Build et Kanban ne se masquent pas.
     expect(sidebarRow("Build").querySelector(".eye-toggle")).toBeNull();
-    expect(sidebarRow("RUN").querySelector(".eye-toggle")).toBeNull();
+    expect(sidebarRow("Kanban").querySelector(".eye-toggle")).toBeNull();
 
     const hide = labelled("Masquer « Améliorer la stabilité » du board");
     expect(hide.classList.contains("eye-toggle-hidden")).toBe(false);

@@ -32,7 +32,7 @@ afterEach(() => {
 describe("BoardModel — page Réglages", () => {
   it("un type passé en « Ignoré » disparaît du board après relecture ; rien n'est écrit", async () => {
     const { board, stored, jiraWrites } = await settingsBoard();
-    expect(board.snapshot.value?.runIssues.map((issue) => issue.issue.key)).toEqual(["RUN-7"]);
+    expect(board.snapshot.value?.kanbanIssues.map((issue) => issue.issue.key)).toEqual(["RUN-7"]);
 
     await board.applySettings(
       (current) => ({
@@ -44,8 +44,8 @@ describe("BoardModel — page Réglages", () => {
       { resync: true },
     );
 
-    expect(board.snapshot.value?.runIssues).toEqual([]);
-    expect(board.layout.value?.lanes.map((lane) => lane.id)).not.toContain("run");
+    expect(board.snapshot.value?.kanbanIssues).toEqual([]);
+    expect(board.layout.value?.lanes.map((lane) => lane.id)).not.toContain("kanban");
     expect((await stored())?.issueTypes.find((type) => type.id === "10004")?.category).toBe(
       "IGNORED",
     );

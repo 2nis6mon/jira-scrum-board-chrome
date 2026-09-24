@@ -141,7 +141,7 @@ describe("detectBoard", () => {
       ["Terminé", true],
     ]);
     expect(config.issueTypes.map((t) => [t.name, t.category])).toEqual([
-      ["Anomalie Prod", "RUN"],
+      ["Anomalie Prod", "KANBAN"],
       ["Story", "SCRUM"],
     ]);
     expect(config.estimationFieldName).toBe("Story Points");
@@ -217,9 +217,9 @@ describe("loadSnapshot", () => {
     expect(snapshot.syncedAt).toEqual(NOW);
   });
 
-  it("sépare Scrum et RUN, écarte les types ignorés", async () => {
+  it("sépare Scrum et Kanban, écarte les types ignorés", async () => {
     const configuration = makeConfiguration({
-      runColumns: makeConfiguration().scrumColumns,
+      kanbanColumns: makeConfiguration().scrumColumns,
       issueTypes: [
         ...makeConfiguration().issueTypes,
         { id: "10099", name: "Epic", iconUrl: null, category: "IGNORED", countsAsBug: null },
@@ -237,8 +237,8 @@ describe("loadSnapshot", () => {
     const { snapshot } = await sync(jira, configuration);
 
     expect(snapshot.scrumIssues.map((i) => i.issue.key)).toEqual(["ABC-1"]);
-    expect(snapshot.runIssues.map((i) => i.issue.key)).toEqual(["RUN-1"]);
-    expect(snapshot.runIssues[0]?.columnId).toBe("prog");
+    expect(snapshot.kanbanIssues.map((i) => i.issue.key)).toEqual(["RUN-1"]);
+    expect(snapshot.kanbanIssues[0]?.columnId).toBe("prog");
   });
 
   it("réunit les sprints actifs ; un ticket présent dans deux sprints n'apparaît qu'une fois", async () => {

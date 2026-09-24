@@ -477,7 +477,7 @@ function LaneRow(props: {
   const { model, board, lane } = props;
   const goal = lane.goal;
   const completed = goal !== null && lane.count > 0 && lane.done === lane.count;
-  const icon: IconName | null = lane.block.kind === "run" ? "run" : goal ? null : "build";
+  const icon: IconName | null = lane.block.kind === "kanban" ? "kanban" : goal ? null : "build";
   return (
     <div
       class={`sidebar-lane sidebar-lane-${lane.block.kind}${completed ? " sidebar-lane-completed" : ""}${props.dragging ? " lane-dragging" : ""}`}

@@ -97,7 +97,7 @@ describe("App", () => {
     expect(text()).toContain("Aucun board n'est encore choisi");
   });
 
-  it("board : swimlanes par objectif, Build et RUN, cartes vers la page Jira", async () => {
+  it("board : swimlanes par objectif, Build et Kanban, cartes vers la page Jira", async () => {
     await connectedBoard();
 
     const lanes = [...document.querySelectorAll(".lane")].map((lane) =>
@@ -107,7 +107,7 @@ describe("App", () => {
       "Finaliser le parcours de paiement",
       "Améliorer la stabilité",
       "Build",
-      "RUN",
+      "Kanban",
     ]);
     expect(cardKeys()).toEqual(["ABC-102", "ABC-101", "ABC-103", "ABC-105", "ABC-104", "RUN-7"]);
 
@@ -221,7 +221,7 @@ describe("App", () => {
     expect(overLoaded()).toBeUndefined();
     render(null, document.body);
 
-    // Un troisième : dépassement, que le filtre n'efface pas. Le ticket RUN n'est pas compté.
+    // Un troisième : dépassement, que le filtre n'efface pas. Le ticket Kanban n'est pas compté.
     const extra = issueJson("ABC-106", { summary: "Troisième en cours", statusId: "3" });
     const { board } = await connectedBoard(
       boardSiteJira({ sprintIssues: [...SPRINT_ISSUES, extra] }),
@@ -331,7 +331,7 @@ describe("App", () => {
       "Finaliser le parcours de paiement",
       "Améliorer la stabilité",
       "Build",
-      "RUN",
+      "Kanban",
     ]);
     expect(menuButton("Finaliser le parcours de paiement", "Monter").disabled).toBe(true);
 

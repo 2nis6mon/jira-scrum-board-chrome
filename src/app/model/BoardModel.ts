@@ -139,7 +139,7 @@ export interface TransitionChoice {
 /** Carte en cours de glisser-déposer. */
 export interface DragState {
   readonly issueKey: string;
-  readonly lane: "scrum" | "run";
+  readonly lane: "scrum" | "kanban";
 }
 
 /** Emplacement visé : une case (swimlane × colonne), devant un ticket ou à la fin. */
@@ -813,7 +813,7 @@ export class BoardModel {
 
   // ─── Glisser-déposer et écritures ─────────────────────────────────────────
 
-  startDrag(issueKey: string, lane: "scrum" | "run"): void {
+  startDrag(issueKey: string, lane: "scrum" | "kanban"): void {
     if (this.pendingKeys.value.size > 0 || this.transitionChoice.value || this.transitionForm.value)
       return;
     const snapshot = this.snapshot.value;
@@ -894,9 +894,9 @@ export class BoardModel {
     });
   }
 
-  /** Une carte de cette swimlane (Scrum ou RUN) peut-elle être déposée dans ce bloc ? */
-  accepts(block: BoardBlock, lane: "scrum" | "run"): boolean {
-    return (block.kind === "run") === (lane === "run");
+  /** Une carte de cette swimlane (Scrum ou Kanban) peut-elle être déposée dans ce bloc ? */
+  accepts(block: BoardBlock, lane: "scrum" | "kanban"): boolean {
+    return (block.kind === "kanban") === (lane === "kanban");
   }
 
   dismissWriteNotice(): void {
@@ -927,9 +927,9 @@ export class BoardModel {
       };
       return;
     }
-    const lane = issue.category === "RUN" ? "run" : "scrum";
+    const lane = issue.category === "KANBAN" ? "kanban" : "scrum";
     if (!this.accepts(input.block, lane)) return;
-    const columns = lane === "run" ? configuration.runColumns : configuration.scrumColumns;
+    const columns = lane === "kanban" ? configuration.kanbanColumns : configuration.scrumColumns;
     const column = columns.find((candidate) => candidate.id === input.columnId);
     if (!column || column.statusIds.length === 0) return;
     const goalTargetId = input.block.kind === "goal" ? input.block.goalId : null;

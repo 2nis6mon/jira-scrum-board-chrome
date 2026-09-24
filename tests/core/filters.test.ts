@@ -167,7 +167,7 @@ describe("focusGoal", () => {
     expect(areFiltersActive(focusGoal(first, "g1"))).toBe(false);
   });
 
-  it("un ticket RUN, sans objectif, sort de l'affichage quand on cible un objectif", () => {
+  it("un ticket Kanban, sans objectif, sort de l'affichage quand on cible un objectif", () => {
     const issues = assemble(
       [makeIssue("ABC-1"), makeIssue("ABC-2"), makeIssue("RUN-9", { typeId: "10004" })],
       { "ABC-1": "g1", "ABC-2": "g2" },

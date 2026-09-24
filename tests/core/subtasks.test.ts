@@ -15,7 +15,7 @@ import { ACME, FakeJira } from "../support/fakeJira";
 import { issueJson, makeConfiguration, makeIssue, statusJson } from "../support/jiraFixtures";
 
 // Données FICTIVES. Les sous-tâches gardent leur carte et suivent leur story : son Goal quand elles
-// n'en ont pas en propre, son bloc (Scrum ou RUN) quand elle est sur le board. La story montre
+// n'en ont pas en propre, son bloc (Scrum ou Kanban) quand elle est sur le board. La story montre
 // l'avancement de ses sous-tâches et signale les incohérences.
 
 const NOW = new Date("2026-09-18T12:00:00Z");
@@ -224,7 +224,7 @@ describe("board complet", () => {
     expect(sprintMetrics(snapshot, 99).totalIssues).toBe(3);
   });
 
-  it("les sous-tâches d'un ticket RUN vont dans le bloc RUN, avec lui", async () => {
+  it("les sous-tâches d'un ticket Kanban vont dans le bloc Kanban, avec lui", async () => {
     const { snapshot } = await sync([
       issueJson("RUN-1", {
         typeId: "10004",
@@ -233,7 +233,7 @@ describe("board complet", () => {
       }),
       subtaskJson("RUN-2", "RUN-1"),
     ]);
-    expect(snapshot.runIssues.map((issue) => issue.issue.key)).toEqual(["RUN-1", "RUN-2"]);
+    expect(snapshot.kanbanIssues.map((issue) => issue.issue.key)).toEqual(["RUN-1", "RUN-2"]);
     expect(snapshot.scrumIssues).toEqual([]);
   });
 });

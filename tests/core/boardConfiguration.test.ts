@@ -57,9 +57,9 @@ function discovered() {
 }
 
 describe("classement par défaut des types", () => {
-  it("reconnaît les types d'anomalie français comme RUN", () => {
-    expect(defaultCategory("Anomalie de Recette")).toBe("RUN");
-    expect(defaultCategory("Anomalie Prod")).toBe("RUN");
+  it("reconnaît les types d'anomalie français comme Kanban", () => {
+    expect(defaultCategory("Anomalie de Recette")).toBe("KANBAN");
+    expect(defaultCategory("Anomalie Prod")).toBe("KANBAN");
     expect(defaultCategory("Story")).toBe("SCRUM");
     expect(defaultCategory("User Story")).toBe("SCRUM");
   });
@@ -102,7 +102,7 @@ describe("buildConfiguration", () => {
 
   it("écarte les sous-tâches, classe et trie les types", () => {
     expect(discovered().issueTypes.map((t) => [t.name, t.category])).toEqual([
-      ["Anomalie de Recette", "RUN"],
+      ["Anomalie de Recette", "KANBAN"],
       ["Story", "SCRUM"],
     ]);
   });

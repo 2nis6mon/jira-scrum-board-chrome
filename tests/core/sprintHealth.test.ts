@@ -61,7 +61,7 @@ const SCRUM = [
     },
   ),
 ];
-const RUN = [issue("RUN-1", { ...DOING, typeId: "10004" }, { daysInColumn: 4 })];
+const Kanban = [issue("RUN-1", { ...DOING, typeId: "10004" }, { daysInColumn: 4 })];
 
 function snapshot(parts: Partial<BoardSnapshot> = {}): BoardSnapshot {
   return {
@@ -70,7 +70,7 @@ function snapshot(parts: Partial<BoardSnapshot> = {}): BoardSnapshot {
     goals: GOALS,
     goalsOrigin: "sprintText",
     scrumIssues: SCRUM,
-    runIssues: RUN,
+    kanbanIssues: Kanban,
     syncedAt: new Date(0),
     currentUser: null,
     goalsReadOnly: false,
@@ -99,7 +99,7 @@ describe("Sprint Health : comptages directs", () => {
     const unknown = (list: BoardIssue[]) =>
       list.map((item) => ({ ...item, estimate: null, addedAfterSprintStart: null }));
     const health = sprintHealth(
-      snapshot({ scrumIssues: unknown(SCRUM), runIssues: unknown(RUN) }),
+      snapshot({ scrumIssues: unknown(SCRUM), kanbanIssues: unknown(Kanban) }),
       config,
       NO_FILTERS,
     );
@@ -110,7 +110,7 @@ describe("Sprint Health : comptages directs", () => {
   });
 
   it("avancement par objectif, dans l'ordre du board", () => {
-    const moved = withBlockOrder(config, ["goal:g2", "goal:g1", "build", "run"]);
+    const moved = withBlockOrder(config, ["goal:g2", "goal:g1", "build", "kanban"]);
     const goals = sprintHealth(snapshot(), moved, NO_FILTERS).goals.map((progress) => [
       progress.goal.id,
       progress.done,
@@ -127,7 +127,7 @@ describe("Sprint Health : comptages directs", () => {
   it("un objectif masqué n'apparaît pas, ses tickets comptent dans Build", () => {
     const health = sprintHealth(snapshot(), withGoalHidden(config, "g2", true), NO_FILTERS);
     expect(health.goals.map((progress) => progress.goal.id)).toEqual(["g1"]);
-    expect(health.composition).toEqual({ total: 6, linked: 2, build: 3, run: 1, added: 2 });
+    expect(health.composition).toEqual({ total: 6, linked: 2, build: 3, kanban: 1, added: 2 });
   });
 
   it("périmètre : tickets entrés après le démarrage, les plus récents d'abord", () => {
@@ -152,16 +152,16 @@ describe("Sprint Health : comptages directs", () => {
     ]);
   });
 
-  it("composition : rattachés, Build, RUN (si la section est affichée), ajoutés", () => {
+  it("composition : rattachés, Build, Kanban (si la section est affichée), ajoutés", () => {
     expect(sprintHealth(snapshot(), config, NO_FILTERS).composition).toEqual({
       total: 6,
       linked: 3,
       build: 2,
-      run: 1,
+      kanban: 1,
       added: 2,
     });
-    const noRun = { ...config, showRunSection: false };
-    expect(sprintHealth(snapshot(), noRun, NO_FILTERS).composition.run).toBeNull();
+    const noKanban = { ...config, showKanbanSection: false };
+    expect(sprintHealth(snapshot(), noKanban, NO_FILTERS).composition.kanban).toBeNull();
   });
 
   it("à surveiller : non terminés, bloqués d'abord, puis du plus ancien au plus récent", () => {

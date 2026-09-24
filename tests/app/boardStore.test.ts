@@ -45,7 +45,7 @@ describe("stockage local des boards", () => {
       boardId: 7,
       hiddenGoalIds: ["g1"],
       blockOrder: ["build", "goal:g2"],
-      collapsedBlockIds: ["run"],
+      collapsedBlockIds: ["kanban"],
       goalColorIndex: { g1: 4 },
       cardFields: [
         { kind: "labels" },

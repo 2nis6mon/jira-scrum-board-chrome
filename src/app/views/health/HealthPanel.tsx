@@ -54,6 +54,7 @@ function HealthBody(props: {
   const { kpis } = health;
   const origin = board.site.origin;
   const buildLabel = configuration.buildSectionLabel || "Build";
+  const kanbanLabel = configuration.kanbanSectionLabel || "Kanban";
 
   return (
     <div class="health">
@@ -201,12 +202,12 @@ function HealthBody(props: {
               count={health.composition.build}
               total={health.composition.total}
             />
-            {health.composition.run !== null && (
+            {health.composition.kanban !== null && (
               <CompositionRow
-                label="RUN"
-                icon="run"
-                tone="run"
-                count={health.composition.run}
+                label={kanbanLabel}
+                icon="kanban"
+                tone="kanban"
+                count={health.composition.kanban}
                 total={health.composition.total}
               />
             )}
@@ -227,7 +228,12 @@ function HealthBody(props: {
         title="Tickets à surveiller"
         subtitle={`Bloqués, ou sans changement de statut depuis ${plural(health.agingThresholdDays, "jour")} ou plus`}
       >
-        <WatchTable watched={health.watched} origin={origin} buildLabel={buildLabel} />
+        <WatchTable
+          watched={health.watched}
+          origin={origin}
+          buildLabel={buildLabel}
+          kanbanLabel={kanbanLabel}
+        />
       </Card>
 
       <p class="health-note">
@@ -239,7 +245,7 @@ function HealthBody(props: {
   );
 }
 
-type Tone = "done" | "blocked" | "added" | "progress" | "muted" | "run";
+type Tone = "done" | "blocked" | "added" | "progress" | "muted" | "kanban";
 
 function Kpi(props: {
   title: string;
@@ -362,6 +368,7 @@ function WatchTable(props: {
   watched: readonly WatchedIssue[];
   origin: string;
   buildLabel: string;
+  kanbanLabel: string;
 }) {
   if (props.watched.length === 0) return <p class="health-empty">Rien à signaler.</p>;
   return (
@@ -409,7 +416,7 @@ function WatchTable(props: {
                   </span>
                 ) : (
                   <span class="health-muted">
-                    {issue.category === "RUN" ? "RUN" : props.buildLabel}
+                    {issue.category === "KANBAN" ? props.kanbanLabel : props.buildLabel}
                   </span>
                 )}
               </td>

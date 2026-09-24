@@ -33,8 +33,8 @@ export const GOAL_COLOR_NAMES = [
 ] as const;
 
 /**
- * Swimlanes affichées de haut en bas, filtres ignorés : objectifs non masqués, Build, et RUN
- * s'il est activé et que le sprint a des tickets RUN. C'est dans cet ordre qu'on monte ou
+ * Swimlanes affichées de haut en bas, filtres ignorés : objectifs non masqués, Build, et Kanban
+ * s'il est activé et que le sprint a des tickets Kanban. C'est dans cet ordre qu'on monte ou
  * descend une swimlane ; un filtre ne doit pas changer ce que « monter » veut dire.
  */
 export function laneOrder(snapshot: BoardSnapshot, configuration: BoardConfiguration): string[] {
@@ -42,13 +42,13 @@ export function laneOrder(snapshot: BoardSnapshot, configuration: BoardConfigura
     goals: snapshot.goals.filter((goal) => !isGoalHidden(configuration, goal.id)),
     storedOrder: configuration.blockOrder,
     includeBuild: true,
-    includeRun: configuration.showRunSection,
+    includeKanban: configuration.showKanbanSection,
   });
   return displayedBlocks({
     blocks,
     filtersActive: false,
     filteredCount: () => 0,
-    sprintHasRunIssues: snapshot.runIssues.length > 0,
+    sprintHasKanbanIssues: snapshot.kanbanIssues.length > 0,
   }).map(blockIdentifier);
 }
 
@@ -58,7 +58,7 @@ export interface LaneSummary {
   readonly block: BoardBlock;
   readonly title: string;
   readonly goal: SprintGoal | null;
-  /** Tickets du bloc : ceux de l'objectif, ceux de Build (aucun objectif affiché), ou RUN. */
+  /** Tickets du bloc : ceux de l'objectif, ceux de Build (aucun objectif affiché), ou Kanban. */
   readonly count: number;
   /** Tickets terminés du bloc. */
   readonly done: number;
@@ -77,8 +77,8 @@ export function laneSummaries(
     const block = parseBlockIdentifier(id);
     if (!block) return [];
     const issues =
-      block.kind === "run"
-        ? snapshot.runIssues
+      block.kind === "kanban"
+        ? snapshot.kanbanIssues
         : snapshot.scrumIssues.filter(
             (issue) =>
               displayedGoalId(configuration, issue.goalId) ===
@@ -87,7 +87,10 @@ export function laneSummaries(
     const goal = block.kind === "goal" ? (goals.get(block.goalId) ?? null) : null;
     if (block.kind === "goal" && !goal) return [];
     const title =
-      goal?.title ?? (block.kind === "run" ? "RUN" : configuration.buildSectionLabel || "Build");
+      goal?.title ??
+      (block.kind === "kanban"
+        ? configuration.kanbanSectionLabel || "Kanban"
+        : configuration.buildSectionLabel || "Build");
     return [
       {
         id,
@@ -109,7 +112,7 @@ export function laneSummaries(
 
 /**
  * Range les swimlanes dans l'ordre donné. Un bloc absent de l'affichage (objectif masqué, objectif
- * d'un autre sprint, RUN sans ticket) reste juste après le bloc qui le précédait, pour retrouver
+ * d'un autre sprint, Kanban sans ticket) reste juste après le bloc qui le précédait, pour retrouver
  * sa place s'il revient. Écart voulu avec le Mac, qui le renvoyait en fin de liste : un objectif
  * masqué puis réaffiché réapparaissait alors sous Build.
  */

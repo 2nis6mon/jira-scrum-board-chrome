@@ -16,16 +16,17 @@ import {
   withBuildLabel,
   withColumnHidden,
   withColumnName,
+  withDailyKanbanStockLimit,
   withDailyMinutes,
-  withDailyRunStockLimit,
   withDefaultBlockOrder,
   withIssueTypeCategory,
+  withKanbanLabel,
   withWipLimit,
 } from "../../../core/boardSettings";
 import type { BoardModel } from "../../model/BoardModel";
 import { plural } from "../format";
 
-const CATEGORIES: readonly IssueCategory[] = ["SCRUM", "RUN", "IGNORED"];
+const CATEGORIES: readonly IssueCategory[] = ["SCRUM", "KANBAN", "IGNORED"];
 
 /** Enregistre un réglage validé ; rend le message d'erreur s'il est refusé. */
 type Commit = (
@@ -86,15 +87,20 @@ export function BoardSettings({
           columns={configuration.scrumColumns}
           commit={commit}
         />
-        <ColumnEditor title="RUN" kind="run" columns={configuration.runColumns} commit={commit} />
+        <ColumnEditor
+          title={configuration.kanbanSectionLabel || "Kanban"}
+          kind="kanban"
+          columns={configuration.kanbanColumns}
+          commit={commit}
+        />
       </section>
 
       <section class="panel" aria-labelledby="settings-types">
         <h2 id="settings-types">Types de tickets</h2>
         <p class="hint">
-          Ce qui alimente le board Scrum et ce qui part dans la zone RUN. Un type « ignoré »
-          n'apparaît nulle part. « Bug » : un ticket lié de ce type est signalé comme bug sur la
-          carte du ticket porteur. Le board est relu dans Jira après chaque changement.
+          Ce qui est traité en mode Scrum (par objectifs) et ce qui l'est en mode Kanban. Un type «
+          ignoré » n'apparaît nulle part. « Bug » : un ticket lié de ce type est signalé comme bug
+          sur la carte du ticket porteur. Le board est relu dans Jira après chaque changement.
         </p>
         {configuration.issueTypes.length === 0 ? (
           <p class="hint">Aucun type de ticket trouvé sur ce board.</p>
@@ -150,13 +156,13 @@ export function BoardSettings({
         <label class="settings-check">
           <input
             type="checkbox"
-            checked={configuration.showRunSection}
+            checked={configuration.showKanbanSection}
             onChange={(event) => {
-              const showRunSection = event.currentTarget.checked;
-              set((current) => ({ ...current, showRunSection }));
+              const showKanbanSection = event.currentTarget.checked;
+              set((current) => ({ ...current, showKanbanSection }));
             }}
           />
-          Afficher la section RUN
+          Afficher la swimlane Kanban
         </label>
         <div class="settings-field">
           <label for="settings-build-label">
@@ -167,6 +173,17 @@ export function BoardSettings({
             value={configuration.buildSectionLabel}
             placeholder="Build"
             onCommit={(raw) => set((current) => withBuildLabel(current, raw))}
+          />
+        </div>
+        <div class="settings-field">
+          <label for="settings-kanban-label">
+            Nom de la swimlane des tickets traités en mode Kanban
+          </label>
+          <CommitInput
+            id="settings-kanban-label"
+            value={configuration.kanbanSectionLabel}
+            placeholder="Kanban"
+            onCommit={(raw) => set((current) => withKanbanLabel(current, raw))}
           />
         </div>
         <div class="settings-field settings-inline">
@@ -190,15 +207,15 @@ export function BoardSettings({
           <span class="hint">minute(s), pour le minuteur du mode Daily</span>
         </div>
         <div class="settings-field settings-inline">
-          <label for="settings-daily-stock">Stock RUN en daily</label>
+          <label for="settings-daily-stock">Stock Kanban en daily</label>
           <CommitInput
             id="settings-daily-stock"
-            value={String(configuration.dailyRunStockLimit)}
+            value={String(configuration.dailyKanbanStockLimit)}
             numeric
-            onCommit={(raw) => commit((current) => withDailyRunStockLimit(current, raw))}
+            onCommit={(raw) => commit((current) => withDailyKanbanStockLimit(current, raw))}
           />
           <span class="hint">
-            carte(s) affichée(s) dans la première colonne du RUN, avant « + N autres »
+            carte(s) affichée(s) dans la première colonne Kanban, avant « + N autres »
           </span>
         </div>
         <label class="settings-field settings-inline">
@@ -241,7 +258,7 @@ export function BoardSettings({
           >
             Réinitialiser l'ordre des swimlanes
           </button>
-          <span class="hint">Objectifs dans leur ordre d'arrivée, puis Build et RUN.</span>
+          <span class="hint">Objectifs dans leur ordre d'arrivée, puis Build et Kanban.</span>
         </div>
       </section>
     </div>

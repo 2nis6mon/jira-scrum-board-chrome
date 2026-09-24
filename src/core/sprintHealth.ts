@@ -42,7 +42,7 @@ export interface HealthKpis {
   readonly done: number;
   readonly inProgress: number;
   readonly toDo: number;
-  /** Tickets Scrum et RUN. */
+  /** Tickets Scrum et Kanban. */
   readonly allCount: number;
   readonly blocked: number;
   /** `null` : Jira n'a pas fourni l'historique, on ne sait pas ce qui a été ajouté. */
@@ -68,8 +68,8 @@ export interface Composition {
   readonly total: number;
   readonly linked: number;
   readonly build: number;
-  /** `null` : la section RUN est désactivée dans les réglages. */
-  readonly run: number | null;
+  /** `null` : la section Kanban est désactivée dans les réglages. */
+  readonly kanban: number | null;
   readonly added: number | null;
 }
 
@@ -85,13 +85,13 @@ export function sprintHealth(
   filters: BoardFilters,
 ): SprintHealth {
   const scrum = applyFilters(filters, snapshot.scrumIssues);
-  const run = applyFilters(filters, snapshot.runIssues);
-  const all = [...scrum, ...run];
+  const kanban = applyFilters(filters, snapshot.kanbanIssues);
+  const all = [...scrum, ...kanban];
   const threshold = configuration.agingThresholdDays;
   const categoryKey = (issue: BoardIssue) => issue.issue.fields.status.statusCategory?.key;
 
   // Historique connu dès qu'un ticket du sprint (filtres ignorés) sait s'il a été ajouté.
-  const historyKnown = [...snapshot.scrumIssues, ...snapshot.runIssues].some(
+  const historyKnown = [...snapshot.scrumIssues, ...snapshot.kanbanIssues].some(
     (issue) => issue.addedAfterSprintStart !== null,
   );
   const added = all
@@ -163,7 +163,7 @@ export function sprintHealth(
       total: all.length,
       linked: linked.length,
       build: scrum.length - linked.length,
-      run: configuration.showRunSection ? run.length : null,
+      kanban: configuration.showKanbanSection ? kanban.length : null,
       added: historyKnown ? added.length : null,
     },
     watched,

@@ -1,6 +1,6 @@
 /** Bloc du board visé par le dépôt d'une carte, du point de vue des objectifs. */
 export type GoalDropTarget =
-  /** La zone ne porte aucune notion d'objectif (bloc RUN). */
+  /** La zone ne porte aucune notion d'objectif (bloc Kanban). */
   | { kind: "unchanged" }
   /** Bloc des tickets sans objectif (« Build ») : le dépôt détache l'objectif. */
   | { kind: "build" }

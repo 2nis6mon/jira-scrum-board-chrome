@@ -90,11 +90,11 @@ export const STORY_TYPE: IssueTypeConfiguration = {
   countsAsBug: null,
 };
 
-export const RUN_TYPE: IssueTypeConfiguration = {
+export const KANBAN_TYPE: IssueTypeConfiguration = {
   id: "10004",
   name: "Anomalie Prod",
   iconUrl: null,
-  category: "RUN",
+  category: "KANBAN",
   countsAsBug: null,
 };
 
@@ -114,18 +114,19 @@ export function makeConfiguration(parts: Partial<BoardConfiguration> = {}): Boar
       column("prog", "In Progress", ["3"], 1),
       { ...column("done", "Done", ["6"], 2), isDone: true },
     ],
-    runColumns: [],
-    issueTypes: [STORY_TYPE, RUN_TYPE],
+    kanbanColumns: [],
+    issueTypes: [STORY_TYPE, KANBAN_TYPE],
     blockedLabels: [],
     agingThresholdDays: 3,
     autoRefreshSeconds: null,
     dailyMinutes: 15,
-    dailyRunStockLimit: 3,
-    showRunSection: true,
+    dailyKanbanStockLimit: 3,
+    showKanbanSection: true,
     hiddenGoalIds: [],
     blockOrder: [],
     collapsedBlockIds: [],
     buildSectionLabel: "Build",
+    kanbanSectionLabel: "Kanban",
     goalSource: "sprintText",
     boardGoalIds: [],
     goalColorIndex: {},

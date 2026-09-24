@@ -112,8 +112,12 @@ const PATHS = {
       <path d="M14.3 9.7 4 20" stroke-width="2.6" />
     </>
   ),
-  run: (
-    <path d="M12 21.5c-3.8 0-6.5-2.6-6.5-6.2 0-3.3 2.2-5.3 3.6-7.6.3 1.8 1.2 3 2.4 3.6-.2-3.2 1.1-6 3.5-8.3.2 3 1.4 4.8 2.7 6.5 1.1 1.5 1.8 3.2 1.8 5.3 0 3.7-2.8 6.7-7.5 6.7z" />
+  /** Tableau à colonnes : les tickets traités en mode Kanban. */
+  kanban: (
+    <>
+      <rect x="3.5" y="4" width="17" height="16" rx="2" />
+      <path d="M9.2 4v16M14.8 4v16M5.8 8h1.2M11.4 8h1.2M11.4 11.5h1.2M17 8h1.2" />
+    </>
   ),
   boards: (
     <>

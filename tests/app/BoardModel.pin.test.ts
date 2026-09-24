@@ -120,7 +120,7 @@ describe("BoardModel — épinglage de Goals au sprint", () => {
       "Paiement en une étape",
       "Zéro incident",
       "Build",
-      "RUN",
+      "Kanban",
     ]);
     const [entry] = await board.audit.list(SITE.origin);
     expect(entry).toMatchObject({

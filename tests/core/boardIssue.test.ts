@@ -17,10 +17,10 @@ import { makeSprintGoal } from "../../src/core/sprintGoals";
 import { decodeIssue, type JiraIssue, type JiraSprint } from "../../src/jira/models";
 import {
   type IssueOptions,
+  KANBAN_TYPE,
   makeConfiguration,
   makeIssue,
   makeSprint,
-  RUN_TYPE,
   STORY_TYPE,
   statusJson,
 } from "../support/jiraFixtures";
@@ -48,14 +48,14 @@ function assemble(
 const one = (key: string, options: IssueOptions = {}, config?: BoardConfiguration) =>
   assemble([makeIssue(key, options)], config ? { config } : {})[0] as BoardIssue;
 
-function snapshot(scrumIssues: BoardIssue[], runIssues: BoardIssue[] = []): BoardSnapshot {
+function snapshot(scrumIssues: BoardIssue[], kanbanIssues: BoardIssue[] = []): BoardSnapshot {
   return {
     sprint: null,
     activeSprints: [],
     goals: [],
     goalsOrigin: "sprintText",
     scrumIssues,
-    runIssues,
+    kanbanIssues,
     syncedAt: new Date(0),
     currentUser: null,
     goalsReadOnly: false,
@@ -135,8 +135,8 @@ describe("assembleBoardIssues", () => {
     expect(one("ABC-1", { labels: ["bloque"] }, config).isBlocked).toBe(true);
   });
 
-  it("classe les types RUN", () => {
-    expect(one("BUG-1", { typeId: "10004", typeName: "Anomalie Prod" }).category).toBe("RUN");
+  it("classe les types Kanban", () => {
+    expect(one("BUG-1", { typeId: "10004", typeName: "Anomalie Prod" }).category).toBe("KANBAN");
     expect(one("ABC-1", { typeId: "inconnu" }).category).toBe("SCRUM");
   });
 
@@ -342,7 +342,7 @@ describe("bloquants", () => {
 describe("bugs liés", () => {
   const types = [
     STORY_TYPE,
-    { ...RUN_TYPE, id: "10004", name: "Bug" },
+    { ...KANBAN_TYPE, id: "10004", name: "Bug" },
     { ...STORY_TYPE, id: "10009", name: "Tâche technique" },
   ];
   const ref = (key: string, type: string, typeId: string, category: string) => ({
@@ -446,7 +446,7 @@ describe("photographie du board", () => {
       done: 1,
       inProgress: 1,
       toDo: 1,
-      runCount: 1,
+      kanbanCount: 1,
       blockedCount: 2,
       agingCount: 1, // ABC-2 ; ABC-1 est terminé, donc jamais « vieillissant »
       withoutGoalCount: 2,

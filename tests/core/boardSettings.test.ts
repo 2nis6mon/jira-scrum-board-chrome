@@ -36,8 +36,8 @@ describe("section Board : chaque réglage s'applique seul", () => {
     const renamed = ok(withColumnName(current, "scrum", first.id, "  À prendre  "));
     expect(renamed.scrumColumns[0]?.name).toBe("À prendre");
     expect(renamed.scrumColumns.slice(1)).toEqual(config.scrumColumns.slice(1));
-    // La colonne RUN de même identifiant n'est pas touchée.
-    expect(renamed.runColumns).toEqual(config.runColumns);
+    // La colonne Kanban de même identifiant n'est pas touchée.
+    expect(renamed.kanbanColumns).toEqual(config.kanbanColumns);
     expect(renamed.goalColorIndex).toEqual({ g1: 4 });
   });
 
@@ -51,7 +51,7 @@ describe("section Board : chaque réglage s'applique seul", () => {
   it("masquer une colonne", () => {
     const hidden = withColumnHidden(config, "scrum", first.id, true);
     expect(hidden.scrumColumns[0]?.hidden).toBe(true);
-    expect(hidden.runColumns).toEqual(config.runColumns);
+    expect(hidden.kanbanColumns).toEqual(config.kanbanColumns);
   });
 
   it("limite WIP : entier de 1 à 999 ; vide la retire ; le reste est refusé", () => {

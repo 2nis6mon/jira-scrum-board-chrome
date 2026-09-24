@@ -23,14 +23,14 @@ export interface DailySession {
   readonly stepIndex: number;
   /** Temps de daily écoulé à l'arrivée sur l'étape, pauses exclues. */
   readonly stepEnteredAt: number;
-  /** Stock du RUN déplié par « + N autres » ; il le reste jusqu'à la fin de la daily. */
-  readonly runStockExpanded: boolean;
+  /** Stock du Kanban déplié par « + N autres » ; il le reste jusqu'à la fin de la daily. */
+  readonly kanbanStockExpanded: boolean;
 }
 
 export type DailyPhase = "running" | "ending" | "overtime";
 
 /**
- * Étapes de la daily : les swimlanes affichées, dans l'ordre du board (Build et RUN compris, à leur
+ * Étapes de la daily : les swimlanes affichées, dans l'ordre du board (Build et Kanban compris, à leur
  * place). Les objectifs masqués n'y sont déjà plus ; les swimlanes sans ticket affiché sont sautées.
  */
 export function dailySteps(lanes: readonly Lane[]): readonly Lane[] {
@@ -51,7 +51,7 @@ export function startDaily(
     stepId: firstStepId,
     stepIndex: 0,
     stepEnteredAt: 0,
-    runStockExpanded: false,
+    kanbanStockExpanded: false,
   };
 }
 
@@ -132,10 +132,10 @@ export function formatDailyElapsed(elapsedMs: number): string {
 }
 
 /**
- * Cartes d'une case à afficher en daily : dans la première colonne du RUN, les `limit` premières
+ * Cartes d'une case à afficher en daily : dans la première colonne du Kanban, les `limit` premières
  * dans l'ordre de Jira (le rang), tant que le stock n'est pas déplié. `hidden` : les autres.
  */
-export function cappedRunStock<T>(
+export function cappedKanbanStock<T>(
   issues: readonly T[],
   limit: number,
   expanded: boolean,

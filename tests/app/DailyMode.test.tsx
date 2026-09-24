@@ -141,7 +141,7 @@ describe("mode Daily", () => {
     expect(document.querySelector(".daily-clock")?.textContent).toBe("05:00");
   });
 
-  describe("stock du RUN", () => {
+  describe("stock du Kanban", () => {
     // Six anomalies à faire, dans l'ordre de Jira, en plus de RUN-7 en cours.
     const stock = ["RUN-11", "RUN-12", "RUN-13", "RUN-14", "RUN-15", "RUN-16"];
     const withStock = [
@@ -160,16 +160,16 @@ describe("mode Daily", () => {
     const runCell = (column: string) =>
       [
         ...document.querySelectorAll<HTMLElement>(
-          `ul[aria-label="RUN — ${column}"] [data-issue-key]`,
+          `ul[aria-label="Kanban — ${column}"] [data-issue-key]`,
         ),
       ].map((card) => card.dataset.issueKey);
     const toggle = () => document.querySelector<HTMLButtonElement>(".stock-toggle-button");
     async function showRun() {
-      for (let i = 0; i < 10 && !step().includes("RUN"); i++) {
+      for (let i = 0; i < 10 && !step().includes("Kanban"); i++) {
         key("ArrowRight");
         await settle();
       }
-      expect(step()).toContain("RUN");
+      expect(step()).toContain("Kanban");
     }
 
     it("hors daily, tout le stock est affiché", async () => {
@@ -184,7 +184,7 @@ describe("mode Daily", () => {
       await settle();
       await showRun();
       expect(runCell("À faire")).toEqual(stock.slice(0, 3));
-      // Les autres colonnes du RUN ne sont pas plafonnées.
+      // Les autres colonnes du Kanban ne sont pas plafonnées.
       expect(runCell("En cours")).toEqual(["RUN-7"]);
       expect(toggle()?.textContent).toBe("+ 3 autres");
 
@@ -193,7 +193,7 @@ describe("mode Daily", () => {
       expect(runCell("À faire")).toEqual(stock);
       expect(toggle()?.textContent).toBe("Afficher moins");
 
-      // Revenir sur le RUN pendant la même daily : toujours déplié.
+      // Revenir sur le Kanban pendant la même daily : toujours déplié.
       key("ArrowLeft");
       await settle();
       key("ArrowRight");

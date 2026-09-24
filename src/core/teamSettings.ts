@@ -41,10 +41,11 @@ export interface TeamIssueType {
 
 export interface TeamSettings {
   readonly scrumColumns: readonly TeamColumn[];
-  readonly runColumns: readonly TeamColumn[];
+  readonly kanbanColumns: readonly TeamColumn[];
   readonly issueTypes: readonly TeamIssueType[];
-  readonly showRunSection: boolean;
+  readonly showKanbanSection: boolean;
   readonly buildSectionLabel: string;
+  readonly kanbanSectionLabel: string;
   readonly agingThresholdDays: number;
   readonly blockedLabels: readonly string[];
   readonly goalSource: GoalSource;
@@ -58,10 +59,11 @@ export interface TeamSettings {
 
 const SETTINGS_KEYS = [
   "scrumColumns",
-  "runColumns",
+  "kanbanColumns",
   "issueTypes",
-  "showRunSection",
+  "showKanbanSection",
   "buildSectionLabel",
+  "kanbanSectionLabel",
   "agingThresholdDays",
   "blockedLabels",
   "goalSource",
@@ -74,6 +76,9 @@ const SETTINGS_KEYS = [
 ] as const satisfies readonly (keyof TeamSettings)[];
 
 const DOCUMENT_KEYS = new Set(["version", "publishedAt", "publishedBy", "settings"]);
+
+/** Clés d'avant 0.21.0 (RUN devenu Kanban) : relues, puis remplacées à la publication suivante. */
+const LEGACY_SETTINGS_KEYS = ["runColumns", "showRunSection"] as const;
 
 export interface TeamPublisher {
   readonly accountId: string | null;
@@ -95,15 +100,16 @@ export function teamSettingsOf(configuration: BoardConfiguration): TeamSettings 
     list.map(({ id, name, hidden, wipLimit }) => ({ id, name, hidden, wipLimit }));
   return {
     scrumColumns: columns(configuration.scrumColumns),
-    runColumns: columns(configuration.runColumns),
+    kanbanColumns: columns(configuration.kanbanColumns),
     issueTypes: configuration.issueTypes.map(({ id, name, category, countsAsBug }) => ({
       id,
       name,
       category,
       countsAsBug,
     })),
-    showRunSection: configuration.showRunSection,
+    showKanbanSection: configuration.showKanbanSection,
     buildSectionLabel: configuration.buildSectionLabel,
+    kanbanSectionLabel: configuration.kanbanSectionLabel,
     agingThresholdDays: configuration.agingThresholdDays,
     blockedLabels: [...configuration.blockedLabels],
     goalSource: configuration.goalSource,
@@ -140,15 +146,16 @@ export function withTeamSettings(
   return {
     ...configuration,
     scrumColumns: columns(configuration.scrumColumns, settings.scrumColumns),
-    runColumns: columns(configuration.runColumns, settings.runColumns),
+    kanbanColumns: columns(configuration.kanbanColumns, settings.kanbanColumns),
     issueTypes: configuration.issueTypes.map((type) => {
       const shared = settings.issueTypes.find((candidate) => candidate.id === type.id);
       return shared
         ? { ...type, category: shared.category, countsAsBug: shared.countsAsBug }
         : type;
     }),
-    showRunSection: settings.showRunSection,
+    showKanbanSection: settings.showKanbanSection,
     buildSectionLabel: settings.buildSectionLabel,
+    kanbanSectionLabel: settings.kanbanSectionLabel,
     agingThresholdDays: settings.agingThresholdDays,
     blockedLabels: [...settings.blockedLabels],
     goalSource: settings.goalSource,
@@ -163,11 +170,11 @@ export function withTeamSettings(
 
 /** Familles de réglages, pour dire ce qu'une publication ou une mise à jour change. */
 const FAMILIES: readonly (readonly [string, (settings: TeamSettings) => unknown])[] = [
-  ["Colonnes : noms, affichage, limites WIP", (s) => [s.scrumColumns, s.runColumns]],
-  ["Types de tickets : Scrum, RUN, ignoré, bug", (s) => s.issueTypes],
+  ["Colonnes : noms, affichage, limites WIP", (s) => [s.scrumColumns, s.kanbanColumns]],
+  ["Types de tickets : Scrum, Kanban, ignoré, bug", (s) => s.issueTypes],
   [
-    "Section RUN, nom de Build, seuil de vieillissement",
-    (s) => [s.showRunSection, s.buildSectionLabel, s.agingThresholdDays],
+    "Swimlane Kanban, noms de Build et de Kanban, seuil de vieillissement",
+    (s) => [s.showKanbanSection, s.buildSectionLabel, s.kanbanSectionLabel, s.agingThresholdDays],
   ],
   ["Labels de blocage", (s) => s.blockedLabels],
   ["Source des objectifs et Goals du board", (s) => [s.goalSource, s.boardGoalIds]],
@@ -302,7 +309,10 @@ export async function publishTeamSettings(
     }
     extraKeys = pickUnknown(stored, DOCUMENT_KEYS);
     if (isRecord(stored.settings)) {
-      extraSettings = pickUnknown(stored.settings, new Set<string>(SETTINGS_KEYS));
+      extraSettings = pickUnknown(
+        stored.settings,
+        new Set<string>([...SETTINGS_KEYS, ...LEGACY_SETTINGS_KEYS]),
+      );
     }
   }
   // Publié par quelqu'un depuis la version connue ici (ou jamais vu ici) : on ne l'écrase pas.

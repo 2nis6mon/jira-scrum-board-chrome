@@ -17,7 +17,7 @@ export interface LaneCell {
   readonly issues: readonly BoardIssue[];
 }
 
-/** Une swimlane affichée : un objectif, Build ou RUN. */
+/** Une swimlane affichée : un objectif, Build ou Kanban. */
 export interface Lane {
   readonly block: BoardBlock;
   readonly id: string;
@@ -36,7 +36,7 @@ export interface Lane {
 
 export interface BoardLayout {
   readonly columns: readonly ColumnConfiguration[];
-  readonly runColumns: readonly ColumnConfiguration[];
+  readonly kanbanColumns: readonly ColumnConfiguration[];
   readonly lanes: readonly Lane[];
   readonly filtersActive: boolean;
   readonly visibleCount: number;
@@ -58,7 +58,7 @@ export function buildBoardLayout(
   filters: BoardFilters,
 ): BoardLayout {
   const columns = visibleColumns(configuration.scrumColumns);
-  const runColumns = visibleColumns(configuration.runColumns);
+  const kanbanColumns = visibleColumns(configuration.kanbanColumns);
   const filtersActive = areFiltersActive(filters);
 
   const visibleGoals = snapshot.goals.filter((goal) => !isGoalHidden(configuration, goal.id));
@@ -66,7 +66,7 @@ export function buildBoardLayout(
     goals: visibleGoals,
     storedOrder: configuration.blockOrder,
     includeBuild: true,
-    includeRun: configuration.showRunSection,
+    includeKanban: configuration.showKanbanSection,
   });
 
   // Un ticket dont l'objectif est masqué rejoint Build ; son rattachement Jira n'est pas touché.
@@ -76,24 +76,28 @@ export function buildBoardLayout(
   };
   const scrumByLane = groupBy(snapshot.scrumIssues, laneKey);
   const filteredScrumByLane = groupBy(applyFilters(filters, snapshot.scrumIssues), laneKey);
-  const filteredRun = applyFilters(filters, snapshot.runIssues);
+  const filteredKanban = applyFilters(filters, snapshot.kanbanIssues);
 
   const allIssuesOf = (block: BoardBlock): readonly BoardIssue[] =>
-    block.kind === "run" ? snapshot.runIssues : (scrumByLane.get(blockIdentifier(block)) ?? []);
+    block.kind === "kanban"
+      ? snapshot.kanbanIssues
+      : (scrumByLane.get(blockIdentifier(block)) ?? []);
   const visibleIssuesOf = (block: BoardBlock): readonly BoardIssue[] =>
-    block.kind === "run" ? filteredRun : (filteredScrumByLane.get(blockIdentifier(block)) ?? []);
+    block.kind === "kanban"
+      ? filteredKanban
+      : (filteredScrumByLane.get(blockIdentifier(block)) ?? []);
 
   const goalsById = new Map(visibleGoals.map((goal) => [goal.id, goal]));
   const shown = displayedBlocks({
     blocks,
     filtersActive,
     filteredCount: (block) => visibleIssuesOf(block).length,
-    sprintHasRunIssues: snapshot.runIssues.length > 0,
+    sprintHasKanbanIssues: snapshot.kanbanIssues.length > 0,
   });
 
   let unmappedCount = 0;
   const lanes = shown.map((block): Lane => {
-    const laneColumns = block.kind === "run" ? runColumns : columns;
+    const laneColumns = block.kind === "kanban" ? kanbanColumns : columns;
     const visible = visibleIssuesOf(block);
     const cells = laneColumns.map((column) => ({
       column,
@@ -107,7 +111,10 @@ export function buildBoardLayout(
       block,
       id: blockIdentifier(block),
       title:
-        goal?.title ?? (block.kind === "run" ? "RUN" : configuration.buildSectionLabel || "Build"),
+        goal?.title ??
+        (block.kind === "kanban"
+          ? configuration.kanbanSectionLabel || "Kanban"
+          : configuration.buildSectionLabel || "Build"),
       goal,
       // L'avancement d'un objectif compte ses tickets RATTACHÉS, même masqués ou filtrés.
       progress: goal
@@ -124,10 +131,10 @@ export function buildBoardLayout(
     };
   });
 
-  const everything = [...snapshot.scrumIssues, ...snapshot.runIssues];
+  const everything = [...snapshot.scrumIssues, ...snapshot.kanbanIssues];
   return {
     columns,
-    runColumns,
+    kanbanColumns,
     lanes,
     filtersActive,
     visibleCount: lanes.reduce((sum, lane) => sum + lane.visibleCount, 0),
@@ -172,7 +179,7 @@ export interface FilterOptions {
 
 /** Valeurs réellement présentes dans le sprint, avec leur nombre de tickets. Rien n'est inventé. */
 export function filterOptions(snapshot: BoardSnapshot): FilterOptions {
-  const issues = [...snapshot.scrumIssues, ...snapshot.runIssues];
+  const issues = [...snapshot.scrumIssues, ...snapshot.kanbanIssues];
   const tally = () => new Map<string, { label: string; count: number }>();
   const add = (map: ReturnType<typeof tally>, value: string, label: string) => {
     const entry = map.get(value);

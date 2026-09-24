@@ -13,7 +13,7 @@ const PAIEMENT = "g-paiement";
 const STABILITE = "g-stabilite";
 
 // Board de la fixture en mode « texte du sprint » (la passerelle GraphQL y refuse) : deux
-// objectifs, Build et RUN.
+// objectifs, Build et Kanban.
 async function preferencesBoard() {
   const jira = boardSiteJira();
   const platform = fakePlatform(jira);
@@ -34,32 +34,32 @@ const laneIds = (board: BoardModel) => board.layout.value?.lanes.map((lane) => l
 describe("BoardModel — réglages d'affichage locaux", () => {
   it("monter et descendre une swimlane : immédiat, enregistré, rien n'est écrit dans Jira", async () => {
     const { board, jiraWrites, stored } = await preferencesBoard();
-    expect(laneIds(board)).toEqual([`goal:${PAIEMENT}`, `goal:${STABILITE}`, "build", "run"]);
+    expect(laneIds(board)).toEqual([`goal:${PAIEMENT}`, `goal:${STABILITE}`, "build", "kanban"]);
 
     await board.moveLane("build", -1);
-    expect(laneIds(board)).toEqual([`goal:${PAIEMENT}`, "build", `goal:${STABILITE}`, "run"]);
+    expect(laneIds(board)).toEqual([`goal:${PAIEMENT}`, "build", `goal:${STABILITE}`, "kanban"]);
 
     await board.moveLane(`goal:${PAIEMENT}`, 1);
-    expect(laneIds(board)).toEqual(["build", `goal:${PAIEMENT}`, `goal:${STABILITE}`, "run"]);
+    expect(laneIds(board)).toEqual(["build", `goal:${PAIEMENT}`, `goal:${STABILITE}`, "kanban"]);
     expect((await stored())?.blockOrder).toEqual([
       "build",
       `goal:${PAIEMENT}`,
       `goal:${STABILITE}`,
-      "run",
+      "kanban",
     ]);
     expect(jiraWrites()).toBe(0);
   });
 
   it("glisser-déposer une swimlane : elle prend la place visée, rien n'est écrit dans Jira", async () => {
     const { board, stored, jiraWrites } = await preferencesBoard();
-    board.startLaneDrag("run");
+    board.startLaneDrag("kanban");
     board.setLaneDropTarget(`goal:${PAIEMENT}`);
     expect(board.laneDropTarget.value).toBe(`goal:${PAIEMENT}`);
 
-    await board.dropLane("run", `goal:${PAIEMENT}`);
-    expect(laneIds(board)).toEqual(["run", `goal:${PAIEMENT}`, `goal:${STABILITE}`, "build"]);
+    await board.dropLane("kanban", `goal:${PAIEMENT}`);
+    expect(laneIds(board)).toEqual(["kanban", `goal:${PAIEMENT}`, `goal:${STABILITE}`, "build"]);
     expect((await stored())?.blockOrder).toEqual([
-      "run",
+      "kanban",
       `goal:${PAIEMENT}`,
       `goal:${STABILITE}`,
       "build",
@@ -74,13 +74,13 @@ describe("BoardModel — réglages d'affichage locaux", () => {
     board.setLaneDropTarget(null);
     expect(board.laneDropTarget.value).toBeNull();
     await board.dropLane(`goal:${PAIEMENT}`, null);
-    expect(laneIds(board)).toEqual([`goal:${STABILITE}`, "build", "run", `goal:${PAIEMENT}`]);
+    expect(laneIds(board)).toEqual([`goal:${STABILITE}`, "build", "kanban", `goal:${PAIEMENT}`]);
 
     // Juste avant la suivante, ou sur elle-même : l'ordre ne changerait pas, aucune ligne.
     board.startLaneDrag("build");
     board.setLaneDropTarget("build");
     expect(board.laneDropTarget.value).toBeUndefined();
-    board.setLaneDropTarget("run");
+    board.setLaneDropTarget("kanban");
     expect(board.laneDropTarget.value).toBeUndefined();
     board.endLaneDrag();
     expect(board.draggingLane.value).toBeNull();
@@ -99,7 +99,7 @@ describe("BoardModel — réglages d'affichage locaux", () => {
 
     await board.moveLane(`goal:${STABILITE}`, -1);
     board.resetFilters();
-    expect(laneIds(board)).toEqual([`goal:${STABILITE}`, `goal:${PAIEMENT}`, "build", "run"]);
+    expect(laneIds(board)).toEqual([`goal:${STABILITE}`, `goal:${PAIEMENT}`, "build", "kanban"]);
   });
 
   it("replier une swimlane, puis toutes, puis tout déplier", async () => {
@@ -111,7 +111,7 @@ describe("BoardModel — réglages d'affichage locaux", () => {
     expect((await stored())?.collapsedBlockIds).toEqual([`goal:${STABILITE}`]);
 
     await board.setAllLanesCollapsed(true);
-    expect(collapsed()).toEqual([`goal:${PAIEMENT}`, `goal:${STABILITE}`, "build", "run"]);
+    expect(collapsed()).toEqual([`goal:${PAIEMENT}`, `goal:${STABILITE}`, "build", "kanban"]);
 
     await board.setAllLanesCollapsed(false);
     expect(collapsed()).toEqual([]);
@@ -126,7 +126,7 @@ describe("BoardModel — réglages d'affichage locaux", () => {
         ?.cells.flatMap((cell) => cell.issues.map((issue) => issue.issue.key));
 
     await board.setGoalHidden(PAIEMENT, true);
-    expect(laneIds(board)).toEqual([`goal:${STABILITE}`, "build", "run"]);
+    expect(laneIds(board)).toEqual([`goal:${STABILITE}`, "build", "kanban"]);
     expect(keysIn("build")).toEqual(expect.arrayContaining(["ABC-101", "ABC-102"]));
     expect(board.hiddenGoals.value.map((goal) => goal.id)).toEqual([PAIEMENT]);
     expect((await stored())?.hiddenGoalIds).toEqual([PAIEMENT]);

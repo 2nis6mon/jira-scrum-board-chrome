@@ -3,7 +3,9 @@
 Nom public choisi par Denis le 18/09/2026 (manifest : nom, nom court « Sprint Goals »,
 description ≤ 132 caractères qui met en avant la swimlane automatique par Sprint Goal).
 Extension Chrome (Manifest V3) qui reprend les fonctionnalités de l'app macOS « Scrum Board »,
-connectée à Jira Cloud. Projet **distinct** de l'app Mac, qui reste maintenue en parallèle.
+connectée à Jira Cloud. **L'app Mac est abandonnée (décision de Denis du 24/09/2026) : ne plus en
+tenir compte** — ni compatibilité de format, ni parité. Les mentions du Mac ci-dessous sont
+historiques.
 
 ## Références
 
@@ -138,7 +140,8 @@ Correspondance avec l'app Mac (les tests Swift de même nom sont la référence)
 Écarts voulus : `SprintGoalText.render` n'est pas porté (il ne servait qu'à réécrire le champ du
 sprint) ; le mode de compatibilité « Build et RUN restent en bas » des ordres enregistrés avant la
 2.2 du Mac n'existe pas ; les champs « optionnels pour d'anciennes configurations » ont ici une
-valeur par défaut. Le format de `SprintGoalDocument` est PARTAGÉ avec le Mac : ne pas le changer.
+valeur par défaut. Le format de `SprintGoalDocument` était partagé avec le Mac (abandonné) ; il reste relu par les
+sprints existants : ne le changer qu'avec une relecture de l'ancien format.
 Écarts de prudence sur la propriété du sprint (`boardWrites.ts`) : si sa relecture échoue, rien
 n'est écrit (le Mac écrivait un document vidé) ; une valeur qui n'est pas un objet JSON n'est pas
 écrasée ; les clés inconnues sont réécrites telles quelles ; l'épinglage est refusé si la
@@ -576,6 +579,16 @@ qui déplie sur place, et « Afficher moins ». Le dépliage vaut jusqu'à la fi
 l'administration, local. Seulement le RUN et seulement en daily : hors daily, tout reste affiché. Un
 dépôt après la dernière carte affichée se place avant les cartes cachées. Écartés par Denis : tour
 de parole par personne, bandeau d'alertes du stock, critère d'urgence, « Qui prend ? ».
+
+0.21.0 (demande de Denis du 24/09/2026, branche `codex/mode-daily`) : « RUN » devient « Kanban »
+partout — un type de ticket est traité en mode Scrum (par objectifs) ou en mode Kanban. Code
+(catégorie `KANBAN`, bloc `kanban`, `kanbanColumns`, `kanbanIssues`, `showKanbanSection`,
+`dailyKanbanStockLimit`, classes `lane-kanban`…, couleur `--kanban`, icône tableau à colonnes),
+libellés et tests. Nouveau réglage `kanbanSectionLabel` (« Kanban » par défaut ; Denis le nomme
+« Run »), section Board de l'administration, PARTAGÉ dans les réglages d'équipe comme le nom de
+Build. Anciens formats relus : configuration locale et propriété d'équipe (`runColumns`,
+`showRunSection`, `dailyRunStockLimit`, catégorie `RUN`, bloc `run` dans l'ordre et le repli) ; la
+publication suivante écrit le nouveau format et retire `runColumns` et `showRunSection`.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit

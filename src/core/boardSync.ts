@@ -272,7 +272,7 @@ export async function loadSnapshot(input: {
 
   // Sous-tâches : elles gardent leur carte, mais suivent leur story. Sans Goal propre, elles prennent
   // celui de leur parent ; et quand leur parent est sur le board, elles vont dans le même bloc que
-  // lui (Scrum ou RUN). La story et ses sous-tâches restent ainsi dans la même swimlane.
+  // lui (Scrum ou Kanban). La story et ses sous-tâches restent ainsi dans la même swimlane.
   const families = subtaskFamilies(sprintIssues, links);
   const scrumLinks = { ...links, ...families.inheritedLinks };
   const blockOf = (issue: JiraIssue) => categoryOf(families.parentOf.get(issue.key) ?? issue);
@@ -280,7 +280,7 @@ export async function loadSnapshot(input: {
   // Chaque ticket est daté par rapport à SON sprint, pas par rapport au premier : « ajouté en
   // cours de sprint » reste juste avec plusieurs sprints actifs.
   const scrumIssues: BoardIssue[] = [];
-  const runIssues: BoardIssue[] = [];
+  const kanbanIssues: BoardIssue[] = [];
   for (const entry of issuesBySprint) {
     scrumIssues.push(
       ...assembleBoardIssues({
@@ -293,11 +293,11 @@ export async function loadSnapshot(input: {
         now,
       }),
     );
-    runIssues.push(
+    kanbanIssues.push(
       ...assembleBoardIssues({
-        issues: entry.issues.filter((issue) => blockOf(issue) === "RUN"),
+        issues: entry.issues.filter((issue) => blockOf(issue) === "KANBAN"),
         configuration,
-        columns: configuration.runColumns,
+        columns: configuration.kanbanColumns,
         links: {},
         sprint: entry.sprint,
         subtaskIssues: families.subtaskIssues,
@@ -323,7 +323,7 @@ export async function loadSnapshot(input: {
       goals: coloredGoals,
       goalsOrigin,
       scrumIssues,
-      runIssues,
+      kanbanIssues,
       syncedAt: now,
       currentUser: input.currentUser,
       goalsReadOnly,
@@ -377,7 +377,7 @@ function emptySnapshot(now: Date, currentUser: JiraUser | null): BoardSnapshot {
     goals: [],
     goalsOrigin: "sprintText",
     scrumIssues: [],
-    runIssues: [],
+    kanbanIssues: [],
     syncedAt: now,
     currentUser,
     goalsReadOnly: false,

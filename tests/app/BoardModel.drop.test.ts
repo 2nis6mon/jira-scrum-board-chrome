@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { BoardModel } from "../../src/app/model/BoardModel";
-import { BUILD_BLOCK, goalBlock, RUN_BLOCK } from "../../src/core/boardBlocks";
+import { BUILD_BLOCK, goalBlock, KANBAN_BLOCK } from "../../src/core/boardBlocks";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { BOARD_URL, boardSiteJira, GOALS_DOCUMENT, SPRINT_ISSUES } from "../support/boardFixture";
@@ -365,9 +365,9 @@ describe("glisser-déposer — rang", () => {
 describe("glisser-déposer — dépôts refusés sans requête", () => {
   it.each([
     ["ticket inconnu du board", { issueKey: "XYZ-1", block: BUILD_BLOCK, columnId: DOING }],
-    ["carte Scrum dans RUN", { issueKey: "ABC-102", block: RUN_BLOCK, columnId: DOING }],
+    ["carte Scrum dans Kanban", { issueKey: "ABC-102", block: KANBAN_BLOCK, columnId: DOING }],
     [
-      "carte RUN dans un objectif",
+      "carte Kanban dans un objectif",
       { issueKey: "RUN-7", block: goalBlock("g-paiement"), columnId: DONE },
     ],
     ["colonne inconnue", { issueKey: "ABC-102", block: BUILD_BLOCK, columnId: "col-99" }],
@@ -379,13 +379,18 @@ describe("glisser-déposer — dépôts refusés sans requête", () => {
     expect(jira.requests).toHaveLength(before);
   });
 
-  it("une carte RUN change de colonne dans le bloc RUN", async () => {
+  it("une carte Kanban change de colonne dans le bloc Kanban", async () => {
     const { board, jira, writes } = await boardWith();
     jira
       .on("GET", "/rest/api/3/issue/RUN-7", statusReply("3", "En cours"))
       .on("GET", "/rest/api/3/issue/RUN-7/transitions", transitions(["31", "6", "Terminé"]))
       .on("POST", "/rest/api/3/issue/RUN-7/transitions", { status: 204 });
-    await board.dropIssue({ issueKey: "RUN-7", block: RUN_BLOCK, columnId: DONE, beforeKey: null });
+    await board.dropIssue({
+      issueKey: "RUN-7",
+      block: KANBAN_BLOCK,
+      columnId: DONE,
+      beforeKey: null,
+    });
     expect(writes().map((r) => r.path)).toEqual(["/rest/api/3/issue/RUN-7/transitions"]);
   });
 });

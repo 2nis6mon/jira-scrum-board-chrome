@@ -18,7 +18,7 @@ import {
 import { type BoardLayout, columnLoad, daysRemaining, type Lane } from "../../../core/boardLayout";
 import { GOAL_COLOR_NAMES } from "../../../core/boardPreferences";
 import {
-  cappedRunStock,
+  cappedKanbanStock,
   currentStepIndex,
   type DailySession,
   dailyPhase,
@@ -134,12 +134,12 @@ export function BoardView({
             dailyStock={
               daily
                 ? {
-                    limit: configuration.dailyRunStockLimit,
-                    expanded: daily.runStockExpanded,
+                    limit: configuration.dailyKanbanStockLimit,
+                    expanded: daily.kanbanStockExpanded,
                     onToggle: () =>
                       controls.onUpdateDaily((current) => ({
                         ...current,
-                        runStockExpanded: !current.runStockExpanded,
+                        kanbanStockExpanded: !current.kanbanStockExpanded,
                       })),
                   }
                 : null
@@ -258,7 +258,7 @@ function SprintHeader(props: {
   // Sans historique Jira, on ne sait pas quels tickets ont été ajoutés : on n'affiche pas « 0 ».
   const addedKnown =
     snapshot !== null &&
-    [...snapshot.scrumIssues, ...snapshot.runIssues].some(
+    [...snapshot.scrumIssues, ...snapshot.kanbanIssues].some(
       (issue) => issue.addedAfterSprintStart !== null,
     );
 
@@ -437,7 +437,7 @@ function PresentationExit({ onExit }: { onExit: () => void }) {
 
 /**
  * Barre de la daily, dans l'ordre voulu par Denis : minuteur, Précédent, Suivant, puis la swimlane
- * présentée (objectif, Build ou RUN, avec le temps passé dessus) ; à droite pause, plein écran, fin. Clavier : ← et →, Espace, Échap. Le board reste manipulable :
+ * présentée (objectif, Build ou Kanban, avec le temps passé dessus) ; à droite pause, plein écran, fin. Clavier : ← et →, Espace, Échap. Le board reste manipulable :
  * déplacer une carte y est la même transition ou le même rang qu'ailleurs.
  */
 function DailyBar(props: {
@@ -999,7 +999,7 @@ function FloatingNotice(props: { board: BoardModel; id: NoticeId; children: Comp
 
 // ─── Board ───────────────────────────────────────────────────────────────────
 
-/** Daily : stock de la première colonne du RUN plafonné, dépliable par un bouton. */
+/** Daily : stock de la première colonne du Kanban plafonné, dépliable par un bouton. */
 interface DailyStock {
   readonly limit: number;
   readonly expanded: boolean;
@@ -1122,7 +1122,8 @@ function LaneView(props: {
   const goalsById = new Map(board.snapshot.value?.goals.map((g) => [g.id, g]) ?? []);
   const cardFields = displayedCardFields(configuration);
   const parentColors = board.parentColors.value;
-  const ownColumns = lane.block.kind === "run" && !sameColumns(layout.runColumns, layout.columns);
+  const ownColumns =
+    lane.block.kind === "kanban" && !sameColumns(layout.kanbanColumns, layout.columns);
 
   return (
     <section
@@ -1224,8 +1225,8 @@ function LaneView(props: {
         {!daily && <LaneMenu board={board} lane={lane} />}
       </header>
       {!lane.collapsed && ownColumns && (
-        <div class="board-row column-band column-band-run">
-          {layout.runColumns.map((column) => (
+        <div class="board-row column-band column-band-kanban">
+          {layout.kanbanColumns.map((column) => (
             <div key={column.id} class="column-head">
               <span class="column-name">{column.name}</span>
             </div>
@@ -1236,10 +1237,10 @@ function LaneView(props: {
         <div class="board-row lane-cells">
           {lane.cells.map((cell, cellIndex) => {
             const drag = board.dragging.value;
-            // Daily : stock de la première colonne du RUN plafonné, dans l'ordre de Jira.
+            // Daily : stock de la première colonne du Kanban plafonné, dans l'ordre de Jira.
             const stock =
-              dailyStock && lane.block.kind === "run" && cellIndex === 0
-                ? cappedRunStock(cell.issues, dailyStock.limit, dailyStock.expanded)
+              dailyStock && lane.block.kind === "kanban" && cellIndex === 0
+                ? cappedKanbanStock(cell.issues, dailyStock.limit, dailyStock.expanded)
                 : null;
             const shownIssues = stock?.shown ?? cell.issues;
             // Un dépôt après la dernière carte affichée se place avant les cartes cachées.
@@ -1394,7 +1395,7 @@ function LaneView(props: {
                             if (!event.dataTransfer) return;
                             event.dataTransfer.setData(DRAG_TYPE, key);
                             event.dataTransfer.effectAllowed = "move";
-                            board.startDrag(key, issue.category === "RUN" ? "run" : "scrum");
+                            board.startDrag(key, issue.category === "KANBAN" ? "kanban" : "scrum");
                           }}
                           onDragEnd={() => board.endDrag()}
                         />

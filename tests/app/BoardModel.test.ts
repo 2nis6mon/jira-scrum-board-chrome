@@ -46,7 +46,7 @@ describe("BoardModel — mise en place", () => {
     expect(board.configuration.value?.boardName).toBe("Équipe Paiement");
     expect(board.snapshot.value?.sprint?.name).toBe("Sprint 42");
     expect(board.snapshot.value?.scrumIssues).toHaveLength(5);
-    expect(board.snapshot.value?.runIssues.map((i) => i.issue.key)).toEqual(["RUN-7"]);
+    expect(board.snapshot.value?.kanbanIssues.map((i) => i.issue.key)).toEqual(["RUN-7"]);
     expect(board.syncProblem.value).toBeNull();
     const stored = await loadActiveBoard(platform.store, SITE.origin);
     expect(stored?.boardId).toBe(7);
@@ -253,14 +253,14 @@ describe("BoardModel — synchronisation", () => {
 });
 
 describe("BoardModel — filtres et mise en page", () => {
-  it("met le board en swimlanes : objectifs, Build, RUN", async () => {
+  it("met le board en swimlanes : objectifs, Build, Kanban", async () => {
     const { board } = await detected();
     const layout = board.layout.value;
     expect(layout?.lanes.map((lane) => [lane.title, lane.totalCount])).toEqual([
       ["Finaliser le parcours de paiement", 2],
       ["Améliorer la stabilité", 1],
       ["Build", 2],
-      ["RUN", 1],
+      ["Kanban", 1],
     ]);
     expect(layout?.columns.map((column) => column.name)).toEqual([
       "À faire",

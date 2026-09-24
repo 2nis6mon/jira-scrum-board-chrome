@@ -12,7 +12,7 @@ import { makeSprintGoal } from "../../src/core/sprintGoals";
 import type { JiraIssue } from "../../src/jira/models";
 import { makeConfiguration, makeIssue } from "../support/jiraFixtures";
 
-const config = makeConfiguration({ runColumns: makeConfiguration().scrumColumns });
+const config = makeConfiguration({ kanbanColumns: makeConfiguration().scrumColumns });
 const GOALS = [
   makeSprintGoal({ id: "g1", title: "Paiement", position: 0 }),
   makeSprintGoal({ id: "g2", title: "Stabilité", position: 1 }),
@@ -31,7 +31,7 @@ function snapshot(
     goals: GOALS,
     goalsOrigin: "sprintText",
     scrumIssues: assemble(scrum, links),
-    runIssues: assemble(run, {}),
+    kanbanIssues: assemble(run, {}),
     syncedAt: new Date(0),
     currentUser: null,
     goalsReadOnly: false,
@@ -63,7 +63,7 @@ describe("buildBoardLayout", () => {
       ["goal:g1", [["ABC-1"], ["ABC-2"], []]],
       ["goal:g2", [[], [], ["ABC-3"]]],
       ["build", [[], ["ABC-4"], []]],
-      ["run", [[], ["RUN-1"], []]],
+      ["kanban", [[], ["RUN-1"], []]],
     ]);
   });
 
@@ -87,7 +87,7 @@ describe("buildBoardLayout", () => {
     expect(lanesOf(buildBoardLayout(board, hidden, NO_FILTERS)).map(([id]) => id)).toEqual([
       "goal:g2",
       "build",
-      "run",
+      "kanban",
     ]);
     const build = buildBoardLayout(board, hidden, NO_FILTERS).lanes.find((l) => l.id === "build");
     expect(build?.cells.flatMap((cell) => cell.issues.map((i) => i.issue.key))).toEqual([
@@ -100,24 +100,24 @@ describe("buildBoardLayout", () => {
   it("respecte l'ordre local des swimlanes et le libellé de Build", () => {
     const ordered = {
       ...config,
-      blockOrder: ["run", "goal:g2", "build", "goal:g1"],
+      blockOrder: ["kanban", "goal:g2", "build", "goal:g1"],
       buildSectionLabel: "Hors objectif",
     };
     const layout = buildBoardLayout(board, ordered, NO_FILTERS);
     expect(layout.lanes.map((lane) => lane.title)).toEqual([
-      "RUN",
+      "Kanban",
       "Stabilité",
       "Hors objectif",
       "Paiement",
     ]);
   });
 
-  it("RUN masqué par réglage, ou absent faute de ticket RUN", () => {
+  it("Kanban masqué par réglage, ou absent faute de ticket Kanban", () => {
     expect(
-      buildBoardLayout(board, { ...config, showRunSection: false }, NO_FILTERS).lanes.map(
+      buildBoardLayout(board, { ...config, showKanbanSection: false }, NO_FILTERS).lanes.map(
         (l) => l.id,
       ),
-    ).not.toContain("run");
+    ).not.toContain("kanban");
     expect(buildBoardLayout(snapshot([]), config, NO_FILTERS).lanes.map((l) => l.id)).toEqual([
       "goal:g1",
       "goal:g2",
@@ -141,7 +141,7 @@ describe("buildBoardLayout", () => {
     expect(buildBoardLayout(withOrphan, hiddenColumn, NO_FILTERS).unmappedCount).toBe(2);
   });
 
-  it("charge par colonne, hors RUN et sans tenir compte des filtres, pour les limites WIP", () => {
+  it("charge par colonne, hors Kanban et sans tenir compte des filtres, pour les limites WIP", () => {
     expect(Object.fromEntries(columnLoad(board))).toEqual({ todo: 1, prog: 2, done: 1 });
     const hidden = snapshot([makeIssue("ABC-9", { statusId: "99" })]);
     expect(Object.fromEntries(columnLoad(hidden))).toEqual({});

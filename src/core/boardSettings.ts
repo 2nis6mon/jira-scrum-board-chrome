@@ -3,9 +3,10 @@ import {
   type BoardConfiguration,
   type ColumnConfiguration,
   DEFAULT_BUILD_LABEL,
+  DEFAULT_KANBAN_LABEL,
   type IssueCategory,
+  MAX_DAILY_KANBAN_STOCK,
   MAX_DAILY_MINUTES,
-  MAX_DAILY_RUN_STOCK,
 } from "./boardConfiguration";
 import { type CardField, cardFieldId, MAX_CARD_FIELDS } from "./cardFields";
 import { foldText } from "./text";
@@ -15,7 +16,7 @@ import { foldText } from "./text";
 
 export const ISSUE_CATEGORY_LABEL: Record<IssueCategory, string> = {
   SCRUM: "Scrum",
-  RUN: "RUN",
+  KANBAN: "Kanban",
   IGNORED: "Ignoré",
 };
 
@@ -28,7 +29,7 @@ export const AUTO_REFRESH_CHOICES: readonly (number | null)[] = [null, 60, 120, 
 // ne touche qu'à son réglage : deux modifications rapprochées s'additionnent, et une colonne ou un
 // type disparu entre-temps (structure relue dans Jira) laisse la configuration intacte.
 
-export type ColumnKind = "scrum" | "run";
+export type ColumnKind = "scrum" | "kanban";
 
 export type SettingResult =
   | { readonly ok: true; readonly configuration: BoardConfiguration }
@@ -40,7 +41,7 @@ function editColumn(
   columnId: string,
   parts: Partial<ColumnConfiguration>,
 ): BoardConfiguration {
-  const key = kind === "scrum" ? "scrumColumns" : "runColumns";
+  const key = kind === "scrum" ? "scrumColumns" : "kanbanColumns";
   return {
     ...configuration,
     [key]: configuration[key].map((column) =>
@@ -50,7 +51,7 @@ function editColumn(
 }
 
 function columnName(configuration: BoardConfiguration, kind: ColumnKind, columnId: string) {
-  const columns = kind === "scrum" ? configuration.scrumColumns : configuration.runColumns;
+  const columns = kind === "scrum" ? configuration.scrumColumns : configuration.kanbanColumns;
   return columns.find((column) => column.id === columnId)?.name ?? columnId;
 }
 
@@ -135,6 +136,14 @@ export function withBuildLabel(
   return { ...configuration, buildSectionLabel: label.trim() || DEFAULT_BUILD_LABEL };
 }
 
+/** Nom de la swimlane Kanban ; vide = le nom par défaut. */
+export function withKanbanLabel(
+  configuration: BoardConfiguration,
+  label: string,
+): BoardConfiguration {
+  return { ...configuration, kanbanSectionLabel: label.trim() || DEFAULT_KANBAN_LABEL };
+}
+
 /** Seuil « vieillissant » saisi : un entier de 1 à 365 jours. */
 export function withAgingThreshold(configuration: BoardConfiguration, raw: string): SettingResult {
   const days = Number(raw.trim());
@@ -164,19 +173,24 @@ export function withDailyMinutes(configuration: BoardConfiguration, raw: string)
   return { ok: true, configuration: { ...configuration, dailyMinutes: minutes } };
 }
 
-/** Cartes du stock RUN affichées en daily avant le bouton : un entier de 1 à 50. */
-export function withDailyRunStockLimit(
+/** Cartes du stock Kanban affichées en daily avant le bouton : un entier de 1 à 50. */
+export function withDailyKanbanStockLimit(
   configuration: BoardConfiguration,
   raw: string,
 ): SettingResult {
   const count = Number(raw.trim());
-  if (raw.trim() === "" || !Number.isInteger(count) || count < 1 || count > MAX_DAILY_RUN_STOCK) {
+  if (
+    raw.trim() === "" ||
+    !Number.isInteger(count) ||
+    count < 1 ||
+    count > MAX_DAILY_KANBAN_STOCK
+  ) {
     return {
       ok: false,
-      error: `Le nombre de cartes du stock RUN doit être un entier, entre 1 et ${MAX_DAILY_RUN_STOCK}.`,
+      error: `Le nombre de cartes du stock Kanban doit être un entier, entre 1 et ${MAX_DAILY_KANBAN_STOCK}.`,
     };
   }
-  return { ok: true, configuration: { ...configuration, dailyRunStockLimit: count } };
+  return { ok: true, configuration: { ...configuration, dailyKanbanStockLimit: count } };
 }
 
 /** Labels de blocage saisis, séparés par des virgules. */
@@ -200,7 +214,7 @@ export function parseLabels(text: string): string[] {
   return labels;
 }
 
-/** Remet l'ordre des swimlanes à l'ordre d'arrivée des objectifs, Build et RUN en bas. */
+/** Remet l'ordre des swimlanes à l'ordre d'arrivée des objectifs, Build et Kanban en bas. */
 export function withDefaultBlockOrder(configuration: BoardConfiguration): BoardConfiguration {
   return { ...configuration, blockOrder: [] };
 }

@@ -81,7 +81,7 @@ describe("BoardModel — Goals Atlassian", () => {
       "Paiement en une étape",
       "Zéro incident",
       "Build",
-      "RUN",
+      "Kanban",
     ]);
   });
 

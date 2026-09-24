@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **24 septembre 2026**  
 Branche décrite : **`codex/mode-daily`** (issue de `main` le 24/09/2026 pour le mode Daily ; contient 0.19.21)  
-Produit autonome : **0.20.2**  
-Prototype d’intégration Jira : **0.20.2.2**
+Produit autonome : **0.21.0**  
+Prototype d’intégration Jira : **0.21.0.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -23,15 +23,17 @@ L’extension fournit une vue Scrum centrée sur les objectifs :
 - les tickets des sprints actifs sont organisés par **Goal Atlassian** ;
 - chaque Goal devient une swimlane ;
 - les tickets sans Goal visible rejoignent **Build** ;
-- les types classés RUN sont regroupés dans **RUN** ;
+- les types traités en mode Kanban sont regroupés dans la swimlane **Kanban** (nom réglable et
+  partagé avec l’équipe, par exemple « Run » ; « RUN » jusqu’en 0.20.2, anciens réglages relus) ;
 - les colonnes, statuts, transitions, types, filtres rapides et limites WIP viennent du board Jira ;
 - Jira reste la source de vérité ;
 - le board ne prend en charge que les **boards Scrum**. Les boards Kanban sont explicitement hors
   périmètre.
 
 Le projet est distinct de l’application macOS `jira-scrum-board-advanced`, même s’il reprend une
-partie de sa spécification et de ses concepts. Le dépôt de l’application Mac est une référence en
-lecture seule.
+partie de sa spécification et de ses concepts. L’application Mac est **abandonnée** (décision de
+Denis du 24/09/2026) : ne plus en tenir compte, ni pour les formats ni pour la parité. Son dépôt
+reste consultable en lecture seule.
 
 ---
 
@@ -47,7 +49,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.20.2`  
+Version : `0.21.0`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -69,7 +71,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.20.2.2`  
+Version générée : `0.21.0.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -192,10 +194,10 @@ de Jira.
 - Mode Daily (0.20.0, choix de Denis du 24/09/2026). Bouton ▶ de l’en-tête : plein écran du
   navigateur (demandé au clic ; refusé, la daily se déroule dans la fenêtre), mise en page de la
   présentation, UNE swimlane à la fois. Étapes = swimlanes affichées dans l’ordre du board, Build
-  et RUN compris, objectifs masqués et swimlanes sans ticket affiché sautés (`core/daily.ts`).
+  et Kanban compris, objectifs masqués et swimlanes sans ticket affiché sautés (`core/daily.ts`).
   Barre de daily, dans cet ordre (0.20.1) : minuteur global (orange dans les 2 dernières minutes,
   rouge avec le dépassement « +mm:ss » ensuite, jamais d’arrêt ni de son), Précédent, Suivant,
-  swimlane présentée (objectif, Build ou RUN) avec le temps passé dessus, « En pause » s’il y a
+  swimlane présentée (objectif, Build ou Kanban) avec le temps passé dessus, « En pause » s’il y a
   lieu ; à droite pause, plein écran, Terminer. Clavier : ← →, Espace, Échap (en plein écran, Échap
   appartient au navigateur : il en sort et la daily continue). Le temps est recalculé depuis
   l’heure de départ, pauses exclues. Les cartes restent déplaçables (mêmes transitions et rangs,
@@ -203,8 +205,8 @@ de Jira.
   étant affichée. Les filtres restent ceux de l’utilisateur ; le repli enregistré des swimlanes
   n’est pas touché. Durée : section Board de l’administration, 15 min par défaut, de 1 à 120,
   locale au board (`dailyMinutes`), jamais dans les réglages d’équipe. Rien n’est enregistré de la
-  séance : recharger la page l’arrête. Stock du RUN (0.20.2) : en daily, la première colonne du
-  RUN n’affiche que ses N premières cartes dans l’ordre de Jira (`dailyRunStockLimit`, 3 par
+  séance : recharger la page l’arrête. Stock Kanban (0.20.2) : en daily, la première colonne
+  Kanban n’affiche que ses N premières cartes dans l’ordre de Jira (`dailyKanbanStockLimit`, 3 par
   défaut, réglable dans la section Board), puis « + N autres » qui déplie jusqu’à la fin de la
   daily. Dans le prototype, l’iframe injectée porte
   `allow="fullscreen"` (attribut HTML, pas une permission Chrome).
@@ -212,7 +214,7 @@ de Jira.
   elle se replie au second clic ou dès qu’une autre entrée de la barre est choisie.
 - Sous-tâches (0.19.20, choix de Denis). Chacune garde sa carte, mais suit sa story : sans Goal
   propre, elle prend celui de son parent, et quand le parent est sur le board elle va dans le même
-  bloc que lui, Scrum ou RUN (`subtaskFamilies`, `core/boardSync.ts`). Elles comptent comme des
+  bloc que lui, Scrum ou Kanban (`subtaskFamilies`, `core/boardSync.ts`). Elles comptent comme des
   tickets (colonnes, limites WIP, en-tête, santé du sprint, avancement et Goals atteints). Survoler
   une story ou une de ses sous-tâches entoure de rouge et éclaire toute la famille (`familyKey`,
   classe `card-family`), seulement si la famille a au moins deux cartes affichées et hors glissé.
@@ -242,7 +244,7 @@ de Jira.
 - Les réglages d’équipe sont publiés uniquement sur le geste « Publier pour l’équipe ».
 - Ils vivent dans la propriété de board `com.scrumboardmac.boardsettings.v1`.
 - Les Goals épinglés vivent dans la propriété de sprint
-  `com.scrumboardmac.sprintgoals.v1`, partagée avec l’application Mac.
+  `com.scrumboardmac.sprintgoals.v1` (nom hérité de l’application Mac, abandonnée).
 - Les préférences personnelles ne sont jamais publiées dans Jira.
 - La déconnexion rend l’autorisation Chrome du site et efface les boards/réglages locaux de ce site,
   après confirmation.

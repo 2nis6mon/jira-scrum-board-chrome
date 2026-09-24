@@ -232,7 +232,7 @@ export interface SprintMetrics {
   readonly done: number;
   readonly inProgress: number;
   readonly toDo: number;
-  readonly runCount: number;
+  readonly kanbanCount: number;
   readonly blockedCount: number;
   readonly agingCount: number;
   readonly withoutGoalCount: number;
@@ -257,8 +257,8 @@ export interface BoardSnapshot {
    */
   readonly goalsOrigin: GoalSource;
   readonly scrumIssues: readonly BoardIssue[];
-  /** Tickets RUN DU SPRINT, affichés dans le bloc RUN. */
-  readonly runIssues: readonly BoardIssue[];
+  /** Tickets Kanban DU SPRINT, affichés dans le bloc Kanban. */
+  readonly kanbanIssues: readonly BoardIssue[];
   readonly syncedAt: Date;
   readonly currentUser: JiraUser | null;
   /** Vrai si la lecture des objectifs a échoué faute de droits Jira. */
@@ -276,7 +276,7 @@ export interface BoardSnapshot {
 }
 
 export function allIssues(snapshot: BoardSnapshot): BoardIssue[] {
-  return [...snapshot.scrumIssues, ...snapshot.runIssues];
+  return [...snapshot.scrumIssues, ...snapshot.kanbanIssues];
 }
 
 export function findIssue(snapshot: BoardSnapshot, key: string): BoardIssue | null {
@@ -330,7 +330,7 @@ export function sprintMetrics(snapshot: BoardSnapshot, agingThresholdDays: numbe
     done,
     inProgress: scrum.filter((issue) => categoryKey(issue) === "indeterminate").length,
     toDo: scrum.filter((issue) => categoryKey(issue) === "new").length,
-    runCount: snapshot.runIssues.length,
+    kanbanCount: snapshot.kanbanIssues.length,
     blockedCount: everything.filter((issue) => issue.isBlocked).length,
     agingCount: everything.filter(
       (issue) =>

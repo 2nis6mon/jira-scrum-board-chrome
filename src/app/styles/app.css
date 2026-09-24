@@ -454,7 +454,7 @@ progress::-webkit-progress-value {
 }
 
 .sprint-remaining-tight {
-  color: var(--run);
+  color: var(--kanban);
 }
 
 .sprint-metrics {
@@ -960,7 +960,7 @@ button.lane-title[aria-pressed="true"] {
   border: 3px solid var(--goal-ring);
 }
 
-.lane-run .lane-header {
+.lane-kanban .lane-header {
   border-color: #f0d9bd;
   background: #fbf3e8;
 }
@@ -985,7 +985,7 @@ button.lane-title[aria-pressed="true"] {
   width: 120px;
 }
 
-.column-band-run {
+.column-band-kanban {
   position: static;
   padding-top: 6px;
 }
@@ -1142,7 +1142,7 @@ button.lane-title[aria-pressed="true"] {
 
 .badge-aging {
   background: #fdf3e2;
-  color: var(--run);
+  color: var(--kanban);
 }
 
 /* Survol d'une story ou d'une de ses sous-tâches : toute la famille s'entoure de rouge et s'éclaire,
@@ -1982,7 +1982,7 @@ select {
 }
 
 .settings-warning {
-  color: var(--run);
+  color: var(--kanban);
   font-size: 12px;
 }
 
@@ -2659,7 +2659,7 @@ details.board-switcher .menu-panel {
 }
 
 .sidebar-lane-build,
-.sidebar-lane-run {
+.sidebar-lane-kanban {
   align-items: center;
   font-size: 13.5px;
 }
@@ -2668,8 +2668,8 @@ details.board-switcher .menu-panel {
   --icon-color: var(--ink-3);
 }
 
-.sidebar-lane-run {
-  --icon-color: var(--run);
+.sidebar-lane-kanban {
+  --icon-color: var(--kanban);
 }
 
 .sidebar-lane-count {
@@ -2892,9 +2892,9 @@ details.board-switcher .menu-panel {
   --icon-color: var(--ink-3);
 }
 
-.health-tone-run {
-  --goal-ring: var(--run);
-  --icon-color: var(--run);
+.health-tone-kanban {
+  --goal-ring: var(--kanban);
+  --icon-color: var(--kanban);
 }
 
 .health-kpis {
@@ -3283,7 +3283,7 @@ details.lane-menu:not([data-placed]) .menu-panel {
   color: var(--ink-2);
 }
 
-/* Stock du RUN plafonné en daily : bouton sous les cartes affichées. */
+/* Stock du Kanban plafonné en daily : bouton sous les cartes affichées. */
 .stock-toggle {
   list-style: none;
   display: flex;

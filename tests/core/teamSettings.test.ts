@@ -33,7 +33,7 @@ const tuned = {
   blockOrder: ["build", "goal:g1"],
   hiddenGoalIds: ["g2"],
   // Réglages personnels : jamais partagés.
-  collapsedBlockIds: ["run"],
+  collapsedBlockIds: ["kanban"],
   autoRefreshSeconds: 120,
 };
 
@@ -83,7 +83,7 @@ describe("réglages d'équipe ↔ configuration", () => {
     const settings = teamSettingsOf(tuned);
     const changed = withTeamSettings(base, settings);
     expect(teamDifferences({ ...changed, agingThresholdDays: 8 }, settings)).toEqual([
-      "Section RUN, nom de Build, seuil de vieillissement",
+      "Swimlane Kanban, noms de Build et de Kanban, seuil de vieillissement",
     ]);
     expect(
       teamDifferences(
@@ -195,5 +195,64 @@ describe("publier les réglages d'équipe", () => {
       await expect(publish(jira, null)).rejects.toBeInstanceOf(JiraError);
       expect(jira.writes).toEqual([]);
     }
+  });
+});
+
+describe("réglages publiés avant 0.21.0 (RUN devenu Kanban)", () => {
+  // Forme exacte du document publié sur le board de Denis le 24/09/2026 (valeurs réduites).
+  const legacyColumns = [{ id: "col-0-A faire", name: "A faire", hidden: false, wipLimit: null }];
+  const legacy = {
+    version: 1,
+    publishedAt: "2026-09-24T08:33:04.800Z",
+    publishedBy: { accountId: "u1", displayName: "Camille Durand" },
+    settings: {
+      scrumColumns: legacyColumns,
+      runColumns: legacyColumns,
+      issueTypes: [
+        { id: "10415", name: "Anomalie Prod", category: "RUN", countsAsBug: null },
+        { id: "10001", name: "Story", category: "SCRUM", countsAsBug: null },
+      ],
+      showRunSection: false,
+      buildSectionLabel: "Build",
+      agingThresholdDays: 3,
+      blockedLabels: [],
+      goalSource: "atlassianGoals",
+      boardGoalIds: [],
+      goalColorIndex: {},
+      blockOrder: ["run", "goal:g1", "build"],
+      hiddenGoalIds: [],
+      cardFields: [],
+      cardColorRules: [],
+    },
+  };
+
+  it("se relit : catégorie, colonnes, affichage et ordre passent au Kanban", () => {
+    const settings = decodeTeamDocument(legacy)?.settings;
+    expect(settings?.issueTypes.map((type) => type.category)).toEqual(["KANBAN", "SCRUM"]);
+    expect(settings?.kanbanColumns.map((c) => c.name)).toEqual(["A faire"]);
+    expect(settings?.showKanbanSection).toBe(false);
+    expect(settings?.blockOrder).toEqual(["kanban", "goal:g1", "build"]);
+    // Jamais publié : le nom par défaut.
+    expect(settings?.kanbanSectionLabel).toBe("Kanban");
+  });
+
+  it("republier écrit le nouveau format, sans garder les anciennes clés", async () => {
+    const jira = fakeJira(legacy as JsonValue);
+    expect((await publish(jira, legacy.publishedAt)).kind).toBe("published");
+    const write = jira.writes[0];
+    const settings = (write?.kind === "boardProperty.put" ? write.value.settings : {}) as Record<
+      string,
+      unknown
+    >;
+    expect(settings.runColumns).toBeUndefined();
+    expect(settings.showRunSection).toBeUndefined();
+    expect(settings.kanbanColumns).toBeDefined();
+    expect(settings.kanbanSectionLabel).toBe(tuned.kanbanSectionLabel);
+  });
+
+  it("le nom de la swimlane Kanban est partagé avec l'équipe", () => {
+    const named = { ...tuned, kanbanSectionLabel: "Run" };
+    expect(teamSettingsOf(named).kanbanSectionLabel).toBe("Run");
+    expect(withTeamSettings(base, teamSettingsOf(named)).kanbanSectionLabel).toBe("Run");
   });
 });

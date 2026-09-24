@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { decodeStoredConfiguration, mergeConfiguration } from "../../src/core/boardConfiguration";
 import type { Lane } from "../../src/core/boardLayout";
-import { withDailyMinutes, withDailyRunStockLimit } from "../../src/core/boardSettings";
 import {
-  cappedRunStock,
+  withDailyKanbanStockLimit,
+  withDailyMinutes,
+  withKanbanLabel,
+} from "../../src/core/boardSettings";
+import {
+  cappedKanbanStock,
   currentStepIndex,
   dailyElapsed,
   dailyPhase,
@@ -27,8 +31,8 @@ const MIN = 60_000;
 
 describe("étapes de la daily", () => {
   it("suivent l'ordre du board et sautent les swimlanes sans ticket affiché", () => {
-    const steps = dailySteps([lane("goal:a"), lane("goal:vide", 0), lane("build"), lane("run")]);
-    expect(steps.map((step) => step.id)).toEqual(["goal:a", "build", "run"]);
+    const steps = dailySteps([lane("goal:a"), lane("goal:vide", 0), lane("build"), lane("kanban")]);
+    expect(steps.map((step) => step.id)).toEqual(["goal:a", "build", "kanban"]);
   });
 
   it("Suivant et Précédent restent dans la liste", () => {
@@ -111,28 +115,60 @@ describe("durée de la daily", () => {
   });
 });
 
-describe("stock du RUN en daily", () => {
+describe("stock du Kanban en daily", () => {
   it("les premières cartes dans l'ordre reçu (le rang de Jira), le reste caché jusqu'au dépliage", () => {
-    expect(cappedRunStock([1, 2, 3, 4, 5], 3, false)).toEqual({ shown: [1, 2, 3], hidden: [4, 5] });
-    expect(cappedRunStock([1, 2, 3, 4, 5], 3, true)).toEqual({
+    expect(cappedKanbanStock([1, 2, 3, 4, 5], 3, false)).toEqual({
+      shown: [1, 2, 3],
+      hidden: [4, 5],
+    });
+    expect(cappedKanbanStock([1, 2, 3, 4, 5], 3, true)).toEqual({
       shown: [1, 2, 3, 4, 5],
       hidden: [],
     });
-    expect(cappedRunStock([1, 2], 3, false)).toEqual({ shown: [1, 2], hidden: [] });
+    expect(cappedKanbanStock([1, 2], 3, false)).toEqual({ shown: [1, 2], hidden: [] });
   });
 
   it("3 cartes par défaut, réglable de 1 à 50, gardé à la relecture de Jira", () => {
     const config = makeConfiguration();
-    const set = withDailyRunStockLimit(config, "5");
-    expect(set.ok && set.configuration.dailyRunStockLimit).toBe(5);
+    const set = withDailyKanbanStockLimit(config, "5");
+    expect(set.ok && set.configuration.dailyKanbanStockLimit).toBe(5);
     for (const raw of ["", "0", "51", "trois", "2.5"]) {
-      expect(withDailyRunStockLimit(config, raw).ok).toBe(false);
+      expect(withDailyKanbanStockLimit(config, raw).ok).toBe(false);
     }
     expect(
-      mergeConfiguration(config, { ...config, dailyRunStockLimit: 5 }).dailyRunStockLimit,
+      mergeConfiguration(config, { ...config, dailyKanbanStockLimit: 5 }).dailyKanbanStockLimit,
     ).toBe(5);
     const stored = JSON.parse(JSON.stringify(makeConfiguration()));
-    delete stored.dailyRunStockLimit;
-    expect(decodeStoredConfiguration(stored)?.dailyRunStockLimit).toBe(3);
+    delete stored.dailyKanbanStockLimit;
+    expect(decodeStoredConfiguration(stored)?.dailyKanbanStockLimit).toBe(3);
+  });
+});
+
+describe("configuration enregistrée avant 0.21.0 (RUN devenu Kanban)", () => {
+  it("anciennes clés relues ; nom Kanban par défaut, réglable", () => {
+    const stored = JSON.parse(JSON.stringify(makeConfiguration()));
+    stored.runColumns = stored.kanbanColumns;
+    delete stored.kanbanColumns;
+    stored.showRunSection = false;
+    delete stored.showKanbanSection;
+    stored.dailyRunStockLimit = 7;
+    delete stored.dailyKanbanStockLimit;
+    delete stored.kanbanSectionLabel;
+    stored.blockOrder = ["goal:g1", "run", "build"];
+    stored.collapsedBlockIds = ["run"];
+    stored.issueTypes = [
+      { id: "10004", name: "Anomalie Prod", category: "RUN", countsAsBug: null },
+    ];
+    const decoded = decodeStoredConfiguration(stored);
+    expect(decoded?.kanbanColumns).toEqual(makeConfiguration().kanbanColumns);
+    expect(decoded?.showKanbanSection).toBe(false);
+    expect(decoded?.dailyKanbanStockLimit).toBe(7);
+    expect(decoded?.blockOrder).toEqual(["goal:g1", "kanban", "build"]);
+    expect(decoded?.collapsedBlockIds).toEqual(["kanban"]);
+    expect(decoded?.issueTypes[0]?.category).toBe("KANBAN");
+    expect(decoded?.kanbanSectionLabel).toBe("Kanban");
+    const config = makeConfiguration();
+    expect(withKanbanLabel(config, " Run ").kanbanSectionLabel).toBe("Run");
+    expect(withKanbanLabel(config, "  ").kanbanSectionLabel).toBe("Kanban");
   });
 });
