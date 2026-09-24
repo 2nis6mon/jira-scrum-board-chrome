@@ -12,7 +12,7 @@ Paquet à envoyer : `release/sprint-goals-board-<version>.zip`, produit par `npm
 
 **Résumé** (repris du manifest, 132 caractères au plus) :
 
-> Swimlanes automatiques par Sprint Goal pour vos boards Scrum Jira Cloud : glisser-déposer, santé du sprint, Daily et présentation.
+> Swimlanes automatiques par Sprint Goal pour vos boards Scrum Jira Cloud : glisser-déposer, Daily et mode présentation.
 
 **Catégorie** : Productivité → Workflow et planification.
 
@@ -27,16 +27,18 @@ POUR L'ÉQUIPE
 • Une swimlane par objectif, avec son avancement, et l'objectif en vert quand tous ses tickets sont terminés.
 • Glisser-déposer : changez le statut d'un ticket, son ordre ou son objectif en le déplaçant. Les formulaires de transition de Jira (commentaire, temps passé, story points…) s'ouvrent quand il le faut.
 • Sous-tâches rangées avec leur story ; survolez une story pour voir toute sa famille.
-• Santé du sprint : tickets bloqués, ajoutés en cours de sprint, vieillissants, charge par colonne.
+• Compteurs du sprint : points terminés, Goals atteints, tickets bloqués ou ajoutés en cours de sprint.
+• Goals épinglés au sprint : un objectif a sa swimlane avant même d'avoir des tickets.
 • Filtres : personne, type, parent, statut, label, recherche, filtres rapides de votre board Jira.
 
 POUR LA DAILY ET LES REVUES
-• Mode Daily : plein écran, une swimlane à la fois, Précédent / Suivant, minuteur réglable. Les tickets restent déplaçables pour faire les mises à jour en direct.
+• Mode Daily, bouton « ▶ Daily » : plein écran, une swimlane à la fois, Précédent / Suivant, minuteur réglable. Le stock Kanban est plafonné aux premières cartes, dépliable d'un clic. Les tickets restent déplaçables pour faire les mises à jour en direct.
 • Mode présentation : plein écran, board agrandi, lisible à distance.
 
-VOS RÉGLAGES, PARTAGÉS SI VOUS LE VOULEZ
-• Ordre et couleurs des swimlanes, colonnes, champs des cartes, règles de couleur en JQL.
-• « Publier pour l'équipe » : partagez ces réglages avec toute l'équipe, dans une propriété de votre board Jira.
+UN MÊME BOARD POUR TOUTE L'ÉQUIPE
+• Ordre et couleurs des swimlanes, colonnes, champs des cartes, règles de couleur en JQL, durée de la daily.
+• Enregistrés automatiquement dans une propriété de votre board Jira, et repris à chaque chargement : toute l'équipe voit le même board.
+• Seules les personnes qui peuvent modifier le board dans Jira peuvent changer ces réglages.
 
 CONFIDENTIALITÉ
 • L'extension parle directement à votre Jira, depuis votre navigateur, avec votre propre session.
@@ -51,7 +53,9 @@ Jira et Atlassian sont des marques d'Atlassian. Cette extension n'est ni dévelo
 
 **Icône** : `public/icons/icon-128.png` (déjà dans le paquet).
 
-**Captures d'écran** : `docs/store/captures/*.png` (1280 × 800, données fictives du banc d'essai).
+**Captures d'écran** : `docs/store/captures/*.png` (1280 × 800, données fictives du banc d'essai),
+régénérées par `npm run store:screenshots` : board, famille d'une story, objectifs du sprint dans
+l'administration, Daily, présentation.
 
 **Site web / assistance** : l'adresse de contact `denis.simon.consulting@gmail.com`.
 
@@ -87,8 +91,8 @@ politique de sécurité (`script-src 'self'`) interdit tout script extérieur.
 **Utilisation des données** — cases à cocher (données que l'extension manipule) :
 
 - ☑ Informations permettant d'identifier personnellement l'utilisateur : nom affiché et
-  identifiant de compte Jira (utilisateur connecté, personnes assignées, auteur d'une publication
-  des réglages d'équipe).
+  identifiant de compte Jira (utilisateur connecté, personnes assignées, auteur de la dernière
+  modification des réglages du board).
 - ☑ Contenu du site Web : contenu des tickets Jira (résumés, statuts, champs affichés).
 - ☐ Toutes les autres catégories (santé, finances, authentification, communications personnelles,
   localisation, historique Web, activité de l'utilisateur).
@@ -110,7 +114,7 @@ Les trois certifications à cocher :
 ## Après la publication
 
 - L'identifiant du Store diffère de celui du paquet de développement : c'est une autre extension.
-  Il faut s'y reconnecter ; les réglages locaux ne suivent pas, les réglages d'équipe publiés dans
-  Jira reviennent d'eux-mêmes.
+  Il faut s'y reconnecter ; les préférences locales ne suivent pas, les réglages du board,
+  enregistrés dans Jira, reviennent d'eux-mêmes.
 - Mise à jour : augmenter la version (`package.json` et `public/manifest.json`), `npm run package`,
   envoyer le nouveau zip dans l'onglet « Package ».

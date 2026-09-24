@@ -667,6 +667,12 @@ ouverture Jira » — le correctif était resté sur `codex/publication`, non fu
 (`vite.config.ts` ne change plus le nom) ; description du manifest : « …glisser-déposer, Daily et
 mode présentation » (santé du sprint retirée tant qu'elle est masquée).
 
+Publication (24/09/2026, branche `codex/store-maj`) : fiche (`docs/store/fiche.md`) et politique de
+confidentialité (`docs/privacy/index.html`, republiée sur `2nis6mon/sprint-goals-privacy`) alignées
+sur 0.22 — réglages du board écrits à chaque modification, droit de modifier le board lu, plus de
+« Publier pour l'équipe », plus de santé du sprint dans la fiche. Capture `03-sante` remplacée par
+`03-objectifs` (administration, objectifs du sprint). Zip : `release/sprint-goals-board-0.22.6.zip`.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

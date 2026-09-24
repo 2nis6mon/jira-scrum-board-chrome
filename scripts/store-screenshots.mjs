@@ -135,11 +135,14 @@ try {
     await shoot("02-famille");
   }
 
-  // 3. Santé du sprint.
-  await open("board-soustaches");
-  await click(".health-toggle");
-  await waitFor("document.querySelector('.health-panel, [class*=health]') !== null", "la santé");
-  await shoot("03-sante");
+  // 3. Administration : objectifs du sprint (couleur, masquage, épinglage) en une section.
+  await send("Page.navigate", { url: "http://127.0.0.1:5202/?scenario=board-epingle" }, sessionId);
+  await waitFor(
+    "document.querySelectorAll('#settings-sprint-goals ~ ul .settings-row').length > 0 && document.querySelector('.pin-list') !== null",
+    "les objectifs du sprint",
+  );
+  await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 1, y: HEIGHT - 1 }, sessionId);
+  await shoot("03-objectifs");
 
   // 4. Mode Daily (le plein écran est refusé sans interface : la page reste la même).
   await open("board-soustaches");
