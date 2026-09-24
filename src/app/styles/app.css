@@ -3509,3 +3509,13 @@ dialog.transition-form::backdrop {
 .sidebar-lane-completed .sidebar-lane-meta {
   color: #326348;
 }
+
+/* Lancement de la daily : bouton plein, icône et texte, en tête des actions de l'en-tête. */
+.daily-start {
+  height: 30px;
+  margin-right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 0 10px;
+}

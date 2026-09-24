@@ -630,6 +630,9 @@ ni bouton dans l'en-tête ni panneau, même si `healthOpen` était resté vrai. 
 `SPRINT_HEALTH_ENABLED` dans `BoardView.tsx` ; le code et ses tests restent (test du panneau
 suspendu par `it.skipIf`).
 
+0.22.2 (demande de Denis) : lancement de la daily plus visible — bouton plein « ▶ Daily » (icône
+et texte, couleur principale) déplacé en tête des actions de l'en-tête, avant l'heure de synchro.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

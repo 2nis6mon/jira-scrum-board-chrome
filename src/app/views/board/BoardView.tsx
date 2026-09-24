@@ -363,6 +363,25 @@ function SprintHeader(props: {
       )}
 
       <div class="sprint-actions">
+        {sprint && (
+          <button
+            type="button"
+            class="primary daily-start"
+            aria-label="Lancer la daily"
+            title={`Daily : plein écran, une swimlane à la fois, minuteur de ${configuration.dailyMinutes} min`}
+            onClick={() => {
+              // Le plein écran exige le geste de l'utilisateur : demandé avant tout le reste. Refusé
+              // (cadre sans droit, navigateur), la daily se déroule simplement dans la fenêtre.
+              requestFullscreen();
+              const layout = board.layout.value;
+              const first = layout ? (dailySteps(layout.lanes)[0]?.id ?? null) : null;
+              controls.onStartDaily(configuration.dailyMinutes, first);
+            }}
+          >
+            <Icon name="play" size={15} />
+            Daily
+          </button>
+        )}
         <span class="sync-status" aria-live="polite">
           {board.syncing.value
             ? "Actualisation…"
@@ -394,24 +413,6 @@ function SprintHeader(props: {
         >
           <Icon name="refresh" size={17} />
         </button>
-        {sprint && (
-          <button
-            type="button"
-            class="icon-button daily-start"
-            aria-label="Lancer la daily"
-            title={`Daily : plein écran, une swimlane à la fois, minuteur de ${configuration.dailyMinutes} min`}
-            onClick={() => {
-              // Le plein écran exige le geste de l'utilisateur : demandé avant tout le reste. Refusé
-              // (cadre sans droit, navigateur), la daily se déroule simplement dans la fenêtre.
-              requestFullscreen();
-              const layout = board.layout.value;
-              const first = layout ? (dailySteps(layout.lanes)[0]?.id ?? null) : null;
-              controls.onStartDaily(configuration.dailyMinutes, first);
-            }}
-          >
-            <Icon name="play" size={17} />
-          </button>
-        )}
         <button
           type="button"
           class="icon-button"
