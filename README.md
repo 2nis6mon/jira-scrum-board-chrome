@@ -519,7 +519,7 @@ taille. Sans correspondance certaine, rien n'est cliqué : la fiche vous est ren
 à votre main. C'est vous qui validez le formulaire ; valider ou annuler referme la popin et relit
 le board.
 À charger : `dist/`, après `npm run build:jira-direct-test` ; la barre latérale affiche alors
-« Sprint Goals — test ouverture Jira » et une version en `.2`.
+le même nom que le paquet autonome et une version en `.2`.
 
 Vérifié dans Chrome (faux Jira, profil vierge) par `verify:jira-direct-test` : refus sans
 autorisation du site, refus dans la page d'un autre site Atlassian, écran de transition ouvert

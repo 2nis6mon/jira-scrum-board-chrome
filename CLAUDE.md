@@ -658,6 +658,11 @@ swimlane encore apparaît en pointillés jusqu'à l'enregistrement. Dessous, « 
 site » (recherche) puis Annuler / « Enregistrer dans Jira », une seule écriture. En « Texte du
 sprint », la section ne garde que couleur et masquage.
 
+0.22.6 (signalé par Denis) : le paquet d'essai s'appelait de nouveau « Sprint Goals — test
+ouverture Jira » — le correctif était resté sur `codex/publication`, non fusionnée. Reporté ici
+(`vite.config.ts` ne change plus le nom) ; description du manifest : « …glisser-déposer, Daily et
+mode présentation » (santé du sprint retirée tant qu'elle est masquée).
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

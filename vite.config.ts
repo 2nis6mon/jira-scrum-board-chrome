@@ -27,8 +27,8 @@ export default defineConfig(({ mode }) => {
               closeBundle() {
                 const manifest = JSON.parse(readFileSync(`${root}public/manifest.json`, "utf8"));
                 // La clé est gardée : même identifiant Chrome et même stockage que le paquet
-                // autonome, donc site et board conservés en passant de l'un à l'autre.
-                manifest.name = "Sprint Goals — test ouverture Jira";
+                // autonome, donc site et board conservés en passant de l'un à l'autre. Même nom
+                // aussi (demande de Denis du 24/09/2026) : seule la version en « .2 » les distingue.
                 manifest.version = `${manifest.version}.2`;
                 manifest.permissions.push("scripting");
                 manifest.background.service_worker = "jira-direct-worker.js";
