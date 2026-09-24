@@ -1,7 +1,7 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
 Dernière mise à jour : **24 septembre 2026**  
-Branche décrite : **`codex/presentation-echap`** (issue de `main` le 24/09/2026)  
+Branche décrite : **`main`** (`codex/presentation-echap` fusionnée le 24/09/2026)  
 Produit autonome : **0.21.2**  
 Prototype d’intégration Jira : **0.21.2.2**
 
