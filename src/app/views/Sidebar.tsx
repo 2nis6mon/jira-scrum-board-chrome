@@ -19,6 +19,12 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
   const configuration = board.configuration.value;
   const snapshot = board.snapshot.value;
   const lanes = snapshot?.sprint && configuration ? laneSummaries(snapshot, configuration) : null;
+  // Sans droit de modifier le board et sans diagnostic, l'administration n'a plus rien à montrer.
+  const adminAvailable = board.canEditSettings.value || DIAGNOSTIC_ENABLED;
+  // Le droit peut tomber (403) pendant qu'elle est ouverte : on revient alors au sprint.
+  useEffect(() => {
+    if (!adminAvailable && model.view.value === "admin") model.showBoard();
+  }, [model, adminAvailable, view]);
 
   return (
     <aside
@@ -48,17 +54,22 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
       <HiddenGoals board={board} />
       <div class="sidebar-divider" />
       {/* Administration : son bouton reste en tête, ses sections se déplient dessous, sur un fond
-          distinct de celui de la barre. */}
-      <div class={`sidebar-admin-block${view === "admin" ? " is-open" : ""}`}>
-        <NavButton
-          icon="settings"
-          label="Administration"
-          current={view === "admin"}
-          expanded={view === "admin"}
-          onClick={() => model.toggleAdmin()}
-        />
-        {view === "admin" && <AdminMenu model={model} board={board} />}
-      </div>
+          distinct de celui de la barre. Sans rien à y faire, elle disparaît : reste la
+          déconnexion (demande de Denis du 24/09/2026). */}
+      {adminAvailable ? (
+        <div class={`sidebar-admin-block${view === "admin" ? " is-open" : ""}`}>
+          <NavButton
+            icon="settings"
+            label="Administration"
+            current={view === "admin"}
+            expanded={view === "admin"}
+            onClick={() => model.toggleAdmin()}
+          />
+          {view === "admin" && <AdminMenu model={model} board={board} />}
+        </div>
+      ) : (
+        <SiteAccount model={model} host={board.site.host} />
+      )}
     </aside>
   );
 }
@@ -164,11 +175,9 @@ function AdminMenu({ model, board }: { model: AppModel; board: BoardModel }) {
           {item.label}
         </button>
       ))}
-      {(!configuration || !editable) && (
+      {!configuration && (
         <p class="hint settings-local">
-          {!configuration
-            ? "Choisissez d'abord un board : ces réglages portent sur lui."
-            : "Réglages du board en lecture seule : seules les personnes qui peuvent modifier le board dans Jira les changent."}
+          Choisissez d'abord un board : ces réglages portent sur lui.
         </p>
       )}
       {DIAGNOSTIC_ENABLED && (
@@ -184,25 +193,32 @@ function AdminMenu({ model, board }: { model: AppModel; board: BoardModel }) {
           </button>
         </>
       )}
-      <div class="settings-account">
-        <span class="settings-site">{host}</span>
-        <button
-          type="button"
-          class="settings-signout"
-          onClick={() => {
-            if (
-              window.confirm(
-                `Se déconnecter de ${host} ?\n\nLes boards et leurs réglages enregistrés dans ce navigateur seront effacés et l’autorisation d’accès au site sera retirée. Rien ne sera modifié dans Jira.`,
-              )
-            )
-              void model.disconnect();
-          }}
-        >
-          <Icon name="signOut" />
-          Se déconnecter
-        </button>
-      </div>
+      <SiteAccount model={model} host={host} />
     </nav>
+  );
+}
+
+/** Site connecté et sa déconnexion : en pied d'administration, ou seuls quand elle est masquée. */
+function SiteAccount({ model, host }: { model: AppModel; host: string }) {
+  return (
+    <div class="settings-account">
+      <span class="settings-site">{host}</span>
+      <button
+        type="button"
+        class="settings-signout"
+        onClick={() => {
+          if (
+            window.confirm(
+              `Se déconnecter de ${host} ?\n\nLes boards et leurs réglages enregistrés dans ce navigateur seront effacés et l’autorisation d’accès au site sera retirée. Rien ne sera modifié dans Jira.`,
+            )
+          )
+            void model.disconnect();
+        }}
+      >
+        <Icon name="signOut" />
+        Se déconnecter
+      </button>
+    </div>
   );
 }
 

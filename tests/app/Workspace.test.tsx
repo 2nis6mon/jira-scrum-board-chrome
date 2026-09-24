@@ -630,12 +630,21 @@ describe("administration", () => {
     // Le repli reste possible : il est personnel.
     expect(document.querySelector("[aria-label='Replier Build']")).not.toBeNull();
 
-    button("Administration").click();
-    await tick();
-    expect([...document.querySelectorAll(".settings-tab")].map((tab) => tab.textContent)).toEqual(
-      DIAGNOSTIC_ENABLED ? ["Diagnostic"] : [],
-    );
-    expect(text()).toContain("Réglages du board en lecture seule");
+    // Sans diagnostic non plus, l'administration disparaît : reste la déconnexion (0.22.7).
+    if (DIAGNOSTIC_ENABLED) {
+      button("Administration").click();
+      await tick();
+      expect([...document.querySelectorAll(".settings-tab")].map((tab) => tab.textContent)).toEqual(
+        ["Diagnostic"],
+      );
+    } else {
+      expect(document.querySelector(".sidebar-admin-block")).toBeNull();
+      expect(() => button("Administration")).toThrow();
+      expect(document.querySelector(".sidebar .settings-site")?.textContent).toBe(
+        "acme.atlassian.net",
+      );
+      expect(button("Se déconnecter")).not.toBeNull();
+    }
 
     // Même appelé directement, un réglage partagé n'est ni appliqué ni écrit.
     const before = board.laneOrder.value;

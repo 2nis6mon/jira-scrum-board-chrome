@@ -689,6 +689,9 @@ cartes puis « + 14 autres » sur 17 vraies cartes), santé du sprint bien masqu
    texte « Réglages du board, partagés avec l'équipe… » retiré de la barre latérale. Sans droit de
    modifier le board, l'administration n'a plus de section : elle explique pourquoi en une phrase.
    Tests du diagnostic suspendus par `it.skipIf`.
+   Sans droit de modifier le board, le bouton « Administration » disparaît lui aussi : la barre
+   latérale ne garde que le site et « Se déconnecter » (`SiteAccount`, sorti de `AdminMenu`). Le
+   droit qui tombe pendant que l'administration est ouverte ramène au sprint.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
