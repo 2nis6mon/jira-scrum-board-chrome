@@ -119,6 +119,7 @@ export function makeConfiguration(parts: Partial<BoardConfiguration> = {}): Boar
     blockedLabels: [],
     agingThresholdDays: 3,
     autoRefreshSeconds: null,
+    dailyMinutes: 15,
     showRunSection: true,
     hiddenGoalIds: [],
     blockOrder: [],

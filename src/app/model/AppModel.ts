@@ -1,4 +1,5 @@
 import { signal } from "@preact/signals";
+import { type DailySession, startDaily } from "../../core/daily";
 import { isRecord } from "../../jira/json";
 import { type JiraSite, normalizeSiteUrl, parseBoardUrl } from "../../jira/site";
 import type { Platform } from "../platform/types";
@@ -54,6 +55,11 @@ export class AppModel {
    * de la page seulement : une réouverture repart en mode normal.
    */
   readonly presenting = signal(false);
+  /**
+   * Daily en cours : board présenté swimlane par swimlane, minuteur. Le temps de la page seulement,
+   * comme la présentation.
+   */
+  readonly daily = signal<DailySession | null>(null);
 
   readonly #platform: Platform;
   readonly #audit: AuditLog;
@@ -144,6 +150,7 @@ export class AppModel {
     this.view.value = "board";
     this.adminSection.value = "board";
     this.presenting.value = false;
+    this.daily.value = null;
     this.connection.value = { state: "disconnected", lastInput: current.site.host };
   }
 
@@ -168,6 +175,23 @@ export class AppModel {
     this.presenting.value = false;
   }
 
+  /** Lance la daily sur la vue du sprint ; elle remplace le mode présentation. */
+  startDaily(durationMinutes: number, firstStepId: string | null, now = Date.now()): void {
+    this.view.value = "board";
+    this.presenting.value = false;
+    this.daily.value = startDaily(durationMinutes, firstStepId, now);
+  }
+
+  /** Remplace la daily en cours (étape, pause) ; sans effet si elle a été arrêtée entre-temps. */
+  updateDaily(change: (session: DailySession) => DailySession): void {
+    const current = this.daily.value;
+    if (current) this.daily.value = change(current);
+  }
+
+  stopDaily(): void {
+    this.daily.value = null;
+  }
+
   /**
    * Bouton Administration de la barre latérale : déplie ses sections au-dessus de lui, ou les
    * replie et revient au sprint.
@@ -180,6 +204,7 @@ export class AppModel {
   /** Administration : réglages locaux du board, diagnostic, déconnexion. */
   showAdmin(section: AdminSection = this.adminSection.value): void {
     this.presenting.value = false;
+    this.daily.value = null;
     if (section === "diagnostic") {
       this.showDiagnostic();
       return;
@@ -191,6 +216,7 @@ export class AppModel {
   /** Ouvre le diagnostic ; ses lectures sont lancées à la première ouverture. */
   showDiagnostic(): void {
     this.presenting.value = false;
+    this.daily.value = null;
     this.adminSection.value = "diagnostic";
     this.view.value = "admin";
     const current = this.connection.value;

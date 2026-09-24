@@ -3183,6 +3183,106 @@ details.lane-menu:not([data-placed]) .menu-panel {
   }
 }
 
+/* ─── Mode Daily ─────────────────────────────────────────────────────────── */
+
+/* Barre de la daily, au-dessus des filtres : minuteur, étape, navigation. Le minuteur passe à
+   l'orange dans les deux dernières minutes, au rouge (dépassement affiché) après. */
+.daily-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 8px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.daily-clock {
+  min-width: 78px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: var(--column);
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--ink);
+}
+
+.daily-ending .daily-clock {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.daily-overtime .daily-clock {
+  background: #fde8e8;
+  color: var(--blocked);
+}
+
+.daily-paused .daily-clock {
+  opacity: 0.55;
+}
+
+.daily-paused-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+}
+
+.daily-nav {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 17px;
+}
+
+.daily-step {
+  min-width: 0;
+  max-width: min(640px, 100%);
+  height: 34px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--goal-border, var(--line));
+  background: var(--goal-tint, var(--column));
+}
+
+.daily-step-count,
+.daily-step-time {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.daily-step-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+}
+
+.daily-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.daily-stop {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 15px;
+  color: var(--ink-2);
+}
+
 /* ─── Mode présentation ──────────────────────────────────────────────────── */
 
 /* Lisible à distance : filtres, bandeaux et board agrandis d'un bloc (texte, cartes, icônes,
@@ -3194,6 +3294,7 @@ details.lane-menu:not([data-placed]) .menu-panel {
   --presentation-zoom: 1.25;
 }
 
+.board-screen-presenting > .daily-bar,
 .board-screen-presenting > .filter-bar,
 .board-screen-presenting > .notice,
 .board-screen-presenting > .board,

@@ -29,6 +29,9 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
   status.setAttribute("role", "status");
   const frame = document.createElement("iframe");
   frame.title = "Sprint Goals Board";
+  // Le mode Daily demande le plein écran depuis la page du board : sans cette délégation, le
+  // navigateur le refuse à un cadre (la daily se déroule alors dans la page).
+  frame.allow = "fullscreen";
   const url = new URL(boardUrl);
   url.searchParams.set("jiraHost", location.origin);
   url.searchParams.set("jiraBoard", location.href);

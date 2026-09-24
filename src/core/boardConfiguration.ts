@@ -82,6 +82,8 @@ export interface BoardConfiguration {
   readonly agingThresholdDays: number;
   /** Rafraîchissement automatique, en secondes. `null` = désactivé. */
   readonly autoRefreshSeconds: number | null;
+  /** Durée du minuteur du mode Daily, en minutes. Réglage local, jamais publié à l'équipe. */
+  readonly dailyMinutes: number;
   readonly showRunSection: boolean;
   /** Objectifs masqués de l'affichage. Rien n'est supprimé dans Jira. */
   readonly hiddenGoalIds: readonly string[];
@@ -120,6 +122,10 @@ export interface TeamBase {
 }
 
 export const DEFAULT_BUILD_LABEL = "Build";
+
+/** Minuteur du mode Daily : 15 minutes par défaut, de 1 à 120. */
+export const DEFAULT_DAILY_MINUTES = 15;
+export const MAX_DAILY_MINUTES = 120;
 
 export function categoryForIssueType(config: BoardConfiguration, typeId: string): IssueCategory {
   return config.issueTypes.find((type) => type.id === typeId)?.category ?? "SCRUM";
@@ -254,6 +260,7 @@ export function buildConfiguration(input: {
     blockedLabels: [],
     agingThresholdDays: 3,
     autoRefreshSeconds: null,
+    dailyMinutes: DEFAULT_DAILY_MINUTES,
     showRunSection: true,
     hiddenGoalIds: [],
     blockOrder: [],
@@ -299,6 +306,7 @@ export function mergeConfiguration(
     blockedLabels: existing.blockedLabels,
     agingThresholdDays: existing.agingThresholdDays,
     autoRefreshSeconds: existing.autoRefreshSeconds,
+    dailyMinutes: existing.dailyMinutes,
     showRunSection: existing.showRunSection,
     hiddenGoalIds: existing.hiddenGoalIds,
     blockOrder: existing.blockOrder,
@@ -376,6 +384,10 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
     autoRefreshSeconds: isPositiveInteger(value.autoRefreshSeconds)
       ? value.autoRefreshSeconds
       : null,
+    dailyMinutes:
+      isPositiveInteger(value.dailyMinutes) && value.dailyMinutes <= MAX_DAILY_MINUTES
+        ? value.dailyMinutes
+        : DEFAULT_DAILY_MINUTES,
     showRunSection: typeof value.showRunSection === "boolean" ? value.showRunSection : true,
     hiddenGoalIds: strings(value.hiddenGoalIds),
     blockOrder: strings(value.blockOrder),

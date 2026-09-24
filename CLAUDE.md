@@ -279,7 +279,7 @@ défile horizontalement sous environ 1 550 px de fenêtre (1 410 avant).
 Étape 6, découpée en lots (annoncés à Denis) : 6a Sprint Health · 6b plusieurs boards · 6c déplacer
 une carte au clavier (abandonné le 19/09/2026) · 6d audit de sécurité (0.14.1) · 6e empaquetage. Le plein
 écran du navigateur reste retiré (0.10.1) ; un mode présentation sans plein écran est revenu en
-0.15.0, à la demande de Denis.
+0.15.0, à la demande de Denis. Seul le mode Daily (0.20.0) le demande, à son lancement.
 
 0.11.0 : lot 6a, Sprint Health (`core/sprintHealth.ts`, port de `SprintHealthView`) : comptages
 directs, filtres appliqués, aucun score. Écart voulu : la charge par colonne ignore les filtres,
@@ -540,6 +540,21 @@ s'éclaire pour une famille d'une seule carte affichée, ni pendant un glissé. 
 reviennent au comportement d'avant 0.19.19 : chaque carte pour elle-même. Conséquence : les
 sous-tâches comptent de nouveau dans les colonnes, les limites WIP et l'en-tête, et désormais aussi
 dans l'avancement et l'atteinte du Goal de leur story (elles y sont rattachées).
+
+0.20.0 (demande de Denis du 24/09/2026, branche `codex/mode-daily`, choix validés un par un) :
+mode Daily. Bouton ▶ de l'en-tête (`daily-start`) : plein écran du navigateur demandé au clic
+(refusé, la daily se déroule dans la fenêtre), mise en page de la présentation et UNE swimlane à la
+fois, toujours dépliée (le repli enregistré n'est pas touché ; ni poignée, ni repli, ni menu, ni
+focus par le titre). `core/daily.ts` : étapes = swimlanes affichées dans l'ordre du board, Build et
+RUN compris, masquées et sans ticket affiché sautées ; séance (`DailySession`, jamais enregistrée)
+recalculée depuis l'heure de départ, pauses exclues ; étape disparue remplacée par celle qui a pris
+son rang. `AppModel.daily` (arrêtée par l'administration, le diagnostic, la déconnexion ; le plein
+écran est rendu à la fin). `DailyBar` (`BoardView.tsx`) : minuteur (orange à 2 min, rouge avec
+« +mm:ss » ensuite, sans son ni arrêt), temps de l'étape, Précédent/Suivant, pause, plein écran,
+Terminer ; clavier ← → Espace Échap (Échap en plein écran appartient au navigateur). Glisser-déposer
+inchangé : aucune nouvelle écriture. Durée `dailyMinutes` (15 par défaut, 1 à 120) dans la section
+Board de l'administration, locale au board, hors réglages d'équipe. Prototype : l'iframe injectée
+porte `allow="fullscreen"` (attribut HTML, aucune permission ni CSP en plus).
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit

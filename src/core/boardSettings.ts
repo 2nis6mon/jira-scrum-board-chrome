@@ -4,6 +4,7 @@ import {
   type ColumnConfiguration,
   DEFAULT_BUILD_LABEL,
   type IssueCategory,
+  MAX_DAILY_MINUTES,
 } from "./boardConfiguration";
 import { type CardField, cardFieldId, MAX_CARD_FIELDS } from "./cardFields";
 import { foldText } from "./text";
@@ -143,6 +144,23 @@ export function withAgingThreshold(configuration: BoardConfiguration, raw: strin
     };
   }
   return { ok: true, configuration: { ...configuration, agingThresholdDays: days } };
+}
+
+/** Durée du minuteur du mode Daily saisie : un entier de 1 à 120 minutes. */
+export function withDailyMinutes(configuration: BoardConfiguration, raw: string): SettingResult {
+  const minutes = Number(raw.trim());
+  if (
+    raw.trim() === "" ||
+    !Number.isInteger(minutes) ||
+    minutes < 1 ||
+    minutes > MAX_DAILY_MINUTES
+  ) {
+    return {
+      ok: false,
+      error: `La durée de la daily doit être un nombre entier de minutes, entre 1 et ${MAX_DAILY_MINUTES}.`,
+    };
+  }
+  return { ok: true, configuration: { ...configuration, dailyMinutes: minutes } };
 }
 
 /** Labels de blocage saisis, séparés par des virgules. */

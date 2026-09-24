@@ -178,15 +178,14 @@ board agrandi, sortie par Échap), le focus sur un objectif (clic sur le titre d
 filtre par objectif) et le glisser-déposer par statut (0.16.0). Déplacer un ticket reste une
 transition ou un rang, deux écritures déjà autorisées : le mode Daily n'en demande aucune nouvelle.
 
-**À trancher avant de coder.**
+**Tranché par Denis le 24/09/2026, livré en 0.20.0 (branche `codex/mode-daily`).**
 
-- [ ] Plein écran **du navigateur** : il a été retiré à la demande de Denis en 0.10.1, et le mode
-  présentation n'y recourt pas. Le confirmer pour la daily (il se demande au clic sur « play »).
-- [ ] Étapes : l'ordre des swimlanes du board ? Build et RUN compris ? Les swimlanes masquées ou
-  vides sont-elles sautées ?
-- [ ] Minuteur : global seulement, ou aussi un temps indicatif par objectif ?
-- [ ] Fin du temps : signal visuel seul, ou sonore ? Arrêt, ou dépassement affiché ?
-- [ ] Réglage de la durée : propre à ce navigateur, ou dans les réglages d'équipe (partagé) ?
+- [x] Plein écran du navigateur, demandé au clic sur « play », pour la daily seulement.
+- [x] Étapes : ordre des swimlanes du board, Build et RUN compris ; masquées et vides sautées.
+- [x] Minuteur global, plus le temps passé sur l'étape en cours.
+- [x] Fin du temps : signal visuel seul (orange à 2 min, rouge et dépassement affiché), sans arrêt.
+- [x] Durée réglée localement, par board (administration, section Board).
+- [ ] À valider par Denis dans Chrome, puis fusion dans `main` sur sa demande.
 
 ## 6. Installation et distribution
 

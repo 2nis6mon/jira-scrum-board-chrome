@@ -1,5 +1,5 @@
 import { type ComponentChildren, Fragment } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { BoardConfiguration } from "../../../core/boardConfiguration";
 import {
   displayedCardFields,
@@ -17,6 +17,18 @@ import {
 } from "../../../core/boardIssue";
 import { type BoardLayout, columnLoad, daysRemaining, type Lane } from "../../../core/boardLayout";
 import { GOAL_COLOR_NAMES } from "../../../core/boardPreferences";
+import {
+  currentStepIndex,
+  type DailySession,
+  dailyPhase,
+  dailyRemaining,
+  dailySteps,
+  formatDailyClock,
+  formatDailyElapsed,
+  moveDailyStep,
+  stepElapsed,
+  toggleDailyPause,
+} from "../../../core/daily";
 import {
   activeFilterCount,
   isGoalFocused,
@@ -51,16 +63,29 @@ export function BoardView({
 }) {
   const snapshot = board.snapshot.value;
   const layout = board.layout.value;
+  const daily = controls.daily;
   const presenting = controls.presenting;
-  const health = controls.healthOpen && !presenting && snapshot?.sprint ? board.health.value : null;
+  // La daily reprend la mise en page de la présentation : ni en-tête ni santé, board agrandi.
+  const compact = presenting || daily !== null;
+  const health = controls.healthOpen && !compact && snapshot?.sprint ? board.health.value : null;
+  // En daily, une seule swimlane à la fois, toujours dépliée (son repli enregistré n'est pas touché).
+  const steps = daily && layout ? dailySteps(layout.lanes) : [];
+  const stepIndex = daily ? currentStepIndex(steps, daily) : -1;
+  const dailyLane = steps[stepIndex];
+  const shownLayout =
+    daily && layout
+      ? { ...layout, lanes: dailyLane ? [{ ...dailyLane, collapsed: false }] : [] }
+      : layout;
   // En présentation, le bouton de sortie reste toujours affiché : au bout de la barre de filtres,
   // ou seul dans une barre si les filtres ne sont pas là (plus de sprint actif, par exemple).
   const exit = presenting ? <PresentationExit onExit={controls.onExitPresentation} /> : null;
   const showFilters = snapshot?.sprint != null && board.options.value !== null;
 
   return (
-    <main class={`board-screen${presenting ? " board-screen-presenting" : ""}`}>
-      {!presenting && (
+    <main
+      class={`board-screen${compact ? " board-screen-presenting" : ""}${daily ? " board-screen-daily" : ""}`}
+    >
+      {!compact && (
         <SprintHeader
           board={board}
           configuration={configuration}
@@ -68,6 +93,7 @@ export function BoardView({
           controls={controls}
         />
       )}
+      {daily && <DailyBar session={daily} steps={steps} index={stepIndex} controls={controls} />}
       {showFilters ? (
         <FilterBar board={board} trailing={exit} />
       ) : (
@@ -93,7 +119,19 @@ export function BoardView({
           Aucun sprint actif sur ce board. Le board affiche les tickets des sprints actifs.
         </p>
       ) : (
-        layout && <BoardGrid board={board} configuration={configuration} layout={layout} />
+        shownLayout &&
+        (daily && steps.length === 0 && !shownLayout.filtersActive ? (
+          <p class="board-empty">
+            Aucune swimlane à présenter : le sprint n'a aucun ticket affiché.
+          </p>
+        ) : (
+          <BoardGrid
+            board={board}
+            configuration={configuration}
+            layout={shownLayout}
+            daily={daily !== null}
+          />
+        ))
       )}
     </main>
   );
@@ -168,6 +206,11 @@ export interface ScreenControls {
   readonly presenting: boolean;
   readonly onEnterPresentation: () => void;
   readonly onExitPresentation: () => void;
+  /** Daily en cours : board présenté swimlane par swimlane, minuteur ; `null` sinon. */
+  readonly daily: DailySession | null;
+  readonly onStartDaily: (minutes: number, firstStepId: string | null) => void;
+  readonly onUpdateDaily: (change: (session: DailySession) => DailySession) => void;
+  readonly onStopDaily: () => void;
 }
 
 function SprintHeader(props: {
@@ -328,6 +371,24 @@ function SprintHeader(props: {
         >
           <Icon name="refresh" size={17} />
         </button>
+        {sprint && (
+          <button
+            type="button"
+            class="icon-button daily-start"
+            aria-label="Lancer la daily"
+            title={`Daily : plein écran, une swimlane à la fois, minuteur de ${configuration.dailyMinutes} min`}
+            onClick={() => {
+              // Le plein écran exige le geste de l'utilisateur : demandé avant tout le reste. Refusé
+              // (cadre sans droit, navigateur), la daily se déroule simplement dans la fenêtre.
+              document.documentElement.requestFullscreen?.().catch(() => {});
+              const layout = board.layout.value;
+              const first = layout ? (dailySteps(layout.lanes)[0]?.id ?? null) : null;
+              controls.onStartDaily(configuration.dailyMinutes, first);
+            }}
+          >
+            <Icon name="play" size={17} />
+          </button>
+        )}
         <button
           type="button"
           class="icon-button"
@@ -355,6 +416,166 @@ function PresentationExit({ onExit }: { onExit: () => void }) {
       <Icon name="exitPresent" />
       Quitter
     </button>
+  );
+}
+
+// ─── Daily ───────────────────────────────────────────────────────────────────
+
+/**
+ * Barre de la daily : minuteur global, étape présentée (avec le temps passé dessus), Précédent,
+ * Suivant, pause, plein écran, fin. Clavier : ← et →, Espace, Échap. Le board reste manipulable :
+ * déplacer une carte y est la même transition ou le même rang qu'ailleurs.
+ */
+function DailyBar(props: {
+  session: DailySession;
+  steps: readonly Lane[];
+  index: number;
+  controls: ScreenControls;
+}) {
+  const { session, steps, index, controls } = props;
+  const [now, setNow] = useState(() => Date.now());
+  const [fullscreen, setFullscreen] = useState(() => document.fullscreenElement != null);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 500);
+    const onFullscreen = () => setFullscreen(document.fullscreenElement != null);
+    document.addEventListener("fullscreenchange", onFullscreen);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("fullscreenchange", onFullscreen);
+    };
+  }, []);
+
+  const move = (direction: 1 | -1) =>
+    controls.onUpdateDaily((current) => moveDailyStep(steps, current, direction, Date.now()));
+  const togglePause = () =>
+    controls.onUpdateDaily((current) => toggleDailyPause(current, Date.now()));
+
+  // Écouteur posé une fois ; il lit l'étape et la séance du moment par cette référence.
+  const keys = useRef({ move, togglePause, stop: controls.onStopDaily });
+  keys.current = { move, togglePause, stop: controls.onStopDaily };
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const { move, togglePause, stop } = keys.current;
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      // Une fenêtre ouverte (transition, épinglage…) garde le clavier.
+      if (document.querySelector('[role="dialog"], dialog[open]')) return;
+      const target = event.target;
+      const typing =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+      if (typing) return;
+      if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+        event.preventDefault();
+        move(event.key === "ArrowRight" ? 1 : -1);
+      } else if (event.key === " " && !(target instanceof HTMLButtonElement)) {
+        event.preventDefault();
+        togglePause();
+      } else if (event.key === "Escape") {
+        // En plein écran, Échap appartient au navigateur : il en sort, la daily continue.
+        if (document.fullscreenElement) return;
+        const menu = document.querySelector<HTMLDetailsElement>("details[open]");
+        if (menu) {
+          menu.open = false;
+          return;
+        }
+        stop();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  const remaining = dailyRemaining(session, now);
+  const phase = dailyPhase(remaining);
+  const paused = session.pausedAt !== null;
+  const step = steps[index];
+  const clock = formatDailyClock(remaining);
+
+  return (
+    <div
+      class={`daily-bar daily-${phase}${paused ? " daily-paused" : ""}`}
+      role="toolbar"
+      aria-label="Daily"
+    >
+      <span
+        class="daily-clock"
+        role="timer"
+        title={phase === "overtime" ? "Durée de la daily dépassée" : "Temps restant"}
+      >
+        {clock}
+      </span>
+      {paused && <span class="daily-paused-label">En pause</span>}
+      <button
+        type="button"
+        class="daily-nav"
+        aria-label="Swimlane précédente"
+        title="Swimlane précédente (←)"
+        disabled={index <= 0}
+        onClick={() => move(-1)}
+      >
+        <Icon name="chevronLeft" size={18} />
+      </button>
+      <span class="daily-step" data-goal-color={step?.goal?.color}>
+        {step ? (
+          <>
+            <span class="daily-step-count">
+              {index + 1}/{steps.length}
+            </span>
+            <strong class="daily-step-title">{step.title}</strong>
+            <span class="daily-step-time" title="Temps passé sur cette swimlane">
+              {formatDailyElapsed(stepElapsed(session, now))}
+            </span>
+          </>
+        ) : (
+          <span class="daily-step-title">Aucune swimlane</span>
+        )}
+      </span>
+      <button
+        type="button"
+        class="daily-nav"
+        aria-label="Swimlane suivante"
+        title="Swimlane suivante (→)"
+        disabled={index < 0 || index >= steps.length - 1}
+        onClick={() => move(1)}
+      >
+        <Icon name="chevronRight" size={18} />
+      </button>
+      <span class="daily-actions">
+        <button
+          type="button"
+          class="icon-button"
+          aria-label={paused ? "Reprendre le minuteur" : "Mettre le minuteur en pause"}
+          aria-pressed={paused}
+          title={paused ? "Reprendre (Espace)" : "Pause (Espace)"}
+          onClick={togglePause}
+        >
+          <Icon name={paused ? "play" : "pause"} size={17} />
+        </button>
+        {!fullscreen && document.fullscreenEnabled && (
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="Plein écran"
+            title="Plein écran"
+            onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})}
+          >
+            <Icon name="fullscreen" size={17} />
+          </button>
+        )}
+        <button
+          type="button"
+          class="daily-stop"
+          title={fullscreen ? "Terminer la daily" : "Terminer la daily (Échap)"}
+          onClick={controls.onStopDaily}
+        >
+          <Icon name="stop" />
+          Terminer
+        </button>
+      </span>
+    </div>
   );
 }
 
@@ -768,8 +989,10 @@ function BoardGrid(props: {
   board: BoardModel;
   configuration: BoardConfiguration;
   layout: BoardLayout;
+  /** Daily : une seule swimlane, sans poignée, repli ni menu (l'étape se choisit dans sa barre). */
+  daily?: boolean;
 }) {
-  const { board, configuration, layout } = props;
+  const { board, configuration, layout, daily = false } = props;
   // Famille survolée (une story et ses sous-tâches) : ses cartes s'entourent de rouge et s'éclairent.
   const [hoveredFamily, setHoveredFamily] = useState<string | null>(null);
   if (layout.lanes.length === 0) {
@@ -830,6 +1053,7 @@ function BoardGrid(props: {
             layout={layout}
             lane={lane}
             nextLaneId={layout.lanes[index + 1]?.id ?? null}
+            daily={daily}
             hoveredFamily={hoveredFamily}
             onHoverFamily={(family) =>
               setHoveredFamily(
@@ -851,12 +1075,14 @@ function LaneView(props: {
   lane: Lane;
   /** Swimlane affichée juste en dessous : un dépôt sur la moitié basse se place avant elle. */
   nextLaneId: string | null;
+  daily: boolean;
   /** Famille survolée (une story et ses sous-tâches), à mettre en évidence ; `null` sinon. */
   hoveredFamily: string | null;
   /** Une carte est survolée (sa famille) ou quittée (`null`). */
   onHoverFamily: (family: string | null) => void;
 }) {
-  const { board, configuration, layout, lane, nextLaneId, hoveredFamily, onHoverFamily } = props;
+  const { board, configuration, layout, lane, nextLaneId, daily, hoveredFamily, onHoverFamily } =
+    props;
   const goal = lane.goal;
   const progress = lane.progress;
   const focused = goal !== null && isGoalFocused(board.filters.value, goal.id);
@@ -895,32 +1121,37 @@ function LaneView(props: {
       <header
         class={`lane-header${progress?.state === "completed" ? " lane-header-completed" : ""}`}
       >
-        <span
-          class="lane-grip"
-          draggable
-          aria-hidden="true"
-          title="Glisser pour déplacer la swimlane (ou menu ⋯ : Monter, Descendre)"
-          onDragStart={(event) => {
-            if (!event.dataTransfer) return;
-            event.dataTransfer.setData(LANE_DRAG_TYPE, lane.id);
-            event.dataTransfer.effectAllowed = "move";
-            const header = event.currentTarget.closest(".lane-header");
-            if (header instanceof HTMLElement) event.dataTransfer.setDragImage?.(header, 12, 12);
-            board.startLaneDrag(lane.id);
-          }}
-          onDragEnd={() => board.endLaneDrag()}
-        />
-        <button
-          type="button"
-          class="lane-toggle"
-          aria-expanded={!lane.collapsed}
-          aria-label={`${lane.collapsed ? "Déplier" : "Replier"} ${lane.title}`}
-          title={lane.collapsed ? "Déplier" : "Replier"}
-          onClick={() => void board.toggleLaneCollapsed(lane.block)}
-        >
-          <span class="chevron" aria-hidden="true" />
-        </button>
-        {goal ? (
+        {!daily && (
+          <>
+            <span
+              class="lane-grip"
+              draggable
+              aria-hidden="true"
+              title="Glisser pour déplacer la swimlane (ou menu ⋯ : Monter, Descendre)"
+              onDragStart={(event) => {
+                if (!event.dataTransfer) return;
+                event.dataTransfer.setData(LANE_DRAG_TYPE, lane.id);
+                event.dataTransfer.effectAllowed = "move";
+                const header = event.currentTarget.closest(".lane-header");
+                if (header instanceof HTMLElement)
+                  event.dataTransfer.setDragImage?.(header, 12, 12);
+                board.startLaneDrag(lane.id);
+              }}
+              onDragEnd={() => board.endLaneDrag()}
+            />
+            <button
+              type="button"
+              class="lane-toggle"
+              aria-expanded={!lane.collapsed}
+              aria-label={`${lane.collapsed ? "Déplier" : "Replier"} ${lane.title}`}
+              title={lane.collapsed ? "Déplier" : "Replier"}
+              onClick={() => void board.toggleLaneCollapsed(lane.block)}
+            >
+              <span class="chevron" aria-hidden="true" />
+            </button>
+          </>
+        )}
+        {goal && !daily ? (
           <button
             type="button"
             class="lane-title"
@@ -932,7 +1163,10 @@ function LaneView(props: {
             {lane.title}
           </button>
         ) : (
-          <span class="lane-title">{lane.title}</span>
+          <span class="lane-title">
+            {goal && <GoalMarker completed={progress?.state === "completed"} />}
+            {lane.title}
+          </span>
         )}
         <span class="lane-count">
           {layout.filtersActive
@@ -954,7 +1188,7 @@ function LaneView(props: {
           </span>
         )}
         {progress?.state === "empty" && <span class="lane-progress">Aucun ticket rattaché</span>}
-        <LaneMenu board={board} lane={lane} />
+        {!daily && <LaneMenu board={board} lane={lane} />}
       </header>
       {!lane.collapsed && ownColumns && (
         <div class="board-row column-band column-band-run">

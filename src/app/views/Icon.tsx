@@ -128,6 +128,15 @@ const PATHS = {
   /** Flèches rentrantes : quitter le mode présentation. */
   exitPresent: <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  /** Lecture : lancer la daily. */
+  play: <path d="M7 4.5v15l12-7.5z" />,
+  pause: <path d="M8.5 5v14M15.5 5v14" />,
+  /** Carré : terminer la daily. */
+  stop: <rect x="6" y="6" width="12" height="12" rx="1.5" />,
+  chevronLeft: <path d="M15 5l-7 7 7 7" />,
+  chevronRight: <path d="M9 5l7 7-7 7" />,
+  /** Coins sortants : passer en plein écran. */
+  fullscreen: <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />,
   /** Liste cochée : les sous-tâches d'un ticket. */
   subtasks: (
     <>

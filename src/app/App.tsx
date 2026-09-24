@@ -39,6 +39,14 @@ function Workspace({
   const view = model.view.value;
   const sidebarCollapsed = model.sidebarCollapsed.value;
   const presenting = model.presenting.value && view === "board";
+  const daily = view === "board" ? model.daily.value : null;
+  const dailyRunning = daily !== null;
+
+  // Fin de la daily : le plein écran demandé à son lancement est rendu.
+  useEffect(() => {
+    if (dailyRunning || !document.fullscreenElement) return;
+    document.exitFullscreen?.().catch(() => {});
+  }, [dailyRunning]);
 
   // Un clic hors d'un menu ouvert le referme.
   useEffect(() => {
@@ -86,11 +94,15 @@ function Workspace({
     presenting,
     onEnterPresentation: () => model.enterPresentation(),
     onExitPresentation: () => model.exitPresentation(),
+    daily,
+    onStartDaily: (minutes, firstStepId) => model.startDaily(minutes, firstStepId),
+    onUpdateDaily: (change) => model.updateDaily(change),
+    onStopDaily: () => model.stopDaily(),
   };
 
   return (
     <div class="workspace">
-      {!sidebarCollapsed && !presenting && <Sidebar model={model} board={board} />}
+      {!sidebarCollapsed && !presenting && !daily && <Sidebar model={model} board={board} />}
       {presenting && <PresentationHint />}
       <div class="workspace-main">
         {view === "board" && <BoardScreen connection={connection} controls={controls} />}

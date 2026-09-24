@@ -16,6 +16,7 @@ import {
   withBuildLabel,
   withColumnHidden,
   withColumnName,
+  withDailyMinutes,
   withDefaultBlockOrder,
   withIssueTypeCategory,
   withWipLimit,
@@ -176,6 +177,16 @@ export function BoardSettings({
             onCommit={(raw) => commit((current) => withAgingThreshold(current, raw))}
           />
           <span class="hint">jour(s) sans changement de statut</span>
+        </div>
+        <div class="settings-field settings-inline">
+          <label for="settings-daily">Durée de la daily</label>
+          <CommitInput
+            id="settings-daily"
+            value={String(configuration.dailyMinutes)}
+            numeric
+            onCommit={(raw) => commit((current) => withDailyMinutes(current, raw))}
+          />
+          <span class="hint">minute(s), pour le minuteur du mode Daily</span>
         </div>
         <label class="settings-field settings-inline">
           <span>Rafraîchissement automatique</span>
