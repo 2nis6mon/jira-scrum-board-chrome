@@ -186,7 +186,8 @@ Git (depuis le 20/09/2026) : travail sur des branches `codex/...` ; chaque commi
 (24/09/2026), la fusion dans `main` se fait sur demande. `codex/tickets-du-board` (0.19.21) puis
 `codex/mode-daily` (0.20.0–0.21.1) ont été fusionnées dans `main` le 24/09/2026, à sa demande. Puis
 `codex/reglages-automatiques` (0.22.0–0.22.6, avance rapide) et `codex/publication` (outillage du
-Store : `npm run package`, `store:screenshots`, `docs/store/`, `docs/privacy/`), le même jour. La branche du prototype `codex/test-ouverture-jira-directe` a été fusionnée dans `main` à
+Store : `npm run package`, `store:screenshots`, `docs/store/`, `docs/privacy/`), le même jour. Enfin
+`codex/store-maj` (fiche, confidentialité et captures alignées sur 0.22), le même jour aussi. La branche du prototype `codex/test-ouverture-jira-directe` a été fusionnée dans `main` à
 la demande de Denis le 23/09/2026 (avance rapide, 27 commits), puis supprimée avec les autres
 branches `codex/...` : `main` est désormais la seule branche du dépôt. Le prototype vit donc dans
 `main`,
