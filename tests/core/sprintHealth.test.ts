@@ -145,9 +145,10 @@ describe("Sprint Health : comptages directs", () => {
       entry.count,
       entry.over,
     ]);
+    // « prog » : 2 tickets Scrum et 1 Kanban, tous dans cette colonne du board Jira.
     expect(columns).toEqual([
       ["todo", 1, false],
-      ["prog", 2, true],
+      ["prog", 3, true],
       ["done", 2, false],
     ]);
   });

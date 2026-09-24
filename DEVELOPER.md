@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **24 septembre 2026**  
 Branche décrite : **`codex/reglages-automatiques`** (issue de `main` le 24/09/2026)  
-Produit autonome : **0.22.6**  
-Prototype d’intégration Jira : **0.22.6.2**
+Produit autonome : **0.22.7**  
+Prototype d’intégration Jira : **0.22.7.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -49,7 +49,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.22.6`  
+Version : `0.22.7`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -71,7 +71,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.22.6.2`  
+Version générée : `0.22.7.2`  
 Nom : celui du paquet autonome (depuis le 24/09/2026)
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -192,6 +192,9 @@ de Jira.
 - Santé du sprint masquée pour l’instant (0.22.1, choix de Denis) : `SPRINT_HEALTH_ENABLED` dans
   `BoardView.tsx`, à repasser à `true` pour la réafficher.
 - La daily se lance par le bouton plein « ▶ Daily », en tête des actions de l’en-tête (0.22.2).
+- Diagnostic masqué pour l’instant (0.22.7) : `DIAGNOSTIC_ENABLED` dans `AdminView.tsx`, à
+  repasser à `true`. Sans droit de modifier le board, l’administration n’affiche qu’une explication.
+- `columnLoad` compte tous les tickets de la colonne, Kanban compris (0.22.7, choix de Denis).
 - Épinglage des Goals au sprint directement dans Administration → Objectifs, sans fenêtre
   (0.22.4). « Goals associés au board » n’existe plus. Depuis 0.22.5, une seule section
   « Objectifs du sprint » (`SprintGoalsPanel.tsx`) : couleur, masquage et épinglage par objectif.

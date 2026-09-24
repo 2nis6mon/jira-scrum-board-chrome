@@ -144,12 +144,15 @@ export function buildBoardLayout(
 }
 
 /**
- * Nombre de tickets Scrum par colonne, pour les limites WIP. Les filtres n'y changent rien : une
- * limite se compare à la charge réelle de la colonne, pas à ce qui est affiché.
+ * Nombre de tickets par colonne, pour les limites WIP. TOUS les tickets du board y comptent —
+ * objectifs, Build et Kanban (demande de Denis du 24/09/2026, après avoir vu en daily une colonne
+ * annoncer 13 au-dessus d'une swimlane Kanban qui montrait 17 cartes) : une colonne du board Jira
+ * porte les uns et les autres, et sa limite WIP aussi. Les filtres n'y changent rien : une limite
+ * se compare à la charge réelle de la colonne, pas à ce qui est affiché.
  */
 export function columnLoad(snapshot: BoardSnapshot): Map<string, number> {
   const load = new Map<string, number>();
-  for (const issue of snapshot.scrumIssues) {
+  for (const issue of [...snapshot.scrumIssues, ...snapshot.kanbanIssues]) {
     if (issue.columnId !== null) load.set(issue.columnId, (load.get(issue.columnId) ?? 0) + 1);
   }
   return load;

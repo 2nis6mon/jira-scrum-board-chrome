@@ -2,6 +2,8 @@ import { useState } from "preact/hooks";
 import {
   type BoardConfiguration,
   type ColumnConfiguration,
+  DEFAULT_BUILD_LABEL,
+  DEFAULT_KANBAN_LABEL,
   type IssueCategory,
   isBugTypeConfiguration,
 } from "../../../core/boardConfiguration";
@@ -62,6 +64,9 @@ export function BoardSettings({
   };
   const set = (change: (current: BoardConfiguration) => BoardConfiguration, resync = false) =>
     commit((current) => ({ ok: true, configuration: change(current) }), { resync });
+  // Les libellés qui désignent LA swimlane portent son nom ; « mode Kanban » reste le mode.
+  const kanbanLabel = configuration.kanbanSectionLabel || DEFAULT_KANBAN_LABEL;
+  const buildLabel = configuration.buildSectionLabel || DEFAULT_BUILD_LABEL;
 
   return (
     <div class="settings-section">
@@ -88,7 +93,7 @@ export function BoardSettings({
           commit={commit}
         />
         <ColumnEditor
-          title={configuration.kanbanSectionLabel || "Kanban"}
+          title={kanbanLabel}
           kind="kanban"
           columns={configuration.kanbanColumns}
           commit={commit}
@@ -162,7 +167,7 @@ export function BoardSettings({
               set((current) => ({ ...current, showKanbanSection }));
             }}
           />
-          Afficher la swimlane Kanban
+          Afficher la swimlane {kanbanLabel}
         </label>
         <div class="settings-field">
           <label for="settings-build-label">
@@ -207,7 +212,7 @@ export function BoardSettings({
           <span class="hint">minute(s), pour le minuteur du mode Daily</span>
         </div>
         <div class="settings-field settings-inline">
-          <label for="settings-daily-stock">Stock Kanban en daily</label>
+          <label for="settings-daily-stock">Stock {kanbanLabel} en daily</label>
           <CommitInput
             id="settings-daily-stock"
             value={String(configuration.dailyKanbanStockLimit)}
@@ -215,7 +220,7 @@ export function BoardSettings({
             onCommit={(raw) => commit((current) => withDailyKanbanStockLimit(current, raw))}
           />
           <span class="hint">
-            carte(s) affichée(s) dans la première colonne Kanban, avant « + N autres »
+            carte(s) affichée(s) dans la première colonne {kanbanLabel}, avant « + N autres »
           </span>
         </div>
         <label class="settings-field settings-inline">
@@ -258,7 +263,9 @@ export function BoardSettings({
           >
             Réinitialiser l'ordre des swimlanes
           </button>
-          <span class="hint">Objectifs dans leur ordre d'arrivée, puis Build et Kanban.</span>
+          <span class="hint">
+            Objectifs dans leur ordre d'arrivée, puis {buildLabel} et {kanbanLabel}.
+          </span>
         </div>
       </section>
     </div>

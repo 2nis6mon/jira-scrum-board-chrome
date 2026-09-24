@@ -7,6 +7,12 @@ import { GoalSettings } from "./GoalSettings";
 
 type BoardSection = Exclude<AdminSection, "diagnostic">;
 
+/**
+ * Diagnostic masqué pour l'instant (demande de Denis du 24/09/2026), comme la santé du sprint :
+ * le code et ses tests restent, à repasser à `true` pour le réafficher.
+ */
+export const DIAGNOSTIC_ENABLED = false;
+
 /** Sections des réglages du board, dépliées dans la barre latérale. */
 export const BOARD_SECTIONS: readonly { id: BoardSection; label: string }[] = [
   { id: "board", label: "Board" },
@@ -30,7 +36,8 @@ export function AdminView({
   const { board, diagnostic } = connection;
   const configuration = board.configuration.value;
   // Sans droit de modifier le board, seul le diagnostic reste : les réglages sont partagés.
-  const section = board.canEditSettings.value ? model.adminSection.value : "diagnostic";
+  const readOnly = !board.canEditSettings.value;
+  const section = readOnly && DIAGNOSTIC_ENABLED ? "diagnostic" : model.adminSection.value;
   const teamNotice = board.teamNotice.value;
   const team = board.team.value;
 
@@ -53,7 +60,14 @@ export function AdminView({
             <p>Réglages du board non relus dans Jira : {team.message}</p>
           </div>
         )}
-        {section === "diagnostic" ? (
+        {readOnly && !DIAGNOSTIC_ENABLED ? (
+          <div class="panel">
+            <p>
+              Les réglages de ce board sont partagés avec l'équipe et enregistrés dans Jira : seules
+              les personnes qui peuvent modifier le board dans Jira les changent.
+            </p>
+          </div>
+        ) : section === "diagnostic" ? (
           <DiagnosticView diagnostic={diagnostic} />
         ) : !board.loaded.value ? (
           <div class="centered" aria-busy="true" />

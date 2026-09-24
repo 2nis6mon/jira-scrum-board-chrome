@@ -674,6 +674,22 @@ sur 0.22 — réglages du board écrits à chaque modification, droit de modifie
 « Publier pour l'équipe », plus de santé du sprint dans la fiche. Capture `03-sante` remplacée par
 `03-objectifs` (administration, objectifs du sprint). Zip : `release/sprint-goals-board-0.22.6.zip`.
 
+0.22.7 (essai de Denis sur son Jira de sandbox le 24/09/2026, branche `codex/retours-sandbox`).
+Constaté chez lui : droit de modifier le board reconnu et écriture acceptée, enregistrement
+automatique, swimlane Kanban renommée « Run » partout, daily plein écran avec stock plafonné (3
+cartes puis « + 14 autres » sur 17 vraies cartes), santé du sprint bien masquée. Trois corrections :
+1. `columnLoad` (`boardLayout.ts`) compte désormais TOUS les tickets de la colonne, Kanban compris
+   (son choix) : en daily sur la swimlane Run, la bande annonçait 13 au-dessus de 17 cartes, parce
+   que le compteur ne voyait que le Scrum et que ses colonnes Kanban, identiques aux colonnes Scrum,
+   font réutiliser la même bande. Les limites WIP se comparent donc à la charge entière de la
+   colonne du board Jira.
+2. Section Board de l'administration : les libellés qui désignent LA swimlane prennent son nom
+   (« Afficher la swimlane Run », « Stock Run en daily »…) ; « mode Kanban » reste le mode.
+3. Diagnostic masqué (`DIAGNOSTIC_ENABLED` dans `AdminView.tsx`, comme `SPRINT_HEALTH_ENABLED`) et
+   texte « Réglages du board, partagés avec l'équipe… » retiré de la barre latérale. Sans droit de
+   modifier le board, l'administration n'a plus de section : elle explique pourquoi en une phrase.
+   Tests du diagnostic suspendus par `it.skipIf`.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

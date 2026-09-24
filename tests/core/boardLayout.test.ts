@@ -141,8 +141,9 @@ describe("buildBoardLayout", () => {
     expect(buildBoardLayout(withOrphan, hiddenColumn, NO_FILTERS).unmappedCount).toBe(2);
   });
 
-  it("charge par colonne, hors Kanban et sans tenir compte des filtres, pour les limites WIP", () => {
-    expect(Object.fromEntries(columnLoad(board))).toEqual({ todo: 1, prog: 2, done: 1 });
+  it("charge par colonne : Kanban compris, sans tenir compte des filtres, pour les limites WIP", () => {
+    // « prog » compte 2 tickets Scrum et 1 ticket Kanban : la colonne du board Jira porte les deux.
+    expect(Object.fromEntries(columnLoad(board))).toEqual({ todo: 1, prog: 3, done: 1 });
     const hidden = snapshot([makeIssue("ABC-9", { statusId: "99" })]);
     expect(Object.fromEntries(columnLoad(hidden))).toEqual({});
   });

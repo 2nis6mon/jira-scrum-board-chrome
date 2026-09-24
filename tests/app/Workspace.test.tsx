@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App, PRESENTATION_HINT_MS } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
 import { SPRINT_HEALTH_ENABLED } from "../../src/app/views/board/BoardView";
+import { DIAGNOSTIC_ENABLED } from "../../src/app/views/settings/AdminView";
 import { visibleColumns } from "../../src/core/boardConfiguration";
 import { BOARD_PROPERTY_KEYS } from "../../src/jira/writes";
 import {
@@ -596,7 +597,6 @@ describe("administration", () => {
     button("Administration").click();
     await tick();
     expect(text()).not.toContain("Publier pour l'équipe");
-    expect(text()).toContain("chaque modification est enregistrée dans Jira");
     model.showBoard();
 
     // Un collègue, dans un autre navigateur, retrouve l'ordre au chargement du board.
@@ -632,9 +632,9 @@ describe("administration", () => {
 
     button("Administration").click();
     await tick();
-    expect([...document.querySelectorAll(".settings-tab")].map((tab) => tab.textContent)).toEqual([
-      "Diagnostic",
-    ]);
+    expect([...document.querySelectorAll(".settings-tab")].map((tab) => tab.textContent)).toEqual(
+      DIAGNOSTIC_ENABLED ? ["Diagnostic"] : [],
+    );
     expect(text()).toContain("Réglages du board en lecture seule");
 
     // Même appelé directement, un réglage partagé n'est ni appliqué ni écrit.
@@ -685,12 +685,14 @@ describe("administration", () => {
       "Objectifs",
       "Champs des cartes",
       "Couleurs des cartes",
-      "Diagnostic",
+      ...(DIAGNOSTIC_ENABLED ? ["Diagnostic"] : []),
     ]);
     expect(document.querySelector(".settings-group")?.textContent).toBe("Équipe Paiement");
 
-    button("Diagnostic").click();
-    await expect.poll(() => document.querySelectorAll(".probe").length).toBeGreaterThan(0);
+    if (DIAGNOSTIC_ENABLED) {
+      button("Diagnostic").click();
+      await expect.poll(() => document.querySelectorAll(".probe").length).toBeGreaterThan(0);
+    }
 
     const confirmation = vi.fn(() => false);
     vi.stubGlobal("confirm", confirmation);

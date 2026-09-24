@@ -6,7 +6,7 @@ import type { BoardModel, BoardSummary } from "../model/BoardModel";
 import { LANE_DRAG_TYPE, revealLane } from "./board/lanes";
 import { GoalMarker } from "./GoalMarker";
 import { Icon, type IconName } from "./Icon";
-import { BOARD_SECTIONS } from "./settings/AdminView";
+import { BOARD_SECTIONS, DIAGNOSTIC_ENABLED } from "./settings/AdminView";
 
 /**
  * Barre latérale, reprise de l'app Mac. De haut en bas : board affiché (et son menu), vue du sprint
@@ -148,7 +148,7 @@ function AdminMenu({ model, board }: { model: AppModel; board: BoardModel }) {
   const host = board.site.host;
   // Sans droit de modifier le board dans Jira, ses réglages (partagés) ne se changent pas ici.
   const editable = board.canEditSettings.value;
-  const section = editable ? model.adminSection.value : "diagnostic";
+  const section = editable || !DIAGNOSTIC_ENABLED ? model.adminSection.value : "diagnostic";
   return (
     <nav class="sidebar-admin" aria-label="Sections de l'administration">
       <p class="settings-group">{configuration?.boardName ?? "Board"}</p>
@@ -164,22 +164,26 @@ function AdminMenu({ model, board }: { model: AppModel; board: BoardModel }) {
           {item.label}
         </button>
       ))}
-      <p class="hint settings-local">
-        {!configuration
-          ? "Choisissez d'abord un board : ces réglages portent sur lui."
-          : editable
-            ? "Réglages du board, partagés avec l'équipe : chaque modification est enregistrée dans Jira."
+      {(!configuration || !editable) && (
+        <p class="hint settings-local">
+          {!configuration
+            ? "Choisissez d'abord un board : ces réglages portent sur lui."
             : "Réglages du board en lecture seule : seules les personnes qui peuvent modifier le board dans Jira les changent."}
-      </p>
-      <p class="settings-group">Site Jira</p>
-      <button
-        type="button"
-        class="settings-tab"
-        aria-pressed={section === "diagnostic"}
-        onClick={() => model.showDiagnostic()}
-      >
-        Diagnostic
-      </button>
+        </p>
+      )}
+      {DIAGNOSTIC_ENABLED && (
+        <>
+          <p class="settings-group">Site Jira</p>
+          <button
+            type="button"
+            class="settings-tab"
+            aria-pressed={section === "diagnostic"}
+            onClick={() => model.showDiagnostic()}
+          >
+            Diagnostic
+          </button>
+        </>
+      )}
       <div class="settings-account">
         <span class="settings-site">{host}</span>
         <button

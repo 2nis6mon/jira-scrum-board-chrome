@@ -3,6 +3,7 @@ import { render } from "preact";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
+import { DIAGNOSTIC_ENABLED } from "../../src/app/views/settings/AdminView";
 import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
 import { FakeJira, isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
@@ -99,7 +100,7 @@ describe("App", () => {
     await tick();
     expect(document.querySelector(".settings-site")?.textContent).toBe("acme.atlassian.net");
     expect(button("Couleurs des cartes").disabled).toBe(true);
-    expect(button("Diagnostic").disabled).toBe(false);
+    if (DIAGNOSTIC_ENABLED) expect(button("Diagnostic").disabled).toBe(false);
     expect(text()).toContain("Aucun board n'est encore choisi");
   });
 
@@ -222,16 +223,9 @@ describe("App", () => {
 
   it("WIP : la colonne au-delà de sa limite est signalée, filtres ou non", async () => {
     const overLoaded = () => document.querySelector(".column-over .column-name")?.textContent;
-    // 2 tickets Scrum « En cours » ou « Revue » pour une limite de 2 : pas de dépassement.
-    await connectedBoard();
-    expect(overLoaded()).toBeUndefined();
-    render(null, document.body);
-
-    // Un troisième : dépassement, que le filtre n'efface pas. Le ticket Kanban n'est pas compté.
-    const extra = issueJson("ABC-106", { summary: "Troisième en cours", statusId: "3" });
-    const { board } = await connectedBoard(
-      boardSiteJira({ sprintIssues: [...SPRINT_ISSUES, extra] }),
-    );
+    // 2 tickets Scrum et 1 Kanban « En cours » pour une limite de 2 : la colonne du board Jira
+    // porte les trois, donc la limite est déjà dépassée (0.22.7).
+    const { board } = await connectedBoard();
     expect(overLoaded()).toBe("En cours");
     expect(document.querySelector(".column-over .column-count")?.textContent).toBe("3 / 2");
     board.setSearch("note de version");
@@ -497,18 +491,22 @@ describe("App", () => {
     expect(teamWrites(jira)).toBeGreaterThan(0);
   });
 
-  it("le diagnostic reste accessible depuis l'administration, même session perdue", async () => {
-    const jira = new FakeJira().on("GET", "/rest/api/3/myself", { status: 401 });
-    const model = new AppModel(fakePlatform(jira));
-    render(<App model={model} />, document.body);
-    await model.connect("acme.atlassian.net");
-    await tick();
+  // Diagnostic masqué pour l'instant (0.22.7) : son écran reste testé, prêt à revenir.
+  it.skipIf(!DIAGNOSTIC_ENABLED)(
+    "le diagnostic reste accessible depuis l'administration, même session perdue",
+    async () => {
+      const jira = new FakeJira().on("GET", "/rest/api/3/myself", { status: 401 });
+      const model = new AppModel(fakePlatform(jira));
+      render(<App model={model} />, document.body);
+      await model.connect("acme.atlassian.net");
+      await tick();
 
-    button("Administration").click();
-    await tick();
-    button("Diagnostic").click();
-    await expect.poll(() => document.querySelectorAll(".probe").length).toBe(3);
-    expect(document.querySelector(".probe-failed .probe-code")?.textContent).toBe("401");
-    expect(text()).toContain("Ouvrir acme.atlassian.net");
-  });
+      button("Administration").click();
+      await tick();
+      button("Diagnostic").click();
+      await expect.poll(() => document.querySelectorAll(".probe").length).toBe(3);
+      expect(document.querySelector(".probe-failed .probe-code")?.textContent).toBe("401");
+      expect(text()).toContain("Ouvrir acme.atlassian.net");
+    },
+  );
 });
