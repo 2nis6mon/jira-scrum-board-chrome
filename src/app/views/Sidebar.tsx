@@ -175,9 +175,13 @@ function AdminMenu({ model, board }: { model: AppModel; board: BoardModel }) {
           {item.label}
         </button>
       ))}
-      {!configuration && (
+      {/* Plus de texte quand tout est modifiable (demande de Denis) ; il reste là où le menu
+          serait autrement inexplicable : pas de board, ou sections retirées faute de droits. */}
+      {(!configuration || !editable) && (
         <p class="hint settings-local">
-          Choisissez d'abord un board : ces réglages portent sur lui.
+          {!configuration
+            ? "Choisissez d'abord un board : ces réglages portent sur lui."
+            : "Réglages du board en lecture seule : seules les personnes qui peuvent modifier le board dans Jira les changent."}
         </p>
       )}
       {DIAGNOSTIC_ENABLED && (

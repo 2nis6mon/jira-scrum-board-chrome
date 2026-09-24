@@ -685,13 +685,15 @@ cartes puis « + 14 autres » sur 17 vraies cartes), santé du sprint bien masqu
    colonne du board Jira.
 2. Section Board de l'administration : les libellés qui désignent LA swimlane prennent son nom
    (« Afficher la swimlane Run », « Stock Run en daily »…) ; « mode Kanban » reste le mode.
-3. Diagnostic masqué (`DIAGNOSTIC_ENABLED` dans `AdminView.tsx`, comme `SPRINT_HEALTH_ENABLED`) et
-   texte « Réglages du board, partagés avec l'équipe… » retiré de la barre latérale. Sans droit de
-   modifier le board, l'administration n'a plus de section : elle explique pourquoi en une phrase.
-   Tests du diagnostic suspendus par `it.skipIf`.
-   Sans droit de modifier le board, le bouton « Administration » disparaît lui aussi : la barre
-   latérale ne garde que le site et « Se déconnecter » (`SiteAccount`, sorti de `AdminMenu`). Le
-   droit qui tombe pendant que l'administration est ouverte ramène au sprint.
+3. Texte « Réglages du board, partagés avec l'équipe… » retiré de la barre latérale ; celui de la
+   lecture seule reste, sinon le menu amputé serait inexplicable. `DIAGNOSTIC_ENABLED`
+   (`AdminView.tsx`) existe désormais comme `SPRINT_HEALTH_ENABLED`, mais reste à `true` : Denis a
+   demandé de masquer le diagnostic, puis de le rétablir le jour même — le bandeau « Invalid CORS
+   request » y renvoie, et c'est le seul écran qui retient la variante d'en-tête Origin acceptée par
+   la passerelle des Goals. À `false`, le bouton « Administration » disparaît pour qui ne peut pas
+   modifier le board : la barre latérale ne garde alors que le site et « Se déconnecter »
+   (`SiteAccount`, sorti de `AdminMenu`), et le droit qui tombe pendant que l'administration est
+   ouverte ramène au sprint.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit

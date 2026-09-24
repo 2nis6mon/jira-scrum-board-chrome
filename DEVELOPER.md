@@ -192,8 +192,9 @@ de Jira.
 - Santé du sprint masquée pour l’instant (0.22.1, choix de Denis) : `SPRINT_HEALTH_ENABLED` dans
   `BoardView.tsx`, à repasser à `true` pour la réafficher.
 - La daily se lance par le bouton plein « ▶ Daily », en tête des actions de l’en-tête (0.22.2).
-- Diagnostic masqué pour l’instant (0.22.7) : `DIAGNOSTIC_ENABLED` dans `AdminView.tsx`, à
-  repasser à `true`. Sans droit de modifier le board, l’administration n’affiche qu’une explication.
+- `DIAGNOSTIC_ENABLED` (`AdminView.tsx`, 0.22.7) peut masquer le diagnostic, mais reste à `true` :
+  le bandeau « Invalid CORS request » y renvoie. À `false`, un compte sans droit sur le board n’a
+  plus d’administration du tout, seulement la déconnexion.
 - `columnLoad` compte tous les tickets de la colonne, Kanban compris (0.22.7, choix de Denis).
 - Épinglage des Goals au sprint directement dans Administration → Objectifs, sans fenêtre
   (0.22.4). « Goals associés au board » n’existe plus. Depuis 0.22.5, une seule section

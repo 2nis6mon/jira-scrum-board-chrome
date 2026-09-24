@@ -630,13 +630,14 @@ describe("administration", () => {
     // Le repli reste possible : il est personnel.
     expect(document.querySelector("[aria-label='Replier Build']")).not.toBeNull();
 
-    // Sans diagnostic non plus, l'administration disparaît : reste la déconnexion (0.22.7).
+    // Sans diagnostic non plus, l'administration disparaîtrait : resterait la déconnexion (0.22.7).
     if (DIAGNOSTIC_ENABLED) {
       button("Administration").click();
       await tick();
       expect([...document.querySelectorAll(".settings-tab")].map((tab) => tab.textContent)).toEqual(
         ["Diagnostic"],
       );
+      expect(text()).toContain("Réglages du board en lecture seule");
     } else {
       expect(document.querySelector(".sidebar-admin-block")).toBeNull();
       expect(() => button("Administration")).toThrow();

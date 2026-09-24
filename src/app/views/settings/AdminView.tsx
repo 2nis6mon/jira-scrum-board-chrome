@@ -8,10 +8,11 @@ import { GoalSettings } from "./GoalSettings";
 type BoardSection = Exclude<AdminSection, "diagnostic">;
 
 /**
- * Diagnostic masqué pour l'instant (demande de Denis du 24/09/2026), comme la santé du sprint :
- * le code et ses tests restent, à repasser à `true` pour le réafficher.
+ * Diagnostic affiché : Denis l'a masqué puis rétabli le 24/09/2026, le bandeau « Invalid CORS
+ * request » y renvoyant — c'est le seul écran qui essaie les variantes de l'en-tête Origin et
+ * retient celle que la passerelle des Goals accepte. Le masquer coupe cette issue de secours.
  */
-export const DIAGNOSTIC_ENABLED = false;
+export const DIAGNOSTIC_ENABLED = true;
 
 /** Sections des réglages du board, dépliées dans la barre latérale. */
 export const BOARD_SECTIONS: readonly { id: BoardSection; label: string }[] = [
