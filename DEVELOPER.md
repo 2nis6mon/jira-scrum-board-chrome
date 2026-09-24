@@ -1,9 +1,9 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Dernière mise à jour : **23 septembre 2026**  
-Branche décrite : **`main`** (seule branche du dépôt depuis le 23/09/2026)  
-Produit autonome : **0.19.20**  
-Prototype d’intégration Jira : **0.19.20.2**
+Dernière mise à jour : **24 septembre 2026**  
+Branche décrite : **`codex/tickets-du-board`** (issue de `main` le 24/09/2026)  
+Produit autonome : **0.19.21**  
+Prototype d’intégration Jira : **0.19.21.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -47,7 +47,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.19.20`  
+Version : `0.19.21`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -69,7 +69,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.19.20.2`  
+Version générée : `0.19.21.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -174,6 +174,13 @@ de Jira.
 ### Board et affichage
 
 - Scrum seulement ; Kanban n’est pas pris en charge.
+- Périmètre (0.19.21, signalé par Denis) : les tickets d’un sprint sont lus depuis le board,
+  `GET /rest/agile/1.0/board/{board}/sprint/{sprint}/issue`, et non plus par le sprint seul, qui
+  ramenait aussi les tickets des autres boards d’un sprint partagé. Un sprint actif sans aucun
+  ticket du board (sprint d’un autre board qui contenait un de nos tickets) n’est plus affiché
+  dans l’en-tête, et l’épinglage des Goals se fait sur le premier sprint AFFICHÉ ; si aucun n’a
+  de ticket, le premier reste. Filtrage par le filtre du board : décrit par la spécification
+  (« from the board »), à constater sur le Jira de Denis.
 - Les swimlanes couvrent toute la largeur logique du board, même avec défilement horizontal.
 - L’en-tête, les filtres et les colonnes restent fixes pendant le défilement vertical.
 - Le titre du Goal courant reste fixe sous les colonnes jusqu’à ce que le suivant le pousse.
@@ -416,7 +423,8 @@ Les essais Chrome automatisés n’utilisent ni la session ni les données Jira 
 - Travailler dans une branche `codex/...` dédiée.
 - Faire un commit cohérent par correction ou fonctionnalité.
 - Utiliser l’identité `2nis6mon <denis.simon@gmail.com>`.
-- Ne pousser et ne fusionner que sur demande explicite.
+- Pousser chaque commit sur sa branche (consigne de Denis du 24/09/2026) ; ne fusionner dans
+  `main` que sur demande explicite.
 - Ne jamais committer `.secrets/extension-key.pem`, un profil Chrome, des cookies, des captures de
   données Jira ou un paquet contenant des secrets.
 - `dist/` est généré et ignoré par Git ; il reçoit le paquet autonome ou le prototype, selon la

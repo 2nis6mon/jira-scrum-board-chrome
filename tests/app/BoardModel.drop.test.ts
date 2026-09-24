@@ -50,7 +50,7 @@ describe("glisser-déposer — changement de colonne", () => {
       .on("GET", "/rest/api/3/issue/ABC-102", statusReply("1", "À faire"))
       .on("GET", "/rest/api/3/issue/ABC-102/transitions", transitions(["21", "3", "En cours"]))
       .on("POST", "/rest/api/3/issue/ABC-102/transitions", { status: 204 });
-    const syncsBefore = jira.sent("GET", "/rest/agile/1.0/sprint/42/issue").length;
+    const syncsBefore = jira.sent("GET", "/rest/agile/1.0/board/7/sprint/42/issue").length;
 
     await board.dropIssue({
       issueKey: "ABC-102",
@@ -62,7 +62,9 @@ describe("glisser-déposer — changement de colonne", () => {
     expect(writes().map((r) => [r.method, r.path, r.body])).toEqual([
       ["POST", "/rest/api/3/issue/ABC-102/transitions", { transition: { id: "21" } }],
     ]);
-    expect(jira.sent("GET", "/rest/agile/1.0/sprint/42/issue").length).toBe(syncsBefore + 1);
+    expect(jira.sent("GET", "/rest/agile/1.0/board/7/sprint/42/issue").length).toBe(
+      syncsBefore + 1,
+    );
     expect(board.writeNotice.value).toBeNull();
     expect(board.pendingKeys.value.size).toBe(0);
     const [entry] = await board.audit.list(SITE.origin);

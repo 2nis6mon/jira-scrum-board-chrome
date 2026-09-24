@@ -296,7 +296,7 @@ if (scenario.startsWith("board")) {
           : issue,
       )
       .map(decorated);
-  jira.on("GET", "/rest/agile/1.0/sprint/42/issue", () => ({
+  jira.on("GET", "/rest/agile/1.0/board/7/sprint/42/issue", () => ({
     status: 200,
     json: { issues: issues(), total: issues().length },
   }));
@@ -354,7 +354,7 @@ if (scenario.startsWith("board")) {
   // sur plusieurs swimlanes. Les écritures ne touchent que cette mémoire de test.
   if (scenario === "board-drag-regression") {
     const changed = new Set<string>();
-    jira.on("GET", "/rest/agile/1.0/sprint/42/issue", () => ({
+    jira.on("GET", "/rest/agile/1.0/board/7/sprint/42/issue", () => ({
       status: 200,
       json: {
         issues: issues().map((item) =>

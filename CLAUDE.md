@@ -51,7 +51,8 @@ connectée à Jira Cloud. Projet **distinct** de l'app Mac, qui reste maintenue 
 - Répondre en français. Code, commentaires et messages de commit en français.
 - Commits : `git -c user.name="2nis6mon" -c user.email="denis.simon@gmail.com" commit …`, avec le
   trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
-- Ne pusher que sur demande explicite.
+- Pousser chaque commit sur sa branche, toujours (consigne de Denis du 24/09/2026). Fusionner
+  dans `main` seulement sur demande explicite.
 
 ## Droits de l'extension
 
@@ -173,8 +174,8 @@ npm run verify:jira-direct-test  # construit le prototype dans dist/ puis le vé
 Prototype sans toucher au paquet d'essai de Denis : `npx vite build --mode jira-direct-test
 --outDir <dossier>` puis `JIRA_DIRECT_DIST=<dossier> node scripts/verify-jira-direct-test.mjs`.
 
-Git (depuis le 20/09/2026) : travail sur des branches `codex/...` ; ne pousser ni fusionner que sur
-demande. La branche du prototype `codex/test-ouverture-jira-directe` a été fusionnée dans `main` à
+Git (depuis le 20/09/2026) : travail sur des branches `codex/...` ; chaque commit est poussé
+(24/09/2026), la fusion dans `main` se fait sur demande. La branche du prototype `codex/test-ouverture-jira-directe` a été fusionnée dans `main` à
 la demande de Denis le 23/09/2026 (avance rapide, 27 commits), puis supprimée avec les autres
 branches `codex/...` : `main` est désormais la seule branche du dépôt. Le prototype vit donc dans
 `main`,
@@ -540,6 +541,15 @@ s'éclaire pour une famille d'une seule carte affichée, ni pendant un glissé. 
 reviennent au comportement d'avant 0.19.19 : chaque carte pour elle-même. Conséquence : les
 sous-tâches comptent de nouveau dans les colonnes, les limites WIP et l'en-tête, et désormais aussi
 dans l'avancement et l'atteinte du Goal de leur story (elles y sont rattachées).
+
+0.19.21 (signalé par Denis le 24/09/2026, branche `codex/tickets-du-board`) : le board affichait
+les tickets d'un sprint partagé avec un autre board, et le sprint actif d'un autre board qui
+contenait un de ses tickets (« Sprint A + Sprint B »). Les tickets sont désormais lus par
+`GET /rest/agile/1.0/board/{boardId}/sprint/{sprintId}/issue` (spécification OpenAPI de Jira
+Software vérifiée le 24/09/2026 : « issues […] that belong to the sprint from the board », mêmes
+paramètres ; le filtrage par le filtre du board reste à CONSTATER sur son Jira). `loadSnapshot`
+n'affiche que les sprints actifs ayant au moins un ticket du board (à défaut, le premier), et le
+premier sprint affiché porte l'épinglage : il ne peut plus s'écrire sur le sprint d'un autre board.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit

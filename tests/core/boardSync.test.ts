@@ -45,7 +45,7 @@ function boardJira(options: {
   });
   for (const sprint of sprints as { id: number }[]) {
     const issues = options.issues?.[sprint.id] ?? [];
-    jira.on("GET", `/rest/agile/1.0/sprint/${sprint.id}/issue`, {
+    jira.on("GET", `/rest/agile/1.0/board/1/sprint/${sprint.id}/issue`, {
       status: 200,
       json: { issues, total: issues.length },
     });
@@ -258,7 +258,39 @@ describe("loadSnapshot", () => {
     expect(snapshot.activeSprints.map((s) => s.id)).toEqual([42, 43]);
     expect(snapshot.sprint?.id).toBe(42);
     expect(snapshot.scrumIssues.map((i) => i.issue.key)).toEqual(["ABC-1", "ABC-2", "ABC-3"]);
-    expect(jira.sent("GET", "/rest/agile/1.0/sprint/41/issue")).toEqual([]);
+    expect(jira.sent("GET", "/rest/agile/1.0/board/1/sprint/41/issue")).toEqual([]);
+  });
+
+  it("ne lit que les tickets du sprint retenus par le board, par l'adresse du board", async () => {
+    const jira = boardJira({ issues: { 42: [issueJson("ABC-1")] } });
+    await sync(jira);
+    expect(jira.sent("GET", "/rest/agile/1.0/board/1/sprint/42/issue")).toHaveLength(1);
+    // L'adresse du sprint seul ramènerait aussi les tickets des autres boards de ce sprint.
+    expect(
+      jira.requests.filter((r) => /^\/rest\/agile\/1\.0\/sprint\/\d+\/issue/.test(r.url.pathname)),
+    ).toEqual([]);
+  });
+
+  it("un sprint actif sans ticket du board (celui d'un autre board) n'est pas affiché", async () => {
+    const jira = boardJira({
+      sprints: [sprintJson(40, { startDate: "2026-09-01T09:00:00.000+0200" }), sprintJson(42)],
+      issues: { 40: [], 42: [issueJson("ABC-1")] },
+    });
+    const { snapshot } = await sync(jira);
+    expect(snapshot.activeSprints.map((s) => s.id)).toEqual([42]);
+    // L'épinglage des Goals se lit (et s'écrira) sur le sprint du board, pas sur l'autre.
+    expect(snapshot.sprint?.id).toBe(42);
+    expect(jira.sent("GET", GOALS_PROPERTY(40))).toEqual([]);
+    expect(jira.sent("GET", GOALS_PROPERTY(42))).toHaveLength(1);
+  });
+
+  it("sprint qui démarre sans ticket : il reste affiché, le premier seulement", async () => {
+    const jira = boardJira({
+      sprints: [sprintJson(42), sprintJson(43, { startDate: "2026-09-14T09:00:00.000+0200" })],
+    });
+    const { snapshot } = await sync(jira);
+    expect(snapshot.activeSprints.map((s) => s.id)).toEqual([42]);
+    expect(snapshot.scrumIssues).toEqual([]);
   });
 
   it("date chaque ticket par rapport à SON sprint", async () => {
@@ -295,7 +327,7 @@ describe("loadSnapshot", () => {
     const jira = boardJira({});
     await sync(jira, configuration);
 
-    const params = jira.sent("GET", "/rest/agile/1.0/sprint/42/issue")[0]?.url.searchParams;
+    const params = jira.sent("GET", "/rest/agile/1.0/board/1/sprint/42/issue")[0]?.url.searchParams;
     expect(params?.get("expand")).toBe("changelog");
     expect(params?.get("fields")?.split(",")).toEqual(
       expect.arrayContaining([
@@ -425,7 +457,9 @@ describe("loadSnapshot", () => {
   });
 
   it("une erreur de lecture des tickets remonte telle quelle", async () => {
-    const jira = boardJira({}).on("GET", "/rest/agile/1.0/sprint/42/issue", { status: 401 });
+    const jira = boardJira({}).on("GET", "/rest/agile/1.0/board/1/sprint/42/issue", {
+      status: 401,
+    });
     await expect(sync(jira)).rejects.toMatchObject({ info: { kind: "unauthorized" } });
   });
 });

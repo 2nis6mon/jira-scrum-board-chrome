@@ -183,7 +183,7 @@ describe("board complet", () => {
         status: 200,
         json: { values: [{ id: 42, name: "Sprint 42", state: "active" }], isLast: true },
       })
-      .on("GET", "/rest/agile/1.0/sprint/42/issue", {
+      .on("GET", "/rest/agile/1.0/board/1/sprint/42/issue", {
         status: 200,
         json: { issues, total: issues.length },
       })
