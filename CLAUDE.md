@@ -566,6 +566,9 @@ inchangé : aucune nouvelle écriture. Durée `dailyMinutes` (15 par défaut, 1 
 Board de l'administration, locale au board, hors réglages d'équipe. Prototype : l'iframe injectée
 porte `allow="fullscreen"` (attribut HTML, aucune permission ni CSP en plus).
 
+0.20.1 (demande de Denis) : barre de la daily dans l'ordre minuteur, Précédent, Suivant, puis la
+swimlane présentée (objectif, Build ou RUN) ; « En pause » passe après elle.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

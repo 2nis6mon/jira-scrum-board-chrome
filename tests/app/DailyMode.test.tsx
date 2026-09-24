@@ -57,6 +57,11 @@ describe("mode Daily", () => {
     expect(document.querySelector(".sidebar")).toBeNull();
     expect(document.querySelector(".sprint-header")).toBeNull();
     expect(document.querySelector(".daily-clock")?.textContent).toBe("15:00");
+    // Ordre de la barre : minuteur, Précédent, Suivant, swimlane présentée.
+    const bar = [...(document.querySelector(".daily-bar")?.children ?? [])];
+    expect(
+      bar.map((element) => element.getAttribute("aria-label") ?? element.className).slice(0, 4),
+    ).toEqual(["daily-clock", "Swimlane précédente", "Swimlane suivante", "daily-step"]);
     expect(boardLanes()).toEqual([all[0]]);
     expect(step()).toContain(`1/${all.length}`);
     // L'étape se choisit dans la barre : ni poignée, ni repli, ni menu sur la swimlane.

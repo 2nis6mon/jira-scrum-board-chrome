@@ -422,8 +422,8 @@ function PresentationExit({ onExit }: { onExit: () => void }) {
 // ─── Daily ───────────────────────────────────────────────────────────────────
 
 /**
- * Barre de la daily : minuteur global, étape présentée (avec le temps passé dessus), Précédent,
- * Suivant, pause, plein écran, fin. Clavier : ← et →, Espace, Échap. Le board reste manipulable :
+ * Barre de la daily, dans l'ordre voulu par Denis : minuteur, Précédent, Suivant, puis la swimlane
+ * présentée (objectif, Build ou RUN, avec le temps passé dessus) ; à droite pause, plein écran, fin. Clavier : ← et →, Espace, Échap. Le board reste manipulable :
  * déplacer une carte y est la même transition ou le même rang qu'ailleurs.
  */
 function DailyBar(props: {
@@ -507,7 +507,6 @@ function DailyBar(props: {
       >
         {clock}
       </span>
-      {paused && <span class="daily-paused-label">En pause</span>}
       <button
         type="button"
         class="daily-nav"
@@ -517,6 +516,16 @@ function DailyBar(props: {
         onClick={() => move(-1)}
       >
         <Icon name="chevronLeft" size={18} />
+      </button>
+      <button
+        type="button"
+        class="daily-nav"
+        aria-label="Swimlane suivante"
+        title="Swimlane suivante (→)"
+        disabled={index < 0 || index >= steps.length - 1}
+        onClick={() => move(1)}
+      >
+        <Icon name="chevronRight" size={18} />
       </button>
       <span class="daily-step" data-goal-color={step?.goal?.color}>
         {step ? (
@@ -533,16 +542,7 @@ function DailyBar(props: {
           <span class="daily-step-title">Aucune swimlane</span>
         )}
       </span>
-      <button
-        type="button"
-        class="daily-nav"
-        aria-label="Swimlane suivante"
-        title="Swimlane suivante (→)"
-        disabled={index < 0 || index >= steps.length - 1}
-        onClick={() => move(1)}
-      >
-        <Icon name="chevronRight" size={18} />
-      </button>
+      {paused && <span class="daily-paused-label">En pause</span>}
       <span class="daily-actions">
         <button
           type="button"

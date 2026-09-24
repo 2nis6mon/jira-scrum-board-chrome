@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **24 septembre 2026**  
 Branche décrite : **`codex/mode-daily`** (issue de `main` le 24/09/2026 pour le mode Daily ; contient 0.19.21)  
-Produit autonome : **0.20.0**  
-Prototype d’intégration Jira : **0.20.0.2**
+Produit autonome : **0.20.1**  
+Prototype d’intégration Jira : **0.20.1.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -47,7 +47,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.20.0`  
+Version : `0.20.1`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -69,7 +69,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.20.0.2`  
+Version générée : `0.20.1.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -193,7 +193,7 @@ de Jira.
   navigateur (demandé au clic ; refusé, la daily se déroule dans la fenêtre), mise en page de la
   présentation, UNE swimlane à la fois. Étapes = swimlanes affichées dans l’ordre du board, Build
   et RUN compris, objectifs masqués et swimlanes sans ticket affiché sautés (`core/daily.ts`).
-  Barre de daily : minuteur global (orange dans les 2 dernières minutes, rouge avec le
+  Barre de daily, dans cet ordre (0.20.1) : minuteur global (orange dans les 2 dernières minutes, rouge avec le
   dépassement « +mm:ss » ensuite, jamais d’arrêt ni de son), temps passé sur l’étape, Précédent,
   Suivant, pause, plein écran, Terminer. Clavier : ← →, Espace, Échap (en plein écran, Échap
   appartient au navigateur : il en sort et la daily continue). Le temps est recalculé depuis
