@@ -50,7 +50,6 @@ import { FilterMenu } from "./FilterMenu";
 import { placeFloatingMenu } from "./floatingMenu";
 import { IssueCard } from "./IssueCard";
 import { LANE_DRAG_TYPE, revealLane } from "./lanes";
-import { PinGoalsDialog } from "./PinGoalsDialog";
 import { TransitionFormDialog } from "./TransitionFormDialog";
 
 /**
@@ -109,8 +108,13 @@ export function BoardView({
       ) : (
         exit && <div class="filter-bar">{exit}</div>
       )}
-      <Notices board={board} snapshot={snapshot} />
-      <FloatingNotices board={board} snapshot={snapshot} layout={layout} />
+      <Notices board={board} snapshot={snapshot} onShowPinning={controls.onShowPinning} />
+      <FloatingNotices
+        board={board}
+        snapshot={snapshot}
+        layout={layout}
+        onShowPinning={controls.onShowPinning}
+      />
       {health && (
         <HealthPanel
           board={board}
@@ -121,7 +125,6 @@ export function BoardView({
       )}
       <TransitionChoiceDialog board={board} />
       <TransitionFormDialog board={board} />
-      <PinGoalsDialog board={board} />
       {snapshot === null ? (
         !board.syncProblem.value && <p class="board-empty">Lecture du board dans Jira…</p>
       ) : snapshot.sprint === null ? (
@@ -234,6 +237,8 @@ export interface ScreenControls {
   readonly onStartDaily: (minutes: number, firstStepId: string | null) => void;
   readonly onUpdateDaily: (change: (session: DailySession) => DailySession) => void;
   readonly onStopDaily: () => void;
+  /** Ouvre l'administration sur les Goals, où se fait l'épinglage au sprint. */
+  readonly onShowPinning: () => void;
 }
 
 function SprintHeader(props: {
@@ -787,7 +792,11 @@ function JiraQuickFilters({ board }: { board: BoardModel }) {
  * prendre, lectures en échec. Ils signalent un incident ou attendent un choix : les masquer pour de
  * bon cacherait le prochain. Les simples explications flottent à part (`FloatingNotices`).
  */
-function Notices(props: { board: BoardModel; snapshot: BoardSnapshot | null }) {
+function Notices(props: {
+  board: BoardModel;
+  snapshot: BoardSnapshot | null;
+  onShowPinning: () => void;
+}) {
   const { board, snapshot } = props;
   const problem = board.syncProblem.value;
   const writeNotice = board.writeNotice.value;
@@ -883,8 +892,8 @@ function Notices(props: { board: BoardModel; snapshot: BoardSnapshot | null }) {
             )}
           </p>
           <div class="row">
-            {board.canPinGoals.value && (
-              <button type="button" onClick={() => board.openPinEditor()}>
+            {board.canPinGoals.value && board.canEditSettings.value && (
+              <button type="button" onClick={props.onShowPinning}>
                 Réessayer dans Jira…
               </button>
             )}
@@ -912,6 +921,7 @@ function FloatingNotices(props: {
   board: BoardModel;
   snapshot: BoardSnapshot | null;
   layout: BoardLayout | null;
+  onShowPinning: () => void;
 }) {
   const { board, snapshot, layout } = props;
   const dismissed = board.dismissedNotices.value;
@@ -932,9 +942,9 @@ function FloatingNotices(props: {
           Goal dans Jira, ou épinglez un Goal au sprint : l'objectif apparaîtra ici avec sa
           swimlane.
         </p>
-        {board.canPinGoals.value && (
+        {board.canPinGoals.value && board.canEditSettings.value && (
           <div class="row">
-            <button type="button" onClick={() => board.openPinEditor()}>
+            <button type="button" onClick={props.onShowPinning}>
               Épingler des Goals…
             </button>
           </div>

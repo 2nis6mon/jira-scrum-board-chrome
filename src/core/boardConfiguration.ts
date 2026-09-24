@@ -101,8 +101,6 @@ export interface BoardConfiguration {
   /** Libellé de la swimlane des tickets traités en mode Kanban (« Kanban » par défaut). */
   readonly kanbanSectionLabel: string;
   readonly goalSource: GoalSource;
-  /** Goals Atlassian associés à ce board, proposés en priorité à l'épinglage. */
-  readonly boardGoalIds: readonly string[];
   /** Couleur de chaque objectif (indice de palette), mémorisée d'un sprint à l'autre. */
   readonly goalColorIndex: Readonly<Record<string, number>>;
   /** Champs supplémentaires des cartes (`MAX_CARD_FIELDS` au plus). */
@@ -280,7 +278,6 @@ export function buildConfiguration(input: {
     buildSectionLabel: DEFAULT_BUILD_LABEL,
     kanbanSectionLabel: DEFAULT_KANBAN_LABEL,
     goalSource: "atlassianGoals",
-    boardGoalIds: [],
     goalColorIndex: {},
     cardFields: [],
     cardColorRules: [],
@@ -328,7 +325,6 @@ export function mergeConfiguration(
     buildSectionLabel: existing.buildSectionLabel,
     kanbanSectionLabel: existing.kanbanSectionLabel,
     goalSource: existing.goalSource,
-    boardGoalIds: existing.boardGoalIds,
     goalColorIndex: existing.goalColorIndex,
     cardFields: existing.cardFields,
     cardColorRules: existing.cardColorRules,
@@ -414,7 +410,6 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
     buildSectionLabel: textOr(value.buildSectionLabel, DEFAULT_BUILD_LABEL),
     kanbanSectionLabel: textOr(value.kanbanSectionLabel, DEFAULT_KANBAN_LABEL),
     goalSource: value.goalSource === "sprintText" ? "sprintText" : "atlassianGoals",
-    boardGoalIds: strings(value.boardGoalIds),
     goalColorIndex: decodeColorIndex(value.goalColorIndex),
     cardFields: decodeList(value.cardFields, decodeCardField) ?? [],
     cardColorRules: decodeList(value.cardColorRules, decodeColorRule) ?? [],

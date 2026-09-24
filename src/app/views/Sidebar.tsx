@@ -332,8 +332,8 @@ function BoardSwitcher(props: {
           >
             Relire colonnes et types depuis Jira
           </button>
-          {board.canPinGoals.value && (
-            <button type="button" onClick={(event) => act(event, () => board.openPinEditor())}>
+          {board.canPinGoals.value && board.canEditSettings.value && (
+            <button type="button" onClick={(event) => act(event, () => model.showAdmin("goals"))}>
               Épingler des Goals au sprint…
             </button>
           )}

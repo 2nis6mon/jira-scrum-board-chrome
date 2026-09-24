@@ -496,7 +496,7 @@ if (scenario.startsWith("board")) {
       connection.board.startDrag("ABC-102", "scrum");
     }
     if (scenario === "board-filtre") connection.board.toggleQuickFilter("blocked");
-    if (pinning) connection.board.openPinEditor();
+    if (pinning) model.showAdmin("goals");
     if (["board-dnd", "board-choix", "board-erreur"].includes(scenario)) {
       await new Promise((resolve) => setTimeout(resolve, 100));
       await simulateDrop("ABC-102", "Finaliser le parcours de paiement", "En cours", null);

@@ -113,6 +113,7 @@ function Workspace({
     onStartDaily: (minutes, firstStepId) => model.startDaily(minutes, firstStepId),
     onUpdateDaily: (change) => model.updateDaily(change),
     onStopDaily: () => model.stopDaily(),
+    onShowPinning: () => model.showAdmin("goals"),
   };
 
   return (

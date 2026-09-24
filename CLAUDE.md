@@ -211,7 +211,8 @@ le diagnostic mémorise par site la variante acceptée (`graphqlOrigin.v1`).
 `GraphqlWrite` (`writes.ts`) : forme ARI du ticket d'abord, identifiant brut seulement après un
 REFUS explicite, jamais après une issue incertaine.
 
-0.6.0 : épinglage de Goals au sprint (`pinAtlassianGoals`, fenêtre `PinGoalsDialog`, menu « ⋯ »),
+0.6.0 : épinglage de Goals au sprint (`pinAtlassianGoals`, fenêtre `PinGoalsDialog` — section de
+l'administration depuis 0.22.4 —, menu « ⋯ »),
 qui termine l'étape 4.
 
 0.7.0 : étape 5a (ordre, repli, couleur, masquage des swimlanes) et filtres rapides du board
@@ -636,6 +637,17 @@ et texte, couleur principale) déplacé en tête des actions de l'en-tête, avan
 0.22.3 (demande de Denis) : textes d'aide des Goals revus — « associés au board » (filtre de
 recherche, tous les sprints, partagé ; n'affiche pas un Goal sans ticket) et « épinglés au sprint »
 (ce sprint seulement, swimlane même sans ticket) ; plus de mention de l'app Mac dans l'interface.
+
+0.22.4 (demande de Denis) : « Goals associés au board » retiré — interface, recherche
+(`atlassianGoals.ts` : épinglés + déclarés par les tickets, tout le site si les tickets n'en
+déclarent aucun), configuration et réglages partagés (`boardGoalIds` rangée dans
+`LEGACY_SETTINGS_KEYS`, effacée de la propriété du board à la prochaine écriture). L'épinglage au
+sprint n'a plus de fenêtre : `views/settings/PinGoalsPanel.tsx` (ex-`PinGoalsDialog`), directement
+dans la section Goals de l'administration ; brouillon ouvert d'office et recalé sur Jira tant qu'il
+n'est pas modifié ; « Enregistré dans Jira. » après confirmation. Les entrées du board (menu du
+board, bandeaux « Épingler des Goals… », « Réessayer dans Jira… ») ouvrent cette section, et
+n'apparaissent que si les réglages du board sont modifiables (sinon l'administration est réduite
+au Diagnostic).
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit

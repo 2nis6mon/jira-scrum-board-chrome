@@ -1,11 +1,8 @@
-import { useEffect, useState } from "preact/hooks";
 import type { BoardConfiguration, GoalSource } from "../../../core/boardConfiguration";
 import { GOAL_COLOR_NAMES } from "../../../core/boardPreferences";
-import { filterAtlassianGoals } from "../../../core/filters";
 import { goalColorName, type SprintGoal } from "../../../core/sprintGoals";
-import { goalDisplayName } from "../../../jira/models";
 import type { BoardModel } from "../../model/BoardModel";
-import { goalStatusLabel } from "../format";
+import { PinGoalsPanel } from "./PinGoalsPanel";
 
 const SOURCES: readonly { id: GoalSource; label: string; help: string }[] = [
   {
@@ -20,7 +17,7 @@ const SOURCES: readonly { id: GoalSource; label: string; help: string }[] = [
   },
 ];
 
-/** Source des objectifs, Goals associés au board, épinglage, couleurs et visibilité. */
+/** Source des objectifs, épinglage, couleurs et visibilité. */
 export function GoalSettings({
   board,
   configuration,
@@ -29,10 +26,6 @@ export function GoalSettings({
   configuration: BoardConfiguration;
 }) {
   const source = configuration.goalSource;
-
-  useEffect(() => {
-    if (source === "atlassianGoals" && board.siteGoals.value === null) void board.loadSiteGoals();
-  }, [board, source]);
 
   return (
     <div class="settings-section">
@@ -65,146 +58,10 @@ export function GoalSettings({
         {board.goalsNotice.value && <p class="notice notice-info">{board.goalsNotice.value}</p>}
       </section>
 
-      {source === "atlassianGoals" && <BoardGoals board={board} configuration={configuration} />}
-
-      {source === "atlassianGoals" && (
-        <section class="panel" aria-labelledby="settings-pin">
-          <h2 id="settings-pin">Goals épinglés au sprint</h2>
-          <p class="hint">
-            Pour CE sprint seulement : un Goal épinglé a sa swimlane même sans aucun ticket (utile
-            en début de sprint). Les autres objectifs sont déduits des tickets. Le sprint suivant
-            repart sans épinglage. Enregistré dans Jira, dans une propriété du sprint, sur votre
-            geste seulement.
-          </p>
-          <div class="row">
-            <button
-              type="button"
-              disabled={!board.canPinGoals.value}
-              onClick={() => board.openPinEditor()}
-            >
-              Épingler des Goals au sprint…
-            </button>
-          </div>
-        </section>
-      )}
+      {source === "atlassianGoals" && <PinGoalsPanel board={board} />}
 
       <GoalAppearance board={board} />
     </div>
-  );
-}
-
-/**
- * Goals associés au board : les seuls interrogés, avec les épinglés et ceux que déclarent les
- * tickets, pour trouver les objectifs du sprint. Sans association, l'extension interroge tous les
- * Goals du site quand les tickets n'en déclarent aucun. Réglage du board partagé (0.22.0).
- */
-function BoardGoals({
-  board,
-  configuration,
-}: {
-  board: BoardModel;
-  configuration: BoardConfiguration;
-}) {
-  const [selection, setSelection] = useState<readonly string[]>(configuration.boardGoalIds);
-  const [search, setSearch] = useState("");
-
-  const siteGoals = board.siteGoals.value;
-  const listed = (siteGoals ?? []).filter(
-    (goal) => !goal.isArchived || selection.includes(goal.id),
-  );
-  const filtered = filterAtlassianGoals(search, listed);
-  const stored = configuration.boardGoalIds;
-  const changed =
-    selection.length !== stored.length || selection.some((id) => !stored.includes(id));
-
-  return (
-    <section class="panel" aria-labelledby="settings-board-goals">
-      <header class="panel-header">
-        <h2 id="settings-board-goals">Goals associés au board</h2>
-        <button
-          type="button"
-          onClick={() => void board.loadSiteGoals()}
-          disabled={board.siteGoalsLoading.value}
-        >
-          {board.siteGoalsLoading.value ? "Lecture…" : "Recharger"}
-        </button>
-      </header>
-      <p class="hint">
-        Facultatif, pour tous les sprints. Limite la recherche des objectifs du sprint à ces Goals
-        (plus les épinglés et ceux que déclarent les tickets). Un Goal associé ne s'affiche que s'il
-        a des tickets dans le sprint : pour l'afficher sans ticket, épinglez-le. Sans association,
-        l'extension interroge tous les Goals du site quand les tickets n'en déclarent aucun. Partagé
-        avec l'équipe.
-      </p>
-      {board.siteGoalsError.value && (
-        <p class="notice notice-error" role="alert">
-          Goals du site illisibles : {board.siteGoalsError.value.text}
-        </p>
-      )}
-      <input
-        type="search"
-        class="pin-search"
-        aria-label="Filtrer les Goals du site"
-        placeholder="Filtrer par nom, clé ou responsable"
-        value={search}
-        onInput={(event) => setSearch(event.currentTarget.value)}
-      />
-      {siteGoals === null ? (
-        board.siteGoalsLoading.value && <p class="hint">Lecture des Goals du site…</p>
-      ) : (
-        <ul class="pin-list">
-          {filtered.map((goal) => (
-            <li key={goal.id}>
-              <label class="pin-option">
-                <input
-                  type="checkbox"
-                  aria-label={goalDisplayName(goal)}
-                  checked={selection.includes(goal.id)}
-                  onChange={() =>
-                    setSelection(
-                      selection.includes(goal.id)
-                        ? selection.filter((id) => id !== goal.id)
-                        : [...selection, goal.id],
-                    )
-                  }
-                />
-                <span class="pin-option-text">
-                  <span class="pin-name">{goalDisplayName(goal)}</span>
-                  {goal.key && <span class="pin-meta">{goal.key}</span>}
-                </span>
-                {goal.statusLabel && (
-                  <span class="goal-status">{goalStatusLabel(goal.statusLabel)}</span>
-                )}
-              </label>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div class="settings-actions">
-        <span class="hint">
-          {selection.length === 0 ? "Aucun Goal associé." : `${selection.length} associé(s).`}
-        </span>
-        <button
-          type="button"
-          disabled={!changed}
-          onClick={() => setSelection(configuration.boardGoalIds)}
-        >
-          Annuler
-        </button>
-        <button
-          type="button"
-          class="primary"
-          disabled={!changed}
-          onClick={() =>
-            void board.applySettings((current) => ({ ...current, boardGoalIds: [...selection] }), {
-              resync: true,
-            })
-          }
-        >
-          Enregistrer l'association
-        </button>
-      </div>
-    </section>
   );
 }
 

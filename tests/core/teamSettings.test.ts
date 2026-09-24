@@ -246,6 +246,8 @@ describe("réglages publiés avant 0.21.0 (RUN devenu Kanban)", () => {
     >;
     expect(settings.runColumns).toBeUndefined();
     expect(settings.showRunSection).toBeUndefined();
+    // Goals associés au board, retirés en 0.22.4.
+    expect(settings.boardGoalIds).toBeUndefined();
     expect(settings.kanbanColumns).toBeDefined();
     expect(settings.kanbanSectionLabel).toBe(tuned.kanbanSectionLabel);
   });

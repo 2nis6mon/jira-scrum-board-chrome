@@ -268,7 +268,7 @@ describe("App", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
-  it("épingler un Goal : fenêtre de choix, une seule écriture sur « Enregistrer »", async () => {
+  it("épingler un Goal : dans l'administration, une seule écriture sur « Enregistrer »", async () => {
     const pinned = "ari:cloud:townsquare:c:goal/securite";
     const property = "/rest/agile/1.0/sprint/42/properties/com.scrumboardmac.sprintgoals.v1";
     // La propriété ne change qu'avec l'écriture, comme dans Jira.
@@ -308,9 +308,16 @@ describe("App", () => {
     expect(board.pinEditor.value?.selection).toEqual([pinned]);
     expect(button("Enregistrer dans Jira").disabled).toBe(false);
 
+    // Pas de fenêtre : la liste est dans la section Goals de l'administration.
+    expect(document.querySelector("[role=dialog]")).toBeNull();
+    expect(document.querySelector("#settings-pin")).not.toBeNull();
     button("Enregistrer dans Jira").click();
-    await expect.poll(() => document.querySelector("[role=dialog]")).toBeNull();
+    await expect.poll(() => text()).toContain("Enregistré dans Jira.");
     expect(jira.requests.filter(isWriteRequest).map((r) => r.method)).toEqual(["PUT"]);
+    // Le brouillon repart de la sélection relue dans Jira : plus rien à enregistrer.
+    await expect.poll(() => button("Enregistrer dans Jira").disabled).toBe(true);
+    expect(board.pinEditor.value?.base).toEqual([pinned]);
+    button("Sprint").click();
     await expect.poll(() => text()).toContain("Sécurité des comptes");
     expect(document.querySelector(".goal-pinned")).toBeNull();
     expect(document.querySelector(".goal-status")).toBeNull();

@@ -54,7 +54,6 @@ export interface TeamSettings {
   readonly dailyKanbanStockLimit: number;
   readonly blockedLabels: readonly string[];
   readonly goalSource: GoalSource;
-  readonly boardGoalIds: readonly string[];
   readonly goalColorIndex: Readonly<Record<string, number>>;
   readonly blockOrder: readonly string[];
   readonly hiddenGoalIds: readonly string[];
@@ -74,7 +73,6 @@ const SETTINGS_KEYS = [
   "dailyKanbanStockLimit",
   "blockedLabels",
   "goalSource",
-  "boardGoalIds",
   "goalColorIndex",
   "blockOrder",
   "hiddenGoalIds",
@@ -84,8 +82,11 @@ const SETTINGS_KEYS = [
 
 const DOCUMENT_KEYS = new Set(["version", "publishedAt", "publishedBy", "settings"]);
 
-/** Clés d'avant 0.21.0 (RUN devenu Kanban) : relues, puis remplacées à la publication suivante. */
-const LEGACY_SETTINGS_KEYS = ["runColumns", "showRunSection"] as const;
+/**
+ * Clés abandonnées, retirées à la publication suivante : `runColumns` et `showRunSection` (RUN
+ * devenu Kanban en 0.21.0, relues), `boardGoalIds` (Goals associés au board, retirés en 0.22.4).
+ */
+const LEGACY_SETTINGS_KEYS = ["runColumns", "showRunSection", "boardGoalIds"] as const;
 
 export interface TeamPublisher {
   readonly accountId: string | null;
@@ -122,7 +123,6 @@ export function teamSettingsOf(configuration: BoardConfiguration): TeamSettings 
     agingThresholdDays: configuration.agingThresholdDays,
     blockedLabels: [...configuration.blockedLabels],
     goalSource: configuration.goalSource,
-    boardGoalIds: [...configuration.boardGoalIds],
     goalColorIndex: { ...configuration.goalColorIndex },
     blockOrder: [...configuration.blockOrder],
     hiddenGoalIds: [...configuration.hiddenGoalIds],
@@ -170,7 +170,6 @@ export function withTeamSettings(
     agingThresholdDays: settings.agingThresholdDays,
     blockedLabels: [...settings.blockedLabels],
     goalSource: settings.goalSource,
-    boardGoalIds: [...settings.boardGoalIds],
     goalColorIndex: { ...configuration.goalColorIndex, ...settings.goalColorIndex },
     blockOrder: [...settings.blockOrder],
     hiddenGoalIds: [...settings.hiddenGoalIds],
@@ -189,7 +188,7 @@ const FAMILIES: readonly (readonly [string, (settings: TeamSettings) => unknown]
   ],
   ["Labels de blocage", (s) => s.blockedLabels],
   ["Daily : durée et stock Kanban", (s) => [s.dailyMinutes, s.dailyKanbanStockLimit]],
-  ["Source des objectifs et Goals du board", (s) => [s.goalSource, s.boardGoalIds]],
+  ["Source des objectifs", (s) => s.goalSource],
   ["Couleurs des objectifs", (s) => s.goalColorIndex],
   ["Ordre des swimlanes", (s) => s.blockOrder],
   ["Objectifs masqués", (s) => s.hiddenGoalIds],

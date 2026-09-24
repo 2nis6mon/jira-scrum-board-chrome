@@ -1,5 +1,4 @@
 import type { AdminSection, AppModel, Connection } from "../../model/AppModel";
-import { PinGoalsDialog } from "../board/PinGoalsDialog";
 import { DiagnosticView } from "../DiagnosticView";
 import { BoardSettings } from "./BoardSettings";
 import { CardColorSettings } from "./CardColorSettings";
@@ -88,7 +87,6 @@ export function AdminView({
           </div>
         )}
       </div>
-      {configuration && <PinGoalsDialog board={board} />}
     </main>
   );
 }

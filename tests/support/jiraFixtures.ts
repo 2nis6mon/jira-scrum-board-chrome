@@ -128,7 +128,6 @@ export function makeConfiguration(parts: Partial<BoardConfiguration> = {}): Boar
     buildSectionLabel: "Build",
     kanbanSectionLabel: "Kanban",
     goalSource: "sprintText",
-    boardGoalIds: [],
     goalColorIndex: {},
     cardFields: [],
     cardColorRules: [],
