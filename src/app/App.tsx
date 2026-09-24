@@ -60,12 +60,24 @@ function Workspace({
     return () => document.removeEventListener("pointerdown", close);
   }, []);
 
-  // Échap quitte le mode présentation, sauf si elle sert d'abord à autre chose.
+  // En plein écran, Échap appartient au navigateur : il en sort sans transmettre la touche à la page.
+  // Sortir du plein écran pendant la présentation (Échap ou autrement) ramène donc au mode normal.
+  useEffect(() => {
+    if (!presenting) return;
+    const onChange = () => {
+      if (!document.fullscreenElement) model.exitPresentation();
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, [model, presenting]);
+
+  // Hors plein écran (refusé par le navigateur ou le cadre), Échap quitte le mode présentation,
+  // sauf si elle sert d'abord à autre chose.
   useEffect(() => {
     if (!presenting) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
-      // En plein écran, Échap appartient au navigateur : il en sort, la présentation continue.
+      // En plein écran, le navigateur traite Échap : la sortie du plein écran quitte la présentation.
       if (document.fullscreenElement) return;
       // Une fenêtre ouverte (choix de transition, épinglage…) se referme d'abord : elle écoute Échap.
       if (document.querySelector('[role="dialog"], dialog[open]')) return;

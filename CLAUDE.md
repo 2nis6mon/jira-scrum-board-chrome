@@ -599,6 +599,12 @@ la daily (effet de `Workspace`). En plein écran, Échap appartient au navigateu
 présentation continue ; un bouton « Plein écran » apparaît alors à côté de « Quitter », et un
 second Échap quitte la présentation.
 
+0.21.2 (signalé par Denis) : en présentation plein écran, Échap ne ramenait pas au mode normal —
+le navigateur garde la touche pour sortir du plein écran et ne la transmet pas à la page. `Workspace`
+écoute `fullscreenchange` : sortir du plein écran pendant la présentation la quitte. Le bouton
+« Plein écran » à côté de « Quitter » est retiré (inutile). La daily garde son comportement :
+sortir du plein écran ne l'arrête pas.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

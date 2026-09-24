@@ -423,19 +423,17 @@ function SprintHeader(props: {
 }
 
 /**
- * Sortie du mode présentation, toujours visible pendant la présentation ; à côté, le retour au
- * plein écran si l'on en est sorti (Échap en plein écran appartient au navigateur).
+ * Sortie du mode présentation, toujours visible pendant la présentation. Échap y ramène aussi, en
+ * plein écran comme dans la fenêtre.
  */
 function PresentationExit({ onExit }: { onExit: () => void }) {
-  const fullscreen = useFullscreen();
   return (
     <span class="presentation-exit">
-      <FullscreenButton fullscreen={fullscreen} />
       <button
         type="button"
         class="presentation-exit-button"
         aria-label="Quitter le mode présentation"
-        title={fullscreen ? "Quitter le mode présentation" : "Quitter le mode présentation (Échap)"}
+        title="Quitter le mode présentation (Échap)"
         onClick={onExit}
       >
         <Icon name="exitPresent" />

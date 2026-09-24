@@ -416,7 +416,7 @@ describe("mode présentation", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
-  it("demande le plein écran et le rend en sortant ; en plein écran, Échap reste au navigateur", async () => {
+  it("demande le plein écran ; Échap (sortie du plein écran) revient au mode normal", async () => {
     const { model } = await connectedBoard();
     // Effets de Preact posés (ils suivent l'affichage) avant le geste.
     await new Promise((resolve) => setTimeout(resolve, 60));
@@ -437,11 +437,19 @@ describe("mode présentation", () => {
       labelled("Mode présentation").click();
       await tick();
       expect(request).toHaveBeenCalledOnce();
-      // Échap en plein écran : le navigateur en sort, la présentation continue.
+      // Échap en plein écran : le navigateur en sort sans transmettre la touche à la page.
       pressEscape();
       await new Promise((resolve) => setTimeout(resolve, 60));
       expect(model.presenting.value).toBe(true);
+      fullscreenElement = null;
+      document.dispatchEvent(new Event("fullscreenchange"));
+      await tick();
+      expect(model.presenting.value).toBe(false);
 
+      // « Quitter » rend le plein écran.
+      labelled("Mode présentation").click();
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      expect(request).toHaveBeenCalledTimes(2);
       exitButton()?.click();
       await new Promise((resolve) => setTimeout(resolve, 60));
       expect(model.presenting.value).toBe(false);
