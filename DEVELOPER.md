@@ -1,7 +1,7 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
 Dernière mise à jour : **24 septembre 2026**  
-Branche décrite : **`codex/mode-daily`** (issue de `main` le 24/09/2026 pour le mode Daily ; contient 0.19.21)  
+Branche décrite : **`main`** (`codex/mode-daily` fusionnée le 24/09/2026 : Daily, Kanban, 0.19.21)  
 Produit autonome : **0.21.1**  
 Prototype d’intégration Jira : **0.21.1.2**
 
