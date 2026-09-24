@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **24 septembre 2026**  
 Branche décrite : **`codex/mode-daily`** (issue de `main` le 24/09/2026 pour le mode Daily ; contient 0.19.21)  
-Produit autonome : **0.20.1**  
-Prototype d’intégration Jira : **0.20.1.2**
+Produit autonome : **0.20.2**  
+Prototype d’intégration Jira : **0.20.2.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -47,7 +47,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.20.1`  
+Version : `0.20.2`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -69,7 +69,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.20.1.2`  
+Version générée : `0.20.2.2`  
 Nom généré : `Sprint Goals — test ouverture Jira`
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -203,7 +203,10 @@ de Jira.
   étant affichée. Les filtres restent ceux de l’utilisateur ; le repli enregistré des swimlanes
   n’est pas touché. Durée : section Board de l’administration, 15 min par défaut, de 1 à 120,
   locale au board (`dailyMinutes`), jamais dans les réglages d’équipe. Rien n’est enregistré de la
-  séance : recharger la page l’arrête. Dans le prototype, l’iframe injectée porte
+  séance : recharger la page l’arrête. Stock du RUN (0.20.2) : en daily, la première colonne du
+  RUN n’affiche que ses N premières cartes dans l’ordre de Jira (`dailyRunStockLimit`, 3 par
+  défaut, réglable dans la section Board), puis « + N autres » qui déplie jusqu’à la fin de la
+  daily. Dans le prototype, l’iframe injectée porte
   `allow="fullscreen"` (attribut HTML, pas une permission Chrome).
 - L’administration se déplie dans la barre latérale, sous son bouton, dans le gris de la barre ;
   elle se replie au second clic ou dès qu’une autre entrée de la barre est choisie.

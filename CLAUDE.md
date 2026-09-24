@@ -569,6 +569,14 @@ porte `allow="fullscreen"` (attribut HTML, aucune permission ni CSP en plus).
 0.20.1 (demande de Denis) : barre de la daily dans l'ordre minuteur, Précédent, Suivant, puis la
 swimlane présentée (objectif, Build ou RUN) ; « En pause » passe après elle.
 
+0.20.2 (brainstorming avec Denis, seule piste retenue) : en daily, la première colonne visible du
+RUN est plafonnée — les N premières cartes dans l'ordre de Jira (rang), puis un bouton « + N autres »
+qui déplie sur place, et « Afficher moins ». Le dépliage vaut jusqu'à la fin de la daily
+(`DailySession.runStockExpanded`). N = `dailyRunStockLimit` (3 par défaut, 1 à 50), section Board de
+l'administration, local. Seulement le RUN et seulement en daily : hors daily, tout reste affiché. Un
+dépôt après la dernière carte affichée se place avant les cartes cachées. Écartés par Denis : tour
+de parole par personne, bandeau d'alertes du stock, critère d'urgence, « Qui prend ? ».
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

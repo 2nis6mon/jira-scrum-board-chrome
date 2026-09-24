@@ -3283,6 +3283,21 @@ details.lane-menu:not([data-placed]) .menu-panel {
   color: var(--ink-2);
 }
 
+/* Stock du RUN plafonné en daily : bouton sous les cartes affichées. */
+.stock-toggle {
+  list-style: none;
+  display: flex;
+  justify-content: center;
+}
+
+.stock-toggle-button {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 14px;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
 /* ─── Mode présentation ──────────────────────────────────────────────────── */
 
 /* Lisible à distance : filtres, bandeaux et board agrandis d'un bloc (texte, cartes, icônes,

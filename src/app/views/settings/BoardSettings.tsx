@@ -17,6 +17,7 @@ import {
   withColumnHidden,
   withColumnName,
   withDailyMinutes,
+  withDailyRunStockLimit,
   withDefaultBlockOrder,
   withIssueTypeCategory,
   withWipLimit,
@@ -187,6 +188,18 @@ export function BoardSettings({
             onCommit={(raw) => commit((current) => withDailyMinutes(current, raw))}
           />
           <span class="hint">minute(s), pour le minuteur du mode Daily</span>
+        </div>
+        <div class="settings-field settings-inline">
+          <label for="settings-daily-stock">Stock RUN en daily</label>
+          <CommitInput
+            id="settings-daily-stock"
+            value={String(configuration.dailyRunStockLimit)}
+            numeric
+            onCommit={(raw) => commit((current) => withDailyRunStockLimit(current, raw))}
+          />
+          <span class="hint">
+            carte(s) affichée(s) dans la première colonne du RUN, avant « + N autres »
+          </span>
         </div>
         <label class="settings-field settings-inline">
           <span>Rafraîchissement automatique</span>

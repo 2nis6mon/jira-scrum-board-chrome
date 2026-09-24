@@ -3,9 +3,10 @@ import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
-import { BOARD_URL, boardSiteJira } from "../support/boardFixture";
+import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
 import { isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
+import { issueJson } from "../support/jiraFixtures";
 
 // Mode Daily : plein écran, une swimlane à la fois, minuteur. Données FICTIVES.
 
@@ -30,8 +31,8 @@ const step = () => document.querySelector(".daily-step")?.textContent ?? "";
 const key = (name: string, target: EventTarget = document) =>
   target.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true }));
 
-async function connectedBoard() {
-  const jira = boardSiteJira();
+async function connectedBoard(sprintIssues?: unknown[]) {
+  const jira = boardSiteJira(sprintIssues ? { sprintIssues } : {});
   const model = new AppModel(fakePlatform(jira));
   render(<App model={model} />, document.body);
   await model.connect("acme.atlassian.net");
@@ -138,5 +139,66 @@ describe("mode Daily", () => {
     labelled("Lancer la daily").click();
     await settle();
     expect(document.querySelector(".daily-clock")?.textContent).toBe("05:00");
+  });
+
+  describe("stock du RUN", () => {
+    // Six anomalies à faire, dans l'ordre de Jira, en plus de RUN-7 en cours.
+    const stock = ["RUN-11", "RUN-12", "RUN-13", "RUN-14", "RUN-15", "RUN-16"];
+    const withStock = [
+      ...SPRINT_ISSUES,
+      ...stock.map((key) =>
+        issueJson(key, {
+          summary: `Anomalie ${key}`,
+          statusId: "1",
+          statusName: "À faire",
+          category: "new",
+          typeId: "10004",
+          typeName: "Anomalie Prod",
+        }),
+      ),
+    ];
+    const runCell = (column: string) =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          `ul[aria-label="RUN — ${column}"] [data-issue-key]`,
+        ),
+      ].map((card) => card.dataset.issueKey);
+    const toggle = () => document.querySelector<HTMLButtonElement>(".stock-toggle-button");
+    async function showRun() {
+      for (let i = 0; i < 10 && !step().includes("RUN"); i++) {
+        key("ArrowRight");
+        await settle();
+      }
+      expect(step()).toContain("RUN");
+    }
+
+    it("hors daily, tout le stock est affiché", async () => {
+      await connectedBoard(withStock);
+      expect(runCell("À faire")).toEqual(stock);
+      expect(toggle()).toBeNull();
+    });
+
+    it("en daily, les 3 premières dans l'ordre de Jira, puis « + 3 autres » ; déplié jusqu'à la fin", async () => {
+      await connectedBoard(withStock);
+      labelled("Lancer la daily").click();
+      await settle();
+      await showRun();
+      expect(runCell("À faire")).toEqual(stock.slice(0, 3));
+      // Les autres colonnes du RUN ne sont pas plafonnées.
+      expect(runCell("En cours")).toEqual(["RUN-7"]);
+      expect(toggle()?.textContent).toBe("+ 3 autres");
+
+      toggle()?.click();
+      await settle();
+      expect(runCell("À faire")).toEqual(stock);
+      expect(toggle()?.textContent).toBe("Afficher moins");
+
+      // Revenir sur le RUN pendant la même daily : toujours déplié.
+      key("ArrowLeft");
+      await settle();
+      key("ArrowRight");
+      await settle();
+      expect(runCell("À faire")).toEqual(stock);
+    });
   });
 });

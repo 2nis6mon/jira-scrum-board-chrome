@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { decodeStoredConfiguration, mergeConfiguration } from "../../src/core/boardConfiguration";
 import type { Lane } from "../../src/core/boardLayout";
-import { withDailyMinutes } from "../../src/core/boardSettings";
+import { withDailyMinutes, withDailyRunStockLimit } from "../../src/core/boardSettings";
 import {
+  cappedRunStock,
   currentStepIndex,
   dailyElapsed,
   dailyPhase,
@@ -107,5 +108,31 @@ describe("durée de la daily", () => {
     expect(decodeStoredConfiguration({ ...stored, dailyMinutes: 500 })?.dailyMinutes).toBe(15);
     delete stored.dailyMinutes;
     expect(decodeStoredConfiguration(stored)?.dailyMinutes).toBe(15);
+  });
+});
+
+describe("stock du RUN en daily", () => {
+  it("les premières cartes dans l'ordre reçu (le rang de Jira), le reste caché jusqu'au dépliage", () => {
+    expect(cappedRunStock([1, 2, 3, 4, 5], 3, false)).toEqual({ shown: [1, 2, 3], hidden: [4, 5] });
+    expect(cappedRunStock([1, 2, 3, 4, 5], 3, true)).toEqual({
+      shown: [1, 2, 3, 4, 5],
+      hidden: [],
+    });
+    expect(cappedRunStock([1, 2], 3, false)).toEqual({ shown: [1, 2], hidden: [] });
+  });
+
+  it("3 cartes par défaut, réglable de 1 à 50, gardé à la relecture de Jira", () => {
+    const config = makeConfiguration();
+    const set = withDailyRunStockLimit(config, "5");
+    expect(set.ok && set.configuration.dailyRunStockLimit).toBe(5);
+    for (const raw of ["", "0", "51", "trois", "2.5"]) {
+      expect(withDailyRunStockLimit(config, raw).ok).toBe(false);
+    }
+    expect(
+      mergeConfiguration(config, { ...config, dailyRunStockLimit: 5 }).dailyRunStockLimit,
+    ).toBe(5);
+    const stored = JSON.parse(JSON.stringify(makeConfiguration()));
+    delete stored.dailyRunStockLimit;
+    expect(decodeStoredConfiguration(stored)?.dailyRunStockLimit).toBe(3);
   });
 });

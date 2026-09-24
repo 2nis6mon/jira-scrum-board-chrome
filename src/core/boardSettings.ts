@@ -5,6 +5,7 @@ import {
   DEFAULT_BUILD_LABEL,
   type IssueCategory,
   MAX_DAILY_MINUTES,
+  MAX_DAILY_RUN_STOCK,
 } from "./boardConfiguration";
 import { type CardField, cardFieldId, MAX_CARD_FIELDS } from "./cardFields";
 import { foldText } from "./text";
@@ -161,6 +162,21 @@ export function withDailyMinutes(configuration: BoardConfiguration, raw: string)
     };
   }
   return { ok: true, configuration: { ...configuration, dailyMinutes: minutes } };
+}
+
+/** Cartes du stock RUN affichées en daily avant le bouton : un entier de 1 à 50. */
+export function withDailyRunStockLimit(
+  configuration: BoardConfiguration,
+  raw: string,
+): SettingResult {
+  const count = Number(raw.trim());
+  if (raw.trim() === "" || !Number.isInteger(count) || count < 1 || count > MAX_DAILY_RUN_STOCK) {
+    return {
+      ok: false,
+      error: `Le nombre de cartes du stock RUN doit être un entier, entre 1 et ${MAX_DAILY_RUN_STOCK}.`,
+    };
+  }
+  return { ok: true, configuration: { ...configuration, dailyRunStockLimit: count } };
 }
 
 /** Labels de blocage saisis, séparés par des virgules. */

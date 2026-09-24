@@ -84,6 +84,11 @@ export interface BoardConfiguration {
   readonly autoRefreshSeconds: number | null;
   /** Durée du minuteur du mode Daily, en minutes. Réglage local, jamais publié à l'équipe. */
   readonly dailyMinutes: number;
+  /**
+   * Daily : cartes affichées dans la première colonne du RUN avant le bouton « + N autres ».
+   * Réglage local, jamais publié à l'équipe.
+   */
+  readonly dailyRunStockLimit: number;
   readonly showRunSection: boolean;
   /** Objectifs masqués de l'affichage. Rien n'est supprimé dans Jira. */
   readonly hiddenGoalIds: readonly string[];
@@ -126,6 +131,9 @@ export const DEFAULT_BUILD_LABEL = "Build";
 /** Minuteur du mode Daily : 15 minutes par défaut, de 1 à 120. */
 export const DEFAULT_DAILY_MINUTES = 15;
 export const MAX_DAILY_MINUTES = 120;
+/** Stock du RUN en daily : 3 cartes par défaut avant le bouton, de 1 à 50. */
+export const DEFAULT_DAILY_RUN_STOCK = 3;
+export const MAX_DAILY_RUN_STOCK = 50;
 
 export function categoryForIssueType(config: BoardConfiguration, typeId: string): IssueCategory {
   return config.issueTypes.find((type) => type.id === typeId)?.category ?? "SCRUM";
@@ -261,6 +269,7 @@ export function buildConfiguration(input: {
     agingThresholdDays: 3,
     autoRefreshSeconds: null,
     dailyMinutes: DEFAULT_DAILY_MINUTES,
+    dailyRunStockLimit: DEFAULT_DAILY_RUN_STOCK,
     showRunSection: true,
     hiddenGoalIds: [],
     blockOrder: [],
@@ -307,6 +316,7 @@ export function mergeConfiguration(
     agingThresholdDays: existing.agingThresholdDays,
     autoRefreshSeconds: existing.autoRefreshSeconds,
     dailyMinutes: existing.dailyMinutes,
+    dailyRunStockLimit: existing.dailyRunStockLimit,
     showRunSection: existing.showRunSection,
     hiddenGoalIds: existing.hiddenGoalIds,
     blockOrder: existing.blockOrder,
@@ -388,6 +398,10 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
       isPositiveInteger(value.dailyMinutes) && value.dailyMinutes <= MAX_DAILY_MINUTES
         ? value.dailyMinutes
         : DEFAULT_DAILY_MINUTES,
+    dailyRunStockLimit:
+      isPositiveInteger(value.dailyRunStockLimit) && value.dailyRunStockLimit <= MAX_DAILY_RUN_STOCK
+        ? value.dailyRunStockLimit
+        : DEFAULT_DAILY_RUN_STOCK,
     showRunSection: typeof value.showRunSection === "boolean" ? value.showRunSection : true,
     hiddenGoalIds: strings(value.hiddenGoalIds),
     blockOrder: strings(value.blockOrder),

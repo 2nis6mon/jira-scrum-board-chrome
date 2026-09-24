@@ -23,6 +23,8 @@ export interface DailySession {
   readonly stepIndex: number;
   /** Temps de daily écoulé à l'arrivée sur l'étape, pauses exclues. */
   readonly stepEnteredAt: number;
+  /** Stock du RUN déplié par « + N autres » ; il le reste jusqu'à la fin de la daily. */
+  readonly runStockExpanded: boolean;
 }
 
 export type DailyPhase = "running" | "ending" | "overtime";
@@ -49,6 +51,7 @@ export function startDaily(
     stepId: firstStepId,
     stepIndex: 0,
     stepEnteredAt: 0,
+    runStockExpanded: false,
   };
 }
 
@@ -126,4 +129,17 @@ export function formatDailyClock(remainingMs: number): string {
 export function formatDailyElapsed(elapsedMs: number): string {
   const seconds = Math.max(0, Math.floor(elapsedMs / 1000));
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Cartes d'une case à afficher en daily : dans la première colonne du RUN, les `limit` premières
+ * dans l'ordre de Jira (le rang), tant que le stock n'est pas déplié. `hidden` : les autres.
+ */
+export function cappedRunStock<T>(
+  issues: readonly T[],
+  limit: number,
+  expanded: boolean,
+): { readonly shown: readonly T[]; readonly hidden: readonly T[] } {
+  if (expanded || issues.length <= limit) return { shown: issues, hidden: [] };
+  return { shown: issues.slice(0, limit), hidden: issues.slice(limit) };
 }

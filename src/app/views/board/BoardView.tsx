@@ -18,6 +18,7 @@ import {
 import { type BoardLayout, columnLoad, daysRemaining, type Lane } from "../../../core/boardLayout";
 import { GOAL_COLOR_NAMES } from "../../../core/boardPreferences";
 import {
+  cappedRunStock,
   currentStepIndex,
   type DailySession,
   dailyPhase,
@@ -130,6 +131,19 @@ export function BoardView({
             configuration={configuration}
             layout={shownLayout}
             daily={daily !== null}
+            dailyStock={
+              daily
+                ? {
+                    limit: configuration.dailyRunStockLimit,
+                    expanded: daily.runStockExpanded,
+                    onToggle: () =>
+                      controls.onUpdateDaily((current) => ({
+                        ...current,
+                        runStockExpanded: !current.runStockExpanded,
+                      })),
+                  }
+                : null
+            }
           />
         ))
       )}
@@ -985,14 +999,22 @@ function FloatingNotice(props: { board: BoardModel; id: NoticeId; children: Comp
 
 // ─── Board ───────────────────────────────────────────────────────────────────
 
+/** Daily : stock de la première colonne du RUN plafonné, dépliable par un bouton. */
+interface DailyStock {
+  readonly limit: number;
+  readonly expanded: boolean;
+  readonly onToggle: () => void;
+}
+
 function BoardGrid(props: {
   board: BoardModel;
   configuration: BoardConfiguration;
   layout: BoardLayout;
   /** Daily : une seule swimlane, sans poignée, repli ni menu (l'étape se choisit dans sa barre). */
   daily?: boolean;
+  dailyStock?: DailyStock | null;
 }) {
-  const { board, configuration, layout, daily = false } = props;
+  const { board, configuration, layout, daily = false, dailyStock = null } = props;
   // Famille survolée (une story et ses sous-tâches) : ses cartes s'entourent de rouge et s'éclairent.
   const [hoveredFamily, setHoveredFamily] = useState<string | null>(null);
   if (layout.lanes.length === 0) {
@@ -1054,6 +1076,7 @@ function BoardGrid(props: {
             lane={lane}
             nextLaneId={layout.lanes[index + 1]?.id ?? null}
             daily={daily}
+            dailyStock={dailyStock}
             hoveredFamily={hoveredFamily}
             onHoverFamily={(family) =>
               setHoveredFamily(
@@ -1076,13 +1099,23 @@ function LaneView(props: {
   /** Swimlane affichée juste en dessous : un dépôt sur la moitié basse se place avant elle. */
   nextLaneId: string | null;
   daily: boolean;
+  dailyStock: DailyStock | null;
   /** Famille survolée (une story et ses sous-tâches), à mettre en évidence ; `null` sinon. */
   hoveredFamily: string | null;
   /** Une carte est survolée (sa famille) ou quittée (`null`). */
   onHoverFamily: (family: string | null) => void;
 }) {
-  const { board, configuration, layout, lane, nextLaneId, daily, hoveredFamily, onHoverFamily } =
-    props;
+  const {
+    board,
+    configuration,
+    layout,
+    lane,
+    nextLaneId,
+    daily,
+    dailyStock,
+    hoveredFamily,
+    onHoverFamily,
+  } = props;
   const goal = lane.goal;
   const progress = lane.progress;
   const focused = goal !== null && isGoalFocused(board.filters.value, goal.id);
@@ -1201,8 +1234,16 @@ function LaneView(props: {
       )}
       {!lane.collapsed && (
         <div class="board-row lane-cells">
-          {lane.cells.map((cell) => {
+          {lane.cells.map((cell, cellIndex) => {
             const drag = board.dragging.value;
+            // Daily : stock de la première colonne du RUN plafonné, dans l'ordre de Jira.
+            const stock =
+              dailyStock && lane.block.kind === "run" && cellIndex === 0
+                ? cappedRunStock(cell.issues, dailyStock.limit, dailyStock.expanded)
+                : null;
+            const shownIssues = stock?.shown ?? cell.issues;
+            // Un dépôt après la dernière carte affichée se place avant les cartes cachées.
+            const firstHidden = stock?.hidden[0]?.issue.key ?? null;
             const compatible = drag !== null && board.accepts(lane.block, drag.lane);
             const destination = board.columnDrop(cell.column);
             const droppable = compatible && destination.kind === "same";
@@ -1234,7 +1275,9 @@ function LaneView(props: {
                   board.setDropTarget({
                     laneId: lane.id,
                     columnId: cell.column.id,
-                    beforeKey: insertionPoint(event.currentTarget, event.clientY, current.issueKey),
+                    beforeKey:
+                      insertionPoint(event.currentTarget, event.clientY, current.issueKey) ??
+                      firstHidden,
                   });
                 }}
                 onDragLeave={(event) => {
@@ -1313,7 +1356,7 @@ function LaneView(props: {
                     ))}
                   </li>
                 )}
-                {cell.issues.map((issue) => {
+                {shownIssues.map((issue) => {
                   const shownUnder = lane.block.kind === "goal" ? lane.block.goalId : null;
                   const hiddenGoal =
                     issue.goalId !== null &&
@@ -1359,6 +1402,29 @@ function LaneView(props: {
                     </Fragment>
                   );
                 })}
+                {targeted && firstHidden !== null && target?.beforeKey === firstHidden && dropLine}
+                {stock &&
+                  dailyStock &&
+                  (stock.hidden.length > 0 || dailyStock.expanded) &&
+                  cell.issues.length > dailyStock.limit && (
+                    <li class="stock-toggle">
+                      <button
+                        type="button"
+                        class="stock-toggle-button"
+                        aria-expanded={dailyStock.expanded}
+                        title={
+                          dailyStock.expanded
+                            ? `N'afficher que les ${dailyStock.limit} premiers dans l'ordre de Jira`
+                            : "Afficher tout le stock de cette colonne"
+                        }
+                        onClick={dailyStock.onToggle}
+                      >
+                        {dailyStock.expanded
+                          ? "Afficher moins"
+                          : `+ ${stock.hidden.length} autre${stock.hidden.length > 1 ? "s" : ""}`}
+                      </button>
+                    </li>
+                  )}
                 {targeted && target?.beforeKey === null && dropLine}
               </ul>
             );
