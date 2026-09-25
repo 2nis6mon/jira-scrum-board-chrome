@@ -272,9 +272,34 @@ describe("ajouté en cours de sprint", () => {
     expect(issue.addedAfterSprintStart).toBe(false);
   });
 
-  it("historique fourni sans entrée de sprint : prévu dès le départ", () => {
-    const issue = makeIssue("ABC-1", { changelog: { histories: [] } });
-    expect(result(issue, makeSprint(ACTIVATED)).addedAfterSprintStart).toBe(false);
+  it("historique sans entrée de sprint : la date de création décide, sinon inconnu", () => {
+    const created = (date: string | null) =>
+      makeIssue("ABC-1", { changelog: { histories: [] }, extraFields: { created: date } });
+    const sprint = makeSprint(ACTIVATED);
+    expect(result(created("2026-09-01T10:00:00.000+0200"), sprint).addedAfterSprintStart).toBe(
+      false,
+    );
+    const late = result(created("2026-09-15T10:00:00.000+0200"), sprint);
+    expect(late.addedAfterSprintStart).toBe(true);
+    expect(late.addedToSprintAt).not.toBeNull();
+    expect(result(created(null), sprint).addedAfterSprintStart).toBeNull();
+  });
+
+  it("mis puis retiré pendant le planning, remis après l'activation : signalé", () => {
+    const entry = (created: string, from: string | null, to: string | null) => ({
+      created,
+      items: [{ field: "Sprint", fromString: from, toString: to }],
+    });
+    const issue = makeIssue("ABC-1", {
+      changelog: {
+        histories: [
+          entry("2026-09-08T10:00:00.000+0200", null, "Sprint 42"),
+          entry("2026-09-10T10:00:00.000+0200", "Sprint 42", null),
+          entry("2026-09-15T10:00:00.000+0200", null, "Sprint 42"),
+        ],
+      },
+    });
+    expect(result(issue, makeSprint(ACTIVATED)).addedAfterSprintStart).toBe(true);
   });
 
   it("sans historique, la réponse reste inconnue", () => {

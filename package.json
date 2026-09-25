@@ -1,6 +1,6 @@
 {
   "name": "jira-scrum-board-chrome",
-  "version": "0.23.0",
+  "version": "0.23.1",
   "private": true,
   "description": "Swimlanes automatiques par Sprint Goal pour vos boards Scrum Jira Cloud : glisser-déposer, Daily et mode présentation.",
   "type": "module",

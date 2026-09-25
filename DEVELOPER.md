@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **25 septembre 2026**  
 Branche décrite : **`codex/swimlanes-par-type`** (issue de `main` le 25/09/2026)  
-Produit autonome : **0.23.0**  
-Prototype d’intégration Jira : **0.23.0.2**
+Produit autonome : **0.23.1**  
+Prototype d’intégration Jira : **0.23.1.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -52,7 +52,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.23.0`  
+Version : `0.23.1`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -74,7 +74,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.23.0.2`  
+Version générée : `0.23.1.2`  
 Nom : celui du paquet autonome (depuis le 24/09/2026)
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -198,6 +198,9 @@ de Jira.
 - `DIAGNOSTIC_ENABLED` (`AdminView.tsx`, 0.22.7) peut masquer le diagnostic, mais reste à `true` :
   le bandeau « Invalid CORS request » y renvoie. À `false`, un compte sans droit sur le board n’a
   plus d’administration du tout, seulement la déconnexion.
+- « Ajouté en cours de sprint » (0.23.1) : le ticket n’était pas dans le sprint à son démarrage,
+  d’après l’historique du champ Sprint rejoué jusqu’au démarrage, ou sa date de création s’il n’y
+  a aucun changement (`sprintScope`, `jira/models.ts`). Sans historique, rien n’est affiché.
 - `columnLoad` compte tous les tickets de la colonne, swimlanes par type comprises (0.22.7, choix
   de Denis).
 - Swimlanes par type (0.23.0, demande de Denis du 25/09/2026) : un type de ticket est « par

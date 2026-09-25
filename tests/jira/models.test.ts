@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { JiraError } from "../../src/jira/errors";
 import {
-  dateAddedToSprint,
   decodeChangelog,
   decodeIssue,
   decodeIssueFields,
@@ -13,6 +12,7 @@ import {
   linkedGoalIds,
   parseJiraDate,
   sprintActivated,
+  sprintScope,
   userInitials,
 } from "../../src/jira/models";
 import { issueJson, statusJson } from "../support/jiraFixtures";
@@ -182,8 +182,9 @@ describe("champs des cartes — décodage", () => {
   });
 });
 
-// SprintScopeChangeTests (BoardBlockTests.swift)
-describe("dateAddedToSprint — changement de périmètre", () => {
+describe("sprintScope — le ticket était-il dans le sprint à son démarrage ?", () => {
+  const STARTED = parseJiraDate("2026-09-14T09:00:00.000+0200") as Date;
+  const BEFORE = parseJiraDate("2026-09-01T10:00:00.000+0200") as Date;
   function changelog(entries: [created: string, from: string | null, to: string | null][]) {
     return decodeChangelog({
       histories: entries.map(([created, from, to]) => ({
@@ -192,40 +193,77 @@ describe("dateAddedToSprint — changement de périmètre", () => {
       })),
     }) as JiraChangelog;
   }
+  const scope = (
+    entries: [string, string | null, string | null][],
+    created: Date | null = BEFORE,
+    sprintName = "Sprint 42",
+  ) => sprintScope({ changelog: changelog(entries), sprintName, startedAt: STARTED, created });
 
-  it("trouve la date d'entrée dans le sprint", () => {
-    const log = changelog([["2026-09-18T10:00:00.000+0200", null, "Sprint 42"]]);
-    expect(dateAddedToSprint(log, "Sprint 42")).not.toBeNull();
+  it("mis dans le sprint pendant le planning : présent au démarrage", () => {
+    expect(scope([["2026-09-10T10:00:00.000+0200", null, "Sprint 42"]])).toEqual({
+      inSprintAtStart: true,
+      enteredAt: parseJiraDate("2026-09-10T10:00:00.000+0200"),
+    });
   });
 
-  it("ignore une entrée où le sprint était déjà présent", () => {
-    const log = changelog([["2026-09-20T10:00:00.000+0200", "Sprint 42", "Sprint 42, Sprint 43"]]);
-    expect(dateAddedToSprint(log, "Sprint 42")).toBeNull();
+  it("entré après le démarrage : ajouté, à cette date", () => {
+    expect(scope([["2026-09-18T10:00:00.000+0200", "Sprint 41", "Sprint 41, Sprint 42"]])).toEqual({
+      inSprintAtStart: false,
+      enteredAt: parseJiraDate("2026-09-18T10:00:00.000+0200"),
+    });
   });
 
-  it("lit les listes de sprints séparées par des virgules", () => {
-    const log = changelog([["2026-09-18T10:00:00.000+0200", "Sprint 41", "Sprint 41, Sprint 42"]]);
-    expect(dateAddedToSprint(log, "Sprint 42")).not.toBeNull();
-  });
-
-  it("garde l'ajout le plus ancien si le ticket est sorti puis revenu", () => {
-    const log = changelog([
-      ["2026-09-20T10:00:00.000+0200", null, "Sprint 42"],
-      ["2026-09-14T10:00:00.000+0200", null, "Sprint 42"],
+  it("mis puis retiré pendant le planning, remis après le démarrage : ajouté", () => {
+    const result = scope([
+      ["2026-09-10T10:00:00.000+0200", null, "Sprint 42"],
+      ["2026-09-12T10:00:00.000+0200", "Sprint 42", null],
+      ["2026-09-16T10:00:00.000+0200", null, "Sprint 42"],
     ]);
-    expect(dateAddedToSprint(log, "Sprint 42")).toEqual(
-      parseJiraDate("2026-09-14T10:00:00.000+0200"),
-    );
+    expect(result.inSprintAtStart).toBe(false);
+    expect(result.enteredAt).toEqual(parseJiraDate("2026-09-16T10:00:00.000+0200"));
   });
 
-  it("sprint inconnu ou nom vide : null", () => {
-    const log = changelog([["2026-09-18T10:00:00.000+0200", null, "Sprint 42"]]);
-    expect(dateAddedToSprint(log, "Sprint 99")).toBeNull();
-    expect(dateAddedToSprint(log, "")).toBeNull();
+  it("présent au démarrage, sorti puis revenu : pas ajouté", () => {
+    const result = scope([
+      ["2026-09-10T10:00:00.000+0200", null, "Sprint 42"],
+      ["2026-09-16T10:00:00.000+0200", "Sprint 42", null],
+      ["2026-09-17T10:00:00.000+0200", null, "Sprint 42"],
+    ]);
+    expect(result.inSprintAtStart).toBe(true);
+    expect(result.enteredAt).toEqual(parseJiraDate("2026-09-17T10:00:00.000+0200"));
   });
 
-  it("historique vide : aucune information plutôt qu'une supposition", () => {
-    expect(dateAddedToSprint(changelog([]), "Sprint 42")).toBeNull();
+  it("aucun changement avant le démarrage : l'ancienne valeur du premier changement d'après", () => {
+    expect(
+      scope([["2026-09-20T10:00:00.000+0200", "Sprint 42", "Sprint 42, Sprint 43"]])
+        .inSprintAtStart,
+    ).toBe(true);
+    expect(
+      scope([["2026-09-20T10:00:00.000+0200", "Sprint 41", "Sprint 42"]]).inSprintAtStart,
+    ).toBe(false);
+  });
+
+  it("aucun changement du champ Sprint : la date de création décide", () => {
+    expect(scope([], BEFORE)).toEqual({ inSprintAtStart: true, enteredAt: BEFORE });
+    const later = parseJiraDate("2026-09-15T10:00:00.000+0200") as Date;
+    expect(scope([], later)).toEqual({ inSprintAtStart: false, enteredAt: later });
+    expect(scope([], null)).toEqual({ inSprintAtStart: null, enteredAt: null });
+  });
+
+  it("l'ordre de l'historique reçu n'y change rien", () => {
+    const result = scope([
+      ["2026-09-16T10:00:00.000+0200", null, "Sprint 42"],
+      ["2026-09-12T10:00:00.000+0200", "Sprint 42", null],
+      ["2026-09-10T10:00:00.000+0200", null, "Sprint 42"],
+    ]);
+    expect(result.inSprintAtStart).toBe(false);
+  });
+
+  it("nom de sprint vide : aucune information plutôt qu'une supposition", () => {
+    expect(scope([["2026-09-10T10:00:00.000+0200", null, "Sprint 42"]], BEFORE, "")).toEqual({
+      inSprintAtStart: null,
+      enteredAt: null,
+    });
   });
 
   it("lastStatusChange ne regarde que les changements de statut", () => {

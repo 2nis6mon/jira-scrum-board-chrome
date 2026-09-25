@@ -1,6 +1,5 @@
 import {
   blockingIssues,
-  dateAddedToSprint,
   estimate,
   isBlockedByLink,
   isDoneStatus,
@@ -11,6 +10,7 @@ import {
   lastStatusChange,
   relatedIssues,
   sprintActivated,
+  sprintScope,
 } from "../jira/models";
 import {
   type BoardConfiguration,
@@ -390,20 +390,20 @@ export function assembleBoardIssues(input: {
     const daysInColumn =
       since === null ? null : Math.floor((now.getTime() - since.getTime()) / DAY_MS);
 
-    // Périmètre : le ticket a-t-il rejoint le sprint après son démarrage ?
-    // Uniquement si le changelog le dit ; sinon on laisse `null`.
+    // Périmètre : le ticket était-il dans le sprint à son démarrage (`sprintScope`) ? Sans
+    // historique, on ne sait pas : `null`, rien n'est affiché.
     let addedToSprintAt: Date | null = null;
     let addedAfterSprintStart: boolean | null = null;
     const activated = sprint ? sprintActivated(sprint) : null;
-    if (sprint && activated) {
-      addedToSprintAt = issue.changelog ? dateAddedToSprint(issue.changelog, sprint.name) : null;
-      if (addedToSprintAt) {
-        addedAfterSprintStart = addedToSprintAt > activated;
-      } else if (issue.changelog) {
-        // L'historique est disponible et ne mentionne aucun ajout à ce sprint : le ticket y
-        // était donc dès l'ouverture du sprint.
-        addedAfterSprintStart = false;
-      }
+    if (sprint && activated && issue.changelog) {
+      const scope = sprintScope({
+        changelog: issue.changelog,
+        sprintName: sprint.name,
+        startedAt: activated,
+        created: fields.created,
+      });
+      addedToSprintAt = scope.enteredAt;
+      addedAfterSprintStart = scope.inSprintAtStart === null ? null : !scope.inSprintAtStart;
     }
 
     const swimlaneId =

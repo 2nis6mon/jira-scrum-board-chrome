@@ -726,6 +726,14 @@ elle y voit une seule swimlane Kanban. Un type qu'elle repasse en `SCRUM` quitte
 type qu'elle classe `KANBAN` rejoint la première. Banc d'essai : `board-swimlanes` (RUN et OPS).
 Aucune écriture, permission ni hôte nouveaux.
 
+0.23.1 (question de Denis du 25/09/2026) : « ajouté en cours de sprint » ne regarde plus la
+PREMIÈRE entrée du ticket dans le sprint mais sa présence AU DÉMARRAGE (`sprintScope`,
+`jira/models.ts`, remplace `dateAddedToSprint`) : dernier changement du champ Sprint avant le
+démarrage ; sinon ancienne valeur du premier changement d'après ; sans aucun changement, date de
+création. Un ticket mis dans le sprint pendant le planning, retiré, puis remis après le démarrage
+est donc « ajouté » (il ne l'était pas) ; un ticket présent au démarrage, sorti puis revenu, non ;
+un ticket créé après le démarrage sans entrée notée, oui. Sans historique : toujours inconnu.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

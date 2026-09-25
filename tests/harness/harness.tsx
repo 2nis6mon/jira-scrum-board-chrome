@@ -299,15 +299,14 @@ if (scenario.startsWith("board")) {
   };
   // Historique FICTIF du sprint : ABC-105 y est entré après le démarrage, les autres y étaient.
   const changelog = (key: string) => ({
-    histories:
-      key === "ABC-105"
-        ? [
-            {
-              created: "2026-09-17T10:00:00.000+0200",
-              items: [{ field: "Sprint", fromString: null, toString: "Sprint 42" }],
-            },
-          ]
-        : [],
+    histories: [
+      {
+        // Mis dans le sprint pendant le planning (le sprint démarre le 14/09), ABC-105 après.
+        created:
+          key === "ABC-105" ? "2026-09-17T10:00:00.000+0200" : "2026-09-12T10:00:00.000+0200",
+        items: [{ field: "Sprint", fromString: null, toString: "Sprint 42" }],
+      },
+    ],
   });
   const decorated = (issue: Record<string, unknown>): Record<string, unknown> => {
     const extras = cardExtras[issue.key as string];
