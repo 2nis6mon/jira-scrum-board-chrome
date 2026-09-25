@@ -32,7 +32,7 @@ afterEach(() => {
 describe("BoardModel — page Réglages", () => {
   it("un type passé en « Ignoré » disparaît du board après relecture ; réglage partagé écrit une fois", async () => {
     const { board, stored, jiraWrites } = await settingsBoard();
-    expect(board.snapshot.value?.kanbanIssues.map((issue) => issue.issue.key)).toEqual(["RUN-7"]);
+    expect(board.snapshot.value?.swimlaneIssues.map((issue) => issue.issue.key)).toEqual(["RUN-7"]);
 
     await board.applySettings(
       (current) => ({
@@ -44,8 +44,8 @@ describe("BoardModel — page Réglages", () => {
       { resync: true },
     );
 
-    expect(board.snapshot.value?.kanbanIssues).toEqual([]);
-    expect(board.layout.value?.lanes.map((lane) => lane.id)).not.toContain("kanban");
+    expect(board.snapshot.value?.swimlaneIssues).toEqual([]);
+    expect(board.layout.value?.lanes.map((lane) => lane.id)).not.toContain("swimlane:1");
     expect((await stored())?.issueTypes.find((type) => type.id === "10004")?.category).toBe(
       "IGNORED",
     );
@@ -104,7 +104,7 @@ describe("BoardModel — page Réglages", () => {
     await vi.waitFor(() => expect(reads()).toBe(before + 1));
 
     // Pendant un glisser-déposer, pas de relecture sous le curseur.
-    board.startDrag("ABC-101", "scrum");
+    board.startDrag("ABC-101", null);
     vi.advanceTimersByTime(60_000);
     await Promise.resolve();
     expect(reads()).toBe(before + 1);

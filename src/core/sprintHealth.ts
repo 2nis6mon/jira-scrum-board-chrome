@@ -2,6 +2,7 @@ import {
   type BoardConfiguration,
   type ColumnConfiguration,
   displayedGoalId,
+  shownSwimlaneIds,
   visibleColumns,
 } from "./boardConfiguration";
 import {
@@ -42,7 +43,7 @@ export interface HealthKpis {
   readonly done: number;
   readonly inProgress: number;
   readonly toDo: number;
-  /** Tickets Scrum et Kanban. */
+  /** Tickets par objectif et des swimlanes par type. */
   readonly allCount: number;
   readonly blocked: number;
   /** `null` : Jira n'a pas fourni l'historique, on ne sait pas ce qui a été ajouté. */
@@ -68,8 +69,8 @@ export interface Composition {
   readonly total: number;
   readonly linked: number;
   readonly build: number;
-  /** `null` : la section Kanban est désactivée dans les réglages. */
-  readonly kanban: number | null;
+  /** Tickets des swimlanes par type affichées ; `null` s'il n'y en a aucune. */
+  readonly swimlanes: number | null;
   readonly added: number | null;
 }
 
@@ -84,14 +85,17 @@ export function sprintHealth(
   configuration: BoardConfiguration,
   filters: BoardFilters,
 ): SprintHealth {
-  const scrum = applyFilters(filters, snapshot.scrumIssues);
-  const kanban = applyFilters(filters, snapshot.kanbanIssues);
-  const all = [...scrum, ...kanban];
+  const scrum = applyFilters(filters, snapshot.goalIssues);
+  const shownSwimlanes = new Set(shownSwimlaneIds(configuration));
+  const swimlanes = applyFilters(filters, snapshot.swimlaneIssues).filter(
+    (issue) => issue.swimlaneId !== null && shownSwimlanes.has(issue.swimlaneId),
+  );
+  const all = [...scrum, ...swimlanes];
   const threshold = configuration.agingThresholdDays;
   const categoryKey = (issue: BoardIssue) => issue.issue.fields.status.statusCategory?.key;
 
   // Historique connu dès qu'un ticket du sprint (filtres ignorés) sait s'il a été ajouté.
-  const historyKnown = [...snapshot.scrumIssues, ...snapshot.kanbanIssues].some(
+  const historyKnown = [...snapshot.goalIssues, ...snapshot.swimlaneIssues].some(
     (issue) => issue.addedAfterSprintStart !== null,
   );
   const added = all
@@ -115,7 +119,7 @@ export function sprintHealth(
   });
 
   const load = columnLoad(snapshot);
-  const columns = visibleColumns(configuration.scrumColumns).map((column) => {
+  const columns = visibleColumns(configuration.columns).map((column) => {
     const count = load.get(column.id) ?? 0;
     return { column, count, over: column.wipLimit !== null && count > column.wipLimit };
   });
@@ -163,7 +167,7 @@ export function sprintHealth(
       total: all.length,
       linked: linked.length,
       build: scrum.length - linked.length,
-      kanban: configuration.showKanbanSection ? kanban.length : null,
+      swimlanes: shownSwimlanes.size > 0 ? swimlanes.length : null,
       added: historyKnown ? added.length : null,
     },
     watched,

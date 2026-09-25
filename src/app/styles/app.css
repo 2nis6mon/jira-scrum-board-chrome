@@ -967,7 +967,7 @@ button.lane-title[aria-pressed="true"] {
   border: 3px solid var(--goal-ring);
 }
 
-.lane-kanban .lane-header {
+.lane-swimlane .lane-header {
   border-color: #f0d9bd;
   background: #fbf3e8;
 }
@@ -990,11 +990,6 @@ button.lane-title[aria-pressed="true"] {
 
 .lane-progress progress {
   width: 120px;
-}
-
-.column-band-kanban {
-  position: static;
-  padding-top: 6px;
 }
 
 .lane-cells {
@@ -1955,6 +1950,42 @@ select {
   font-size: 11px;
 }
 
+.type-group {
+  margin-top: 14px;
+}
+
+.type-group h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.type-group-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.type-group-header h3 {
+  margin: 0;
+}
+
+/* Mêmes largeurs de colonnes dans chaque groupe : les listes « Déplacer vers » s'alignent. */
+.settings-types {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.settings-types th:first-child {
+  width: 45%;
+}
+
+.settings-types th:last-child {
+  width: 56px;
+}
+
 .settings-warning {
   color: var(--kanban);
   font-size: 12px;
@@ -2644,7 +2675,7 @@ details.board-switcher .menu-panel {
 }
 
 .sidebar-lane-build,
-.sidebar-lane-kanban {
+.sidebar-lane-swimlane {
   align-items: center;
   font-size: 13.5px;
 }
@@ -2653,7 +2684,7 @@ details.board-switcher .menu-panel {
   --icon-color: var(--ink-3);
 }
 
-.sidebar-lane-kanban {
+.sidebar-lane-swimlane {
   --icon-color: var(--kanban);
 }
 

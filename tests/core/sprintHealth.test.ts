@@ -5,6 +5,7 @@ import {
   type BoardSnapshot,
 } from "../../src/core/boardIssue";
 import { withBlockOrder, withGoalHidden } from "../../src/core/boardPreferences";
+import { withSwimlaneHidden } from "../../src/core/boardSettings";
 import { NO_FILTERS } from "../../src/core/filters";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
 import { percent, sprintHealth } from "../../src/core/sprintHealth";
@@ -13,7 +14,7 @@ import { type IssueOptions, makeConfiguration, makeIssue } from "../support/jira
 // Données FICTIVES. Les comptages sont vérifiés à la main : aucun score, aucune projection.
 
 const config = makeConfiguration({
-  scrumColumns: makeConfiguration().scrumColumns.map((column) =>
+  columns: makeConfiguration().columns.map((column) =>
     column.id === "prog" ? { ...column, wipLimit: 1 } : column,
   ),
 });
@@ -27,7 +28,7 @@ function issue(key: string, options: IssueOptions, parts: Partial<BoardIssue> = 
   const [assembled] = assembleBoardIssues({
     issues: [makeIssue(key, options)],
     configuration: config,
-    columns: config.scrumColumns,
+    columns: config.columns,
     links: {},
   });
   if (!assembled) throw new Error("ticket attendu");
@@ -69,8 +70,8 @@ function snapshot(parts: Partial<BoardSnapshot> = {}): BoardSnapshot {
     activeSprints: [],
     goals: GOALS,
     goalsOrigin: "sprintText",
-    scrumIssues: SCRUM,
-    kanbanIssues: Kanban,
+    goalIssues: SCRUM,
+    swimlaneIssues: Kanban,
     syncedAt: new Date(0),
     currentUser: null,
     goalsReadOnly: false,
@@ -99,7 +100,7 @@ describe("Sprint Health : comptages directs", () => {
     const unknown = (list: BoardIssue[]) =>
       list.map((item) => ({ ...item, estimate: null, addedAfterSprintStart: null }));
     const health = sprintHealth(
-      snapshot({ scrumIssues: unknown(SCRUM), kanbanIssues: unknown(Kanban) }),
+      snapshot({ goalIssues: unknown(SCRUM), swimlaneIssues: unknown(Kanban) }),
       config,
       NO_FILTERS,
     );
@@ -110,7 +111,7 @@ describe("Sprint Health : comptages directs", () => {
   });
 
   it("avancement par objectif, dans l'ordre du board", () => {
-    const moved = withBlockOrder(config, ["goal:g2", "goal:g1", "build", "kanban"]);
+    const moved = withBlockOrder(config, ["goal:g2", "goal:g1", "build", "swimlane:1"]);
     const goals = sprintHealth(snapshot(), moved, NO_FILTERS).goals.map((progress) => [
       progress.goal.id,
       progress.done,
@@ -127,7 +128,7 @@ describe("Sprint Health : comptages directs", () => {
   it("un objectif masqué n'apparaît pas, ses tickets comptent dans Build", () => {
     const health = sprintHealth(snapshot(), withGoalHidden(config, "g2", true), NO_FILTERS);
     expect(health.goals.map((progress) => progress.goal.id)).toEqual(["g1"]);
-    expect(health.composition).toEqual({ total: 6, linked: 2, build: 3, kanban: 1, added: 2 });
+    expect(health.composition).toEqual({ total: 6, linked: 2, build: 3, swimlanes: 1, added: 2 });
   });
 
   it("périmètre : tickets entrés après le démarrage, les plus récents d'abord", () => {
@@ -153,16 +154,16 @@ describe("Sprint Health : comptages directs", () => {
     ]);
   });
 
-  it("composition : rattachés, Build, Kanban (si la section est affichée), ajoutés", () => {
+  it("composition : rattachés, Build, swimlanes par type (si affichées), ajoutés", () => {
     expect(sprintHealth(snapshot(), config, NO_FILTERS).composition).toEqual({
       total: 6,
       linked: 3,
       build: 2,
-      kanban: 1,
+      swimlanes: 1,
       added: 2,
     });
-    const noKanban = { ...config, showKanbanSection: false };
-    expect(sprintHealth(snapshot(), noKanban, NO_FILTERS).composition.kanban).toBeNull();
+    const noSwimlane = withSwimlaneHidden(config, "1", true);
+    expect(sprintHealth(snapshot(), noSwimlane, NO_FILTERS).composition.swimlanes).toBeNull();
   });
 
   it("à surveiller : non terminés, bloqués d'abord, puis du plus ancien au plus récent", () => {

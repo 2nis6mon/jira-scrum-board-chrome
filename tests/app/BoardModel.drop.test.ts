@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { BoardModel } from "../../src/app/model/BoardModel";
-import { BUILD_BLOCK, goalBlock, KANBAN_BLOCK } from "../../src/core/boardBlocks";
+import { BUILD_BLOCK, goalBlock, swimlaneBlock } from "../../src/core/boardBlocks";
+
+const RUN_BLOCK = swimlaneBlock("1");
+
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { BOARD_URL, boardSiteJira, GOALS_DOCUMENT, SPRINT_ISSUES } from "../support/boardFixture";
@@ -365,10 +368,17 @@ describe("glisser-déposer — rang", () => {
 describe("glisser-déposer — dépôts refusés sans requête", () => {
   it.each([
     ["ticket inconnu du board", { issueKey: "XYZ-1", block: BUILD_BLOCK, columnId: DOING }],
-    ["carte Scrum dans Kanban", { issueKey: "ABC-102", block: KANBAN_BLOCK, columnId: DOING }],
     [
-      "carte Kanban dans un objectif",
+      "carte par objectif dans une swimlane par type",
+      { issueKey: "ABC-102", block: RUN_BLOCK, columnId: DOING },
+    ],
+    [
+      "carte d'une swimlane par type dans un objectif",
       { issueKey: "RUN-7", block: goalBlock("g-paiement"), columnId: DONE },
+    ],
+    [
+      "carte d'une swimlane par type dans une autre",
+      { issueKey: "RUN-7", block: swimlaneBlock("2"), columnId: DONE },
     ],
     ["colonne inconnue", { issueKey: "ABC-102", block: BUILD_BLOCK, columnId: "col-99" }],
   ])("%s", async (_, drop) => {
@@ -379,7 +389,7 @@ describe("glisser-déposer — dépôts refusés sans requête", () => {
     expect(jira.requests).toHaveLength(before);
   });
 
-  it("une carte Kanban change de colonne dans le bloc Kanban", async () => {
+  it("une carte d'une swimlane par type change de colonne dans sa swimlane", async () => {
     const { board, jira, writes } = await boardWith();
     jira
       .on("GET", "/rest/api/3/issue/RUN-7", statusReply("3", "En cours"))
@@ -387,7 +397,7 @@ describe("glisser-déposer — dépôts refusés sans requête", () => {
       .on("POST", "/rest/api/3/issue/RUN-7/transitions", { status: 204 });
     await board.dropIssue({
       issueKey: "RUN-7",
-      block: KANBAN_BLOCK,
+      block: RUN_BLOCK,
       columnId: DONE,
       beforeKey: null,
     });
@@ -521,9 +531,9 @@ describe("choix du statut et de la transition avant toute écriture", () => {
 
   it("précharge les statuts, distingue la colonne actuelle et les destinations interdites", async () => {
     const { board } = await prepare();
-    const columns = board.configuration.value?.scrumColumns;
+    const columns = board.configuration.value?.columns;
     if (!columns?.[0] || !columns[1] || !columns[2]) throw new Error("colonnes attendues");
-    board.startDrag("ABC-102", "scrum");
+    board.startDrag("ABC-102", null);
     expect(board.columnDrop(columns[0]).kind).toBe("same");
     expect(board.columnDrop(columns[1]).kind).toBe("loading");
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -536,7 +546,7 @@ describe("choix du statut et de la transition avant toute écriture", () => {
   it("lecture refusée : erreur distincte, colonne actuelle toujours utilisable", async () => {
     const { board, jira } = await prepare();
     jira.on("GET", path, { status: 403 });
-    board.startDrag("ABC-102", "scrum");
+    board.startDrag("ABC-102", null);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(board.dragTransitions.value.kind).toBe("error");
     board.endDrag();

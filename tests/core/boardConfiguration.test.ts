@@ -7,8 +7,10 @@ import {
   isBugType,
   looksLikeBug,
   mergeConfiguration,
+  swimlaneName,
   visibleColumns,
 } from "../../src/core/boardConfiguration";
+import { withSwimlaneName } from "../../src/core/boardSettings";
 import {
   decodeIssueType,
   decodeStatus,
@@ -57,11 +59,11 @@ function discovered() {
 }
 
 describe("classement par défaut des types", () => {
-  it("reconnaît les types d'anomalie français comme Kanban", () => {
-    expect(defaultCategory("Anomalie de Recette")).toBe("KANBAN");
-    expect(defaultCategory("Anomalie Prod")).toBe("KANBAN");
-    expect(defaultCategory("Story")).toBe("SCRUM");
-    expect(defaultCategory("User Story")).toBe("SCRUM");
+  it("range les types d'anomalie français hors objectifs", () => {
+    expect(defaultCategory("Anomalie de Recette")).toBe("SWIMLANE");
+    expect(defaultCategory("Anomalie Prod")).toBe("SWIMLANE");
+    expect(defaultCategory("Story")).toBe("GOAL");
+    expect(defaultCategory("User Story")).toBe("GOAL");
   });
 
   it("reconnaît un bug à son nom, sans tenir compte des accents", () => {
@@ -84,14 +86,14 @@ describe("buildConfiguration", () => {
   it("reprend de Jira colonnes, statuts, limites et champ d'estimation", () => {
     const config = discovered();
     expect(
-      config.scrumColumns.map((c) => [c.name, c.statusIds, c.wipLimit, c.isDone, c.hidden]),
+      config.columns.map((c) => [c.name, c.statusIds, c.wipLimit, c.isDone, c.hidden]),
     ).toEqual([
       ["À faire", ["1"], null, false, false],
       ["En cours", ["3", "4"], 5, false, false],
       ["Terminé", ["6"], null, true, false],
       ["Orpheline", [], null, false, true],
     ]);
-    expect(visibleColumns(config.scrumColumns).map((c) => c.name)).toEqual([
+    expect(visibleColumns(config.columns).map((c) => c.name)).toEqual([
       "À faire",
       "En cours",
       "Terminé",
@@ -102,9 +104,17 @@ describe("buildConfiguration", () => {
 
   it("écarte les sous-tâches, classe et trie les types", () => {
     expect(discovered().issueTypes.map((t) => [t.name, t.category])).toEqual([
-      ["Anomalie de Recette", "KANBAN"],
-      ["Story", "SCRUM"],
+      ["Anomalie de Recette", "SWIMLANE"],
+      ["Story", "GOAL"],
     ]);
+  });
+
+  it("les types hors objectifs forment une première swimlane par type, au nom calculé", () => {
+    const config = discovered();
+    expect(config.ticketSwimlanes).toEqual([{ id: "1", name: "", typeIds: ["1"], hidden: false }]);
+    const [swimlane] = config.ticketSwimlanes;
+    if (!swimlane) throw new Error("swimlane attendue");
+    expect(swimlaneName(config, swimlane)).toBe("Anomalie de Recette");
   });
 
   it("n'impose aucune préférence par défaut", () => {
@@ -124,7 +134,7 @@ describe("mergeConfiguration", () => {
       ...discovered(),
       issueTypes: discovered().issueTypes.map((t) => ({
         ...t,
-        category: "SCRUM" as const,
+        category: "GOAL" as const,
         countsAsBug: true,
       })),
       cardColorRules: [
@@ -135,7 +145,7 @@ describe("mergeConfiguration", () => {
       blockOrder: ["build", "goal:g1"],
       goalColorIndex: { g1: 4 },
       buildSectionLabel: "Hors objectif",
-      scrumColumns: discovered().scrumColumns.map((c) =>
+      columns: discovered().columns.map((c) =>
         c.name === "En cours" ? { ...c, name: "Doing", wipLimit: 3, hidden: true } : c,
       ),
     };
@@ -159,17 +169,37 @@ describe("mergeConfiguration", () => {
     expect(merged.goalsFieldId).toBe("customfield_10100");
     expect(merged.flaggedFieldId).toBe("customfield_10021");
     expect(colorRules(merged).map((r) => r.name)).toEqual(["P2", "Ajouté en cours de sprint"]);
-    expect(merged.issueTypes.every((t) => t.category === "SCRUM" && t.countsAsBug === true)).toBe(
+    expect(merged.issueTypes.every((t) => t.category === "GOAL" && t.countsAsBug === true)).toBe(
       true,
     );
+    expect(merged.ticketSwimlanes).toEqual([]);
     expect(merged.collapsedBlockIds).toEqual(["build"]);
     expect(merged.hiddenGoalIds).toEqual(["g9"]);
     expect(merged.blockOrder).toEqual(["build", "goal:g1"]);
     expect(merged.goalColorIndex).toEqual({ g1: 4 });
     expect(merged.buildSectionLabel).toBe("Hors objectif");
     // Colonne reconnue à ses statuts, quel que soit leur ordre : nom, masquage et WIP conservés.
-    expect(merged.scrumColumns).toHaveLength(1);
-    expect(merged.scrumColumns[0]).toMatchObject({ name: "Doing", wipLimit: 3, hidden: true });
+    expect(merged.columns).toHaveLength(1);
+    expect(merged.columns[0]).toMatchObject({ name: "Doing", wipLimit: 3, hidden: true });
+  });
+
+  it("un type apparu dans Jira et classé hors objectifs rejoint la première swimlane par type", () => {
+    const existing = withSwimlaneName(discovered(), "1", "RUN");
+    const fresh = buildConfiguration({
+      board: BOARD,
+      siteOrigin: "https://acme.atlassian.net",
+      statuses: STATUSES,
+      issueTypes: [
+        ...TYPES,
+        decodeIssueType({ id: "9", name: "Incident", subtask: false }) as JiraIssueType,
+      ],
+      estimationFieldName: null,
+      goalsFieldId: null,
+      flaggedFieldId: null,
+    });
+    expect(mergeConfiguration(fresh, existing).ticketSwimlanes).toEqual([
+      { id: "1", name: "RUN", typeIds: ["1", "9"], hidden: false },
+    ]);
   });
 
   it("un autre board, ou aucun existant : la configuration fraîche telle quelle", () => {
@@ -179,8 +209,8 @@ describe("mergeConfiguration", () => {
   });
 
   it("une colonne devenue sans statut reste masquée", () => {
-    const existing = makeConfiguration({ boardId: 7, scrumColumns: [column("a", "A", [], 0)] });
-    const fresh = { ...discovered(), scrumColumns: [{ ...column("a", "A", [], 0), hidden: true }] };
-    expect(mergeConfiguration(fresh, existing).scrumColumns[0]?.hidden).toBe(true);
+    const existing = makeConfiguration({ boardId: 7, columns: [column("a", "A", [], 0)] });
+    const fresh = { ...discovered(), columns: [{ ...column("a", "A", [], 0), hidden: true }] };
+    expect(mergeConfiguration(fresh, existing).columns[0]?.hidden).toBe(true);
   });
 });

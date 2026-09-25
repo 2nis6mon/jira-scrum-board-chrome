@@ -101,12 +101,12 @@ describe("barre latérale", () => {
     const config = board.configuration.value;
     const goal = snapshot?.goals[0];
     if (!snapshot || !config || !goal) throw new Error("board et Goal attendus");
-    const last = visibleColumns(config.scrumColumns).at(-1);
+    const last = visibleColumns(config.columns).at(-1);
     if (!last) throw new Error("dernière colonne attendue");
-    expect(snapshot.scrumIssues.some((issue) => issue.goalId === goal.id)).toBe(true);
+    expect(snapshot.goalIssues.some((issue) => issue.goalId === goal.id)).toBe(true);
     board.snapshot.value = {
       ...snapshot,
-      scrumIssues: snapshot.scrumIssues.map((issue) =>
+      goalIssues: snapshot.goalIssues.map((issue) =>
         issue.goalId === goal.id ? { ...issue, columnId: last.id } : issue,
       ),
     };
@@ -155,7 +155,7 @@ describe("barre latérale", () => {
       "Finaliser le parcours de paiement0/2",
       "Améliorer la stabilité1/1",
       "Build2",
-      "Kanban1",
+      "Anomalie Prod1",
     ]);
     expect(sidebarLanes()).toEqual(boardLanes());
   });
@@ -178,21 +178,21 @@ describe("barre latérale", () => {
     // happy-dom ne relie pas les événements de glissé aux gestionnaires de Preact : le geste
     // lui-même est vérifié dans Chrome (banc d'essai) ; ici, l'état qu'il partage entre les vues.
     const { jira, board } = await connectedBoard();
-    expect(sidebarLink("Kanban").getAttribute("draggable")).toBe("true");
+    expect(sidebarLink("Anomalie Prod").getAttribute("draggable")).toBe("true");
     const stability = board.laneOrder.value[1] ?? "";
 
-    board.startLaneDrag("kanban");
+    board.startLaneDrag("swimlane:1");
     board.setLaneDropTarget(stability);
     await tick();
-    expect(sidebarRow("Kanban").classList.contains("lane-dragging")).toBe(true);
+    expect(sidebarRow("Anomalie Prod").classList.contains("lane-dragging")).toBe(true);
     expect(document.querySelector(".sidebar-drop-line")).not.toBeNull();
     expect(document.querySelector(".lane-drop-line")).not.toBeNull();
 
-    await board.dropLane("kanban", stability);
+    await board.dropLane("swimlane:1", stability);
     await tick();
     const expected = [
       "Finaliser le parcours de paiement",
-      "Kanban",
+      "Anomalie Prod",
       "Améliorer la stabilité",
       "Build",
     ];
@@ -209,7 +209,7 @@ describe("barre latérale", () => {
     const { jira } = await connectedBoard();
     // Seuls les objectifs ont un œil : Build et Kanban ne se masquent pas.
     expect(sidebarRow("Build").querySelector(".eye-toggle")).toBeNull();
-    expect(sidebarRow("Kanban").querySelector(".eye-toggle")).toBeNull();
+    expect(sidebarRow("Anomalie Prod").querySelector(".eye-toggle")).toBeNull();
 
     const hide = labelled("Masquer « Améliorer la stabilité » du board");
     expect(hide.classList.contains("eye-toggle-hidden")).toBe(false);
@@ -730,7 +730,7 @@ describe("zones de dépôt par statut", () => {
       },
     });
     const { board } = await connectedBoard(jira);
-    board.startDrag("ABC-102", "scrum");
+    board.startDrag("ABC-102", null);
     await tick();
     await tick();
     const cell = document.querySelector(

@@ -6,13 +6,18 @@ import {
   daysRemaining,
   filterOptions,
 } from "../../src/core/boardLayout";
+import {
+  withSwimlaneHidden,
+  withSwimlaneName,
+  withTypeDestination,
+} from "../../src/core/boardSettings";
 import { focusGoal, NO_FILTERS } from "../../src/core/filters";
 import { withPendingMove } from "../../src/core/pendingMove";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
 import type { JiraIssue } from "../../src/jira/models";
-import { makeConfiguration, makeIssue } from "../support/jiraFixtures";
+import { makeConfiguration, makeIssue, STORY_TYPE, SWIMLANE_TYPE } from "../support/jiraFixtures";
 
-const config = makeConfiguration({ kanbanColumns: makeConfiguration().scrumColumns });
+const config = makeConfiguration();
 const GOALS = [
   makeSprintGoal({ id: "g1", title: "Paiement", position: 0 }),
   makeSprintGoal({ id: "g2", title: "Stabilité", position: 1 }),
@@ -24,14 +29,14 @@ function snapshot(
   links: Record<string, string> = {},
 ): BoardSnapshot {
   const assemble = (issues: JiraIssue[], l: Record<string, string>) =>
-    assembleBoardIssues({ issues, configuration: config, columns: config.scrumColumns, links: l });
+    assembleBoardIssues({ issues, configuration: config, columns: config.columns, links: l });
   return {
     sprint: null,
     activeSprints: [],
     goals: GOALS,
     goalsOrigin: "sprintText",
-    scrumIssues: assemble(scrum, links),
-    kanbanIssues: assemble(run, {}),
+    goalIssues: assemble(scrum, links),
+    swimlaneIssues: assemble(run, {}),
     syncedAt: new Date(0),
     currentUser: null,
     goalsReadOnly: false,
@@ -63,7 +68,7 @@ describe("buildBoardLayout", () => {
       ["goal:g1", [["ABC-1"], ["ABC-2"], []]],
       ["goal:g2", [[], [], ["ABC-3"]]],
       ["build", [[], ["ABC-4"], []]],
-      ["kanban", [[], ["RUN-1"], []]],
+      ["swimlane:1", [[], ["RUN-1"], []]],
     ]);
   });
 
@@ -87,7 +92,7 @@ describe("buildBoardLayout", () => {
     expect(lanesOf(buildBoardLayout(board, hidden, NO_FILTERS)).map(([id]) => id)).toEqual([
       "goal:g2",
       "build",
-      "kanban",
+      "swimlane:1",
     ]);
     const build = buildBoardLayout(board, hidden, NO_FILTERS).lanes.find((l) => l.id === "build");
     expect(build?.cells.flatMap((cell) => cell.issues.map((i) => i.issue.key))).toEqual([
@@ -100,24 +105,24 @@ describe("buildBoardLayout", () => {
   it("respecte l'ordre local des swimlanes et le libellé de Build", () => {
     const ordered = {
       ...config,
-      blockOrder: ["kanban", "goal:g2", "build", "goal:g1"],
+      blockOrder: ["swimlane:1", "goal:g2", "build", "goal:g1"],
       buildSectionLabel: "Hors objectif",
     };
     const layout = buildBoardLayout(board, ordered, NO_FILTERS);
     expect(layout.lanes.map((lane) => lane.title)).toEqual([
-      "Kanban",
+      "Anomalie Prod",
       "Stabilité",
       "Hors objectif",
       "Paiement",
     ]);
   });
 
-  it("Kanban masqué par réglage, ou absent faute de ticket Kanban", () => {
+  it("swimlane par type masquée par réglage, ou absente faute de ses tickets", () => {
     expect(
-      buildBoardLayout(board, { ...config, showKanbanSection: false }, NO_FILTERS).lanes.map(
+      buildBoardLayout(board, withSwimlaneHidden(config, "1", true), NO_FILTERS).lanes.map(
         (l) => l.id,
       ),
-    ).not.toContain("kanban");
+    ).not.toContain("swimlane:1");
     expect(buildBoardLayout(snapshot([]), config, NO_FILTERS).lanes.map((l) => l.id)).toEqual([
       "goal:g1",
       "goal:g2",
@@ -136,13 +141,49 @@ describe("buildBoardLayout", () => {
 
     const hiddenColumn = {
       ...config,
-      scrumColumns: config.scrumColumns.map((c) => (c.id === "todo" ? { ...c, hidden: true } : c)),
+      columns: config.columns.map((c) => (c.id === "todo" ? { ...c, hidden: true } : c)),
     };
     expect(buildBoardLayout(withOrphan, hiddenColumn, NO_FILTERS).unmappedCount).toBe(2);
   });
 
-  it("charge par colonne : Kanban compris, sans tenir compte des filtres, pour les limites WIP", () => {
-    // « prog » compte 2 tickets Scrum et 1 ticket Kanban : la colonne du board Jira porte les deux.
+  it("plusieurs swimlanes par type : une par groupe, avec son nom calculé ou choisi", () => {
+    const service = { ...SWIMLANE_TYPE, id: "10005", name: "Demande de service" };
+    const config2 = withSwimlaneName(
+      withTypeDestination(
+        makeConfiguration({ issueTypes: [STORY_TYPE, SWIMLANE_TYPE, service] }),
+        "10005",
+        { kind: "newSwimlane" },
+      ),
+      "2",
+      "OPS",
+    );
+    const assemble = (issues: JiraIssue[]) =>
+      assembleBoardIssues({ issues, configuration: config2, columns: config2.columns, links: {} });
+    const two: BoardSnapshot = {
+      ...board,
+      goalIssues: [],
+      swimlaneIssues: assemble([
+        makeIssue("RUN-1", { statusId: "1", typeId: "10004" }),
+        makeIssue("OPS-1", { statusId: "3", typeId: "10005" }),
+      ]),
+    };
+    const layout = buildBoardLayout(two, config2, NO_FILTERS);
+    expect(layout.lanes.map((lane) => [lane.id, lane.title])).toEqual([
+      ["goal:g1", "Paiement"],
+      ["goal:g2", "Stabilité"],
+      ["build", "Build"],
+      ["swimlane:1", "Anomalie Prod"],
+      ["swimlane:2", "OPS"],
+    ]);
+    expect(lanesOf(layout).slice(3)).toEqual([
+      ["swimlane:1", [["RUN-1"], [], []]],
+      ["swimlane:2", [[], ["OPS-1"], []]],
+    ]);
+  });
+
+  it("charge par colonne : swimlanes par type comprises, sans tenir compte des filtres, pour les limites WIP", () => {
+    // « prog » compte 2 tickets par objectif et 1 d'une swimlane par type : la colonne du board
+    // Jira porte les deux.
     expect(Object.fromEntries(columnLoad(board))).toEqual({ todo: 1, prog: 3, done: 1 });
     const hidden = snapshot([makeIssue("ABC-9", { statusId: "99" })]);
     expect(Object.fromEntries(columnLoad(hidden))).toEqual({});
@@ -215,7 +256,7 @@ describe("position provisoire d’un ticket", () => {
       { "ABC-1": "g1", "ABC-2": "g2", "ABC-3": "g2" },
     );
     const layout = buildBoardLayout(board, config, NO_FILTERS);
-    const issue = board.scrumIssues[0];
+    const issue = board.goalIssues[0];
     if (!issue) throw new Error("ticket absent");
     const projected = withPendingMove(layout, {
       issue,

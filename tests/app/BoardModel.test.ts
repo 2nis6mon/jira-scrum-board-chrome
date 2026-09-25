@@ -45,8 +45,8 @@ describe("BoardModel — mise en place", () => {
 
     expect(board.configuration.value?.boardName).toBe("Équipe Paiement");
     expect(board.snapshot.value?.sprint?.name).toBe("Sprint 42");
-    expect(board.snapshot.value?.scrumIssues).toHaveLength(5);
-    expect(board.snapshot.value?.kanbanIssues.map((i) => i.issue.key)).toEqual(["RUN-7"]);
+    expect(board.snapshot.value?.goalIssues).toHaveLength(5);
+    expect(board.snapshot.value?.swimlaneIssues.map((i) => i.issue.key)).toEqual(["RUN-7"]);
     expect(board.syncProblem.value).toBeNull();
     const stored = await loadActiveBoard(platform.store, SITE.origin);
     expect(stored?.boardId).toBe(7);
@@ -60,7 +60,7 @@ describe("BoardModel — mise en place", () => {
       "Finaliser le parcours de paiement",
       "Améliorer la stabilité",
     ]);
-    expect(snapshot?.scrumIssues.find((i) => i.issue.key === "ABC-101")?.goalId).toBe("g-paiement");
+    expect(snapshot?.goalIssues.find((i) => i.issue.key === "ABC-101")?.goalId).toBe("g-paiement");
     expect(board.goalsNotice.value).toContain("Goals Atlassian illisibles");
   });
 
@@ -260,7 +260,7 @@ describe("BoardModel — filtres et mise en page", () => {
       ["Finaliser le parcours de paiement", 2],
       ["Améliorer la stabilité", 1],
       ["Build", 2],
-      ["Kanban", 1],
+      ["Anomalie Prod", 1],
     ]);
     expect(layout?.columns.map((column) => column.name)).toEqual([
       "À faire",
@@ -304,7 +304,7 @@ describe("BoardModel — filtres et mise en page", () => {
 
   it("drapeau Jira repéré à la détection et lu sur les tickets", async () => {
     const { board } = await detected();
-    const flagged = board.snapshot.value?.scrumIssues.filter((issue) => issue.isFlagged);
+    const flagged = board.snapshot.value?.goalIssues.filter((issue) => issue.isFlagged);
     expect(flagged?.map((issue) => issue.issue.key)).toEqual(["ABC-104"]);
   });
 });

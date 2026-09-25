@@ -17,11 +17,11 @@ import { makeSprintGoal } from "../../src/core/sprintGoals";
 import { decodeIssue, type JiraIssue, type JiraSprint } from "../../src/jira/models";
 import {
   type IssueOptions,
-  KANBAN_TYPE,
   makeConfiguration,
   makeIssue,
   makeSprint,
   STORY_TYPE,
+  SWIMLANE_TYPE,
   statusJson,
 } from "../support/jiraFixtures";
 
@@ -38,7 +38,7 @@ function assemble(
   return assembleBoardIssues({
     issues,
     configuration,
-    columns: configuration.scrumColumns,
+    columns: configuration.columns,
     links: options.links ?? {},
     sprint: options.sprint ?? null,
     ...(options.now ? { now: options.now } : {}),
@@ -48,14 +48,14 @@ function assemble(
 const one = (key: string, options: IssueOptions = {}, config?: BoardConfiguration) =>
   assemble([makeIssue(key, options)], config ? { config } : {})[0] as BoardIssue;
 
-function snapshot(scrumIssues: BoardIssue[], kanbanIssues: BoardIssue[] = []): BoardSnapshot {
+function snapshot(goalIssues: BoardIssue[], swimlaneIssues: BoardIssue[] = []): BoardSnapshot {
   return {
     sprint: null,
     activeSprints: [],
     goals: [],
     goalsOrigin: "sprintText",
-    scrumIssues,
-    kanbanIssues,
+    goalIssues,
+    swimlaneIssues,
     syncedAt: new Date(0),
     currentUser: null,
     goalsReadOnly: false,
@@ -136,8 +136,8 @@ describe("assembleBoardIssues", () => {
   });
 
   it("classe les types Kanban", () => {
-    expect(one("BUG-1", { typeId: "10004", typeName: "Anomalie Prod" }).category).toBe("KANBAN");
-    expect(one("ABC-1", { typeId: "inconnu" }).category).toBe("SCRUM");
+    expect(one("BUG-1", { typeId: "10004", typeName: "Anomalie Prod" }).category).toBe("SWIMLANE");
+    expect(one("ABC-1", { typeId: "inconnu" }).category).toBe("GOAL");
   });
 
   it("lit le drapeau Jira dans le champ repéré", () => {
@@ -314,7 +314,7 @@ describe("bloquants", () => {
       makeIssue("ABC-9", { statusId: "3", assigneeId: "u1", assigneeName: "Camille Durand" }),
     ]);
     const blocker = issues[0]?.blockers[0];
-    expect(blocker && locateBlocker(snapshot(issues), blocker, config.scrumColumns)).toEqual({
+    expect(blocker && locateBlocker(snapshot(issues), blocker, config.columns)).toEqual({
       kind: "onBoard",
       columnName: "In Progress",
       assigneeName: "Camille Durand",
@@ -325,7 +325,7 @@ describe("bloquants", () => {
     const issues = assemble([makeIssue("ABC-1", { blockedBy: "OPS-412" })]);
     const blocker = issues[0]?.blockers[0];
     expect(
-      blocker && locateBlocker(snapshot(issues), blocker, makeConfiguration().scrumColumns),
+      blocker && locateBlocker(snapshot(issues), blocker, makeConfiguration().columns),
     ).toEqual({ kind: "elsewhere", projectKey: "OPS", typeName: null });
   });
 
@@ -342,7 +342,7 @@ describe("bloquants", () => {
 describe("bugs liés", () => {
   const types = [
     STORY_TYPE,
-    { ...KANBAN_TYPE, id: "10004", name: "Bug" },
+    { ...SWIMLANE_TYPE, id: "10004", name: "Bug" },
     { ...STORY_TYPE, id: "10009", name: "Tâche technique" },
   ];
   const ref = (key: string, type: string, typeId: string, category: string) => ({
@@ -446,7 +446,7 @@ describe("photographie du board", () => {
       done: 1,
       inProgress: 1,
       toDo: 1,
-      kanbanCount: 1,
+      swimlaneCount: 1,
       blockedCount: 2,
       agingCount: 1, // ABC-2 ; ABC-1 est terminé, donc jamais « vieillissant »
       withoutGoalCount: 2,

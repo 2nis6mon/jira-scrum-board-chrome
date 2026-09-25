@@ -1,4 +1,8 @@
-import type { BoardConfiguration, IssueTypeConfiguration } from "../../src/core/boardConfiguration";
+import {
+  type BoardConfiguration,
+  type IssueTypeConfiguration,
+  normalizeSwimlanes,
+} from "../../src/core/boardConfiguration";
 import { decodeIssue, decodeSprint, type JiraIssue, type JiraSprint } from "../../src/jira/models";
 
 // Fabriques de données FICTIVES, calquées sur la forme des réponses Jira. Équivalent des
@@ -86,19 +90,20 @@ export const STORY_TYPE: IssueTypeConfiguration = {
   id: "10001",
   name: "Story",
   iconUrl: null,
-  category: "SCRUM",
+  category: "GOAL",
   countsAsBug: null,
 };
 
-export const KANBAN_TYPE: IssueTypeConfiguration = {
+export const SWIMLANE_TYPE: IssueTypeConfiguration = {
   id: "10004",
   name: "Anomalie Prod",
   iconUrl: null,
-  category: "KANBAN",
+  category: "SWIMLANE",
   countsAsBug: null,
 };
 
 export function makeConfiguration(parts: Partial<BoardConfiguration> = {}): BoardConfiguration {
+  const issueTypes = parts.issueTypes ?? [STORY_TYPE, SWIMLANE_TYPE];
   return {
     boardId: 1,
     boardName: "Board",
@@ -109,24 +114,22 @@ export function makeConfiguration(parts: Partial<BoardConfiguration> = {}): Boar
     estimationFieldName: "Story Points",
     goalsFieldId: null,
     flaggedFieldId: null,
-    scrumColumns: [
+    columns: [
       column("todo", "To Do", ["1"], 0),
       column("prog", "In Progress", ["3"], 1),
       { ...column("done", "Done", ["6"], 2), isDone: true },
     ],
-    kanbanColumns: [],
-    issueTypes: [STORY_TYPE, KANBAN_TYPE],
+    issueTypes,
+    ticketSwimlanes: normalizeSwimlanes(issueTypes, []),
     blockedLabels: [],
     agingThresholdDays: 3,
     autoRefreshSeconds: null,
     dailyMinutes: 15,
-    dailyKanbanStockLimit: 3,
-    showKanbanSection: true,
+    dailyStockLimit: 3,
     hiddenGoalIds: [],
     blockOrder: [],
     collapsedBlockIds: [],
     buildSectionLabel: "Build",
-    kanbanSectionLabel: "Kanban",
     goalSource: "sprintText",
     goalColorIndex: {},
     cardFields: [],

@@ -31,7 +31,7 @@ async function twoBoards() {
 }
 
 const keys = (board: BoardModel) =>
-  [...(board.snapshot.value?.scrumIssues ?? [])].map((issue) => issue.issue.key).sort();
+  [...(board.snapshot.value?.goalIssues ?? [])].map((issue) => issue.issue.key).sort();
 
 describe("BoardModel — plusieurs boards", () => {
   it("les boards ajoutés sont listés par nom ; le dernier ajouté est affiché", async () => {

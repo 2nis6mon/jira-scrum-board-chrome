@@ -99,7 +99,7 @@ describe("familles des sous-tâches", () => {
     const cards = assembleBoardIssues({
       issues: [makeIssue("ABC-1", { parent: "EPIC-1" }), decode(subtaskJson("ABC-2", "ABC-1"))],
       configuration,
-      columns: configuration.scrumColumns,
+      columns: configuration.columns,
       links: {},
       now: NOW,
     });
@@ -116,7 +116,7 @@ describe("avancement des sous-tâches", () => {
     const [card] = assembleBoardIssues({
       issues: [decode(issue)],
       configuration,
-      columns: configuration.scrumColumns,
+      columns: configuration.columns,
       links: {},
       subtaskIssues: new Map(sprintSubtasks.map((json) => [json.key as string, decode(json)])),
       now: NOW,
@@ -214,13 +214,13 @@ describe("board complet", () => {
       subtaskJson("ABC-2", "ABC-1", { category: "done" }),
       subtaskJson("ABC-3", "ABC-1"),
     ]);
-    expect(snapshot.scrumIssues.map((issue) => [issue.issue.key, issue.goalId])).toEqual([
+    expect(snapshot.goalIssues.map((issue) => [issue.issue.key, issue.goalId])).toEqual([
       ["ABC-1", "g-1"],
       ["ABC-2", "g-1"],
       ["ABC-3", "g-1"],
     ]);
     // La story garde l'avancement de ses sous-tâches ; chacune compte comme un ticket.
-    expect(snapshot.scrumIssues[0]?.subtasks.map((sub) => sub.key)).toEqual(["ABC-2", "ABC-3"]);
+    expect(snapshot.goalIssues[0]?.subtasks.map((sub) => sub.key)).toEqual(["ABC-2", "ABC-3"]);
     expect(sprintMetrics(snapshot, 99).totalIssues).toBe(3);
   });
 
@@ -233,7 +233,7 @@ describe("board complet", () => {
       }),
       subtaskJson("RUN-2", "RUN-1"),
     ]);
-    expect(snapshot.kanbanIssues.map((issue) => issue.issue.key)).toEqual(["RUN-1", "RUN-2"]);
-    expect(snapshot.scrumIssues).toEqual([]);
+    expect(snapshot.swimlaneIssues.map((issue) => issue.issue.key)).toEqual(["RUN-1", "RUN-2"]);
+    expect(snapshot.goalIssues).toEqual([]);
   });
 });

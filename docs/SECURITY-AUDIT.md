@@ -223,8 +223,8 @@ avant de le coller ailleurs.
   mode texte, date et identifiant de compte de la dernière modification. C'est le format partagé
   avec le Mac. Lisible par qui voit le sprint.
 - **Propriété du board** (E6) : réglages du board (colonnes, types, labels, couleurs, ordre des
-  swimlanes, objectifs masqués, champs des cartes, règles de couleur et leur JQL, noms de Build et
-  Kanban, réglages de la daily), date de la dernière modification. Depuis 0.22.0, écrite à chaque
+  swimlanes, objectifs masqués, champs des cartes, règles de couleur et leur JQL, nom de Build,
+  swimlanes par type — nom et types regroupés, 0.23.0 —, réglages de la daily), date de la dernière modification. Depuis 0.22.0, écrite à chaque
   modification d'un de ces réglages, sur la version relue juste avant, une seule tentative ; la
   lecture du droit `canEdit` (`GET /rest/agile/1.0/board?expand=permissions`) masque ces réglages
   à qui ne peut pas modifier le board, et un refus de Jira fait de même. **S6** : elle contient aussi le nom affiché et l'identifiant de compte de la

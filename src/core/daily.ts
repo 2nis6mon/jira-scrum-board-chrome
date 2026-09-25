@@ -23,14 +23,17 @@ export interface DailySession {
   readonly stepIndex: number;
   /** Temps de daily écoulé à l'arrivée sur l'étape, pauses exclues. */
   readonly stepEnteredAt: number;
-  /** Stock du Kanban déplié par « + N autres » ; il le reste jusqu'à la fin de la daily. */
-  readonly kanbanStockExpanded: boolean;
+  /**
+   * Swimlanes (identifiants de bloc) dont le stock a été déplié par « + N autres » ; elles le
+   * restent jusqu'à la fin de la daily.
+   */
+  readonly expandedStockIds: readonly string[];
 }
 
 export type DailyPhase = "running" | "ending" | "overtime";
 
 /**
- * Étapes de la daily : les swimlanes affichées, dans l'ordre du board (Build et Kanban compris, à leur
+ * Étapes de la daily : les swimlanes affichées, dans l'ordre du board (Build et swimlanes par type compris, à leur
  * place). Les objectifs masqués n'y sont déjà plus ; les swimlanes sans ticket affiché sont sautées.
  */
 export function dailySteps(lanes: readonly Lane[]): readonly Lane[] {
@@ -51,7 +54,7 @@ export function startDaily(
     stepId: firstStepId,
     stepIndex: 0,
     stepEnteredAt: 0,
-    kanbanStockExpanded: false,
+    expandedStockIds: [],
   };
 }
 
@@ -131,11 +134,21 @@ export function formatDailyElapsed(elapsedMs: number): string {
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+/** Déplie le stock d'une swimlane, ou le replie. */
+export function toggleStockExpanded(session: DailySession, laneId: string): DailySession {
+  const ids = session.expandedStockIds;
+  return {
+    ...session,
+    expandedStockIds: ids.includes(laneId) ? ids.filter((id) => id !== laneId) : [...ids, laneId],
+  };
+}
+
 /**
- * Cartes d'une case à afficher en daily : dans la première colonne du Kanban, les `limit` premières
- * dans l'ordre de Jira (le rang), tant que le stock n'est pas déplié. `hidden` : les autres.
+ * Cartes d'une case à afficher en daily : dans la première colonne de chaque swimlane (objectifs,
+ * Build et swimlanes par type — demande de Denis du 25/09/2026), les `limit` premières dans l'ordre
+ * de Jira (le rang), tant que le stock n'est pas déplié. `hidden` : les autres.
  */
-export function cappedKanbanStock<T>(
+export function cappedStock<T>(
   issues: readonly T[],
   limit: number,
   expanded: boolean,

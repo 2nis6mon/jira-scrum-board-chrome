@@ -1,9 +1,9 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Dernière mise à jour : **24 septembre 2026**  
-Branche décrite : **`codex/reglages-automatiques`** (issue de `main` le 24/09/2026)  
-Produit autonome : **0.22.7**  
-Prototype d’intégration Jira : **0.22.7.2**
+Dernière mise à jour : **25 septembre 2026**  
+Branche décrite : **`codex/swimlanes-par-type`** (issue de `main` le 25/09/2026)  
+Produit autonome : **0.23.0**  
+Prototype d’intégration Jira : **0.23.0.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -23,8 +23,11 @@ L’extension fournit une vue Scrum centrée sur les objectifs :
 - les tickets des sprints actifs sont organisés par **Goal Atlassian** ;
 - chaque Goal devient une swimlane ;
 - les tickets sans Goal visible rejoignent **Build** ;
-- les types traités en mode Kanban sont regroupés dans la swimlane **Kanban** (nom réglable et
-  partagé avec l’équipe, par exemple « Run » ; « RUN » jusqu’en 0.20.2, anciens réglages relus) ;
+- les tickets hors objectifs sont rangés dans des **swimlanes par type** (0.23.0) : chacune
+  regroupe un ou plusieurs types de tickets (par exemple « RUN » : Anomalie Prod et Anomalie de
+  Recette ; « OPS » : Demande de configuration et Demande de service). Son nom est celui de ses
+  types tant qu’on ne le change pas. Réglages partagés avec l’équipe ; l’ancienne swimlane
+  Kanban (« RUN » jusqu’en 0.20.2) est relue comme une swimlane par type ;
 - les colonnes, statuts, transitions, types, filtres rapides et limites WIP viennent du board Jira ;
 - Jira reste la source de vérité ;
 - le board ne prend en charge que les **boards Scrum**. Les boards Kanban sont explicitement hors
@@ -49,7 +52,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.22.7`  
+Version : `0.23.0`  
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -71,7 +74,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.22.7.2`  
+Version générée : `0.23.0.2`  
 Nom : celui du paquet autonome (depuis le 24/09/2026)
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -195,7 +198,18 @@ de Jira.
 - `DIAGNOSTIC_ENABLED` (`AdminView.tsx`, 0.22.7) peut masquer le diagnostic, mais reste à `true` :
   le bandeau « Invalid CORS request » y renvoie. À `false`, un compte sans droit sur le board n’a
   plus d’administration du tout, seulement la déconnexion.
-- `columnLoad` compte tous les tickets de la colonne, Kanban compris (0.22.7, choix de Denis).
+- `columnLoad` compte tous les tickets de la colonne, swimlanes par type comprises (0.22.7, choix
+  de Denis).
+- Swimlanes par type (0.23.0, demande de Denis du 25/09/2026) : un type de ticket est « par
+  objectif », dans une swimlane par type (`TicketSwimlane` de `core/boardConfiguration.ts`), ou
+  ignoré. Une seule série de colonnes pour tout le board (`columns`). Administration → Board →
+  « Types de tickets et swimlanes » : un bloc par groupe, un menu « Déplacer vers » par type ; une
+  swimlane naît de son premier type et disparaît avec le dernier ; nom vide = noms des types
+  réunis (`swimlaneName`). Une carte d’une swimlane par type ne se dépose que dans la sienne.
+  Compatibilité 0.22.7 (collègues sur le même board) : la propriété du board garde les anciennes
+  clés, DÉDUITES (`kanbanColumns`, `showKanbanSection`, `kanbanSectionLabel`,
+  `dailyKanbanStockLimit`, catégories `SCRUM`/`KANBAN`), et ajoute `ticketSwimlanes` et
+  `dailyStockLimit`, que la 0.22.7 réécrit telles quelles (`core/teamSettings.ts`).
 - Épinglage des Goals au sprint directement dans Administration → Objectifs, sans fenêtre
   (0.22.4). « Goals associés au board » n’existe plus. Depuis 0.22.5, une seule section
   « Objectifs du sprint » (`SprintGoalsPanel.tsx`) : couleur, masquage et épinglage par objectif.
@@ -206,10 +220,10 @@ de Jira.
 - Mode Daily (0.20.0, choix de Denis du 24/09/2026). Bouton ▶ de l’en-tête : plein écran du
   navigateur (demandé au clic ; refusé, la daily se déroule dans la fenêtre), mise en page de la
   présentation, UNE swimlane à la fois. Étapes = swimlanes affichées dans l’ordre du board, Build
-  et Kanban compris, objectifs masqués et swimlanes sans ticket affiché sautés (`core/daily.ts`).
+  et swimlanes par type comprises, objectifs masqués et swimlanes sans ticket affiché sautés (`core/daily.ts`).
   Barre de daily, dans cet ordre (0.20.1) : minuteur global (orange dans les 2 dernières minutes,
   rouge avec le dépassement « +mm:ss » ensuite, jamais d’arrêt ni de son), Précédent, Suivant,
-  swimlane présentée (objectif, Build ou Kanban) avec le temps passé dessus, « En pause » s’il y a
+  swimlane présentée (objectif, Build ou swimlane par type) avec le temps passé dessus, « En pause » s’il y a
   lieu ; à droite pause, plein écran, Terminer. Clavier : ← →, Espace, Échap (en plein écran, Échap
   appartient au navigateur : il en sort et la daily continue). Le temps est recalculé depuis
   l’heure de départ, pauses exclues. Les cartes restent déplaçables (mêmes transitions et rangs,
@@ -217,16 +231,16 @@ de Jira.
   étant affichée. Les filtres restent ceux de l’utilisateur ; le repli enregistré des swimlanes
   n’est pas touché. Durée : section Board de l’administration, 15 min par défaut, de 1 à 120,
   locale au board (`dailyMinutes`), jamais dans les réglages d’équipe. Rien n’est enregistré de la
-  séance : recharger la page l’arrête. Stock Kanban (0.20.2) : en daily, la première colonne
-  Kanban n’affiche que ses N premières cartes dans l’ordre de Jira (`dailyKanbanStockLimit`, 3 par
-  défaut, réglable dans la section Board), puis « + N autres » qui déplie jusqu’à la fin de la
-  daily. Dans le prototype, l’iframe injectée porte
+  séance : recharger la page l’arrête. Stock (0.20.2, étendu à toutes les swimlanes en 0.23.0) :
+  en daily, la première colonne de chaque swimlane n’affiche que ses N premières cartes dans
+  l’ordre de Jira (`dailyStockLimit`, 3 par défaut, réglable dans la section Board), puis
+  « + N autres », qui déplie cette swimlane seule jusqu’à la fin de la daily. Dans le prototype, l’iframe injectée porte
   `allow="fullscreen"` (attribut HTML, pas une permission Chrome).
 - L’administration se déplie dans la barre latérale, sous son bouton, dans le gris de la barre ;
   elle se replie au second clic ou dès qu’une autre entrée de la barre est choisie.
 - Sous-tâches (0.19.20, choix de Denis). Chacune garde sa carte, mais suit sa story : sans Goal
   propre, elle prend celui de son parent, et quand le parent est sur le board elle va dans le même
-  bloc que lui, Scrum ou Kanban (`subtaskFamilies`, `core/boardSync.ts`). Elles comptent comme des
+  bloc que lui, par objectif ou sa swimlane par type (`subtaskFamilies`, `core/boardSync.ts`). Elles comptent comme des
   tickets (colonnes, limites WIP, en-tête, santé du sprint, avancement et Goals atteints). Survoler
   une story ou une de ses sous-tâches entoure de rouge et éclaire toute la famille (`familyKey`,
   classe `card-family`), seulement si la famille a au moins deux cartes affichées et hors glissé.

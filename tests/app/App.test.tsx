@@ -114,7 +114,7 @@ describe("App", () => {
       "Finaliser le parcours de paiement",
       "Améliorer la stabilité",
       "Build",
-      "Kanban",
+      "Anomalie Prod",
     ]);
     expect(cardKeys()).toEqual(["ABC-102", "ABC-101", "ABC-103", "ABC-105", "ABC-104", "RUN-7"]);
 
@@ -342,7 +342,7 @@ describe("App", () => {
       "Finaliser le parcours de paiement",
       "Améliorer la stabilité",
       "Build",
-      "Kanban",
+      "Anomalie Prod",
     ]);
     expect(menuButton("Finaliser le parcours de paiement", "Monter").disabled).toBe(true);
 
@@ -409,14 +409,14 @@ describe("App", () => {
     const validate = (input: HTMLInputElement) =>
       input.dispatchEvent(new Event("change", { bubbles: true }));
 
-    const name = field("Nom de la colonne À faire (Scrum)");
+    const name = field("Nom de la colonne À faire");
     type(name, "À prendre");
     await tick();
     // Rien n'est enregistré pendant la frappe.
-    expect(field("Nom de la colonne À faire (Scrum)")).toBe(name);
+    expect(field("Nom de la colonne À faire")).toBe(name);
     validate(name);
     await tick();
-    const wip = field("Limite WIP de À prendre (Scrum)");
+    const wip = field("Limite WIP de À prendre");
 
     type(wip, "abc");
     validate(wip);

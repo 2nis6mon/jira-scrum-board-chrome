@@ -507,7 +507,7 @@ function LaneRow(props: {
   const completed = goal !== null && lane.count > 0 && lane.done === lane.count;
   // Ordre et objectifs masqués sont des réglages partagés : sans droit sur le board, ni glissé ni œil.
   const editable = board.canEditSettings.value;
-  const icon: IconName | null = lane.block.kind === "kanban" ? "kanban" : goal ? null : "build";
+  const icon: IconName | null = lane.block.kind === "swimlane" ? "kanban" : goal ? null : "build";
   return (
     <div
       class={`sidebar-lane sidebar-lane-${lane.block.kind}${completed ? " sidebar-lane-completed" : ""}${props.dragging ? " lane-dragging" : ""}`}

@@ -1,29 +1,34 @@
 import type { SprintGoal } from "./sprintGoals";
 
 /**
- * Bloc affichable du board : la swimlane d'un objectif, Build (tickets du sprint sans objectif)
- * ou Kanban. L'ordre des blocs est une préférence LOCALE : rien n'est écrit dans Jira.
+ * Bloc affichable du board : la swimlane d'un objectif, Build (tickets par objectif sans objectif)
+ * ou une swimlane par type (`TicketSwimlane`).
  */
 export type BoardBlock =
   | { readonly kind: "goal"; readonly goalId: string }
   | { readonly kind: "build" }
-  | { readonly kind: "kanban" };
+  | { readonly kind: "swimlane"; readonly swimlaneId: string };
 
 export const BUILD_BLOCK: BoardBlock = { kind: "build" };
-export const KANBAN_BLOCK: BoardBlock = { kind: "kanban" };
 
 export function goalBlock(goalId: string): BoardBlock {
   return { kind: "goal", goalId };
 }
 
-/** Forme enregistrée d'un bloc : `goal:<id>`, `build` ou `run`. */
+export function swimlaneBlock(swimlaneId: string): BoardBlock {
+  return { kind: "swimlane", swimlaneId };
+}
+
+/** Forme enregistrée d'un bloc : `goal:<id>`, `build` ou `swimlane:<id>`. */
 export function blockIdentifier(block: BoardBlock): string {
-  return block.kind === "goal" ? `goal:${block.goalId}` : block.kind;
+  if (block.kind === "goal") return `goal:${block.goalId}`;
+  return block.kind === "swimlane" ? `swimlane:${block.swimlaneId}` : "build";
 }
 
 export function parseBlockIdentifier(identifier: string): BoardBlock | null {
   if (identifier === "build") return BUILD_BLOCK;
-  if (identifier === "kanban") return KANBAN_BLOCK;
+  if (identifier.startsWith("swimlane:"))
+    return swimlaneBlock(identifier.slice("swimlane:".length));
   if (!identifier.startsWith("goal:")) return null;
   return goalBlock(identifier.slice("goal:".length));
 }
@@ -58,17 +63,17 @@ export function shiftBlock(id: string, offset: number, order: readonly string[])
  * - Aucun filtre : toutes les swimlanes restent visibles, même vides — un objectif sans ticket
  *   doit se voir, et Build sert de cible de dépôt.
  *
- * Le bloc Kanban fait exception dans le second cas : il n'apparaît que si le sprint contient des
- * tickets Kanban.
+ * Une swimlane par type fait exception dans le second cas : elle n'apparaît que si le sprint
+ * contient de ses tickets.
  */
 export function displayedBlocks(input: {
   blocks: readonly BoardBlock[];
   filtersActive: boolean;
   filteredCount: (block: BoardBlock) => number;
-  sprintHasKanbanIssues: boolean;
+  totalCount: (block: BoardBlock) => number;
 }): BoardBlock[] {
   return input.blocks.filter((block) => {
-    if (block.kind === "kanban" && !input.sprintHasKanbanIssues) return false;
+    if (block.kind === "swimlane" && input.totalCount(block) === 0) return false;
     return input.filtersActive ? input.filteredCount(block) > 0 : true;
   });
 }
@@ -76,20 +81,20 @@ export function displayedBlocks(input: {
 /**
  * Construit la liste ordonnée des blocs à afficher.
  *
- * L'ordre est entièrement manuel : objectifs, Build et Kanban se placent où l'utilisateur les a
- * mis. Un objectif apparu depuis rejoint les autres objectifs, juste après le dernier. Build et
- * Kanban absents de l'ordre enregistré vont en bas, dans cet ordre.
- *
- * (L'app Mac garde en plus un mode de compatibilité pour les ordres enregistrés avant sa 2.2,
- * où Build et Kanban ne se déplaçaient pas. L'extension n'a pas cet historique.)
+ * L'ordre est entièrement manuel : objectifs, Build et swimlanes par type se placent où
+ * l'utilisateur les a mis. Un objectif apparu depuis rejoint les autres objectifs, juste après le
+ * dernier. Build puis les swimlanes par type absents de l'ordre enregistré vont en bas, dans l'ordre
+ * de `swimlaneIds`.
  */
 export function resolveBlocks(input: {
   goals: readonly SprintGoal[];
   storedOrder: readonly string[];
   includeBuild: boolean;
-  includeKanban: boolean;
+  /** Swimlanes par type affichées (non masquées), dans leur ordre de création. */
+  swimlaneIds: readonly string[];
 }): BoardBlock[] {
   const known = new Set(input.goals.map((goal) => goal.id));
+  const swimlanes = new Set(input.swimlaneIds);
   const placed = new Set<string>();
   const blocks: BoardBlock[] = [];
 
@@ -99,7 +104,7 @@ export function resolveBlocks(input: {
     const kept =
       (block.kind === "goal" && known.has(block.goalId)) ||
       (block.kind === "build" && input.includeBuild) ||
-      (block.kind === "kanban" && input.includeKanban);
+      (block.kind === "swimlane" && swimlanes.has(block.swimlaneId));
     if (!kept) continue;
     blocks.push(block);
     placed.add(identifier);
@@ -113,6 +118,9 @@ export function resolveBlocks(input: {
   blocks.splice(lastGoalIndex + 1, 0, ...newGoals);
 
   if (input.includeBuild && !placed.has("build")) blocks.push(BUILD_BLOCK);
-  if (input.includeKanban && !placed.has("kanban")) blocks.push(KANBAN_BLOCK);
+  for (const id of input.swimlaneIds) {
+    const block = swimlaneBlock(id);
+    if (!placed.has(blockIdentifier(block))) blocks.push(block);
+  }
   return blocks;
 }

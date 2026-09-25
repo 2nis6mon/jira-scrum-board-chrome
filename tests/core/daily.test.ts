@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { decodeStoredConfiguration, mergeConfiguration } from "../../src/core/boardConfiguration";
 import type { Lane } from "../../src/core/boardLayout";
+import { withDailyMinutes, withDailyStockLimit } from "../../src/core/boardSettings";
 import {
-  withDailyKanbanStockLimit,
-  withDailyMinutes,
-  withKanbanLabel,
-} from "../../src/core/boardSettings";
-import {
-  cappedKanbanStock,
+  cappedStock,
   currentStepIndex,
   dailyElapsed,
   dailyPhase,
@@ -19,6 +15,7 @@ import {
   startDaily,
   stepElapsed,
   toggleDailyPause,
+  toggleStockExpanded,
 } from "../../src/core/daily";
 import { makeConfiguration } from "../support/jiraFixtures";
 
@@ -115,60 +112,103 @@ describe("durée de la daily", () => {
   });
 });
 
-describe("stock du Kanban en daily", () => {
+describe("stock en daily, dans chaque swimlane", () => {
   it("les premières cartes dans l'ordre reçu (le rang de Jira), le reste caché jusqu'au dépliage", () => {
-    expect(cappedKanbanStock([1, 2, 3, 4, 5], 3, false)).toEqual({
+    expect(cappedStock([1, 2, 3, 4, 5], 3, false)).toEqual({
       shown: [1, 2, 3],
       hidden: [4, 5],
     });
-    expect(cappedKanbanStock([1, 2, 3, 4, 5], 3, true)).toEqual({
+    expect(cappedStock([1, 2, 3, 4, 5], 3, true)).toEqual({
       shown: [1, 2, 3, 4, 5],
       hidden: [],
     });
-    expect(cappedKanbanStock([1, 2], 3, false)).toEqual({ shown: [1, 2], hidden: [] });
+    expect(cappedStock([1, 2], 3, false)).toEqual({ shown: [1, 2], hidden: [] });
+  });
+
+  it("chaque swimlane se déplie et se replie seule, jusqu'à la fin de la daily", () => {
+    const session = startDaily(15, "goal:g1", T0);
+    expect(session.expandedStockIds).toEqual([]);
+    const opened = toggleStockExpanded(toggleStockExpanded(session, "goal:g1"), "swimlane:1");
+    expect(opened.expandedStockIds).toEqual(["goal:g1", "swimlane:1"]);
+    expect(toggleStockExpanded(opened, "goal:g1").expandedStockIds).toEqual(["swimlane:1"]);
   });
 
   it("3 cartes par défaut, réglable de 1 à 50, gardé à la relecture de Jira", () => {
     const config = makeConfiguration();
-    const set = withDailyKanbanStockLimit(config, "5");
-    expect(set.ok && set.configuration.dailyKanbanStockLimit).toBe(5);
+    const set = withDailyStockLimit(config, "5");
+    expect(set.ok && set.configuration.dailyStockLimit).toBe(5);
     for (const raw of ["", "0", "51", "trois", "2.5"]) {
-      expect(withDailyKanbanStockLimit(config, raw).ok).toBe(false);
+      expect(withDailyStockLimit(config, raw).ok).toBe(false);
     }
-    expect(
-      mergeConfiguration(config, { ...config, dailyKanbanStockLimit: 5 }).dailyKanbanStockLimit,
-    ).toBe(5);
+    expect(mergeConfiguration(config, { ...config, dailyStockLimit: 5 }).dailyStockLimit).toBe(5);
     const stored = JSON.parse(JSON.stringify(makeConfiguration()));
-    delete stored.dailyKanbanStockLimit;
-    expect(decodeStoredConfiguration(stored)?.dailyKanbanStockLimit).toBe(3);
+    delete stored.dailyStockLimit;
+    expect(decodeStoredConfiguration(stored)?.dailyStockLimit).toBe(3);
   });
 });
 
-describe("configuration enregistrée avant 0.21.0 (RUN devenu Kanban)", () => {
-  it("anciennes clés relues ; nom Kanban par défaut, réglable", () => {
+describe("configurations enregistrées avant les swimlanes par type (0.23.0)", () => {
+  const legacy = () => {
     const stored = JSON.parse(JSON.stringify(makeConfiguration()));
-    stored.runColumns = stored.kanbanColumns;
-    delete stored.kanbanColumns;
+    stored.scrumColumns = stored.columns;
+    delete stored.columns;
+    delete stored.ticketSwimlanes;
+    delete stored.dailyStockLimit;
+    return stored;
+  };
+
+  it("avant 0.21.0 (RUN) : une swimlane par type « 1 », masquage et place dans l'ordre gardés", () => {
+    const stored = legacy();
+    stored.runColumns = stored.scrumColumns;
     stored.showRunSection = false;
-    delete stored.showKanbanSection;
     stored.dailyRunStockLimit = 7;
-    delete stored.dailyKanbanStockLimit;
-    delete stored.kanbanSectionLabel;
     stored.blockOrder = ["goal:g1", "run", "build"];
     stored.collapsedBlockIds = ["run"];
     stored.issueTypes = [
       { id: "10004", name: "Anomalie Prod", category: "RUN", countsAsBug: null },
     ];
     const decoded = decodeStoredConfiguration(stored);
-    expect(decoded?.kanbanColumns).toEqual(makeConfiguration().kanbanColumns);
-    expect(decoded?.showKanbanSection).toBe(false);
-    expect(decoded?.dailyKanbanStockLimit).toBe(7);
-    expect(decoded?.blockOrder).toEqual(["goal:g1", "kanban", "build"]);
-    expect(decoded?.collapsedBlockIds).toEqual(["kanban"]);
-    expect(decoded?.issueTypes[0]?.category).toBe("KANBAN");
-    expect(decoded?.kanbanSectionLabel).toBe("Kanban");
-    const config = makeConfiguration();
-    expect(withKanbanLabel(config, " Run ").kanbanSectionLabel).toBe("Run");
-    expect(withKanbanLabel(config, "  ").kanbanSectionLabel).toBe("Kanban");
+    expect(decoded?.columns).toEqual(makeConfiguration().columns);
+    expect(decoded?.ticketSwimlanes).toEqual([
+      { id: "1", name: "", typeIds: ["10004"], hidden: true },
+    ]);
+    expect(decoded?.dailyStockLimit).toBe(7);
+    expect(decoded?.blockOrder).toEqual(["goal:g1", "swimlane:1", "build"]);
+    expect(decoded?.collapsedBlockIds).toEqual(["swimlane:1"]);
+    expect(decoded?.issueTypes[0]?.category).toBe("SWIMLANE");
+  });
+
+  it("0.21–0.22 (Kanban) : un nom changé est gardé, « Kanban » laisse place au nom calculé", () => {
+    const stored = legacy();
+    stored.kanbanColumns = stored.scrumColumns;
+    stored.showKanbanSection = true;
+    stored.kanbanSectionLabel = "Run";
+    stored.dailyKanbanStockLimit = 4;
+    stored.blockOrder = ["kanban", "build"];
+    stored.issueTypes = [
+      { id: "10001", name: "Story", category: "SCRUM", countsAsBug: null },
+      { id: "10004", name: "Anomalie Prod", category: "KANBAN", countsAsBug: null },
+      { id: "10005", name: "Anomalie de Recette", category: "KANBAN", countsAsBug: null },
+    ];
+    const decoded = decodeStoredConfiguration(stored);
+    expect(decoded?.ticketSwimlanes).toEqual([
+      { id: "1", name: "Run", typeIds: ["10004", "10005"], hidden: false },
+    ]);
+    expect(decoded?.issueTypes.map((type) => type.category)).toEqual([
+      "GOAL",
+      "SWIMLANE",
+      "SWIMLANE",
+    ]);
+    expect(decoded?.dailyStockLimit).toBe(4);
+    expect(decoded?.blockOrder).toEqual(["swimlane:1", "build"]);
+
+    stored.kanbanSectionLabel = "Kanban";
+    expect(decodeStoredConfiguration(stored)?.ticketSwimlanes[0]?.name).toBe("");
+  });
+
+  it("aucun type hors objectifs : aucune swimlane par type", () => {
+    const stored = legacy();
+    stored.issueTypes = [{ id: "10001", name: "Story", category: "SCRUM", countsAsBug: null }];
+    expect(decodeStoredConfiguration(stored)?.ticketSwimlanes).toEqual([]);
   });
 });

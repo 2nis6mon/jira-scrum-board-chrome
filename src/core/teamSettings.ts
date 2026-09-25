@@ -8,6 +8,9 @@ import {
   decodeStoredConfiguration,
   type GoalSource,
   type IssueCategory,
+  normalizeSwimlanes,
+  swimlaneName,
+  type TicketSwimlane,
 } from "./boardConfiguration";
 import type { JiraWriter } from "./boardWrites";
 import type { CardColorRule } from "./cardColors";
@@ -34,23 +37,49 @@ export interface TeamColumn {
   readonly wipLimit: number | null;
 }
 
+/**
+ * Mode d'un type tel qu'il est ÉCRIT dans la propriété du board : les mots d'avant 0.23.0, que la
+ * 0.22.7 comprend encore (`SCRUM` = par objectif, `KANBAN` = dans une swimlane par type).
+ */
+export type TeamCategory = "SCRUM" | "KANBAN" | "IGNORED";
+
+const WRITTEN_CATEGORY: Record<IssueCategory, TeamCategory> = {
+  GOAL: "SCRUM",
+  SWIMLANE: "KANBAN",
+  IGNORED: "IGNORED",
+};
+
 export interface TeamIssueType {
   readonly id: string;
   readonly name: string;
-  readonly category: IssueCategory;
+  readonly category: TeamCategory;
   readonly countsAsBug: boolean | null;
 }
 
+/**
+ * Réglages tels qu'ils sont écrits dans Jira. Depuis 0.23.0, des collègues peuvent encore utiliser la
+ * 0.22.7 sur le même board : elle exige `scrumColumns` et `kanbanColumns`, et réécrit telles quelles
+ * les clés qu'elle ne connaît pas (`ticketSwimlanes`, `dailyStockLimit`). Les champs marqués
+ * « 0.22.7 » sont donc DÉDUITS des autres, écrits pour elle et jamais relus quand
+ * `ticketSwimlanes` est là : elle y voit une seule swimlane Kanban qui réunit tous ces tickets.
+ */
 export interface TeamSettings {
+  /** Colonnes du board (nom de clé d'avant 0.23.0, gardé). */
   readonly scrumColumns: readonly TeamColumn[];
+  /** 0.22.7 : copie de `scrumColumns`. */
   readonly kanbanColumns: readonly TeamColumn[];
   readonly issueTypes: readonly TeamIssueType[];
+  readonly ticketSwimlanes: readonly TicketSwimlane[];
+  /** 0.22.7 : au moins une swimlane par type affichée. */
   readonly showKanbanSection: boolean;
   readonly buildSectionLabel: string;
+  /** 0.22.7 : noms des swimlanes par type, réunis. */
   readonly kanbanSectionLabel: string;
   readonly agingThresholdDays: number;
-  /** Daily : durée du minuteur et cartes du stock Kanban (même daily pour toute l'équipe). */
+  /** Daily : durée du minuteur et cartes du stock (même daily pour toute l'équipe). */
   readonly dailyMinutes: number;
+  readonly dailyStockLimit: number;
+  /** 0.22.7 : copie de `dailyStockLimit`. */
   readonly dailyKanbanStockLimit: number;
   readonly blockedLabels: readonly string[];
   readonly goalSource: GoalSource;
@@ -65,11 +94,13 @@ const SETTINGS_KEYS = [
   "scrumColumns",
   "kanbanColumns",
   "issueTypes",
+  "ticketSwimlanes",
   "showKanbanSection",
   "buildSectionLabel",
   "kanbanSectionLabel",
   "agingThresholdDays",
   "dailyMinutes",
+  "dailyStockLimit",
   "dailyKanbanStockLimit",
   "blockedLabels",
   "goalSource",
@@ -104,22 +135,35 @@ export interface TeamDocument {
 // ─── Configuration ↔ réglages d'équipe ───────────────────────────────────────
 
 export function teamSettingsOf(configuration: BoardConfiguration): TeamSettings {
-  const columns = (list: readonly ColumnConfiguration[]) =>
-    list.map(({ id, name, hidden, wipLimit }) => ({ id, name, hidden, wipLimit }));
+  const columns = configuration.columns.map(({ id, name, hidden, wipLimit }) => ({
+    id,
+    name,
+    hidden,
+    wipLimit,
+  }));
+  const swimlanes = configuration.ticketSwimlanes;
   return {
-    scrumColumns: columns(configuration.scrumColumns),
-    kanbanColumns: columns(configuration.kanbanColumns),
+    scrumColumns: columns,
+    kanbanColumns: columns,
     issueTypes: configuration.issueTypes.map(({ id, name, category, countsAsBug }) => ({
       id,
       name,
-      category,
+      category: WRITTEN_CATEGORY[category],
       countsAsBug,
     })),
-    showKanbanSection: configuration.showKanbanSection,
+    ticketSwimlanes: swimlanes.map(({ id, name, typeIds, hidden }) => ({
+      id,
+      name,
+      typeIds: [...typeIds],
+      hidden,
+    })),
+    showKanbanSection: swimlanes.some((swimlane) => !swimlane.hidden),
     buildSectionLabel: configuration.buildSectionLabel,
-    kanbanSectionLabel: configuration.kanbanSectionLabel,
+    kanbanSectionLabel:
+      swimlanes.map((swimlane) => swimlaneName(configuration, swimlane)).join(" / ") || "Kanban",
     dailyMinutes: configuration.dailyMinutes,
-    dailyKanbanStockLimit: configuration.dailyKanbanStockLimit,
+    dailyStockLimit: configuration.dailyStockLimit,
+    dailyKanbanStockLimit: configuration.dailyStockLimit,
     agingThresholdDays: configuration.agingThresholdDays,
     blockedLabels: [...configuration.blockedLabels],
     goalSource: configuration.goalSource,
@@ -152,21 +196,20 @@ export function withTeamSettings(
         wipLimit: shared.wipLimit,
       };
     });
+  const issueTypes = configuration.issueTypes.map((type) => {
+    const shared = settings.issueTypes.find((candidate) => candidate.id === type.id);
+    return shared
+      ? { ...type, category: readCategory(shared.category), countsAsBug: shared.countsAsBug }
+      : type;
+  });
   return {
     ...configuration,
-    scrumColumns: columns(configuration.scrumColumns, settings.scrumColumns),
-    kanbanColumns: columns(configuration.kanbanColumns, settings.kanbanColumns),
-    issueTypes: configuration.issueTypes.map((type) => {
-      const shared = settings.issueTypes.find((candidate) => candidate.id === type.id);
-      return shared
-        ? { ...type, category: shared.category, countsAsBug: shared.countsAsBug }
-        : type;
-    }),
-    showKanbanSection: settings.showKanbanSection,
+    columns: columns(configuration.columns, settings.scrumColumns),
+    issueTypes,
+    ticketSwimlanes: normalizeSwimlanes(issueTypes, settings.ticketSwimlanes),
     buildSectionLabel: settings.buildSectionLabel,
-    kanbanSectionLabel: settings.kanbanSectionLabel,
     dailyMinutes: settings.dailyMinutes,
-    dailyKanbanStockLimit: settings.dailyKanbanStockLimit,
+    dailyStockLimit: settings.dailyStockLimit,
     agingThresholdDays: settings.agingThresholdDays,
     blockedLabels: [...settings.blockedLabels],
     goalSource: settings.goalSource,
@@ -178,16 +221,20 @@ export function withTeamSettings(
   };
 }
 
-/** Familles de réglages, pour dire ce qu'une publication ou une mise à jour change. */
+function readCategory(category: TeamCategory): IssueCategory {
+  return category === "KANBAN" ? "SWIMLANE" : category === "IGNORED" ? "IGNORED" : "GOAL";
+}
+
+/**
+ * Familles de réglages, pour dire ce qu'une publication ou une mise à jour change. Les champs
+ * déduits pour la 0.22.7 n'y sont pas : ils suivent les autres.
+ */
 const FAMILIES: readonly (readonly [string, (settings: TeamSettings) => unknown])[] = [
-  ["Colonnes : noms, affichage, limites WIP", (s) => [s.scrumColumns, s.kanbanColumns]],
-  ["Types de tickets : Scrum, Kanban, ignoré, bug", (s) => s.issueTypes],
-  [
-    "Swimlane Kanban, noms de Build et de Kanban, seuil de vieillissement",
-    (s) => [s.showKanbanSection, s.buildSectionLabel, s.kanbanSectionLabel, s.agingThresholdDays],
-  ],
+  ["Colonnes : noms, affichage, limites WIP", (s) => s.scrumColumns],
+  ["Types de tickets et swimlanes par type", (s) => [s.issueTypes, s.ticketSwimlanes]],
+  ["Nom de Build, seuil de vieillissement", (s) => [s.buildSectionLabel, s.agingThresholdDays]],
   ["Labels de blocage", (s) => s.blockedLabels],
-  ["Daily : durée et stock Kanban", (s) => [s.dailyMinutes, s.dailyKanbanStockLimit]],
+  ["Daily : durée et stock", (s) => [s.dailyMinutes, s.dailyStockLimit]],
   ["Source des objectifs", (s) => s.goalSource],
   ["Couleurs des objectifs", (s) => s.goalColorIndex],
   ["Ordre des swimlanes", (s) => s.blockOrder],

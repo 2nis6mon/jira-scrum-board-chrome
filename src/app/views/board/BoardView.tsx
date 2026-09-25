@@ -18,7 +18,7 @@ import {
 import { type BoardLayout, columnLoad, daysRemaining, type Lane } from "../../../core/boardLayout";
 import { GOAL_COLOR_NAMES } from "../../../core/boardPreferences";
 import {
-  cappedKanbanStock,
+  cappedStock,
   currentStepIndex,
   type DailySession,
   dailyPhase,
@@ -29,6 +29,7 @@ import {
   moveDailyStep,
   stepElapsed,
   toggleDailyPause,
+  toggleStockExpanded,
 } from "../../../core/daily";
 import {
   activeFilterCount,
@@ -146,13 +147,10 @@ export function BoardView({
             dailyStock={
               daily
                 ? {
-                    limit: configuration.dailyKanbanStockLimit,
-                    expanded: daily.kanbanStockExpanded,
-                    onToggle: () =>
-                      controls.onUpdateDaily((current) => ({
-                        ...current,
-                        kanbanStockExpanded: !current.kanbanStockExpanded,
-                      })),
+                    limit: configuration.dailyStockLimit,
+                    expandedIds: daily.expandedStockIds,
+                    onToggle: (laneId: string) =>
+                      controls.onUpdateDaily((current) => toggleStockExpanded(current, laneId)),
                   }
                 : null
             }
@@ -254,17 +252,17 @@ function SprintHeader(props: {
   const remaining = daysRemaining(sprint?.endDate ?? null, new Date());
   const buildLabel = configuration.buildSectionLabel || "Build";
   const buildCount = snapshot
-    ? snapshot.scrumIssues.filter((issue) => displayedGoalId(configuration, issue.goalId) === null)
+    ? snapshot.goalIssues.filter((issue) => displayedGoalId(configuration, issue.goalId) === null)
         .length
     : 0;
   const goals = snapshot?.goals.filter((goal) => !isGoalHidden(configuration, goal.id)) ?? [];
-  const lastColumnId = visibleColumns(configuration.scrumColumns).at(-1)?.id ?? null;
+  const lastColumnId = visibleColumns(configuration.columns).at(-1)?.id ?? null;
   const completedGoals = snapshot
     ? goals.filter(
         (goal) =>
           goalProgress(
             goal,
-            snapshot.scrumIssues.filter((issue) => issue.goalId === goal.id),
+            snapshot.goalIssues.filter((issue) => issue.goalId === goal.id),
             lastColumnId,
           ).state === "completed",
       ).length
@@ -272,7 +270,7 @@ function SprintHeader(props: {
   // Sans historique Jira, on ne sait pas quels tickets ont été ajoutés : on n'affiche pas « 0 ».
   const addedKnown =
     snapshot !== null &&
-    [...snapshot.scrumIssues, ...snapshot.kanbanIssues].some(
+    [...snapshot.goalIssues, ...snapshot.swimlaneIssues].some(
       (issue) => issue.addedAfterSprintStart !== null,
     );
 
@@ -1000,11 +998,12 @@ function FloatingNotice(props: { board: BoardModel; id: NoticeId; children: Comp
 
 // ─── Board ───────────────────────────────────────────────────────────────────
 
-/** Daily : stock de la première colonne du Kanban plafonné, dépliable par un bouton. */
+/** Daily : stock de la première colonne de chaque swimlane plafonné, dépliable par un bouton. */
 interface DailyStock {
   readonly limit: number;
-  readonly expanded: boolean;
-  readonly onToggle: () => void;
+  /** Swimlanes dont le stock est déplié. */
+  readonly expandedIds: readonly string[];
+  readonly onToggle: (laneId: string) => void;
 }
 
 function BoardGrid(props: {
@@ -1123,8 +1122,7 @@ function LaneView(props: {
   const goalsById = new Map(board.snapshot.value?.goals.map((g) => [g.id, g]) ?? []);
   const cardFields = displayedCardFields(configuration);
   const parentColors = board.parentColors.value;
-  const ownColumns =
-    lane.block.kind === "kanban" && !sameColumns(layout.kanbanColumns, layout.columns);
+  const stockExpanded = dailyStock?.expandedIds.includes(lane.id) ?? false;
 
   return (
     <section
@@ -1227,23 +1225,14 @@ function LaneView(props: {
         {progress?.state === "empty" && <span class="lane-progress">Aucun ticket rattaché</span>}
         {!daily && <LaneMenu board={board} lane={lane} />}
       </header>
-      {!lane.collapsed && ownColumns && (
-        <div class="board-row column-band column-band-kanban">
-          {layout.kanbanColumns.map((column) => (
-            <div key={column.id} class="column-head">
-              <span class="column-name">{column.name}</span>
-            </div>
-          ))}
-        </div>
-      )}
       {!lane.collapsed && (
         <div class="board-row lane-cells">
           {lane.cells.map((cell, cellIndex) => {
             const drag = board.dragging.value;
-            // Daily : stock de la première colonne du Kanban plafonné, dans l'ordre de Jira.
+            // Daily : stock de la première colonne plafonné, dans l'ordre de Jira.
             const stock =
-              dailyStock && lane.block.kind === "kanban" && cellIndex === 0
-                ? cappedKanbanStock(cell.issues, dailyStock.limit, dailyStock.expanded)
+              dailyStock && cellIndex === 0
+                ? cappedStock(cell.issues, dailyStock.limit, stockExpanded)
                 : null;
             const shownIssues = stock?.shown ?? cell.issues;
             // Un dépôt après la dernière carte affichée se place avant les cartes cachées.
@@ -1398,7 +1387,7 @@ function LaneView(props: {
                             if (!event.dataTransfer) return;
                             event.dataTransfer.setData(DRAG_TYPE, key);
                             event.dataTransfer.effectAllowed = "move";
-                            board.startDrag(key, issue.category === "KANBAN" ? "kanban" : "scrum");
+                            board.startDrag(key, issue.swimlaneId);
                           }}
                           onDragEnd={() => board.endDrag()}
                         />
@@ -1409,21 +1398,21 @@ function LaneView(props: {
                 {targeted && firstHidden !== null && target?.beforeKey === firstHidden && dropLine}
                 {stock &&
                   dailyStock &&
-                  (stock.hidden.length > 0 || dailyStock.expanded) &&
+                  (stock.hidden.length > 0 || stockExpanded) &&
                   cell.issues.length > dailyStock.limit && (
                     <li class="stock-toggle">
                       <button
                         type="button"
                         class="stock-toggle-button"
-                        aria-expanded={dailyStock.expanded}
+                        aria-expanded={stockExpanded}
                         title={
-                          dailyStock.expanded
+                          stockExpanded
                             ? `N'afficher que les ${dailyStock.limit} premiers dans l'ordre de Jira`
                             : "Afficher tout le stock de cette colonne"
                         }
-                        onClick={dailyStock.onToggle}
+                        onClick={() => dailyStock.onToggle(lane.id)}
                       >
-                        {dailyStock.expanded
+                        {stockExpanded
                           ? "Afficher moins"
                           : `+ ${stock.hidden.length} autre${stock.hidden.length > 1 ? "s" : ""}`}
                       </button>
@@ -1547,10 +1536,6 @@ function insertionPoint(cell: HTMLElement, clientY: number, draggedKey: string):
     if (clientY < box.top + box.height / 2) return key;
   }
   return null;
-}
-
-function sameColumns(a: BoardLayout["columns"], b: BoardLayout["columns"]): boolean {
-  return a.length === b.length && a.every((column, index) => column.id === b[index]?.id);
 }
 
 /** Le rang ne change que près du bord supérieur d'une carte, position explicitement visée. */
