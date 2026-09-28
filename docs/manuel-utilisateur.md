@@ -4,9 +4,12 @@
 > par Sprint Goal. Version couverte par ce manuel : **0.22.7**.
 
 Ce document est prêt à coller dans une page Confluence (titres, listes et texte en gras se
-convertissent automatiquement à l'insertion). Ajoutez le lien de téléchargement du fichier `.zip`
-en haut de la page, avant la section Installation, puis téléversez les 5 captures d'écran fournies
-séparément (`01-board.png` à `05-presentation.png`) et insérez-les aux emplacements indiqués.
+convertissent automatiquement à l'insertion). Les images pointent vers `docs/store/captures/` du
+dépôt : consulté sur GitHub, ce fichier les affiche directement. Dans Confluence, le collage ne
+récupère pas les images distantes : téléversez les 5 captures fournies séparément
+(`01-board.png` à `05-presentation.png`) et remplacez chaque image collée par la vôtre au même
+endroit. Ajoutez aussi le lien de téléchargement du fichier `.zip` en haut de la page, avant la
+section Installation.
 
 ---
 
@@ -61,7 +64,7 @@ version à l'autre tant que le dossier garde le même identifiant d'extension.
 
 ## 3. Le board
 
-*[Insérer ici la capture `01-board.png` — vue principale du board]*
+![Vue principale du board](store/captures/01-board.png)
 
 - **Barre latérale à gauche** : nom du board, entrée « Sprint », liste des **objectifs du
   sprint** (une ligne par Sprint Goal, avec sa progression en points), puis « Build » (tickets
@@ -83,7 +86,7 @@ version à l'autre tant que le dossier garde le même identifiant d'extension.
 - **Sous-tâches** : rangées avec leur story ; un survol de la carte met en évidence toute sa
   famille (story + sous-tâches).
 
-*[Insérer ici la capture `02-famille.png` — survol d'une story et de sa famille de sous-tâches]*
+![Survol d'une story et de sa famille de sous-tâches](store/captures/02-famille.png)
 
 ---
 
@@ -92,7 +95,7 @@ version à l'autre tant que le dossier garde le même identifiant d'extension.
 Le bouton **Administration**, en bas de la barre latérale, ouvre les sections de réglages
 directement sous ce bouton (le board reste affiché derrière).
 
-*[Insérer ici la capture `03-objectifs.png` — section « Objectifs du sprint »]*
+![Section « Objectifs du sprint » de l'administration](store/captures/03-objectifs.png)
 
 - **Objectifs du sprint** : couleur et masquage de chaque swimlane (enregistrés aussitôt, pour
   toute l'équipe) ; si votre board utilise les **Goals Atlassian**, vous pouvez aussi épingler un
@@ -116,7 +119,7 @@ directement sous ce bouton (le board reste affiché derrière).
 Le bouton **▶ Daily** de l'en-tête lance une présentation dédiée à la mêlée quotidienne : plein
 écran, une swimlane à la fois, dans l'ordre du board.
 
-*[Insérer ici la capture `04-daily.png` — écran de la Daily]*
+![Écran de la Daily](store/captures/04-daily.png)
 
 - **Minuteur** en haut à gauche : orange après 2 minutes, rouge avec le dépassement au-delà.
 - **Précédent / Suivant** pour passer d'un objectif (ou de Build / Kanban) au suivant.
@@ -134,7 +137,7 @@ Le bouton **▶ Daily** de l'en-tête lance une présentation dédiée à la mê
 Pour projeter le board (revue de sprint, écran partagé), utilisez le bouton en forme de chevalet
 dans l'en-tête.
 
-*[Insérer ici la capture `05-presentation.png` — mode présentation]*
+![Mode présentation](store/captures/05-presentation.png)
 
 Ce mode passe en plein écran et agrandit le board, les filtres et les bandeaux pour une lecture à
 distance ; barre latérale, en-tête et panneau de santé du sprint sont masqués. Un bouton
