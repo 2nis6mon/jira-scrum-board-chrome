@@ -5,7 +5,8 @@
 //   npm run harness   puis   http://localhost:5199/?scenario=board|board-filtre|board-session|
 //                            board-vide|board-dnd|board-choix|board-statuts|board-erreur|board-goals|
 //                            board-epingle|board-epingle-refus|board-multi|board-infos|
-//                            board-soustaches|ok|xsrf|refuse|session|deconnecte
+//                            board-soustaches|ok|xsrf|refuse|session|deconnecte|
+//                            connexion|recherche-board
 import { render } from "preact";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
@@ -521,6 +522,25 @@ if (scenario.startsWith("board")) {
       }
     }
   }
+} else if (scenario === "connexion") {
+  // Premier lancement : aucun site enregistré, aucune requête vers un faux Jira.
+  const model = new AppModel(fakePlatform(new FakeJira()));
+  if (container) render(<App model={model} />, container);
+  await model.start();
+} else if (scenario === "recherche-board") {
+  // Connecté, mais aucun board choisi pour ce site : l'écran de recherche de board.
+  const jira = new FakeJira().on("GET", "/rest/agile/1.0/board", (request) => {
+    const name = (request.url.searchParams.get("name") ?? "").toLowerCase();
+    const boards = [
+      { id: 7, name: "Équipe Paiement", location: { projectKey: "ABC" } },
+      { id: 12, name: "Équipe Sécurité", location: { projectKey: "SEC" } },
+      { id: 19, name: "Équipe Mobile", location: { projectKey: "MOB" } },
+    ].filter((board) => board.name.toLowerCase().includes(name));
+    return { status: 200, json: { values: boards, isLast: true } };
+  });
+  const model = new AppModel(fakePlatform(jira));
+  if (container) render(<App model={model} />, container);
+  await model.connect("acme.atlassian.net");
 } else {
   const jira = new FakeJira()
     .on("GET", "/rest/api/3/myself", { status: 200, json: { displayName: "Personne Test" } })

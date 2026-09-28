@@ -6,8 +6,8 @@
 Ce document est prêt à coller dans une page Confluence (titres, listes et texte en gras se
 convertissent automatiquement à l'insertion). Les images pointent vers `docs/store/captures/` du
 dépôt : consulté sur GitHub, ce fichier les affiche directement. Dans Confluence, le collage ne
-récupère pas les images distantes : téléversez les 5 captures fournies séparément
-(`01-board.png` à `05-presentation.png`) et remplacez chaque image collée par la vôtre au même
+récupère pas les images distantes : téléversez les 7 captures fournies séparément
+(`01-board.png` à `07-recherche-board.png`) et remplacez chaque image collée par la vôtre au même
 endroit. Ajoutez aussi le lien de téléchargement du fichier `.zip` en haut de la page, avant la
 section Installation.
 
@@ -52,13 +52,23 @@ version à l'autre tant que le dossier garde le même identifiant d'extension.
 
 ## 2. Premier lancement
 
-1. Cliquez sur l'icône de l'extension dans la barre d'outils Chrome : un nouvel onglet s'ouvre.
+1. Cliquez sur l'icône de l'extension dans la barre d'outils Chrome : un nouvel onglet s'ouvre sur
+   l'écran de connexion.
+
+![Écran de connexion, avant tout site enregistré](store/captures/06-connexion.png)
+
 2. Entrez l'adresse de votre site Jira Cloud (`https://votre-domaine.atlassian.net`). Chrome vous
    demande alors l'autorisation d'accéder à ce site : acceptez.
 3. Recherchez votre board par son nom (boards **Scrum** uniquement ; les boards Kanban Jira ne
    sont pas pris en charge) et sélectionnez-le dans la liste proposée.
+
+![Recherche d'un board par son nom](store/captures/07-recherche-board.png)
+
 4. L'extension utilise la session de votre navigateur : si vous êtes déjà connecté à Jira dans
    Chrome, aucune saisie de mot de passe n'est demandée.
+
+Pour ajouter un second board plus tard (menu du nom de board, dans la barre latérale, « Choisir un
+board »), le même écran de recherche s'ouvre.
 
 ---
 
