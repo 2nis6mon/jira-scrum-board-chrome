@@ -185,30 +185,46 @@ describe("déplacement d'un bloc", () => {
 // DisplayedBlocksTests
 describe("displayedBlocks", () => {
   const blocks = [goalBlock("g1"), goalBlock("g2"), BUILD_BLOCK, RUN_BLOCK];
-  const displayed = (filtersActive: boolean, counts: Record<string, number>, runTickets = 1) =>
+  const displayed = (
+    filtersActive: boolean,
+    total: Record<string, number>,
+    filtered: Record<string, number> = total,
+    showEmptyBuild = false,
+  ) =>
     ids(
       displayedBlocks({
         blocks,
         filtersActive,
-        filteredCount: (block) => counts[blockIdentifier(block)] ?? 0,
-        totalCount: (block) => (block.kind === "swimlane" ? runTickets : 0),
+        filteredCount: (block) => filtered[blockIdentifier(block)] ?? 0,
+        totalCount: (block) => total[blockIdentifier(block)] ?? 0,
+        showEmptyBuild,
       }),
     );
 
-  it("sans filtre, les swimlanes vides restent visibles", () => {
-    expect(displayed(false, { "goal:g1": 3 })).toEqual(ids(blocks));
+  it("sans filtre, seuls les objectifs vides restent visibles", () => {
+    expect(displayed(false, { "goal:g1": 3 })).toEqual(["goal:g1", "goal:g2"]);
   });
 
-  it("un filtre actif masque les swimlanes vides", () => {
-    expect(displayed(true, { "goal:g2": 1, "swimlane:1": 2 })).toEqual(["goal:g2", "swimlane:1"]);
+  it("un filtre actif garde les objectifs réellement vides, mais masque les blocs non retenus", () => {
+    expect(
+      displayed(
+        true,
+        { "goal:g1": 3, "goal:g2": 1, build: 1, "swimlane:1": 2 },
+        { "goal:g2": 1, "swimlane:1": 2 },
+      ),
+    ).toEqual(["goal:g2", "swimlane:1"]);
   });
 
-  it("un filtre qui ne retient rien masque tout", () => {
-    expect(displayed(true, {})).toEqual([]);
+  it("un filtre qui ne retient rien garde les objectifs réellement vides", () => {
+    expect(displayed(true, {})).toEqual(["goal:g1", "goal:g2"]);
   });
 
-  it("une swimlane par type exige de ses tickets dans le sprint, même sans filtre", () => {
-    expect(displayed(false, {}, 0)).toEqual(["goal:g1", "goal:g2", "build"]);
+  it("Build n'apparaît vide que provisoirement pendant un glisser-déposer", () => {
+    expect(displayed(false, {}, {}, true)).toEqual(["goal:g1", "goal:g2", "build"]);
+  });
+
+  it("les swimlanes avec tickets restent visibles sans filtre", () => {
+    expect(displayed(false, { build: 1, "swimlane:1": 2 })).toEqual(ids(blocks));
   });
 });
 

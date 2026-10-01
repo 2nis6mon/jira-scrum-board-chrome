@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **1 octobre 2026**\
 Branche décrite : **`codex/support-kanban`** (issue de `main` après fusion des swimlanes par type)\
-Produit autonome (source) : **0.24.1**\
-Intégration Jira livrée : **0.24.1.2**
+Produit autonome (source) : **0.24.2**\
+Intégration Jira livrée : **0.24.2.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -23,6 +23,9 @@ L’extension fournit une vue Scrum ou Kanban centrée sur les objectifs :
 - les tickets des sprints actifs (Scrum) ou du périmètre du board (Kanban) sont organisés par **Goal Atlassian** ;
 - chaque Goal devient une swimlane ;
 - les tickets sans Goal visible rejoignent **Build** ;
+- les objectifs vides restent affichés ; Build et les swimlanes par type ne sont affichés que
+  lorsqu'ils contiennent des tickets. Build vide apparaît provisoirement pendant le déplacement
+  d'un ticket par objectif, afin de conserver la possibilité de le détacher ;
 - les tickets hors objectifs sont rangés dans des **swimlanes par type** (0.23.0) : chacune
   regroupe un ou plusieurs types de tickets (par exemple « RUN » : Anomalie Prod et Anomalie de
   Recette ; « OPS » : Demande de configuration et Demande de service). Son nom est celui de ses
@@ -52,7 +55,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.24.1`\
+Version : `0.24.2`\
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -74,7 +77,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.24.1.2`\
+Version générée : `0.24.2.2`\
 Nom : celui du paquet autonome (depuis le 24/09/2026)
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -466,6 +469,10 @@ Le banc visuel Kanban couvre objectifs, Build/RUN/OPS, épinglage partagé, Dail
 La compatibilité avec l'instance Jira réelle reste à valider par Denis.
 Validation de la 0.24.1 : typage et lint réussis ; 895 tests réussis, 1 ignoré ; paquet intégré
 `0.24.1.2` construit dans `dist/` et contrôle navigateur isolé du mode intégré réussi.
+Validation de la 0.24.2 : Build et les swimlanes par type vides sont masqués ; les objectifs vides
+restent visibles. La barre latérale suit la même règle et l'indicateur Build disparaît à zéro.
+Typage et lint réussis ; 899 tests réussis, 1 ignoré ; paquet intégré `0.24.2.2` construit dans
+`dist/` et vérifié sous Edge Chromium avec un profil isolé et un faux Jira.
 
 Commandes utiles :
 

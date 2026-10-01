@@ -57,6 +57,7 @@ export function buildBoardLayout(
   snapshot: BoardSnapshot,
   configuration: BoardConfiguration,
   filters: BoardFilters,
+  options: { showEmptyBuild?: boolean } = {},
 ): BoardLayout {
   const columns = visibleColumns(configuration.columns);
   const filtersActive = areFiltersActive(filters);
@@ -85,6 +86,7 @@ export function buildBoardLayout(
     filtersActive,
     filteredCount: (block) => visibleIssuesOf(block).length,
     totalCount: (block) => allIssuesOf(block).length,
+    showEmptyBuild: options.showEmptyBuild === true,
   });
 
   let unmappedCount = 0;

@@ -1,7 +1,7 @@
 # Sprint Goals Board pour Jira — manuel d'installation et d'utilisation
 
 > Extension Chrome pour boards Scrum et Kanban Jira Cloud : objectifs, Build et swimlanes par
-> type configurables. Version couverte par ce manuel : **0.24.1.2**. Les captures illustrent la
+> type configurables. Version couverte par ce manuel : **0.24.2.2**. Les captures illustrent la
 > version Scrum 0.22.7 ; certains libellés ont évolué.
 
 Ce document est prêt à coller dans une page Confluence (titres, listes et texte en gras se
@@ -79,7 +79,7 @@ board »), le même écran de recherche s'ouvre.
 - **Barre latérale à gauche** : nom du board, vue Sprint en Scrum ou vue du board en Kanban,
   liste des objectifs, puis **Build** et les swimlanes par type configurées, par exemple RUN et OPS.
 - **En-tête du sprint** : nom et dates du sprint, points terminés, nombre de Goals atteints,
-  compteurs de tickets bloqués / ajoutés en cours de sprint / dans Build, heure de dernière
+  compteurs de tickets bloqués / ajoutés en cours de sprint / dans Build s'il contient des tickets, heure de dernière
   synchronisation avec Jira, bouton **▶ Daily** (section 5) et bouton mode présentation (section 6).
 - **Barre de filtres** : recherche libre, filtres à icônes (bloqués, ajoutés, mes tickets,
   priorité haute, sans estimation), menus Personne / Type / Parent / Statut / Label, et les
@@ -87,7 +87,8 @@ board »), le même écran de recherche s'ouvre.
 - **Swimlanes** : une par objectif, dans l'ordre du board ; chaque swimlane affiche son nombre de
   tickets, sa progression et devient **verte** quand tous ses tickets sont dans la dernière colonne
   visible (objectif atteint). Un objectif épinglé au sprint, ou au board Kanban, peut avoir sa swimlane même sans
-  ticket rattaché.
+  ticket rattaché. Build et les swimlanes par type sont masqués lorsqu'ils n'ont aucun ticket.
+  Build vide apparaît le temps d'un glisser-déposer pour pouvoir y détacher un ticket.
 - **Glisser-déposer** : déplacer une carte change son statut (Jira ouvre le formulaire de
   transition — commentaire, temps passé, champs obligatoires — quand il le faut), son rang, ou son
   objectif si on la dépose dans une autre swimlane d'objectif ou dans Build. Une carte classée

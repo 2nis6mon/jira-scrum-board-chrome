@@ -126,8 +126,15 @@ describe("buildBoardLayout", () => {
     expect(buildBoardLayout(snapshot([]), config, NO_FILTERS).lanes.map((l) => l.id)).toEqual([
       "goal:g1",
       "goal:g2",
-      "build",
     ]);
+  });
+
+  it("Build vide apparaît seulement pendant le glisser-déposer d'un ticket par objectif", () => {
+    expect(
+      buildBoardLayout(snapshot([]), config, NO_FILTERS, { showEmptyBuild: true }).lanes.map(
+        (lane) => lane.id,
+      ),
+    ).toEqual(["goal:g1", "goal:g2", "build"]);
   });
 
   it("compte les tickets dont le statut n'est dans aucune colonne visible", () => {
@@ -171,11 +178,10 @@ describe("buildBoardLayout", () => {
     expect(layout.lanes.map((lane) => [lane.id, lane.title])).toEqual([
       ["goal:g1", "Paiement"],
       ["goal:g2", "Stabilité"],
-      ["build", "Build"],
       ["swimlane:1", "Anomalie Prod"],
       ["swimlane:2", "OPS"],
     ]);
-    expect(lanesOf(layout).slice(3)).toEqual([
+    expect(lanesOf(layout).slice(2)).toEqual([
       ["swimlane:1", [["RUN-1"], [], []]],
       ["swimlane:2", [[], ["OPS-1"], []]],
     ]);

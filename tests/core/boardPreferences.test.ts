@@ -97,6 +97,16 @@ describe("swimlanes de la barre latérale", () => {
       1,
     ]);
   });
+
+  it("masque Build vide dans la barre latérale, même avec des tickets dans les objectifs", () => {
+    const goalsOnly = { ...sprint, goalIssues: assembled([makeIssue("ABC-1")], { "ABC-1": "g1" }) };
+    expect(laneSummaries(goalsOnly, config).map((lane) => lane.id)).toEqual([
+      "goal:g1",
+      "goal:g2",
+      "goal:g3",
+      "swimlane:1",
+    ]);
+  });
 });
 
 describe("ordre des swimlanes", () => {

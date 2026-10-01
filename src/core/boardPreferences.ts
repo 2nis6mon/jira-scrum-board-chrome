@@ -34,8 +34,8 @@ export const GOAL_COLOR_NAMES = [
 ] as const;
 
 /**
- * Swimlanes affichées de haut en bas, filtres ignorés : objectifs non masqués, Build, et les
- * swimlanes par type non masquées qui ont des tickets dans le sprint. C'est dans cet ordre qu'on
+ * Swimlanes affichées de haut en bas, filtres ignorés : objectifs non masqués, Build et les
+ * swimlanes par type non masquées seulement si elles ont des tickets. C'est dans cet ordre qu'on
  * monte ou descend une swimlane ; un filtre ne doit pas changer ce que « monter » veut dire.
  */
 export function laneOrder(snapshot: BoardSnapshot, configuration: BoardConfiguration): string[] {
@@ -46,7 +46,7 @@ export function laneOrder(snapshot: BoardSnapshot, configuration: BoardConfigura
     swimlaneIds: shownSwimlaneIds(configuration),
   });
   const counts = new Map<string, number>();
-  for (const issue of snapshot.swimlaneIssues) {
+  for (const issue of [...snapshot.goalIssues, ...snapshot.swimlaneIssues]) {
     const key = laneKey(configuration, issue);
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }

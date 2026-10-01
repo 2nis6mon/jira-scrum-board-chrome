@@ -304,7 +304,9 @@ export class BoardModel {
     const configuration = this.configuration.value;
     return snapshot && configuration
       ? withPendingMove(
-          buildBoardLayout(snapshot, configuration, this.filters.value),
+          buildBoardLayout(snapshot, configuration, this.filters.value, {
+            showEmptyBuild: this.dragging.value?.lane === null,
+          }),
           this.pendingMove.value,
         )
       : null;

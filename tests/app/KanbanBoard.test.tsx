@@ -151,8 +151,29 @@ it("distingue un board vide d'un sprint absent", async () => {
   await connectedBoard(kanbanSiteJira({ issues: [], goals: [] }));
   expect(body()).toContain("Aucun ticket à afficher dans le périmètre de ce board.");
   expect(body()).not.toContain("Aucun sprint actif");
+  expect(lanes()).toEqual([]);
+  expect(document.querySelector(".counter-build")).toBeNull();
   expect(document.querySelector(".sprint-title h2")?.textContent).toBe(KANBAN_NAME);
   expect(document.querySelector(".notice-error")).toBeNull();
+});
+
+it("masque Build vide et la réaffiche provisoirement pour détacher un ticket", async () => {
+  const goal = KANBAN_GOALS[0];
+  if (!goal) throw new Error("Objectif fictif attendu");
+  const { board } = await connectedBoard(
+    kanbanSiteJira({
+      issues: [issueJson("ABC-101")],
+      goals: [{ ...goal, workItems: ["ABC-101"] }],
+    }),
+  );
+  expect(lanes()).toEqual([goal.name]);
+  expect(document.querySelector(".counter-build")).toBeNull();
+  board.startDrag("ABC-101", null);
+  await tick();
+  expect(lanes()).toEqual([goal.name, "Build"]);
+  board.endDrag();
+  await tick();
+  expect(lanes()).toEqual([goal.name]);
 });
 
 it("affiche les Goals du champ Jira quand GraphQL ne fournit pas workItems", async () => {

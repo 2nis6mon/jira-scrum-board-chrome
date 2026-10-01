@@ -58,22 +58,21 @@ export function shiftBlock(id: string, offset: number, order: readonly string[])
 /**
  * Blocs réellement affichés selon l'état des filtres.
  *
- * - Filtre actif : un bloc sans aucun ticket retenu disparaît, pour ne montrer que ce qui
- *   répond au filtre.
- * - Aucun filtre : toutes les swimlanes restent visibles, même vides — un objectif sans ticket
- *   doit se voir, et Build sert de cible de dépôt.
- *
- * Une swimlane par type fait exception dans le second cas : elle n'apparaît que si le sprint
- * contient de ses tickets.
+ * Seuls les objectifs réellement vides restent visibles. Build et les swimlanes par type
+ * disparaissent sans tickets ; Build peut réapparaître provisoirement pendant un déplacement
+ * pour permettre de détacher un ticket de son objectif.
+ * Un filtre actif masque aussi les blocs non vides dont aucun ticket n'est retenu.
  */
 export function displayedBlocks(input: {
   blocks: readonly BoardBlock[];
   filtersActive: boolean;
   filteredCount: (block: BoardBlock) => number;
   totalCount: (block: BoardBlock) => number;
+  showEmptyBuild?: boolean;
 }): BoardBlock[] {
   return input.blocks.filter((block) => {
-    if (block.kind === "swimlane" && input.totalCount(block) === 0) return false;
+    if (input.totalCount(block) === 0)
+      return block.kind === "goal" || (block.kind === "build" && input.showEmptyBuild === true);
     return input.filtersActive ? input.filteredCount(block) > 0 : true;
   });
 }

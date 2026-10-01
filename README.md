@@ -42,7 +42,7 @@ Daily, présentation, filtres, transitions et rang fonctionnent dans les deux mo
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.24.1 (source) et 0.24.1.2 (paquet d'ouverture directe dans Jira, voir
+> **État : 0.24.2 (source) et 0.24.2.2 (paquet d'ouverture directe dans Jira, voir
 > plus bas).** Point d'entrée pour reprendre le projet : [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
 > santé du sprint (6a), plusieurs boards (6b), audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)), empaquetage (6e) à venir. Board du
@@ -174,7 +174,7 @@ Aucune écriture incertaine n'est rejouée. Chaque tentative est notée dans le 
   hébergés hors du site) : on affiche les initiales.
 - **En-tête** : sprint (badge *actif*), dates, jours restants, avancement en story points (en
   tickets si le board n'estime pas) et pourcentage, compteurs *bloqués* et *ajoutés* (cliquables :
-  ils filtrent) et *dans Build* (mène au bloc), heure de la dernière lecture de Jira.
+  ils filtrent) et *dans Build* si ce bloc contient des tickets (mène au bloc), heure de la dernière lecture de Jira.
 - **Filtres**, chacun avec son icône : recherche (clé, résumé, personne, type, label, parent),
   *Bloqués*, *Ajoutés*, filtres rapides Jira, puis menus Personne, Type, Parent, Statut, Label
   (Priorité, Objectif et Composant retirés en 0.14.2, à la demande de Denis). Un clic sur le titre
@@ -186,7 +186,9 @@ Aucune écriture incertaine n'est rejouée. Chaque tentative est notée dans le 
 - **Colonnes** : celles du board Jira, avec leur limite WIP (en rouge au-delà, filtres ou non).
   Elles se partagent la largeur, sans descendre sous 170 px (150 sur le Mac) : en dessous, le
   board défile horizontalement.
-- **Swimlanes** : la poignée (⠿) à gauche de l'en-tête se glisse pour placer la swimlane
+- **Swimlanes** : seuls les objectifs restent visibles sans tickets. Build et les swimlanes par type
+  disparaissent quand elles sont vides ; Build réapparaît provisoirement pendant le glissement
+  d'un ticket d'objectif pour permettre de le détacher. La poignée (⠿) à gauche de l'en-tête se glisse pour placer la swimlane
   (objectif, Build ou RUN) où l'on veut ; la flèche replie ou déplie ; le menu *⋯* la monte ou la
   descend (alternative au clavier), replie ou déplie tout, change la couleur d'un objectif ou le masque (ses
   tickets passent dans *Build* ; la barre latérale permet de le réafficher). Ces réglages restent

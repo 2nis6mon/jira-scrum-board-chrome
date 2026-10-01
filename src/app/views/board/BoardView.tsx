@@ -372,16 +372,18 @@ function SprintHeader(props: {
                 {metrics.addedAfterStartCount > 1 ? "ajoutés" : "ajouté"}
               </button>
             )}
-            <button
-              type="button"
-              class="counter counter-build"
-              onClick={() => void revealLane(board, "build")}
-              title={`Aller à ${buildLabel} : tickets du ${kanban ? "board" : "sprint"} sans objectif affiché`}
-            >
-              <Icon name="build" />
-              <strong>{buildCount}</strong>
-              dans {buildLabel}
-            </button>
+            {buildCount > 0 && (
+              <button
+                type="button"
+                class="counter counter-build"
+                onClick={() => void revealLane(board, "build")}
+                title={`Aller à ${buildLabel} : tickets du ${kanban ? "board" : "sprint"} sans objectif affiché`}
+              >
+                <Icon name="build" />
+                <strong>{buildCount}</strong>
+                dans {buildLabel}
+              </button>
+            )}
           </div>
         </div>
       )}
