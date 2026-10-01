@@ -34,7 +34,8 @@ afterEach(() => {
 });
 
 async function connectedBoard(jira = kanbanSiteJira()) {
-  const model = new AppModel(fakePlatform(jira));
+  const platform = fakePlatform(jira);
+  const model = new AppModel(platform);
   models.push(model);
   render(<App model={model} />, document.body);
   await model.connect("acme.atlassian.net");
@@ -42,7 +43,7 @@ async function connectedBoard(jira = kanbanSiteJira()) {
   if (connection.state !== "connected") throw new Error("Connexion attendue");
   await connection.board.detect(BOARD_URL);
   await tick();
-  return { model, board: connection.board, jira };
+  return { model, board: connection.board, jira, platform };
 }
 
 it("affiche objectifs, Build, RUN et OPS sans sprint et garde Daily et présentation", async () => {
@@ -151,6 +152,43 @@ it("distingue un board vide d'un sprint absent", async () => {
   expect(body()).not.toContain("Aucun sprint actif");
   expect(document.querySelector(".sprint-title h2")?.textContent).toBe(KANBAN_NAME);
   expect(document.querySelector(".notice-error")).toBeNull();
+});
+
+it("permet de désépingler un Goal supprimé quand le board n'a aucun snapshot", async () => {
+  const { board, platform } = await connectedBoard();
+  const missing = "ari:cloud:townsquare:c:goal/supprime";
+  await board.applySettings(
+    (configuration) => ({
+      ...configuration,
+      boardPinnedGoalIds: [missing],
+    }),
+    { resync: false },
+  );
+  board.dispose();
+  render(null, document.body);
+
+  // Recharge la même propriété Jira et le stockage local, avec l'objectif désormais absent.
+  const reloaded = new AppModel(platform);
+  models.push(reloaded);
+  render(<App model={reloaded} />, document.body);
+  await reloaded.connect("acme.atlassian.net");
+  const connection = reloaded.connection.value;
+  if (connection.state !== "connected") throw new Error("Connexion attendue");
+  const current = connection.board;
+  expect(current.snapshot.value).toBeNull();
+  expect(current.syncProblem.value).not.toBeNull();
+  reloaded.showAdmin("goals");
+  await expect.poll(() => current.pinEditor.value?.selection).toEqual([missing]);
+  labelled(`Désépingler ${missing}`).click();
+  await tick();
+  const save = [...document.querySelectorAll("button")].find(
+    (button) => button.textContent === "Enregistrer dans Jira",
+  );
+  if (!save) throw new Error("Enregistrement attendu");
+  save.click();
+  await expect.poll(() => current.snapshot.value).not.toBeNull();
+  expect(current.configuration.value?.boardPinnedGoalIds).toEqual([]);
+  expect(current.syncProblem.value).toBeNull();
 });
 
 it("masque la règle sprint et réordonne les règles Kanban visibles sans la perdre", async () => {

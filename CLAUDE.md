@@ -59,6 +59,10 @@ historiques.
   trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - Pousser chaque commit sur sa branche, toujours (consigne de Denis du 24/09/2026). Fusionner
   dans `main` seulement sur demande explicite.
+- **Livraison depuis le 01/10/2026 (demande de Denis) : uniquement le paquet intégré dans Jira.**
+  Construire avec `npm run build:jira-direct-test` dans `dist/`, prêt à charger dans Chrome.
+  Ne plus produire ni livrer le paquet autonome sauf demande explicite ; conserver ses sources
+  et ses tests. Cette préférence ne change pas les permissions de `public/manifest.json`.
 
 ## Droits de l'extension
 

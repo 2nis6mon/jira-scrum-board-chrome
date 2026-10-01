@@ -31,7 +31,9 @@ export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinnin
   const wasSaving = useRef(false);
 
   const sprintId = snapshot?.sprint?.id ?? null;
-  const pinned = snapshot?.pinnedGoalIds ?? null;
+  const pinned = kanban
+    ? (configuration?.boardPinnedGoalIds ?? null)
+    : (snapshot?.pinnedGoalIds ?? null);
   const pinnedKey = JSON.stringify([pinned, snapshot?.localPinnedGoalIds ?? null]);
 
   // Brouillon d'épinglage ouvert d'office, et recalé sur Jira tant qu'il n'a pas été touché.

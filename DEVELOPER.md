@@ -510,6 +510,12 @@ Les essais Chrome automatisés n’utilisent ni la session ni les données Jira 
 
 ## 8. Stratégie Git et livraison
 
+**Consigne de Denis du 01/10/2026 : produire et livrer uniquement le paquet intégré dans Jira**,
+avec `npm run build:jira-direct-test` dans `dist/`, dossier chargeable dans Chrome. Ne produire ni
+livrer le paquet autonome que sur demande explicite. Ses sources et ses tests restent dans le
+dépôt ; les permissions du manifest source `public/manifest.json` restent inchangées. Les
+descriptions des deux modes et des anciennes livraisons ci-dessus restent des références.
+
 - Travailler dans une branche `codex/...` dédiée.
 - Faire un commit cohérent par correction ou fonctionnalité.
 - Utiliser l’identité `2nis6mon <denis.simon@gmail.com>`.
