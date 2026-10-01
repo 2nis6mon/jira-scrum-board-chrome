@@ -749,6 +749,13 @@ Build et les swimlanes par type, Daily, présentation, filtres et déplacements 
 Pas de nouvelle permission ni d'hôte. L'ancienne consigne « Scrum seulement » est remplacée par
 ce choix explicite. La validation sur un vrai board Jira demeure à effectuer par Denis.
 
+0.24.1 (retour de Denis du 01/10/2026) : certains sites n'exposent pas `workItems` sur les Goals
+GraphQL. En Kanban, le champ Goals Jira déjà demandé sur les tickets devient alors la source des
+rattachements, uniquement s'il est présent sur chaque ticket classé par objectif. Une valeur `null` est un
+champ lu et vide ; un champ absent bloque toujours le chargement. Un schéma incompatible reste
+signalé après Actualiser, y compris quand l'introspection est en cache. Paquet livré : intégré
+dans Jira, 0.24.1.2, dossier `dist/`.
+
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
 `--outDir`).

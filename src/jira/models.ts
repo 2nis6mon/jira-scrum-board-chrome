@@ -608,7 +608,9 @@ export function decodeIssueFields(value: unknown, context = "ticket"): JiraIssue
 
   const customFields: Record<string, JsonValue> = {};
   for (const [name, field] of Object.entries(value)) {
-    if (name.startsWith("customfield_") && field !== null && field !== undefined) {
+    // Garder `null` permet de distinguer un champ demandé mais vide d'un champ absent de la
+    // réponse : cette distinction est nécessaire au repli Kanban sur le champ Goals des tickets.
+    if (name.startsWith("customfield_") && field !== undefined) {
       customFields[name] = field as JsonValue;
     }
   }

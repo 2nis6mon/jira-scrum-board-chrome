@@ -59,9 +59,9 @@ describe("décodage d'un ticket", () => {
     expect(issue.changelog).toBeNull();
   });
 
-  it("ne garde des champs personnalisés que ceux qui ont une valeur", () => {
+  it("distingue un champ personnalisé vide d'un champ absent de la réponse", () => {
     const fields = fieldsWith({ customfield_1: null, customfield_2: 0, autre: "x" });
-    expect(Object.keys(fields.customFields)).toEqual(["customfield_2"]);
+    expect(fields.customFields).toEqual({ customfield_1: null, customfield_2: 0 });
   });
 
   it("calcule des initiales", () => {

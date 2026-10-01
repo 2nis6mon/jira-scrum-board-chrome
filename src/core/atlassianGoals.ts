@@ -46,6 +46,22 @@ export async function loadAtlassianSprintGoals(input: {
   await reader.cloudId();
 
   const sprintKeys = new Set(input.issues.map((issue) => issue.key));
+  const categoryByType = new Map(configuration.issueTypes.map((type) => [type.id, type.category]));
+  const goalIssues = input.issues.filter(
+    (issue) => (categoryByType.get(issue.fields.issuetype.id) ?? "GOAL") === "GOAL",
+  );
+  // Le champ natif Goals est fiable comme source de repli uniquement s'il figure dans chaque
+  // ticket classé par objectif. Les autres types ont leur propre swimlane et peuvent ne pas
+  // proposer ce champ. `null` signifie « aucun Goal » ; un champ absent peut cacher un lien.
+  const goalFieldId = configuration.goalsFieldId;
+  const issueLinksComplete =
+    goalIssues.length === 0 ||
+    (goalFieldId !== null &&
+      goalIssues.every((issue) => Object.hasOwn(issue.fields.customFields, goalFieldId)));
+  const incompleteIssueField =
+    goalFieldId === null
+      ? "Le champ Goals Jira n'a pas été identifié ; relisez la structure du board."
+      : `Le champ Goals Jira est absent de certains tickets du board (${goalFieldId}).`;
 
   // Lecture 2 — ce que les tickets déclarent.
   const linksFromIssues = new Map<string, string[]>();
@@ -84,17 +100,22 @@ export async function loadAtlassianSprintGoals(input: {
   try {
     workItems = await reader.workItemKeys(candidates);
   } catch (error) {
-    if (configuration.boardType === "kanban") {
-      if (error instanceof JiraError && error.isAuthenticationFailure) throw error;
-      throw new Error(describe("Tickets rattachés aux objectifs", error));
+    if (error instanceof JiraError && error.isAuthenticationFailure) throw error;
+    if (configuration.boardType === "kanban" && !issueLinksComplete) {
+      throw new Error(
+        `${describe("Tickets rattachés aux objectifs", error)}. ${incompleteIssueField}`,
+      );
     }
     warnings.push(describe("Tickets rattachés aux objectifs", error));
   }
   if (reader.lastWorkItemsIssue) {
-    if (configuration.boardType === "kanban") {
-      throw new Error(`Tickets rattachés aux objectifs : ${reader.lastWorkItemsIssue}`);
+    if (configuration.boardType === "kanban" && !issueLinksComplete) {
+      throw new Error(
+        `Tickets rattachés aux objectifs : ${reader.lastWorkItemsIssue}. ${incompleteIssueField}`,
+      );
     }
     warnings.push(`Tickets rattachés aux objectifs : ${reader.lastWorkItemsIssue}`);
+    if (configuration.boardType === "kanban") workItems = {};
   }
 
   const linksByGoal = new Map<string, Set<string>>();

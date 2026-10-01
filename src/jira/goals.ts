@@ -82,6 +82,7 @@ export class GoalsClient {
   #selection: string | null = null;
   #pagination: { hasNext: string; cursor: string } | null | undefined;
   #workItemsSelection: WorkItemsSelection | null | undefined;
+  #workItemsSelectionIssue: string | null = null;
   /** Forme d'identifiant de ticket acceptée par les mutations, une fois trouvée. */
   #workItemForm: "ari" | "raw" | null = null;
   readonly #typeFields = new Map<string, Promise<FieldInfo[]>>();
@@ -387,7 +388,11 @@ export class GoalsClient {
    * sont découverts. Un argument obligatoire inconnu rend le champ inexploitable : on le dit.
    */
   async #workItemsSelectionFor(): Promise<WorkItemsSelection | null> {
-    if (this.#workItemsSelection !== undefined) return this.#workItemsSelection;
+    if (this.#workItemsSelection !== undefined) {
+      if (this.#workItemsSelection === null)
+        this.lastWorkItemsIssue = this.#workItemsSelectionIssue;
+      return this.#workItemsSelection;
+    }
     this.lastWorkItemsIssue = null;
     let result: WorkItemsSelection | null = null;
     try {
@@ -455,6 +460,7 @@ export class GoalsClient {
       this.lastWorkItemsIssue =
         "le schéma Atlassian n'expose pas de lien Goal → tickets exploitable";
     }
+    this.#workItemsSelectionIssue = this.lastWorkItemsIssue;
     this.#workItemsSelection = result;
     return result;
   }

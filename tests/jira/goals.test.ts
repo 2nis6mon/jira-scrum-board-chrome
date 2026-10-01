@@ -271,6 +271,9 @@ describe("GoalsClient — lien Goal → tickets (workItems)", () => {
     const { client } = clientFor({ goals: [PAIEMENT], goalFields: fields });
     expect(await client.workItemKeys([PAIEMENT.id])).toEqual({});
     expect(client.lastWorkItemsIssue).toContain("n'expose pas de lien");
+    client.lastWorkItemsIssue = null;
+    expect(await client.workItemKeys([PAIEMENT.id])).toEqual({});
+    expect(client.lastWorkItemsIssue).toContain("n'expose pas de lien");
   });
 
   it("sans pagination exploitable, 100 liens produisent un avertissement explicite", async () => {

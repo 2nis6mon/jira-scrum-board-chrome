@@ -34,12 +34,15 @@ En Kanban, les Goals Atlassian sont déduits des tickets ou épinglés au board 
 Administration → Objectifs. L'épinglage est partagé avec l'équipe et exige le droit de modifier
 le board. Le texte du Sprint Goal est réservé à Scrum. Si les Goals sont indisponibles, la
 synchronisation le signale au lieu de présenter leurs tickets comme dépourvus d'objectif.
+Depuis 0.24.1, si le schéma GraphQL d'Atlassian ne donne pas les liens Goal → tickets, le champ
+Goals Jira des tickets sert de source, à condition d'être présent sur tous les tickets classés
+par objectif.
 Daily, présentation, filtres, transitions et rang fonctionnent dans les deux modes.
 
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.24.0 (paquet autonome) et 0.24.0.2 (prototype d'ouverture directe dans Jira, voir
+> **État : 0.24.1 (source) et 0.24.1.2 (paquet d'ouverture directe dans Jira, voir
 > plus bas).** Point d'entrée pour reprendre le projet : [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
 > santé du sprint (6a), plusieurs boards (6b), audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)), empaquetage (6e) à venir. Board du

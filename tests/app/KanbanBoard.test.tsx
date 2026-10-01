@@ -9,6 +9,7 @@ import { BOARD_PROPERTY_KEYS } from "../../src/jira/writes";
 import { BOARD_URL, CORS_REFUSAL, SPRINT_ISSUES } from "../support/boardFixture";
 import { isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
+import { goalsGateway, REAL_GOAL_FIELDS } from "../support/goalsGateway";
 import { issueJson } from "../support/jiraFixtures";
 import { KANBAN_GOALS, KANBAN_NAME, kanbanSiteJira } from "../support/kanbanFixture";
 
@@ -152,6 +153,43 @@ it("distingue un board vide d'un sprint absent", async () => {
   expect(body()).not.toContain("Aucun sprint actif");
   expect(document.querySelector(".sprint-title h2")?.textContent).toBe(KANBAN_NAME);
   expect(document.querySelector(".notice-error")).toBeNull();
+});
+
+it("affiche les Goals du champ Jira quand GraphQL ne fournit pas workItems", async () => {
+  const goalId = KANBAN_GOALS[0]?.id;
+  if (!goalId) throw new Error("Objectif fictif attendu");
+  const goalField = "customfield_10100";
+  const jira = kanbanSiteJira({
+    issues: [
+      issueJson("ABC-101", { extraFields: { [goalField]: [{ id: goalId }] } }),
+      issueJson("ABC-102", { extraFields: { [goalField]: null } }),
+    ],
+  })
+    .on("GET", "/rest/api/3/field", {
+      status: 200,
+      json: [{ id: goalField, name: "Goals", schema: { custom: "x:goals" } }],
+    })
+    .on(
+      "POST",
+      "/gateway/api/graphql",
+      goalsGateway({
+        goals: KANBAN_GOALS,
+        goalFields: REAL_GOAL_FIELDS.filter((field) => field.name !== "workItems"),
+      }),
+    );
+  const { board } = await connectedBoard(jira);
+  expect(board.snapshot.value?.goalIssues.map((issue) => [issue.issue.key, issue.goalId])).toEqual([
+    ["ABC-101", goalId],
+    ["ABC-102", null],
+  ]);
+  expect(lanes()).toContain("Paiement en une étape");
+  expect(lanes()).toContain("Build");
+  expect(board.syncProblem.value).toBeNull();
+  expect(
+    jira
+      .sent("GET", "/rest/agile/1.0/board/7/issue")
+      .some((request) => request.url.searchParams.get("fields")?.includes(goalField)),
+  ).toBe(true);
 });
 
 it("permet de désépingler un Goal supprimé quand le board n'a aucun snapshot", async () => {

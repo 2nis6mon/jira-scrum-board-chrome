@@ -1,7 +1,7 @@
 # Sprint Goals Board pour Jira — manuel d'installation et d'utilisation
 
 > Extension Chrome pour boards Scrum et Kanban Jira Cloud : objectifs, Build et swimlanes par
-> type configurables. Version couverte par ce manuel : **0.24.0**. Les captures illustrent la
+> type configurables. Version couverte par ce manuel : **0.24.1.2**. Les captures illustrent la
 > version Scrum 0.22.7 ; certains libellés ont évolué.
 
 Ce document est prêt à coller dans une page Confluence (titres, listes et texte en gras se
@@ -109,6 +109,9 @@ pas chargé séparément et les tickets terminés ne sont pas limités à un âg
 Les objectifs viennent des **Goals Atlassian** des tickets et de ceux épinglés au board.
 Le mode « Texte du sprint » n'est pas proposé. Si les Goals ne peuvent pas être lus, un message
 signale l'échec de synchronisation ; les tickets ne sont pas reclassés à tort dans Build.
+Si le lien GraphQL entre Goals et tickets n'est pas exposé par votre site, l'extension utilise
+le champ Goals des tickets Jira. Si elle indique que ce champ n'a pas été identifié, choisissez
+« Relire structure » dans l'administration du board.
 Un message « chargement incomplet » peut demander de réduire le filtre du board : la lecture est
 limitée à 5 000 tickets, et l'extension refuse d'afficher comme complet un résultat tronqué.
 

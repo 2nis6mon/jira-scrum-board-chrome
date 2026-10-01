@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { type GoalsReader, loadAtlassianSprintGoals } from "../../src/core/atlassianGoals";
+import { JiraError } from "../../src/jira/errors";
 import type { AtlassianGoal } from "../../src/jira/models";
-import { makeConfiguration, makeIssue } from "../support/jiraFixtures";
+import { makeConfiguration, makeIssue, SWIMLANE_TYPE } from "../support/jiraFixtures";
 
 const goal = (id: string, name?: string): AtlassianGoal => ({
   id,
@@ -86,6 +87,63 @@ describe("loadAtlassianSprintGoals", () => {
         }),
       ).rejects.toThrow("Tickets rattachés aux objectifs");
     }
+  });
+
+  it("Kanban : sans workItems, utilise le champ Goals présent sur tous les tickets", async () => {
+    const goalId = "ari:cloud:goal:c:goal/declare";
+    const boardIssues = [
+      makeIssue("ABC-1", { extraFields: { [GOALS_FIELD]: [{ id: goalId }] } }),
+      makeIssue("ABC-2", { extraFields: { [GOALS_FIELD]: null } }),
+      makeIssue("ABC-3", { extraFields: { [GOALS_FIELD]: [] } }),
+      makeIssue("RUN-1", { typeId: SWIMLANE_TYPE.id }),
+    ];
+    const r = reader({
+      lastWorkItemsIssue: "le schéma Atlassian n'expose pas de lien Goal → tickets exploitable",
+      workItems: { [goalId]: ["ABC-2"] },
+      known: [goal(goalId, "Objectif du board")],
+    });
+    const result = await loadAtlassianSprintGoals({
+      reader: r,
+      configuration: { ...config, boardType: "kanban" },
+      pinnedGoalIds: [],
+      issues: boardIssues,
+    });
+    expect(result.goals.map((goal) => goal.title)).toEqual(["Objectif du board"]);
+    expect(result.links).toEqual({ "ABC-1": goalId });
+    expect(result.warnings).toEqual([
+      "Tickets rattachés aux objectifs : le schéma Atlassian n'expose pas de lien Goal → tickets exploitable",
+    ]);
+  });
+
+  it("Kanban : un champ Goals absent d'un ticket interdit le repli", async () => {
+    const boardIssues = [
+      makeIssue("ABC-1", {
+        extraFields: { [GOALS_FIELD]: ["ari:cloud:goal:c:goal/declare"] },
+      }),
+      makeIssue("ABC-2"),
+    ];
+    await expect(
+      loadAtlassianSprintGoals({
+        reader: reader({ lastWorkItemsIssue: "schéma incompatible" }),
+        configuration: { ...config, boardType: "kanban" },
+        pinnedGoalIds: [],
+        issues: boardIssues,
+      }),
+    ).rejects.toThrow("Tickets rattachés aux objectifs : schéma incompatible");
+  });
+
+  it("Kanban : une perte de session reste une erreur de connexion même avec le champ Goals", async () => {
+    const sessionLost = new JiraError({ kind: "unauthorized" });
+    await expect(
+      loadAtlassianSprintGoals({
+        reader: reader({ fail: { workItems: sessionLost } }),
+        configuration: { ...config, boardType: "kanban" },
+        pinnedGoalIds: [],
+        issues: [
+          makeIssue("ABC-1", { extraFields: { [GOALS_FIELD]: ["ari:cloud:goal:c:goal/declare"] } }),
+        ],
+      }),
+    ).rejects.toBe(sessionLost);
   });
 
   it("Kanban : aucune donnée est valide, les libellés illisibles restent des avertissements", async () => {

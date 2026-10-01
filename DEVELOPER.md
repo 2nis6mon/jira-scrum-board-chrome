@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **1 octobre 2026**\
 Branche décrite : **`codex/support-kanban`** (issue de `main` après fusion des swimlanes par type)\
-Produit autonome : **0.24.0**\
-Prototype d’intégration Jira : **0.24.0.2**
+Produit autonome (source) : **0.24.1**\
+Intégration Jira livrée : **0.24.1.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -52,7 +52,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.24.0`\
+Version : `0.24.1`\
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -74,7 +74,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.24.0.2`\
+Version générée : `0.24.1.2`\
 Nom : celui du paquet autonome (depuis le 24/09/2026)
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -204,9 +204,14 @@ Il ne crée ni sprint ni propriété de sprint. Les règles ci-dessous relatives
 - Limites de lecture explicites : la limite de sécurité de 5 000 tickets refuse désormais un
   périmètre plus grand au lieu de le tronquer. Les liens Goal → tickets sont paginés quand
   l'introspection expose les arguments et champs nécessaires. Sans pagination exploitable, une
-  page pleine de 100 liens est signalée comme incomplète ; Kanban refuse alors une photographie
-  qui ferait passer des tickets liés pour des tickets sans objectif. Les recherches de Goals et
+  page pleine de 100 liens est signalée comme incomplète ; Kanban utilise alors le champ Goals
+  des tickets s'il est complet, sinon refuse une photographie qui ferait passer des tickets liés
+  pour des tickets sans objectif. Les recherches de Goals et
   leurs liens restent bornés à 20 pages ; un curseur incohérent ou une borne atteinte est signalé.
+- Depuis 0.24.1, un schéma Goals sans `workItems` n'empêche plus le Kanban de charger lorsque
+  le champ Goals Jira est présent sur chaque ticket classé par objectif, y compris avec la valeur
+  `null`. Les associations viennent alors des tickets ; si le champ manque sur un de ces tickets, la
+  lecture reste bloquée pour ne pas classer à tort ce ticket dans Build.
 - Périmètre (0.19.21, signalé par Denis) : les tickets d’un sprint sont lus depuis le board,
   `GET /rest/agile/1.0/board/{board}/sprint/{sprint}/issue`, et non plus par le sprint seul, qui
   ramenait aussi les tickets des autres boards d’un sprint partagé. Un sprint actif sans aucun
@@ -459,6 +464,8 @@ Les deux constructions ont été réalisées dans `release/kanban-0.24.0` et
 de l'intégration Jira ont été exécutés sous Edge Chromium, sur profils temporaires et faux Jira.
 Le banc visuel Kanban couvre objectifs, Build/RUN/OPS, épinglage partagé, Daily et board vide.
 La compatibilité avec l'instance Jira réelle reste à valider par Denis.
+Validation de la 0.24.1 : typage et lint réussis ; 895 tests réussis, 1 ignoré ; paquet intégré
+`0.24.1.2` construit dans `dist/` et contrôle navigateur isolé du mode intégré réussi.
 
 Commandes utiles :
 
