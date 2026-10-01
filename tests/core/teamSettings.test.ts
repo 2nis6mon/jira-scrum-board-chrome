@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  withSwimlaneHidden,
+  withSwimlaneName,
+  withTypeDestination,
+} from "../../src/core/boardSettings";
+import {
   decodeTeamDocument,
   encodeTeamDocument,
   publishTeamSettings,
@@ -12,7 +17,7 @@ import {
 import { JiraError } from "../../src/jira/errors";
 import type { JsonValue } from "../../src/jira/json";
 import type { JiraWrite } from "../../src/jira/writes";
-import { column, makeConfiguration } from "../support/jiraFixtures";
+import { column, makeConfiguration, STORY_TYPE, SWIMLANE_TYPE } from "../support/jiraFixtures";
 
 // Données FICTIVES. Réglages d'équipe : propriété du board, publiée sur un geste explicite.
 
@@ -20,7 +25,7 @@ const base = makeConfiguration();
 /** Configuration réglée par une personne de l'équipe. */
 const tuned = {
   ...base,
-  scrumColumns: base.scrumColumns.map((col, index) =>
+  columns: base.columns.map((col, index) =>
     index === 1 ? { ...col, name: "Développement", wipLimit: 3 } : col,
   ),
   issueTypes: base.issueTypes.map((type) =>
@@ -33,7 +38,7 @@ const tuned = {
   blockOrder: ["build", "goal:g1"],
   hiddenGoalIds: ["g2"],
   // Réglages personnels : jamais partagés.
-  collapsedBlockIds: ["kanban"],
+  collapsedBlockIds: ["swimlane:1"],
   autoRefreshSeconds: 120,
 };
 
@@ -50,8 +55,8 @@ describe("réglages d'équipe ↔ configuration", () => {
   it("la structure reste celle de Jira : colonne inconnue ignorée, colonne locale gardée, sans statut masquée", () => {
     const local = {
       ...base,
-      scrumColumns: [
-        ...base.scrumColumns,
+      columns: [
+        ...base.columns,
         { ...column("col-9-Recette", "Recette", ["8"], 9), wipLimit: 2 },
         column("col-10-Vide", "Vide", [], 10),
       ],
@@ -65,10 +70,10 @@ describe("réglages d'équipe ↔ configuration", () => {
       ],
     };
     const applied = withTeamSettings(local, settings);
-    expect(applied.scrumColumns.map((col) => col.id)).toEqual(local.scrumColumns.map((c) => c.id));
-    expect(applied.scrumColumns[1]).toMatchObject({ name: "Développement", wipLimit: 3 });
-    expect(applied.scrumColumns[3]).toMatchObject({ name: "Recette", wipLimit: 2 });
-    expect(applied.scrumColumns[4]?.hidden).toBe(true);
+    expect(applied.columns.map((col) => col.id)).toEqual(local.columns.map((c) => c.id));
+    expect(applied.columns[1]).toMatchObject({ name: "Développement", wipLimit: 3 });
+    expect(applied.columns[3]).toMatchObject({ name: "Recette", wipLimit: 2 });
+    expect(applied.columns[4]?.hidden).toBe(true);
   });
 
   it("couleurs : celle de l'équipe l'emporte, un objectif qu'elle ne connaît pas garde la sienne", () => {
@@ -83,7 +88,7 @@ describe("réglages d'équipe ↔ configuration", () => {
     const settings = teamSettingsOf(tuned);
     const changed = withTeamSettings(base, settings);
     expect(teamDifferences({ ...changed, agingThresholdDays: 8 }, settings)).toEqual([
-      "Swimlane Kanban, noms de Build et de Kanban, seuil de vieillissement",
+      "Nom de Build, seuil de vieillissement",
     ]);
     expect(
       teamDifferences(
@@ -198,7 +203,7 @@ describe("publier les réglages d'équipe", () => {
   });
 });
 
-describe("réglages publiés avant 0.21.0 (RUN devenu Kanban)", () => {
+describe("réglages publiés avant 0.21.0 (RUN, puis Kanban)", () => {
   // Forme exacte du document publié sur le board de Denis le 24/09/2026 (valeurs réduites).
   const legacyColumns = [{ id: "col-0-A faire", name: "A faire", hidden: false, wipLimit: null }];
   const legacy = {
@@ -226,14 +231,14 @@ describe("réglages publiés avant 0.21.0 (RUN devenu Kanban)", () => {
     },
   };
 
-  it("se relit : catégorie, colonnes, affichage et ordre passent au Kanban", () => {
+  it("se relit : une swimlane par type « 1 », masquée, à sa place dans l'ordre", () => {
     const settings = decodeTeamDocument(legacy)?.settings;
     expect(settings?.issueTypes.map((type) => type.category)).toEqual(["KANBAN", "SCRUM"]);
-    expect(settings?.kanbanColumns.map((c) => c.name)).toEqual(["A faire"]);
-    expect(settings?.showKanbanSection).toBe(false);
-    expect(settings?.blockOrder).toEqual(["kanban", "goal:g1", "build"]);
-    // Jamais publié : le nom par défaut.
-    expect(settings?.kanbanSectionLabel).toBe("Kanban");
+    expect(settings?.scrumColumns.map((c) => c.name)).toEqual(["A faire"]);
+    expect(settings?.ticketSwimlanes).toEqual([
+      { id: "1", name: "", typeIds: ["10415"], hidden: true },
+    ]);
+    expect(settings?.blockOrder).toEqual(["swimlane:1", "goal:g1", "build"]);
   });
 
   it("republier écrit le nouveau format, sans garder les anciennes clés", async () => {
@@ -248,13 +253,76 @@ describe("réglages publiés avant 0.21.0 (RUN devenu Kanban)", () => {
     expect(settings.showRunSection).toBeUndefined();
     // Goals associés au board, retirés en 0.22.4.
     expect(settings.boardGoalIds).toBeUndefined();
-    expect(settings.kanbanColumns).toBeDefined();
-    expect(settings.kanbanSectionLabel).toBe(tuned.kanbanSectionLabel);
+    expect(settings.ticketSwimlanes).toEqual(teamSettingsOf(tuned).ticketSwimlanes);
+  });
+});
+
+describe("compatibilité avec la 0.22.7, sur le même board", () => {
+  const recette = { ...SWIMLANE_TYPE, id: "10005", name: "Anomalie de Recette" };
+  const service = { ...SWIMLANE_TYPE, id: "10006", name: "Demande de service" };
+  const three = makeConfiguration({ issueTypes: [STORY_TYPE, SWIMLANE_TYPE, recette, service] });
+  // RUN : Anomalie Prod et Anomalie de Recette ; OPS : Demande de service.
+  const split = withSwimlaneName(
+    withSwimlaneName(withTypeDestination(three, "10006", { kind: "newSwimlane" }), "1", "RUN"),
+    "2",
+    "OPS",
+  );
+
+  it("écrit, pour elle, les anciennes clés déduites : une seule swimlane Kanban", () => {
+    const settings = teamSettingsOf({ ...split, dailyStockLimit: 5 });
+    expect(settings.issueTypes.map((type) => type.category)).toEqual([
+      "SCRUM",
+      "KANBAN",
+      "KANBAN",
+      "KANBAN",
+    ]);
+    expect(settings.kanbanColumns).toEqual(settings.scrumColumns);
+    expect(settings.showKanbanSection).toBe(true);
+    expect(settings.kanbanSectionLabel).toBe("RUN / OPS");
+    expect(settings.dailyKanbanStockLimit).toBe(5);
+    expect(
+      teamSettingsOf(withSwimlaneHidden(withSwimlaneHidden(split, "1", true), "2", true))
+        .showKanbanSection,
+    ).toBe(false);
   });
 
-  it("le nom de la swimlane Kanban est partagé avec l'équipe", () => {
-    const named = { ...tuned, kanbanSectionLabel: "Run" };
-    expect(teamSettingsOf(named).kanbanSectionLabel).toBe("Run");
-    expect(withTeamSettings(base, teamSettingsOf(named)).kanbanSectionLabel).toBe("Run");
+  it("relit ce qu'elle a réécrit : types changés par elle, swimlanes gardées telles quelles", () => {
+    const settings = teamSettingsOf(split);
+    // La 0.22.7 a remis « Anomalie de Recette » par objectif et classé un nouveau type en Kanban ;
+    // elle a gardé `ticketSwimlanes`, clé qu'elle ne connaît pas.
+    const rewritten = {
+      ...settings,
+      issueTypes: [
+        ...settings.issueTypes.map((type) =>
+          type.id === "10005" ? { ...type, category: "SCRUM" as const } : type,
+        ),
+        { id: "10007", name: "Incident", category: "KANBAN" as const, countsAsBug: null },
+      ],
+    };
+    const local = makeConfiguration({
+      issueTypes: [
+        STORY_TYPE,
+        SWIMLANE_TYPE,
+        recette,
+        service,
+        { ...service, id: "10007", name: "Incident" },
+      ],
+    });
+    const applied = withTeamSettings(local, rewritten);
+    expect(
+      applied.ticketSwimlanes.map((swimlane) => [swimlane.id, swimlane.name, swimlane.typeIds]),
+    ).toEqual([
+      ["1", "RUN", ["10004", "10007"]],
+      ["2", "OPS", ["10006"]],
+    ]);
+    expect(applied.issueTypes.find((type) => type.id === "10005")?.category).toBe("GOAL");
+  });
+
+  it("noms et masquage des swimlanes par type sont partagés avec l'équipe", () => {
+    const applied = withTeamSettings(three, teamSettingsOf(withSwimlaneHidden(split, "2", true)));
+    expect(applied.ticketSwimlanes.map(({ name, hidden }) => [name, hidden])).toEqual([
+      ["RUN", false],
+      ["OPS", true],
+    ]);
   });
 });

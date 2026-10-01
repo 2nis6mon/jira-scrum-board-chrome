@@ -2,33 +2,34 @@ import { useState } from "preact/hooks";
 import {
   type BoardConfiguration,
   type ColumnConfiguration,
+  computedSwimlaneName,
   DEFAULT_BUILD_LABEL,
-  DEFAULT_KANBAN_LABEL,
-  type IssueCategory,
+  type IssueTypeConfiguration,
   isBugTypeConfiguration,
+  swimlaneName,
+  swimlaneOfType,
+  type TicketSwimlane,
 } from "../../../core/boardConfiguration";
 import {
   AUTO_REFRESH_CHOICES,
-  type ColumnKind,
-  ISSUE_CATEGORY_LABEL,
   type SettingResult,
+  type TypeDestination,
   withAgingThreshold,
   withBlockedLabels,
   withBugType,
   withBuildLabel,
   withColumnHidden,
   withColumnName,
-  withDailyKanbanStockLimit,
   withDailyMinutes,
+  withDailyStockLimit,
   withDefaultBlockOrder,
-  withIssueTypeCategory,
-  withKanbanLabel,
+  withSwimlaneHidden,
+  withSwimlaneName,
+  withTypeDestination,
   withWipLimit,
 } from "../../../core/boardSettings";
 import type { BoardModel } from "../../model/BoardModel";
 import { plural } from "../format";
-
-const CATEGORIES: readonly IssueCategory[] = ["SCRUM", "KANBAN", "IGNORED"];
 
 /** Enregistre un réglage validé ; rend le message d'erreur s'il est refusé. */
 type Commit = (
@@ -64,8 +65,6 @@ export function BoardSettings({
   };
   const set = (change: (current: BoardConfiguration) => BoardConfiguration, resync = false) =>
     commit((current) => ({ ok: true, configuration: change(current) }), { resync });
-  // Les libellés qui désignent LA swimlane portent son nom ; « mode Kanban » reste le mode.
-  const kanbanLabel = configuration.kanbanSectionLabel || DEFAULT_KANBAN_LABEL;
   const buildLabel = configuration.buildSectionLabel || DEFAULT_BUILD_LABEL;
 
   return (
@@ -83,92 +82,17 @@ export function BoardSettings({
         </header>
         <p class="hint">
           Les colonnes et leurs statuts viennent du board Jira. Vous pouvez en renommer l'affichage,
-          en masquer une et ajuster sa limite WIP. Chaque modification est enregistrée dès que le
-          champ est validé.
+          en masquer une et ajuster sa limite WIP. Toutes les swimlanes partagent ces colonnes, et
+          une limite WIP compte tous les tickets de la colonne. Chaque modification est enregistrée
+          dès que le champ est validé.
         </p>
-        <ColumnEditor
-          title="Scrum"
-          kind="scrum"
-          columns={configuration.scrumColumns}
-          commit={commit}
-        />
-        <ColumnEditor
-          title={kanbanLabel}
-          kind="kanban"
-          columns={configuration.kanbanColumns}
-          commit={commit}
-        />
+        <ColumnEditor columns={configuration.columns} commit={commit} />
       </section>
 
-      <section class="panel" aria-labelledby="settings-types">
-        <h2 id="settings-types">Types de tickets</h2>
-        <p class="hint">
-          Ce qui est traité en mode Scrum (par objectifs) et ce qui l'est en mode Kanban. Un type «
-          ignoré » n'apparaît nulle part. « Bug » : un ticket lié de ce type est signalé comme bug
-          sur la carte du ticket porteur. Le board est relu dans Jira après chaque changement.
-        </p>
-        {configuration.issueTypes.length === 0 ? (
-          <p class="hint">Aucun type de ticket trouvé sur ce board.</p>
-        ) : (
-          <table class="settings-table">
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th>Classement</th>
-                <th>Bug</th>
-              </tr>
-            </thead>
-            <tbody>
-              {configuration.issueTypes.map((type) => (
-                <tr key={type.id}>
-                  <td>{type.name}</td>
-                  <td>
-                    <select
-                      aria-label={`Classement du type ${type.name}`}
-                      value={type.category}
-                      onChange={(event) => {
-                        const category = event.currentTarget.value as IssueCategory;
-                        set((current) => withIssueTypeCategory(current, type.id, category), true);
-                      }}
-                    >
-                      {CATEGORIES.map((category) => (
-                        <option key={category} value={category}>
-                          {ISSUE_CATEGORY_LABEL[category]}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <input
-                      type="checkbox"
-                      aria-label={`${type.name} compte comme bug`}
-                      checked={isBugTypeConfiguration(type)}
-                      onChange={(event) => {
-                        const countsAsBug = event.currentTarget.checked;
-                        set((current) => withBugType(current, type.id, countsAsBug), true);
-                      }}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+      <TypeSettings configuration={configuration} set={set} />
 
       <section class="panel" aria-labelledby="settings-display">
         <h2 id="settings-display">Affichage et synchronisation</h2>
-        <label class="settings-check">
-          <input
-            type="checkbox"
-            checked={configuration.showKanbanSection}
-            onChange={(event) => {
-              const showKanbanSection = event.currentTarget.checked;
-              set((current) => ({ ...current, showKanbanSection }));
-            }}
-          />
-          Afficher la swimlane {kanbanLabel}
-        </label>
         <div class="settings-field">
           <label for="settings-build-label">
             Nom du bloc des tickets rattachés à aucun objectif
@@ -178,17 +102,6 @@ export function BoardSettings({
             value={configuration.buildSectionLabel}
             placeholder="Build"
             onCommit={(raw) => set((current) => withBuildLabel(current, raw))}
-          />
-        </div>
-        <div class="settings-field">
-          <label for="settings-kanban-label">
-            Nom de la swimlane des tickets traités en mode Kanban
-          </label>
-          <CommitInput
-            id="settings-kanban-label"
-            value={configuration.kanbanSectionLabel}
-            placeholder="Kanban"
-            onCommit={(raw) => set((current) => withKanbanLabel(current, raw))}
           />
         </div>
         <div class="settings-field settings-inline">
@@ -212,15 +125,15 @@ export function BoardSettings({
           <span class="hint">minute(s), pour le minuteur du mode Daily</span>
         </div>
         <div class="settings-field settings-inline">
-          <label for="settings-daily-stock">Stock {kanbanLabel} en daily</label>
+          <label for="settings-daily-stock">Stock en daily</label>
           <CommitInput
             id="settings-daily-stock"
-            value={String(configuration.dailyKanbanStockLimit)}
+            value={String(configuration.dailyStockLimit)}
             numeric
-            onCommit={(raw) => commit((current) => withDailyKanbanStockLimit(current, raw))}
+            onCommit={(raw) => commit((current) => withDailyStockLimit(current, raw))}
           />
           <span class="hint">
-            carte(s) affichée(s) dans la première colonne {kanbanLabel}, avant « + N autres »
+            carte(s) affichée(s) dans la première colonne de chaque swimlane, avant « + N autres »
           </span>
         </div>
         <label class="settings-field settings-inline">
@@ -264,7 +177,7 @@ export function BoardSettings({
             Réinitialiser l'ordre des swimlanes
           </button>
           <span class="hint">
-            Objectifs dans leur ordre d'arrivée, puis {buildLabel} et {kanbanLabel}.
+            Objectifs dans leur ordre d'arrivée, puis {buildLabel} et les swimlanes par type.
           </span>
         </div>
       </section>
@@ -272,16 +185,154 @@ export function BoardSettings({
   );
 }
 
-function ColumnEditor(props: {
-  title: string;
-  kind: ColumnKind;
-  columns: readonly ColumnConfiguration[];
-  commit: Commit;
+const GOAL_DESTINATION = "goal";
+const IGNORED_DESTINATION = "ignored";
+const NEW_DESTINATION = "new";
+
+function destinationValue(type: IssueTypeConfiguration, swimlane: TicketSwimlane | null): string {
+  if (swimlane) return `swimlane:${swimlane.id}`;
+  return type.category === "IGNORED" ? IGNORED_DESTINATION : GOAL_DESTINATION;
+}
+
+function parseDestination(value: string): TypeDestination {
+  if (value === IGNORED_DESTINATION) return { kind: "ignored" };
+  if (value === NEW_DESTINATION) return { kind: "newSwimlane" };
+  if (value.startsWith("swimlane:")) {
+    return { kind: "swimlane", swimlaneId: value.slice("swimlane:".length) };
+  }
+  return { kind: "goal" };
+}
+
+/**
+ * Types de tickets et swimlanes par type (demande de Denis du 25/09/2026) : un bloc par groupe —
+ * par objectif, chaque swimlane par type, ignorés. Chaque type se déplace d'un groupe à l'autre ;
+ * une swimlane naît de son premier type et disparaît avec le dernier.
+ */
+function TypeSettings(props: {
+  configuration: BoardConfiguration;
+  set: (change: (current: BoardConfiguration) => BoardConfiguration, resync?: boolean) => unknown;
 }) {
-  const { kind, commit } = props;
+  const { configuration, set } = props;
+  const byCategory = (category: IssueTypeConfiguration["category"]) =>
+    configuration.issueTypes.filter((type) => type.category === category);
+  const typesOf = (swimlane: TicketSwimlane) =>
+    swimlane.typeIds.flatMap((id) => {
+      const type = configuration.issueTypes.find((candidate) => candidate.id === id);
+      return type ? [type] : [];
+    });
+  const move = (typeId: string, value: string) =>
+    set((current) => withTypeDestination(current, typeId, parseDestination(value)), true);
+
+  const rows = (types: readonly IssueTypeConfiguration[]) =>
+    types.length === 0 ? (
+      <p class="hint">Aucun type.</p>
+    ) : (
+      <table class="settings-table settings-types">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Déplacer vers</th>
+            <th>Bug</th>
+          </tr>
+        </thead>
+        <tbody>
+          {types.map((type) => (
+            <tr key={type.id}>
+              <td>{type.name}</td>
+              <td>
+                <select
+                  aria-label={`Groupe du type ${type.name}`}
+                  value={destinationValue(type, swimlaneOfType(configuration, type.id))}
+                  onChange={(event) => move(type.id, event.currentTarget.value)}
+                >
+                  <option value={GOAL_DESTINATION}>Par objectif</option>
+                  {configuration.ticketSwimlanes.map((swimlane) => (
+                    <option key={swimlane.id} value={`swimlane:${swimlane.id}`}>
+                      Swimlane « {swimlaneName(configuration, swimlane)} »
+                    </option>
+                  ))}
+                  <option value={NEW_DESTINATION}>Nouvelle swimlane</option>
+                  <option value={IGNORED_DESTINATION}>Ignorés</option>
+                </select>
+              </td>
+              <td>
+                <input
+                  type="checkbox"
+                  aria-label={`${type.name} compte comme bug`}
+                  checked={isBugTypeConfiguration(type)}
+                  onChange={(event) => {
+                    const countsAsBug = event.currentTarget.checked;
+                    set((current) => withBugType(current, type.id, countsAsBug), true);
+                  }}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+
+  return (
+    <section class="panel" aria-labelledby="settings-types">
+      <h2 id="settings-types">Types de tickets et swimlanes</h2>
+      <p class="hint">
+        Un type de ticket est rangé par objectif (la swimlane de son Goal, ou Build sans Goal), dans
+        une swimlane par type, ou ignoré. Une swimlane par type se crée en y déplaçant un premier
+        type (« Nouvelle swimlane ») et disparaît avec son dernier ; son nom est, tant qu'on ne le
+        change pas, celui de ses types. « Bug » : un ticket lié de ce type est signalé comme bug sur
+        la carte du ticket porteur. Le board est relu dans Jira après chaque changement.
+      </p>
+      {configuration.issueTypes.length === 0 ? (
+        <p class="hint">Aucun type de ticket trouvé sur ce board.</p>
+      ) : (
+        <>
+          <div class="type-group">
+            <h3>Par objectif</h3>
+            {rows(byCategory("GOAL"))}
+          </div>
+          {configuration.ticketSwimlanes.map((swimlane) => (
+            <div key={swimlane.id} class="type-group type-group-swimlane">
+              <div class="type-group-header">
+                <h3>Swimlane</h3>
+                <CommitInput
+                  label={`Nom de la swimlane ${swimlaneName(configuration, swimlane)}`}
+                  value={swimlane.name}
+                  placeholder={computedSwimlaneName(configuration, swimlane)}
+                  onCommit={(raw) => {
+                    set((current) => withSwimlaneName(current, swimlane.id, raw));
+                    return null;
+                  }}
+                />
+                <label class="settings-check">
+                  <input
+                    type="checkbox"
+                    aria-label={`Afficher la swimlane ${swimlaneName(configuration, swimlane)}`}
+                    checked={!swimlane.hidden}
+                    onChange={(event) => {
+                      const hidden = !event.currentTarget.checked;
+                      set((current) => withSwimlaneHidden(current, swimlane.id, hidden));
+                    }}
+                  />
+                  Affichée
+                </label>
+              </div>
+              {rows(typesOf(swimlane))}
+            </div>
+          ))}
+          <div class="type-group">
+            <h3>Ignorés</h3>
+            {rows(byCategory("IGNORED"))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function ColumnEditor(props: { columns: readonly ColumnConfiguration[]; commit: Commit }) {
+  const { commit } = props;
   return (
     <table class="settings-table">
-      <caption>{props.title}</caption>
       <thead>
         <tr>
           <th>Affichée</th>
@@ -296,25 +347,23 @@ function ColumnEditor(props: {
             <td>
               <input
                 type="checkbox"
-                aria-label={`Afficher la colonne ${column.name} (${props.title})`}
+                aria-label={`Afficher la colonne ${column.name}`}
                 checked={!column.hidden}
                 disabled={column.statusIds.length === 0}
                 onChange={(event) => {
                   const hidden = !event.currentTarget.checked;
                   commit((current) => ({
                     ok: true,
-                    configuration: withColumnHidden(current, kind, column.id, hidden),
+                    configuration: withColumnHidden(current, column.id, hidden),
                   }));
                 }}
               />
             </td>
             <td>
               <CommitInput
-                label={`Nom de la colonne ${column.name} (${props.title})`}
+                label={`Nom de la colonne ${column.name}`}
                 value={column.name}
-                onCommit={(raw) =>
-                  commit((current) => withColumnName(current, kind, column.id, raw))
-                }
+                onCommit={(raw) => commit((current) => withColumnName(current, column.id, raw))}
               />
             </td>
             <td class={column.statusIds.length === 0 ? "settings-warning" : "hint"}>
@@ -325,11 +374,11 @@ function ColumnEditor(props: {
             </td>
             <td>
               <CommitInput
-                label={`Limite WIP de ${column.name} (${props.title})`}
+                label={`Limite WIP de ${column.name}`}
                 value={column.wipLimit === null ? "" : String(column.wipLimit)}
                 placeholder="—"
                 numeric
-                onCommit={(raw) => commit((current) => withWipLimit(current, kind, column.id, raw))}
+                onCommit={(raw) => commit((current) => withWipLimit(current, column.id, raw))}
               />
             </td>
           </tr>

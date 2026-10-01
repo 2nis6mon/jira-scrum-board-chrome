@@ -45,7 +45,7 @@ describe("stockage local des boards", () => {
       boardId: 7,
       hiddenGoalIds: ["g1"],
       blockOrder: ["build", "goal:g2"],
-      collapsedBlockIds: ["kanban"],
+      collapsedBlockIds: ["swimlane:1"],
       goalColorIndex: { g1: 4 },
       cardFields: [
         { kind: "labels" },
@@ -75,7 +75,7 @@ describe("stockage local des boards", () => {
     expect(decodeStoredConfiguration(null)).toBeNull();
     expect(decodeStoredConfiguration({ boardId: 7 })).toBeNull();
     const base = JSON.parse(JSON.stringify(makeConfiguration()));
-    expect(decodeStoredConfiguration({ ...base, scrumColumns: "illisible" })).toBeNull();
+    expect(decodeStoredConfiguration({ ...base, columns: "illisible" })).toBeNull();
 
     const tolerant = decodeStoredConfiguration({
       ...base,

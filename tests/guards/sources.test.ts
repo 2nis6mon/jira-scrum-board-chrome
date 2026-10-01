@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -17,7 +17,7 @@ function sourceFiles(dir: string): string[] {
 }
 
 const sources = sourceFiles(join(root, "src")).map((path) => ({
-  file: relative(root, path),
+  file: relative(root, path).split(sep).join("/"),
   // Les commentaires décrivent les règles ; seul le code compte ici.
   code: readFileSync(path, "utf8")
     .replace(/\/\*[\s\S]*?\*\//g, "")

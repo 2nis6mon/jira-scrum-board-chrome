@@ -7,8 +7,27 @@ import { type CardColorRule, withBuiltInRules } from "./cardColors";
 import { type CardField, MAX_CARD_FIELDS } from "./cardFields";
 import { foldText } from "./text";
 
-/** Classement d'un type de ticket Jira dans l'application. */
-export type IssueCategory = "SCRUM" | "KANBAN" | "IGNORED";
+/**
+ * Mode d'un type de ticket Jira : par objectif (swimlane de son Goal, ou Build sans Goal), dans une
+ * swimlane par type (`TicketSwimlane`), ou ignoré.
+ */
+export type IssueCategory = "GOAL" | "SWIMLANE" | "IGNORED";
+
+/**
+ * Swimlane par type : un groupe de types de tickets traités hors objectifs (demande de Denis du
+ * 25/09/2026, remplace l'unique swimlane Kanban). Un type n'appartient qu'à une swimlane, et y est
+ * si et seulement si son mode est `SWIMLANE` (`normalizeSwimlanes` tient cet invariant).
+ */
+export interface TicketSwimlane {
+  /** Identifiant stable (« 1 », « 2 »…), repris dans l'ordre et le repli des blocs. */
+  readonly id: string;
+  /** Nom choisi dans l'administration ; vide = nom calculé à partir des types (`swimlaneName`). */
+  readonly name: string;
+  /** Types regroupés, dans l'ordre du nom calculé. */
+  readonly typeIds: readonly string[];
+  /** Masquée : ses tickets ne sont pas affichés. */
+  readonly hidden: boolean;
+}
 
 /** Colonne affichée par l'application, adossée à des statuts Jira réels. */
 export interface ColumnConfiguration {
@@ -69,9 +88,11 @@ export interface BoardConfiguration {
   /** Champ Jira « Flagged » (drapeau posé depuis le board Jira). Lu seulement. */
   readonly flaggedFieldId: string | null;
 
-  readonly scrumColumns: readonly ColumnConfiguration[];
-  readonly kanbanColumns: readonly ColumnConfiguration[];
+  /** Colonnes du board, les mêmes pour toutes les swimlanes. */
+  readonly columns: readonly ColumnConfiguration[];
   readonly issueTypes: readonly IssueTypeConfiguration[];
+  /** Swimlanes par type, dans l'ordre de leur création. */
+  readonly ticketSwimlanes: readonly TicketSwimlane[];
 
   /**
    * Libellés considérés comme marqueurs de blocage, en complément du lien natif
@@ -85,11 +106,10 @@ export interface BoardConfiguration {
   /** Durée du minuteur du mode Daily, en minutes. Réglage local, jamais publié à l'équipe. */
   readonly dailyMinutes: number;
   /**
-   * Daily : cartes affichées dans la première colonne du Kanban avant le bouton « + N autres ».
-   * Réglage local, jamais publié à l'équipe.
+   * Daily : cartes affichées dans la première colonne de chaque swimlane avant le bouton
+   * « + N autres ».
    */
-  readonly dailyKanbanStockLimit: number;
-  readonly showKanbanSection: boolean;
+  readonly dailyStockLimit: number;
   /** Objectifs masqués de l'affichage. Rien n'est supprimé dans Jira. */
   readonly hiddenGoalIds: readonly string[];
   /** Ordre d'affichage des blocs (identifiants `BoardBlock`). */
@@ -98,8 +118,6 @@ export interface BoardConfiguration {
   readonly collapsedBlockIds: readonly string[];
   /** Libellé du bloc regroupant les tickets non rattachés à un objectif. */
   readonly buildSectionLabel: string;
-  /** Libellé de la swimlane des tickets traités en mode Kanban (« Kanban » par défaut). */
-  readonly kanbanSectionLabel: string;
   readonly goalSource: GoalSource;
   /** Couleur de chaque objectif (indice de palette), mémorisée d'un sprint à l'autre. */
   readonly goalColorIndex: Readonly<Record<string, number>>;
@@ -127,17 +145,100 @@ export interface TeamBase {
 }
 
 export const DEFAULT_BUILD_LABEL = "Build";
-export const DEFAULT_KANBAN_LABEL = "Kanban";
+/** Nom par défaut de l'ancienne swimlane Kanban (avant 0.23.0) : il laisse place au nom calculé. */
+const LEGACY_KANBAN_LABEL = "Kanban";
 
 /** Minuteur du mode Daily : 15 minutes par défaut, de 1 à 120. */
 export const DEFAULT_DAILY_MINUTES = 15;
 export const MAX_DAILY_MINUTES = 120;
-/** Stock Kanban en daily : 3 cartes par défaut avant le bouton, de 1 à 50. */
-export const DEFAULT_DAILY_KANBAN_STOCK = 3;
-export const MAX_DAILY_KANBAN_STOCK = 50;
+/** Stock en daily : 3 cartes par défaut avant le bouton, de 1 à 50. */
+export const DEFAULT_DAILY_STOCK = 3;
+export const MAX_DAILY_STOCK = 50;
 
 export function categoryForIssueType(config: BoardConfiguration, typeId: string): IssueCategory {
-  return config.issueTypes.find((type) => type.id === typeId)?.category ?? "SCRUM";
+  return config.issueTypes.find((type) => type.id === typeId)?.category ?? "GOAL";
+}
+
+/** Swimlane par type d'un type de ticket, ou `null` s'il est par objectif ou ignoré. */
+export function swimlaneOfType(config: BoardConfiguration, typeId: string): TicketSwimlane | null {
+  return config.ticketSwimlanes.find((swimlane) => swimlane.typeIds.includes(typeId)) ?? null;
+}
+
+export function findSwimlane(config: BoardConfiguration, id: string): TicketSwimlane | null {
+  return config.ticketSwimlanes.find((swimlane) => swimlane.id === id) ?? null;
+}
+
+/** Swimlanes par type affichées (non masquées), dans leur ordre de création. */
+export function shownSwimlaneIds(config: BoardConfiguration): string[] {
+  return config.ticketSwimlanes.filter((swimlane) => !swimlane.hidden).map((s) => s.id);
+}
+
+/** Nom calculé : les noms de ses types, dans l'ordre du groupe. */
+export function computedSwimlaneName(
+  config: Pick<BoardConfiguration, "issueTypes">,
+  swimlane: TicketSwimlane,
+): string {
+  const names = swimlane.typeIds.flatMap((id) => {
+    const type = config.issueTypes.find((candidate) => candidate.id === id);
+    return type ? [type.name] : [];
+  });
+  return names.join(" / ");
+}
+
+/** Nom affiché d'une swimlane par type : celui choisi, sinon le nom calculé. */
+export function swimlaneName(
+  config: Pick<BoardConfiguration, "issueTypes">,
+  swimlane: TicketSwimlane,
+): string {
+  return swimlane.name.trim() || computedSwimlaneName(config, swimlane) || "Swimlane";
+}
+
+/** Plus petit identifiant libre (« 1 », « 2 »…). */
+export function nextSwimlaneId(swimlanes: readonly TicketSwimlane[]): string {
+  const used = new Set(swimlanes.map((swimlane) => swimlane.id));
+  let id = 1;
+  while (used.has(String(id))) id += 1;
+  return String(id);
+}
+
+/**
+ * Remet types et swimlanes d'accord. Le mode du type fait foi : une swimlane ne garde que des
+ * types connus en mode `SWIMLANE`, chacun une seule fois ; un type en mode `SWIMLANE` qui n'est dans
+ * aucune rejoint la première, ou une nouvelle (`orphans`) s'il n'y en a pas ; une swimlane vide
+ * disparaît. Sert à la découverte d'un board, aux types apparus depuis, à la relecture des anciens
+ * formats (tous les types Kanban dans une seule swimlane) et aux réglages écrits par une version
+ * qui ne connaît pas les swimlanes par type.
+ */
+export function normalizeSwimlanes(
+  issueTypes: readonly IssueTypeConfiguration[],
+  swimlanes: readonly TicketSwimlane[],
+  orphans: { readonly name: string; readonly hidden: boolean } = { name: "", hidden: false },
+): TicketSwimlane[] {
+  const inSwimlane = new Set(
+    issueTypes.filter((type) => type.category === "SWIMLANE").map((type) => type.id),
+  );
+  const placed = new Set<string>();
+  const result = swimlanes.map((swimlane) => ({
+    ...swimlane,
+    typeIds: swimlane.typeIds.filter((id) => {
+      if (!inSwimlane.has(id) || placed.has(id)) return false;
+      placed.add(id);
+      return true;
+    }),
+  }));
+  const homeless = issueTypes
+    .filter((type) => type.category === "SWIMLANE" && !placed.has(type.id))
+    .map((type) => type.id);
+  if (homeless.length > 0) {
+    const first = result.find((swimlane) => swimlane.typeIds.length > 0);
+    if (first) {
+      const index = result.indexOf(first);
+      result[index] = { ...first, typeIds: [...first.typeIds, ...homeless] };
+    } else {
+      result.push({ id: nextSwimlaneId(result), typeIds: homeless, ...orphans });
+    }
+  }
+  return result.filter((swimlane) => swimlane.typeIds.length > 0);
 }
 
 /**
@@ -188,8 +289,11 @@ export function visibleColumns(columns: readonly ColumnConfiguration[]): ColumnC
 
 // ─── Découverte : de ce que Jira déclare à la configuration ──────────────────
 
-/** Motifs par défaut pour classer un type de ticket en Kanban. Ajustables ensuite par board. */
-const KANBAN_TYPE_PATTERNS = [
+/**
+ * Motifs par défaut des types regroupés dans une première swimlane par type, hors objectifs.
+ * Ajustables ensuite par board.
+ */
+const SWIMLANE_TYPE_PATTERNS = [
   "anomalie",
   "incident",
   "bug",
@@ -207,7 +311,7 @@ export function looksLikeBug(typeName: string): boolean {
 
 export function defaultCategory(typeName: string): IssueCategory {
   const folded = foldText(typeName);
-  return KANBAN_TYPE_PATTERNS.some((pattern) => folded.includes(pattern)) ? "KANBAN" : "SCRUM";
+  return SWIMLANE_TYPE_PATTERNS.some((pattern) => folded.includes(pattern)) ? "SWIMLANE" : "GOAL";
 }
 
 /** Ce que Jira déclare d'un board : `GET board/{id}` et `GET board/{id}/configuration`. */
@@ -263,20 +367,18 @@ export function buildConfiguration(input: {
     estimationFieldName: input.estimationFieldName,
     goalsFieldId: input.goalsFieldId,
     flaggedFieldId: input.flaggedFieldId,
-    scrumColumns: columns,
-    kanbanColumns: columns, // le Kanban part du même workflow Jira, puis s'ajuste
+    columns,
     issueTypes,
+    ticketSwimlanes: normalizeSwimlanes(issueTypes, []),
     blockedLabels: [],
     agingThresholdDays: 3,
     autoRefreshSeconds: null,
     dailyMinutes: DEFAULT_DAILY_MINUTES,
-    dailyKanbanStockLimit: DEFAULT_DAILY_KANBAN_STOCK,
-    showKanbanSection: true,
+    dailyStockLimit: DEFAULT_DAILY_STOCK,
     hiddenGoalIds: [],
     blockOrder: [],
     collapsedBlockIds: [],
     buildSectionLabel: DEFAULT_BUILD_LABEL,
-    kanbanSectionLabel: DEFAULT_KANBAN_LABEL,
     goalSource: "atlassianGoals",
     goalColorIndex: {},
     cardFields: [],
@@ -310,20 +412,19 @@ export function mergeConfiguration(
     goalsFieldId: fresh.goalsFieldId ?? existing.goalsFieldId,
     flaggedFieldId: fresh.flaggedFieldId ?? existing.flaggedFieldId,
     issueTypes,
+    // Un type apparu depuis, classé hors objectifs, rejoint la première swimlane par type.
+    ticketSwimlanes: normalizeSwimlanes(issueTypes, existing.ticketSwimlanes),
     // Colonnes : la structure vient de Jira, l'affichage vient de l'utilisateur.
-    scrumColumns: applyColumnPreferences(fresh.scrumColumns, existing.scrumColumns),
-    kanbanColumns: applyColumnPreferences(fresh.kanbanColumns, existing.kanbanColumns),
+    columns: applyColumnPreferences(fresh.columns, existing.columns),
     blockedLabels: existing.blockedLabels,
     agingThresholdDays: existing.agingThresholdDays,
     autoRefreshSeconds: existing.autoRefreshSeconds,
     dailyMinutes: existing.dailyMinutes,
-    dailyKanbanStockLimit: existing.dailyKanbanStockLimit,
-    showKanbanSection: existing.showKanbanSection,
+    dailyStockLimit: existing.dailyStockLimit,
     hiddenGoalIds: existing.hiddenGoalIds,
     blockOrder: existing.blockOrder,
     collapsedBlockIds: existing.collapsedBlockIds,
     buildSectionLabel: existing.buildSectionLabel,
-    kanbanSectionLabel: existing.kanbanSectionLabel,
     goalSource: existing.goalSource,
     goalColorIndex: existing.goalColorIndex,
     cardFields: existing.cardFields,
@@ -372,11 +473,11 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
   ) {
     return null;
   }
-  const scrumColumns = decodeColumns(value.scrumColumns);
-  // Avant 0.21.0, le mode Kanban s'appelait Kanban : les anciennes clés restent lisibles.
-  const kanbanColumns = decodeColumns(value.kanbanColumns ?? value.runColumns);
+  // Avant 0.23.0, les colonnes des objectifs s'appelaient `scrumColumns` ; celles du Kanban
+  // (`kanbanColumns`) disparaissent : une seule série de colonnes pour toutes les swimlanes.
+  const columns = decodeColumns(value.columns ?? value.scrumColumns);
   const issueTypes = decodeList(value.issueTypes, decodeIssueTypeConfiguration);
-  if (scrumColumns === null || kanbanColumns === null || issueTypes === null) return null;
+  if (columns === null || issueTypes === null) return null;
 
   return {
     boardId: value.boardId,
@@ -388,9 +489,9 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
     estimationFieldName: textOrNull(value.estimationFieldName),
     goalsFieldId: textOrNull(value.goalsFieldId),
     flaggedFieldId: textOrNull(value.flaggedFieldId),
-    scrumColumns,
-    kanbanColumns,
+    columns,
     issueTypes,
+    ticketSwimlanes: decodeSwimlanes(value, issueTypes),
     blockedLabels: strings(value.blockedLabels),
     agingThresholdDays: isPositiveInteger(value.agingThresholdDays) ? value.agingThresholdDays : 3,
     autoRefreshSeconds: isPositiveInteger(value.autoRefreshSeconds)
@@ -400,15 +501,13 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
       isPositiveInteger(value.dailyMinutes) && value.dailyMinutes <= MAX_DAILY_MINUTES
         ? value.dailyMinutes
         : DEFAULT_DAILY_MINUTES,
-    dailyKanbanStockLimit: decodeStockLimit(
-      value.dailyKanbanStockLimit ?? value.dailyRunStockLimit,
+    dailyStockLimit: decodeStockLimit(
+      value.dailyStockLimit ?? value.dailyKanbanStockLimit ?? value.dailyRunStockLimit,
     ),
-    showKanbanSection: decodeBoolean(value.showKanbanSection ?? value.showRunSection, true),
     hiddenGoalIds: strings(value.hiddenGoalIds),
     blockOrder: legacyBlockIds(strings(value.blockOrder)),
     collapsedBlockIds: legacyBlockIds(strings(value.collapsedBlockIds)),
     buildSectionLabel: textOr(value.buildSectionLabel, DEFAULT_BUILD_LABEL),
-    kanbanSectionLabel: textOr(value.kanbanSectionLabel, DEFAULT_KANBAN_LABEL),
     goalSource: value.goalSource === "sprintText" ? "sprintText" : "atlassianGoals",
     goalColorIndex: decodeColorIndex(value.goalColorIndex),
     cardFields: decodeList(value.cardFields, decodeCardField) ?? [],
@@ -419,18 +518,44 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
 }
 
 function decodeStockLimit(value: unknown): number {
-  return isPositiveInteger(value) && value <= MAX_DAILY_KANBAN_STOCK
-    ? value
-    : DEFAULT_DAILY_KANBAN_STOCK;
+  return isPositiveInteger(value) && value <= MAX_DAILY_STOCK ? value : DEFAULT_DAILY_STOCK;
 }
 
-function decodeBoolean(value: unknown, fallback: boolean): boolean {
-  return typeof value === "boolean" ? value : fallback;
+/**
+ * Swimlanes par type. Sans la clé `ticketSwimlanes` (format d'avant 0.23.0, ou réglages écrits par
+ * une version qui ne la connaît pas), les types Kanban forment une seule swimlane, l'ancienne : elle
+ * garde son nom s'il avait été changé, son masquage, et l'identifiant « 1 » (`legacyBlockIds`).
+ */
+function decodeSwimlanes(
+  value: Record<string, unknown>,
+  issueTypes: readonly IssueTypeConfiguration[],
+): TicketSwimlane[] {
+  const stored = decodeList(value.ticketSwimlanes, decodeSwimlane);
+  if (stored !== null) return normalizeSwimlanes(issueTypes, stored);
+  const label = textOr(value.kanbanSectionLabel, "").trim();
+  const shown = value.showKanbanSection ?? value.showRunSection;
+  return normalizeSwimlanes(issueTypes, [], {
+    name: label === LEGACY_KANBAN_LABEL ? "" : label,
+    hidden: shown === false,
+  });
 }
 
-/** Bloc enregistré sous son ancien nom (`run`, avant 0.21.0) : c'est le bloc Kanban. */
+function decodeSwimlane(item: unknown): TicketSwimlane | null {
+  if (!isObject(item) || typeof item.id !== "string" || item.id === "") return null;
+  return {
+    id: item.id,
+    name: textOr(item.name, ""),
+    typeIds: strings(item.typeIds),
+    hidden: item.hidden === true,
+  };
+}
+
+/**
+ * Bloc enregistré sous un ancien nom : `run` (avant 0.21.0) puis `kanban` (avant 0.23.0), l'unique
+ * swimlane hors objectifs, devenue la swimlane par type « 1 ».
+ */
 function legacyBlockIds(ids: string[]): string[] {
-  return ids.map((id) => (id === "run" ? "kanban" : id));
+  return ids.map((id) => (id === "run" || id === "kanban" ? "swimlane:1" : id));
 }
 
 function decodeTeamBase(value: unknown): TeamBase | null {
@@ -496,13 +621,14 @@ function decodeColumns(value: unknown): ColumnConfiguration[] | null {
 
 function decodeIssueTypeConfiguration(item: unknown): IssueTypeConfiguration | null {
   if (!isObject(item) || typeof item.id !== "string" || typeof item.name !== "string") return null;
-  // « RUN » : nom de la catégorie Kanban avant 0.21.0.
+  // « RUN » (avant 0.21.0) puis « KANBAN » (avant 0.23.0, et toujours écrit dans les réglages
+  // partagés) : hors objectifs. « SCRUM » : par objectif.
   const category: IssueCategory =
-    item.category === "KANBAN" || item.category === "RUN"
-      ? "KANBAN"
+    item.category === "SWIMLANE" || item.category === "KANBAN" || item.category === "RUN"
+      ? "SWIMLANE"
       : item.category === "IGNORED"
         ? "IGNORED"
-        : "SCRUM";
+        : "GOAL";
   return {
     id: item.id,
     name: item.name,

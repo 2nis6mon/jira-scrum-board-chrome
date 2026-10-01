@@ -11,6 +11,7 @@ import { render } from "preact";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
 import "../../src/app/styles/app.css";
+import { withSwimlaneName, withTypeDestination } from "../../src/core/boardSettings";
 import { BOARD_PROPERTY_KEYS, SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import {
   BOARD_URL,
@@ -79,6 +80,7 @@ async function simulateDrop(
 if (scenario.startsWith("board")) {
   const pinning = scenario === "board-epingle" || scenario === "board-epingle-refus";
   const withSubtasks = scenario === "board-soustaches";
+  const swimlanes = scenario === "board-swimlanes";
   const withGoals = scenario === "board-goals" || pinning || withSubtasks;
   // Filtres rapides FICTIFS du board ; le faux Jira « évalue » leur JQL par table.
   const quickFilters = [
@@ -186,13 +188,47 @@ if (scenario.startsWith("board")) {
     // Servis par la route commune des tickets du sprint, déclarée plus bas (la dernière gagne).
     sprintSource = [...withRefs, ...subtasks];
   }
+  if (swimlanes) {
+    // Tickets FICTIFS hors objectifs : RUN (anomalies) et OPS (demandes), deux swimlanes par type.
+    const ticket = (
+      key: string,
+      summary: string,
+      type: [string, string],
+      status: [string, string, string?],
+    ) =>
+      issueJson(key, {
+        summary,
+        typeId: type[0],
+        typeName: type[1],
+        statusId: status[0],
+        statusName: status[1],
+        ...(status[2] ? { category: status[2] } : {}),
+      });
+    const RECETTE: [string, string] = ["10005", "Anomalie de Recette"];
+    const CONFIGURATION: [string, string] = ["10006", "Demande de configuration"];
+    const SERVICE: [string, string] = ["10007", "Demande de service"];
+    const TODO: [string, string, string] = ["1", "À faire", "new"];
+    sprintSource = [
+      ...SPRINT_ISSUES,
+      ticket("RUN-8", "Montant arrondi sur la facture", RECETTE, TODO),
+      ticket("RUN-9", "Libellé tronqué dans le panier", RECETTE, TODO),
+      ticket("RUN-10", "Code promo refusé à tort", ["10004", "Anomalie Prod"], TODO),
+      ticket("RUN-11", "Mail de confirmation en double", RECETTE, TODO),
+      ticket("OPS-20", "Ouvrir un compte de test prestataire", SERVICE, TODO),
+      ticket("OPS-21", "Paramétrer les frais de port", CONFIGURATION, ["3", "En cours"]),
+      ticket("OPS-22", "Ajouter un moyen de paiement", CONFIGURATION, TODO),
+    ];
+  }
   jira.on("GET", "/rest/agile/1.0/board/7/issue", (request) => {
     const jql = request.url.searchParams.get("jql");
     const keys = jql === null ? null : quickFilterAnswers[jql];
+    // Sans JQL (découverte des types du board) : tous les tickets servis, ceux du scénario compris.
     const issues =
       keys === undefined
         ? []
-        : SPRINT_ISSUES.filter((issue) => keys === null || keys.includes(issue.key as string));
+        : keys === null
+          ? sprintSource
+          : SPRINT_ISSUES.filter((issue) => keys.includes(issue.key as string));
     return { status: 200, json: { issues, total: issues.length } };
   });
   if (pinning) {
@@ -264,15 +300,14 @@ if (scenario.startsWith("board")) {
   };
   // Historique FICTIF du sprint : ABC-105 y est entré après le démarrage, les autres y étaient.
   const changelog = (key: string) => ({
-    histories:
-      key === "ABC-105"
-        ? [
-            {
-              created: "2026-09-17T10:00:00.000+0200",
-              items: [{ field: "Sprint", fromString: null, toString: "Sprint 42" }],
-            },
-          ]
-        : [],
+    histories: [
+      {
+        // Mis dans le sprint pendant le planning (le sprint démarre le 14/09), ABC-105 après.
+        created:
+          key === "ABC-105" ? "2026-09-17T10:00:00.000+0200" : "2026-09-12T10:00:00.000+0200",
+        items: [{ field: "Sprint", fromString: null, toString: "Sprint 42" }],
+      },
+    ],
   });
   const decorated = (issue: Record<string, unknown>): Record<string, unknown> => {
     const extras = cardExtras[issue.key as string];
@@ -493,8 +528,19 @@ if (scenario.startsWith("board")) {
       }),
       { resync: true },
     );
+    if (swimlanes) {
+      // RUN : les anomalies (classées d'office hors objectifs) ; OPS : les demandes, regroupées.
+      await connection.board.applySettings(
+        (current) => {
+          const ops = withTypeDestination(current, "10006", { kind: "newSwimlane" });
+          const both = withTypeDestination(ops, "10007", { kind: "swimlane", swimlaneId: "2" });
+          return withSwimlaneName(withSwimlaneName(both, "1", "RUN"), "2", "OPS");
+        },
+        { resync: true },
+      );
+    }
     if (scenario === "board-statuts") {
-      connection.board.startDrag("ABC-102", "scrum");
+      connection.board.startDrag("ABC-102", null);
     }
     if (scenario === "board-filtre") connection.board.toggleQuickFilter("blocked");
     if (pinning) model.showAdmin("goals");
@@ -509,13 +555,13 @@ if (scenario.startsWith("board")) {
     if (scenario === "board-infos") {
       // Explications flottantes : propriété du sprint illisible et tickets hors colonnes visibles.
       const snapshot = connection.board.snapshot.value;
-      const [first] = snapshot?.scrumIssues ?? [];
+      const [first] = snapshot?.goalIssues ?? [];
       if (snapshot && first) {
         connection.board.snapshot.value = {
           ...snapshot,
           goalsReadOnly: true,
-          scrumIssues: [
-            ...snapshot.scrumIssues,
+          goalIssues: [
+            ...snapshot.goalIssues,
             { ...first, issue: { ...first.issue, key: "ABC-999" }, columnId: null },
           ],
         };

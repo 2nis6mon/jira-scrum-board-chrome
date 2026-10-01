@@ -8,11 +8,12 @@ import {
 } from "./boardBlocks";
 import {
   type BoardConfiguration,
-  displayedGoalId,
   isGoalHidden,
+  shownSwimlaneIds,
   visibleColumns,
 } from "./boardConfiguration";
 import { type BoardSnapshot, goalProgress, isIssueDone } from "./boardIssue";
+import { blockTitle, laneKey } from "./boardLayout";
 import { GOAL_COLOR_COUNT, type SprintGoal } from "./sprintGoals";
 
 // Réglages d'affichage modifiés depuis le board : ordre, repli, masquage, couleur des objectifs.
@@ -33,22 +34,27 @@ export const GOAL_COLOR_NAMES = [
 ] as const;
 
 /**
- * Swimlanes affichées de haut en bas, filtres ignorés : objectifs non masqués, Build, et Kanban
- * s'il est activé et que le sprint a des tickets Kanban. C'est dans cet ordre qu'on monte ou
- * descend une swimlane ; un filtre ne doit pas changer ce que « monter » veut dire.
+ * Swimlanes affichées de haut en bas, filtres ignorés : objectifs non masqués, Build, et les
+ * swimlanes par type non masquées qui ont des tickets dans le sprint. C'est dans cet ordre qu'on
+ * monte ou descend une swimlane ; un filtre ne doit pas changer ce que « monter » veut dire.
  */
 export function laneOrder(snapshot: BoardSnapshot, configuration: BoardConfiguration): string[] {
   const blocks = resolveBlocks({
     goals: snapshot.goals.filter((goal) => !isGoalHidden(configuration, goal.id)),
     storedOrder: configuration.blockOrder,
     includeBuild: true,
-    includeKanban: configuration.showKanbanSection,
+    swimlaneIds: shownSwimlaneIds(configuration),
   });
+  const counts = new Map<string, number>();
+  for (const issue of snapshot.swimlaneIssues) {
+    const key = laneKey(configuration, issue);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
   return displayedBlocks({
     blocks,
     filtersActive: false,
     filteredCount: () => 0,
-    sprintHasKanbanIssues: snapshot.kanbanIssues.length > 0,
+    totalCount: (block) => counts.get(blockIdentifier(block)) ?? 0,
   }).map(blockIdentifier);
 }
 
@@ -58,7 +64,7 @@ export interface LaneSummary {
   readonly block: BoardBlock;
   readonly title: string;
   readonly goal: SprintGoal | null;
-  /** Tickets du bloc : ceux de l'objectif, ceux de Build (aucun objectif affiché), ou Kanban. */
+  /** Tickets du bloc : ceux de l'objectif, de Build (aucun objectif affiché) ou de la swimlane. */
   readonly count: number;
   /** Tickets terminés du bloc. */
   readonly done: number;
@@ -76,21 +82,12 @@ export function laneSummaries(
   return laneOrder(snapshot, configuration).flatMap((id): LaneSummary[] => {
     const block = parseBlockIdentifier(id);
     if (!block) return [];
-    const issues =
-      block.kind === "kanban"
-        ? snapshot.kanbanIssues
-        : snapshot.scrumIssues.filter(
-            (issue) =>
-              displayedGoalId(configuration, issue.goalId) ===
-              (block.kind === "goal" ? block.goalId : null),
-          );
+    const issues = [...snapshot.goalIssues, ...snapshot.swimlaneIssues].filter(
+      (issue) => laneKey(configuration, issue) === id,
+    );
     const goal = block.kind === "goal" ? (goals.get(block.goalId) ?? null) : null;
     if (block.kind === "goal" && !goal) return [];
-    const title =
-      goal?.title ??
-      (block.kind === "kanban"
-        ? configuration.kanbanSectionLabel || "Kanban"
-        : configuration.buildSectionLabel || "Build");
+    const title = blockTitle(configuration, block, goal);
     return [
       {
         id,
@@ -99,11 +96,8 @@ export function laneSummaries(
         goal,
         count: issues.length,
         done: goal
-          ? goalProgress(
-              goal,
-              issues,
-              visibleColumns(configuration.scrumColumns).at(-1)?.id ?? null,
-            ).done
+          ? goalProgress(goal, issues, visibleColumns(configuration.columns).at(-1)?.id ?? null)
+              .done
           : issues.filter(isIssueDone).length,
       },
     ];
@@ -112,7 +106,7 @@ export function laneSummaries(
 
 /**
  * Range les swimlanes dans l'ordre donné. Un bloc absent de l'affichage (objectif masqué, objectif
- * d'un autre sprint, Kanban sans ticket) reste juste après le bloc qui le précédait, pour retrouver
+ * d'un autre sprint, swimlane par type sans ticket) reste juste après le bloc qui le précédait, pour retrouver
  * sa place s'il revient. Écart voulu avec le Mac, qui le renvoyait en fin de liste : un objectif
  * masqué puis réaffiché réapparaissait alors sous Build.
  */

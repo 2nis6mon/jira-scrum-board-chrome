@@ -142,20 +142,33 @@ export function lastStatusChange(changelog: JiraChangelog): Date | null {
   return latest;
 }
 
-/**
- * Date à laquelle ce ticket a été ajouté au sprint nommé `sprintName`.
- *
- * Jira enregistre les changements de sprint sous le champ `Sprint`, avec `fromString` /
- * `toString` contenant la liste des sprints séparés par des virgules. On cherche l'entrée où
- * le sprint apparaît dans `toString` sans être dans `fromString`, et on garde la plus ancienne.
- *
- * Retourne `null` si l'information n'est pas dans l'historique fourni : dans ce cas
- * l'application n'affiche rien plutôt que de deviner.
- */
-export function dateAddedToSprint(changelog: JiraChangelog, sprintName: string): Date | null {
-  const target = sprintName.trim();
-  if (target === "") return null;
+/** Place d'un ticket dans un sprint, lue dans l'historique de son champ « Sprint ». */
+export interface SprintScope {
+  /**
+   * Le ticket était-il dans le sprint à son démarrage ? `null` : impossible à dire (ni changement
+   * du champ Sprint, ni date de création).
+   */
+  readonly inSprintAtStart: boolean | null;
+  /** Dernière entrée dans le sprint (ou création, faute d'entrée notée) ; `null` si inconnue. */
+  readonly enteredAt: Date | null;
+}
 
+/**
+ * Le ticket était-il dans le sprint au moment où celui-ci a démarré ? On rejoue l'historique du
+ * champ « Sprint » : le dernier changement avant le démarrage donne l'état à ce moment ; sans
+ * changement avant, l'ancienne valeur du premier changement d'après ; sans aucun changement, la
+ * date de création (créé avant le démarrage : il y était). Un ticket mis dans le sprint pendant le
+ * planning, retiré, puis remis après le démarrage, compte donc comme ajouté ; un ticket présent au
+ * démarrage, sorti puis revenu, non. Jira note les sprints par leur NOM, séparés par des virgules.
+ */
+export function sprintScope(input: {
+  changelog: JiraChangelog;
+  sprintName: string;
+  startedAt: Date;
+  created: Date | null;
+}): SprintScope {
+  const target = input.sprintName.trim();
+  if (target === "") return { inSprintAtStart: null, enteredAt: null };
   // `target` n'est jamais vide : une liste absente ne peut donc pas le contenir.
   const lists = (list: string | null): boolean =>
     (list ?? "")
@@ -163,16 +176,31 @@ export function dateAddedToSprint(changelog: JiraChangelog, sprintName: string):
       .map((name) => name.trim())
       .includes(target);
 
-  let earliest: Date | null = null;
-  for (const history of changelog.histories) {
-    if (!history.created) continue;
-    const added = history.items.some(
-      (item) =>
-        item.field.toLowerCase() === "sprint" && lists(item.toString) && !lists(item.fromString),
-    );
-    if (added && (earliest === null || history.created < earliest)) earliest = history.created;
-  }
-  return earliest;
+  const changes = input.changelog.histories
+    .flatMap((history) => {
+      const item = history.items.find((candidate) => candidate.field.toLowerCase() === "sprint");
+      return history.created && item ? [{ at: history.created, item }] : [];
+    })
+    .sort((a, b) => a.at.getTime() - b.at.getTime());
+
+  const before = changes.filter((change) => change.at <= input.startedAt);
+  const after = changes.filter((change) => change.at > input.startedAt);
+  const lastBefore = before.at(-1);
+  const firstAfter = after[0];
+  const inSprintAtStart = lastBefore
+    ? lists(lastBefore.item.toString)
+    : firstAfter
+      ? lists(firstAfter.item.fromString)
+      : input.created === null
+        ? null
+        : input.created <= input.startedAt;
+
+  const entries = changes.filter(
+    (change) => lists(change.item.toString) && !lists(change.item.fromString),
+  );
+  const enteredAt =
+    entries.at(-1)?.at ?? (changes.length === 0 || !inSprintAtStart ? input.created : null);
+  return { inSprintAtStart, enteredAt };
 }
 
 // ─── Ticket ──────────────────────────────────────────────────────────────────

@@ -5,6 +5,8 @@ import {
   displayedGoalId,
   isBlockCollapsed,
   isGoalHidden,
+  shownSwimlaneIds,
+  swimlaneName,
   visibleColumns,
 } from "./boardConfiguration";
 import { type BoardIssue, type BoardSnapshot, type GoalProgress, goalProgress } from "./boardIssue";
@@ -17,7 +19,7 @@ export interface LaneCell {
   readonly issues: readonly BoardIssue[];
 }
 
-/** Une swimlane affichée : un objectif, Build ou Kanban. */
+/** Une swimlane affichée : un objectif, Build ou une swimlane par type. */
 export interface Lane {
   readonly block: BoardBlock;
   readonly id: string;
@@ -36,7 +38,6 @@ export interface Lane {
 
 export interface BoardLayout {
   readonly columns: readonly ColumnConfiguration[];
-  readonly kanbanColumns: readonly ColumnConfiguration[];
   readonly lanes: readonly Lane[];
   readonly filtersActive: boolean;
   readonly visibleCount: number;
@@ -57,8 +58,7 @@ export function buildBoardLayout(
   configuration: BoardConfiguration,
   filters: BoardFilters,
 ): BoardLayout {
-  const columns = visibleColumns(configuration.scrumColumns);
-  const kanbanColumns = visibleColumns(configuration.kanbanColumns);
+  const columns = visibleColumns(configuration.columns);
   const filtersActive = areFiltersActive(filters);
 
   const visibleGoals = snapshot.goals.filter((goal) => !isGoalHidden(configuration, goal.id));
@@ -66,40 +66,31 @@ export function buildBoardLayout(
     goals: visibleGoals,
     storedOrder: configuration.blockOrder,
     includeBuild: true,
-    includeKanban: configuration.showKanbanSection,
+    swimlaneIds: shownSwimlaneIds(configuration),
   });
 
-  // Un ticket dont l'objectif est masqué rejoint Build ; son rattachement Jira n'est pas touché.
-  const laneKey = (issue: BoardIssue) => {
-    const goalId = displayedGoalId(configuration, issue.goalId);
-    return goalId === null ? "build" : `goal:${goalId}`;
-  };
-  const scrumByLane = groupBy(snapshot.scrumIssues, laneKey);
-  const filteredScrumByLane = groupBy(applyFilters(filters, snapshot.scrumIssues), laneKey);
-  const filteredKanban = applyFilters(filters, snapshot.kanbanIssues);
-
+  const everything = [...snapshot.goalIssues, ...snapshot.swimlaneIssues];
+  const byLane = groupBy(everything, (issue) => laneKey(configuration, issue));
+  const filteredByLane = groupBy(applyFilters(filters, everything), (issue) =>
+    laneKey(configuration, issue),
+  );
   const allIssuesOf = (block: BoardBlock): readonly BoardIssue[] =>
-    block.kind === "kanban"
-      ? snapshot.kanbanIssues
-      : (scrumByLane.get(blockIdentifier(block)) ?? []);
+    byLane.get(blockIdentifier(block)) ?? [];
   const visibleIssuesOf = (block: BoardBlock): readonly BoardIssue[] =>
-    block.kind === "kanban"
-      ? filteredKanban
-      : (filteredScrumByLane.get(blockIdentifier(block)) ?? []);
+    filteredByLane.get(blockIdentifier(block)) ?? [];
 
   const goalsById = new Map(visibleGoals.map((goal) => [goal.id, goal]));
   const shown = displayedBlocks({
     blocks,
     filtersActive,
     filteredCount: (block) => visibleIssuesOf(block).length,
-    sprintHasKanbanIssues: snapshot.kanbanIssues.length > 0,
+    totalCount: (block) => allIssuesOf(block).length,
   });
 
   let unmappedCount = 0;
   const lanes = shown.map((block): Lane => {
-    const laneColumns = block.kind === "kanban" ? kanbanColumns : columns;
     const visible = visibleIssuesOf(block);
-    const cells = laneColumns.map((column) => ({
+    const cells = columns.map((column) => ({
       column,
       issues: visible.filter((issue) => issue.columnId === column.id),
     }));
@@ -110,17 +101,13 @@ export function buildBoardLayout(
     return {
       block,
       id: blockIdentifier(block),
-      title:
-        goal?.title ??
-        (block.kind === "kanban"
-          ? configuration.kanbanSectionLabel || "Kanban"
-          : configuration.buildSectionLabel || "Build"),
+      title: blockTitle(configuration, block, goal),
       goal,
       // L'avancement d'un objectif compte ses tickets RATTACHÉS, même masqués ou filtrés.
       progress: goal
         ? goalProgress(
             goal,
-            snapshot.scrumIssues.filter((issue) => issue.goalId === goal.id),
+            snapshot.goalIssues.filter((issue) => issue.goalId === goal.id),
             columns.at(-1)?.id ?? null,
           )
         : null,
@@ -131,10 +118,8 @@ export function buildBoardLayout(
     };
   });
 
-  const everything = [...snapshot.scrumIssues, ...snapshot.kanbanIssues];
   return {
     columns,
-    kanbanColumns,
     lanes,
     filtersActive,
     visibleCount: lanes.reduce((sum, lane) => sum + lane.visibleCount, 0),
@@ -144,15 +129,39 @@ export function buildBoardLayout(
 }
 
 /**
+ * Bloc d'un ticket : sa swimlane par type, ou l'objectif affiché (Build si le ticket n'en a pas, ou
+ * que le sien est masqué — son rattachement Jira n'est pas touché).
+ */
+export function laneKey(configuration: BoardConfiguration, issue: BoardIssue): string {
+  if (issue.swimlaneId !== null) return `swimlane:${issue.swimlaneId}`;
+  const goalId = displayedGoalId(configuration, issue.goalId);
+  return goalId === null ? "build" : `goal:${goalId}`;
+}
+
+/** Titre d'une swimlane : l'objectif, le nom de la swimlane par type, ou celui de Build. */
+export function blockTitle(
+  configuration: BoardConfiguration,
+  block: BoardBlock,
+  goal: SprintGoal | null,
+): string {
+  if (goal) return goal.title;
+  if (block.kind === "swimlane") {
+    const swimlane = configuration.ticketSwimlanes.find((item) => item.id === block.swimlaneId);
+    return swimlane ? swimlaneName(configuration, swimlane) : "Swimlane";
+  }
+  return configuration.buildSectionLabel || "Build";
+}
+
+/**
  * Nombre de tickets par colonne, pour les limites WIP. TOUS les tickets du board y comptent —
- * objectifs, Build et Kanban (demande de Denis du 24/09/2026, après avoir vu en daily une colonne
- * annoncer 13 au-dessus d'une swimlane Kanban qui montrait 17 cartes) : une colonne du board Jira
+ * objectifs, Build et swimlanes par type (demande de Denis du 24/09/2026, après avoir vu en daily une colonne
+ * annoncer 13 au-dessus de la swimlane Run qui montrait 17 cartes) : une colonne du board Jira
  * porte les uns et les autres, et sa limite WIP aussi. Les filtres n'y changent rien : une limite
  * se compare à la charge réelle de la colonne, pas à ce qui est affiché.
  */
 export function columnLoad(snapshot: BoardSnapshot): Map<string, number> {
   const load = new Map<string, number>();
-  for (const issue of [...snapshot.scrumIssues, ...snapshot.kanbanIssues]) {
+  for (const issue of [...snapshot.goalIssues, ...snapshot.swimlaneIssues]) {
     if (issue.columnId !== null) load.set(issue.columnId, (load.get(issue.columnId) ?? 0) + 1);
   }
   return load;
@@ -182,7 +191,7 @@ export interface FilterOptions {
 
 /** Valeurs réellement présentes dans le sprint, avec leur nombre de tickets. Rien n'est inventé. */
 export function filterOptions(snapshot: BoardSnapshot): FilterOptions {
-  const issues = [...snapshot.scrumIssues, ...snapshot.kanbanIssues];
+  const issues = [...snapshot.goalIssues, ...snapshot.swimlaneIssues];
   const tally = () => new Map<string, { label: string; count: number }>();
   const add = (map: ReturnType<typeof tally>, value: string, label: string) => {
     const entry = map.get(value);
@@ -225,7 +234,7 @@ export function filterOptions(snapshot: BoardSnapshot): FilterOptions {
   }
 
   const goalCounts = new Map<string, number>();
-  for (const issue of snapshot.scrumIssues) {
+  for (const issue of snapshot.goalIssues) {
     if (issue.goalId !== null)
       goalCounts.set(issue.goalId, (goalCounts.get(issue.goalId) ?? 0) + 1);
   }
@@ -243,7 +252,7 @@ export function filterOptions(snapshot: BoardSnapshot): FilterOptions {
     goals: [...snapshot.goals]
       .sort((a, b) => a.position - b.position)
       .map((goal) => ({ value: goal.id, label: goal.title, count: goalCounts.get(goal.id) ?? 0 })),
-    withoutGoalCount: snapshot.scrumIssues.filter((issue) => issue.goalId === null).length,
+    withoutGoalCount: snapshot.goalIssues.filter((issue) => issue.goalId === null).length,
   };
 }
 

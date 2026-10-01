@@ -33,7 +33,7 @@ function showCard(subtasks: unknown[], lastColumnId: (columnId: string | null) =
   const [card] = assembleBoardIssues({
     issues: [decodeIssue(issueJson("ABC-1", { summary: "Story", extraFields: { subtasks } }))],
     configuration,
-    columns: configuration.scrumColumns,
+    columns: configuration.columns,
     links: {},
     now: new Date("2026-09-18T12:00:00Z"),
   });

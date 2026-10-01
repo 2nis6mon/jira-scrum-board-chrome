@@ -12,12 +12,13 @@ import {
   withGoalColor,
   withGoalHidden,
 } from "../../src/core/boardPreferences";
+import { withSwimlaneHidden } from "../../src/core/boardSettings";
 import { NO_FILTERS } from "../../src/core/filters";
 import { GOAL_COLOR_COUNT, makeSprintGoal } from "../../src/core/sprintGoals";
 import type { JiraIssue } from "../../src/jira/models";
 import { makeConfiguration, makeIssue } from "../support/jiraFixtures";
 
-const config = makeConfiguration({ kanbanColumns: makeConfiguration().scrumColumns });
+const config = makeConfiguration();
 const GOALS = [
   makeSprintGoal({ id: "g1", title: "Paiement", position: 0 }),
   makeSprintGoal({ id: "g2", title: "Stabilité", position: 1 }),
@@ -26,14 +27,14 @@ const GOALS = [
 
 function snapshot(run: JiraIssue[] = []): BoardSnapshot {
   const assemble = (issues: JiraIssue[]) =>
-    assembleBoardIssues({ issues, configuration: config, columns: config.scrumColumns, links: {} });
+    assembleBoardIssues({ issues, configuration: config, columns: config.columns, links: {} });
   return {
     sprint: null,
     activeSprints: [],
     goals: GOALS,
     goalsOrigin: "sprintText",
-    scrumIssues: assemble([makeIssue("ABC-1")]),
-    kanbanIssues: assemble(run),
+    goalIssues: assemble([makeIssue("ABC-1")]),
+    swimlaneIssues: assemble(run),
     syncedAt: new Date(0),
     currentUser: null,
     goalsReadOnly: false,
@@ -46,10 +47,10 @@ const withRun = snapshot([makeIssue("RUN-1", { typeId: "10004" })]);
 
 describe("swimlanes de la barre latérale", () => {
   const assembled = (issues: JiraIssue[], links: Record<string, string> = {}) =>
-    assembleBoardIssues({ issues, configuration: config, columns: config.scrumColumns, links });
+    assembleBoardIssues({ issues, configuration: config, columns: config.columns, links });
   const sprint: BoardSnapshot = {
     ...snapshot(),
-    scrumIssues: assembled(
+    goalIssues: assembled(
       [
         makeIssue("ABC-1", { category: "done", statusId: "6" }),
         makeIssue("ABC-2"),
@@ -58,7 +59,7 @@ describe("swimlanes de la barre latérale", () => {
       ],
       { "ABC-1": "g1", "ABC-2": "g1", "ABC-3": "g2" },
     ),
-    kanbanIssues: assembled([makeIssue("RUN-1", { typeId: "10004" })]),
+    swimlaneIssues: assembled([makeIssue("RUN-1", { typeId: "10004" })]),
   };
   const rows = (configuration = config) =>
     laneSummaries(sprint, configuration).map((lane) => [
@@ -74,14 +75,14 @@ describe("swimlanes de la barre latérale", () => {
       ["goal:g2", "Stabilité", 1, 1],
       ["goal:g3", "Sécurité", 0, 0],
       ["build", "Build", 0, 1],
-      ["kanban", "Kanban", 0, 1],
+      ["swimlane:1", "Anomalie Prod", 0, 1],
     ]);
   });
 
   it("suit l'ordre choisi, et Build compte les tickets d'un objectif masqué", () => {
-    const moved = withBlockOrder(config, ["kanban", "goal:g3", "build", "goal:g1", "goal:g2"]);
+    const moved = withBlockOrder(config, ["swimlane:1", "goal:g3", "build", "goal:g1", "goal:g2"]);
     expect(rows(withGoalHidden(moved, "g2", true))).toEqual([
-      ["kanban", "Kanban", 0, 1],
+      ["swimlane:1", "Anomalie Prod", 0, 1],
       ["goal:g3", "Sécurité", 0, 0],
       ["build", "Build", 1, 2],
       ["goal:g1", "Paiement", 1, 2],
@@ -99,13 +100,13 @@ describe("swimlanes de la barre latérale", () => {
 });
 
 describe("ordre des swimlanes", () => {
-  it("objectifs visibles, Build, puis Kanban s'il y a des tickets Kanban", () => {
+  it("objectifs visibles, Build, puis les swimlanes par type qui ont des tickets", () => {
     expect(laneOrder(withRun, config)).toEqual([
       "goal:g1",
       "goal:g2",
       "goal:g3",
       "build",
-      "kanban",
+      "swimlane:1",
     ]);
     expect(laneOrder(snapshot(), config)).toEqual(["goal:g1", "goal:g2", "goal:g3", "build"]);
   });
@@ -115,23 +116,29 @@ describe("ordre des swimlanes", () => {
       "goal:g1",
       "goal:g3",
       "build",
-      "kanban",
+      "swimlane:1",
     ]);
   });
 
-  it("Kanban désactivé n'en fait pas partie", () => {
-    expect(laneOrder(withRun, { ...config, showKanbanSection: false })).not.toContain("kanban");
+  it("une swimlane par type masquée n'en fait pas partie", () => {
+    expect(laneOrder(withRun, withSwimlaneHidden(config, "1", true))).not.toContain("swimlane:1");
   });
 
   it("l'ordre choisi est appliqué au board", () => {
-    const moved = withBlockOrder(config, ["build", "goal:g3", "goal:g1", "goal:g2", "kanban"]);
-    expect(laneOrder(withRun, moved)).toEqual(["build", "goal:g3", "goal:g1", "goal:g2", "kanban"]);
+    const moved = withBlockOrder(config, ["build", "goal:g3", "goal:g1", "goal:g2", "swimlane:1"]);
+    expect(laneOrder(withRun, moved)).toEqual([
+      "build",
+      "goal:g3",
+      "goal:g1",
+      "goal:g2",
+      "swimlane:1",
+    ]);
     expect(buildBoardLayout(withRun, moved, NO_FILTERS).lanes.map((lane) => lane.id)).toEqual([
       "build",
       "goal:g3",
       "goal:g1",
       "goal:g2",
-      "kanban",
+      "swimlane:1",
     ]);
   });
 
@@ -194,7 +201,7 @@ describe("repli des swimlanes", () => {
 
   it("tout replier concerne les swimlanes affichées ; tout déplier les libère toutes", () => {
     const all = withAllBlocksCollapsed(config, laneOrder(withRun, config), true);
-    expect(all.collapsedBlockIds).toEqual(["build", "goal:g1", "goal:g2", "goal:g3", "kanban"]);
+    expect(all.collapsedBlockIds).toEqual(["build", "goal:g1", "goal:g2", "goal:g3", "swimlane:1"]);
     expect(withAllBlocksCollapsed(all, [], false).collapsedBlockIds).toEqual([]);
   });
 });

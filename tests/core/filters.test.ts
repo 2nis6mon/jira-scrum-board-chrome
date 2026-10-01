@@ -16,7 +16,7 @@ import { makeConfiguration, makeIssue } from "../support/jiraFixtures";
 
 function assemble(issues: JiraIssue[], links: Record<string, string> = {}): BoardIssue[] {
   const configuration = makeConfiguration();
-  return assembleBoardIssues({ issues, configuration, columns: configuration.scrumColumns, links });
+  return assembleBoardIssues({ issues, configuration, columns: configuration.columns, links });
 }
 
 const keys = (filters: Partial<BoardFilters>, issues: BoardIssue[]) =>

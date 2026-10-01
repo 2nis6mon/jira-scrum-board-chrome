@@ -21,7 +21,7 @@ Paquet à envoyer : `release/sprint-goals-board-<version>.zip`, produit par `npm
 ```
 Voyez enfin votre sprint Jira par objectif.
 
-Sprint Goals Board pour Jira affiche le sprint actif de votre board Scrum Jira Cloud en swimlanes, une par Sprint Goal. Chaque ticket rejoint automatiquement la swimlane de son objectif ; ceux qui n'en ont pas restent dans « Build », les tickets traités en mode Kanban (support, anomalies de production…) dans leur propre swimlane, que vous nommez comme vous voulez.
+Sprint Goals Board pour Jira affiche le sprint actif de votre board Scrum Jira Cloud en swimlanes, une par Sprint Goal. Chaque ticket rejoint automatiquement la swimlane de son objectif ; ceux qui n'en ont pas restent dans « Build », les autres (support, anomalies de production, demandes…) dans des swimlanes par type de ticket, que vous composez et nommez comme vous voulez.
 
 POUR L'ÉQUIPE
 • Une swimlane par objectif, avec son avancement, et l'objectif en vert quand tous ses tickets sont terminés.
@@ -32,7 +32,7 @@ POUR L'ÉQUIPE
 • Filtres : personne, type, parent, statut, label, recherche, filtres rapides de votre board Jira.
 
 POUR LA DAILY ET LES REVUES
-• Mode Daily, bouton « ▶ Daily » : plein écran, une swimlane à la fois, Précédent / Suivant, minuteur réglable. Le stock Kanban est plafonné aux premières cartes, dépliable d'un clic. Les tickets restent déplaçables pour faire les mises à jour en direct.
+• Mode Daily, bouton « ▶ Daily » : plein écran, une swimlane à la fois, Précédent / Suivant, minuteur réglable. Dans chaque swimlane, la colonne de départ est plafonnée aux premières cartes, dépliable d'un clic. Les tickets restent déplaçables pour faire les mises à jour en direct.
 • Mode présentation : plein écran, board agrandi, lisible à distance.
 
 UN MÊME BOARD POUR TOUTE L'ÉQUIPE

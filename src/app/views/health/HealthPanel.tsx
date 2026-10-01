@@ -1,5 +1,9 @@
 import type { ComponentChildren } from "preact";
-import type { BoardConfiguration } from "../../../core/boardConfiguration";
+import {
+  type BoardConfiguration,
+  findSwimlane,
+  swimlaneName,
+} from "../../../core/boardConfiguration";
 import type { BoardIssue } from "../../../core/boardIssue";
 import { browseUrl } from "../../../core/boardIssue";
 import { percent, type SprintHealth, type WatchedIssue } from "../../../core/sprintHealth";
@@ -54,7 +58,10 @@ function HealthBody(props: {
   const { kpis } = health;
   const origin = board.site.origin;
   const buildLabel = configuration.buildSectionLabel || "Build";
-  const kanbanLabel = configuration.kanbanSectionLabel || "Kanban";
+  const swimlaneLabel = (id: string) => {
+    const swimlane = findSwimlane(configuration, id);
+    return swimlane ? swimlaneName(configuration, swimlane) : "Swimlane";
+  };
 
   return (
     <div class="health">
@@ -202,12 +209,12 @@ function HealthBody(props: {
               count={health.composition.build}
               total={health.composition.total}
             />
-            {health.composition.kanban !== null && (
+            {health.composition.swimlanes !== null && (
               <CompositionRow
-                label={kanbanLabel}
+                label="Swimlanes par type"
                 icon="kanban"
                 tone="kanban"
-                count={health.composition.kanban}
+                count={health.composition.swimlanes}
                 total={health.composition.total}
               />
             )}
@@ -232,7 +239,7 @@ function HealthBody(props: {
           watched={health.watched}
           origin={origin}
           buildLabel={buildLabel}
-          kanbanLabel={kanbanLabel}
+          swimlaneLabel={swimlaneLabel}
         />
       </Card>
 
@@ -368,7 +375,7 @@ function WatchTable(props: {
   watched: readonly WatchedIssue[];
   origin: string;
   buildLabel: string;
-  kanbanLabel: string;
+  swimlaneLabel: (id: string) => string;
 }) {
   if (props.watched.length === 0) return <p class="health-empty">Rien à signaler.</p>;
   return (
@@ -416,7 +423,9 @@ function WatchTable(props: {
                   </span>
                 ) : (
                   <span class="health-muted">
-                    {issue.category === "KANBAN" ? props.kanbanLabel : props.buildLabel}
+                    {issue.swimlaneId !== null
+                      ? props.swimlaneLabel(issue.swimlaneId)
+                      : props.buildLabel}
                   </span>
                 )}
               </td>

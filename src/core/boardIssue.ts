@@ -1,6 +1,5 @@
 import {
   blockingIssues,
-  dateAddedToSprint,
   estimate,
   isBlockedByLink,
   isDoneStatus,
@@ -11,6 +10,7 @@ import {
   lastStatusChange,
   relatedIssues,
   sprintActivated,
+  sprintScope,
 } from "../jira/models";
 import {
   type BoardConfiguration,
@@ -19,6 +19,7 @@ import {
   type GoalSource,
   type IssueCategory,
   isBugType,
+  swimlaneOfType,
 } from "./boardConfiguration";
 import type { SprintGoal } from "./sprintGoals";
 
@@ -95,6 +96,8 @@ export type BlockerLocation =
 export interface BoardIssue {
   readonly issue: JiraIssue;
   readonly category: IssueCategory;
+  /** Swimlane par type du ticket ; `null` pour un ticket par objectif. */
+  readonly swimlaneId: string | null;
   readonly columnId: string | null;
   readonly goalId: string | null;
   readonly estimate: number | null;
@@ -232,7 +235,7 @@ export interface SprintMetrics {
   readonly done: number;
   readonly inProgress: number;
   readonly toDo: number;
-  readonly kanbanCount: number;
+  readonly swimlaneCount: number;
   readonly blockedCount: number;
   readonly agingCount: number;
   readonly withoutGoalCount: number;
@@ -256,9 +259,9 @@ export interface BoardSnapshot {
    * Un rattachement s'écrit là où l'objectif affiché existe.
    */
   readonly goalsOrigin: GoalSource;
-  readonly scrumIssues: readonly BoardIssue[];
-  /** Tickets Kanban DU SPRINT, affichés dans le bloc Kanban. */
-  readonly kanbanIssues: readonly BoardIssue[];
+  readonly goalIssues: readonly BoardIssue[];
+  /** Tickets DU SPRINT rangés dans une swimlane par type (`swimlaneId`). */
+  readonly swimlaneIssues: readonly BoardIssue[];
   readonly syncedAt: Date;
   readonly currentUser: JiraUser | null;
   /** Vrai si la lecture des objectifs a échoué faute de droits Jira. */
@@ -276,7 +279,7 @@ export interface BoardSnapshot {
 }
 
 export function allIssues(snapshot: BoardSnapshot): BoardIssue[] {
-  return [...snapshot.scrumIssues, ...snapshot.kanbanIssues];
+  return [...snapshot.goalIssues, ...snapshot.swimlaneIssues];
 }
 
 export function findIssue(snapshot: BoardSnapshot, key: string): BoardIssue | null {
@@ -305,7 +308,7 @@ export function locateBlocker(
 }
 
 export function issuesWithoutGoal(snapshot: BoardSnapshot): BoardIssue[] {
-  return snapshot.scrumIssues.filter((issue) => issue.goalId === null);
+  return snapshot.goalIssues.filter((issue) => issue.goalId === null);
 }
 
 export function snapshotGoalProgress(snapshot: BoardSnapshot): GoalProgress[] {
@@ -314,13 +317,13 @@ export function snapshotGoalProgress(snapshot: BoardSnapshot): GoalProgress[] {
     .map((goal) =>
       goalProgress(
         goal,
-        snapshot.scrumIssues.filter((issue) => issue.goalId === goal.id),
+        snapshot.goalIssues.filter((issue) => issue.goalId === goal.id),
       ),
     );
 }
 
 export function sprintMetrics(snapshot: BoardSnapshot, agingThresholdDays: number): SprintMetrics {
-  const scrum = snapshot.scrumIssues;
+  const scrum = snapshot.goalIssues;
   const everything = allIssues(snapshot);
   const categoryKey = (issue: BoardIssue) => issue.issue.fields.status.statusCategory?.key;
   const totalPoints = sumEstimates(scrum);
@@ -330,7 +333,7 @@ export function sprintMetrics(snapshot: BoardSnapshot, agingThresholdDays: numbe
     done,
     inProgress: scrum.filter((issue) => categoryKey(issue) === "indeterminate").length,
     toDo: scrum.filter((issue) => categoryKey(issue) === "new").length,
-    kanbanCount: snapshot.kanbanIssues.length,
+    swimlaneCount: snapshot.swimlaneIssues.length,
     blockedCount: everything.filter((issue) => issue.isBlocked).length,
     agingCount: everything.filter(
       (issue) =>
@@ -361,6 +364,11 @@ export function assembleBoardIssues(input: {
   sprint?: JiraSprint | null;
   /** Sous-tâches présentes parmi les tickets du sprint, par clé : leur assigné en vient. */
   subtaskIssues?: ReadonlyMap<string, JiraIssue>;
+  /**
+   * Swimlane par type où ranger ces tickets (une sous-tâche suit celle de son parent). Absent : celle
+   * de leur type.
+   */
+  swimlaneId?: string | null;
   now?: Date;
 }): BoardIssue[] {
   const { configuration } = input;
@@ -382,25 +390,31 @@ export function assembleBoardIssues(input: {
     const daysInColumn =
       since === null ? null : Math.floor((now.getTime() - since.getTime()) / DAY_MS);
 
-    // Périmètre : le ticket a-t-il rejoint le sprint après son démarrage ?
-    // Uniquement si le changelog le dit ; sinon on laisse `null`.
+    // Périmètre : le ticket était-il dans le sprint à son démarrage (`sprintScope`) ? Sans
+    // historique, on ne sait pas : `null`, rien n'est affiché.
     let addedToSprintAt: Date | null = null;
     let addedAfterSprintStart: boolean | null = null;
     const activated = sprint ? sprintActivated(sprint) : null;
-    if (sprint && activated) {
-      addedToSprintAt = issue.changelog ? dateAddedToSprint(issue.changelog, sprint.name) : null;
-      if (addedToSprintAt) {
-        addedAfterSprintStart = addedToSprintAt > activated;
-      } else if (issue.changelog) {
-        // L'historique est disponible et ne mentionne aucun ajout à ce sprint : le ticket y
-        // était donc dès l'ouverture du sprint.
-        addedAfterSprintStart = false;
-      }
+    if (sprint && activated && issue.changelog) {
+      const scope = sprintScope({
+        changelog: issue.changelog,
+        sprintName: sprint.name,
+        startedAt: activated,
+        created: fields.created,
+      });
+      addedToSprintAt = scope.enteredAt;
+      addedAfterSprintStart = scope.inSprintAtStart === null ? null : !scope.inSprintAtStart;
     }
 
+    const swimlaneId =
+      input.swimlaneId !== undefined
+        ? input.swimlaneId
+        : (swimlaneOfType(configuration, fields.issuetype.id)?.id ?? null);
     return {
       issue,
-      category: categoryForIssueType(configuration, fields.issuetype.id),
+      category:
+        swimlaneId !== null ? "SWIMLANE" : categoryForIssueType(configuration, fields.issuetype.id),
+      swimlaneId,
       columnId: columnByStatus.get(fields.status.id) ?? null,
       goalId: input.links[issue.key] ?? null,
       estimate: estimate(fields, configuration.estimationFieldId),

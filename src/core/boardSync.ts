@@ -9,6 +9,7 @@ import {
   displayedCardFields,
   type GoalSource,
   mergeConfiguration,
+  swimlaneOfType,
 } from "./boardConfiguration";
 import { assembleBoardIssues, type BoardIssue, type BoardSnapshot } from "./boardIssue";
 import { cardFieldJiraId } from "./cardFields";
@@ -268,42 +269,51 @@ export async function loadSnapshot(input: {
   }
 
   const types = new Map(configuration.issueTypes.map((type) => [type.id, type.category]));
-  const categoryOf = (issue: JiraIssue) => types.get(issue.fields.issuetype.id) ?? "SCRUM";
+  const categoryOf = (issue: JiraIssue) => types.get(issue.fields.issuetype.id) ?? "GOAL";
 
   // Sous-tâches : elles gardent leur carte, mais suivent leur story. Sans Goal propre, elles prennent
   // celui de leur parent ; et quand leur parent est sur le board, elles vont dans le même bloc que
-  // lui (Scrum ou Kanban). La story et ses sous-tâches restent ainsi dans la même swimlane.
+  // lui (par objectif, ou sa swimlane par type). La famille reste ainsi dans la même swimlane.
   const families = subtaskFamilies(sprintIssues, links);
-  const scrumLinks = { ...links, ...families.inheritedLinks };
-  const blockOf = (issue: JiraIssue) => categoryOf(families.parentOf.get(issue.key) ?? issue);
+  const goalLinks = { ...links, ...families.inheritedLinks };
+  const ownerOf = (issue: JiraIssue) => families.parentOf.get(issue.key) ?? issue;
+  const blockOf = (issue: JiraIssue) => categoryOf(ownerOf(issue));
+  const swimlaneOf = (issue: JiraIssue) =>
+    swimlaneOfType(configuration, ownerOf(issue).fields.issuetype.id)?.id ?? null;
 
   // Chaque ticket est daté par rapport à SON sprint, pas par rapport au premier : « ajouté en
   // cours de sprint » reste juste avec plusieurs sprints actifs.
-  const scrumIssues: BoardIssue[] = [];
-  const kanbanIssues: BoardIssue[] = [];
+  const goalIssues: BoardIssue[] = [];
+  const swimlaneIssues: BoardIssue[] = [];
   for (const entry of issuesBySprint) {
-    scrumIssues.push(
+    goalIssues.push(
       ...assembleBoardIssues({
-        issues: entry.issues.filter((issue) => blockOf(issue) === "SCRUM"),
+        issues: entry.issues.filter((issue) => blockOf(issue) === "GOAL"),
         configuration,
-        columns: configuration.scrumColumns,
-        links: scrumLinks,
+        columns: configuration.columns,
+        links: goalLinks,
         sprint: entry.sprint,
         subtaskIssues: families.subtaskIssues,
+        swimlaneId: null,
         now,
       }),
     );
-    kanbanIssues.push(
-      ...assembleBoardIssues({
-        issues: entry.issues.filter((issue) => blockOf(issue) === "KANBAN"),
-        configuration,
-        columns: configuration.kanbanColumns,
-        links: {},
-        sprint: entry.sprint,
-        subtaskIssues: families.subtaskIssues,
-        now,
-      }),
-    );
+    for (const swimlane of configuration.ticketSwimlanes) {
+      swimlaneIssues.push(
+        ...assembleBoardIssues({
+          issues: entry.issues.filter(
+            (issue) => blockOf(issue) === "SWIMLANE" && swimlaneOf(issue) === swimlane.id,
+          ),
+          configuration,
+          columns: configuration.columns,
+          links: {},
+          sprint: entry.sprint,
+          subtaskIssues: families.subtaskIssues,
+          swimlaneId: swimlane.id,
+          now,
+        }),
+      );
+    }
   }
 
   // Couleurs des objectifs : locales, stables d'un sprint à l'autre.
@@ -322,8 +332,8 @@ export async function loadSnapshot(input: {
       activeSprints,
       goals: coloredGoals,
       goalsOrigin,
-      scrumIssues,
-      kanbanIssues,
+      goalIssues,
+      swimlaneIssues,
       syncedAt: now,
       currentUser: input.currentUser,
       goalsReadOnly,
@@ -376,8 +386,8 @@ function emptySnapshot(now: Date, currentUser: JiraUser | null): BoardSnapshot {
     activeSprints: [],
     goals: [],
     goalsOrigin: "sprintText",
-    scrumIssues: [],
-    kanbanIssues: [],
+    goalIssues: [],
+    swimlaneIssues: [],
     syncedAt: now,
     currentUser,
     goalsReadOnly: false,

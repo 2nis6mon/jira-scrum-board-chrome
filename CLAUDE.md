@@ -31,8 +31,9 @@ historiques.
    Story Points. Seuls les champs exposés par la transition et les opérations autorisées
    par Jira sont envoyés, jamais un ajout de temps séparé avant la transition.
 2. **Ne JAMAIS réécrire le champ « Sprint Goal » du sprint.** Il est lu, jamais écrit.
-3. Réglages du board (colonnes, types, ordre et couleurs des swimlanes, objectifs masqués, champs
-   des cartes, règles de couleur, noms de Build et Kanban, daily…, `core/teamSettings.ts`) :
+3. Réglages du board (colonnes, types et swimlanes par type, ordre et couleurs des swimlanes,
+   objectifs masqués, champs des cartes, règles de couleur, nom de Build, daily…,
+   `core/teamSettings.ts`) :
    PARTAGÉS par la propriété du board depuis 0.22.0 — relus et appliqués à chaque chargement,
    écrits à chaque modification ; une copie reste dans `chrome.storage.local`, jamais dans
    `storage.sync`. Sans droit de modifier le board (`canEdit` faux, ou refus de Jira), ils ne se
@@ -187,7 +188,9 @@ Git (depuis le 20/09/2026) : travail sur des branches `codex/...` ; chaque commi
 `codex/mode-daily` (0.20.0–0.21.1) ont été fusionnées dans `main` le 24/09/2026, à sa demande. Puis
 `codex/reglages-automatiques` (0.22.0–0.22.6, avance rapide) et `codex/publication` (outillage du
 Store : `npm run package`, `store:screenshots`, `docs/store/`, `docs/privacy/`), le même jour. Enfin
-`codex/store-maj` (fiche, confidentialité et captures alignées sur 0.22), le même jour aussi. La branche du prototype `codex/test-ouverture-jira-directe` a été fusionnée dans `main` à
+`codex/store-maj` (fiche, confidentialité et captures alignées sur 0.22), le même jour aussi.
+`codex/retours-sandbox` (0.22.7) a été fusionnée le 25/09/2026, puis elle et `codex/store-maj`
+supprimées ; `codex/swimlanes-par-type` (0.23.0) part de là. La branche du prototype `codex/test-ouverture-jira-directe` a été fusionnée dans `main` à
 la demande de Denis le 23/09/2026 (avance rapide, 27 commits), puis supprimée avec les autres
 branches `codex/...` : `main` est désormais la seule branche du dépôt. Le prototype vit donc dans
 `main`,
@@ -694,6 +697,42 @@ cartes puis « + 14 autres » sur 17 vraies cartes), santé du sprint bien masqu
    modifier le board : la barre latérale ne garde alors que le site et « Se déconnecter »
    (`SiteAccount`, sorti de `AdminMenu`), et le droit qui tombe pendant que l'administration est
    ouverte ramène au sprint.
+
+0.23.0 (demande de Denis du 25/09/2026, branche `codex/swimlanes-par-type`, plan validé) : la
+notion de Kanban disparaît. Un type de ticket est « par objectif » (swimlane de son Goal, ou Build),
+dans une **swimlane par type**, ou ignoré (`IssueCategory` : `GOAL`, `SWIMLANE`, `IGNORED`). Une
+swimlane par type (`TicketSwimlane` : identifiant « 1 », « 2 »…, nom, types, masquage) regroupe un
+ou plusieurs types — ex. RUN = Anomalie Prod + Anomalie de Recette, OPS = Demande de configuration
++ Demande de service. Nom par défaut : les noms de ses types réunis par « / » (`swimlaneName`),
+tant qu'on ne le change pas ; vide, ou identique au nom calculé, il suit ses types.
+`normalizeSwimlanes` tient l'invariant (un type en `SWIMLANE` est dans une et une seule swimlane ;
+un orphelin rejoint la première, ou en crée une). Bloc `{ kind: "swimlane", swimlaneId }`, forme
+`swimlane:<id>` ; `BoardIssue.swimlaneId` ; photographie `goalIssues` / `swimlaneIssues`. Une
+seule série de colonnes pour tout le board (`columns`, ex-`scrumColumns` ; `kanbanColumns`
+disparaît). Glisser-déposer : une carte d'une swimlane par type ne va que dans la sienne.
+Administration → Board → « Types de tickets et swimlanes » : un bloc par groupe (par objectif,
+chaque swimlane avec son nom et « Affichée », ignorés), un menu « Déplacer vers » par type
+(« Nouvelle swimlane » crée ; retirer le dernier type supprime la swimlane, sa place dans l'ordre
+et son repli). Daily : le stock plafonné vaut pour TOUTES les swimlanes, objectifs et Build compris
+(`dailyStockLimit`, `DailySession.expandedStockIds`, dépliage swimlane par swimlane). Relus :
+`scrumColumns`, `kanbanSectionLabel` (« Kanban » = nom calculé), `showKanbanSection`,
+`dailyKanbanStockLimit`, catégories `SCRUM`/`KANBAN`/`RUN`, blocs `kanban`/`run` (→
+`swimlane:1`). **Compatibilité 0.22.7** (collègues en mode développeur sur le même board) : la
+0.22.7 exige `scrumColumns` et `kanbanColumns` et réécrit telles quelles les clés inconnues. La
+propriété du board garde donc les clés d'avant, DÉDUITES et jamais relues quand
+`ticketSwimlanes` existe (`kanbanColumns` = copie des colonnes, `showKanbanSection`,
+`kanbanSectionLabel` = noms réunis, `dailyKanbanStockLimit`, catégories écrites `SCRUM`/`KANBAN`) :
+elle y voit une seule swimlane Kanban. Un type qu'elle repasse en `SCRUM` quitte sa swimlane, un
+type qu'elle classe `KANBAN` rejoint la première. Banc d'essai : `board-swimlanes` (RUN et OPS).
+Aucune écriture, permission ni hôte nouveaux.
+
+0.23.1 (question de Denis du 25/09/2026) : « ajouté en cours de sprint » ne regarde plus la
+PREMIÈRE entrée du ticket dans le sprint mais sa présence AU DÉMARRAGE (`sprintScope`,
+`jira/models.ts`, remplace `dateAddedToSprint`) : dernier changement du champ Sprint avant le
+démarrage ; sinon ancienne valeur du premier changement d'après ; sans aucun changement, date de
+création. Un ticket mis dans le sprint pendant le planning, retiré, puis remis après le démarrage
+est donc « ajouté » (il ne l'était pas) ; un ticket présent au démarrage, sorti puis revenu, non ;
+un ticket créé après le démarrage sans entrée notée, oui. Sans historique : toujours inconnu.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit

@@ -136,13 +136,13 @@ describe("detectBoard", () => {
 
     expect(config.boardId).toBe(7);
     expect(config.siteOrigin).toBe("https://acme.atlassian.net");
-    expect(config.scrumColumns.map((c) => [c.name, c.isDone])).toEqual([
+    expect(config.columns.map((c) => [c.name, c.isDone])).toEqual([
       ["À faire", false],
       ["Terminé", true],
     ]);
     expect(config.issueTypes.map((t) => [t.name, t.category])).toEqual([
-      ["Anomalie Prod", "KANBAN"],
-      ["Story", "SCRUM"],
+      ["Anomalie Prod", "SWIMLANE"],
+      ["Story", "GOAL"],
     ]);
     expect(config.estimationFieldName).toBe("Story Points");
     expect(config.goalsFieldId).toBe("customfield_10100");
@@ -173,7 +173,7 @@ describe("detectBoard", () => {
       .on("GET", "/rest/api/3/status", { status: 403, json: {} })
       .on("GET", "/rest/api/3/field", { status: 500 });
     const config = await detectBoard(readerFor(jira), BOARD_URL, null);
-    expect(config.scrumColumns.every((c) => !c.isDone)).toBe(true);
+    expect(config.columns.every((c) => !c.isDone)).toBe(true);
     expect(config.goalsFieldId).toBeNull();
     expect(config.estimationFieldId).toBe("customfield_10016");
   });
@@ -185,7 +185,7 @@ describe("loadSnapshot", () => {
     const result = await sync(jira);
 
     expect(result.snapshot.sprint).toBeNull();
-    expect(result.snapshot.scrumIssues).toEqual([]);
+    expect(result.snapshot.goalIssues).toEqual([]);
     expect(jira.requests).toHaveLength(1);
   });
 
@@ -208,7 +208,7 @@ describe("loadSnapshot", () => {
 
     expect(snapshot.goals.map((g) => g.title)).toEqual(["Paiement", "Stabilité"]);
     expect(snapshot.goals[0]?.id).toBe("g1");
-    expect(snapshot.scrumIssues.map((i) => [i.issue.key, i.goalId])).toEqual([
+    expect(snapshot.goalIssues.map((i) => [i.issue.key, i.goalId])).toEqual([
       ["ABC-1", "g1"],
       ["ABC-2", null],
     ]);
@@ -217,9 +217,8 @@ describe("loadSnapshot", () => {
     expect(snapshot.syncedAt).toEqual(NOW);
   });
 
-  it("sépare Scrum et Kanban, écarte les types ignorés", async () => {
+  it("sépare tickets par objectif et swimlanes par type, écarte les types ignorés", async () => {
     const configuration = makeConfiguration({
-      kanbanColumns: makeConfiguration().scrumColumns,
       issueTypes: [
         ...makeConfiguration().issueTypes,
         { id: "10099", name: "Epic", iconUrl: null, category: "IGNORED", countsAsBug: null },
@@ -236,9 +235,10 @@ describe("loadSnapshot", () => {
     });
     const { snapshot } = await sync(jira, configuration);
 
-    expect(snapshot.scrumIssues.map((i) => i.issue.key)).toEqual(["ABC-1"]);
-    expect(snapshot.kanbanIssues.map((i) => i.issue.key)).toEqual(["RUN-1"]);
-    expect(snapshot.kanbanIssues[0]?.columnId).toBe("prog");
+    expect(snapshot.goalIssues.map((i) => i.issue.key)).toEqual(["ABC-1"]);
+    expect(snapshot.swimlaneIssues.map((i) => i.issue.key)).toEqual(["RUN-1"]);
+    expect(snapshot.swimlaneIssues[0]?.columnId).toBe("prog");
+    expect(snapshot.swimlaneIssues[0]?.swimlaneId).toBe("1");
   });
 
   it("réunit les sprints actifs ; un ticket présent dans deux sprints n'apparaît qu'une fois", async () => {
@@ -257,7 +257,7 @@ describe("loadSnapshot", () => {
 
     expect(snapshot.activeSprints.map((s) => s.id)).toEqual([42, 43]);
     expect(snapshot.sprint?.id).toBe(42);
-    expect(snapshot.scrumIssues.map((i) => i.issue.key)).toEqual(["ABC-1", "ABC-2", "ABC-3"]);
+    expect(snapshot.goalIssues.map((i) => i.issue.key)).toEqual(["ABC-1", "ABC-2", "ABC-3"]);
     expect(jira.sent("GET", "/rest/agile/1.0/board/1/sprint/41/issue")).toEqual([]);
   });
 
@@ -290,7 +290,7 @@ describe("loadSnapshot", () => {
     });
     const { snapshot } = await sync(jira);
     expect(snapshot.activeSprints.map((s) => s.id)).toEqual([42]);
-    expect(snapshot.scrumIssues).toEqual([]);
+    expect(snapshot.goalIssues).toEqual([]);
   });
 
   it("date chaque ticket par rapport à SON sprint", async () => {
@@ -312,7 +312,7 @@ describe("loadSnapshot", () => {
     });
     const { snapshot } = await sync(jira);
 
-    expect(snapshot.scrumIssues.map((i) => [i.issue.key, i.addedAfterSprintStart])).toEqual([
+    expect(snapshot.goalIssues.map((i) => [i.issue.key, i.addedAfterSprintStart])).toEqual([
       ["ABC-1", true],
       ["ABC-2", false],
     ]);
@@ -371,7 +371,7 @@ describe("loadSnapshot", () => {
     expect(snapshot.pinnedGoalIds).toBeNull();
     expect(document).toBeNull();
     expect(snapshot.goals.map((g) => g.title)).toEqual(["Paiement"]);
-    expect(snapshot.scrumIssues).toHaveLength(1);
+    expect(snapshot.goalIssues).toHaveLength(1);
   });
 
   it("Goals épinglés : lus dans la propriété, vides si elle n'existe pas, inconnus si illisible", async () => {
@@ -423,7 +423,7 @@ describe("loadSnapshot", () => {
 
       expect(calls).toEqual([[["ari:goal/1"], ["ABC-1"]]]);
       expect(snapshot.goals.map((g) => g.title)).toEqual(["Goal réel"]);
-      expect(snapshot.scrumIssues[0]?.goalId).toBe("ari:goal/1");
+      expect(snapshot.goalIssues[0]?.goalId).toBe("ari:goal/1");
       expect(goalsIssue).toBeNull();
     });
 

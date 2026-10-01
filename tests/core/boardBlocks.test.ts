@@ -5,11 +5,11 @@ import {
   blockIdentifier,
   displayedBlocks,
   goalBlock,
-  KANBAN_BLOCK,
   moveBlock,
   parseBlockIdentifier,
   resolveBlocks,
   shiftBlock,
+  swimlaneBlock,
 } from "../../src/core/boardBlocks";
 import { displayedGoalId, isBlockCollapsed, isGoalHidden } from "../../src/core/boardConfiguration";
 import { resolveDrop } from "../../src/core/dropPlan";
@@ -24,23 +24,45 @@ function resolve(
   goalIds: string[],
   storedOrder: string[],
   includeBuild = true,
-  includeKanban = true,
+  swimlaneIds: string[] = ["1"],
 ) {
-  return ids(resolveBlocks({ goals: goals(goalIds), storedOrder, includeBuild, includeKanban }));
+  return ids(resolveBlocks({ goals: goals(goalIds), storedOrder, includeBuild, swimlaneIds }));
 }
+
+const RUN_BLOCK = swimlaneBlock("1");
 
 // BoardBlockLayoutTests
 describe("resolveBlocks", () => {
   it("l'identifiant d'un bloc fait l'aller-retour", () => {
-    for (const block of [goalBlock("g-1"), BUILD_BLOCK, KANBAN_BLOCK]) {
+    for (const block of [goalBlock("g-1"), BUILD_BLOCK, RUN_BLOCK]) {
       expect(parseBlockIdentifier(blockIdentifier(block))).toEqual(block);
     }
     expect(parseBlockIdentifier("inconnu")).toBeNull();
     expect(parseBlockIdentifier("goal:a:b")).toEqual(goalBlock("a:b"));
   });
 
-  it("ordre par défaut : objectifs, puis Build, puis Kanban", () => {
-    expect(resolve(["a", "b"], [])).toEqual(["goal:a", "goal:b", "build", "kanban"]);
+  it("plusieurs swimlanes par type : en bas, dans leur ordre de création, ou là où on les a mises", () => {
+    expect(resolve(["a"], [], true, ["1", "2"])).toEqual([
+      "goal:a",
+      "build",
+      "swimlane:1",
+      "swimlane:2",
+    ]);
+    expect(resolve(["a"], ["swimlane:2", "goal:a"], true, ["1", "2"])).toEqual([
+      "swimlane:2",
+      "goal:a",
+      "build",
+      "swimlane:1",
+    ]);
+    expect(resolve(["a"], ["swimlane:9", "goal:a"], true, ["1"])).toEqual([
+      "goal:a",
+      "build",
+      "swimlane:1",
+    ]);
+  });
+
+  it("ordre par défaut : objectifs, puis Build, puis les swimlanes par type", () => {
+    expect(resolve(["a", "b"], [])).toEqual(["goal:a", "goal:b", "build", "swimlane:1"]);
   });
 
   it("respecte l'ordre enregistré des objectifs", () => {
@@ -48,13 +70,13 @@ describe("resolveBlocks", () => {
       "goal:b",
       "goal:a",
       "build",
-      "kanban",
+      "swimlane:1",
     ]);
   });
 
-  it("Build et Kanban se placent où on les a mis", () => {
-    expect(resolve(["a", "b"], ["kanban", "goal:b", "build", "goal:a"])).toEqual([
-      "kanban",
+  it("Build et les swimlanes par type se placent où on les a mis", () => {
+    expect(resolve(["a", "b"], ["swimlane:1", "goal:b", "build", "goal:a"])).toEqual([
+      "swimlane:1",
       "goal:b",
       "build",
       "goal:a",
@@ -62,58 +84,61 @@ describe("resolveBlocks", () => {
   });
 
   it("un nouvel objectif rejoint le dernier objectif, même si Build est premier", () => {
-    expect(resolve(["a", "b", "c"], ["build", "goal:a", "kanban", "goal:b"])).toEqual([
+    expect(resolve(["a", "b", "c"], ["build", "goal:a", "swimlane:1", "goal:b"])).toEqual([
       "build",
       "goal:a",
-      "kanban",
+      "swimlane:1",
       "goal:b",
       "goal:c",
     ]);
   });
 
   it("un nouvel objectif va en premier quand aucun objectif n'est placé", () => {
-    expect(resolve(["a"], ["kanban", "build"])).toEqual(["goal:a", "kanban", "build"]);
+    expect(resolve(["a"], ["swimlane:1", "build"])).toEqual(["goal:a", "swimlane:1", "build"]);
   });
 
-  it("Build et Kanban absents de l'ordre vont en bas", () => {
+  it("Build et les swimlanes par type absents de l'ordre vont en bas", () => {
     expect(resolve(["a", "b"], ["goal:b", "goal:a"])).toEqual([
       "goal:b",
       "goal:a",
       "build",
-      "kanban",
+      "swimlane:1",
     ]);
   });
 
-  it("Kanban désactivé est écarté même s'il est placé", () => {
-    expect(resolve(["a"], ["kanban", "build", "goal:a"], true, false)).toEqual(["build", "goal:a"]);
+  it("Une swimlane par type masquée est écartée même s'il est placé", () => {
+    expect(resolve(["a"], ["swimlane:1", "build", "goal:a"], true, [])).toEqual([
+      "build",
+      "goal:a",
+    ]);
   });
 
   it("un nouvel objectif rejoint les autres objectifs, pas la fin", () => {
-    expect(resolve(["a", "b", "c"], ["goal:a", "goal:b", "build", "kanban"])).toEqual([
+    expect(resolve(["a", "b", "c"], ["goal:a", "goal:b", "build", "swimlane:1"])).toEqual([
       "goal:a",
       "goal:b",
       "goal:c",
       "build",
-      "kanban",
+      "swimlane:1",
     ]);
   });
 
   it("un objectif supprimé disparaît de l'ordre", () => {
-    expect(resolve(["a"], ["goal:a", "goal:supprimé", "build"], true, false)).toEqual([
+    expect(resolve(["a"], ["goal:a", "goal:supprimé", "build"], true, [])).toEqual([
       "goal:a",
       "build",
     ]);
   });
 
   it("les doublons de l'ordre enregistré sont réduits", () => {
-    expect(resolve(["a"], ["goal:a", "goal:a", "build", "build"], true, false)).toEqual([
+    expect(resolve(["a"], ["goal:a", "goal:a", "build", "build"], true, [])).toEqual([
       "goal:a",
       "build",
     ]);
   });
 
-  it("ni Build ni Kanban quand ils sont exclus", () => {
-    expect(resolve(["a"], ["kanban", "goal:a"], false, false)).toEqual(["goal:a"]);
+  it("ni Build ni swimlane par type quand ils sont exclus", () => {
+    expect(resolve(["a"], ["swimlane:1", "goal:a"], false, [])).toEqual(["goal:a"]);
   });
 
   it("les nouveaux objectifs suivent leur position", () => {
@@ -127,7 +152,7 @@ describe("resolveBlocks", () => {
           goals: unordered,
           storedOrder: [],
           includeBuild: false,
-          includeKanban: false,
+          swimlaneIds: [],
         }),
       ),
     ).toEqual(["goal:a", "goal:b"]);
@@ -159,18 +184,14 @@ describe("déplacement d'un bloc", () => {
 
 // DisplayedBlocksTests
 describe("displayedBlocks", () => {
-  const blocks = [goalBlock("g1"), goalBlock("g2"), BUILD_BLOCK, KANBAN_BLOCK];
-  const displayed = (
-    filtersActive: boolean,
-    counts: Record<string, number>,
-    sprintHasKanban = true,
-  ) =>
+  const blocks = [goalBlock("g1"), goalBlock("g2"), BUILD_BLOCK, RUN_BLOCK];
+  const displayed = (filtersActive: boolean, counts: Record<string, number>, runTickets = 1) =>
     ids(
       displayedBlocks({
         blocks,
         filtersActive,
         filteredCount: (block) => counts[blockIdentifier(block)] ?? 0,
-        sprintHasKanbanIssues: sprintHasKanban,
+        totalCount: (block) => (block.kind === "swimlane" ? runTickets : 0),
       }),
     );
 
@@ -179,15 +200,15 @@ describe("displayedBlocks", () => {
   });
 
   it("un filtre actif masque les swimlanes vides", () => {
-    expect(displayed(true, { "goal:g2": 1, kanban: 2 })).toEqual(["goal:g2", "kanban"]);
+    expect(displayed(true, { "goal:g2": 1, "swimlane:1": 2 })).toEqual(["goal:g2", "swimlane:1"]);
   });
 
   it("un filtre qui ne retient rien masque tout", () => {
     expect(displayed(true, {})).toEqual([]);
   });
 
-  it("le bloc Kanban exige des tickets Kanban dans le sprint, même sans filtre", () => {
-    expect(displayed(false, {}, false)).toEqual(["goal:g1", "goal:g2", "build"]);
+  it("une swimlane par type exige de ses tickets dans le sprint, même sans filtre", () => {
+    expect(displayed(false, {}, 0)).toEqual(["goal:g1", "goal:g2", "build"]);
   });
 });
 
@@ -231,9 +252,9 @@ describe("objectif masqué, bloc replié", () => {
 
   it("l'état replié est propre à chaque bloc", () => {
     expect(isBlockCollapsed(makeConfiguration(), BUILD_BLOCK)).toBe(false);
-    const config = makeConfiguration({ collapsedBlockIds: ["goal:g1", "kanban"] });
+    const config = makeConfiguration({ collapsedBlockIds: ["goal:g1", "swimlane:1"] });
     expect(isBlockCollapsed(config, goalBlock("g1"))).toBe(true);
-    expect(isBlockCollapsed(config, KANBAN_BLOCK)).toBe(true);
+    expect(isBlockCollapsed(config, RUN_BLOCK)).toBe(true);
     expect(isBlockCollapsed(config, goalBlock("g2"))).toBe(false);
   });
 });

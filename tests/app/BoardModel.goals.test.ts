@@ -69,7 +69,7 @@ describe("BoardModel — Goals Atlassian", () => {
       ["Paiement en une étape", "on_track"],
       ["Zéro incident", "at_risk"],
     ]);
-    expect(snapshot?.scrumIssues.map((i) => [i.issue.key, i.goalId])).toEqual([
+    expect(snapshot?.goalIssues.map((i) => [i.issue.key, i.goalId])).toEqual([
       ["ABC-101", PAIEMENT],
       ["ABC-102", PAIEMENT],
       ["ABC-103", STABILITE],
@@ -81,7 +81,7 @@ describe("BoardModel — Goals Atlassian", () => {
       "Paiement en une étape",
       "Zéro incident",
       "Build",
-      "Kanban",
+      "Anomalie Prod",
     ]);
   });
 

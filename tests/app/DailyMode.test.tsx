@@ -141,7 +141,7 @@ describe("mode Daily", () => {
     expect(document.querySelector(".daily-clock")?.textContent).toBe("05:00");
   });
 
-  describe("stock du Kanban", () => {
+  describe("stock en daily", () => {
     // Six anomalies à faire, dans l'ordre de Jira, en plus de RUN-7 en cours.
     const stock = ["RUN-11", "RUN-12", "RUN-13", "RUN-14", "RUN-15", "RUN-16"];
     const withStock = [
@@ -160,16 +160,16 @@ describe("mode Daily", () => {
     const runCell = (column: string) =>
       [
         ...document.querySelectorAll<HTMLElement>(
-          `ul[aria-label="Kanban — ${column}"] [data-issue-key]`,
+          `ul[aria-label="Anomalie Prod — ${column}"] [data-issue-key]`,
         ),
       ].map((card) => card.dataset.issueKey);
     const toggle = () => document.querySelector<HTMLButtonElement>(".stock-toggle-button");
     async function showRun() {
-      for (let i = 0; i < 10 && !step().includes("Kanban"); i++) {
+      for (let i = 0; i < 10 && !step().includes("Anomalie Prod"); i++) {
         key("ArrowRight");
         await settle();
       }
-      expect(step()).toContain("Kanban");
+      expect(step()).toContain("Anomalie Prod");
     }
 
     it("hors daily, tout le stock est affiché", async () => {
@@ -184,7 +184,7 @@ describe("mode Daily", () => {
       await settle();
       await showRun();
       expect(runCell("À faire")).toEqual(stock.slice(0, 3));
-      // Les autres colonnes du Kanban ne sont pas plafonnées.
+      // Les autres colonnes de la swimlane ne sont pas plafonnées.
       expect(runCell("En cours")).toEqual(["RUN-7"]);
       expect(toggle()?.textContent).toBe("+ 3 autres");
 
@@ -193,12 +193,52 @@ describe("mode Daily", () => {
       expect(runCell("À faire")).toEqual(stock);
       expect(toggle()?.textContent).toBe("Afficher moins");
 
-      // Revenir sur le Kanban pendant la même daily : toujours déplié.
+      // Revenir sur la swimlane pendant la même daily : toujours dépliée.
       key("ArrowLeft");
       await settle();
       key("ArrowRight");
       await settle();
       expect(runCell("À faire")).toEqual(stock);
+    });
+
+    it("toutes les swimlanes sont plafonnées, Build compris, et chacune se déplie seule", async () => {
+      // Quatre stories sans objectif à faire, en plus de ABC-105 : Build en a cinq.
+      const backlog = ["ABC-201", "ABC-202", "ABC-203", "ABC-204"];
+      await connectedBoard([
+        ...withStock,
+        ...backlog.map((key) =>
+          issueJson(key, {
+            summary: `Story ${key}`,
+            statusId: "1",
+            statusName: "À faire",
+            category: "new",
+          }),
+        ),
+      ]);
+      const buildCell = () =>
+        [
+          ...document.querySelectorAll<HTMLElement>(
+            `ul[aria-label="Build — À faire"] [data-issue-key]`,
+          ),
+        ].map((card) => card.dataset.issueKey);
+      labelled("Lancer la daily").click();
+      await settle();
+      for (let i = 0; i < 10 && !step().includes("Build"); i++) {
+        key("ArrowRight");
+        await settle();
+      }
+      expect(buildCell()).toEqual(["ABC-105", "ABC-201", "ABC-202"]);
+      expect(toggle()?.textContent).toBe("+ 2 autres");
+
+      // Déplier la swimlane par type ne déplie pas Build.
+      await showRun();
+      toggle()?.click();
+      await settle();
+      expect(runCell("À faire")).toEqual(stock);
+      key("ArrowLeft");
+      await settle();
+      expect(step()).toContain("Build");
+      expect(buildCell()).toHaveLength(3);
     });
   });
 });
