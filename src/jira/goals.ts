@@ -33,6 +33,14 @@ interface FieldInfo {
 interface FieldArgument {
   readonly name: string;
   readonly required: boolean;
+  readonly type: TypeRef | null;
+}
+
+interface WorkItemsSelection {
+  readonly first: boolean;
+  readonly after: boolean;
+  readonly fields: string;
+  readonly pagination: { hasNext: string; cursor: string } | null;
 }
 
 /** Fragment d'introspection qui déballe les enveloppes `NON_NULL` et `LIST`. */
@@ -73,7 +81,7 @@ export class GoalsClient {
   #connectionTypeName: string | null = null;
   #selection: string | null = null;
   #pagination: { hasNext: string; cursor: string } | null | undefined;
-  #workItemsSelection: string | null | undefined;
+  #workItemsSelection: WorkItemsSelection | null | undefined;
   /** Forme d'identifiant de ticket acceptée par les mutations, une fois trouvée. */
   #workItemForm: "ari" | "raw" | null = null;
   readonly #typeFields = new Map<string, Promise<FieldInfo[]>>();
@@ -149,23 +157,28 @@ export class GoalsClient {
   }
 
   async #arguments(fieldName: string, typeName: string): Promise<FieldArgument[]> {
-    try {
-      const data = await this.#execute(
-        `query fieldArgs($name: String!) { __type(name: $name) { fields { name args { name type { ${TYPE_REF} } } } } }`,
-        { name: typeName },
-      );
-      const type = data.__type;
-      const fields = isRecord(type) && Array.isArray(type.fields) ? type.fields : [];
-      const field = fields.find((candidate) => isRecord(candidate) && candidate.name === fieldName);
-      const args = isRecord(field) && Array.isArray(field.args) ? field.args : [];
-      return args.flatMap((arg) =>
-        isRecord(arg) && typeof arg.name === "string"
-          ? [{ name: arg.name, required: isRecord(arg.type) && arg.type.kind === "NON_NULL" }]
-          : [],
-      );
-    } catch {
-      return [];
+    // Une introspection en échec n'indique pas que le champ n'a aucun argument.
+    const data = await this.#execute(
+      `query fieldArgs($name: String!) { __type(name: $name) { fields { name args { name type { ${TYPE_REF} } } } } }`,
+      { name: typeName },
+    );
+    const type = data.__type;
+    const fields = isRecord(type) && Array.isArray(type.fields) ? type.fields : [];
+    const field = fields.find((candidate) => isRecord(candidate) && candidate.name === fieldName);
+    if (!isRecord(field) || !Array.isArray(field.args)) {
+      throw new Error("Arguments du lien Goal → tickets illisibles dans le schéma Atlassian.");
     }
+    return field.args.flatMap((arg) =>
+      isRecord(arg) && typeof arg.name === "string"
+        ? [
+            {
+              name: arg.name,
+              required: isRecord(arg.type) && arg.type.kind === "NON_NULL",
+              type: namedType(arg.type),
+            },
+          ]
+        : [],
+    );
   }
 
   /**
@@ -281,6 +294,7 @@ export class GoalsClient {
       try {
         const collected: AtlassianGoal[] = [];
         let after: string | null = null;
+        const seenCursors = new Set<string>();
         for (let page = 0; page < MAX_PAGES; page++) {
           const data = await this.#execute(operation, {
             containerId,
@@ -298,12 +312,42 @@ export class GoalsClient {
           }
           for (const edge of search.edges) {
             const goal = isRecord(edge) ? parseGoal(edge.node) : null;
+            if (!goal && options.loadAll) {
+              throw new Error(
+                "Recherche des objectifs incomplète : un objectif est illisible dans la réponse Atlassian.",
+              );
+            }
             if (goal) collected.push(goal);
           }
-          if (!pagination || !isRecord(search.pageInfo)) break;
+          if (!options.loadAll) break;
+          if (!pagination) {
+            if (search.edges.length >= (options.limit ?? 50)) {
+              throw new Error(
+                "Recherche des objectifs incomplète : Atlassian n'expose pas de pagination exploitable.",
+              );
+            }
+            break;
+          }
+          if (!isRecord(search.pageInfo)) {
+            throw new Error(
+              "Recherche des objectifs incomplète : pagination absente de la réponse Atlassian.",
+            );
+          }
           const info = search.pageInfo;
           const next = info[pagination.cursor];
-          if (info[pagination.hasNext] !== true || typeof next !== "string" || next === "") break;
+          if (info[pagination.hasNext] === false) break;
+          if (
+            info[pagination.hasNext] !== true ||
+            typeof next !== "string" ||
+            next === "" ||
+            seenCursors.has(next) ||
+            page + 1 >= MAX_PAGES
+          ) {
+            throw new Error(
+              "Recherche des objectifs incomplète : limite ou incohérence de pagination Atlassian.",
+            );
+          }
+          seenCursors.add(next);
           after = next;
         }
         this.#containerId = containerId;
@@ -342,9 +386,10 @@ export class GoalsClient {
    * (connexion `edges { node }` ou liste `nodes`), le champ portant la clé Jira et ses arguments
    * sont découverts. Un argument obligatoire inconnu rend le champ inexploitable : on le dit.
    */
-  async #workItemsSelectionFor(): Promise<string | null> {
+  async #workItemsSelectionFor(): Promise<WorkItemsSelection | null> {
     if (this.#workItemsSelection !== undefined) return this.#workItemsSelection;
-    let result: string | null = null;
+    this.lastWorkItemsIssue = null;
+    let result: WorkItemsSelection | null = null;
     try {
       const goalType = await this.goalTypeName();
       const workItems = goalType
@@ -358,10 +403,16 @@ export class GoalsClient {
             .map((arg) => arg.name)
             .join(", ")}`;
         } else {
-          const call = args.some((arg) => arg.name === "first")
-            ? "workItems(first: 100)"
-            : "workItems";
           const connection = await this.#fields(workItems.type.name);
+          let pagination: WorkItemsSelection["pagination"] = null;
+          const pageInfo = connection.find((field) => field.name === "pageInfo");
+          if (pageInfo?.type) {
+            const names = new Set(
+              (await this.#fields(pageInfo.type.name)).map((field) => field.name),
+            );
+            const cursor = ["endCursor", "nextCursor", "cursor"].find((name) => names.has(name));
+            if (names.has("hasNextPage") && cursor) pagination = { hasNext: "hasNextPage", cursor };
+          }
           const keyOn = async (typeName: string) => {
             const names = new Set((await this.#fields(typeName)).map((field) => field.name));
             return ["key", "issueKey", "id"].find((name) => names.has(name)) ?? null;
@@ -371,17 +422,38 @@ export class GoalsClient {
             ? (await this.#fields(edges)).find((field) => field.name === "node")?.type?.name
             : undefined;
           const edgeKey = edgeNode ? await keyOn(edgeNode) : null;
+          let fields: string | null = null;
           if (edgeKey) {
-            result = `${call} { edges { node { ${edgeKey} } } }`;
+            fields = `edges { node { ${edgeKey} } }`;
           } else {
             const nodes = connection.find((field) => field.name === "nodes")?.type?.name;
             const nodeKey = nodes ? await keyOn(nodes) : null;
-            if (nodeKey) result = `${call} { nodes { ${nodeKey} } }`;
+            if (nodeKey) fields = `nodes { ${nodeKey} }`;
           }
+          if (fields)
+            result = {
+              first: args.some((arg) => arg.name === "first"),
+              after: args.some(
+                (arg) =>
+                  arg.name === "after" &&
+                  arg.type?.kind === "SCALAR" &&
+                  ["String", "ID"].includes(arg.type.name),
+              ),
+              fields,
+              pagination,
+            };
         }
       }
     } catch (error) {
+      if (error instanceof JiraError && error.isAuthenticationFailure) throw error;
       this.lastWorkItemsIssue = error instanceof Error ? error.message : String(error);
+      // Une panne de lecture n'est pas un schéma incompatible : le prochain rafraîchissement
+      // doit pouvoir refaire l'introspection, sans imposer de recharger toute l'extension.
+      return null;
+    }
+    if (result === null && this.lastWorkItemsIssue === null) {
+      this.lastWorkItemsIssue =
+        "le schéma Atlassian n'expose pas de lien Goal → tickets exploitable";
     }
     this.#workItemsSelection = result;
     return result;
@@ -395,26 +467,94 @@ export class GoalsClient {
     if (goalIds.length === 0) return {};
     const selection = await this.#workItemsSelectionFor();
     if (selection === null) return {};
-    const operation = `query goalWorkItems($goalIds: [ID!]!) { goals_byIds(goalIds: $goalIds) { id ${selection} } }`;
+    this.lastWorkItemsIssue = null;
+    const operation = (after: string | null) => {
+      const args = [
+        ...(selection.first ? ["first: 100"] : []),
+        ...(after !== null ? [`after: ${JSON.stringify(after)}`] : []),
+      ];
+      const call = args.length > 0 ? `workItems(${args.join(", ")})` : "workItems";
+      const pagination = selection.pagination;
+      const info = pagination ? ` pageInfo { ${pagination.hasNext} ${pagination.cursor} }` : "";
+      return `query goalWorkItems($goalIds: [ID!]!) { goals_byIds(goalIds: $goalIds) { id ${call} { ${selection.fields}${info} } } }`;
+    };
 
     const result: Record<string, string[]> = {};
     for (const chunk of chunks(goalIds, IDS_PER_REQUEST)) {
-      const data = await this.#execute(operation, { goalIds: chunk });
-      const nodes = Array.isArray(data.goals_byIds) ? data.goals_byIds : [];
-      for (const node of nodes) {
-        if (!isRecord(node) || typeof node.id !== "string" || !isRecord(node.workItems)) continue;
-        const container = node.workItems;
-        const items = Array.isArray(container.edges)
-          ? container.edges.map((edge) => (isRecord(edge) ? edge.node : null))
-          : Array.isArray(container.nodes)
-            ? container.nodes
-            : [];
-        const keys = items.flatMap((item) => {
-          if (!isRecord(item)) return [];
-          const key = item.key ?? item.issueKey ?? item.id;
-          return typeof key === "string" && key !== "" ? [key] : [];
-        });
-        if (keys.length > 0) result[node.id] = keys;
+      const pending: { ids: string[]; after: string | null; page: number; cursors: Set<string> }[] =
+        [{ ids: chunk, after: null, page: 0, cursors: new Set() }];
+      while (pending.length > 0) {
+        const current = pending.shift();
+        if (!current) break;
+        const data = await this.#execute(operation(current.after), { goalIds: current.ids });
+        if (!Array.isArray(data.goals_byIds)) {
+          throw new Error(
+            "Lecture incomplète des liens des objectifs : liste absente de la réponse Atlassian.",
+          );
+        }
+        const nodes = data.goals_byIds;
+        const returnedIds = new Set<string>();
+        for (const node of nodes) {
+          if (!isRecord(node) || typeof node.id !== "string" || !isRecord(node.workItems)) {
+            this.lastWorkItemsIssue = "un objectif ne fournit pas ses liens vers les tickets";
+            continue;
+          }
+          returnedIds.add(node.id);
+          const container = node.workItems;
+          if (!Array.isArray(container.edges) && !Array.isArray(container.nodes)) {
+            this.lastWorkItemsIssue = "les tickets rattachés à un objectif sont illisibles";
+            continue;
+          }
+          const items = Array.isArray(container.edges)
+            ? container.edges.map((edge) => (isRecord(edge) ? edge.node : null))
+            : Array.isArray(container.nodes)
+              ? container.nodes
+              : [];
+          const keys = items.flatMap((item) => {
+            if (!isRecord(item)) return [];
+            const key = item.key ?? item.issueKey ?? item.id;
+            return typeof key === "string" && key !== "" ? [key] : [];
+          });
+          if (keys.length !== items.length) {
+            this.lastWorkItemsIssue =
+              "certains liens d'un objectif ne fournissent pas de clé de ticket lisible";
+          }
+          if (keys.length > 0)
+            result[node.id] = [...new Set([...(result[node.id] ?? []), ...keys])];
+          const pagination = selection.pagination;
+          if (pagination) {
+            const info = container.pageInfo;
+            if (!isRecord(info) || typeof info[pagination.hasNext] !== "boolean") {
+              this.lastWorkItemsIssue = "la pagination des liens des objectifs est illisible";
+            } else if (info[pagination.hasNext] === true) {
+              const next = info[pagination.cursor];
+              if (
+                !selection.after ||
+                typeof next !== "string" ||
+                next === "" ||
+                current.cursors.has(next) ||
+                current.page + 1 >= MAX_PAGES
+              ) {
+                this.lastWorkItemsIssue =
+                  "la lecture complète des liens des objectifs dépasse la pagination prise en charge";
+              } else {
+                pending.push({
+                  ids: [node.id],
+                  after: next,
+                  page: current.page + 1,
+                  cursors: new Set([...current.cursors, next]),
+                });
+              }
+            }
+          } else if (items.length >= 100) {
+            this.lastWorkItemsIssue =
+              "un objectif atteint 100 liens sans pagination exploitable ; certains tickets peuvent manquer";
+          }
+        }
+        if (current.ids.some((id) => !returnedIds.has(id))) {
+          this.lastWorkItemsIssue =
+            "certains objectifs demandés sont absents ou inaccessibles dans la réponse des liens";
+        }
       }
     }
     return result;

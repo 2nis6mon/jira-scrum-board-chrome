@@ -67,6 +67,10 @@ export function DiagnosticView({ diagnostic }: { diagnostic: DiagnosticModel }) 
           <h2>2 · Test d'écriture</h2>
         </header>
         <p class="hint">
+          Ce test est réservé aux boards Scrum avec un sprint actif. Les contrôles de lecture
+          restent disponibles pour les boards Kanban.
+        </p>
+        <p class="hint">
           Seul un essai réel dit si Jira accepte une écriture venant de l'extension. Le test écrit
           la propriété technique <code>{SPRINT_PROPERTY_KEYS.diagnostic}</code> sur le sprint actif,
           la relit, puis la supprime. Cette propriété est invisible dans Jira. Aucun ticket, aucun

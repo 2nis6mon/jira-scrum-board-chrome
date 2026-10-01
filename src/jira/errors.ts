@@ -177,7 +177,7 @@ function suggest(info: JiraErrorInfo): string {
     case "decoding":
       return "Signalez cette anomalie : la réponse de votre instance Jira ne correspond pas au format attendu.";
     case "propertyTooLarge":
-      return "Réduisez le nombre d'objectifs ou de rattachements sur ce sprint.";
+      return "Réduisez la taille des réglages, des objectifs ou des rattachements à enregistrer.";
     case "unexpected":
       return "Réessayez. Si l'erreur persiste, lancez le diagnostic.";
   }

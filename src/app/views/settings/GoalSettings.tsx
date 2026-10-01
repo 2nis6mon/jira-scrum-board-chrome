@@ -23,7 +23,8 @@ export function GoalSettings({
   board: BoardModel;
   configuration: BoardConfiguration;
 }) {
-  const source = configuration.goalSource;
+  const kanban = configuration.boardType === "kanban";
+  const source = kanban ? "atlassianGoals" : configuration.goalSource;
 
   return (
     <div class="settings-section">
@@ -31,15 +32,17 @@ export function GoalSettings({
         <h2 id="settings-source">Source des objectifs</h2>
         <fieldset class="settings-choices">
           <legend class="hint">
-            Jira n'a aucune relation native entre un sprint et un Goal : les Goals sont au niveau de
-            l'organisation.
+            {kanban
+              ? "Les Goals Atlassian liés aux tickets deviennent les objectifs du board. Épinglez un Goal pour garder sa ligne visible même sans ticket."
+              : "Jira n'a aucune relation native entre un sprint et un Goal : les Goals sont au niveau de l'organisation."}
           </legend>
-          {SOURCES.map((option) => (
+          {SOURCES.filter((option) => !kanban || option.id === "atlassianGoals").map((option) => (
             <label key={option.id} class="settings-choice">
               <input
                 type="radio"
                 name="goal-source"
                 checked={source === option.id}
+                disabled={kanban}
                 onChange={() =>
                   void board.applySettings((current) => ({ ...current, goalSource: option.id }), {
                     resync: true,

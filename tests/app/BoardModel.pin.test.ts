@@ -58,6 +58,14 @@ async function openWithSiteGoals(board: BoardModel) {
 }
 
 describe("BoardModel — épinglage de Goals au sprint", () => {
+  it("Scrum : le droit de modifier le board reste distinct du droit de gérer les sprints", async () => {
+    const { board } = await pinBoard();
+    board.canEditBoard.value = false;
+    expect(board.canPinGoals.value).toBe(true);
+    board.openPinEditor();
+    expect(board.pinEditor.value?.sprintId).toBe(42);
+  });
+
   it("la fenêtre part de la sélection lue dans Jira et charge les Goals du site", async () => {
     const { board } = await pinBoard({
       initial: { ...GOALS_DOCUMENT, atlassianGoalIds: [STABILITE] },

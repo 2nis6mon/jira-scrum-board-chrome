@@ -32,7 +32,7 @@ historiques.
    par Jira sont envoyés, jamais un ajout de temps séparé avant la transition.
 2. **Ne JAMAIS réécrire le champ « Sprint Goal » du sprint.** Il est lu, jamais écrit.
 3. Réglages du board (colonnes, types et swimlanes par type, ordre et couleurs des swimlanes,
-   objectifs masqués, champs des cartes, règles de couleur, nom de Build, daily…,
+   objectifs masqués, Goals épinglés au board Kanban, champs des cartes, règles de couleur, nom de Build, daily…,
    `core/teamSettings.ts`) :
    PARTAGÉS par la propriété du board depuis 0.22.0 — relus et appliqués à chaque chargement,
    écrits à chaque modification ; une copie reste dans `chrome.storage.local`, jamais dans
@@ -77,7 +77,7 @@ garde-fou (`tests/guards/sources.test.ts`) confine `declarativeNetRequest` à `p
 
 Le **prototype d'ouverture directe dans Jira** (paquet d'essai distinct, `npm run
 build:jira-direct-test`) a un manifest GÉNÉRÉ par `vite.config.ts` à partir de celui-ci : clé
-retirée (autre identifiant, stockage séparé), version `x.y.z.2`, permission `scripting`, page du
+conservée (même identifiant et stockage), version `x.y.z.2`, permission `scripting`, page du
 board exposée aux sites `*.atlassian.net` (`web_accessible_resources`) et `frame-ancestors
 https://*.atlassian.net`. Ces droits ne doivent **jamais** passer dans `public/manifest.json` sans
 décision explicite de Denis et mise à jour de l'audit. Comme n'importe quel site Atlassian peut
@@ -733,6 +733,17 @@ démarrage ; sinon ancienne valeur du premier changement d'après ; sans aucun c
 création. Un ticket mis dans le sprint pendant le planning, retiré, puis remis après le démarrage
 est donc « ajouté » (il ne l'était pas) ; un ticket présent au démarrage, sorti puis revenu, non ;
 un ticket créé après le démarrage sans entrée notée, oui. Sans historique : toujours inconnu.
+
+0.24.0 (plan validé par Denis le 01/10/2026, branche `codex/support-kanban`) : les boards Kanban
+sont pris en charge. `boardType === "kanban"` ne requiert ni sprint actif ni propriété de sprint.
+Le périmètre est celui du board, de son sous-filtre et des statuts mappés à ses colonnes ; pas de
+limite d'âge arbitraire pour les tickets terminés, ni de troncature silencieuse. Les Goals Atlassian
+restent la source en Kanban (pas de texte du sprint) ; `boardPinnedGoalIds` est partagé via les
+réglages du board, sur geste explicite et avec droit de modification, relecture et contrôle de conflit.
+Une erreur de lecture des Goals est signalée sans convertir leurs tickets en tickets sans objectif.
+Build et les swimlanes par type, Daily, présentation, filtres et déplacements restent communs.
+Pas de nouvelle permission ni d'hôte. L'ancienne consigne « Scrum seulement » est remplacée par
+ce choix explicite. La validation sur un vrai board Jira demeure à effectuer par Denis.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
 `npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit

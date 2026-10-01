@@ -1,9 +1,9 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Dernière mise à jour : **25 septembre 2026**  
-Branche décrite : **`codex/swimlanes-par-type`** (issue de `main` le 25/09/2026)  
-Produit autonome : **0.23.1**  
-Prototype d’intégration Jira : **0.23.1.2**
+Dernière mise à jour : **1 octobre 2026**\
+Branche décrite : **`codex/support-kanban`** (issue de `main` après fusion des swimlanes par type)\
+Produit autonome : **0.24.0**\
+Prototype d’intégration Jira : **0.24.0.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -18,9 +18,9 @@ prototype Jira.
 
 ## 1. Objectif du produit
 
-L’extension fournit une vue Scrum centrée sur les objectifs :
+L’extension fournit une vue Scrum ou Kanban centrée sur les objectifs :
 
-- les tickets des sprints actifs sont organisés par **Goal Atlassian** ;
+- les tickets des sprints actifs (Scrum) ou du périmètre du board (Kanban) sont organisés par **Goal Atlassian** ;
 - chaque Goal devient une swimlane ;
 - les tickets sans Goal visible rejoignent **Build** ;
 - les tickets hors objectifs sont rangés dans des **swimlanes par type** (0.23.0) : chacune
@@ -30,8 +30,8 @@ L’extension fournit une vue Scrum centrée sur les objectifs :
   Kanban (« RUN » jusqu’en 0.20.2) est relue comme une swimlane par type ;
 - les colonnes, statuts, transitions, types, filtres rapides et limites WIP viennent du board Jira ;
 - Jira reste la source de vérité ;
-- le board ne prend en charge que les **boards Scrum**. Les boards Kanban sont explicitement hors
-  périmètre.
+- les boards **Scrum et Kanban** sont pris en charge depuis 0.24.0. Kanban n'utilise aucun sprint ;
+  les objectifs y sont épinglés dans les réglages du board et partagés avec l'équipe.
 
 Le projet est distinct de l’application macOS `jira-scrum-board-advanced`, même s’il reprend une
 partie de sa spécification et de ses concepts. L’application Mac est **abandonnée** (décision de
@@ -52,7 +52,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.23.1`  
+Version : `0.24.0`\
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -74,7 +74,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.23.1.2`  
+Version générée : `0.24.0.2`\
 Nom : celui du paquet autonome (depuis le 24/09/2026)
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -161,6 +161,15 @@ de Jira.
 
 ### Goals et sprints
 
+En Kanban (0.24.0), `configuration.boardType === "kanban"` choisit le périmètre du board :
+`snapshot.sprint` vaut `null`, `activeSprints` est vide, sans signifier un board vide.
+`boardPinnedGoalIds` est une sélection partagée dans la propriété des réglages du board.
+Le mode texte du sprint est indisponible ; les Goals Atlassian sont obligatoires. Une panne de leur
+lecture empêche la nouvelle photographie de remplacer l'ancienne : pas de repli qui classerait
+à tort les tickets dans Build. L'épinglage Kanban exige le droit de modifier le board ; il passe
+par la même relecture, détection de conflit et écriture unique que les autres réglages partagés.
+Il ne crée ni sprint ni propriété de sprint. Les règles ci-dessous relatives au sprint concernent Scrum.
+
 - Les **Goals Atlassian** sont la source par défaut.
 - Le texte du Sprint Goal reste disponible comme mode de repli.
 - Le champ Jira « Sprint Goal » est lu mais **n’est jamais écrit**.
@@ -178,7 +187,26 @@ de Jira.
 
 ### Board et affichage
 
-- Scrum seulement ; Kanban n’est pas pris en charge.
+- Scrum et Kanban : mêmes colonnes, règles de swimlanes, sous-tâches, transitions, rang, Daily et
+  présentation. Les dates, le filtre « ajouté en cours de sprint » et l'épinglage au sprint
+  restent propres à Scrum.
+- Périmètre Kanban : `boardIssues`, avec le sous-filtre `subQuery.query` de la configuration Jira,
+  et statuts associés aux colonnes du board. Le backlog n'est pas lu séparément. Un ticket de
+  backlog n'est présent que si son statut est mappé et qu'il satisfait ce périmètre. Aucune limite
+  d'âge locale pour les tickets terminés ; aucune coupure silencieuse des réponses paginées.
+  Jira fait foi pour les statuts du périmètre : un statut absent de la structure locale reste
+  compté et signalé comme non mappé ; « Relire structure » permet de replacer sa carte.
+  Les filtres rapides et les règles de couleur JQL utilisent le même sous-filtre, sans clause sprint.
+  Référence API vérifiée le 01/10/2026 :
+  https://developer.atlassian.com/cloud/jira/software/rest/api-group-board/
+  L'endpoint Agile existant de lecture des tickets est annoncé déprécié par Atlassian ; la migration
+  vers l'endpoint Software « enhanced » est distincte de ce changement.
+- Limites de lecture explicites : la limite de sécurité de 5 000 tickets refuse désormais un
+  périmètre plus grand au lieu de le tronquer. Les liens Goal → tickets sont paginés quand
+  l'introspection expose les arguments et champs nécessaires. Sans pagination exploitable, une
+  page pleine de 100 liens est signalée comme incomplète ; Kanban refuse alors une photographie
+  qui ferait passer des tickets liés pour des tickets sans objectif. Les recherches de Goals et
+  leurs liens restent bornés à 20 pages ; un curseur incohérent ou une borne atteinte est signalé.
 - Périmètre (0.19.21, signalé par Denis) : les tickets d’un sprint sont lus depuis le board,
   `GET /rest/agile/1.0/board/{board}/sprint/{sprint}/issue`, et non plus par le sprint seul, qui
   ramenait aussi les tickets des autres boards d’un sprint partagé. Un sprint actif sans aucun
@@ -410,8 +438,7 @@ son format :
 - ne jamais rendre une installation inutilisable à cause d’un champ local absent ;
 - tester la lecture d’une configuration ancienne.
 
-Le paquet expérimental ayant un autre identifiant Chrome, il ne partage pas ce stockage avec le
-paquet autonome.
+Les paquets autonome et expérimental gardent le même identifiant Chrome et partagent ce stockage.
 
 ---
 
@@ -425,6 +452,13 @@ npm run check
 ```
 
 `npm run check` exécute le typage, le lint, les tests et la construction autonome.
+
+Validation de la 0.24.0, le 01/10/2026 : typage et lint réussis ; 890 tests réussis, 1 ignoré.
+Les deux constructions ont été réalisées dans `release/kanban-0.24.0` et
+`release/kanban-jira-0.24.0`, sans modifier `dist/`. Les scripts de vérification du chargement et
+de l'intégration Jira ont été exécutés sous Edge Chromium, sur profils temporaires et faux Jira.
+Le banc visuel Kanban couvre objectifs, Build/RUN/OPS, épinglage partagé, Daily et board vide.
+La compatibilité avec l'instance Jira réelle reste à valider par Denis.
 
 Commandes utiles :
 
@@ -503,10 +537,10 @@ un dossier temporaire lorsqu’une autre version est active dans Chrome.
 
 ### Problèmes ouverts confirmés par la revue
 
-1. **Pagination des tickets liés à un Goal**  
-   `src/jira/goals.ts` lit `workItems(first: 100)` sans pagination complète. Le champ Goals des
-   tickets complète souvent les associations mais ne garantit pas l’exhaustivité. Il faut étudier
-   le schéma GraphQL, gérer plus de 100 liens ou signaler explicitement une lecture tronquée.
+1. **Pagination des tickets liés à un Goal selon le schéma Atlassian**\
+   Depuis 0.24.0, `src/jira/goals.ts` pagine si le schéma expose les champs nécessaires. Sinon,
+   une page pleine de 100 liens est signalée comme potentiellement incomplète et bloque le
+   chargement Kanban. Ce comportement doit encore être validé sur l'instance Jira réelle.
 
 2. **Documentation historique partiellement obsolète**  
    `CLAUDE.md`, le README et l’audit sont à jour depuis la 0.19.9. `TODO.md` présente encore
@@ -520,7 +554,7 @@ un dossier temporaire lorsqu’une autre version est active dans Chrome.
 
 ### Limites intentionnelles
 
-- Kanban non pris en charge.
+- Kanban utilise les Goals Atlassian ; le mode texte du champ « Sprint Goal » reste propre à Scrum.
 - Un ticket avec plusieurs Goals n’est affiché que dans une swimlane.
 - Le mode texte n’agrège pas les textes de plusieurs sprints actifs.
 - Le déplacement par glisser-déposer est à la souris ; le déplacement clavier a été abandonné par
@@ -546,8 +580,8 @@ reproduit :
   marge de 16 px.
 - Le mode direct reconnaît les routes modernes `/jira/.../boards/{id}` et requiert une clé projet
   enregistrée pour construire l’URL depuis l’icône.
-- Le paquet d’essai a un stockage séparé ; l’utilisateur doit reconnecter le site et sélectionner
-  son board.
+- Le paquet d’essai partage l'identifiant et le stockage du paquet autonome ; seul un de ces
+  paquets est chargé à la fois.
 - Si Jira interdit un jour l’affichage de sa propre page dans une iframe de même origine, la fiche
   et les formulaires natifs ne pourront plus être cadrés de cette manière.
 

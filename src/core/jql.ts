@@ -21,3 +21,18 @@ export function inActiveSprints(jql: string, sprintIds: readonly number[]): stri
   if (base === "" || sprintIds.length === 0) return null;
   return `(${base}) AND sprint in (${sprintIds.join(",")})`;
 }
+
+/** Périmètre déjà limité par l'endpoint du board ; Kanban ajoute son sous-filtre Jira. */
+export interface BoardJqlScope {
+  readonly sprintIds: readonly number[];
+  readonly boardType?: string;
+  readonly kanbanSubQuery?: string | null;
+}
+
+export function inBoardScope(jql: string, scope: BoardJqlScope): string | null {
+  if (scope.boardType !== "kanban") return inActiveSprints(jql, scope.sprintIds);
+  const base = withoutOrderBy(jql);
+  if (base === "") return null;
+  const subQuery = withoutOrderBy(scope.kanbanSubQuery ?? "");
+  return subQuery === "" ? base : `(${base}) AND (${subQuery})`;
+}

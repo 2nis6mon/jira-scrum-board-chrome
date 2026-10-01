@@ -5,7 +5,7 @@
 //   npm run harness   puis   http://localhost:5199/?scenario=board|board-filtre|board-session|
 //                            board-vide|board-dnd|board-choix|board-statuts|board-erreur|board-goals|
 //                            board-epingle|board-epingle-refus|board-multi|board-infos|
-//                            board-soustaches|ok|xsrf|refuse|session|deconnecte|
+//                            board-soustaches|board-kanban|board-kanban-vide|ok|xsrf|refuse|session|deconnecte|
 //                            connexion|recherche-board
 import { render } from "preact";
 import { App } from "../../src/app/App";
@@ -24,6 +24,7 @@ import { FakeJira, type Reply, XSRF_REFUSAL } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 import { goalsGateway } from "../support/goalsGateway";
 import { issueJson, statusJson } from "../support/jiraFixtures";
+import { KANBAN_NAME, KANBAN_SUBQUERY } from "../support/kanbanFixture";
 
 const PROPERTY = `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.diagnostic}`;
 const OK: Reply = { status: 200, json: {} };
@@ -79,9 +80,10 @@ async function simulateDrop(
 
 if (scenario.startsWith("board")) {
   const pinning = scenario === "board-epingle" || scenario === "board-epingle-refus";
+  const kanban = scenario.startsWith("board-kanban");
   const withSubtasks = scenario === "board-soustaches";
-  const swimlanes = scenario === "board-swimlanes";
-  const withGoals = scenario === "board-goals" || pinning || withSubtasks;
+  const swimlanes = scenario === "board-swimlanes" || kanban;
+  const withGoals = scenario === "board-goals" || pinning || withSubtasks || kanban;
   // Filtres rapides FICTIFS du board ; le faux Jira « évalue » leur JQL par table.
   const quickFilters = [
     { id: 1, name: "Mes tickets", jql: "assignee = currentUser()", position: 0 },
@@ -319,7 +321,7 @@ if (scenario.startsWith("board")) {
   // Faux Jira qui évolue : après la transition, ABC-102 est « En cours ».
   let moved: { id: string; name: string } | null = null;
   const issues = () =>
-    sprintSource
+    (scenario === "board-kanban-vide" ? [] : sprintSource)
       .map((issue) =>
         moved && issue.key === "ABC-102"
           ? issueJson("ABC-102", {
@@ -336,6 +338,38 @@ if (scenario.startsWith("board")) {
     status: 200,
     json: { issues: issues(), total: issues().length },
   }));
+  if (kanban) {
+    jira
+      .on("GET", "/rest/agile/1.0/board/7", {
+        status: 200,
+        json: { id: 7, name: KANBAN_NAME, type: "kanban", location: { projectKey: "ABC" } },
+      })
+      .on("GET", "/rest/agile/1.0/board/7/configuration", {
+        status: 200,
+        json: {
+          subQuery: { query: KANBAN_SUBQUERY },
+          columnConfig: {
+            columns: [
+              { name: "À faire", statuses: [{ id: "1" }] },
+              { name: "En cours", statuses: [{ id: "3" }, { id: "4" }], max: 2 },
+              { name: "Terminé", statuses: [{ id: "6" }] },
+            ],
+          },
+          estimation: { field: { fieldId: "customfield_10016" } },
+        },
+      })
+      .on("GET", "/rest/agile/1.0/board/7/issue", (request) => {
+        const jql = request.url.searchParams.get("jql");
+        if (jql === null)
+          return { status: 200, json: { issues: sprintSource, total: sprintSource.length } };
+        const quick = quickFilters.find((filter) => jql.includes(`(${filter.jql})`));
+        const keys = quick ? quickFilterAnswers[`(${quick.jql}) AND sprint in (42)`] : null;
+        const result = keys
+          ? issues().filter((issue) => keys.includes(issue.key as string))
+          : issues();
+        return { status: 200, json: { issues: result, total: result.length } };
+      });
+  }
   jira.on("GET", "/rest/api/3/issue/ABC-102", () => ({
     status: 200,
     json: {

@@ -95,7 +95,11 @@ export async function refreshBoardStructure(
   // dégrade la configuration sans empêcher le board de s'afficher.
   const statuses = await reader.statuses().catch(() => []);
   const allFields = await reader.fields().catch(() => []);
-  const issueTypes = await discoverIssueTypes(reader, boardId);
+  const issueTypes = await discoverIssueTypes(
+    reader,
+    boardId,
+    board.boardType === "kanban" ? board.kanbanSubQuery : null,
+  );
 
   const fresh = buildConfiguration({
     board,
@@ -111,8 +115,12 @@ export async function refreshBoardStructure(
 }
 
 /** Types de tickets réellement présents sur le board. Seuls le type et le statut sont lus. */
-async function discoverIssueTypes(reader: BoardReader, boardId: number): Promise<JiraIssueType[]> {
-  const issues = await reader.boardIssues(boardId, null, {
+async function discoverIssueTypes(
+  reader: BoardReader,
+  boardId: number,
+  jql: string | null,
+): Promise<JiraIssueType[]> {
+  const issues = await reader.boardIssues(boardId, jql, {
     estimationFieldId: null,
     includeChangelog: false,
     onlyFields: ["issuetype", "status"],
@@ -164,6 +172,7 @@ export async function loadSnapshot(input: {
 }): Promise<SyncResult> {
   const { reader, configuration } = input;
   const now = input.now ?? new Date();
+  if (configuration.boardType === "kanban") return loadKanbanSnapshot({ ...input, now });
 
   // Le board montre les sprints ACTIFS, tous ensemble. Aucun autre sprint n'est consultable.
   const candidateSprints = (await reader.sprints(configuration.boardId, ["active"]))
@@ -268,6 +277,128 @@ export async function loadSnapshot(input: {
     ({ goals, links } = reconcileSprintGoals(sprint.goal, document));
   }
 
+  const { goalIssues, swimlaneIssues } = assembleSnapshotIssues({
+    configuration,
+    issuesBySprint,
+    links,
+    now,
+  });
+
+  // Couleurs des objectifs : locales, stables d'un sprint à l'autre.
+  const goalColorIndex = assignGoalColors(
+    goals.map((goal) => goal.id),
+    configuration.goalColorIndex,
+  );
+  const coloredGoals = goals.map((goal) => ({
+    ...goal,
+    color: goalColorName(goalColorIndex[goal.id] ?? 0),
+  }));
+
+  return {
+    snapshot: {
+      sprint,
+      activeSprints,
+      goals: coloredGoals,
+      goalsOrigin,
+      goalIssues,
+      swimlaneIssues,
+      syncedAt: now,
+      currentUser: input.currentUser,
+      goalsReadOnly,
+      pinnedGoalIds,
+      localPinnedGoalIds: goalsOrigin === "atlassianGoals" ? localPinnedGoalIds : null,
+    },
+    document,
+    goalsIssue,
+    goalsWarnings,
+    goalColorIndex,
+  };
+}
+
+/**
+ * Kanban : périmètre du board et sous-filtre natif, sans sprint ni propriété de sprint.
+ * Les tickets terminés restent soumis au filtre Jira, sans date de coupure inventée ici.
+ */
+async function loadKanbanSnapshot(input: {
+  reader: BoardReader;
+  configuration: BoardConfiguration;
+  currentUser: JiraUser | null;
+  goalsLoader: AtlassianGoalsLoader | null;
+  now: Date;
+}): Promise<SyncResult> {
+  const { reader, configuration, now } = input;
+  const extraFieldIds = [
+    configuration.goalsFieldId,
+    configuration.flaggedFieldId,
+    ...displayedCardFields(configuration).map(cardFieldJiraId),
+  ].filter((id): id is string => id !== null);
+  // Jira applique le périmètre natif et ses statuts mappés. La structure locale peut dater :
+  // un nouveau statut reste conservé, avec columnId=null et l'alerte de colonne non reconnue.
+  const issues = await reader.boardIssues(configuration.boardId, configuration.kanbanSubQuery, {
+    estimationFieldId: configuration.estimationFieldId,
+    includeChangelog: true,
+    extraFieldIds,
+  });
+  if (!input.goalsLoader) {
+    throw new Error(
+      "Lecture des Goals Atlassian indisponible : le board Kanban ne peut pas déterminer ses objectifs.",
+    );
+  }
+  let resolved: Awaited<ReturnType<AtlassianGoalsLoader["load"]>>;
+  try {
+    resolved = await input.goalsLoader.load({
+      pinnedGoalIds: configuration.boardPinnedGoalIds,
+      issues,
+      configuration,
+    });
+  } catch (error) {
+    // Sans texte de sprint, un repli vide classerait à tort tous les tickets dans Build.
+    if (error instanceof JiraError && error.isAuthenticationFailure) throw error;
+    throw new Error(`Objectifs du board Kanban indisponibles : ${describeGoalsFailure(error)}`);
+  }
+  const { goalIssues, swimlaneIssues } = assembleSnapshotIssues({
+    configuration,
+    issuesBySprint: [{ sprint: null, issues }],
+    links: resolved.links,
+    now,
+  });
+  const goalColorIndex = assignGoalColors(
+    resolved.goals.map((goal) => goal.id),
+    configuration.goalColorIndex,
+  );
+  return {
+    snapshot: {
+      sprint: null,
+      activeSprints: [],
+      goals: resolved.goals.map((goal) => ({
+        ...goal,
+        color: goalColorName(goalColorIndex[goal.id] ?? 0),
+      })),
+      goalsOrigin: "atlassianGoals",
+      goalIssues,
+      swimlaneIssues,
+      syncedAt: now,
+      currentUser: input.currentUser,
+      goalsReadOnly: false,
+      pinnedGoalIds: [...configuration.boardPinnedGoalIds],
+      localPinnedGoalIds: null,
+    },
+    document: null,
+    goalsIssue: null,
+    goalsWarnings: resolved.warnings ?? [],
+    goalColorIndex,
+  };
+}
+
+/** Assemblage identique pour les deux modes ; seul Scrum date les entrées dans un sprint. */
+function assembleSnapshotIssues(input: {
+  configuration: BoardConfiguration;
+  issuesBySprint: readonly { sprint: JiraSprint | null; issues: readonly JiraIssue[] }[];
+  links: Record<string, string>;
+  now: Date;
+}): { goalIssues: BoardIssue[]; swimlaneIssues: BoardIssue[] } {
+  const { configuration, issuesBySprint, links, now } = input;
+  const sprintIssues = issuesBySprint.flatMap((entry) => entry.issues);
   const types = new Map(configuration.issueTypes.map((type) => [type.id, type.category]));
   const categoryOf = (issue: JiraIssue) => types.get(issue.fields.issuetype.id) ?? "GOAL";
 
@@ -316,35 +447,7 @@ export async function loadSnapshot(input: {
     }
   }
 
-  // Couleurs des objectifs : locales, stables d'un sprint à l'autre.
-  const goalColorIndex = assignGoalColors(
-    goals.map((goal) => goal.id),
-    configuration.goalColorIndex,
-  );
-  const coloredGoals = goals.map((goal) => ({
-    ...goal,
-    color: goalColorName(goalColorIndex[goal.id] ?? 0),
-  }));
-
-  return {
-    snapshot: {
-      sprint,
-      activeSprints,
-      goals: coloredGoals,
-      goalsOrigin,
-      goalIssues,
-      swimlaneIssues,
-      syncedAt: now,
-      currentUser: input.currentUser,
-      goalsReadOnly,
-      pinnedGoalIds,
-      localPinnedGoalIds: goalsOrigin === "atlassianGoals" ? localPinnedGoalIds : null,
-    },
-    document,
-    goalsIssue,
-    goalsWarnings,
-    goalColorIndex,
-  };
+  return { goalIssues, swimlaneIssues };
 }
 
 /**

@@ -1,12 +1,11 @@
 # Sprint Goals Board pour Jira — extension Chrome
 
-**Le board Scrum que Jira n'offre pas : une swimlane par Sprint Goal, créée automatiquement.**
-Le board Jira range les tickets par colonne, sans montrer à quel objectif du sprint chacun
-contribue. Ici, chaque Sprint Goal devient sa propre swimlane, avec ses tickets et son
-avancement, dès l'ouverture du board — sans rien configurer. Les tickets sans objectif restent
-visibles dans *Build*, le RUN à part. Jira reste la source de vérité.
+**Vos boards Scrum et Kanban organisés par objectifs, Build et swimlanes configurables.**
+Chaque Goal Atlassian devient une swimlane avec ses tickets et son avancement. Les types classés
+« Par objectif » sans Goal visible restent dans *Build*. Les autres types peuvent être regroupés
+dans des swimlanes personnalisées, par exemple RUN et OPS, ou ignorés. Jira reste la source de vérité.
 
-Un Goal dont tous les tickets des sprints actifs sont dans la dernière colonne visible du
+Un Goal dont tous les tickets du périmètre affiché sont dans la dernière colonne visible du
 board reçoit une coche, une bordure et un fond verts. Dans la barre latérale, sa ligne devient
 verte avec un trait vertical à gauche, sans coche ni barre d’avancement. Les filtres ne changent pas ce calcul ; un Goal vide n’est pas atteint.
 Le vert est réservé à cet indicateur : la palette propose neuf couleurs, dont le bleu ardoise,
@@ -26,12 +25,21 @@ horizontalement. Si un ticket nouvellement lu introduit un Goal encore inconnu d
 est ajouté dans « Goals masqués » et le ticket reste dans Build. Le Goal peut ensuite être
 réaffiché depuis cette section, sans modifier son rattachement dans Jira.
 
-**Compatible uniquement avec les boards Scrum Jira. Les boards Kanban ne sont pas pris en charge.**
+**Compatible avec les boards Scrum et Kanban Jira Cloud (0.24.0).** En Scrum, le périmètre reste
+celui des sprints actifs. En Kanban, les tickets viennent du board, de son sous-filtre et des
+statuts associés à ses colonnes. Aucun sprint n'est nécessaire. Le backlog n'est pas chargé
+séparément et aucune limite d'âge n'est ajoutée aux tickets terminés : les règles du board font foi.
+
+En Kanban, les Goals Atlassian sont déduits des tickets ou épinglés au board dans
+Administration → Objectifs. L'épinglage est partagé avec l'équipe et exige le droit de modifier
+le board. Le texte du Sprint Goal est réservé à Scrum. Si les Goals sont indisponibles, la
+synchronisation le signale au lieu de présenter leurs tickets comme dépourvus d'objectif.
+Daily, présentation, filtres, transitions et rang fonctionnent dans les deux modes.
 
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.19.20 (paquet autonome) et 0.19.20.2 (prototype d'ouverture directe dans Jira, voir
+> **État : 0.24.0 (paquet autonome) et 0.24.0.2 (prototype d'ouverture directe dans Jira, voir
 > plus bas).** Point d'entrée pour reprendre le projet : [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
 > santé du sprint (6a), plusieurs boards (6b), audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)), empaquetage (6e) à venir. Board du
@@ -85,10 +93,10 @@ inventaire des écritures, fuites possibles, constats et correctifs.
 1. Clic sur l'icône de l'extension : le board s'ouvre dans un onglet.
 2. Saisir l'adresse du site (`societe.atlassian.net`) et accepter la demande d'accès de Chrome.
    Il faut être connecté à Jira dans un onglet de ce navigateur.
-3. Saisir tout ou partie du nom du board Scrum et sélectionner un des cinq premiers résultats accessibles.
+3. Saisir tout ou partie du nom du board Scrum ou Kanban et sélectionner un résultat accessible.
 
-Le board affiche les tickets des **sprints actifs**, regroupés par objectif, puis *Build*
-(tickets sans objectif) et *RUN* (types classés RUN, présents dans le sprint). Un clic sur une
+Le board affiche les tickets des **sprints actifs en Scrum**, ou du **périmètre du board en Kanban**,
+regroupés par objectif, puis *Build* et les swimlanes par type configurées. Un clic sur une
 carte ouvre le ticket dans Jira, dans un nouvel onglet. La flèche ronde de l'en-tête relit Jira.
 
 - **Barre latérale** (reprise de l'app Mac) : le board affiché et son menu — les boards

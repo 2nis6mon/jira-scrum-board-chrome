@@ -21,18 +21,23 @@ export function CardColorSettings({
   board: BoardModel;
   configuration: BoardConfiguration;
 }) {
+  const kanban = configuration.boardType === "kanban";
   const stored = colorRules(configuration);
   const [rules, setRules] = useState<readonly CardColorRule[]>(stored);
+  const visibleRules = rules.filter((rule) => !kanban || rule.kind !== "addedAfterSprintStart");
   const [applying, setApplying] = useState(false);
   const changed = JSON.stringify(rules) !== JSON.stringify(stored);
 
   // Chaque modification repart de la liste COURANTE.
   const edit = (id: string, parts: Partial<CardColorRule>) =>
     setRules((current) => current.map((rule) => (rule.id === id ? { ...rule, ...parts } : rule)));
-  const move = (index: number, offset: number) =>
+  const move = (id: string, offset: number) =>
     setRules((current) => {
-      const target = index + offset;
-      if (target < 0 || target >= current.length) return current;
+      const visible = current.filter((rule) => !kanban || rule.kind !== "addedAfterSprintStart");
+      const destination = visible[visible.findIndex((rule) => rule.id === id) + offset];
+      if (!destination) return current;
+      const index = current.findIndex((rule) => rule.id === id);
+      const target = current.findIndex((rule) => rule.id === destination.id);
       const result = [...current];
       const [moved] = result.splice(index, 1);
       if (moved) result.splice(target, 0, moved);
@@ -57,12 +62,14 @@ export function CardColorSettings({
         <p class="hint">
           Chaque règle colore les cartes des tickets qui satisfont son JQL, par exemple{" "}
           <code>priority = Highest</code> ou <code>"Priorité incident" = P2</code>. Jira évalue la
-          requête à chaque actualisation, sur les sprints actifs ; l'extension ne l'interprète pas.
+          requête à chaque actualisation,{" "}
+          {kanban ? "dans le périmètre du board Kanban" : "sur les sprints actifs"} ; l'extension ne
+          l'interprète pas.
         </p>
         <p class="hint">
           L'ordre de la liste est l'ordre de priorité : quand plusieurs règles s'appliquent au même
-          ticket, la plus haute l'emporte. La règle « Ajouté en cours de sprint » se place comme les
-          autres.
+          ticket, la plus haute l'emporte.
+          {!kanban && " La règle « Ajouté en cours de sprint » se place comme les autres."}
         </p>
         <div class="row">
           <button
@@ -87,7 +94,7 @@ export function CardColorSettings({
       </section>
 
       <ol class="color-rules">
-        {rules.map((rule, index) => {
+        {visibleRules.map((rule, index) => {
           const builtIn = rule.kind !== null;
           const label = rule.name.trim() || (builtIn ? rule.name : `Règle ${index + 1}`);
           return (
@@ -141,15 +148,15 @@ export function CardColorSettings({
                     type="button"
                     aria-label={`Rendre la règle ${label} plus prioritaire`}
                     disabled={index === 0}
-                    onClick={() => move(index, -1)}
+                    onClick={() => move(rule.id, -1)}
                   >
                     ↑
                   </button>
                   <button
                     type="button"
                     aria-label={`Rendre la règle ${label} moins prioritaire`}
-                    disabled={index === rules.length - 1}
-                    onClick={() => move(index, 1)}
+                    disabled={index === visibleRules.length - 1}
+                    onClick={() => move(rule.id, 1)}
                   >
                     ↓
                   </button>

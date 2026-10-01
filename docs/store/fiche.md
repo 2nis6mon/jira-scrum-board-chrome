@@ -12,16 +12,16 @@ Paquet à envoyer : `release/sprint-goals-board-<version>.zip`, produit par `npm
 
 **Résumé** (repris du manifest, 132 caractères au plus) :
 
-> Swimlanes automatiques par Sprint Goal pour vos boards Scrum Jira Cloud : glisser-déposer, Daily et mode présentation.
+> Boards Scrum et Kanban Jira Cloud : swimlanes par objectif, Build et RUN configurables, glisser-déposer et Daily.
 
 **Catégorie** : Productivité → Workflow et planification.
 
 **Description** :
 
 ```
-Voyez enfin votre sprint Jira par objectif.
+Voyez vos boards Scrum et Kanban Jira par objectif.
 
-Sprint Goals Board pour Jira affiche le sprint actif de votre board Scrum Jira Cloud en swimlanes, une par Sprint Goal. Chaque ticket rejoint automatiquement la swimlane de son objectif ; ceux qui n'en ont pas restent dans « Build », les autres (support, anomalies de production, demandes…) dans des swimlanes par type de ticket, que vous composez et nommez comme vous voulez.
+Sprint Goals Board pour Jira affiche les tickets de votre board Scrum ou Kanban Jira Cloud en swimlanes par objectif. En Scrum, le périmètre est celui des sprints actifs ; en Kanban, celui du board et de son sous-filtre. Chaque ticket rejoint automatiquement la swimlane de son objectif ; ceux qui n'en ont pas restent dans « Build », les autres (support, anomalies de production, demandes…) dans des swimlanes par type de ticket, que vous composez et nommez comme vous voulez.
 
 POUR L'ÉQUIPE
 • Une swimlane par objectif, avec son avancement, et l'objectif en vert quand tous ses tickets sont terminés.
@@ -46,7 +46,7 @@ CONFIDENTIALITÉ
 • Accès demandé uniquement pour le site Jira que vous choisissez, au moment de la connexion.
 • Rien n'est écrit dans Jira sans un geste de votre part.
 
-Pour Jira Cloud (*.atlassian.net), boards Scrum. Les Goals Atlassian et le champ « Sprint Goal » du sprint sont pris en charge.
+Pour Jira Cloud (*.atlassian.net), boards Scrum et Kanban. Goals Atlassian dans les deux modes, texte du Sprint Goal en Scrum uniquement.
 
 Jira et Atlassian sont des marques d'Atlassian. Cette extension n'est ni développée ni approuvée par Atlassian.
 ```
@@ -64,7 +64,7 @@ l'administration, Daily, présentation.
 **Objectif unique** (Single purpose) :
 
 ```
-Afficher le sprint actif d'un board Scrum Jira Cloud en swimlanes par Sprint Goal, et permettre à l'utilisateur de le mettre à jour (statut, ordre, objectif des tickets) depuis ce board.
+Afficher les tickets d'un board Scrum ou Kanban Jira Cloud en swimlanes par objectif, et permettre à l'utilisateur de le mettre à jour (statut, ordre, objectif des tickets) depuis ce board.
 ```
 
 **Justification de `storage`** :

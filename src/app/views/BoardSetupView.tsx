@@ -19,10 +19,8 @@ export function BoardSetupView({ board }: { board: BoardModel }) {
         )}
         <ul class="notes">
           <li>
-            <strong>
-              Cette extension est réservée aux boards Scrum. Les boards Kanban ne sont pas pris en
-              charge.
-            </strong>
+            Boards Scrum et Kanban : organisez vos tickets par objectif, Build et swimlanes par
+            type, comme RUN.
           </li>
           <li>
             Colonnes, statuts, types de tickets et champ d'estimation sont lus dans Jira. Rien n'y

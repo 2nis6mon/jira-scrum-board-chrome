@@ -108,6 +108,8 @@ export function makeConfiguration(parts: Partial<BoardConfiguration> = {}): Boar
     boardId: 1,
     boardName: "Board",
     boardType: "scrum",
+    kanbanSubQuery: null,
+    boardPinnedGoalIds: [],
     projectKeys: ["ABC"],
     siteOrigin: "https://acme.atlassian.net",
     estimationFieldId: "customfield_10016",

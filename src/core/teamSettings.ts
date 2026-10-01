@@ -83,6 +83,8 @@ export interface TeamSettings {
   readonly dailyKanbanStockLimit: number;
   readonly blockedLabels: readonly string[];
   readonly goalSource: GoalSource;
+  /** Goals épinglés au board Kanban, indépendants des épinglages de sprint. */
+  readonly boardPinnedGoalIds: readonly string[];
   readonly goalColorIndex: Readonly<Record<string, number>>;
   readonly blockOrder: readonly string[];
   readonly hiddenGoalIds: readonly string[];
@@ -104,6 +106,7 @@ const SETTINGS_KEYS = [
   "dailyKanbanStockLimit",
   "blockedLabels",
   "goalSource",
+  "boardPinnedGoalIds",
   "goalColorIndex",
   "blockOrder",
   "hiddenGoalIds",
@@ -167,6 +170,7 @@ export function teamSettingsOf(configuration: BoardConfiguration): TeamSettings 
     agingThresholdDays: configuration.agingThresholdDays,
     blockedLabels: [...configuration.blockedLabels],
     goalSource: configuration.goalSource,
+    boardPinnedGoalIds: [...configuration.boardPinnedGoalIds],
     goalColorIndex: { ...configuration.goalColorIndex },
     blockOrder: [...configuration.blockOrder],
     hiddenGoalIds: [...configuration.hiddenGoalIds],
@@ -212,7 +216,8 @@ export function withTeamSettings(
     dailyStockLimit: settings.dailyStockLimit,
     agingThresholdDays: settings.agingThresholdDays,
     blockedLabels: [...settings.blockedLabels],
-    goalSource: settings.goalSource,
+    goalSource: configuration.boardType === "kanban" ? "atlassianGoals" : settings.goalSource,
+    boardPinnedGoalIds: [...settings.boardPinnedGoalIds],
     goalColorIndex: { ...configuration.goalColorIndex, ...settings.goalColorIndex },
     blockOrder: [...settings.blockOrder],
     hiddenGoalIds: [...settings.hiddenGoalIds],
@@ -236,6 +241,7 @@ const FAMILIES: readonly (readonly [string, (settings: TeamSettings) => unknown]
   ["Labels de blocage", (s) => s.blockedLabels],
   ["Daily : durée et stock", (s) => [s.dailyMinutes, s.dailyStockLimit]],
   ["Source des objectifs", (s) => s.goalSource],
+  ["Goals épinglés au board", (s) => s.boardPinnedGoalIds],
   ["Couleurs des objectifs", (s) => s.goalColorIndex],
   ["Ordre des swimlanes", (s) => s.blockOrder],
   ["Objectifs masqués", (s) => s.hiddenGoalIds],
@@ -328,7 +334,7 @@ export type PublishOutcome =
    * Quelqu'un a publié depuis la version que ce navigateur connaît : rien n'a été écrit.
    * `current` est ce que Jira porte maintenant.
    */
-  | { kind: "conflict"; current: TeamDocument };
+  | { kind: "conflict"; current: TeamDocument | null };
 
 /**
  * Publie les réglages d'équipe de ce navigateur. Règles des écritures de l'extension :
@@ -379,15 +385,21 @@ export async function publishTeamSettings(
     }
   }
   // Publié par quelqu'un depuis la version connue ici (ou jamais vu ici) : on ne l'écrase pas.
-  if (current !== null && current.publishedAt !== input.basePublishedAt) {
+  if ((current?.publishedAt ?? null) !== input.basePublishedAt) {
     return { kind: "conflict", current };
   }
 
+  const previousTime = current ? Date.parse(current.publishedAt) : Number.NaN;
+  const publishedAt = new Date(
+    Number.isFinite(previousTime)
+      ? Math.max(input.now.getTime(), previousTime + 1)
+      : input.now.getTime(),
+  ).toISOString();
   const document: TeamDocument = {
     version: TEAM_SETTINGS_VERSION,
     // Horodatage à la milliseconde : il identifie la version ; deux publications dans la même
-    // seconde ne doivent pas se confondre.
-    publishedAt: input.now.toISOString(),
+    // seconde ne doivent pas se confondre, même si l'horloge locale est figée ou en retard.
+    publishedAt,
     publishedBy: input.publishedBy,
     settings: input.settings,
   };

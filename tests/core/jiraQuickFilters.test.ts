@@ -84,4 +84,20 @@ describe("filtres rapides du board Jira", () => {
       quickFilterKeys(client, { boardId: 7, filters: [filter(1, "champ ~ ")], sprintIds: [42] }),
     ).rejects.toMatchObject({ info: { kind: "badRequest" } });
   });
+
+  it("Kanban : évalue le filtre dans le board et son sous-filtre, sans sprint", async () => {
+    const { jira, client } = jiraAnswering({
+      "(labels = urgent) AND (fixVersion is EMPTY)": ["ABC-2"],
+    });
+    expect(
+      await quickFilterKeys(client, {
+        boardId: 7,
+        boardType: "kanban",
+        kanbanSubQuery: "fixVersion is EMPTY",
+        sprintIds: [],
+        filters: [filter(1, "labels = urgent ORDER BY rank")],
+      }),
+    ).toEqual(new Set(["ABC-2"]));
+    expect(jira.sent("GET", ISSUES)).toHaveLength(1);
+  });
 });

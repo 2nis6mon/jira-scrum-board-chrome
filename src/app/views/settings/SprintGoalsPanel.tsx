@@ -22,6 +22,8 @@ const isChanged = (editor: PinEditor) => !sameIds(editor.selection, editor.base)
  */
 export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinning: boolean }) {
   const snapshot = board.snapshot.value;
+  const configuration = board.configuration.value;
+  const kanban = configuration?.boardType === "kanban";
   const canPin = pinning && board.canPinGoals.value;
   const editor = canPin ? board.pinEditor.value : null;
   const [search, setSearch] = useState("");
@@ -111,22 +113,29 @@ export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinnin
   return (
     <section class="panel" aria-labelledby="settings-sprint-goals" aria-busy={editor?.saving}>
       <h2 id="settings-sprint-goals">
-        {snapshot?.sprint
-          ? `Objectifs du sprint « ${snapshot.sprint.name} »`
-          : "Objectifs du sprint"}
+        {kanban
+          ? `Objectifs du board « ${configuration.boardName} »`
+          : snapshot?.sprint
+            ? `Objectifs du sprint « ${snapshot.sprint.name} »`
+            : "Objectifs du sprint"}
       </h2>
       <p class="hint">
         Couleur et masquage s'enregistrent aussitôt pour toute l'équipe ; un objectif garde sa
-        couleur d'un sprint à l'autre, et masqué, ses tickets passent dans Build sans toucher à leur
-        rattachement dans Jira.
+        couleur {kanban ? "au fil du temps" : "d'un sprint à l'autre"}, et masqué, ses tickets
+        passent dans {configuration?.buildSectionLabel || "Build"} sans toucher à leur rattachement
+        dans Jira.
         {pinning &&
-          " Épingler un Goal lui donne sa swimlane même sans ticket, pour CE sprint seulement : l'épinglage part dans Jira (propriété du sprint) sur « Enregistrer dans Jira »."}
+          (kanban
+            ? " Épingler un Goal lui donne sa swimlane même sans ticket. L'épinglage est partagé pour ce board sur « Enregistrer dans Jira »."
+            : " Épingler un Goal lui donne sa swimlane même sans ticket, pour CE sprint seulement : l'épinglage part dans Jira (propriété du sprint) sur « Enregistrer dans Jira ».")}
       </p>
       {pinning && !canPin && (
         <p class="hint">
-          {snapshot?.sprint
-            ? "La propriété du sprint n'a pas pu être lue : actualisez le board pour épingler des Goals."
-            : "Aucun sprint actif : l'épinglage porte sur le sprint affiché."}
+          {kanban
+            ? "Les objectifs ne sont pas encore disponibles : actualisez le board pour épingler des Goals."
+            : snapshot?.sprint
+              ? "La propriété du sprint n'a pas pu être lue : actualisez le board pour épingler des Goals."
+              : "Aucun sprint actif : l'épinglage porte sur le sprint affiché."}
         </p>
       )}
       {editor?.fromLocal && (
@@ -138,7 +147,13 @@ export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinnin
       )}
 
       {sprintGoals.length + pendingPins.length === 0 ? (
-        <p class="hint">Aucun objectif sur ce sprint.</p>
+        <p class="hint">
+          {board.goalsNotice.value ||
+          board.goalsWarnings.value.length > 0 ||
+          board.syncProblem.value
+            ? "La lecture des objectifs n'est pas complète. Actualisez le board pour les retrouver."
+            : `Aucun objectif sur ce ${kanban ? "board" : "sprint"}.`}
+        </p>
       ) : (
         <ul class="settings-goals">
           {sprintGoals.map((goal) => {

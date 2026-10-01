@@ -96,7 +96,7 @@ describe("réglages d'équipe ↔ configuration", () => {
         settings,
       ),
     ).toEqual(["Objectifs masqués", "Champs des cartes"]);
-    expect(TEAM_FAMILIES).toHaveLength(11);
+    expect(TEAM_FAMILIES).toHaveLength(12);
     // Un réglage personnel changé n'est pas une différence.
     expect(teamDifferences({ ...changed, collapsedBlockIds: ["build"] }, settings)).toEqual([]);
   });
@@ -192,6 +192,36 @@ describe("publier les réglages d'équipe", () => {
     expect(value.futur).toEqual({ a: 1 });
     expect((value.settings as Record<string, unknown>).nouveauReglage).toBe(true);
     expect(value.publishedBy).toEqual({ accountId: "u2", displayName: "Alex Martin" });
+  });
+
+  it("propriété supprimée depuis la relecture : conflit, pas de recréation silencieuse", async () => {
+    const jira = fakeJira(null);
+    expect(await publish(jira, DOCUMENT.publishedAt)).toEqual({ kind: "conflict", current: null });
+    expect(jira.writes).toEqual([]);
+  });
+
+  it("deux publications au même instant gardent des versions distinctes", async () => {
+    const publishedAt = "2026-09-19T09:30:12.345Z";
+    const jira = fakeJira(encodeTeamDocument({ ...DOCUMENT, publishedAt }));
+    const result = await publish(jira, publishedAt);
+    expect(result.kind === "published" ? result.document.publishedAt : null).toBe(
+      "2026-09-19T09:30:12.346Z",
+    );
+  });
+
+  it("les Goals épinglés au board sont partagés et restent distincts des épinglages locaux", () => {
+    const settings = teamSettingsOf({
+      ...tuned,
+      boardPinnedGoalIds: ["goal-1", "goal-2"],
+      localPinnedGoalIds: { "42": ["local"] },
+    });
+    const applied = withTeamSettings(base, settings);
+    expect(applied.boardPinnedGoalIds).toEqual(["goal-1", "goal-2"]);
+    expect(applied.localPinnedGoalIds).toEqual({});
+    expect(
+      decodeTeamDocument(encodeTeamDocument({ ...DOCUMENT, settings }))?.settings
+        .boardPinnedGoalIds,
+    ).toEqual(["goal-1", "goal-2"]);
   });
 
   it("une valeur illisible n'est jamais écrasée", async () => {

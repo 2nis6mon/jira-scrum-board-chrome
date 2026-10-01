@@ -121,6 +121,7 @@ export function BoardSearch({ board }: { board: BoardModel }) {
               >
                 <span class="board-suggestion-name">{item.name}</span>
                 <span class="board-suggestion-meta">
+                  {item.type === "kanban" ? "Kanban · " : item.type === "scrum" ? "Scrum · " : ""}
                   {item.projectKey ? `${item.projectKey} · ` : ""}#{item.id}
                 </span>
               </button>
@@ -132,7 +133,7 @@ export function BoardSearch({ board }: { board: BoardModel }) {
         {loading
           ? "Recherche…"
           : complete && results.length === 0
-            ? "Aucun board Scrum accessible ne correspond à ce nom."
+            ? "Aucun board Scrum ou Kanban accessible ne correspond à ce nom."
             : results.length
               ? "Sélectionnez un board (5 résultats maximum)."
               : "Saisissez tout ou partie du nom du board."}

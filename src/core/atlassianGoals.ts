@@ -1,3 +1,4 @@
+import { JiraError } from "../jira/errors";
 import type { GoalsClient } from "../jira/goals";
 import { goalDisplayName, type JiraIssue, linkedGoalIds } from "../jira/models";
 import type { BoardConfiguration } from "./boardConfiguration";
@@ -68,6 +69,10 @@ export async function loadAtlassianSprintGoals(input: {
       const site = await reader.searchGoals({ limit: 100, loadAll: true });
       candidates = unique([...candidates, ...site.map((goal) => goal.id)]);
     } catch (error) {
+      if (configuration.boardType === "kanban") {
+        if (error instanceof JiraError && error.isAuthenticationFailure) throw error;
+        throw new Error(describe("Recherche des objectifs du board", error));
+      }
       warnings.push(describe("Recherche des objectifs du site", error));
     }
   }
@@ -79,9 +84,16 @@ export async function loadAtlassianSprintGoals(input: {
   try {
     workItems = await reader.workItemKeys(candidates);
   } catch (error) {
+    if (configuration.boardType === "kanban") {
+      if (error instanceof JiraError && error.isAuthenticationFailure) throw error;
+      throw new Error(describe("Tickets rattachés aux objectifs", error));
+    }
     warnings.push(describe("Tickets rattachés aux objectifs", error));
   }
-  if (Object.keys(workItems).length === 0 && reader.lastWorkItemsIssue) {
+  if (reader.lastWorkItemsIssue) {
+    if (configuration.boardType === "kanban") {
+      throw new Error(`Tickets rattachés aux objectifs : ${reader.lastWorkItemsIssue}`);
+    }
     warnings.push(`Tickets rattachés aux objectifs : ${reader.lastWorkItemsIssue}`);
   }
 

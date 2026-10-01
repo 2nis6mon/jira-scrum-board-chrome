@@ -166,6 +166,29 @@ describe("GoalsClient — schéma découvert", () => {
     ]);
   });
 
+  it("loadAll refuse une pagination répétée plutôt qu'une recherche partielle", async () => {
+    const gateway = goalsGateway({ goals: [PAIEMENT] });
+    const { client } = clientFor((request) => {
+      const { query } = request.body as { query: string };
+      if (query.includes("goals_search("))
+        return {
+          status: 200,
+          json: {
+            data: {
+              goals_search: {
+                edges: [{ node: { id: PAIEMENT.id } }],
+                pageInfo: { hasNextPage: true, endCursor: "toujours-identique" },
+              },
+            },
+          },
+        };
+      return gateway(request);
+    });
+    await expect(client.searchGoals({ loadAll: true })).rejects.toThrow(
+      "Recherche des objectifs incomplète",
+    );
+  });
+
   it("goals_byIds : argument goalIds, par lots", async () => {
     const goals = Array.from({ length: 60 }, (_, i) => ({ id: `g${i}` }));
     const { client, jira } = clientFor({ goals });
@@ -187,6 +210,22 @@ describe("GoalsClient — schéma découvert", () => {
 });
 
 describe("GoalsClient — lien Goal → tickets (workItems)", () => {
+  it("une introspection en panne peut récupérer au prochain rafraîchissement", async () => {
+    const gateway = goalsGateway({ goals: [PAIEMENT] });
+    let failed = false;
+    const { client } = clientFor((request) => {
+      const { query } = request.body as { query: string };
+      if (query.includes("query fieldArgs") && !failed) {
+        failed = true;
+        return { status: 503 };
+      }
+      return gateway(request);
+    });
+    expect(await client.workItemKeys([PAIEMENT.id])).toEqual({});
+    expect(client.lastWorkItemsIssue).not.toBeNull();
+    expect(await client.workItemKeys([PAIEMENT.id])).toEqual({ [PAIEMENT.id]: ["ABC-1", "ABC-2"] });
+    expect(client.lastWorkItemsIssue).toBeNull();
+  });
   it("forme connexion découverte ; `first` fourni quand il est déclaré", async () => {
     const { client, jira } = clientFor({ goals: [PAIEMENT] });
     expect(await client.workItemKeys([PAIEMENT.id])).toEqual({ [PAIEMENT.id]: ["ABC-1", "ABC-2"] });
@@ -227,10 +266,105 @@ describe("GoalsClient — lien Goal → tickets (workItems)", () => {
     expect(jira.requests).toHaveLength(before);
   });
 
-  it("champ workItems absent du schéma : rien, sans échec", async () => {
+  it("champ workItems absent du schéma : raison signalée, jamais assimilée à aucun lien", async () => {
     const fields = [{ name: "id", type: { kind: "SCALAR", name: "ID" } }];
     const { client } = clientFor({ goals: [PAIEMENT], goalFields: fields });
     expect(await client.workItemKeys([PAIEMENT.id])).toEqual({});
+    expect(client.lastWorkItemsIssue).toContain("n'expose pas de lien");
+  });
+
+  it("sans pagination exploitable, 100 liens produisent un avertissement explicite", async () => {
+    const workItems = Array.from({ length: 100 }, (_, i) => `ABC-${i + 1}`);
+    const { client } = clientFor({ goals: [{ ...PAIEMENT, workItems }] });
+    expect((await client.workItemKeys([PAIEMENT.id]))[PAIEMENT.id]).toHaveLength(100);
+    expect(client.lastWorkItemsIssue).toContain("100 liens sans pagination");
+  });
+
+  it.each([
+    { nodes: [{ id: PAIEMENT.id, workItems: {} }] },
+    { nodes: [{ id: PAIEMENT.id, workItems: { edges: [{ node: {} }] } }] },
+    { nodes: [] },
+  ])(
+    "signale une réponse de liens illisible ou un objectif inaccessible : %j",
+    async ({ nodes }) => {
+      const gateway = goalsGateway({ goals: [PAIEMENT] });
+      const { client } = clientFor((request) => {
+        const { query } = request.body as { query: string };
+        if (query.includes("query goalWorkItems"))
+          return {
+            status: 200,
+            json: { data: { goals_byIds: nodes } },
+          };
+        return gateway(request);
+      });
+      await client.workItemKeys([PAIEMENT.id]);
+      expect(client.lastWorkItemsIssue).not.toBeNull();
+    },
+  );
+
+  it("suit les liens au-delà de 100 lorsque after et pageInfo sont découverts", async () => {
+    const gateway = goalsGateway({
+      goals: [PAIEMENT],
+      workItemsArgs: [
+        { name: "first", type: { kind: "SCALAR", name: "Int" } },
+        { name: "after", type: { kind: "SCALAR", name: "String" } },
+      ],
+    });
+    const { client, jira } = clientFor((request) => {
+      const { query, variables } = request.body as { query: string; variables: { name?: string } };
+      if (query.includes("__type") && variables.name === "TownsquareWorkItemConnection") {
+        return {
+          status: 200,
+          json: {
+            data: {
+              __type: {
+                fields: [
+                  { name: "edges", type: { kind: "OBJECT", name: "TownsquareWorkItemEdge" } },
+                  { name: "pageInfo", type: { kind: "OBJECT", name: "PageInfo" } },
+                ],
+              },
+            },
+          },
+        };
+      }
+      if (query.includes("goals_byIds(") && query.includes("workItems")) {
+        const start = query.includes('after: "100"')
+          ? 100
+          : query.includes('after: "200"')
+            ? 200
+            : 0;
+        const length = Math.min(100, 205 - start);
+        return {
+          status: 200,
+          json: {
+            data: {
+              goals_byIds: [
+                {
+                  id: PAIEMENT.id,
+                  workItems: {
+                    edges: Array.from({ length }, (_, i) => ({
+                      node: { key: `ABC-${start + i + 1}` },
+                    })),
+                    pageInfo: {
+                      hasNextPage: start + length < 205,
+                      endCursor: String(start + length),
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        };
+      }
+      return gateway(request);
+    });
+    const links = await client.workItemKeys([PAIEMENT.id]);
+    expect(links[PAIEMENT.id]).toHaveLength(205);
+    expect(links[PAIEMENT.id]?.[204]).toBe("ABC-205");
+    expect(client.lastWorkItemsIssue).toBeNull();
+    expect(
+      graphqlQueries(jira.requests).filter((q) => q.includes("query goalWorkItems")),
+    ).toHaveLength(3);
   });
 });
 

@@ -1,5 +1,5 @@
 import type { JiraClient } from "../jira/client";
-import { inActiveSprints, withoutOrderBy } from "./jql";
+import { type BoardJqlScope, inBoardScope, withoutOrderBy } from "./jql";
 
 /**
  * Couleur de fond appliquée aux cartes qui satisfont une requête JQL.
@@ -74,9 +74,13 @@ export function scopedJql(rule: CardColorRule): string {
   return withoutOrderBy(rule.jql);
 }
 
-/** Requête à soumettre à Jira pour une règle, restreinte aux sprints actifs. */
-export function colorRuleQueries(rule: CardColorRule, sprintIds: readonly number[]): string[] {
-  const query = rule.kind === null ? inActiveSprints(rule.jql, sprintIds) : null;
+/** Requête à soumettre à Jira pour une règle, restreinte au périmètre Scrum ou Kanban. */
+export function colorRuleQueries(
+  rule: CardColorRule,
+  sprintIds: readonly number[],
+  scope: Omit<BoardJqlScope, "sprintIds"> = {},
+): string[] {
+  const query = rule.kind === null ? inBoardScope(rule.jql, { ...scope, sprintIds }) : null;
   return query === null ? [] : [query];
 }
 
@@ -113,16 +117,15 @@ export interface ColorRuleEvaluation {
 }
 
 /**
- * Demande à Jira quels tickets affichés satisfont chaque règle active. Lecture seule. Portage de
- * `BoardController.refreshCardColors` (Mac) : chaque JQL, restreint aux sprints actifs, est évalué
- * par Jira ; un JQL refusé est signalé sous sa règle sans empêcher les autres.
+ * Demande à Jira quels tickets affichés satisfont chaque règle active. Lecture seule : chaque
+ * JQL, restreint aux sprints actifs ou au sous-filtre Kanban, est évalué par Jira ; un JQL refusé
+ * est signalé sous sa règle sans empêcher les autres.
  */
 export async function evaluateColorRules(
   reader: ColorRuleReader,
-  input: {
+  input: BoardJqlScope & {
     boardId: number;
     rules: readonly CardColorRule[];
-    sprintIds: readonly number[];
     displayedKeys: ReadonlySet<string>;
   },
 ): Promise<ColorRuleEvaluation> {
@@ -132,7 +135,7 @@ export async function evaluateColorRules(
     if (!rule.enabled || rule.kind !== null) continue;
     try {
       const keys = new Set<string>();
-      for (const jql of colorRuleQueries(rule, input.sprintIds)) {
+      for (const jql of colorRuleQueries(rule, input.sprintIds, input)) {
         const found = await reader.boardIssues(input.boardId, jql, {
           estimationFieldId: null,
           includeChangelog: false,

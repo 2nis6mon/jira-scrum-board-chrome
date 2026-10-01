@@ -18,7 +18,11 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
   const view = model.view.value;
   const configuration = board.configuration.value;
   const snapshot = board.snapshot.value;
-  const lanes = snapshot?.sprint && configuration ? laneSummaries(snapshot, configuration) : null;
+  const kanban = configuration?.boardType === "kanban";
+  const lanes =
+    snapshot && configuration && (snapshot.sprint || kanban)
+      ? laneSummaries(snapshot, configuration)
+      : null;
   // Sans droit de modifier le board et sans diagnostic, l'administration n'a plus rien à montrer.
   const adminAvailable = board.canEditSettings.value || DIAGNOSTIC_ENABLED;
   // Le droit peut tomber (403) pendant qu'elle est ouverte : on revient alors au sprint.
@@ -42,7 +46,7 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
       <nav class="sidebar-nav" aria-label="Vues">
         <NavButton
           icon="board"
-          label="Sprint"
+          label={kanban ? "Kanban" : "Sprint"}
           current={view === "board"}
           onClick={() => model.showBoard()}
         />
@@ -358,7 +362,7 @@ function BoardSwitcher(props: {
           </button>
           {board.canPinGoals.value && board.canEditSettings.value && (
             <button type="button" onClick={(event) => act(event, () => model.showAdmin("goals"))}>
-              Épingler des Goals au sprint…
+              Épingler des Goals au {configuration.boardType === "kanban" ? "board" : "sprint"}…
             </button>
           )}
           <hr class="menu-separator" />
@@ -468,10 +472,17 @@ function LaneList(props: { model: AppModel; board: BoardModel; lanes: readonly L
   return (
     <section class="sidebar-lanes" aria-labelledby="sidebar-lanes-title">
       <h2 class="sidebar-section-title" id="sidebar-lanes-title">
-        <span>Objectifs du sprint</span>
+        <span>
+          Objectifs du {board.configuration.value?.boardType === "kanban" ? "board" : "sprint"}
+        </span>
         <span>{goalCount}</span>
       </h2>
-      {goalCount === 0 && <p class="sidebar-empty">Aucun objectif sur ce sprint.</p>}
+      {goalCount === 0 && (
+        <p class="sidebar-empty">
+          Aucun objectif sur ce{" "}
+          {board.configuration.value?.boardType === "kanban" ? "board" : "sprint"}.
+        </p>
+      )}
       <ul class="sidebar-lane-list">
         {lanes.map((lane, index) => (
           <li

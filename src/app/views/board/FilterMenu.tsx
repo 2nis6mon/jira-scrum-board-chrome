@@ -46,7 +46,7 @@ export function FilterMenu(props: {
           </label>
         ))}
         {props.options.length === 0 && !(props.extra && props.extra.count > 0) && (
-          <p class="filter-empty">Aucune valeur dans ce sprint.</p>
+          <p class="filter-empty">Aucune valeur dans les tickets affichés.</p>
         )}
       </fieldset>
     </details>

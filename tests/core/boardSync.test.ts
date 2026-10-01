@@ -168,6 +168,28 @@ describe("detectBoard", () => {
     expect(config.buildSectionLabel).toBe("Hors objectif");
   });
 
+  it("découvre les types Kanban dans le sous-filtre, sans charger l'historique exclu", async () => {
+    const query = "fixVersion in unreleasedVersions() OR fixVersion is EMPTY";
+    const jira = discoveryJira()
+      .on("GET", "/rest/agile/1.0/board/7", {
+        status: 200,
+        json: { id: 7, name: "Flux", type: "kanban" },
+      })
+      .on("GET", "/rest/agile/1.0/board/7/configuration", {
+        status: 200,
+        json: {
+          columnConfig: { columns: [{ name: "En cours", statuses: [{ id: "3" }] }] },
+          subQuery: { query },
+        },
+      });
+    const config = await detectBoard(readerFor(jira), BOARD_URL, null);
+    expect(config.boardType).toBe("kanban");
+    expect(config.kanbanSubQuery).toBe(query);
+    expect(jira.sent("GET", "/rest/agile/1.0/board/7/issue")[0]?.url.searchParams.get("jql")).toBe(
+      query,
+    );
+  });
+
   it("statuts ou champs illisibles : la configuration est dégradée, pas refusée", async () => {
     const jira = discoveryJira()
       .on("GET", "/rest/api/3/status", { status: 403, json: {} })

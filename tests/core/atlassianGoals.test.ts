@@ -56,6 +56,55 @@ const issues = [
 ];
 
 describe("loadAtlassianSprintGoals", () => {
+  it("Kanban : une recherche impossible ne devient pas une absence d'objectifs", async () => {
+    await expect(
+      loadAtlassianSprintGoals({
+        reader: reader({ fail: { search: new Error("quota") } }),
+        configuration: { ...config, boardType: "kanban" },
+        pinnedGoalIds: [],
+        issues: [makeIssue("ABC-1")],
+      }),
+    ).rejects.toThrow("Recherche des objectifs du board : quota");
+  });
+
+  it("Kanban : les liens partiels empêchent un classement erroné dans Build", async () => {
+    for (const r of [
+      reader({ fail: { workItems: new Error("refus") } }),
+      reader({
+        lastWorkItemsIssue: "pagination incomplète",
+        workItems: {
+          "ari:cloud:goal:c:goal/declare": ["ABC-2"],
+        },
+      }),
+    ]) {
+      await expect(
+        loadAtlassianSprintGoals({
+          reader: r,
+          configuration: { ...config, boardType: "kanban" },
+          pinnedGoalIds: [],
+          issues,
+        }),
+      ).rejects.toThrow("Tickets rattachés aux objectifs");
+    }
+  });
+
+  it("Kanban : aucune donnée est valide, les libellés illisibles restent des avertissements", async () => {
+    const empty = await loadAtlassianSprintGoals({
+      reader: reader({}),
+      configuration: { ...config, boardType: "kanban" },
+      pinnedGoalIds: [],
+      issues: [],
+    });
+    expect(empty).toEqual({ goals: [], links: {}, warnings: [] });
+    const missingTitles = await loadAtlassianSprintGoals({
+      reader: reader({ fail: { byIds: new Error("indisponible") } }),
+      configuration: { ...config, boardType: "kanban" },
+      pinnedGoalIds: [],
+      issues,
+    });
+    expect(missingTitles.links["ABC-1"]).toBe("ari:cloud:goal:c:goal/declare");
+    expect(missingTitles.warnings).toEqual(["Libellés des objectifs : indisponible"]);
+  });
   it("déduit les objectifs des tickets : Goal → tickets, complété par le champ des tickets", async () => {
     const r = reader({
       site: [goal("g-site")],

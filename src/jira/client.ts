@@ -25,6 +25,7 @@ import {
 export interface JiraBoardChoice {
   readonly id: number;
   readonly name: string;
+  readonly type: string;
   readonly projectKey: string | null;
 }
 
@@ -51,6 +52,8 @@ export interface JiraBoardStructure {
   readonly boardId: number;
   readonly boardName: string;
   readonly boardType: string;
+  /** Sous-filtre natif Kanban (`configuration.subQuery.query`), évalué par Jira. */
+  readonly kanbanSubQuery: string | null;
   readonly projectKey: string | null;
   readonly columns: readonly {
     readonly name: string;
@@ -162,13 +165,13 @@ export class JiraClient {
     return decodeUser(body) ?? decodingFailure("myself", "displayName absent");
   }
 
-  /** Recherche native par nom, limitée aux cinq premiers boards Scrum accessibles.
+  /** Recherche native par nom, limitée aux cinq premiers boards accessibles, Scrum et Kanban.
    * Paramètres vérifiés : developer.atlassian.com/cloud/jira/software/rest/api-group-board/
    */
   async searchBoards(name: string): Promise<JiraBoardChoice[]> {
     if (!name.trim()) return [];
     const { body } = await this.#transport.get("/rest/agile/1.0/board", {
-      query: { name: name.trim(), type: "scrum", startAt: "0", maxResults: "5" },
+      query: { name: name.trim(), startAt: "0", maxResults: "5" },
       resource: "les boards accessibles",
     });
     if (!isRecord(body) || !Array.isArray(body.values)) decodingFailure("boards", "values absent");
@@ -186,6 +189,7 @@ export class JiraClient {
       return {
         id: item.id,
         name: item.name,
+        type: typeof item.type === "string" ? item.type : "",
         projectKey: typeof location.projectKey === "string" ? location.projectKey : null,
       };
     });
@@ -438,6 +442,7 @@ export class JiraClient {
       ? [...new Set(query.onlyFields)].join(",")
       : fieldList(query.estimationFieldId, query.extraFieldIds);
     const result: JiraIssue[] = [];
+    const seenKeys = new Set<string>();
     let startAt = 0;
     for (;;) {
       const { body } = await this.#transport.get(path, {
@@ -452,12 +457,38 @@ export class JiraClient {
       });
       if (!isRecord(body) || !Array.isArray(body.issues))
         decodingFailure("issues", "issues absent");
-      result.push(...body.issues.map(decodeIssue));
-
-      if (body.issues.length === 0) break;
+      if (typeof body.startAt === "number" && body.startAt !== startAt) {
+        throw new Error(
+          "Chargement incomplet : Jira a renvoyé une page de tickets inattendue. Actualisez le board.",
+        );
+      }
+      const total = typeof body.total === "number" ? body.total : null;
+      if (body.issues.length === 0) {
+        if (total !== null && startAt < total) {
+          throw new Error(
+            "Chargement incomplet : Jira a renvoyé une page vide avant la fin des tickets. Actualisez le board.",
+          );
+        }
+        break;
+      }
+      const page = body.issues.map(decodeIssue);
+      // Une page répétée ne doit pas gonfler les compteurs ni masquer des tickets manquants.
+      for (const issue of page) {
+        if (seenKeys.has(issue.key)) {
+          throw new Error(
+            "Chargement incomplet : la pagination Jira contient des tickets répétés. Actualisez le board.",
+          );
+        }
+        seenKeys.add(issue.key);
+      }
+      result.push(...page);
       startAt += body.issues.length;
-      if (typeof body.total === "number" && startAt >= body.total) break;
-      if (startAt > MAX_ISSUES) break;
+      if (total !== null && startAt >= total) break;
+      if (startAt >= MAX_ISSUES) {
+        throw new Error(
+          `Chargement incomplet : le périmètre dépasse la limite de ${MAX_ISSUES} tickets. Réduisez le filtre du board dans Jira.`,
+        );
+      }
     }
     return result;
   }
@@ -492,10 +523,15 @@ function decodeBoardStructure(
   const location = isRecord(board.location) ? board.location : {};
   const estimation = isRecord(configuration.estimation) ? configuration.estimation : {};
   const estimationField = isRecord(estimation.field) ? estimation.field : {};
+  const subQuery = isRecord(configuration.subQuery) ? configuration.subQuery : {};
   return {
     boardId,
     boardName: board.name,
     boardType: typeof board.type === "string" ? board.type : "",
+    kanbanSubQuery:
+      board.type === "kanban" && typeof subQuery.query === "string" && subQuery.query.trim()
+        ? subQuery.query
+        : null,
     projectKey: typeof location.projectKey === "string" ? location.projectKey : null,
     columns,
     estimationFieldId: typeof estimationField.fieldId === "string" ? estimationField.fieldId : null,

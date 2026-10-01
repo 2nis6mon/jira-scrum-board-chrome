@@ -98,6 +98,7 @@ describe("JiraClient", () => {
       boardId: 7,
       boardName: "Board de test",
       boardType: "scrum",
+      kanbanSubQuery: null,
       projectKey: "ABC",
       columns: [
         { name: "À faire", statusIds: ["1"], max: null },
@@ -113,6 +114,74 @@ describe("JiraClient", () => {
       .on("GET", "/rest/agile/1.0/board/7", { status: 200, json: { name: "B" } })
       .on("GET", "/rest/agile/1.0/board/7/configuration", { status: 200, json: {} });
     await expect(clientFor(jira).boardStructure(7)).rejects.toThrowError(JiraError);
+  });
+
+  it("lit le sous-filtre Kanban, sans inventer de champ d'estimation", async () => {
+    const query = "fixVersion in unreleasedVersions() OR fixVersion is EMPTY";
+    const jira = new FakeJira()
+      .on("GET", "/rest/agile/1.0/board/7", {
+        status: 200,
+        json: { id: 7, name: "Flux", type: "kanban" },
+      })
+      .on("GET", "/rest/agile/1.0/board/7/configuration", {
+        status: 200,
+        json: { columnConfig: { columns: [] }, subQuery: { query } },
+      });
+    expect(await clientFor(jira).boardStructure(7)).toMatchObject({
+      boardType: "kanban",
+      kanbanSubQuery: query,
+      estimationFieldId: null,
+    });
+  });
+
+  it("refuse une page vide prématurée au lieu de rendre un board partiel", async () => {
+    const jira = new FakeJira().on(
+      "GET",
+      "/rest/agile/1.0/board/7/issue",
+      { status: 200, json: { issues: [issueJson("ABC-1")], total: 2 } },
+      { status: 200, json: { issues: [], total: 2 } },
+    );
+    await expect(
+      clientFor(jira).boardIssues(7, null, {
+        estimationFieldId: null,
+        includeChangelog: false,
+      }),
+    ).rejects.toThrow("Chargement incomplet");
+  });
+
+  it("refuse une page répétée au lieu de compter deux fois les mêmes tickets", async () => {
+    const jira = new FakeJira().on("GET", "/rest/agile/1.0/board/7/issue", {
+      status: 200,
+      json: { issues: [issueJson("ABC-1")], total: 2 },
+    });
+    await expect(
+      clientFor(jira).boardIssues(7, null, {
+        estimationFieldId: null,
+        includeChangelog: false,
+      }),
+    ).rejects.toThrow("tickets répétés");
+    expect(jira.requests).toHaveLength(2);
+  });
+
+  it("signale le garde-fou de pagination au lieu de tronquer à 5000 tickets", async () => {
+    const jira = new FakeJira().on("GET", "/rest/agile/1.0/board/7/issue", (request) => {
+      const start = Number(request.url.searchParams.get("startAt"));
+      return {
+        status: 200,
+        json: {
+          startAt: start,
+          total: 5001,
+          issues: Array.from({ length: 100 }, (_, i) => issueJson(`ABC-${start + i + 1}`)),
+        },
+      };
+    });
+    await expect(
+      clientFor(jira).boardIssues(7, null, {
+        estimationFieldId: null,
+        includeChangelog: false,
+      }),
+    ).rejects.toThrow("limite de 5000 tickets");
+    expect(jira.requests).toHaveLength(50);
   });
 
   it("suit la pagination des sprints jusqu'au bout", async () => {
@@ -308,23 +377,24 @@ describe("filtres rapides du board", () => {
 });
 
 describe("recherche des boards", () => {
-  it("recherche par nom côté Jira et demande cinq boards Scrum maximum", async () => {
+  it("recherche cinq boards maximum, Scrum et Kanban avec leur type", async () => {
     const jira = new FakeJira().on("GET", "/rest/agile/1.0/board", {
       status: 200,
       json: {
         values: Array.from({ length: 8 }, (_, i) => ({
           id: i + 1,
           name: `Équipe ${i}`,
+          type: i % 2 === 0 ? "scrum" : "kanban",
           location: { projectKey: "ABC" },
         })),
       },
     });
     const results = await clientFor(jira).searchBoards("  équipe & mobile  ");
     expect(results).toHaveLength(5);
-    expect(results[0]).toEqual({ id: 1, name: "Équipe 0", projectKey: "ABC" });
+    expect(results[0]).toEqual({ id: 1, name: "Équipe 0", type: "scrum", projectKey: "ABC" });
+    expect(results[1]?.type).toBe("kanban");
     expect(Object.fromEntries(jira.requests[0]?.url.searchParams ?? [])).toEqual({
       name: "équipe & mobile",
-      type: "scrum",
       startAt: "0",
       maxResults: "5",
     });

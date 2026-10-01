@@ -31,7 +31,9 @@ function setup(searchBoards: (query: string) => Promise<JiraBoardChoice[]>) {
   };
 }
 it("diffère la recherche et ouvre le board choisi par son identifiant", async () => {
-  const search = vi.fn(async () => [{ id: 42, name: "Paiement", projectKey: "ABC" }]);
+  const search = vi.fn(async () => [
+    { id: 42, name: "Paiement", projectKey: "ABC", type: "kanban" },
+  ]);
   const { type, detect } = setup(search);
   await tick();
   type("Pa");
@@ -43,6 +45,7 @@ it("diffère la recherche et ouvre le board choisi par son identifiant", async (
   expect(search).toHaveBeenCalledWith("Paiement");
   const option = document.querySelector<HTMLButtonElement>('[role="option"]');
   if (!option) throw new Error("suggestion absente");
+  expect(option.textContent).toContain("Kanban · ABC");
   option.click();
   expect(detect).toHaveBeenCalledWith(
     "https://acme.atlassian.net/secure/RapidBoard.jspa?rapidView=42",
@@ -64,7 +67,7 @@ it("ignore les réponses anciennes et affiche les résultats vides", async () =>
   type("nouveau");
   await tick();
   await expect.poll(() => document.body.textContent).toContain("Aucun board Scrum");
-  resolveOld([{ id: 1, name: "ancien", projectKey: null }]);
+  resolveOld([{ id: 1, name: "ancien", projectKey: null, type: "scrum" }]);
   await tick();
   expect(document.querySelector('[role="listbox"]')).toBeNull();
 });
@@ -86,6 +89,7 @@ it("ouvre les suggestions sous le champ et permet le choix au clavier", async ()
       id: index + 1,
       name: `Équipe ${index}`,
       projectKey: null,
+      type: "scrum",
     })),
   );
   await tick();

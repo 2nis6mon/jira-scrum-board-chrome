@@ -1,5 +1,12 @@
 # Audit de sécurité — Sprint Goals Board pour Jira 0.14.0 (extension Chrome)
 
+> **Suivi (0.24.0, 01/10/2026)** — Support Kanban : E6 contient aussi `boardPinnedGoalIds`,
+> les identifiants des Goals épinglés au board, visibles par les personnes pouvant lire le board.
+> L'épinglage utilise le même droit `canEdit`, la relecture et le contrôle de conflit des réglages
+> partagés ; une seule écriture par geste explicite. E5 n'est pas utilisée en Kanban. Les lectures
+> restent sur le site Jira autorisé ; le sous-filtre Kanban est exécuté par Jira. Aucune permission,
+> aucun hôte, aucune catégorie d'écriture supplémentaire. Pas d'essai sur le vrai Jira de l'utilisateur.
+
 > **Suivi (0.22.0, 24/09/2026)** — E6 n'est plus écrite par « Publier pour l'équipe » mais à
 > chaque modification d'un réglage du board par l'utilisateur (demande de Denis) : même propriété,
 > même contenu, relue avant chaque écriture, une seule tentative, conflit détecté. Nouvelle

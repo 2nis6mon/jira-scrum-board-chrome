@@ -3,6 +3,7 @@ import {
   buildConfiguration,
   colorRules,
   type DiscoveredBoard,
+  decodeStoredConfiguration,
   defaultCategory,
   isBugType,
   looksLikeBug,
@@ -23,6 +24,7 @@ const BOARD: DiscoveredBoard = {
   boardId: 7,
   boardName: "Board de test",
   boardType: "scrum",
+  kanbanSubQuery: null,
   projectKey: "ABC",
   columns: [
     { name: "À faire", statusIds: ["1"], max: null },
@@ -129,6 +131,19 @@ describe("buildConfiguration", () => {
 
 // ConfigurationCompatibilityTests.testMergeKeepsColorRulesAndBugChoices + CollapsedBlocksTests
 describe("mergeConfiguration", () => {
+  it("Kanban conserve les Goals épinglés mais reprend le sous-filtre Jira et impose les Goals Atlassian", () => {
+    const fresh = { ...discovered(), boardType: "kanban", kanbanSubQuery: "resolution is EMPTY" };
+    const existing = {
+      ...fresh,
+      kanbanSubQuery: "labels = ancien",
+      goalSource: "sprintText" as const,
+      boardPinnedGoalIds: ["goal-1"],
+    };
+    const merged = mergeConfiguration(fresh, existing);
+    expect(merged.kanbanSubQuery).toBe("resolution is EMPTY");
+    expect(merged.goalSource).toBe("atlassianGoals");
+    expect(merged.boardPinnedGoalIds).toEqual(["goal-1"]);
+  });
   it("Jira fait foi pour la structure, l'utilisateur pour ses préférences", () => {
     const existing = {
       ...discovered(),
@@ -212,5 +227,28 @@ describe("mergeConfiguration", () => {
     const existing = makeConfiguration({ boardId: 7, columns: [column("a", "A", [], 0)] });
     const fresh = { ...discovered(), columns: [{ ...column("a", "A", [], 0), hidden: true }] };
     expect(mergeConfiguration(fresh, existing).columns[0]?.hidden).toBe(true);
+  });
+});
+
+describe("configuration Kanban enregistrée", () => {
+  it("relit les épinglages partagés et ignore une ancienne source texte", () => {
+    const stored = decodeStoredConfiguration({
+      ...makeConfiguration(),
+      boardType: "kanban",
+      goalSource: "sprintText",
+      kanbanSubQuery: "resolution is EMPTY",
+      boardPinnedGoalIds: ["goal-1", "goal-1", 8, "goal-2"],
+    });
+    expect(stored?.goalSource).toBe("atlassianGoals");
+    expect(stored?.kanbanSubQuery).toBe("resolution is EMPTY");
+    expect(stored?.boardPinnedGoalIds).toEqual(["goal-1", "goal-2"]);
+  });
+
+  it("une ancienne configuration Scrum reçoit des valeurs neutres", () => {
+    const { boardPinnedGoalIds: _pins, kanbanSubQuery: _query, ...old } = makeConfiguration();
+    const stored = decodeStoredConfiguration(old);
+    expect(stored?.goalSource).toBe("sprintText");
+    expect(stored?.boardPinnedGoalIds).toEqual([]);
+    expect(stored?.kanbanSubQuery).toBeNull();
   });
 });

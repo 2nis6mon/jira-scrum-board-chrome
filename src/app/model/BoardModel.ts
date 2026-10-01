@@ -151,9 +151,9 @@ export interface DropTarget {
   readonly beforeKey: string | null;
 }
 
-/** Fenêtre de choix des Goals Atlassian épinglés au sprint. */
+/** Sélection des Goals épinglés au sprint, ou au board Kanban sans sprint. */
 export interface PinEditor {
-  readonly sprintId: number;
+  readonly sprintId: number | null;
   readonly sprintName: string;
   /** Sélection lue dans Jira à l'ouverture : l'écriture est refusée si Jira ne la porte plus. */
   readonly base: readonly string[];
@@ -283,9 +283,14 @@ export class BoardModel {
   /** Tickets affichés retenus par chaque règle, à la dernière évaluation. */
   readonly colorRuleCounts = signal<Readonly<Record<string, number>>>({});
 
-  /** L'épinglage n'a de sens qu'en mode Goals Atlassian, sur un sprint dont la propriété est lue. */
+  /** L'épinglage exige des Goals Atlassian et une propriété Jira relue. */
   readonly canPinGoals = computed(() => {
     const snapshot = this.snapshot.value;
+    const kanban = this.configuration.value?.boardType === "kanban";
+    const teamKnown = this.team.value.kind === "none" || this.team.value.kind === "published";
+    // Un Goal épinglé supprimé peut empêcher la lecture du board : ses réglages restent éditables
+    // pour retirer cet identifiant et rétablir la synchronisation, sans dépendre des tickets.
+    if (kanban) return teamKnown && this.canEditSettings.value;
     return (
       snapshot !== null &&
       snapshot.sprint !== null &&
@@ -469,7 +474,7 @@ export class BoardModel {
     this.editingBoard.value = false;
   }
 
-  /** Recherche les boards Scrum accessibles sur le site connecté. */
+  /** Recherche les boards Scrum et Kanban accessibles sur le site connecté. */
   searchBoards(name: string) {
     return this.#client.searchBoards(name);
   }
@@ -545,6 +550,12 @@ export class BoardModel {
     await this.#refreshTeamSettings();
     const configuration = this.configuration.value;
     if (!configuration) return;
+    if (
+      configuration.boardType === "kanban" &&
+      this.filters.value.quickFilters.has("addedAfterStart")
+    ) {
+      this.setFilters(this.filters.value);
+    }
     const generation = this.#generation;
     const isStale = () =>
       generation !== this.#generation ||
@@ -638,7 +649,15 @@ export class BoardModel {
   }
 
   setFilters(filters: BoardFilters): void {
-    this.filters.value = filters;
+    this.filters.value =
+      this.configuration.value?.boardType === "kanban"
+        ? {
+            ...filters,
+            quickFilters: new Set(
+              [...filters.quickFilters].filter((filter) => filter !== "addedAfterStart"),
+            ),
+          }
+        : filters;
   }
 
   resetFilters(): void {
@@ -653,7 +672,7 @@ export class BoardModel {
     const next = new Set(this.filters.value.quickFilters);
     if (next.has(quick)) next.delete(quick);
     else next.add(quick);
-    this.filters.value = { ...this.filters.value, quickFilters: next };
+    this.setFilters({ ...this.filters.value, quickFilters: next });
   }
 
   /** Active ou désactive un filtre rapide du board Jira. Son JQL est évalué par Jira. */
@@ -687,6 +706,8 @@ export class BoardModel {
     try {
       const keys = await quickFilterKeys(this.#client, {
         boardId: configuration.boardId,
+        boardType: configuration.boardType,
+        kanbanSubQuery: configuration.kanbanSubQuery,
         filters: active,
         sprintIds: this.snapshot.value?.activeSprints.map((sprint) => sprint.id) ?? [],
       });
@@ -1058,14 +1079,19 @@ export class BoardModel {
 
   openPinEditor(): void {
     const snapshot = this.snapshot.value;
-    if (!this.canPinGoals.value || !snapshot?.sprint || snapshot.pinnedGoalIds === null) return;
-    const local = snapshot.localPinnedGoalIds;
+    const configuration = this.configuration.value;
+    const kanban = configuration?.boardType === "kanban";
+    const pinned = kanban ? configuration.boardPinnedGoalIds : snapshot?.pinnedGoalIds;
+    if (!this.canPinGoals.value || !configuration || pinned == null) return;
+    const local = kanban ? null : (snapshot?.localPinnedGoalIds ?? null);
     this.pinEditor.value = {
-      sprintId: snapshot.sprint.id,
-      sprintName: snapshot.sprint.name,
-      base: [...snapshot.pinnedGoalIds],
+      sprintId: kanban ? null : (snapshot?.sprint?.id ?? null),
+      sprintName: kanban
+        ? configuration.boardName
+        : (snapshot?.sprint?.name ?? configuration.boardName),
+      base: [...pinned],
       // Une sélection gardée localement repart d'ici : l'enregistrer la partage enfin dans Jira.
-      selection: [...(local ?? snapshot.pinnedGoalIds)],
+      selection: [...(local ?? pinned)],
       saving: false,
       notice: null,
       fromLocal: local !== null,
@@ -1081,12 +1107,12 @@ export class BoardModel {
    */
   async keepPinnedLocally(): Promise<void> {
     const editor = this.pinEditor.value;
-    if (!editor || editor.saving || !editor.canKeepLocally) return;
+    if (!editor || editor.saving || !editor.canKeepLocally || editor.sprintId === null) return;
+    const sprintId = editor.sprintId;
     this.pinEditor.value = null;
-    await this.applySettings(
-      (current) => withLocalPins(current, editor.sprintId, editor.selection),
-      { resync: true },
-    );
+    await this.applySettings((current) => withLocalPins(current, sprintId, editor.selection), {
+      resync: true,
+    });
   }
 
   /** Oublie la sélection gardée dans ce navigateur pour le sprint affiché. */
@@ -1138,6 +1164,10 @@ export class BoardModel {
   async savePinnedGoals(): Promise<void> {
     const editor = this.pinEditor.value;
     if (!editor || editor.saving) return;
+    if (editor.sprintId === null) {
+      await this.#saveBoardPinnedGoals(editor);
+      return;
+    }
     const saving: PinEditor = { ...editor, saving: true, notice: null };
     this.pinEditor.value = saving;
     // La fenêtre a pu disparaître pendant l'écriture (changement de board) : on ne la rouvre pas.
@@ -1217,6 +1247,155 @@ export class BoardModel {
       });
     }
     await this.sync();
+  }
+
+  /** Épinglage Kanban partagé : même file et même propriété que les réglages, sans optimisme. */
+  async #saveBoardPinnedGoals(editor: PinEditor): Promise<void> {
+    const configuration = this.configuration.value;
+    if (configuration?.boardType !== "kanban" || !this.canPinGoals.value) return;
+    const generation = this.#generation;
+    const stale = () =>
+      generation !== this.#generation ||
+      this.configuration.value?.boardId !== configuration.boardId;
+    const saving: PinEditor = { ...editor, saving: true, notice: null };
+    this.pinEditor.value = saving;
+    const settle = (next: PinEditor | null) => {
+      if (!stale() && this.pinEditor.value === saving) this.pinEditor.value = next;
+    };
+    const entry = {
+      action: "épinglage",
+      issueKey: null,
+      from: null,
+      to: `${editor.selection.length} Goal${editor.selection.length > 1 ? "s" : ""} épinglé${editor.selection.length > 1 ? "s" : ""}`,
+    } as const;
+    const conflict = async (current: TeamDocument | null) => {
+      if (current) {
+        this.team.value = { kind: "published", document: current };
+        await this.#applyTeamDocument(current);
+      } else {
+        this.team.value = { kind: "none" };
+        await this.#updatePreferences((latest) => ({ ...latest, boardPinnedGoalIds: [] }));
+      }
+      const ids = current?.settings.boardPinnedGoalIds ?? [];
+      settle({
+        ...editor,
+        base: ids,
+        selection: ids,
+        canKeepLocally: false,
+        notice: {
+          tone: "warning",
+          text: "Les Goals épinglés ou les réglages du board ont changé dans Jira pendant votre sélection.",
+          suggestion:
+            "Rien n'a été écrit. La sélection de Jira est affichée : refaites vos changements, puis enregistrez.",
+        },
+      });
+      await this.#record({
+        ...entry,
+        outcome: "échec",
+        detail: "conflit : réglages du board modifiés",
+      });
+    };
+    this.#teamWrites += 1;
+    this.teamSaving.value += 1;
+    const task = this.#teamQueue.then(async () => {
+      if (stale()) return;
+      if (!this.canEditSettings.value) {
+        settle({
+          ...editor,
+          notice: {
+            tone: "error",
+            text: "Il faut pouvoir modifier le board pour y épingler des Goals.",
+            suggestion: null,
+          },
+        });
+        return;
+      }
+      try {
+        const raw = await this.#client.boardProperty(
+          configuration.boardId,
+          BOARD_PROPERTY_KEYS.teamSettings,
+        );
+        if (stale()) return;
+        const current = raw === null ? null : decodeTeamDocument(raw);
+        if (raw !== null && !current)
+          throw new Error("Les réglages du board sont illisibles : rien n'a été écrit.");
+        const currentIds = current?.settings.boardPinnedGoalIds ?? [];
+        if (!sameOrder(currentIds, editor.base)) {
+          await conflict(current);
+          return;
+        }
+        if (sameOrder(currentIds, editor.selection)) {
+          settle(null);
+          return;
+        }
+        const latest = this.configuration.value ?? configuration;
+        const base = current ? withTeamSettings(latest, current.settings) : latest;
+        const user = this.snapshot.value?.currentUser ?? this.#currentUser;
+        const outcome = await publishTeamSettings(
+          this.#client,
+          {
+            write: async (write) => {
+              if (stale() || !this.canEditSettings.value)
+                throw new Error("Le board ou vos droits ont changé : rien n'a été écrit.");
+              return this.#transport.write(write);
+            },
+          },
+          {
+            boardId: configuration.boardId,
+            settings: teamSettingsOf({ ...base, boardPinnedGoalIds: [...editor.selection] }),
+            basePublishedAt: current?.publishedAt ?? null,
+            publishedBy: {
+              accountId: user?.accountId ?? null,
+              displayName: user?.displayName ?? null,
+            },
+            now: this.#now(),
+          },
+        );
+        if (stale()) return;
+        if (outcome.kind === "conflict") {
+          await conflict(outcome.current);
+          return;
+        }
+        this.team.value = { kind: "published", document: outcome.document };
+        await this.#applyTeamDocument(outcome.document);
+        settle(null);
+        await this.#record({ ...entry, outcome: "réussi", detail: "propriété du board Kanban" });
+      } catch (error) {
+        if (stale()) return;
+        const jiraError = error instanceof JiraError ? error : null;
+        const uncertain = jiraError?.isOutcomeUnknown ?? false;
+        const forbidden = jiraError?.info.kind === "forbidden";
+        const message = toMessage(error);
+        if (forbidden) this.canEditBoard.value = false;
+        settle({
+          ...editor,
+          canKeepLocally: false,
+          notice: {
+            tone: uncertain ? "warning" : "error",
+            text: uncertain
+              ? `Jira n'a pas confirmé l'enregistrement (${message.text.replace(/\.$/, "")}).`
+              : message.text,
+            suggestion: uncertain
+              ? "Le board va être relu. Vérifiez sa sélection avant de recommencer ; l'extension ne rejoue jamais une écriture."
+              : forbidden
+                ? "Il faut pouvoir modifier le board pour y épingler des Goals."
+                : message.suggestion,
+          },
+        });
+        await this.#record({
+          ...entry,
+          outcome: uncertain ? "incertain" : "échec",
+          detail: message.text,
+        });
+      }
+    });
+    this.#teamQueue = task.catch(() => {});
+    try {
+      await task;
+    } finally {
+      this.teamSaving.value -= 1;
+    }
+    if (!stale()) await this.sync();
   }
 
   /** Rang à écrire : devant la carte visée, ou à la fin de la case. Rien si la place ne change pas. */
@@ -1649,9 +1828,13 @@ export class BoardModel {
           detail: changes.length > 0 ? changes.join(" ; ") : "réglages du board",
         });
       } else {
-        this.team.value = { kind: "published", document: outcome.current };
-        await this.#applyTeamDocument(outcome.current);
-        const who = outcome.current.publishedBy.displayName ?? "Quelqu'un";
+        if (outcome.current) {
+          this.team.value = { kind: "published", document: outcome.current };
+          await this.#applyTeamDocument(outcome.current);
+        } else {
+          await this.#refreshTeamSettings({ force: true });
+        }
+        const who = outcome.current?.publishedBy.displayName ?? "Quelqu'un";
         this.teamNotice.value = {
           tone: "warning",
           text: `Réglage non enregistré : ${who} a modifié les réglages du board au même moment.`,
@@ -1722,6 +1905,9 @@ export class BoardModel {
     if (stale()) return;
     if (raw === null) {
       this.team.value = { kind: "none" };
+      if (configuration.boardType === "kanban" && configuration.boardPinnedGoalIds.length > 0) {
+        await this.#updatePreferences((current) => ({ ...current, boardPinnedGoalIds: [] }));
+      }
       return;
     }
     const document = decodeTeamDocument(raw);
@@ -1837,7 +2023,11 @@ export class BoardModel {
     const snapshot = this.snapshot.value;
     const configuration = this.configuration.value;
     const run = ++this.#colorRun;
-    if (!snapshot || !configuration || snapshot.activeSprints.length === 0) {
+    if (
+      !snapshot ||
+      !configuration ||
+      (configuration.boardType !== "kanban" && snapshot.activeSprints.length === 0)
+    ) {
       this.cardColors.value = {};
       return;
     }
@@ -1850,6 +2040,8 @@ export class BoardModel {
 
     const evaluation = await evaluateColorRules(this.#client, {
       boardId: configuration.boardId,
+      boardType: configuration.boardType,
+      kanbanSubQuery: configuration.kanbanSubQuery,
       rules,
       sprintIds: snapshot.activeSprints.map((sprint) => sprint.id),
       displayedKeys: new Set(issues.map((issue) => issue.issue.key)),

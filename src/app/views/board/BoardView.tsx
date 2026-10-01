@@ -8,10 +8,12 @@ import {
   visibleColumns,
 } from "../../../core/boardConfiguration";
 import {
+  allIssues,
   type BoardSnapshot,
   browseUrl,
   familyKey,
   goalProgress,
+  isIssueDone,
   type SprintMetrics,
   sprintMetrics,
 } from "../../../core/boardIssue";
@@ -70,6 +72,7 @@ export function BoardView({
 }) {
   const snapshot = board.snapshot.value;
   const layout = board.layout.value;
+  const kanban = configuration.boardType === "kanban";
   const daily = controls.daily;
   const presenting = controls.presenting;
   // La daily reprend la mise en page de la présentation : ni en-tête ni santé, board agrandi.
@@ -89,7 +92,8 @@ export function BoardView({
   // En présentation, le bouton de sortie reste toujours affiché : au bout de la barre de filtres,
   // ou seul dans une barre si les filtres ne sont pas là (plus de sprint actif, par exemple).
   const exit = presenting ? <PresentationExit onExit={controls.onExitPresentation} /> : null;
-  const showFilters = snapshot?.sprint != null && board.options.value !== null;
+  const showFilters =
+    snapshot !== null && (kanban || snapshot.sprint !== null) && board.options.value !== null;
 
   return (
     <main
@@ -128,7 +132,7 @@ export function BoardView({
       <TransitionFormDialog board={board} />
       {snapshot === null ? (
         !board.syncProblem.value && <p class="board-empty">Lecture du board dans Jira…</p>
-      ) : snapshot.sprint === null ? (
+      ) : snapshot.sprint === null && !kanban ? (
         <p class="board-empty">
           Aucun sprint actif sur ce board. Le board affiche les tickets des sprints actifs.
         </p>
@@ -136,7 +140,7 @@ export function BoardView({
         shownLayout &&
         (daily && steps.length === 0 && !shownLayout.filtersActive ? (
           <p class="board-empty">
-            Aucune swimlane à présenter : le sprint n'a aucun ticket affiché.
+            Aucune swimlane à présenter : le {kanban ? "board" : "sprint"} n'a aucun ticket affiché.
           </p>
         ) : (
           <BoardGrid
@@ -246,8 +250,12 @@ function SprintHeader(props: {
   controls: ScreenControls;
 }) {
   const { board, configuration, snapshot, controls } = props;
+  const kanban = configuration.boardType === "kanban";
   const sprint = snapshot?.sprint ?? null;
+  const hasScope = snapshot !== null && (kanban || sprint !== null);
   const metrics = snapshot ? sprintMetrics(snapshot, configuration.agingThresholdDays) : null;
+  const kanbanIssues = kanban && snapshot ? allIssues(snapshot) : [];
+  const kanbanDone = kanbanIssues.filter(isIssueDone).length;
   const filters = board.filters.value;
   const remaining = daysRemaining(sprint?.endDate ?? null, new Date());
   const buildLabel = configuration.buildSectionLabel || "Build";
@@ -269,6 +277,7 @@ function SprintHeader(props: {
     : 0;
   // Sans historique Jira, on ne sait pas quels tickets ont été ajoutés : on n'affiche pas « 0 ».
   const addedKnown =
+    !kanban &&
     snapshot !== null &&
     [...snapshot.goalIssues, ...snapshot.swimlaneIssues].some(
       (issue) => issue.addedAfterSprintStart !== null,
@@ -292,10 +301,13 @@ function SprintHeader(props: {
       <div class="sprint-title">
         <div class="sprint-name">
           <h2>
-            {snapshot
-              ? snapshot.activeSprints.map((s) => s.name).join(" + ") || "Aucun sprint actif"
-              : "…"}
+            {kanban
+              ? configuration.boardName
+              : snapshot
+                ? snapshot.activeSprints.map((s) => s.name).join(" + ") || "Aucun sprint actif"
+                : "…"}
           </h2>
+          {kanban && <span class="sprint-active">Kanban</span>}
           {sprint?.state === "active" && <span class="sprint-active">actif</span>}
         </div>
         {sprint && (
@@ -311,9 +323,18 @@ function SprintHeader(props: {
         )}
       </div>
 
-      {metrics && sprint && (
+      {metrics && hasScope && (
         <div class="sprint-metrics">
-          <SprintProgress metrics={metrics} />
+          {kanban ? (
+            <span class="counter" title="Tickets dans le périmètre actuel du board">
+              <strong>{kanbanIssues.length}</strong>{" "}
+              {kanbanIssues.length > 1 ? "tickets" : "ticket"}
+              {" · "}
+              {kanbanDone} {kanbanDone > 1 ? "terminés" : "terminé"}
+            </span>
+          ) : (
+            <SprintProgress metrics={metrics} />
+          )}
           <div class="sprint-counters">
             {goals.length > 0 && (
               <span
@@ -355,7 +376,7 @@ function SprintHeader(props: {
               type="button"
               class="counter counter-build"
               onClick={() => void revealLane(board, "build")}
-              title={`Aller à ${buildLabel} : tickets du sprint sans objectif affiché`}
+              title={`Aller à ${buildLabel} : tickets du ${kanban ? "board" : "sprint"} sans objectif affiché`}
             >
               <Icon name="build" />
               <strong>{buildCount}</strong>
@@ -366,7 +387,7 @@ function SprintHeader(props: {
       )}
 
       <div class="sprint-actions">
-        {sprint && (
+        {hasScope && (
           <button
             type="button"
             class="primary daily-start"
@@ -661,7 +682,9 @@ function FilterBar({ board, trailing }: { board: BoardModel; trailing?: Componen
         />
       </label>
       <span class="filter-separator" aria-hidden="true" />
-      {QUICK_FILTERS.map((quick) => (
+      {QUICK_FILTERS.filter(
+        (quick) => board.configuration.value?.boardType !== "kanban" || quick !== "addedAfterStart",
+      ).map((quick) => (
         <button
           key={quick}
           type="button"
@@ -922,6 +945,7 @@ function FloatingNotices(props: {
   onShowPinning: () => void;
 }) {
   const { board, snapshot, layout } = props;
+  const scope = board.configuration.value?.boardType === "kanban" ? "board" : "sprint";
   const dismissed = board.dismissedNotices.value;
   // Fermetures pas encore relues : rien n'est montré, plutôt qu'un bandeau qui clignote.
   if (dismissed === null) return null;
@@ -931,13 +955,15 @@ function FloatingNotices(props: {
   if (
     open("no-goals") &&
     snapshot?.goalsOrigin === "atlassianGoals" &&
-    snapshot.goals.length === 0
+    snapshot.goals.length === 0 &&
+    !board.goalsNotice.value &&
+    board.goalsWarnings.value.length === 0
   ) {
     notices.push(
       <FloatingNotice key="no-goals" board={board} id="no-goals">
         <p>
-          Aucun Goal Atlassian n'est rattaché aux tickets de ce sprint. Rattachez un ticket à un
-          Goal dans Jira, ou épinglez un Goal au sprint : l'objectif apparaîtra ici avec sa
+          Aucun Goal Atlassian n'est rattaché aux tickets de ce {scope}. Rattachez un ticket à un
+          Goal dans Jira, ou épinglez un Goal au {scope} : l'objectif apparaîtra ici avec sa
           swimlane.
         </p>
         {board.canPinGoals.value && board.canEditSettings.value && (
@@ -964,7 +990,7 @@ function FloatingNotices(props: {
     notices.push(
       <FloatingNotice key="unmapped-statuses" board={board} id="unmapped-statuses">
         <p>
-          {plural(layout.unmappedCount, "ticket")} du sprint{" "}
+          {plural(layout.unmappedCount, "ticket")} du {scope}{" "}
           {layout.unmappedCount > 1 ? "ont" : "a"} un statut qui n'appartient à aucune colonne
           visible du board : non affichés, comme dans Jira.
         </p>
@@ -1020,10 +1046,16 @@ function BoardGrid(props: {
   if (layout.lanes.length === 0) {
     return (
       <div class="board-empty">
-        <p>Aucun ticket ne correspond aux filtres.</p>
-        <button type="button" onClick={() => board.resetFilters()}>
-          Réinitialiser les filtres
-        </button>
+        <p>
+          {layout.filtersActive
+            ? "Aucun ticket ne correspond aux filtres."
+            : "Aucun ticket à afficher dans le périmètre de ce board."}
+        </p>
+        {layout.filtersActive && (
+          <button type="button" onClick={() => board.resetFilters()}>
+            Réinitialiser les filtres
+          </button>
+        )}
       </div>
     );
   }
@@ -1048,6 +1080,9 @@ function BoardGrid(props: {
   );
   return (
     <div class="board" style={{ "--column-count": String(layout.columns.length) }}>
+      {layout.totalCount === 0 && !layout.filtersActive && configuration.boardType === "kanban" && (
+        <p class="board-empty">Aucun ticket à afficher dans le périmètre de ce board.</p>
+      )}
       <div class="board-row column-band">
         {layout.columns.map((column) => {
           const count = load.get(column.id) ?? 0;

@@ -79,6 +79,22 @@ describe("évaluation des règles de couleur par Jira", () => {
     expect(noSprint.matches).toEqual({ r: new Set() });
     expect(jira.requests).toEqual([]);
   });
+
+  it("Kanban : couleurs JQL sur le périmètre du board, sans règle de changement de sprint", async () => {
+    const { jira, client } = jiraAnswering({
+      "(labels = urgent) AND (fixVersion is EMPTY)": ["ABC-1", "HORS-9"],
+    });
+    const result = await evaluateColorRules(client, {
+      boardId: 7,
+      boardType: "kanban",
+      kanbanSubQuery: "fixVersion is EMPTY",
+      sprintIds: [],
+      rules: [rule("urgence", "labels = urgent ORDER BY rank"), SCOPE_CHANGE_RULE],
+      displayedKeys: new Set(["ABC-1"]),
+    });
+    expect(result).toEqual({ matches: { urgence: new Set(["ABC-1"]) }, issues: {} });
+    expect(jira.sent("GET", ISSUES)).toHaveLength(1);
+  });
 });
 
 describe("édition des règles", () => {

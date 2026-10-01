@@ -78,6 +78,8 @@ export interface BoardConfiguration {
   readonly boardId: number;
   readonly boardName: string;
   readonly boardType: string;
+  /** Sous-filtre Kanban lu dans la structure Jira, jamais édité par l'extension. */
+  readonly kanbanSubQuery: string | null;
   readonly projectKeys: readonly string[];
   readonly siteOrigin: string;
   /** Champ d'estimation déclaré par le board Jira (`estimation.field.fieldId`). */
@@ -119,6 +121,8 @@ export interface BoardConfiguration {
   /** Libellé du bloc regroupant les tickets non rattachés à un objectif. */
   readonly buildSectionLabel: string;
   readonly goalSource: GoalSource;
+  /** Goals épinglés au board Kanban, partagés par la propriété de réglages du board. */
+  readonly boardPinnedGoalIds: readonly string[];
   /** Couleur de chaque objectif (indice de palette), mémorisée d'un sprint à l'autre. */
   readonly goalColorIndex: Readonly<Record<string, number>>;
   /** Champs supplémentaires des cartes (`MAX_CARD_FIELDS` au plus). */
@@ -361,6 +365,7 @@ export function buildConfiguration(input: {
     boardId: input.board.boardId,
     boardName: input.board.boardName,
     boardType: input.board.boardType,
+    kanbanSubQuery: input.board.kanbanSubQuery,
     projectKeys: input.board.projectKey === null ? [] : [input.board.projectKey],
     siteOrigin: input.siteOrigin,
     estimationFieldId: input.board.estimationFieldId,
@@ -380,6 +385,7 @@ export function buildConfiguration(input: {
     collapsedBlockIds: [],
     buildSectionLabel: DEFAULT_BUILD_LABEL,
     goalSource: "atlassianGoals",
+    boardPinnedGoalIds: [],
     goalColorIndex: {},
     cardFields: [],
     cardColorRules: [],
@@ -425,7 +431,8 @@ export function mergeConfiguration(
     blockOrder: existing.blockOrder,
     collapsedBlockIds: existing.collapsedBlockIds,
     buildSectionLabel: existing.buildSectionLabel,
-    goalSource: existing.goalSource,
+    goalSource: fresh.boardType === "kanban" ? "atlassianGoals" : existing.goalSource,
+    boardPinnedGoalIds: existing.boardPinnedGoalIds,
     goalColorIndex: existing.goalColorIndex,
     cardFields: existing.cardFields,
     cardColorRules: existing.cardColorRules,
@@ -483,6 +490,7 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
     boardId: value.boardId,
     boardName: value.boardName,
     boardType: textOr(value.boardType, ""),
+    kanbanSubQuery: value.boardType === "kanban" ? textOrNull(value.kanbanSubQuery) : null,
     projectKeys: strings(value.projectKeys),
     siteOrigin: value.siteOrigin,
     estimationFieldId: textOrNull(value.estimationFieldId),
@@ -508,7 +516,11 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
     blockOrder: legacyBlockIds(strings(value.blockOrder)),
     collapsedBlockIds: legacyBlockIds(strings(value.collapsedBlockIds)),
     buildSectionLabel: textOr(value.buildSectionLabel, DEFAULT_BUILD_LABEL),
-    goalSource: value.goalSource === "sprintText" ? "sprintText" : "atlassianGoals",
+    goalSource:
+      value.boardType !== "kanban" && value.goalSource === "sprintText"
+        ? "sprintText"
+        : "atlassianGoals",
+    boardPinnedGoalIds: [...new Set(strings(value.boardPinnedGoalIds))],
     goalColorIndex: decodeColorIndex(value.goalColorIndex),
     cardFields: decodeList(value.cardFields, decodeCardField) ?? [],
     cardColorRules: decodeList(value.cardColorRules, decodeColorRule) ?? [],

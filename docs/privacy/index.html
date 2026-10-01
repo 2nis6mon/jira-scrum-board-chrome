@@ -35,10 +35,10 @@
 
 <article id="fr" lang="fr">
 <h1>Politique de confidentialité — Sprint Goals Board pour Jira</h1>
-<p class="meta">Dernière mise à jour : 24 septembre 2026 · Éditeur : Denis Simon Consulting · Contact : <a href="mailto:denis.simon.consulting@gmail.com">denis.simon.consulting@gmail.com</a></p>
+<p class="meta">Dernière mise à jour : 1 octobre 2026 · Éditeur : Denis Simon Consulting · Contact : <a href="mailto:denis.simon.consulting@gmail.com">denis.simon.consulting@gmail.com</a></p>
 
 <p>Sprint Goals Board pour Jira (« l'extension ») est une extension Chrome qui affiche les boards
-Scrum de Jira Cloud en swimlanes par Sprint Goal. Cette page explique quelles données elle utilise,
+Scrum et Kanban de Jira Cloud en swimlanes par objectif. Cette page explique quelles données elle utilise,
 où elles vont et comment les effacer.</p>
 
 <h2>En résumé</h2>
@@ -55,8 +55,8 @@ et seulement après votre accord dans la fenêtre d'autorisation de Chrome :</p>
 <ul>
   <li>votre compte Jira (identifiant de compte et nom affiché), pour des filtres comme « Mes tickets » ;</li>
   <li>les boards, sprints, colonnes, filtres rapides et types de tickets, ainsi que votre droit de modifier le board (pour ne proposer la modification de ses réglages qu'à qui peut les enregistrer) ;</li>
-  <li>les tickets des sprints actifs : clé, résumé, statut, type, priorité, personne assignée, story points, étiquettes, liens, historique des statuts et les champs que vous choisissez d'afficher ;</li>
-  <li>les Goals Atlassian associés aux tickets et au sprint, lus par la passerelle de votre site Atlassian ;</li>
+  <li>les tickets des sprints actifs en Scrum, ou du périmètre du board en Kanban : clé, résumé, statut, type, priorité, personne assignée, story points, étiquettes, liens, historique des statuts et les champs que vous choisissez d'afficher ;</li>
+  <li>les Goals Atlassian associés aux tickets ou épinglés au sprint ou au board Kanban, lus par la passerelle de votre site Atlassian ;</li>
   <li>les icônes de types et de priorités de Jira.</li>
 </ul>
 <p>Ces données sont affichées dans l'extension et ne quittent pas votre navigateur, sauf vers votre propre site Jira.</p>
@@ -79,7 +79,7 @@ jamais synchronisé avec votre compte Google :</p>
   <li>le rang (l'ordre) d'un ticket ;</li>
   <li>le rattachement d'un ticket à un Goal Atlassian, ou son retrait ;</li>
   <li>les Goals épinglés au sprint, dans une propriété du sprint ;</li>
-  <li>les réglages du board (colonnes, ordre et couleurs des swimlanes, champs des cartes, daily…), à chaque modification que vous en faites, dans une propriété du board, et seulement si vous avez le droit de modifier ce board. Ils contiennent des réglages d'affichage ainsi que le nom et l'identifiant de compte de la dernière personne qui les a modifiés, <strong>visibles par toute personne qui peut voir ce board</strong>.</li>
+  <li>les réglages du board (colonnes, ordre et couleurs des swimlanes, Goals épinglés au board Kanban, champs des cartes, daily…), à chaque modification que vous en faites, dans une propriété du board, et seulement si vous avez le droit de modifier ce board. Ils contiennent des réglages d'affichage ainsi que le nom et l'identifiant de compte de la dernière personne qui les a modifiés, <strong>visibles par toute personne qui peut voir ce board</strong>.</li>
 </ul>
 <p>L'outil de diagnostic peut aussi, sur votre clic, écrire puis supprimer aussitôt une propriété de test sur un sprint.</p>
 
@@ -113,10 +113,10 @@ et aucune personne n'y a accès en dehors de vous.</p>
 
 <article id="en" lang="en">
 <h1>Privacy Policy — Sprint Goals Board pour Jira</h1>
-<p class="meta">Last updated: September 24, 2026 · Publisher: Denis Simon Consulting · Contact: <a href="mailto:denis.simon.consulting@gmail.com">denis.simon.consulting@gmail.com</a></p>
+<p class="meta">Last updated: October 1, 2026 · Publisher: Denis Simon Consulting · Contact: <a href="mailto:denis.simon.consulting@gmail.com">denis.simon.consulting@gmail.com</a></p>
 
 <p>Sprint Goals Board pour Jira (“the extension”) is a Chrome extension that displays Jira Cloud Scrum
-boards as swimlanes grouped by Sprint Goal. This page explains which data it uses, where it goes and how to delete it.</p>
+and Kanban boards as swimlanes grouped by Goal. This page explains which data it uses, where it goes and how to delete it.</p>
 
 <h2>Summary</h2>
 <ul>
@@ -131,8 +131,8 @@ boards as swimlanes grouped by Sprint Goal. This page explains which data it use
 <ul>
   <li>your Jira account (account ID and display name), for filters such as “My issues”;</li>
   <li>boards, sprints, columns, quick filters and issue types, and whether you may edit the board (so that only people who can save its settings are offered to change them);</li>
-  <li>issues in active sprints: key, summary, status, type, priority, assignee, story points, labels, links, status history and the fields you choose to display;</li>
-  <li>Atlassian Goals linked to issues and to the sprint, read through your Atlassian site's gateway;</li>
+  <li>issues in active sprints for Scrum, or in the board scope for Kanban: key, summary, status, type, priority, assignee, story points, labels, links, status history and the fields you choose to display;</li>
+  <li>Atlassian Goals linked to issues or pinned to the sprint or Kanban board, read through your Atlassian site's gateway;</li>
   <li>Jira issue type and priority icons.</li>
 </ul>
 <p>This data is displayed in the extension and never leaves your browser, except to your own Jira site.</p>
@@ -154,7 +154,7 @@ boards as swimlanes grouped by Sprint Goal. This page explains which data it use
   <li>an issue's rank (order);</li>
   <li>linking an issue to an Atlassian Goal, or unlinking it;</li>
   <li>the Goals pinned to the sprint, in a sprint property;</li>
-  <li>board settings (columns, swimlane order and colors, card fields, daily…), each time you change them, in a board property, and only if you are allowed to edit that board. They contain display settings plus the name and account ID of the last person who changed them, <strong>visible to anyone who can view that board</strong>.</li>
+  <li>board settings (columns, swimlane order and colors, Goals pinned to the Kanban board, card fields, daily…), each time you change them, in a board property, and only if you are allowed to edit that board. They contain display settings plus the name and account ID of the last person who changed them, <strong>visible to anyone who can view that board</strong>.</li>
 </ul>
 <p>When you click it, the diagnostic tool can also write a test property on a sprint and delete it immediately.</p>
 
