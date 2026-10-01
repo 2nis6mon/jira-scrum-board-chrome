@@ -206,6 +206,13 @@ it("affiche les Goals du champ Jira quand GraphQL ne fournit pas workItems", asy
   expect(lanes()).toContain("Paiement en une étape");
   expect(lanes()).toContain("Build");
   expect(board.syncProblem.value).toBeNull();
+  const partial = [...document.querySelectorAll(".floating-notice")].find((notice) =>
+    notice.textContent?.includes("le schéma Atlassian n'expose pas de lien Goal → tickets"),
+  );
+  expect(partial).toBeDefined();
+  partial?.querySelector<HTMLButtonElement>(".floating-notice-close")?.click();
+  await tick();
+  expect(body()).not.toContain("Lecture partielle des Goals Atlassian");
   expect(
     jira
       .sent("GET", "/rest/agile/1.0/board/7/issue")

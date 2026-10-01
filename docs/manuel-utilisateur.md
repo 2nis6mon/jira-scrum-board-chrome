@@ -1,7 +1,7 @@
 # Sprint Goals Board pour Jira — manuel d'installation et d'utilisation
 
 > Extension Chrome pour boards Scrum et Kanban Jira Cloud : objectifs, Build et swimlanes par
-> type configurables. Version couverte par ce manuel : **0.24.2.2**. Les captures illustrent la
+> type configurables. Version couverte par ce manuel : **0.24.3.2**. Les captures illustrent la
 > version Scrum 0.22.7 ; certains libellés ont évolué.
 
 Ce document est prêt à coller dans une page Confluence (titres, listes et texte en gras se
@@ -93,6 +93,8 @@ board »), le même écran de recherche s'ouvre.
   transition — commentaire, temps passé, champs obligatoires — quand il le faut), son rang, ou son
   objectif si on la dépose dans une autre swimlane d'objectif ou dans Build. Une carte classée
   dans une swimlane par type reste dans sa swimlane ; sa colonne et son rang peuvent changer.
+- **Informations flottantes** : la croix ferme définitivement l'information de lecture partielle
+  des Goals pour ce board. Ce choix est personnel et reste après rechargement.
 - **Sous-tâches** : rangées avec leur story ; un survol de la carte met en évidence toute sa
   famille (story + sous-tâches).
 

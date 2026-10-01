@@ -884,18 +884,6 @@ function Notices(props: {
         </div>
       )}
       {board.goalsNotice.value && <p class="notice notice-info">{board.goalsNotice.value}</p>}
-      {board.goalsWarnings.value.length > 0 && (
-        <div class="notice notice-info">
-          <p>
-            <strong>Lecture partielle des Goals Atlassian.</strong> Le board s'affiche, mais :
-          </p>
-          <ul>
-            {board.goalsWarnings.value.map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
-          </ul>
-        </div>
-      )}
       {snapshot?.localPinnedGoalIds && (
         <div class="notice notice-info">
           <p>
@@ -954,6 +942,20 @@ function FloatingNotices(props: {
   const open = (id: NoticeId) => !dismissed.has(id);
 
   const notices: ComponentChildren[] = [];
+  if (open("goals-partial") && board.goalsWarnings.value.length > 0) {
+    notices.push(
+      <FloatingNotice key="goals-partial" board={board} id="goals-partial">
+        <p>
+          <strong>Lecture partielle des Goals Atlassian.</strong> Le board s'affiche, mais :
+        </p>
+        <ul>
+          {board.goalsWarnings.value.map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      </FloatingNotice>,
+    );
+  }
   if (
     open("no-goals") &&
     snapshot?.goalsOrigin === "atlassianGoals" &&

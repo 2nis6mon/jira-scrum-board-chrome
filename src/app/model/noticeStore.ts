@@ -9,11 +9,15 @@ import type { LocalStore } from "../platform/types";
 const NOTICES_KEY = "dismissedNotices.v1";
 
 /**
- * Seuls les bandeaux qui EXPLIQUENT un état stable se ferment pour de bon. Une erreur, un échec de
- * lecture ou une décision à prendre ne sont jamais ici : les masquer définitivement cacherait le
- * prochain incident.
+ * Les explications et les lectures partielles non bloquantes se ferment pour de bon. Les erreurs
+ * qui empêchent de lire le board et les décisions à prendre restent visibles ailleurs.
  */
-export const DISMISSABLE_NOTICES = ["no-goals", "unmapped-statuses", "goals-read-only"] as const;
+export const DISMISSABLE_NOTICES = [
+  "no-goals",
+  "unmapped-statuses",
+  "goals-read-only",
+  "goals-partial",
+] as const;
 export type NoticeId = (typeof DISMISSABLE_NOTICES)[number];
 
 const isNoticeId = (value: unknown): value is NoticeId =>

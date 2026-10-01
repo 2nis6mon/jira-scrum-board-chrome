@@ -37,12 +37,14 @@ synchronisation le signale au lieu de présenter leurs tickets comme dépourvus 
 Depuis 0.24.1, si le schéma GraphQL d'Atlassian ne donne pas les liens Goal → tickets, le champ
 Goals Jira des tickets sert de source, à condition d'être présent sur tous les tickets classés
 par objectif.
+La lecture partielle des Goals, lorsque le board reste utilisable, apparaît comme une information
+flottante fermable. Sa fermeture est mémorisée pour ce board dans le navigateur.
 Daily, présentation, filtres, transitions et rang fonctionnent dans les deux modes.
 
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.24.2 (source) et 0.24.2.2 (paquet d'ouverture directe dans Jira, voir
+> **État : 0.24.3 (source) et 0.24.3.2 (paquet d'ouverture directe dans Jira, voir
 > plus bas).** Point d'entrée pour reprendre le projet : [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
 > santé du sprint (6a), plusieurs boards (6b), audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)), empaquetage (6e) à venir. Board du

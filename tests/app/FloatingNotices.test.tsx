@@ -20,6 +20,8 @@ afterEach(() => {
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 const READ_ONLY = "Votre compte ne peut pas lire la propriété du sprint";
+const PARTIAL_GOALS =
+  "Tickets rattachés aux objectifs : le schéma Atlassian n'expose pas de lien Goal → tickets exploitable";
 
 const floating = () => document.querySelector(".floating-notices");
 const floatingText = () => floating()?.textContent ?? "";
@@ -75,6 +77,35 @@ describe("explications flottantes du board", () => {
     const again = await openBoard(platform);
     await showReadOnly(again.board);
     expect(floatingText()).not.toContain(READ_ONLY);
+    again.board.dispose();
+  });
+
+  it("ferme la lecture partielle des Goals et retient ce choix après rechargement", async () => {
+    const platform = fakePlatform(boardSiteJira());
+    const first = await openBoard(platform);
+    first.board.goalsWarnings.value = [PARTIAL_GOALS];
+    await tick();
+    expect(floatingText()).toContain(PARTIAL_GOALS);
+    expect(
+      [...document.querySelectorAll(".notice")].filter(
+        (notice) =>
+          !notice.closest(".floating-notices") && notice.textContent?.includes(PARTIAL_GOALS),
+      ),
+    ).toEqual([]);
+
+    const partial = [...document.querySelectorAll(".floating-notice")].find((notice) =>
+      notice.textContent?.includes(PARTIAL_GOALS),
+    );
+    partial?.querySelector<HTMLButtonElement>(".floating-notice-close")?.click();
+    await tick();
+    expect(floatingText()).not.toContain(PARTIAL_GOALS);
+    first.board.dispose();
+    render(null, document.body);
+
+    const again = await openBoard(platform);
+    again.board.goalsWarnings.value = [PARTIAL_GOALS];
+    await tick();
+    expect(floatingText()).not.toContain(PARTIAL_GOALS);
     again.board.dispose();
   });
 

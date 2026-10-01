@@ -2,8 +2,8 @@
 
 Dernière mise à jour : **1 octobre 2026**\
 Branche décrite : **`codex/support-kanban`** (issue de `main` après fusion des swimlanes par type)\
-Produit autonome (source) : **0.24.2**\
-Intégration Jira livrée : **0.24.2.2**
+Produit autonome (source) : **0.24.3**\
+Intégration Jira livrée : **0.24.3.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -55,7 +55,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.24.2`\
+Version : `0.24.3`\
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -77,7 +77,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.24.2.2`\
+Version générée : `0.24.3.2`\
 Nom : celui du paquet autonome (depuis le 24/09/2026)
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -472,6 +472,11 @@ Validation de la 0.24.1 : typage et lint réussis ; 895 tests réussis, 1 ignor�
 Validation de la 0.24.2 : Build et les swimlanes par type vides sont masqués ; les objectifs vides
 restent visibles. La barre latérale suit la même règle et l'indicateur Build disparaît à zéro.
 Typage et lint réussis ; 899 tests réussis, 1 ignoré ; paquet intégré `0.24.2.2` construit dans
+`dist/` et vérifié sous Edge Chromium avec un profil isolé et un faux Jira.
+En 0.24.3, l'information de lecture partielle des Goals se ferme comme les autres explications
+flottantes. Sa fermeture reste personnelle, par site et par board ; une erreur bloquante de
+synchronisation reste visible.
+Typage et lint réussis ; 900 tests réussis, 1 ignoré ; paquet intégré `0.24.3.2` construit dans
 `dist/` et vérifié sous Edge Chromium avec un profil isolé et un faux Jira.
 
 Commandes utiles :
