@@ -252,7 +252,8 @@ la vue) : le clic ne passe plus par `history.pushState`. Il charge l'adresse mar
 (`location.assign`), le chemin déjà validé chez lui avec le lanceur. La cause exacte de l'échec
 n'est pas établie (marqueur retiré par le routeur de Jira, ou adresse de l'expéditeur non mise à
 jour pour le service worker) : ne pas revenir à une ouverture sans rechargement sans l'avoir
-constatée sur son instance.
+constatée sur son instance. Constaté par Denis le 09/10/2026 sur son Jira : le bouton est visible
+sur le board et son clic ouvre bien la vue.
 
 0.26.3 (demande de Denis du 09/10/2026) : la source des objectifs par défaut d'un board Scrum
 est le texte du sprint, plus les Goals Atlassian (`buildConfiguration`, `boardConfiguration.ts`).
