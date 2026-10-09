@@ -1,76 +1,15 @@
-// Régression du glisser-déposer sur les vues réelles, avec Jira fictif et profil Chrome vierge.
-import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+// Régression du formulaire de transition sur les vues réelles, avec Jira fictif et profil Chrome vierge.
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
+import { launchIsolatedBrowser, sleep } from "./browser-check.mjs";
 
-const CHROME =
-  process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const server = await createServer({
   configFile: fileURLToPath(new URL("../vite.harness.config.ts", import.meta.url)),
   server: { host: "127.0.0.1", port: 5202, strictPort: true },
 });
 await server.listen();
-const profile = mkdtempSync(join(tmpdir(), "scrum-board-verif-"));
-const chrome = spawn(
-  CHROME,
-  [
-    "--headless=new",
-    `--user-data-dir=${profile}`,
-    "--remote-debugging-pipe",
-    "--enable-unsafe-extension-debugging",
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--window-size=1600,1200",
-    "about:blank",
-  ],
-  { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"] },
-);
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const pending = new Map();
-const events = [];
-let nextId = 0;
-let buffer = "";
-
-chrome.stdio[4].on("data", (chunk) => {
-  buffer += chunk.toString("utf8");
-  for (let end = buffer.indexOf("\0"); end >= 0; end = buffer.indexOf("\0")) {
-    const message = JSON.parse(buffer.slice(0, end));
-    buffer = buffer.slice(end + 1);
-    if (message.id) {
-      pending.get(message.id)?.(message);
-      pending.delete(message.id);
-    } else {
-      events.push(message);
-    }
-  }
-});
-
-function send(method, params = {}, sessionId) {
-  const id = ++nextId;
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`délai dépassé : ${method}`)), 15_000);
-    pending.set(id, (message) => {
-      clearTimeout(timer);
-      if (message.error) reject(new Error(`${method} : ${message.error.message}`));
-      else resolve(message.result);
-    });
-    const payload = { id, method, params, ...(sessionId ? { sessionId } : {}) };
-    chrome.stdio[3].write(`${JSON.stringify(payload)}\0`);
-  });
-}
-
-async function evaluate(sessionId, expression) {
-  const { result } = await send(
-    "Runtime.evaluate",
-    { expression, returnByValue: true, awaitPromise: true },
-    sessionId,
-  );
-  return result.value;
-}
+const browser = launchIsolatedBrowser("1600,1200");
+const { send, evaluate, waitFor } = browser;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -85,7 +24,12 @@ try {
       { url: `http://127.0.0.1:5202/?scenario=board-form${suffix}` },
       sessionId,
     );
-    await sleep(1200);
+    // Premier chargement : le serveur du banc d'essai compile encore, pas d'attente fixe.
+    await waitFor(
+      sessionId,
+      `Boolean(document.querySelector('[data-issue-key="ABC-102"]'))`,
+      "Le banc d'essai n'a pas affiché la carte ABC-102",
+    );
   };
   const drop = async () =>
     evaluate(
@@ -103,11 +47,9 @@ try {
     );
   await open();
   assert(await drop(), "Le formulaire natif doit s’ouvrir");
-  assert(
-    await evaluate(
-      sessionId,
-      "document.querySelector('#transition-field-summary').value === 'Résumé existant' && document.querySelector('#transition-field-customfield_18742').value === '3' && document.querySelector('#transition-field-worklog').value === '' && window.__transitionProbe.length === 0",
-    ),
+  await waitFor(
+    sessionId,
+    "document.querySelector('#transition-field-summary')?.value === 'Résumé existant' && document.querySelector('#transition-field-customfield_18742')?.value === '3' && document.querySelector('#transition-field-worklog')?.value === '' && window.__transitionProbe.length === 0",
     "Préremplissage sans écriture",
   );
   await evaluate(
@@ -185,8 +127,6 @@ try {
   );
   console.log("✓ Champ obligatoire non pris en charge : envoi bloqué et lien vers Jira");
 } finally {
-  await send("Browser.close").catch(() => {});
-  await sleep(300);
-  rmSync(profile, { recursive: true, force: true });
+  await browser.close();
   await server.close();
 }

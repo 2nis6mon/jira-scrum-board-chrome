@@ -1,76 +1,15 @@
 // Régression du glisser-déposer sur les vues réelles, avec Jira fictif et profil Chrome vierge.
-import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
+import { launchIsolatedBrowser, sleep } from "./browser-check.mjs";
 
-const CHROME =
-  process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const server = await createServer({
   configFile: fileURLToPath(new URL("../vite.harness.config.ts", import.meta.url)),
   server: { host: "127.0.0.1", port: 5201, strictPort: true },
 });
 await server.listen();
-const profile = mkdtempSync(join(tmpdir(), "scrum-board-verif-"));
-const chrome = spawn(
-  CHROME,
-  [
-    "--headless=new",
-    `--user-data-dir=${profile}`,
-    "--remote-debugging-pipe",
-    "--enable-unsafe-extension-debugging",
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--window-size=1600,1200",
-    "about:blank",
-  ],
-  { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"] },
-);
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const pending = new Map();
-const events = [];
-let nextId = 0;
-let buffer = "";
-
-chrome.stdio[4].on("data", (chunk) => {
-  buffer += chunk.toString("utf8");
-  for (let end = buffer.indexOf("\0"); end >= 0; end = buffer.indexOf("\0")) {
-    const message = JSON.parse(buffer.slice(0, end));
-    buffer = buffer.slice(end + 1);
-    if (message.id) {
-      pending.get(message.id)?.(message);
-      pending.delete(message.id);
-    } else {
-      events.push(message);
-    }
-  }
-});
-
-function send(method, params = {}, sessionId) {
-  const id = ++nextId;
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`délai dépassé : ${method}`)), 15_000);
-    pending.set(id, (message) => {
-      clearTimeout(timer);
-      if (message.error) reject(new Error(`${method} : ${message.error.message}`));
-      else resolve(message.result);
-    });
-    const payload = { id, method, params, ...(sessionId ? { sessionId } : {}) };
-    chrome.stdio[3].write(`${JSON.stringify(payload)}\0`);
-  });
-}
-
-async function evaluate(sessionId, expression) {
-  const { result } = await send(
-    "Runtime.evaluate",
-    { expression, returnByValue: true, awaitPromise: true },
-    sessionId,
-  );
-  return result.value;
-}
+const browser = launchIsolatedBrowser("1600,1200");
+const { send, evaluate, waitFor, events } = browser;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -93,7 +32,12 @@ try {
       { url: "http://127.0.0.1:5201/?scenario=board-drag-regression" },
       sessionId,
     );
-    await sleep(1000);
+    // Premier chargement : le serveur du banc d'essai compile encore, pas d'attente fixe.
+    await waitFor(
+      sessionId,
+      `Boolean(document.querySelector('[data-issue-key="${key}"]'))`,
+      `Le banc d'essai n'a pas affiché la carte ${key}`,
+    );
     const before = await evaluate(
       sessionId,
       `(() => {
@@ -177,8 +121,6 @@ try {
     );
   }
 } finally {
-  await send("Browser.close").catch(() => {});
-  await sleep(300);
-  rmSync(profile, { recursive: true, force: true });
+  await browser.close();
   await server.close();
 }
