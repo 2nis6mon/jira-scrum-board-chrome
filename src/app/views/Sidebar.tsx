@@ -30,8 +30,6 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
     if (!adminAvailable && model.view.value === "admin") model.showBoard();
   }, [model, adminAvailable, view]);
 
-  const hostReturn = model.hostReturn.value;
-
   return (
     <aside
       class="sidebar"
@@ -52,20 +50,6 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
           current={view === "board"}
           onClick={() => model.showBoard()}
         />
-        {hostReturn && (
-          <NavButton
-            icon="chevronLeft"
-            label="Retour à Jira"
-            current={false}
-            disabled={!board.canSwitchBoard.value}
-            title={
-              board.canSwitchBoard.value
-                ? "Fermer Sprint Goals et revenir au board Jira"
-                : "Possible dès que l'écriture en cours dans Jira est terminée"
-            }
-            onClick={hostReturn}
-          />
-        )}
       </nav>
       <div class="sidebar-divider" />
       <div class="sidebar-scroll">
@@ -253,8 +237,6 @@ function NavButton(props: {
   onClick: () => void;
   /** Bouton qui déplie ses sections juste au-dessous de lui (Administration). */
   expanded?: boolean;
-  disabled?: boolean;
-  title?: string;
 }) {
   return (
     <button
@@ -262,8 +244,6 @@ function NavButton(props: {
       class="sidebar-nav-item"
       aria-current={props.current ? "page" : undefined}
       aria-expanded={props.expanded}
-      disabled={props.disabled}
-      title={props.title}
       onClick={props.onClick}
     >
       <Icon name={props.icon} size={16} />

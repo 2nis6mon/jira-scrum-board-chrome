@@ -59,7 +59,7 @@ historiques.
   trailer `Co-Authored-By` (demande de Denis du 09/10/2026).
 - Pousser chaque commit sur sa branche, toujours (consigne de Denis du 24/09/2026). Fusionner
   dans `main` seulement sur demande explicite.
-- **Mode unique depuis le 09/10/2026 (demande de Denis) : intégré dans Jira, version 0.26.4.**
+- **Mode unique depuis le 09/10/2026 (demande de Denis) : intégré dans Jira, version 0.26.5.**
   Construire avec `npm run build` dans `dist/`, prêt à charger dans Chrome. `watch`, `check` et
   `package` ciblent aussi ce mode ; les alias `:jira-direct-test` restent compatibles.
   Supprimer le fonctionnement autonome : toute vue métier exige une page Jira hôte autorisée.
@@ -267,6 +267,12 @@ Atlassian partent d'un board réglé sur cette source (`tests/support/atlassianG
 pendant une écriture, comme le changement de board). Message `sprint-goals:close` sans donnée :
 la page hôte recharge sa propre adresse sans `sprintGoals=1` (`location.assign`, « Précédent »
 ramène à la vue). Masqué en présentation et en daily avec la barre latérale.
+
+0.26.5 (demande de Denis du 09/10/2026 : « plus visible, qui flotte en bas à droite ») :
+« Retour à Jira » quitte la barre latérale pour un bouton flottant plein, en bas à droite de la vue
+(`.host-return`, rendu par `Workspace` dans `App.tsx`, `z-index` 35), visible aussi dans
+l'administration. Les bandeaux flottants montent d'un cran quand il est là. Toujours masqué en
+présentation et en daily, désactivé pendant une écriture.
 
 Constats sur l'instance de Denis (18/09/2026) : la session du navigateur est reconnue ; les POST
 de lecture REST et les écritures REST (PUT/DELETE de propriété de sprint) passent SANS en-tête

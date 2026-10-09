@@ -545,6 +545,8 @@ if (scenario.startsWith("board")) {
     });
   }
   const model = new AppModel(fakePlatform(jira));
+  // `&hote=1` : comme dans une page Jira hôte, pour voir le bouton « Retour à Jira » (sans effet ici).
+  if (new URLSearchParams(location.search).get("hote") === "1") model.hostReturn.value = () => {};
   if (container) render(<App model={model} />, container);
   await model.connect("acme.atlassian.net");
   const connection = model.connection.value;

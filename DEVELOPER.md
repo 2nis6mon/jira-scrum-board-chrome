@@ -1,7 +1,7 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
 Dernière mise à jour : **9 octobre 2026**\
-Version décrite : **0.26.4** (Scrum et Kanban, swimlanes par type)\
+Version décrite : **0.26.5** (Scrum et Kanban, swimlanes par type)\
 Mode unique : **intégré dans Jira**, URL Jira toujours présente derrière le board.
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
@@ -57,7 +57,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.26.4` (sans suffixe `.2`)\
+Version : `0.26.5` (sans suffixe `.2`)\
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 Le manifest source est celui de l'intégration : permissions `storage`,
@@ -102,7 +102,7 @@ https://site.atlassian.net/jira/software/c/projects/PROJET/boards/123?sprintGoal
   `sprint-goals:open-board`, identifiant et clé de projet ; la page hôte forme l'adresse) ; le
   site et le board affichés restent ceux de la page hôte. Un board sans clé de projet s'affiche
   sur place, avec un avertissement.
-- « Retour à Jira » (0.26.4), sous « Sprint » dans la barre latérale : message
+- « Retour à Jira » (0.26.4 ; bouton flottant en bas à droite de la vue depuis 0.26.5) : message
   `sprint-goals:close` ; la page hôte recharge sa propre adresse sans `sprintGoals=1`.
 - Sur tout board d'un site autorisé, le script de contenu affiche un bouton flottant « Sprint
   Goals » en bas à droite, à gauche du bouton Rovo ; son clic charge l'adresse du board suivie de `sprintGoals=1` (rechargement de la page).

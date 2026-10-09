@@ -1471,6 +1471,36 @@ ul.lane-cell {
   pointer-events: none;
 }
 
+/* Retour à Jira : au même niveau que les bandeaux flottants, qui montent d'un cran pour lui
+   laisser le coin. */
+.host-return {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 35;
+  height: 40px;
+  padding: 0 16px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-color: var(--in-progress);
+  border-radius: 20px;
+  background: var(--in-progress);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgb(9 30 66 / 25%);
+  --icon-color: #fff;
+}
+
+.host-return:disabled {
+  opacity: 0.55;
+}
+
+.workspace:has(.host-return) .floating-notices {
+  bottom: 72px;
+}
+
 .floating-notice {
   margin: 0;
   max-width: none;

@@ -132,13 +132,10 @@ describe("App", () => {
     expect(text()).not.toContain("Goals Atlassian illisibles");
   });
 
-  it("« Retour à Jira » : seulement dans une page Jira hôte, et pas pendant une écriture", async () => {
+  it("« Retour à Jira » : flottant, seulement dans une page Jira hôte, pas pendant une écriture ni en présentation", async () => {
     const { model, board } = await connectedBoard();
-    const back = () =>
-      [...document.querySelectorAll<HTMLButtonElement>(".sidebar-nav button")].find(
-        (item) => item.textContent?.trim() === "Retour à Jira",
-      );
-    expect(back()).toBeUndefined();
+    const back = () => document.querySelector<HTMLButtonElement>("button.host-return");
+    expect(back()).toBeNull();
 
     const leave = vi.fn();
     model.hostReturn.value = leave;
@@ -148,8 +145,18 @@ describe("App", () => {
     expect(back()?.disabled).toBe(true);
     board.pendingKeys.value = new Set();
     await tick();
+    expect(back()?.textContent?.trim()).toBe("Retour à Jira");
     back()?.click();
     expect(leave).toHaveBeenCalledOnce();
+
+    // Présent aussi dans l'administration, absent quand l'écran est réservé au board.
+    model.showAdmin("board");
+    await tick();
+    expect(back()).not.toBeNull();
+    model.showBoard();
+    model.presenting.value = true;
+    await tick();
+    expect(back()).toBeNull();
   });
 
   it("carte : parent en badge coloré sans sa clé, champs en badges, drapeau près de la priorité, sans statut", async () => {

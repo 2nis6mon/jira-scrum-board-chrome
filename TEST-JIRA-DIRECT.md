@@ -19,7 +19,7 @@ restent pour les liens et procédures existants.
 - Sur un board d'un site autorisé, un bouton « Sprint Goals » flotte en bas à droite de la page
   Jira ; son clic recharge la page sur l'adresse marquée et ouvre la vue, et « Précédent » ramène au board natif.
 - Choisir un autre board dans le menu des boards de la vue charge la page Jira de ce board.
-- « Retour à Jira », dans la barre latérale, referme la vue : le board Jira natif se recharge.
+- « Retour à Jira », bouton flottant en bas à droite de la vue, referme la vue : le board Jira natif se recharge.
 - Sinon, le lanceur affiche un formulaire : coller l'URL d'un board Scrum ou Kanban, autoriser
   ce seul site dans Chrome, puis ouvrir Jira. Le dernier board est prérempli lorsqu'il est connu ;
   son adresse peut être remplacée, notamment pour choisir un autre site.

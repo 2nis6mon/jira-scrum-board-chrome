@@ -1,7 +1,7 @@
 # Sprint Goals Board pour Jira — manuel d'installation et d'utilisation
 
 > Extension Chrome pour boards Scrum et Kanban Jira Cloud : objectifs, Build et swimlanes par
-> type configurables. Version couverte par ce manuel : **0.26.4**, intégré uniquement dans Jira. Les captures illustrent la
+> type configurables. Version couverte par ce manuel : **0.26.5**, intégré uniquement dans Jira. Les captures illustrent la
 > version Scrum 0.22.7 ; certains libellés ont évolué.
 
 Ce document est prêt à coller dans une page Confluence (titres, listes et texte en gras se
@@ -64,8 +64,8 @@ Ensuite, sur chaque board de ce site, un bouton **Sprint Goals** apparaît en ba
 page Jira, à gauche du bouton Rovo : un clic ouvre la vue pour ce board, sans passer par l'icône. Le bouton « Précédent »
 du navigateur ramène au board Jira habituel.
 
-Pour refermer la vue et retrouver le board Jira habituel, cliquez **Retour à Jira** dans la
-barre latérale, sous « Sprint ».
+Pour refermer la vue et retrouver le board Jira habituel, cliquez **Retour à Jira**, le bouton
+bleu en bas à droite de la vue.
 
 Changer de board depuis le menu des boards de l'extension change aussi la page Jira : l'adresse
 de l'onglet est toujours celle du board affiché.

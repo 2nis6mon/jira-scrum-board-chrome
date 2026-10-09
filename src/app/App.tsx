@@ -4,6 +4,7 @@ import { BoardSetupView } from "./views/BoardSetupView";
 import { BoardView, type ScreenControls } from "./views/board/BoardView";
 import { ConnectionView } from "./views/ConnectionView";
 import { exitFullscreen } from "./views/fullscreen";
+import { Icon } from "./views/Icon";
 import { Sidebar } from "./views/Sidebar";
 import { AdminView } from "./views/settings/AdminView";
 
@@ -101,6 +102,8 @@ function Workspace({
     return () => document.removeEventListener("keydown", onKey);
   }, [model, presenting]);
 
+  const hostReturn = model.hostReturn.value;
+
   const controls: ScreenControls = {
     sidebarCollapsed,
     onToggleSidebar: () => model.toggleSidebar(),
@@ -120,6 +123,24 @@ function Workspace({
     <div class="workspace">
       {!sidebarCollapsed && !presenting && !daily && <Sidebar model={model} board={board} />}
       {presenting && <PresentationHint />}
+      {/* Retour à Jira : flottant en bas à droite, toujours sous la main (demande de Denis), sauf
+          en présentation et en daily, où l'écran est réservé au board. */}
+      {hostReturn && !immersive && (
+        <button
+          type="button"
+          class="host-return"
+          disabled={!board.canSwitchBoard.value}
+          title={
+            board.canSwitchBoard.value
+              ? "Fermer Sprint Goals et revenir au board Jira"
+              : "Possible dès que l'écriture en cours dans Jira est terminée"
+          }
+          onClick={hostReturn}
+        >
+          <Icon name="chevronLeft" size={16} />
+          Retour à Jira
+        </button>
+      )}
       <div class="workspace-main">
         {view === "board" && <BoardScreen connection={connection} controls={controls} />}
         {view === "admin" && <AdminView model={model} connection={connection} />}
