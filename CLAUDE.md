@@ -208,7 +208,8 @@ branches `codex/...`. Cet historique précédait la décision du 09/10/2026 : l'
 est désormais le mode unique et son manifest est le manifest source. Une validation locale
 avec faux Jira ne vaut jamais validation sur l'instance de Denis. `codex/jira-only` (0.25.0) puis
 `codex/bouton-board` (0.26.0–0.26.6) ont été fusionnées dans `main` le 09/10/2026, à sa demande
-(avance rapide, 12 commits).
+(avance rapide, 12 commits). `codex/installation` (0.27.0) l'a été le même jour, après son
+essai de l'installation.
 
 Dépendances en versions exactes (`.npmrc` : `save-exact`, `ignore-scripts`). Toute nouvelle
 dépendance d'exécution se justifie : il y en a deux aujourd'hui (`preact`, `@preact/signals`).
@@ -286,7 +287,8 @@ reste nécessaire. En onglet de bienvenue (`isWelcomeTab`, `launcherChrome.ts`),
 d'onglet courant à lire et se remplace elle-même par Jira. Le lanceur accepte l'adresse du site
 seule (`LauncherModel.#siteAddress`) : site autorisé, accueil du site ouvert (ou onglet Jira
 courant rechargé), aucun board mémorisé ; seul un board s'ouvre de lui-même au clic sur l'icône.
-Sur une page Jira qui n'est pas un board, le site de l'onglet est proposé.
+Sur une page Jira qui n'est pas un board, le site de l'onglet est proposé. Constaté par Denis le
+09/10/2026 : l'installation avec la saisie de l'adresse fonctionne chez lui.
 
 Constats sur l'instance de Denis (18/09/2026) : la session du navigateur est reconnue ; les POST
 de lecture REST et les écritures REST (PUT/DELETE de propriété de sprint) passent SANS en-tête
