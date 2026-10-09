@@ -1,9 +1,9 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Dernière mise à jour : **1 octobre 2026**\
-Branche décrite : **`codex/support-kanban`** (issue de `main` après fusion des swimlanes par type)\
-Produit autonome (source) : **0.24.3**\
-Intégration Jira livrée : **0.24.3.2**
+Dernière mise à jour : **9 octobre 2026**\
+Base décrite : **`main`** (Scrum et Kanban, swimlanes par type)\
+Produit autonome (source) : **0.24.4**\
+Intégration Jira livrée : **0.24.4.2**
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -55,7 +55,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.24.3`\
+Version : `0.24.4`\
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
@@ -77,7 +77,7 @@ npm run build:jira-direct-test
 ```
 
 Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.24.3.2`\
+Version générée : `0.24.4.2`\
 Nom : celui du paquet autonome (depuis le 24/09/2026)
 
 Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
@@ -460,6 +460,14 @@ npm run check
 ```
 
 `npm run check` exécute le typage, le lint, les tests et la construction autonome.
+Pour la livraison actuelle, utiliser `npm run check:jira-direct-test` : les mêmes contrôles
+suivis de la construction intégrée dans `dist/`. `npm run watch:jira-direct-test` surveille les
+sources et reconstruit ce même paquet ; l'ancien `npm run watch` cible le mode autonome.
+
+IntelliJ IDEA ouvre directement la racine contenant `package.json`. Le plugin Node.js et un
+interpréteur Node `>= 22.12` sont nécessaires. Les configurations npm partagées de `.run/`
+permettent l'installation, la compilation intégrée, la compilation continue et les contrôles
+complets. `.idea/` et les fichiers personnels de l'IDE sont ignorés, `.run/` est versionné.
 
 Validation de la 0.24.0, le 01/10/2026 : typage et lint réussis ; 890 tests réussis, 1 ignoré.
 Les deux constructions ont été réalisées dans `release/kanban-0.24.0` et
@@ -478,6 +486,11 @@ flottantes. Sa fermeture reste personnelle, par site et par board ; une erreur b
 synchronisation reste visible.
 Typage et lint réussis ; 900 tests réussis, 1 ignoré ; paquet intégré `0.24.3.2` construit dans
 `dist/` et vérifié sous Edge Chromium avec un profil isolé et un faux Jira.
+En 0.24.4, le projet inclut des configurations IntelliJ partagées pour installer les dépendances,
+construire ou surveiller le paquet Jira intégré et lancer les contrôles complets.
+Typage et lint réussis ; 900 tests réussis, 1 ignoré ; paquet intégré `0.24.4.2` construit dans
+`dist/`. La vérification navigateur isolée n'a pas abouti sur cette machine : Edge ne répond pas
+à `Extensions.loadUnpacked` dans le délai imparti.
 
 Commandes utiles :
 
@@ -499,6 +512,8 @@ Prototype Jira :
 
 ```bash
 npm run build:jira-direct-test
+npm run watch:jira-direct-test
+npm run check:jira-direct-test
 npm run verify:jira-direct-test
 ```
 

@@ -10,4 +10,11 @@ coverage/
 *.log
 .vite/
 
+# IntelliJ IDEA : réglages personnels et sorties de compilation de l'IDE.
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
 artifacts/demo-sprint-goals/

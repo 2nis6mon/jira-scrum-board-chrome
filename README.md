@@ -44,7 +44,7 @@ Daily, présentation, filtres, transitions et rang fonctionnent dans les deux mo
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.24.3 (source) et 0.24.3.2 (paquet d'ouverture directe dans Jira, voir
+> **État : 0.24.4 (source) et 0.24.4.2 (paquet d'ouverture directe dans Jira, voir
 > plus bas).** Point d'entrée pour reprendre le projet : [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
 > santé du sprint (6a), plusieurs boards (6b), audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)), empaquetage (6e) à venir. Board du
@@ -56,19 +56,18 @@ Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend
 > source des objectifs, champs et couleurs des cartes, diagnostic, déconnexion). Repli
 > automatique et expliqué sur le texte du sprint si les Goals ne répondent pas.
 
-## Installer l'extension (mode développeur)
+## Installer l'extension intégrée à Jira (mode développeur)
 
 ```bash
 npm ci
 ```
 
 ```bash
-npm run build
+npm run build:jira-direct-test
 ```
 
 Puis dans Chrome : `chrome://extensions` → activer **Mode développeur** → **Charger l'extension
-non empaquetée** → choisir le dossier `dist/`. Un clic sur l'icône de l'extension ouvre le board
-dans un onglet (ou y revient s'il est déjà ouvert).
+non empaquetée** → choisir le dossier `dist/`. Un clic sur l'icône ouvre le board dans Jira.
 
 Après une reconstruction, cliquer sur la flèche de rechargement de la carte de l'extension.
 
@@ -77,6 +76,22 @@ L'icône est celle de l'app Mac (`public/icons/`, tirée de `ScrumBoard.iconset`
 
 L'identifiant de l'extension est figé (`efhpkdoiimdggndnfcgdoaniobdcmokb`) par le champ `key` du
 manifest : déplacer le dossier ne fait pas perdre les réglages locaux.
+
+### Compiler depuis IntelliJ IDEA
+
+Ouvrir dans IntelliJ le dossier du dépôt, celui qui contient `package.json`. Activer le plugin
+**Node.js**, choisir un interpréteur Node `>= 22.12` dans **Settings → Languages & Frameworks →
+JavaScript Runtime**, puis lancer les configurations partagées du menu **Run** :
+
+- **Installer les dépendances** : `npm ci`, à la première ouverture ou après une mise à jour de
+  `package-lock.json` ;
+- **Compiler Jira intégré** : construit le dossier `dist/` à charger dans Chrome ;
+- **Compiler Jira intégré en continu** : reconstruit `dist/` après chaque changement de source.
+  Arrêter cette configuration avant une compilation ponctuelle ;
+- **Vérifier et compiler Jira intégré** : typage, lint, tests et construction du même paquet.
+
+Ces configurations sont versionnées dans `.run/` et utilisent le Node du projet, sans chemin
+propre à un poste. Après chaque construction, recharger l'extension dans `chrome://extensions`.
 
 ## Ce que l'extension a le droit de faire
 
@@ -89,7 +104,9 @@ manifest : déplacer le dossier ne fait pas perdre les réglages locaux.
 | Politique de sécurité | Scripts de l'extension uniquement ; connexions limitées à `*.atlassian.net` ; aucune image ni style distant |
 | Absents | Scripts injectés dans les pages, permissions `cookies`, `tabs`, `scripting`, `webRequest`, règles `declarativeNetRequest` statiques |
 
-Ces droits sont verrouillés par [`tests/manifest.test.ts`](tests/manifest.test.ts). L'audit de
+Ce tableau décrit le manifest source autonome. Le paquet intégré généré ajoute la permission
+`scripting` et les ressources nécessaires à son affichage dans Jira. Ces droits sont verrouillés
+par [`tests/manifest.test.ts`](tests/manifest.test.ts). L'audit de
 sécurité de l'extension (0.14.1, lot 6d) est dans [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md) :
 inventaire des écritures, fuites possibles, constats et correctifs.
 

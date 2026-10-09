@@ -63,6 +63,8 @@ historiques.
   Construire avec `npm run build:jira-direct-test` dans `dist/`, prêt à charger dans Chrome.
   Ne plus produire ni livrer le paquet autonome sauf demande explicite ; conserver ses sources
   et ses tests. Cette préférence ne change pas les permissions de `public/manifest.json`.
+- IntelliJ IDEA : configurations npm partagées dans `.run/`, réglages locaux `.idea/` ignorés.
+  La compilation et la surveillance à choisir sont celles du paquet Jira intégré.
 
 ## Droits de l'extension
 
