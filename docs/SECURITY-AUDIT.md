@@ -447,6 +447,10 @@ message valide suivi). Le bouton flottant, lui, n'ajoute qu'un paramètre à l'a
 une page pourrait le faire elle-même, et le garde-fou d'hébergement (S9) s'applique ensuite
 inchangé.
 
+**Suivi 0.26.4 — « Retour à Jira ».** Troisième message de la vue vers la page hôte,
+`sprint-goals:close`, sans aucune donnée : la page hôte, après les mêmes contrôles de fenêtre et
+d'origine, recharge sa propre adresse privée de `sprintGoals=1`. Aucune adresse n'est reçue.
+
 **S9 — correctif.** `src/experiment/embeddingGuard.ts` (`embeddingTarget`) et `embeddedBoardTarget`
 (`embedded.ts`), appelés dans `main.tsx` **avant tout rendu et toute lecture** : la page encadrée
 ne démarre que si `location.ancestorOrigins` contient exactement une origine, égale à `jiraHost` et

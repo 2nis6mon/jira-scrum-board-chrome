@@ -240,6 +240,40 @@ try {
       "le changement de board n'a pas changé la page Jira",
     );
     assert(true, "changer de board charge la page Jira de ce board, marquée pour la vue");
+    // « Retour à Jira » : seule la vue peut le demander ; la page revient à son adresse sans marqueur.
+    const second = "https://acme.atlassian.net/jira/software/c/projects/XYZ/boards/8?sprintGoals=1";
+    await evaluate(
+      sessionId,
+      `${injectSource};injectBoard('chrome-extension://${extensionId}/board.html',${JSON.stringify(second)})`,
+    );
+    await sleep(1200);
+    const secondFrame = (await send("Target.getTargets")).targetInfos.find(
+      (target) =>
+        target.type === "iframe" &&
+        target.url.startsWith(`chrome-extension://${extensionId}/board.html`) &&
+        target.url.includes("boards%2F8"),
+    );
+    assert(secondFrame, "la vue est de nouveau encadrée sur la page du second board");
+    const secondChild = await send("Target.attachToTarget", {
+      targetId: secondFrame.targetId,
+      flatten: true,
+    });
+    await evaluate(sessionId, "window.postMessage({type:'sprint-goals:close'},location.origin)");
+    await sleep(500);
+    assert(
+      (await evaluate(sessionId, "location.href")) === second,
+      "une demande de fermeture venue d'ailleurs que la vue est ignorée",
+    );
+    await evaluate(
+      secondChild.sessionId,
+      "window.parent.postMessage({type:'sprint-goals:close'},'https://acme.atlassian.net')",
+    );
+    await waitFor(
+      sessionId,
+      "location.href==='https://acme.atlassian.net/jira/software/c/projects/XYZ/boards/8'&&document.readyState==='complete'&&!document.querySelector('#sprint-goals-direct')",
+      "« Retour à Jira » n'a pas rendu la page du board",
+    );
+    assert(true, "« Retour à Jira » recharge le board Jira sans le marqueur ni la vue");
     // Un autre site Atlassian qui encadre la page du board, en annonçant le vôtre : refusé.
     await send(
       "Page.navigate",

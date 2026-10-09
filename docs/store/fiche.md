@@ -2,7 +2,7 @@
 
 Textes prêts à coller dans le tableau de bord développeur du Chrome Web Store, onglet par onglet.
 Paquet à envoyer : `release/sprint-goals-board-<version>.zip`, produit par `npm run package`
-(paquet intégré dans Jira, version 0.26.3, sans le champ `key`). Le mode autonome est abandonné.
+(paquet intégré dans Jira, version 0.26.4, sans le champ `key`). Le mode autonome est abandonné.
 Ces textes et ce paquet sont préparés pour une publication ; leur mise à jour locale ne publie rien.
 
 ## Onglet « Fiche Play Store » (Store listing)

@@ -394,6 +394,16 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
   const onMessage = (event: MessageEvent) => {
     if (event.source !== frame.contentWindow || event.origin !== url.origin) return;
     const data = event.data;
+    if (data?.type === "sprint-goals:close") {
+      // Retour à Jira : la même adresse sans le marqueur, rechargée (voir bootstrap.ts, 0.26.2).
+      const plain = new URL(location.href);
+      plain.searchParams.delete("sprintGoals");
+      closeTicket();
+      host.setAttribute("data-leaving", "");
+      status.textContent = "Retour à Jira…";
+      location.assign(plain.href);
+      return;
+    }
     if (data?.type === "sprint-goals:open-board") {
       // Jamais d'adresse reçue : la page hôte construit elle-même celle du board, sur son site.
       if (

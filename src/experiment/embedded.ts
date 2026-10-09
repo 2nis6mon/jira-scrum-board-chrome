@@ -31,6 +31,11 @@ const PROJECT_KEY = /^[A-Z][A-Z0-9_]*$/;
 export function installEmbeddedLinks(model: AppModel, origin: string, address: string): void {
   if (window.parent === window) return;
   const hostBoardId = parseBoardUrl(address)?.boardId ?? null;
+  // « Retour à Jira » : la page hôte retire elle-même le marqueur de sa propre adresse.
+  model.hostReturn.value = () => {
+    model.exitPresentation();
+    window.parent.postMessage({ type: "sprint-goals:close" }, origin);
+  };
 
   effect(() => {
     const connection = model.connection.value;

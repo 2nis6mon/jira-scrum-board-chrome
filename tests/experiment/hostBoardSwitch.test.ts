@@ -33,7 +33,7 @@ async function hosted() {
   await model.start(BOARD_URL);
   const connection = model.connection.value;
   if (connection.state !== "connected") throw new Error("connexion attendue");
-  return connection.board;
+  return Object.assign(connection.board, { app: model });
 }
 
 describe("changement de board demandé à la page Jira hôte", () => {
@@ -52,6 +52,15 @@ describe("changement de board demandé à la page Jira hôte", () => {
       SITE,
     );
     expect(board.configuration.value?.boardId).toBe(7);
+    board.dispose();
+  });
+
+  it("« Retour à Jira » demande à l'hôte de fermer la vue, sans adresse, et quitte la présentation", async () => {
+    const board = await hosted();
+    board.app.presenting.value = true;
+    board.app.hostReturn.value?.();
+    expect(postMessage).toHaveBeenCalledExactlyOnceWith({ type: "sprint-goals:close" }, SITE);
+    expect(board.app.presenting.value).toBe(false);
     board.dispose();
   });
 

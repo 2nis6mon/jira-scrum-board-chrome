@@ -56,6 +56,10 @@ export class AppModel {
    */
   readonly presenting = signal(false);
   /**
+   * Dans une page Jira : referme la vue et rend la page du board Jira. `null` hors d'une page hôte.
+   */
+  readonly hostReturn = signal<(() => void) | null>(null);
+  /**
    * Daily en cours : board présenté swimlane par swimlane, minuteur. Le temps de la page seulement,
    * comme la présentation.
    */

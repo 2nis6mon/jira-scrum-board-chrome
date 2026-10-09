@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { render } from "preact";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
 import { DIAGNOSTIC_ENABLED } from "../../src/app/views/settings/AdminView";
@@ -130,6 +130,26 @@ describe("App", () => {
     expect(text()).toContain("Sprint 42");
     // Texte du sprint par défaut : les Goals Atlassian ne sont pas interrogés.
     expect(text()).not.toContain("Goals Atlassian illisibles");
+  });
+
+  it("« Retour à Jira » : seulement dans une page Jira hôte, et pas pendant une écriture", async () => {
+    const { model, board } = await connectedBoard();
+    const back = () =>
+      [...document.querySelectorAll<HTMLButtonElement>(".sidebar-nav button")].find(
+        (item) => item.textContent?.trim() === "Retour à Jira",
+      );
+    expect(back()).toBeUndefined();
+
+    const leave = vi.fn();
+    model.hostReturn.value = leave;
+    await tick();
+    board.pendingKeys.value = new Set(["ABC-101"]);
+    await tick();
+    expect(back()?.disabled).toBe(true);
+    board.pendingKeys.value = new Set();
+    await tick();
+    back()?.click();
+    expect(leave).toHaveBeenCalledOnce();
   });
 
   it("carte : parent en badge coloré sans sa clé, champs en badges, drapeau près de la priorité, sans statut", async () => {
