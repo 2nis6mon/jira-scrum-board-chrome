@@ -35,10 +35,10 @@
 
 <article id="fr" lang="fr">
 <h1>Politique de confidentialité — Sprint Goals Board pour Jira</h1>
-<p class="meta">Dernière mise à jour : 1 octobre 2026 · Éditeur : Denis Simon Consulting · Contact : <a href="mailto:denis.simon.consulting@gmail.com">denis.simon.consulting@gmail.com</a></p>
+<p class="meta">Dernière mise à jour : 9 octobre 2026 · Éditeur : Denis Simon Consulting · Contact : <a href="mailto:denis.simon.consulting@gmail.com">denis.simon.consulting@gmail.com</a></p>
 
 <p>Sprint Goals Board pour Jira (« l'extension ») est une extension Chrome qui affiche les boards
-Scrum et Kanban de Jira Cloud en swimlanes par objectif. Cette page explique quelles données elle utilise,
+Scrum et Kanban de Jira Cloud en swimlanes par objectif, directement dans leur page Jira. Cette page explique quelles données elle utilise,
 où elles vont et comment les effacer.</p>
 
 <h2>En résumé</h2>
@@ -66,6 +66,7 @@ et seulement après votre accord dans la fenêtre d'autorisation de Chrome :</p>
 jamais synchronisé avec votre compte Google :</p>
 <ul>
   <li>l'adresse du site Jira connecté ;</li>
+  <li>la dernière URL de board choisie dans le lanceur, pour la prochaine ouverture ;</li>
   <li>les boards ajoutés et une copie de leurs réglages d'affichage : colonnes, ordre et couleurs des swimlanes, champs des cartes, règles de couleur, durée de la daily, etc. ;</li>
   <li>des préférences d'interface : largeur de la barre latérale, panneau de santé ouvert ou fermé, messages déjà fermés ;</li>
   <li>un journal des écritures faites dans Jira depuis l'extension (500 au plus) : date, site, action, clé du ticket, avant et après, résultat. Il sert à vérifier ce que l'extension a fait ;</li>
@@ -87,10 +88,12 @@ jamais synchronisé avec votre compte Google :</p>
 <ul>
   <li><strong>Accès au site Jira que vous choisissez</strong> (<code>https://votre-site.atlassian.net/*</code>), demandé au moment de la connexion : pour lire et écrire ce qui est décrit ci-dessus. L'extension n'accède à aucun autre site.</li>
   <li><strong>Stockage</strong> : pour garder vos réglages dans votre navigateur.</li>
+  <li><strong>Intégration dans Jira</strong> (<code>scripting</code>) : pour afficher le board Sprint Goals sur le site autorisé, lorsque l'URL du board porte <code>sprintGoals=1</code>, et ouvrir les fiches et formulaires natifs Jira. Sans ce paramètre, Jira garde son affichage habituel. L'extension ne remplit ni ne valide automatiquement les formulaires.</li>
   <li><strong>Règle d'en-tête réseau</strong> (<code>declarativeNetRequestWithHostAccess</code>) : pour que la passerelle des Goals Atlassian de votre site accepte les requêtes de l'extension. La règle ne touche que ces requêtes, émises par l'extension vers votre site.</li>
 </ul>
 
 <h2>Conservation et suppression</h2>
+<p>Au premier lancement, le lanceur demande seulement l'URL du board et l'autorisation du site, puis ouvre Jira. Il ne lit aucun ticket. La vue métier ne fonctionne pas dans un onglet autonome de l'extension : elle exige la page Jira autorisée.</p>
 <ul>
   <li><strong>Se déconnecter</strong> (Administration → Se déconnecter) efface le site, les boards, leurs réglages, les messages fermés et le journal des écritures de ce site, et rend à Chrome l'accès au site. Restent les préférences d'interface, qui ne contiennent aucune donnée Jira.</li>
   <li><strong>Désinstaller l'extension</strong> efface tout ce qu'elle a enregistré dans votre navigateur.</li>
@@ -113,10 +116,10 @@ et aucune personne n'y a accès en dehors de vous.</p>
 
 <article id="en" lang="en">
 <h1>Privacy Policy — Sprint Goals Board pour Jira</h1>
-<p class="meta">Last updated: October 1, 2026 · Publisher: Denis Simon Consulting · Contact: <a href="mailto:denis.simon.consulting@gmail.com">denis.simon.consulting@gmail.com</a></p>
+<p class="meta">Last updated: October 9, 2026 · Publisher: Denis Simon Consulting · Contact: <a href="mailto:denis.simon.consulting@gmail.com">denis.simon.consulting@gmail.com</a></p>
 
 <p>Sprint Goals Board pour Jira (“the extension”) is a Chrome extension that displays Jira Cloud Scrum
-and Kanban boards as swimlanes grouped by Goal. This page explains which data it uses, where it goes and how to delete it.</p>
+and Kanban boards as swimlanes grouped by Goal, directly within their Jira pages. This page explains which data it uses, where it goes and how to delete it.</p>
 
 <h2>Summary</h2>
 <ul>
@@ -141,6 +144,7 @@ and Kanban boards as swimlanes grouped by Goal. This page explains which data it
 <p>In Chrome local storage (<code>chrome.storage.local</code>), on your device only, never synced to your Google account:</p>
 <ul>
   <li>the address of the connected Jira site;</li>
+  <li>the last board URL chosen in the launcher, for the next launch;</li>
   <li>the boards you added and a copy of their display settings: columns, swimlane order and colors, card fields, color rules, daily duration, etc.;</li>
   <li>interface preferences: sidebar width, health panel open or closed, dismissed messages;</li>
   <li>a log of the writes made to Jira from the extension (500 at most): date, site, action, issue key, before and after, outcome. It lets you check what the extension did;</li>
@@ -162,10 +166,12 @@ and Kanban boards as swimlanes grouped by Goal. This page explains which data it
 <ul>
   <li><strong>Access to the Jira site you choose</strong> (<code>https://your-site.atlassian.net/*</code>), requested when you connect: to read and write what is described above. The extension accesses no other site.</li>
   <li><strong>Storage</strong>: to keep your settings in your browser.</li>
+  <li><strong>Jira integration</strong> (<code>scripting</code>): to display the Sprint Goals board on the authorized site when the board URL contains <code>sprintGoals=1</code>, and open native Jira issue views and forms. Without this parameter, Jira keeps its usual interface. The extension does not automatically fill in or submit forms.</li>
   <li><strong>Network header rule</strong> (<code>declarativeNetRequestWithHostAccess</code>): so that your site's Atlassian Goals gateway accepts the extension's requests. The rule only affects those requests, sent by the extension to your site.</li>
 </ul>
 
 <h2>Retention and deletion</h2>
+<p>On first launch, the launcher only asks for the board URL and site permission, then opens Jira. It does not read any issues. The board cannot run in a standalone extension tab: it requires the authorized Jira page.</p>
 <ul>
   <li><strong>Disconnecting</strong> (Administration → Se déconnecter) deletes the site, the boards, their settings, dismissed messages and the write log for that site, and gives the site access back to Chrome. Interface preferences, which contain no Jira data, remain.</li>
   <li><strong>Uninstalling the extension</strong> deletes everything it stored in your browser.</li>

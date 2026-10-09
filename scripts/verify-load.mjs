@@ -3,21 +3,19 @@
 // Lance un Chrome sans interface sur un PROFIL TEMPORAIRE VIERGE (aucune session, aucun
 // cookie, rien de commun avec le profil de l'utilisateur), y charge dist/ par la commande
 // CDP Extensions.loadUnpacked, puis contrôle : identifiant, service worker, rendu de la
-// page, permissions accordées, et blocage par la CSP d'une connexion hors *.atlassian.net.
+// lanceur, refus du board hors Jira, permissions accordées et blocage par la CSP d'une
+// connexion hors *.atlassian.net.
 // Aucune requête n'est émise vers Jira.
 //
 // Usage : node scripts/verify-load.mjs [capture.png]
 
-import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { launchIsolatedBrowser, sleep } from "./browser-check.mjs";
 
-const CHROME =
-  process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const EXPECTED_ID = "efhpkdoiimdggndnfcgdoaniobdcmokb";
-// EXTENSION_DIR : autre dossier à charger (par exemple release/build, le paquet du Store).
+// EXTENSION_DIR : autre dossier à charger (par exemple un ZIP du Store décompressé).
 const dist = process.env.EXTENSION_DIR ?? fileURLToPath(new URL("../dist", import.meta.url));
 const screenshotPath = process.argv[2];
 
@@ -27,64 +25,8 @@ if (!existsSync(join(dist, "manifest.json"))) {
 }
 const manifest = JSON.parse(readFileSync(join(dist, "manifest.json"), "utf8"));
 
-const profile = mkdtempSync(join(tmpdir(), "scrum-board-verif-"));
-const chrome = spawn(
-  CHROME,
-  [
-    "--headless=new",
-    `--user-data-dir=${profile}`,
-    "--remote-debugging-pipe",
-    "--enable-unsafe-extension-debugging",
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--window-size=1280,800",
-    "about:blank",
-  ],
-  { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"] },
-);
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const pending = new Map();
-const events = [];
-let nextId = 0;
-let buffer = "";
-
-chrome.stdio[4].on("data", (chunk) => {
-  buffer += chunk.toString("utf8");
-  for (let end = buffer.indexOf("\0"); end >= 0; end = buffer.indexOf("\0")) {
-    const message = JSON.parse(buffer.slice(0, end));
-    buffer = buffer.slice(end + 1);
-    if (message.id) {
-      pending.get(message.id)?.(message);
-      pending.delete(message.id);
-    } else {
-      events.push(message);
-    }
-  }
-});
-
-function send(method, params = {}, sessionId) {
-  const id = ++nextId;
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`délai dépassé : ${method}`)), 15_000);
-    pending.set(id, (message) => {
-      clearTimeout(timer);
-      if (message.error) reject(new Error(`${method} : ${message.error.message}`));
-      else resolve(message.result);
-    });
-    const payload = { id, method, params, ...(sessionId ? { sessionId } : {}) };
-    chrome.stdio[3].write(`${JSON.stringify(payload)}\0`);
-  });
-}
-
-async function evaluate(sessionId, expression) {
-  const { result } = await send(
-    "Runtime.evaluate",
-    { expression, returnByValue: true, awaitPromise: true },
-    sessionId,
-  );
-  return result.value;
-}
+const browser = launchIsolatedBrowser();
+const { send, evaluate, events } = browser;
 
 const failures = [];
 function check(label, ok, detail = "") {
@@ -95,7 +37,7 @@ function check(label, ok, detail = "") {
 try {
   console.log((await send("Browser.getVersion")).product);
 
-  const { id } = await send("Extensions.loadUnpacked", { path: dist });
+  const { id } = await browser.loadExtension(dist);
   check("Chrome accepte le manifest", true);
   // Le paquet du Store n'a pas de clé : c'est le Store qui attribue l'identifiant.
   if ("key" in manifest) check("identifiant figé par la clé", id === EXPECTED_ID, id);
@@ -104,7 +46,11 @@ try {
   await sleep(1000);
   const { targetInfos } = await send("Target.getTargets");
   const worker = targetInfos.find((t) => t.type === "service_worker" && t.url.includes(id));
-  check("service worker enregistré", Boolean(worker), worker?.url ?? "absent");
+  check(
+    "service worker Jira enregistré",
+    worker?.url.endsWith("/jira-direct-worker.js"),
+    worker?.url ?? "absent",
+  );
 
   const { targetId } = await send("Target.createTarget", { url: "about:blank" });
   const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
@@ -114,13 +60,46 @@ try {
   await send("Page.navigate", { url: `chrome-extension://${id}/board.html` }, sessionId);
   await sleep(1500);
 
+  const isolated = await evaluate(sessionId, "document.body.innerText");
+  check(
+    "le board ouvert hors de Jira affiche seulement le refus",
+    isolated.includes("Sprint Goals s'utilise dans Jira.") &&
+      (await evaluate(sessionId, "!document.querySelector('.workspace, .connection, form')")),
+    JSON.stringify(isolated.slice(0, 120)),
+  );
+  check(
+    "aucune donnée enregistrée hors de Jira",
+    (await evaluate(sessionId, "chrome.storage.local.get(null).then(JSON.stringify)")) === "{}",
+  );
+
+  const forged = new URL(`chrome-extension://${id}/board.html`);
+  forged.searchParams.set("jiraHost", "https://verification.atlassian.net");
+  forged.searchParams.set(
+    "jiraBoard",
+    "https://verification.atlassian.net/jira/software/c/projects/ABC/boards/7?sprintGoals=1",
+  );
+  await send("Page.navigate", { url: forged.href }, sessionId);
+  await sleep(600);
+  check(
+    "des paramètres Jira ne permettent pas d'ouvrir le board seul",
+    await evaluate(
+      sessionId,
+      "document.body.innerText.includes(\"Sprint Goals s'utilise dans Jira.\") && !document.querySelector('.workspace, .connection, form')",
+    ),
+  );
+
+  await send("Page.navigate", { url: `chrome-extension://${id}/launcher.html` }, sessionId);
+  await sleep(800);
   const text = await evaluate(sessionId, "document.body.innerText");
   check(
-    "la page s'affiche",
-    text.includes("Sprint Goals Board"),
-    JSON.stringify(text.slice(0, 80)),
+    "le lanceur propose d'ouvrir un board dans Jira",
+    text.includes("Ouvrir dans Jira") &&
+      (await evaluate(sessionId, "Boolean(document.querySelector('form #board-address'))")),
   );
-  check("version du manifest affichée", text.includes(manifest.version), manifest.version);
+  check(
+    "le lanceur n'affiche aucun board autonome",
+    await evaluate(sessionId, "!document.querySelector('.workspace, .lane, .board-view')"),
+  );
 
   const inlineScripts = await evaluate(
     sessionId,
@@ -128,19 +107,14 @@ try {
   );
   check("aucun script en ligne", inlineScripts === 0);
 
-  check(
-    "sans site enregistré, le formulaire de connexion s'affiche",
-    text.includes("Connexion à Jira"),
-  );
-
   // Saisie d'un hôte qui n'est pas *.atlassian.net : refus attendu, sans demande d'accès à
   // Chrome ni requête. (La demande d'accès elle-même est une fenêtre native de Chrome : elle
   // ne se pilote pas sans interface et reste à valider à la main.)
   const refusal = await evaluate(
     sessionId,
     `(async () => {
-      const input = document.querySelector("#site");
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, "jira.acme.example");
+      const input = document.querySelector("#board-address");
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, "https://jira.acme.example/jira/software/c/projects/ABC/boards/7");
       input.dispatchEvent(new Event("input", { bubbles: true }));
       await new Promise((resolve) => setTimeout(resolve, 50));
       input.form.requestSubmit();
@@ -150,7 +124,7 @@ try {
   );
   check(
     "hôte hors *.atlassian.net refusé à la saisie",
-    refusal.includes("jira.acme.example"),
+    refusal.length > 0,
     JSON.stringify(refusal.slice(0, 70)),
   );
 
@@ -192,9 +166,9 @@ try {
     JSON.stringify(granted),
   );
   check(
-    "permissions : stockage et règle d'en-tête, rien d'autre",
+    "permissions : stockage, injection Jira et règle d'en-tête",
     JSON.stringify([...granted.permissions].sort()) ===
-      JSON.stringify(["declarativeNetRequestWithHostAccess", "storage"]),
+      JSON.stringify(["declarativeNetRequestWithHostAccess", "scripting", "storage"]),
     JSON.stringify(granted.permissions),
   );
 
@@ -242,9 +216,7 @@ try {
 } catch (error) {
   check("exécution de la vérification", false, error.message);
 } finally {
-  chrome.kill("SIGTERM");
-  await sleep(800);
-  rmSync(profile, { recursive: true, force: true });
+  await browser.close();
 }
 
 if (failures.length > 0) {

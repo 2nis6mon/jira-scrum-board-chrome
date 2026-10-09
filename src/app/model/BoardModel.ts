@@ -197,7 +197,7 @@ export interface BoardModelOptions {
 
 /** Board du site connecté : configuration locale, photographie Jira, filtres. Lecture seule. */
 export class BoardModel {
-  /** Adaptateur facultatif de la vue hébergée dans Jira ; absent dans l'application autonome. */
+  /** Adaptateur de la page Jira hôte ; les tests peuvent exercer le formulaire interne sans lui. */
   nativeTransitionHandler: ((key: string, transition: JiraTransition) => boolean) | null = null;
   readonly nativeTransitionPending = signal(false);
   readonly site: JiraSite;

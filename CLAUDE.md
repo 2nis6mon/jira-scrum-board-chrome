@@ -9,7 +9,7 @@ historiques.
 
 ## Références
 
-- **Point d'entrée pour reprendre le projet : `DEVELOPER.md`** (état réel, deux paquets, décisions,
+- **Point d'entrée pour reprendre le projet : `DEVELOPER.md`** (état réel, paquet intégré, décisions,
   invariants, procédures, problèmes connus). Tenu à jour avec ce fichier.
 - Spécification fonctionnelle commune aux deux projets : `docs/reference-app-mac/PROMPT.md`.
 - API Atlassian vérifiées, audit de sécurité et README du Mac : même dossier. Ce sont des copies
@@ -41,7 +41,7 @@ historiques.
    local, largeur de la barre, panneau Santé) ne sont jamais écrits dans Jira.
 4. **Une seule tentative pour tout POST/PUT/DELETE.** Jamais de retry sur une écriture ; si
    l'issue est incertaine, on relit Jira.
-5. Pas de fiche ticket native : on ouvre la page Jira dans un onglet.
+5. Pas de fiche ticket reproduite par l'extension : ouvrir la fiche native Jira dans la popin.
 6. Aucune écriture sans geste explicite de l'utilisateur. Rien n'est affiché comme réussi avant
    la confirmation de Jira.
 7. **Aucune donnée fictive dans le code de production** (`src/`, `public/`, `board.html`).
@@ -59,10 +59,12 @@ historiques.
   trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - Pousser chaque commit sur sa branche, toujours (consigne de Denis du 24/09/2026). Fusionner
   dans `main` seulement sur demande explicite.
-- **Livraison depuis le 01/10/2026 (demande de Denis) : uniquement le paquet intégré dans Jira.**
-  Construire avec `npm run build:jira-direct-test` dans `dist/`, prêt à charger dans Chrome.
-  Ne plus produire ni livrer le paquet autonome sauf demande explicite ; conserver ses sources
-  et ses tests. Cette préférence ne change pas les permissions de `public/manifest.json`.
+- **Mode unique depuis le 09/10/2026 (demande de Denis) : intégré dans Jira, version 0.25.0.**
+  Construire avec `npm run build` dans `dist/`, prêt à charger dans Chrome. `watch`, `check` et
+  `package` ciblent aussi ce mode ; les alias `:jira-direct-test` restent compatibles.
+  Supprimer le fonctionnement autonome : toute vue métier exige une page Jira hôte autorisée.
+  Le lanceur peut demander une URL de board et l'autorisation Chrome, puis ouvrir Jira ; il ne
+  charge aucun ticket et ne comporte pas d'administration.
 - IntelliJ IDEA : configurations npm partagées dans `.run/`, réglages locaux `.idea/` ignorés.
   La compilation et la surveillance à choisir sont celles du paquet Jira intégré.
 
@@ -70,8 +72,9 @@ historiques.
 
 Le manifest (`public/manifest.json`) est gardé par `tests/manifest.test.ts`. Toute permission
 supplémentaire, tout hôte supplémentaire, tout assouplissement de la CSP doit être **proposé à
-Denis avant d'être codé**. État actuel : `storage` et `declarativeNetRequestWithHostAccess`
-(validée par Denis le 18/09/2026) à l'installation ; accès à un site `https://*.atlassian.net`
+Denis avant d'être codé**. La décision du 09/10/2026 autorise la promotion du manifest intégré
+déjà utilisé : `storage`, `declarativeNetRequestWithHostAccess` et `scripting` à l'installation ;
+accès à un site `https://*.atlassian.net`
 demandé à l'exécution ; CSP `connect-src https://*.atlassian.net`.
 
 `declarativeNetRequestWithHostAccess` ne sert qu'à UNE règle de session
@@ -81,15 +84,14 @@ pour les seuls POST émis par l'extension (`initiatorDomains: [id]`) vers l'adre
 requêtes des pages web vers la passerelle et affaiblirait sa protection : ne jamais l'élargir. Un
 garde-fou (`tests/guards/sources.test.ts`) confine `declarativeNetRequest` à `platform/chrome.ts`.
 
-Le **prototype d'ouverture directe dans Jira** (paquet d'essai distinct, `npm run
-build:jira-direct-test`) a un manifest GÉNÉRÉ par `vite.config.ts` à partir de celui-ci : clé
-conservée (même identifiant et stockage), version `x.y.z.2`, permission `scripting`, page du
-board exposée aux sites `*.atlassian.net` (`web_accessible_resources`) et `frame-ancestors
-https://*.atlassian.net`. Ces droits ne doivent **jamais** passer dans `public/manifest.json` sans
-décision explicite de Denis et mise à jour de l'audit. Comme n'importe quel site Atlassian peut
-donc encadrer la page, `src/experiment/embeddingGuard.ts` n'autorise l'affichage (et toute lecture)
-que dans la page Jira de premier niveau du site annoncé, pour un board de ce site autorisé dans
-Chrome.
+Le manifest source `public/manifest.json` décrit désormais ce seul paquet : clé conservée
+(même identifiant et stockage), version unique sans suffixe `.2`, `web_accessible_resources`
+limité à `board.html`, `assets/*` et `icons/*` sur `https://*.atlassian.net/*`, et
+`frame-ancestors https://*.atlassian.net`. Aucun hôte supplémentaire n'est autorisé.
+Comme n'importe quel site Atlassian peut encadrer la page, `src/experiment/embeddingGuard.ts`
+n'autorise l'affichage métier et toute lecture que dans la page Jira de premier niveau du site
+annoncé, pour un board de ce site autorisé dans Chrome. Ouverture directe, cadre imbriqué et
+autre site hôte sont refusés. Conserver ces contrôles avant toute création du modèle métier.
 
 `.secrets/extension-key.pem` est la clé privée qui correspond au champ `key` du manifest (elle
 fige l'identifiant de l'extension). Elle est ignorée par git : ne jamais la committer.
@@ -97,7 +99,8 @@ fige l'identifiant de l'extension). Elle est ignorée par git : ne jamais la com
 ## Architecture
 
 ```
-board.html            page plein onglet de l'extension
+board.html            vue intégrée, uniquement dans la page Jira autorisée
+launcher.html         lanceur minimal vers l'URL du board Jira
 src/app/              interface Preact
 src/app/platform/     seul endroit qui touche chrome.* (permissions, stockage)
 src/app/model/        état de l'interface (signals), plateforme injectée : AppModel (connexion,
@@ -106,8 +109,7 @@ src/app/model/        état de l'interface (signals), plateforme injectée : App
 src/app/views/        vues Preact ; Sidebar = barre latérale ; views/board/ = en-tête, filtres,
                       swimlanes, cartes ; views/health/ = panneau Santé du sprint ;
                       views/settings/ = Administration (réglages, diagnostic, déconnexion)
-src/background/       service worker (ouvre la page, rien d'autre)
-src/experiment/       prototype d'ouverture directe dans Jira (paquet d'essai seulement) : route
+src/experiment/       intégration Jira (nom historique du dossier) : route
                       `?sprintGoals=1`, service worker, script de contenu, injection de l'iframe,
                       popin de la fiche et du formulaire Jira natifs, garde-fou d'hébergement
 src/jira/             site, erreurs, transport HTTP, inventaire des écritures, diagnostic,
@@ -181,13 +183,13 @@ npm run watch         # reconstruit dist/ à chaque modification
 npm run harness       # banc d'essai visuel, données fictives, http://localhost:5199/?scenario=board
 npm run verify:drag         # vrais gestes de glisser-déposer dans Chrome (faux Jira)
 npm run verify:transition   # formulaire de transition dans Chrome (faux Jira)
-npm run verify:jira-direct-test  # construit le prototype dans dist/ puis le vérifie dans Chrome
-npm run package       # zip du Chrome Web Store (paquet autonome, sans key) dans release/
+npm run verify:jira   # construit le paquet intégré dans dist/ puis le vérifie dans Chrome
+npm run package       # zip du Chrome Web Store (paquet intégré, sans key) dans release/
 npm run store:screenshots   # captures 1280 × 800 du Store, banc d'essai, docs/store/captures/
 ```
 
-Prototype sans toucher au paquet d'essai de Denis : `npx vite build --mode jira-direct-test
---outDir <dossier>` puis `JIRA_DIRECT_DIST=<dossier> node scripts/verify-jira-direct-test.mjs`.
+Vérifier sans toucher au paquet de Denis : `npx vite build --outDir <dossier>` puis
+`JIRA_DIRECT_DIST=<dossier> node scripts/verify-jira-direct-test.mjs`.
 
 Git (depuis le 20/09/2026) : travail sur des branches `codex/...` ; chaque commit est poussé
 (24/09/2026), la fusion dans `main` se fait sur demande. `codex/tickets-du-board` (0.19.21) puis
@@ -198,16 +200,21 @@ Store : `npm run package`, `store:screenshots`, `docs/store/`, `docs/privacy/`),
 `codex/retours-sandbox` (0.22.7) a été fusionnée le 25/09/2026, puis elle et `codex/store-maj`
 supprimées ; `codex/swimlanes-par-type` (0.23.0) part de là. La branche du prototype `codex/test-ouverture-jira-directe` a été fusionnée dans `main` à
 la demande de Denis le 23/09/2026 (avance rapide, 27 commits), puis supprimée avec les autres
-branches `codex/...` : `main` est désormais la seule branche du dépôt. Le prototype vit donc dans
-`main`,
-mais reste un paquet d'essai : ses droits supplémentaires n'existent que dans le manifest GÉNÉRÉ
-par `build:jira-direct-test`, jamais dans `public/manifest.json`, et l'intégration directe dans
-Jira n'est toujours PAS validée sur l'instance de Denis.
+branches `codex/...`. Cet historique précédait la décision du 09/10/2026 : l'intégration Jira
+est désormais le mode unique et son manifest est le manifest source. Une validation locale
+avec faux Jira ne vaut jamais validation sur l'instance de Denis.
 
 Dépendances en versions exactes (`.npmrc` : `save-exact`, `ignore-scripts`). Toute nouvelle
 dépendance d'exécution se justifie : il y en a deux aujourd'hui (`preact`, `@preact/signals`).
 
 ## Étapes
+
+Les entrées datées ci-dessous conservent l'historique du projet, notamment les anciens paquets
+autonomes et versions `.2` ; elles ne remplacent pas les procédures actuelles ci-dessus.
+
+0.25.0 (décision de Denis du 09/10/2026) : abandon du mode autonome. Toutes les constructions
+ciblent l'intégration Jira ; le lanceur ouvre une URL Jira autorisée, sans charger de vue métier.
+Le manifest intégré devient la source, l'identifiant et les données locales sont conservés.
 
 Constats sur l'instance de Denis (18/09/2026) : la session du navigateur est reconnue ; les POST
 de lecture REST et les écritures REST (PUT/DELETE de propriété de sprint) passent SANS en-tête
@@ -759,8 +766,7 @@ signalé après Actualiser, y compris quand l'introspection est en cache. Paquet
 dans Jira, 0.24.1.2, dossier `dist/`.
 
 Ne pas reconstruire `dist/` pendant que Denis teste l'extension : construire ailleurs avec
-`npx vite build [--mode jira-direct-test] --outDir <scratchpad>` (le manifest d'essai suit
-`--outDir`).
+`npx vite build --outDir <scratchpad>`.
 
 Plan validé le 18/09/2026 : 0 socle · 1 connexion et diagnostic (essai XSRF par Denis) ·
 2 logique métier · 3 board en lecture seule · 4 les quatre écritures · 5 réglages locaux ·

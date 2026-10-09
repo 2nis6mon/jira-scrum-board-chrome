@@ -32,6 +32,7 @@ export function ConnectionView({ model, lastInput }: Props) {
           spellcheck={false}
           placeholder="votre-societe.atlassian.net"
           value={input}
+          readOnly={model.hostSite !== null}
           onInput={(event) => setInput(event.currentTarget.value)}
         />
         <ErrorMessage message={model.connectionError.value} />

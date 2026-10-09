@@ -85,10 +85,10 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
 
   /**
    * Trace locale, dans la console de l'onglet : c'est le seul moyen de savoir où l'ouverture
-   * s'arrête sur un Jira auquel le développeur n'a pas accès. Paquet d'essai seulement.
+   * s'arrête sur un Jira auquel le développeur n'a pas accès.
    */
   const trace = (step: string, detail: unknown = "") =>
-    // biome-ignore lint/suspicious/noConsole: journal de diagnostic du prototype, voir ci-dessus.
+    // biome-ignore lint/suspicious/noConsole: journal de diagnostic de l'intégration Jira.
     console.info("Sprint Goals —", step, detail);
 
   /**

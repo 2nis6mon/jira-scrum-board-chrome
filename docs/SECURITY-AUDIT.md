@@ -1,4 +1,15 @@
-# Audit de sécurité — Sprint Goals Board pour Jira 0.14.0 (extension Chrome)
+# Audit de sécurité — Sprint Goals Board pour Jira
+
+> **Suivi (0.25.0, 09/10/2026)** — À la demande de Denis, l'intégration Jira devient le mode
+> unique. Le manifest source reprend les droits du mode intégré déjà utilisé : `scripting`,
+> ressources exposées limitées à `board.html`, `assets/*` et `icons/*`, et encadrement limité à
+> `https://*.atlassian.net`. Aucun nouvel hôte ni catégorie d'écriture. Le lanceur demande une URL
+> de board et l'autorisation Chrome du site, puis ouvre la page Jira ; il ne lit aucun ticket.
+> Toute vue métier est bloquée hors de la page Jira de premier niveau autorisée, y compris une
+> ouverture directe de `board.html`, un cadre imbriqué ou un autre site Atlassian. Les sections
+> 2.1, 2.2 et le suivi S9 ci-dessous décrivent cette surface actuelle. Les résultats datés de
+> l'audit initial et des versions précédentes restent historiques ; aucun essai sur le vrai Jira
+> de l'utilisateur n'est revendiqué pour cette évolution.
 
 > **Suivi (0.24.0, 01/10/2026)** — Support Kanban : E6 contient aussi `boardPinnedGoalIds`,
 > les identifiants des Goals épinglés au board, visibles par les personnes pouvant lire le board.
@@ -16,11 +27,11 @@
 > `tests/guards/sources.test.ts`). Les autres constats sont des informations : risques
 > structurels ou choix assumés, détaillés plus bas. Correctifs en fin de document.
 
-Date : 19 septembre 2026 · Périmètre : commit `c785ea0` (0.14.0), extension construite par
+Audit initial : 19 septembre 2026 · Périmètre : commit `c785ea0` (0.14.0), extension construite par
 `vite build`. Lot 6d de l'étape 6, sur le modèle de l'audit de l'app Mac
 ([`reference-app-mac/SECURITY-AUDIT-app-mac.md`](reference-app-mac/SECURITY-AUDIT-app-mac.md)).
 
-## Méthode et limites
+## Méthode et limites de l'audit initial
 
 - **Revue statique exhaustive** de `src/` : tous les points de sortie réseau, toutes les méthodes
   HTTP autres que GET, toutes les mutations GraphQL, le stockage, le rendu des données reçues de
@@ -54,7 +65,7 @@ est réalisé par l'auteur du code : il ne remplace pas une revue indépendante.
 | S7 | L'extension est chargée « non empaquetée ». Sa clé privée (`.secrets/extension-key.pem`) est un fichier local. | Information | Lot 6e |
 | S8 | La règle `Origin` fait passer les requêtes de l'extension pour des requêtes du site auprès de la passerelle GraphQL. | Information | Validée, bornée |
 
-Aucune vulnérabilité critique, élevée ou moyenne identifiée. Aucun secret dans le code ni dans
+Au périmètre de l'audit initial, aucune vulnérabilité critique, élevée ou moyenne identifiée. Aucun secret dans le code ni dans
 l'historique Git. Aucune donnée réelle de votre organisation dans le dépôt : les seuls hôtes
 présents sont fictifs (`acme`, `autre`, `societe`, `site`, `votre-societe`, `b`, `verification`).
 
@@ -155,25 +166,31 @@ cinq catégories d'écriture. C'est l'équivalent du constat C7 du Mac. Ce qui p
 - l'inventaire typé des écritures et les garde-fous des tests ;
 - la CSP stricte des pages de l'extension (`script-src 'self'`, pas de script en ligne, pas
   d'`eval`), qui empêche l'exécution de code injecté ;
-- l'absence de toute porte d'entrée : pas de script de contenu, pas de ressource accessible aux
-  sites (`web_accessible_resources`), pas de `externally_connectable`, aucun écouteur de messages.
+- le garde-fou d'hébergement du board avant toute lecture, les scripts de contenu limités au site
+  autorisé et les messages vérifiés par origine et fenêtre source ; aucun `externally_connectable`.
 
 Une faille d'injection dans la page de l'extension serait grave pour cette raison. Aucune n'a été
 trouvée (voir 2.3).
 
 ### 2.2 Permissions et surface d'exposition
 
-- À l'installation : `storage` et `declarativeNetRequestWithHostAccess` (validée le 18/09/2026).
+- À l'installation : `storage`, `declarativeNetRequestWithHostAccess` et `scripting`.
   Aucune permission d'hôte : l'accès à **un** site `https://<site>.atlassian.net/*` est demandé à
   la connexion, et rendu à la déconnexion.
 - CSP des pages de l'extension :
-  `default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self'; img-src 'self' blob: data:; connect-src https://*.atlassian.net; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`.
-  - Aucune page web ne peut encadrer l'extension (`frame-ancestors 'none'`, aucune ressource
-    exposée).
+  `default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self'; img-src 'self' blob: data:; connect-src https://*.atlassian.net; base-uri 'none'; form-action 'none'; frame-ancestors https://*.atlassian.net`.
+  - Seuls `board.html`, `assets/*` et `icons/*` sont exposés à `https://*.atlassian.net/*`.
+    Le lanceur n'est pas une ressource exposée. Le board ne démarre que directement dans la page
+    de premier niveau du site Jira annoncé, autorisé dans Chrome, pour un board de ce site.
+    L'ouverture directe et les cadres imbriqués sont refusés avant toute lecture Jira.
   - Aucun formulaire n'est envoyé.
   - Aucune ressource externe n'est chargée.
-- Service worker : il ouvre la page du board, ou y revient. Aucune requête réseau, aucun état,
-  aucun écouteur de messages.
+- Le clic sur l'icône ouvre le lanceur : il rejoint automatiquement le board courant si son site
+  est déjà autorisé. Sinon, un formulaire préremplit le board mémorisé et permet de choisir une
+  URL, puis de demander l'autorisation sur un clic. Le service worker enregistre les
+  scripts de contenu sur le site autorisé. Sur une URL de board marquée
+  `sprintGoals=1`, l'intégration injecte la vue et ouvre les fiches/formulaires natifs Jira.
+  Les échanges avec la vue embarquée contrôlent l'origine et la fenêtre source.
 
 **S5 (information).** `connect-src` autorise tous les sous-domaines d'`atlassian.net`. Une CSP
 de manifest ne peut pas dépendre du site choisi à l'exécution. En pratique :
@@ -190,7 +207,7 @@ limité au site connecté.
 | Texte | Preact échappe tout texte et tout attribut. Pas de `innerHTML` ni de `dangerouslySetInnerHTML` (garde-fou). ✅ |
 | Styles | Seules des valeurs numériques calculées sont posées par script (teinte du parent, largeur de la barre, nombre de colonnes). Les couleurs de règle passent par un attribut `data-card-color` et une feuille de style fixe. ✅ |
 | Images | Icônes de type et de priorité téléchargées par le transport, **même site seulement**, `image/*`, 256 Ko au plus, affichées en `blob:`. Aucun avatar externe n'est chargé. ✅ |
-| Liens vers Jira | `https://<site>/browse/<clé encodée>`, ou l'adresse du board sur le site. Tous ouvrent un nouvel onglet avec `rel="noopener noreferrer"` (garde-fou depuis 0.14.1). ✅ |
+| Liens vers Jira | `https://<site>/browse/<clé encodée>`, ou l'adresse du board sur le site. Les cartes ouvrent la fiche native dans la page Jira ; les liens ouvrant un nouvel onglet gardent `rel="noopener noreferrer"`. |
 | Lien d'un Goal | **S1**, ci-dessous. |
 | Documents JSON | Propriété du sprint et réglages d'équipe : décodés champ par champ, version exigée. Une valeur inattendue est ignorée ou signalée, jamais exécutée. ✅ |
 
@@ -210,6 +227,7 @@ instance** : si « Ouvrir le Goal » disparaît, l'API renvoie une adresse hors 
 | Clé de `chrome.storage.local` | Contenu | Risque |
 |---|---|---|
 | `connection.v1` | Adresse du site | Aucun secret |
+| `launcher.v1` | Dernière URL du board choisie dans le lanceur | Identifie un site et un board ; aucune donnée de ticket |
 | `boards.v1` | Par site : boards, leurs réglages, base des réglages d'équipe | Noms de colonnes, d'objectifs et de labels ; pas de secret |
 | `audit.v1` | 500 dernières écritures : date, site, action, clé du ticket, statuts, résultat, détail d'erreur | Aucun nom de personne, aucun secret |
 | `graphqlOrigin.v1` | Variante de l'en-tête `Origin` acceptée, par site | — |
@@ -380,27 +398,25 @@ Sources : [contrat de transition et opérations de champs](https://developer.atl
 [exemple officiel de `update.worklog` dans Issue Update](https://docs.atlassian.com/software/jira/docs/api/REST/1000.1497.0/).
 Tests unitaires, modèle et banc Chrome fictif ; validation Jira réel encore à effectuer.
 
-## Prototype d'ouverture directe dans Jira (0.19.8.2, durci en 0.19.9.2)
+## Intégration Jira — mode unique depuis 0.25.0
 
-Paquet d'essai distinct, non distribué (fusionné dans `main` le 23/09/2026, toujours construit à
-part par `build:jira-direct-test`). Son
-manifest est généré à partir de celui du paquet autonome (`vite.config.ts`), qui reste inchangé.
-Il ajoute :
+L'intégration a été introduite en 0.19.8.2 et durcie en 0.19.9.2. Depuis la décision du
+09/10/2026, elle remplace le mode autonome. Son manifest est le manifest source et comprend :
 - la permission `scripting` : un script de contenu sur le seul site autorisé, qui ne fait rien
   hors d'une adresse de board suivie de `?sprintGoals=1`, et l'injection de l'overlay ;
 - `web_accessible_resources` : la page du board et ses ressources, exposées aux pages
   `https://*.atlassian.net/*` ;
-- `frame-ancestors https://*.atlassian.net` au lieu de `'none'` pour les pages de l'extension ;
+- `frame-ancestors https://*.atlassian.net` pour les pages de l'extension ;
 - des messages `postMessage` entre la page Jira hôte et la page du board encadrée, origine et
   fenêtre vérifiées, clés de ticket et identifiants de transition validés.
 
-Le paquet autonome n'est pas concerné : les constats 2.2 (« aucune page web ne peut encadrer
-l'extension », aucun script de contenu, aucune ressource exposée) restent vrais pour lui seul.
+L'ancienne absence de scripts de contenu et de ressources exposées concernait le mode autonome
+historique. La section 2.2 décrit désormais la surface du paquet intégré.
 
 | # | Constat | Gravité | État |
 |---|---|---|---|
 | S9 | La page du board, exposée à tout `*.atlassian.net` et encadrable par lui, pouvait être affichée par un autre site Atlassian (n'importe qui peut en créer un), chargée avec la session de l'utilisateur : glisser-déposer provoqué à son insu (écritures dans son Jira), et clé du ticket cliqué envoyée à la page hôte sans vérifier le site. | Moyenne | **Corrigé en 0.19.9.2** |
-| S10 | Le clic automatique dans le menu de statut de Jira reconnaissait la transition par un libellé qui commence ou finit par son nom. Un élément voisin sans écran (« Démarrer la revue » pour « Revue ») pouvait être cliqué, et Jira l'exécutait aussitôt : une transition non voulue, hors de l'inventaire `writes.ts`. | Moyenne | **Corrigé en 0.19.9.2 ; sans objet depuis 0.19.11.2 (plus aucun clic)** |
+| S10 | Le clic automatique dans le menu de statut de Jira reconnaissait la transition par un libellé qui commence ou finit par son nom. Un élément voisin sans écran (« Démarrer la revue » pour « Revue ») pouvait être cliqué, et Jira l'exécutait aussitôt : une transition non voulue, hors de l'inventaire `writes.ts`. | Moyenne | **Correspondance stricte depuis 0.19.9.2, règle actuelle détaillée en 0.19.13.2 ci-dessous** |
 | S11 | La reconnaissance de la fiche, du menu de statut et du formulaire dépend du DOM de Jira Cloud (rôles ARIA, libellés français et anglais). Une refonte d'Atlassian peut la mettre en défaut. | Information | Structurel, voir `DEVELOPER.md` §9 |
 
 **S9 — correctif.** `src/experiment/embeddingGuard.ts` (`embeddingTarget`) et `embeddedBoardTarget`
@@ -409,8 +425,9 @@ ne démarre que si `location.ancestorOrigins` contient exactement une origine, �
 au site normalisé, si `jiraBoard` est une adresse de board de ce site marquée `sprintGoals=1`, et si
 ce site est autorisé dans Chrome. Sinon, elle affiche seulement « Sprint Goals ne s'affiche que dans
 la page Jira de votre site connecté. » La clé d'un ticket cliqué n'est envoyée que si le site
-connecté est celui de la page hôte. Tests : `tests/experiment/embedding.test.ts` ; Chrome :
-`verify:jira-direct-test` (refus sans autorisation, refus dans la page d'un autre site Atlassian).
+connecté est celui de la page hôte. Depuis 0.25.0, aucun démarrage autonome ne contourne ce garde-fou.
+Tests : `tests/experiment/embedding.test.ts` ; contrôle Chrome : `verify:jira` (alias historique
+`verify:jira-direct-test`). Les résultats des exécutions sont consignés dans `DEVELOPER.md`.
 Piste complémentaire non retenue faute d'essai : `use_dynamic_url` sur la ressource exposée
 (l'adresse dynamique pourrait changer l'initiateur vu par la règle `Origin`).
 

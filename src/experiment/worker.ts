@@ -1,6 +1,5 @@
 import { sprintGoalsBoardRoute } from "./boardRoute";
 import { injectBoard } from "./injectBoard";
-import { configuredBoardAddress } from "./launchAddress";
 
 const CONTENT_SCRIPT_ID = "sprint-goals-direct-sites";
 
@@ -16,6 +15,18 @@ async function launch(tabId: number, address: string): Promise<void> {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
+  // Le lanceur attend l'enregistrement avant d'ouvrir Jira : le premier chargement doit déjà
+  // recevoir le script de contenu, y compris juste après l'autorisation du nouveau site.
+  if (
+    message?.type === "sprint-goals:prepare-launch" &&
+    sender.id === chrome.runtime.id &&
+    sender.url === chrome.runtime.getURL("launcher.html")
+  ) {
+    void registerSites()
+      .then(() => respond({ ok: true }))
+      .catch(() => respond({ error: true }));
+    return true;
+  }
   if (message?.type !== "sprint-goals:launch") return false;
   if (
     sender.id !== chrome.runtime.id ||
@@ -31,7 +42,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
 });
 
 let registration = Promise.resolve();
-function registerSites(): void {
+function registerSites(): Promise<void> {
   registration = registration
     .catch(() => {})
     .then(async () => {
@@ -59,30 +70,11 @@ function registerSites(): void {
       else await chrome.scripting.registerContentScripts([script]);
     });
   void registration.catch(() => {});
+  return registration;
 }
 
 chrome.permissions.onAdded.addListener(registerSites);
 chrome.permissions.onRemoved.addListener(registerSites);
 chrome.runtime.onInstalled.addListener(registerSites);
 chrome.runtime.onStartup.addListener(registerSites);
-registerSites();
-
-chrome.action.onClicked.addListener((tab) => {
-  void (async () => {
-    const stored = await chrome.storage.local.get(["connection.v1", "boards.v1"]);
-    const address = configuredBoardAddress(stored["connection.v1"], stored["boards.v1"]);
-    if (!address) {
-      await chrome.tabs.create({ url: chrome.runtime.getURL("board.html") });
-      return;
-    }
-    const target = new URL(address);
-    const current = tab.url ? new URL(tab.url) : null;
-    if (tab.id !== undefined && current?.origin === target.origin) {
-      await chrome.tabs.update(tab.id, { url: address, active: true });
-      return;
-    }
-    await chrome.tabs.create({ url: address });
-  })().catch(() => {
-    if (tab.id !== undefined) void chrome.action.setBadgeText({ tabId: tab.id, text: "!" });
-  });
-});
+void registerSites();

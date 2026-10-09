@@ -44,8 +44,9 @@ Daily, présentation, filtres, transitions et rang fonctionnent dans les deux mo
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.24.4 (source) et 0.24.4.2 (paquet d'ouverture directe dans Jira, voir
-> plus bas).** Point d'entrée pour reprendre le projet : [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
+> **État : 0.25.0 — uniquement intégré dans Jira.** La vue métier s'affiche toujours sur
+> l'URL du board Jira ; le mode autonome est abandonné. Point d'entrée pour reprendre le projet :
+> [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
 > santé du sprint (6a), plusieurs boards (6b), audit de sécurité (6d,
 > [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md)), empaquetage (6e) à venir. Board du
 > sprint actif organisé par Goals Atlassian (lus par l'API GraphQL), Build et RUN ; filtres, recherche et filtres rapides
@@ -63,11 +64,12 @@ npm ci
 ```
 
 ```bash
-npm run build:jira-direct-test
+npm run build
 ```
 
 Puis dans Chrome : `chrome://extensions` → activer **Mode développeur** → **Charger l'extension
-non empaquetée** → choisir le dossier `dist/`. Un clic sur l'icône ouvre le board dans Jira.
+non empaquetée** → choisir le dossier `dist/`. Au premier clic sur l'icône, coller l'URL du board
+dans le lanceur, puis autoriser ce site. L'extension ouvre la vraie URL Jira avec `sprintGoals=1`.
 
 Après une reconstruction, cliquer sur la flèche de rechargement de la carte de l'extension.
 
@@ -97,29 +99,33 @@ propre à un poste. Après chaque construction, recharger l'extension dans `chro
 
 | | |
 |---|---|
-| À l'installation | `storage` et `declarativeNetRequestWithHostAccess`. **Aucun accès à aucun site.** |
+| À l'installation | `storage`, `declarativeNetRequestWithHostAccess` et `scripting`. **Aucun accès à aucun site.** |
 | Règle d'en-tête | Une seule règle de session : retire (ou remplace par l'adresse du site) l'en-tête `Origin` des **seules requêtes de l'extension**, en POST, vers l'adresse exacte `https://<site>/gateway/api/graphql`. Posée à la connexion, retirée à la déconnexion. Les pages web ne sont pas touchées. |
 | À la connexion | Chrome demande l'accès à **un seul** site `https://….atlassian.net`, celui que vous saisissez. « Se déconnecter » rend cet accès. |
 | Authentification | La session Jira déjà ouverte dans Chrome. L'extension ne demande et ne voit ni mot de passe ni jeton. |
-| Politique de sécurité | Scripts de l'extension uniquement ; connexions limitées à `*.atlassian.net` ; aucune image ni style distant |
-| Absents | Scripts injectés dans les pages, permissions `cookies`, `tabs`, `scripting`, `webRequest`, règles `declarativeNetRequest` statiques |
+| Intégration Jira | Script de contenu sur le seul site autorisé ; la vue s'active sur une URL de board portant `sprintGoals=1`. La page Jira reste chargée derrière. |
+| Politique de sécurité | Scripts de l'extension uniquement ; connexions et encadrement limités à `*.atlassian.net` ; la vue métier vérifie le site hôte, le board et l'autorisation avant tout chargement Jira |
+| Absents | Permissions `cookies`, `tabs`, `webRequest`, règles `declarativeNetRequest` statiques |
 
-Ce tableau décrit le manifest source autonome. Le paquet intégré généré ajoute la permission
-`scripting` et les ressources nécessaires à son affichage dans Jira. Ces droits sont verrouillés
-par [`tests/manifest.test.ts`](tests/manifest.test.ts). L'audit de
-sécurité de l'extension (0.14.1, lot 6d) est dans [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md) :
+Le manifest source contient ces droits. Seuls `board.html`, les ressources du dossier `assets/`
+et les icônes sont exposés aux pages Atlassian. Une ouverture directe de `board.html`, un
+encadrement imbriqué ou un autre site hôte sont refusés avant toute lecture Jira.
+Ces droits sont verrouillés par [`tests/manifest.test.ts`](tests/manifest.test.ts). L'audit de
+sécurité est dans [`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md) :
 inventaire des écritures, fuites possibles, constats et correctifs.
 
 ## Utiliser
 
-1. Clic sur l'icône de l'extension : le board s'ouvre dans un onglet.
-2. Saisir l'adresse du site (`societe.atlassian.net`) et accepter la demande d'accès de Chrome.
-   Il faut être connecté à Jira dans un onglet de ce navigateur.
-3. Saisir tout ou partie du nom du board Scrum ou Kanban et sélectionner un résultat accessible.
+1. Être connecté à Jira dans Chrome et copier l'URL du board Scrum ou Kanban.
+2. Cliquer sur l'icône de l'extension, coller cette URL dans le lanceur et accepter la demande
+   d'accès à ce seul site. Le lanceur ne charge aucun ticket.
+3. Le board s'ouvre sur son URL Jira, avec `sprintGoals=1`. Cette URL peut être mise en favori ;
+   sans ce paramètre, Jira conserve son affichage habituel. Le board mémorisé sert aux ouvertures suivantes.
 
 Le board affiche les tickets des **sprints actifs en Scrum**, ou du **périmètre du board en Kanban**,
 regroupés par objectif, puis *Build* et les swimlanes par type configurées. Un clic sur une
-carte ouvre le ticket dans Jira, dans un nouvel onglet. La flèche ronde de l'en-tête relit Jira.
+carte ouvre la fiche native Jira dans une fenêtre superposée au board. Sa fermeture et la flèche
+ronde de l'en-tête relisent Jira.
 
 - **Barre latérale** (reprise de l'app Mac) : le board affiché et son menu — les boards
   enregistrés pour ce site (un clic bascule de l'un à l'autre, chacun avec ses réglages), l'ajout
@@ -163,8 +169,8 @@ carte ouvre le ticket dans Jira, dans un nouvel onglet. La flèche ronde de l'en
   grisée et refuse le dépôt ; une lecture en cours ou en échec est indiquée séparément.
 - **Plusieurs transitions vers le statut choisi** : une fenêtre demande quelle action effectuer.
   Annuler ne modifie ni le statut, ni l'objectif, ni le rang.
-- **Écran de transition ou champs obligatoires** : indication « À compléter dans Jira », puis
-  message avec accès au ticket ; aucune partie du déplacement n'est écrite dans ce cas.
+- **Écran de transition ou champs obligatoires** : ouverture du formulaire natif Jira dans une
+  fenêtre superposée ; c'est l'utilisateur qui le remplit et le valide.
 - **Rang** : dans la même colonne, classement devant une carte ou en fin de case comme auparavant.
   Dans une autre colonne, une position près du bord supérieur d'une carte affiche la ligne
   d'insertion ; sinon, déposer dans une zone de statut conserve le rang global.
@@ -326,20 +332,27 @@ Vrais gestes de glisser-déposer et formulaire de transition dans Chrome, sur le
 profil temporaire vierge.
 
 ```bash
-npm run verify:jira-direct-test
+npm run verify:jira
 ```
 
-Construit le prototype d'ouverture directe dans `dist/` puis le vérifie dans
-Chrome (faux Jira, profil vierge). Pour ne pas écraser un paquet d'essai en cours d'utilisation :
-`npx vite build --mode jira-direct-test --outDir <dossier>` puis
+Construit le paquet intégré dans `dist/` puis le vérifie dans
+Chrome (faux Jira, profil vierge). Pour ne pas écraser un paquet en cours d'utilisation :
+`npx vite build --outDir <dossier>` puis
 `JIRA_DIRECT_DIST=<dossier> node scripts/verify-jira-direct-test.mjs`.
+
+Les anciennes commandes `build:jira-direct-test`, `watch:jira-direct-test`,
+`check:jira-direct-test` et `verify:jira-direct-test` restent des alias compatibles.
+`npm run package` prépare uniquement le paquet intégré, sans suffixe de version `.2`.
 
 Banc d'essai visuel sur <http://localhost:5199/?scenario=board> (scénarios listés en tête de
 [`tests/harness/harness.tsx`](tests/harness/harness.tsx), dont `board-goals` et `board-epingle`) :
 l'interface réelle branchée sur le faux Jira des tests. Données fictives, réservé au
 développement, jamais inclus dans `dist/`.
 
-## État de vérification
+## Historique des vérifications et évolutions
+
+Les résultats et comportements ci-dessous sont ceux des versions indiquées. Le mode autonome
+et ses procédures ne sont plus proposés depuis la 0.25.0 ; voir `DEVELOPER.md` pour le mode actuel.
 
 ### ✅ Vérifié sur cette machine
 
@@ -522,17 +535,16 @@ appel séparé n’ajoute du temps avant la transition. En cas de réponse perdu
 pour éviter un doublon. Les champs calculés (`timespent`) et le widget d’estimations
 `timetracking` ne sont pas assimilés à une saisie de temps passé.
 
-### Prototype d'ouverture directe dans Jira (0.19.8.2, durci en 0.19.9.2)
+### Origine de l'intégration Jira (historique 0.19.8.2 à 0.19.15.2)
 
-Paquet d'essai construit par `npm run build:jira-direct-test`, dans `dist/` comme le paquet
-autonome et avec le même identifiant Chrome (donc le même stockage : site, board et réglages
-conservés d'un paquet à l'autre). Il est décrit en détail dans [`DEVELOPER.md`](DEVELOPER.md) et
-[`TEST-JIRA-DIRECT.md`](TEST-JIRA-DIRECT.md). Sur une adresse de board suivie de
+L'intégration a d'abord été livrée comme paquet d'essai partageant l'identifiant et le stockage
+du paquet autonome. Depuis la 0.25.0, elle est le seul mode ; les procédures actuelles sont dans
+[`DEVELOPER.md`](DEVELOPER.md) et [`TEST-JIRA-DIRECT.md`](TEST-JIRA-DIRECT.md). Sur une adresse de board suivie de
 `?sprintGoals=1`, le board Sprint Goals recouvre la page Jira ; un clic sur une carte ouvre la
 fiche Jira dans une popin ; une transition qui exige des champs ouvre le formulaire Jira natif,
-que l'utilisateur remplit et valide lui-même. Son manifest ajoute `scripting`, expose la page du
-board aux sites `*.atlassian.net` et autorise leur `frame-ancestors` : rien de cela n'est reporté
-dans le paquet autonome.
+que l'utilisateur remplit et valide lui-même. Les droits de cette intégration font désormais
+partie du manifest source : `scripting`, ressources du board exposées aux sites `*.atlassian.net`
+et `frame-ancestors` limité à ces sites.
 
 Durcissements de la 0.19.9.2 :
 
@@ -550,10 +562,9 @@ nom suivi du statut d'arrivée. Jira dessine alors sa fenêtre, que la popin iso
 taille. Sans correspondance certaine, rien n'est cliqué : la fiche vous est rendue, le menu reste
 à votre main. C'est vous qui validez le formulaire ; valider ou annuler referme la popin et relit
 le board.
-À charger : `dist/`, après `npm run build:jira-direct-test` ; la barre latérale affiche alors
-le même nom que le paquet autonome et une version en `.2`.
+À charger aujourd'hui : `dist/`, après `npm run build`, version `0.25.0`.
 
-Vérifié dans Chrome (faux Jira, profil vierge) par `verify:jira-direct-test` : refus sans
+Vérifié historiquement dans Chrome (faux Jira, profil vierge) par `verify:jira-direct-test` : refus sans
 autorisation du site, refus dans la page d'un autre site Atlassian, écran de transition ouvert
 par identifiants, seul et à sa taille, jamais validé automatiquement, fermé par « Cancel ».
 **Non essayé sur votre Jira** : l'adresse de l'écran de transition sur Jira Cloud.

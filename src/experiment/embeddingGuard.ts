@@ -19,7 +19,7 @@ export interface EmbeddingTarget {
 }
 
 /**
- * Décide si la page du board peut s'afficher dans le cadre où elle se trouve. Le paquet d'essai
+ * Décide si la page du board peut s'afficher dans le cadre où elle se trouve. L'extension
  * rend la page accessible à tout `*.atlassian.net` (`web_accessible_resources`,
  * `frame-ancestors`) : n'importe quel site Atlassian pourrait donc l'encadrer et faire glisser des
  * cartes à l'insu de l'utilisateur. Seul cas admis : un cadre posé directement dans la page Jira

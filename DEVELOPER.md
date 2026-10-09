@@ -1,9 +1,8 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
 Dernière mise à jour : **9 octobre 2026**\
-Base décrite : **`main`** (Scrum et Kanban, swimlanes par type)\
-Produit autonome (source) : **0.24.4**\
-Intégration Jira livrée : **0.24.4.2**
+Version décrite : **0.25.0** (Scrum et Kanban, swimlanes par type)\
+Mode unique : **intégré dans Jira**, URL Jira toujours présente derrière le board.
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
 décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
@@ -11,8 +10,8 @@ livraison, les problèmes connus et les évolutions envisagées.
 
 Les détails historiques restent disponibles dans `README.md`, `TODO.md`, `CLAUDE.md` et
 `docs/SECURITY-AUDIT.md`. En cas de contradiction, vérifier le code et les tests de la branche :
-certains passages de ces anciens documents décrivent encore l’application autonome avant le
-prototype Jira.
+les versions datées conservent l'historique de l'application autonome et du prototype Jira,
+abandonnés comme modes de livraison depuis la 0.25.0.
 
 ---
 
@@ -43,9 +42,11 @@ reste consultable en lecture seule.
 
 ---
 
-## 2. Les deux modes présents dans cette branche
+## 2. Un seul mode : intégré dans Jira
 
-### 2.1 Application autonome
+Décision de Denis du 09/10/2026 : supprimer la possibilité d'exécuter le board hors de Jira.
+Le lanceur sert seulement à choisir une URL de board et à demander l'autorisation Chrome ;
+aucune vue métier, aucun ticket et aucune administration ne s'affichent dans ce lanceur.
 
 Commande :
 
@@ -55,60 +56,24 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.24.4`\
+Version : `0.25.0` (sans suffixe `.2`)\
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
-L’icône ouvre `board.html` dans un onglet de l’extension. Le service worker autonome est
-`src/background/service-worker.ts`.
+Le manifest source est celui de l'intégration : permissions `storage`,
+`declarativeNetRequestWithHostAccess` et `scripting`, autorisation optionnelle limitée à
+`https://*.atlassian.net/*`, ressources exposées limitées à `board.html`, `assets/*` et `icons/*`,
+et `frame-ancestors https://*.atlassian.net`. Cette promotion des droits déjà utilisés par
+l'intégration applique la décision produit ; aucun hôte supplémentaire n'est ajouté.
 
-Ce mode :
+L'identifiant et le stockage des installations de développement sont conservés. Les commandes
+historiques `build:jira-direct-test`, `watch:jira-direct-test` et `check:jira-direct-test` restent
+des alias compatibles et produisent exactement le même paquet. Il n'existe plus de construction autonome.
 
-- n’injecte rien dans Jira ;
-- ne demande pas la permission `scripting` ;
-- ouvre normalement un ticket dans Jira depuis la carte ;
-- possède sa propre page, sa barre latérale et son administration.
+Avant tout rendu métier et toute lecture Jira, le garde-fou d'hébergement exige une seule origine
+parente, égale au site Jira annoncé, une URL de board de ce site et l'autorisation Chrome.
+L'ouverture directe de `board.html`, les cadres imbriqués et un autre site hôte sont refusés.
 
-### 2.2 Prototype d’ouverture directe dans Jira
-
-Commande :
-
-```bash
-npm run build:jira-direct-test
-```
-
-Sortie : `dist/` (les deux paquets, depuis le 23/09/2026 ; il n’y a plus de `dist-*`)  
-Version générée : `0.24.4.2`\
-Nom : celui du paquet autonome (depuis le 24/09/2026)
-
-Les deux paquets gardent la clé du manifest : **même identifiant Chrome et même stockage**. Une
-seule entrée dans `chrome://extensions` ; passer d’un paquet à l’autre demande seulement de
-reconstruire puis de recharger l’extension, en conservant le site connecté, le board et les
-réglages. Le nom et la version (`x.y.z.2`) disent lequel est chargé.
-
-Le prototype ajoute uniquement au manifest généré :
-
-- la permission `scripting` ;
-- un service worker expérimental ;
-- les ressources nécessaires à l’iframe sur `https://*.atlassian.net` ;
-- `frame-ancestors https://*.atlassian.net` pour les pages de l’extension.
-
-Il ne faut pas reporter ces permissions dans `public/manifest.json` sans décision explicite de
-faire de ce prototype le produit principal et sans mise à jour de l’audit de sécurité.
-
-Depuis la 0.19.9.2 (audit, constats S9 et S10) :
-
-- la page du board encadrée ne s’affiche et ne lit Jira que dans la page de premier niveau du site
-  qu’elle annonce (`location.ancestorOrigins`), pour un board de ce site autorisé dans Chrome
-  (`src/experiment/embeddingGuard.ts`) ; sinon elle affiche un simple refus ;
-- l’écran d’une transition est d’abord demandé par identifiants ; à défaut seulement, l’extension
-  ouvre le menu de statut de Jira et ne clique qu’une correspondance certaine (voir « Ouverture des
-  tickets »).
-
-L’ancien prototype « Sprint Goals — prototype dans Jira » (branche `codex/test-board-dans-jira`,
-0.19.1.x, onglet « Sprint Goals » ajouté dans Jira) n’a plus de dossier : s’il reste chargé dans
-Chrome, le retirer pour éviter toute confusion.
-
-#### Activation
+### Activation
 
 L’intégration n’est active que sur une URL de board contenant :
 
@@ -122,16 +87,20 @@ Exemple :
 https://site.atlassian.net/jira/software/c/projects/PROJET/boards/123?sprintGoals=1
 ```
 
-- Un clic sur l’icône construit cette URL avec le board actif.
-- Sans board enregistré, l’icône ouvre la page de l’extension ; dès que le premier board y est
-  choisi, l’onglet rejoint lui-même cette URL (`followBoardToJira`, 0.19.16.2). Les ouvertures
-  suivantes sur un board déjà enregistré restent dans la page, qui garde son administration.
+- Un clic sur l'icône ouvre le lanceur `launcher.html`. Si l'onglet courant est un board Jira
+  déjà autorisé, ce board s'ouvre automatiquement dans Sprint Goals.
+- Sinon, le lanceur affiche son formulaire et préremplit le board mémorisé s'il en existe un.
+  L'utilisateur peut remplacer l'URL, notamment pour changer de site, puis choisir « Ouvrir
+  dans Jira ». Chrome demande l'autorisation du site si nécessaire, avant d'ouvrir la vraie
+  URL Jira avec `sprintGoals=1`. Un refus ou une erreur laisse le formulaire disponible.
+- Choisir un autre board depuis la vue intégrée navigue vers son URL Jira ; le site et le board
+  affichés restent ceux de la page hôte.
 - L’URL peut être enregistrée dans les favoris.
 - Une URL Jira sans ce paramètre reste entièrement normale.
 - Aucun onglet, bouton ou lien Sprint Goals n’est ajouté à l’interface Jira.
 - La vue Sprint Goals recouvre toute la page Jira, qui reste chargée derrière.
 
-#### Ouverture des tickets
+### Ouverture des tickets
 
 Deux comportements doivent rester distincts :
 
@@ -273,7 +242,7 @@ Il ne crée ni sprint ni propriété de sprint. Les règles ci-dessous relatives
   séance : recharger la page l’arrête. Stock (0.20.2, étendu à toutes les swimlanes en 0.23.0) :
   en daily, la première colonne de chaque swimlane n’affiche que ses N premières cartes dans
   l’ordre de Jira (`dailyStockLimit`, 3 par défaut, réglable dans la section Board), puis
-  « + N autres », qui déplie cette swimlane seule jusqu’à la fin de la daily. Dans le prototype, l’iframe injectée porte
+  « + N autres », qui déplie cette swimlane seule jusqu’à la fin de la daily. L’iframe injectée porte
   `allow="fullscreen"` (attribut HTML, pas une permission Chrome).
 - L’administration se déplie dans la barre latérale, sous son bouton, dans le gris de la barre ;
   elle se replie au second clic ou dès qu’une autre entrée de la barre est choisie.
@@ -300,8 +269,7 @@ Il ne crée ni sprint ni propriété de sprint. Les règles ci-dessous relatives
 - La carte projetée à destination est seulement un retour visuel. Les compteurs restent basés sur
   les données confirmées par Jira.
 - Seules les erreurs gardent un repère rouge. Il n’y a plus de confirmation verte après déplacement.
-- Si Jira exige des champs, utiliser le formulaire dynamique autonome ou, dans l’intégration Jira,
-  le formulaire natif décrit plus haut.
+- Si Jira exige des champs, utiliser le formulaire natif décrit plus haut.
 
 ### Réglages et partage
 
@@ -372,13 +340,13 @@ Ne jamais élargir cette règle aux pages Jira ni à d’autres URLs.
 ## 5. Architecture
 
 ```text
-board.html                         point d’entrée de l’interface
-public/manifest.json               manifest autonome, permissions minimales
-src/background/service-worker.ts  ouverture de l’application autonome
+board.html                       point d’entrée de la vue intégrée, protégé hors de Jira
+launcher.html                    choix de l'URL du board et autorisation du site
+public/manifest.json             manifest intégré, permissions et ressources contrôlées
 src/app/                          Preact, styles, modèles et vues
 src/core/                         logique métier pure, sans DOM ni chrome.*
 src/jira/                         transport, décodage, API REST/GraphQL, écritures
-src/experiment/                   intégration Jira expérimentale
+src/experiment/                   intégration Jira (nom historique du dossier)
 tests/                            tests Vitest et faux Jira
 tests/harness/                    banc visuel, données fictives
 scripts/                          vérifications Chrome et outils
@@ -412,11 +380,11 @@ docs/                             audit et références de l’application Mac
 - `transitionPlanner.ts` / `transitionFields.ts` : transitions et formulaire dynamique.
 - `writes.ts` : inventaire fermé des écritures autorisées.
 
-### Intégration Jira expérimentale
+### Intégration Jira
 
 - `boardRoute.ts` : accepte uniquement une route moderne de board avec `sprintGoals=1`.
 - `launchAddress.ts` : construit l’URL du board actif à partir du stockage local.
-- `worker.ts` : clic sur l’icône, enregistrement du content script et injection.
+- `worker.ts` : enregistrement du content script et injection sur le site autorisé.
 - `bootstrap.ts` : reste inerte sans le paramètre ; retire l’overlay si le paramètre disparaît.
 - `injectBoard.ts` : overlay plein écran, iframe de l’application et popins Jira.
 - `embedded.ts` : communication entre le board embarqué et la page Jira hôte.
@@ -431,6 +399,7 @@ source. Les clés de ticket et les identifiants de transition sont validés avan
 Principales clés `chrome.storage.local` :
 
 - `connection.v1` : origine Jira connectée ;
+- `launcher.v1` : dernière URL de board choisie dans le lanceur ;
 - `boards.v1` : boards et board actif, groupés par origine ;
 - `interface.v1` : largeur/repli de la barre, panneau santé et préférences d’interface ;
 - `dismissedNotices.v1` : explications du board fermées pour de bon, par site et par board
@@ -446,7 +415,8 @@ son format :
 - ne jamais rendre une installation inutilisable à cause d’un champ local absent ;
 - tester la lecture d’une configuration ancienne.
 
-Les paquets autonome et expérimental gardent le même identifiant Chrome et partagent ce stockage.
+Le paquet intégré conserve l'identifiant Chrome de développement et relit le stockage des
+versions précédentes. Le changement de mode ne remet pas les préférences à zéro.
 
 ---
 
@@ -459,10 +429,9 @@ npm ci
 npm run check
 ```
 
-`npm run check` exécute le typage, le lint, les tests et la construction autonome.
-Pour la livraison actuelle, utiliser `npm run check:jira-direct-test` : les mêmes contrôles
-suivis de la construction intégrée dans `dist/`. `npm run watch:jira-direct-test` surveille les
-sources et reconstruit ce même paquet ; l'ancien `npm run watch` cible le mode autonome.
+`npm run check` exécute le typage, le lint, les tests et la construction intégrée dans `dist/`.
+`npm run watch` surveille les sources et reconstruit ce même paquet. Les alias
+`:jira-direct-test` conservent ces comportements pour les procédures existantes.
 
 IntelliJ IDEA ouvre directement la racine contenant `package.json`. Le plugin Node.js et un
 interpréteur Node `>= 22.12` sont nécessaires. Les configurations npm partagées de `.run/`
@@ -508,20 +477,18 @@ npm run verify:transition
 npm run harness
 ```
 
-Prototype Jira :
+Contrôle de l'intégration Jira :
 
 ```bash
-npm run build:jira-direct-test
-npm run watch:jira-direct-test
-npm run check:jira-direct-test
-npm run verify:jira-direct-test
+npm run verify:jira
 ```
 
-`verify:jira-direct-test` utilise un profil Chrome temporaire et un faux Jira. Pour ne pas
-reconstruire un paquet d’essai chargé dans Chrome, construire ailleurs puis vérifier ce dossier :
+`verify:jira` (alias historique `verify:jira-direct-test`) utilise un profil Chrome temporaire
+et un faux Jira. Pour ne pas reconstruire un paquet chargé dans Chrome, construire ailleurs
+puis vérifier ce dossier :
 
 ```bash
-npx vite build --mode jira-direct-test --outDir <dossier>
+npx vite build --outDir <dossier>
 JIRA_DIRECT_DIST=<dossier> node scripts/verify-jira-direct-test.mjs
 ```
 
@@ -544,11 +511,10 @@ Les essais Chrome automatisés n’utilisent ni la session ni les données Jira 
 
 ## 8. Stratégie Git et livraison
 
-**Consigne de Denis du 01/10/2026 : produire et livrer uniquement le paquet intégré dans Jira**,
-avec `npm run build:jira-direct-test` dans `dist/`, dossier chargeable dans Chrome. Ne produire ni
-livrer le paquet autonome que sur demande explicite. Ses sources et ses tests restent dans le
-dépôt ; les permissions du manifest source `public/manifest.json` restent inchangées. Les
-descriptions des deux modes et des anciennes livraisons ci-dessus restent des références.
+**Consigne de Denis du 09/10/2026 : fonctionnement uniquement dans Jira.** `npm run build`
+produit dans `dist/` le seul paquet, chargeable dans Chrome. `npm run package` prépare le même
+mode intégré pour le Store. L'ancien mode autonome est supprimé ; la version est unique, sans
+suffixe `.2`. L'historique des validations ci-dessus décrit les anciennes livraisons.
 
 - Travailler dans une branche `codex/...` dédiée.
 - Faire un commit cohérent par correction ou fonctionnalité.
@@ -557,19 +523,18 @@ descriptions des deux modes et des anciennes livraisons ci-dessus restent des r�
   `main` que sur demande explicite.
 - Ne jamais committer `.secrets/extension-key.pem`, un profil Chrome, des cookies, des captures de
   données Jira ou un paquet contenant des secrets.
-- `dist/` est généré et ignoré par Git ; il reçoit le paquet autonome ou le prototype, selon la
-  dernière construction.
+- `dist/` est généré et ignoré par Git ; il reçoit toujours le paquet intégré.
 
 Avant un commit :
 
 1. exécuter les tests ciblés pendant le développement ;
 2. exécuter `npm run check` ;
-3. pour l’intégration Jira, exécuter aussi `npm run verify:jira-direct-test` ;
+3. exécuter aussi `npm run verify:jira` ;
 4. vérifier `git diff` et `git status` ;
 5. mettre à jour la documentation et le numéro du paquet concerné.
 
-Ne pas reconstruire le paquet que Denis est en train de tester. Utiliser le dossier expérimental ou
-un dossier temporaire lorsqu’une autre version est active dans Chrome.
+Ne pas reconstruire le paquet que Denis est en train de tester. Utiliser un dossier temporaire
+lorsqu’une autre version est active dans Chrome.
 
 ---
 
@@ -582,10 +547,9 @@ un dossier temporaire lorsqu’une autre version est active dans Chrome.
    une page pleine de 100 liens est signalée comme potentiellement incomplète et bloque le
    chargement Kanban. Ce comportement doit encore être validé sur l'instance Jira réelle.
 
-2. **Documentation historique partiellement obsolète**  
-   `CLAUDE.md`, le README et l’audit sont à jour depuis la 0.19.9. `TODO.md` présente encore
-   l’intégration Jira comme une simple piste. Ne pas se fier aux numéros historiques sans comparer
-   au manifest, à `package.json` et à ce document.
+2. **Documentation historique**
+   Les notes de versions conservent les choix et résultats de tests de leur époque, notamment
+   les suffixes `.2` et l'ancien mode autonome. Les procédures actuelles décrivent la 0.25.0.
 
 3. **Validations réelles de workflows encore incomplètes**  
    Les transitions Time Spent, Story Points, Resolution et certains écrans fournis par des apps Jira
@@ -604,7 +568,7 @@ un dossier temporaire lorsqu’une autre version est active dans Chrome.
 - `storage.sync` est exclu.
 - Les écritures ne sont jamais rejouées automatiquement.
 
-### Fragilités propres au prototype Jira
+### Fragilités de l'intégration Jira
 
 Ces points sont des risques techniques connus, même lorsqu’aucun incident n’est actuellement
 reproduit :
@@ -620,8 +584,6 @@ reproduit :
   marge de 16 px.
 - Le mode direct reconnaît les routes modernes `/jira/.../boards/{id}` et requiert une clé projet
   enregistrée pour construire l’URL depuis l’icône.
-- Le paquet d’essai partage l'identifiant et le stockage du paquet autonome ; seul un de ces
-  paquets est chargé à la fois.
 - Si Jira interdit un jour l’affichage de sa propre page dans une iframe de même origine, la fiche
   et les formulaires natifs ne pourront plus être cadrés de cette manière.
 
@@ -637,9 +599,6 @@ reproduit :
   données du ticket.
 - Tester l’annulation et la validation du formulaire natif, puis confirmer que le board se relit et
   que la carte revient ou reste à destination selon la réponse Jira.
-- Décider si l’intégration Jira devient le mode principal ou reste un paquet expérimental.
-- Si elle devient principale, réconcilier manifest, identifiant Chrome, stockage, permissions,
-  audit de sécurité, README et procédure de migration.
 - Corriger la pagination `workItems` des Goals.
 - Mettre à jour les sections historiques du README et du TODO devenues obsolètes.
 
@@ -671,10 +630,11 @@ Chaque nouvelle écriture devra suivre le processus de sécurité décrit plus h
 
 ### Distribution
 
-- Chrome Web Store, visibilité publique, paquet AUTONOME (choix de Denis du 24/09/2026).
+- Chrome Web Store, visibilité publique ; le paquet préparé est désormais intégré dans Jira
+  (décision du 09/10/2026). La publication reste une opération distincte.
 - `npm run package` : `release/sprint-goals-board-<version>.zip`, construit hors de `dist/`, sans
   le champ `key` (le Store attribue son identifiant : c'est une autre extension que celle de
-  développement), refusé s'il contient un droit du prototype, une carte de sources, une clé ou le
+  développement), avec les droits contrôlés du manifest intégré ; refusé s'il contient une carte de sources, une clé privée ou le
   banc d'essai. `EXTENSION_DIR=release/build node scripts/verify-load.mjs` le charge dans un
   Chrome vierge.
 - Fiche du Store (textes, justifications des droits, déclarations) : `docs/store/fiche.md` ;
@@ -691,20 +651,20 @@ Avant de modifier le projet :
 
 1. lire ce document, `CLAUDE.md` et `docs/SECURITY-AUDIT.md` ;
 2. vérifier la branche et le dernier commit ;
-3. déterminer si le travail concerne le produit autonome, le prototype Jira ou les deux ;
+3. préserver le fonctionnement exclusivement dans une page Jira autorisée ;
 4. lancer `npm ci` puis `npm run check` ;
-5. construire le paquet concerné ;
+5. construire le paquet intégré ;
 6. ne pas ajouter d’endpoint, permission ou écriture non validés ;
 7. préserver les deux comportements d’ouverture de ticket ;
 8. tester toute modification de transition avec un cas sans champ et un cas avec champ requis ;
 9. noter clairement ce qui a été testé localement et ce qui a été essayé sur Jira réel ;
-10. ne jamais faire passer les droits du paquet d’essai dans `public/manifest.json` : l’intégration
-    directe dans Jira n’est toujours pas validée sur l’instance de Denis.
+10. vérifier le manifest intégré, le garde-fou d'hébergement et le lanceur sans vue métier ;
+    ne pas présenter les tests sur faux Jira comme une validation de l'instance de Denis.
 
-État Git : `codex/test-ouverture-jira-directe` a été fusionnée dans `main` le 23/09/2026 à la
+Historique Git (23/09/2026) : `codex/test-ouverture-jira-directe` a été fusionnée dans `main` à la
 demande de Denis (avance rapide, 27 commits, aucun conflit), puis supprimée, comme
 `codex/board-search-confirmation` (déjà fusionnée) et `codex/test-board-dans-jira` (ancien
-prototype à onglet, abandonné, 17 commits perdus volontairement). `main` est la seule branche. L’intégration directe y a suivi ce
+prototype à onglet, abandonné, 17 commits perdus volontairement). L’intégration directe y a suivi ce
 chemin : ouverture du board dans Jira (`66e865e`), ouverture du formulaire de transition
 (`b3d2c09`), recadrage de la popin (`5161b49`), durcissements de la 0.19.9 (hébergement du board,
 clic de transition), essai par adresse directe (0.19.11 à 0.19.13) puis son retrait au profit du

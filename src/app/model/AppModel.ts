@@ -63,10 +63,15 @@ export class AppModel {
 
   readonly #platform: Platform;
   readonly #audit: AuditLog;
+  /** Site de la page Jira hôte : la connexion ne peut pas en sortir dans ce cadre. */
+  readonly hostSite: JiraSite | null;
+  readonly #hostBoardAddress: string | undefined;
 
-  constructor(platform: Platform) {
+  constructor(platform: Platform, hostBoardAddress?: string) {
     this.#platform = platform;
     this.#audit = new AuditLog(platform.store);
+    this.#hostBoardAddress = hostBoardAddress;
+    this.hostSite = hostBoardAddress ? (parseBoardUrl(hostBoardAddress)?.site ?? null) : null;
   }
 
   get extensionVersion(): string {
@@ -75,6 +80,7 @@ export class AppModel {
 
   /** Reprend le site enregistré, si Chrome lui accorde toujours l'accès. */
   async start(boardAddress?: string): Promise<void> {
+    boardAddress = this.#hostBoardAddress ?? boardAddress;
     await this.#restoreInterface();
     const saved = await this.#platform.store.get(CONNECTION_KEY);
     const target = boardAddress ? parseBoardUrl(boardAddress) : null;
@@ -114,6 +120,13 @@ export class AppModel {
       this.connectionError.value = toMessage(error);
       return;
     }
+    if (this.hostSite && site.origin !== this.hostSite.origin) {
+      this.connectionError.value = {
+        text: "La connexion doit rester sur le site Jira qui héberge ce board.",
+        suggestion: "Pour changer de site, ouvrez son board Jira puis cliquez sur l'extension.",
+      };
+      return;
+    }
 
     let granted: boolean;
     try {
@@ -132,7 +145,7 @@ export class AppModel {
     }
 
     await this.#platform.store.set(CONNECTION_KEY, { origin: site.origin });
-    await this.#enter(site);
+    await this.#enter(site, this.#hostBoardAddress);
   }
 
   /** Rend l'accès au site à Chrome et oublie le site, boards et réglages compris. */
@@ -143,6 +156,13 @@ export class AppModel {
     await new GraphqlOrigin(this.#platform, current.site).forget().catch(() => {});
     await this.#platform.permissions.remove(current.site.permissionPattern);
     await this.#platform.store.remove(CONNECTION_KEY);
+    const lastLaunch = await this.#platform.store.get("launcher.v1");
+    if (
+      typeof lastLaunch === "string" &&
+      parseBoardUrl(lastLaunch)?.site.origin === current.site.origin
+    ) {
+      await this.#platform.store.remove("launcher.v1");
+    }
     await forgetSite(this.#platform.store, current.site.origin);
     await forgetDismissedNotices(this.#platform.store, current.site.origin).catch(() => {});
     await this.#audit.forgetSite(current.site.origin);

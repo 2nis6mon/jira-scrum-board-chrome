@@ -1,14 +1,14 @@
 # Sprint Goals Board pour Jira — manuel d'installation et d'utilisation
 
 > Extension Chrome pour boards Scrum et Kanban Jira Cloud : objectifs, Build et swimlanes par
-> type configurables. Version couverte par ce manuel : **0.24.4.2**. Les captures illustrent la
+> type configurables. Version couverte par ce manuel : **0.25.0**, intégré uniquement dans Jira. Les captures illustrent la
 > version Scrum 0.22.7 ; certains libellés ont évolué.
 
 Ce document est prêt à coller dans une page Confluence (titres, listes et texte en gras se
 convertissent automatiquement à l'insertion). Les images pointent vers `docs/store/captures/` du
 dépôt : consulté sur GitHub, ce fichier les affiche directement. Dans Confluence, le collage ne
-récupère pas les images distantes : téléversez les 7 captures fournies séparément
-(`01-board.png` à `07-recherche-board.png`) et remplacez chaque image collée par la vôtre au même
+récupère pas les images distantes : téléversez les 5 captures utilisées séparément
+(`01-board.png` à `05-presentation.png`) et remplacez chaque image collée par la vôtre au même
 endroit. Ajoutez aussi le lien de téléchargement du fichier `.zip` en haut de la page, avant la
 section Installation.
 
@@ -53,22 +53,23 @@ version à l'autre tant que le dossier garde le même identifiant d'extension.
 
 ## 2. Premier lancement
 
-1. Cliquez sur l'icône de l'extension dans la barre d'outils Chrome : un nouvel onglet s'ouvre sur
-   l'écran de connexion.
+1. Connectez-vous à Jira dans Chrome, ouvrez votre board **Scrum ou Kanban** et copiez son URL.
+2. Cliquez sur l'icône de l'extension dans la barre d'outils Chrome. Dans le lanceur, collez l'URL
+   de ce board, par exemple `https://votre-domaine.atlassian.net/jira/software/c/projects/PROJET/boards/123`.
+3. Autorisez l'accès à ce seul site dans la demande de Chrome. L'extension ouvre la vraie page
+   du board Jira, avec le paramètre `sprintGoals=1`, et y affiche Sprint Goals.
+4. La session Jira du navigateur est utilisée ; l'extension ne demande ni mot de passe ni jeton.
 
-![Écran de connexion, avant tout site enregistré](store/captures/06-connexion.png)
+Le lanceur ne charge aucun ticket. Il n'existe plus de vue du board dans un onglet autonome de
+l'extension : l'URL Jira reste toujours derrière le board. Vous pouvez enregistrer cette URL
+dans vos favoris. Sans `sprintGoals=1`, Jira conserve son affichage habituel.
 
-2. Entrez l'adresse de votre site Jira Cloud (`https://votre-domaine.atlassian.net`). Chrome vous
-   demande alors l'autorisation d'accéder à ce site : acceptez.
-3. Recherchez votre board **Scrum ou Kanban** par son nom et sélectionnez-le dans la liste proposée.
-
-![Recherche d'un board par son nom](store/captures/07-recherche-board.png)
-
-4. L'extension utilise la session de votre navigateur : si vous êtes déjà connecté à Jira dans
-   Chrome, aucune saisie de mot de passe n'est demandée.
-
-Pour ajouter un second board plus tard (menu du nom de board, dans la barre latérale, « Choisir un
-board »), le même écran de recherche s'ouvre.
+Si vous êtes sur un board Jira déjà autorisé, l'icône l'ouvre directement dans Sprint Goals.
+Sinon, le formulaire est prérempli avec le board mémorisé : vous pouvez garder son URL ou la
+remplacer, puis cliquer sur « Ouvrir dans Jira ». Cela permet aussi de choisir un autre site.
+Pour choisir un autre board du site courant depuis la vue intégrée, utilisez
+le menu du nom du board dans la barre latérale ; sa sélection ouvre l'URL Jira correspondante.
+Les anciennes captures de connexion et de recherche ne décrivent plus le premier lancement.
 
 ---
 
@@ -97,6 +98,8 @@ board »), le même écran de recherche s'ouvre.
   des Goals pour ce board. Ce choix est personnel et reste après rechargement.
 - **Sous-tâches** : rangées avec leur story ; un survol de la carte met en évidence toute sa
   famille (story + sous-tâches).
+- **Ouverture d'un ticket** : cliquer sur sa carte affiche la fiche native Jira dans une fenêtre
+  superposée. La fermeture revient au board et relit les données.
 
 ![Survol d'une story et de sa famille de sous-tâches](store/captures/02-famille.png)
 

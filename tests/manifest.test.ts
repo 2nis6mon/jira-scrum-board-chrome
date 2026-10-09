@@ -27,11 +27,16 @@ describe("manifest", () => {
     expect(manifest.version).toBe(pkg.version);
   });
 
-  it("ne demande à l'installation que le stockage local et la règle d'en-tête", () => {
+  it("limite les droits au stockage, à la règle d'en-tête et à l'intégration Jira", () => {
     // declarativeNetRequestWithHostAccess : n'agit que sur les hôtes déjà accordés (un seul site
     // *.atlassian.net), et seulement par la règle de session de originRule.ts. Validée par Denis
     // le 18/09/2026.
-    expect(manifest.permissions).toEqual(["storage", "declarativeNetRequestWithHostAccess"]);
+    // scripting et l'hébergement dans Jira deviennent le mode unique à la demande de Denis.
+    expect(manifest.permissions).toEqual([
+      "storage",
+      "declarativeNetRequestWithHostAccess",
+      "scripting",
+    ]);
     expect(manifest.host_permissions).toBeUndefined();
   });
 
@@ -40,11 +45,25 @@ describe("manifest", () => {
     expect(manifest.optional_permissions).toBeUndefined();
   });
 
-  it("n'injecte rien dans les pages et n'expose rien aux sites web", () => {
+  it("expose la vue uniquement aux sites Jira, sans exposer le lanceur", () => {
+    // Les scripts de contenu ne sont enregistrés qu'après autorisation du site par l'utilisateur.
     expect(manifest.content_scripts).toBeUndefined();
-    expect(manifest.web_accessible_resources).toBeUndefined();
+    expect(manifest.web_accessible_resources).toEqual([
+      {
+        resources: ["board.html", "assets/*", "icons/*"],
+        matches: ["https://*.atlassian.net/*"],
+      },
+    ]);
     expect(manifest.externally_connectable).toBeUndefined();
     expect(manifest.declarative_net_request).toBeUndefined();
+  });
+
+  it("ouvre le lanceur Jira depuis l'icône et utilise le worker d'intégration", () => {
+    expect(manifest.action).toMatchObject({ default_popup: "launcher.html" });
+    expect(manifest.background).toEqual({
+      service_worker: "jira-direct-worker.js",
+      type: "module",
+    });
   });
 
   it("nom et description dans les limites de Chrome, et le nom suit la forme « … pour Jira »", () => {
@@ -100,8 +119,8 @@ describe("manifest", () => {
       expect(everything).not.toContain("http:");
     });
 
-    it("interdit l'encadrement, les formulaires et la balise base", () => {
-      expect(csp.get("frame-ancestors")).toEqual(["'none'"]);
+    it("réserve l'encadrement à Jira et interdit les formulaires et la balise base", () => {
+      expect(csp.get("frame-ancestors")).toEqual(["https://*.atlassian.net"]);
       expect(csp.get("form-action")).toEqual(["'none'"]);
       expect(csp.get("base-uri")).toEqual(["'none'"]);
     });

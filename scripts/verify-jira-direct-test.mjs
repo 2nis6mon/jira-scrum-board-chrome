@@ -1,79 +1,36 @@
-// Vérification Chrome isolée de la vue Jira directe, sans session ni données de l'utilisateur.
-import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+// Vérification Chrome isolée de l'intégration Jira, sans session ni données de l'utilisateur.
+// Toutes les pages Jira utilisées ci-dessous sont interceptées et remplacées par un faux Jira.
+import { existsSync, readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { launchIsolatedBrowser, sleep } from "./browser-check.mjs";
 
-const chromePath =
-  process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-// JIRA_DIRECT_DIST : un autre dossier construit, pour ne pas reconstruire le paquet en essai.
-const dist = process.env.JIRA_DIRECT_DIST ?? fileURLToPath(new URL("../dist", import.meta.url));
-if (!existsSync(join(dist, "manifest.json"))) process.exit(2);
-
-const profile = mkdtempSync(join(tmpdir(), "sprint-goals-direct-"));
-const chromeProcess = spawn(
-  chromePath,
-  [
-    "--headless=new",
-    `--user-data-dir=${profile}`,
-    "--remote-debugging-pipe",
-    "--enable-unsafe-extension-debugging",
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--window-size=1600,900",
-    "about:blank",
-  ],
-  { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"] },
-);
-
-const pending = new Map();
-const events = [];
-let nextId = 0;
-let buffer = "";
-chromeProcess.stdio[4].on("data", (chunk) => {
-  buffer += chunk.toString("utf8");
-  for (let end = buffer.indexOf("\0"); end >= 0; end = buffer.indexOf("\0")) {
-    const message = JSON.parse(buffer.slice(0, end));
-    buffer = buffer.slice(end + 1);
-    if (message.id) {
-      pending.get(message.id)?.(message);
-      pending.delete(message.id);
-    } else events.push(message);
-  }
-});
-
-function send(method, params = {}, sessionId) {
-  const id = ++nextId;
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`délai dépassé : ${method}`)), 15000);
-    pending.set(id, (message) => {
-      clearTimeout(timer);
-      if (message.error) reject(new Error(`${method} : ${message.error.message}`));
-      else resolve(message.result);
-    });
-    chromeProcess.stdio[3].write(
-      `${JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) })}\0`,
-    );
-  });
+// EXTENSION_DIR permet de contrôler une autre construction ; l'ancien nom reste accepté.
+const dist =
+  process.env.EXTENSION_DIR ??
+  process.env.JIRA_DIRECT_DIST ??
+  fileURLToPath(new URL("../dist", import.meta.url));
+if (!existsSync(join(dist, "manifest.json"))) {
+  console.error("dist/manifest.json introuvable : lancer `npm run build` d'abord.");
+  process.exit(2);
 }
-const sleep = (duration) => new Promise((resolve) => setTimeout(resolve, duration));
-async function evaluate(sessionId, expression) {
-  const { result } = await send(
-    "Runtime.evaluate",
-    { expression, returnByValue: true, awaitPromise: true },
-    sessionId,
-  );
-  return result.value;
-}
+const manifest = JSON.parse(readFileSync(join(dist, "manifest.json"), "utf8"));
+const browser = launchIsolatedBrowser("1600,900");
+const { send, evaluate, events } = browser;
 function assert(condition, message) {
   if (!condition) throw new Error(message);
   console.log(`✓ ${message}`);
 }
 
 try {
-  const { id: extensionId } = await send("Extensions.loadUnpacked", { path: dist });
+  console.log((await send("Browser.getVersion")).product);
+  assert(
+    manifest.background?.service_worker === "jira-direct-worker.js" &&
+      manifest.action?.default_popup === "launcher.html",
+    "le paquet utilise le lanceur et le service worker Jira intégrés",
+  );
+  const { id: extensionId } = await browser.loadExtension(dist);
   const { targetId } = await send("Target.createTarget", { url: "about:blank" });
   const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
   await send("Page.enable", {}, sessionId);
@@ -162,7 +119,7 @@ try {
       targetId: boardFrame.targetId,
       flatten: true,
     });
-    const REFUSAL = "ne s'affiche que dans la page Jira de votre site connecté";
+    const REFUSAL = "Sprint Goals s'utilise dans Jira.";
     // Profil vierge : le site n'est pas autorisé dans Chrome, la page encadrée ne lit rien.
     assert(
       await evaluate(
@@ -299,9 +256,9 @@ try {
   } finally {
     clearInterval(pump);
   }
+} catch (error) {
+  console.error(`✗ ${error.message}`);
+  process.exitCode = 1;
 } finally {
-  await send("Browser.close").catch(() => {});
-  await sleep(200);
-  chromeProcess.kill();
-  rmSync(profile, { recursive: true, force: true });
+  await browser.close();
 }

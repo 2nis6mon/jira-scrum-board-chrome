@@ -1,5 +1,10 @@
 # TODO — Sprint Goals Board pour Jira
 
+**Décision du 09/10/2026 — 0.25.0 : mode intégré Jira uniquement.** L'URL Jira reste derrière
+la vue métier. Le lanceur ne fait que choisir l'URL d'un board et autoriser son site. Les commandes
+`build`, `watch`, `check` et `package` produisent ce seul mode. Les rubriques datées ci-dessous
+conservent l'historique des livraisons ; les procédures actuelles sont dans `DEVELOPER.md`.
+
 Mis à jour le 20/09/2026 pour la version 0.19.1, après revue du code et précisions de Denis.
 Denis confirme utiliser la dernière version dans Chrome et que les fonctionnalités marchent.
 Ce retour ne constitue pas un relevé détaillé de chaque scénario testé sur son Jira.
@@ -55,8 +60,8 @@ L'ordre des travaux est une proposition ; les choix encore ouverts ne sont pas d
 
 ### Orientation et règles métier confirmées le 19/09/2026
 
-- **Page dédiée** : c'est l'orientation actuelle. Une intégration dans la page Jira a été évoquée,
-  sans décision de la réaliser ; elle reste une piste facultative.
+- **Intégration Jira uniquement** : décision du 09/10/2026, qui remplace l'orientation initiale
+  vers une page dédiée. Aucun board autonome ni retour vers ce mode.
 - **Goals Atlassian privilégiés**, avec maintien de l'option « texte du sprint ».
 - **Plusieurs sprints actifs** : afficher tous leurs tickets ensemble, sans doublon, avec un
   sprint de référence. Le comportement actuel est conservé : le premier par date de début donne
@@ -209,11 +214,8 @@ Le partage des réglages d'équipe via Jira est déjà livré : il n'est plus à
   adapter la proposition du mode Goals Atlassian ; vérifier la pertinence de cette information.
 - [ ] **Déploiement Chrome géré** : configuration en lecture seule poussée par l'IT via
   `storage.managed`, seulement si un besoin de déploiement encadré apparaît.
-- [ ] **Intégration dans la page Jira** : possibilité évoquée, pas de migration décidée.
-  Piste proposée : afficher notre propre vue dans Jira, en conservant l'onglet dédié.
-  L'injection, les communications avec l'extension, les permissions et la CSP nécessiteraient
-  une étude et des validations spécifiques. Transformer le board natif serait une autre
-  approche, plus dépendante de la structure de la page Jira.
+- [x] **Intégration dans la page Jira** : mode unique en 0.25.0. Le manifest, les constructions,
+  le lanceur et la documentation ciblent l'affichage du board sous son URL Jira.
 
 ## 8. Suivi documentaire et validation
 
