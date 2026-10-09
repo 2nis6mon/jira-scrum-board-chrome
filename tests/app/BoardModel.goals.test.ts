@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { BoardModel } from "../../src/app/model/BoardModel";
 import { BUILD_BLOCK, goalBlock } from "../../src/core/boardBlocks";
 import { normalizeSiteUrl } from "../../src/jira/site";
+import { atlassianGoalsPlatform } from "../support/atlassianGoalsBoard";
 import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
 import { isWriteRequest, type Reply } from "../support/fakeJira";
-import { fakePlatform } from "../support/fakePlatform";
 import { type FakeGoal, goalsGateway } from "../support/goalsGateway";
 import { issueJson } from "../support/jiraFixtures";
 
@@ -52,7 +52,7 @@ async function goalsBoard(
       },
     }),
   });
-  const board = new BoardModel(SITE, fakePlatform(jira), {
+  const board = new BoardModel(SITE, await atlassianGoalsPlatform(jira), {
     now: () => new Date("2026-09-18T10:00:00Z"),
   });
   await board.load();
@@ -87,7 +87,7 @@ describe("BoardModel — Goals Atlassian", () => {
 
   it("passerelle qui refuse (CORS) : repli sur le texte du sprint, cause dite clairement", async () => {
     const jira = boardSiteJira();
-    const board = new BoardModel(SITE, fakePlatform(jira));
+    const board = new BoardModel(SITE, await atlassianGoalsPlatform(jira));
     await board.load();
     await board.detect(BOARD_URL);
     expect(board.snapshot.value?.goalsOrigin).toBe("sprintText");
@@ -192,7 +192,7 @@ describe("BoardModel — Goals Atlassian", () => {
       sprintIssues: SPRINT_ISSUES.map((issue) => issueJson(issue.key as string)),
       graphql: goalsGateway({ goals: [{ id: "g-vide", name: "Sans ticket", workItems: [] }] }),
     });
-    const board = new BoardModel(SITE, fakePlatform(jira));
+    const board = new BoardModel(SITE, await atlassianGoalsPlatform(jira));
     await board.load();
     await board.detect(BOARD_URL);
     expect(board.snapshot.value?.goalsOrigin).toBe("atlassianGoals");

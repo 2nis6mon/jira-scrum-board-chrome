@@ -52,8 +52,8 @@ describe("BoardModel — mise en place", () => {
     expect(stored?.boardId).toBe(7);
   });
 
-  it("objectifs : texte du sprint et liens de la propriété, avec la limitation affichée", async () => {
-    const { board } = await detected();
+  it("objectifs : texte du sprint et liens de la propriété par défaut, sans interroger les Goals", async () => {
+    const { board, jira } = await detected();
     const snapshot = board.snapshot.value;
 
     expect(snapshot?.goals.map((goal) => goal.title)).toEqual([
@@ -61,7 +61,8 @@ describe("BoardModel — mise en place", () => {
       "Améliorer la stabilité",
     ]);
     expect(snapshot?.goalIssues.find((i) => i.issue.key === "ABC-101")?.goalId).toBe("g-paiement");
-    expect(board.goalsNotice.value).toContain("Goals Atlassian illisibles");
+    expect(board.goalsNotice.value).toBeNull();
+    expect(jira.sent("POST", "/gateway/api/graphql")).toEqual([]);
   });
 
   it("board relu au lancement suivant, avec ses réglages locaux", async () => {

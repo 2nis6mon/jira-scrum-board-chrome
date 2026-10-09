@@ -53,18 +53,24 @@ describe("BoardModel — page Réglages", () => {
     expect(jiraWrites()).toBe(1);
   });
 
-  it("source des objectifs : le texte du sprint, même quand les Goals répondent", async () => {
+  it("source des objectifs : le texte du sprint par défaut, les Goals Atlassian sur demande", async () => {
     const { board } = await settingsBoard(boardSiteJira({ graphql: goalsGateway({ goals: [] }) }));
+    const titles = () => board.snapshot.value?.goals.map((goal) => goal.title);
+    // Défaut d'un board Scrum, même quand les Goals répondent.
+    expect(board.configuration.value?.goalSource).toBe("sprintText");
+    expect(board.snapshot.value?.goalsOrigin).toBe("sprintText");
+    expect(titles()).toEqual(["Finaliser le parcours de paiement", "Améliorer la stabilité"]);
+
+    await board.applySettings((current) => ({ ...current, goalSource: "atlassianGoals" }), {
+      resync: true,
+    });
     expect(board.snapshot.value?.goalsOrigin).toBe("atlassianGoals");
 
     await board.applySettings((current) => ({ ...current, goalSource: "sprintText" }), {
       resync: true,
     });
     expect(board.snapshot.value?.goalsOrigin).toBe("sprintText");
-    expect(board.snapshot.value?.goals.map((goal) => goal.title)).toEqual([
-      "Finaliser le parcours de paiement",
-      "Améliorer la stabilité",
-    ]);
+    expect(titles()).toEqual(["Finaliser le parcours de paiement", "Améliorer la stabilité"]);
   });
 
   it("un champ de carte ajouté est demandé à Jira dès la relecture", async () => {

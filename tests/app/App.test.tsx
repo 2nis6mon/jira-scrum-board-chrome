@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
 import { DIAGNOSTIC_ENABLED } from "../../src/app/views/settings/AdminView";
+import { atlassianGoalsPlatform } from "../support/atlassianGoalsBoard";
 import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
 import { FakeJira, isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
@@ -51,8 +52,8 @@ const teamWrites = (jira: FakeJira) => jira.sent("PUT", TEAM_PROPERTY).length;
 const otherWrites = (jira: FakeJira) =>
   jira.requests.filter((r) => isWriteRequest(r) && r.path !== TEAM_PROPERTY);
 
-async function connectedBoard(jira = boardSiteJira()) {
-  const model = new AppModel(fakePlatform(jira));
+async function connectedBoard(jira = boardSiteJira(), platform = fakePlatform(jira)) {
+  const model = new AppModel(platform);
   render(<App model={model} />, document.body);
   await model.connect("acme.atlassian.net");
   const connection = model.connection.value;
@@ -127,7 +128,8 @@ describe("App", () => {
     ).toContain("OPS-412");
     expect(document.querySelector('[data-issue-key="ABC-104"] .card-flag')).not.toBeNull();
     expect(text()).toContain("Sprint 42");
-    expect(text()).toContain("Goals Atlassian illisibles");
+    // Texte du sprint par défaut : les Goals Atlassian ne sont pas interrogés.
+    expect(text()).not.toContain("Goals Atlassian illisibles");
   });
 
   it("carte : parent en badge coloré sans sa clé, champs en badges, drapeau près de la priorité, sans statut", async () => {
@@ -281,7 +283,7 @@ describe("App", () => {
         stored = request.body;
         return { status: 200 };
       });
-    const { board } = await connectedBoard(jira);
+    const { board } = await connectedBoard(jira, await atlassianGoalsPlatform(jira));
 
     button("Épingler des Goals au sprint").click();
     await expect.poll(() => document.querySelectorAll(".pin-option").length).toBe(2);

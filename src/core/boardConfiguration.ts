@@ -384,7 +384,8 @@ export function buildConfiguration(input: {
     blockOrder: [],
     collapsedBlockIds: [],
     buildSectionLabel: DEFAULT_BUILD_LABEL,
-    goalSource: "atlassianGoals",
+    // Texte du sprint par défaut (demande de Denis du 09/10/2026) ; un board Kanban n'a pas de sprint.
+    goalSource: input.board.boardType === "kanban" ? "atlassianGoals" : "sprintText",
     boardPinnedGoalIds: [],
     goalColorIndex: {},
     cardFields: [],

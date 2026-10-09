@@ -59,7 +59,7 @@ historiques.
   trailer `Co-Authored-By` (demande de Denis du 09/10/2026).
 - Pousser chaque commit sur sa branche, toujours (consigne de Denis du 24/09/2026). Fusionner
   dans `main` seulement sur demande explicite.
-- **Mode unique depuis le 09/10/2026 (demande de Denis) : intégré dans Jira, version 0.26.2.**
+- **Mode unique depuis le 09/10/2026 (demande de Denis) : intégré dans Jira, version 0.26.3.**
   Construire avec `npm run build` dans `dist/`, prêt à charger dans Chrome. `watch`, `check` et
   `package` ciblent aussi ce mode ; les alias `:jira-direct-test` restent compatibles.
   Supprimer le fonctionnement autonome : toute vue métier exige une page Jira hôte autorisée.
@@ -253,6 +253,13 @@ la vue) : le clic ne passe plus par `history.pushState`. Il charge l'adresse mar
 n'est pas établie (marqueur retiré par le routeur de Jira, ou adresse de l'expéditeur non mise à
 jour pour le service worker) : ne pas revenir à une ouverture sans rechargement sans l'avoir
 constatée sur son instance.
+
+0.26.3 (demande de Denis du 09/10/2026) : la source des objectifs par défaut d'un board Scrum
+est le texte du sprint, plus les Goals Atlassian (`buildConfiguration`, `boardConfiguration.ts`).
+Kanban : toujours les Goals Atlassian. Seuls les boards nouvellement ajoutés sont concernés : un
+board déjà enregistré garde sa source, les réglages partagés du board l'emportent, et une
+configuration enregistrée sans ce champ reste relue en Goals Atlassian. Les tests des Goals
+Atlassian partent d'un board réglé sur cette source (`tests/support/atlassianGoalsBoard.ts`).
 
 Constats sur l'instance de Denis (18/09/2026) : la session du navigateur est reconnue ; les POST
 de lecture REST et les écritures REST (PUT/DELETE de propriété de sprint) passent SANS en-tête

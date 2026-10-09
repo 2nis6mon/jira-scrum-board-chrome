@@ -3,9 +3,9 @@ import { BoardModel } from "../../src/app/model/BoardModel";
 import { loadActiveBoard } from "../../src/app/model/boardStore";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
+import { atlassianGoalsPlatform } from "../support/atlassianGoalsBoard";
 import { BOARD_URL, boardSiteJira, GOALS_DOCUMENT } from "../support/boardFixture";
 import { isWriteRequest, type RecordedRequest, type Reply } from "../support/fakeJira";
-import { fakePlatform } from "../support/fakePlatform";
 import { type FakeGoal, goalsGateway } from "../support/goalsGateway";
 
 const SITE = normalizeSiteUrl("acme.atlassian.net");
@@ -44,7 +44,7 @@ async function pinBoard(options: { put?: Reply; initial?: Record<string, unknown
   const jira = boardSiteJira({ graphql: goalsGateway({ goals: GOALS }) })
     .on("GET", PROPERTY, () => property.get())
     .on("PUT", PROPERTY, (request) => options.put ?? property.put(request));
-  const board = new BoardModel(SITE, fakePlatform(jira), {
+  const board = new BoardModel(SITE, await atlassianGoalsPlatform(jira), {
     now: () => new Date("2026-09-18T10:00:00Z"),
   });
   await board.load();
@@ -210,7 +210,7 @@ describe("BoardModel — épinglage de Goals au sprint", () => {
   });
 
   it("indisponible quand les objectifs affichés sont ceux du texte du sprint", async () => {
-    const board = new BoardModel(SITE, fakePlatform(boardSiteJira()));
+    const board = new BoardModel(SITE, await atlassianGoalsPlatform(boardSiteJira()));
     await board.load();
     await board.detect(BOARD_URL);
     expect(board.snapshot.value?.goalsOrigin).toBe("sprintText");
@@ -224,7 +224,7 @@ describe("BoardModel — épinglage de Goals au sprint", () => {
       status: 400,
       json: { errorMessages: ["Refus"] },
     });
-    const board = new BoardModel(SITE, fakePlatform(jira));
+    const board = new BoardModel(SITE, await atlassianGoalsPlatform(jira));
     await board.load();
     await board.detect(BOARD_URL);
     expect(board.snapshot.value?.goalsOrigin).toBe("atlassianGoals");
@@ -245,7 +245,7 @@ describe("BoardModel — épinglage gardé dans ce navigateur quand Jira refuse"
           ? { status: 403, json: { errorMessages: ["Manage Sprints requis"] } }
           : property.put(request),
       );
-    const platform = fakePlatform(jira);
+    const platform = await atlassianGoalsPlatform(jira);
     const board = new BoardModel(SITE, platform, { now: () => new Date("2026-09-18T10:00:00Z") });
     await board.load();
     await board.detect(BOARD_URL);

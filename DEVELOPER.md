@@ -1,7 +1,7 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
 Dernière mise à jour : **9 octobre 2026**\
-Version décrite : **0.26.2** (Scrum et Kanban, swimlanes par type)\
+Version décrite : **0.26.3** (Scrum et Kanban, swimlanes par type)\
 Mode unique : **intégré dans Jira**, URL Jira toujours présente derrière le board.
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
@@ -57,7 +57,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.26.2` (sans suffixe `.2`)\
+Version : `0.26.3` (sans suffixe `.2`)\
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 Le manifest source est celui de l'intégration : permissions `storage`,
@@ -152,8 +152,10 @@ lecture empêche la nouvelle photographie de remplacer l'ancienne : pas de repli
 par la même relecture, détection de conflit et écriture unique que les autres réglages partagés.
 Il ne crée ni sprint ni propriété de sprint. Les règles ci-dessous relatives au sprint concernent Scrum.
 
-- Les **Goals Atlassian** sont la source par défaut.
-- Le texte du Sprint Goal reste disponible comme mode de repli.
+- Depuis 0.26.3, le **texte du Sprint Goal** est la source par défaut d'un board Scrum
+  nouvellement ajouté ; les **Goals Atlassian** se choisissent dans l'administration. Un board
+  déjà enregistré, ou dont les réglages partagés disent autre chose, garde sa source.
+- En Kanban, les Goals Atlassian restent la seule source.
 - Le champ Jira « Sprint Goal » est lu mais **n’est jamais écrit**.
 - Avec plusieurs sprints actifs, les tickets de tous les sprints sont réunis sans doublon.
 - Le premier sprint par date de début est le sprint de référence pour les dates, l’épinglage et le

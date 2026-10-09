@@ -1,7 +1,7 @@
 # Sprint Goals Board pour Jira — manuel d'installation et d'utilisation
 
 > Extension Chrome pour boards Scrum et Kanban Jira Cloud : objectifs, Build et swimlanes par
-> type configurables. Version couverte par ce manuel : **0.26.2**, intégré uniquement dans Jira. Les captures illustrent la
+> type configurables. Version couverte par ce manuel : **0.26.3**, intégré uniquement dans Jira. Les captures illustrent la
 > version Scrum 0.22.7 ; certains libellés ont évolué.
 
 Ce document est prêt à coller dans une page Confluence (titres, listes et texte en gras se

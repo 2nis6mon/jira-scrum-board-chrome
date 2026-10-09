@@ -124,7 +124,8 @@ describe("buildConfiguration", () => {
     expect(config.blockedLabels).toEqual([]);
     expect(config.blockOrder).toEqual([]);
     expect(config.cardColorRules).toEqual([]);
-    expect(config.goalSource).toBe("atlassianGoals");
+    // Source des objectifs d'un board Scrum : le texte du sprint (demande de Denis du 09/10/2026).
+    expect(config.goalSource).toBe("sprintText");
     expect(colorRules(config).map((r) => r.name)).toEqual(["Ajouté en cours de sprint"]);
   });
 });
