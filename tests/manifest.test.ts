@@ -32,11 +32,15 @@ describe("manifest", () => {
     // *.atlassian.net), et seulement par la règle de session de originRule.ts. Validée par Denis
     // le 18/09/2026.
     // scripting et l'hébergement dans Jira deviennent le mode unique à la demande de Denis.
+    // activeTab (choix de Denis du 09/10/2026) : adresse de l'onglet courant au clic sur l'icône,
+    // pour reconnaître le board sans saisie ; ni avertissement à l'installation, ni accès durable.
     expect(manifest.permissions).toEqual([
       "storage",
       "declarativeNetRequestWithHostAccess",
       "scripting",
+      "activeTab",
     ]);
+    expect(manifest.permissions).not.toContain("tabs");
     expect(manifest.host_permissions).toBeUndefined();
   });
 

@@ -1,6 +1,9 @@
 import type { LauncherPlatform } from "../../experiment/LauncherModel";
 
-/** Accès Chrome du lanceur, sans permission « tabs » ni « activeTab » supplémentaire. */
+/**
+ * Accès Chrome du lanceur. `activeTab` donne l'adresse de l'onglet courant au clic sur l'icône,
+ * pour ce seul onglet et sans permission « tabs » : le board affiché est reconnu sans saisie.
+ */
 export function chromeLauncherPlatform(): LauncherPlatform {
   return {
     store: {

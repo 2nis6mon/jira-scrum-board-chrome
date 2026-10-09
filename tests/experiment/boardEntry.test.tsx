@@ -91,6 +91,6 @@ describe("point d'entrée réservé à une page Jira vérifiée", () => {
     await vi.waitFor(() => expect(mocks.start).toHaveBeenCalledWith(BOARD));
     expect(mocks.construct).toHaveBeenCalledWith({}, BOARD);
     expect(mocks.render).toHaveBeenCalledOnce();
-    expect(mocks.links).toHaveBeenCalledWith(expect.anything(), SITE);
+    expect(mocks.links).toHaveBeenCalledWith(expect.anything(), SITE, BOARD);
   });
 });

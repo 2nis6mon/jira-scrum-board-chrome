@@ -59,12 +59,13 @@ historiques.
   trailer `Co-Authored-By` (demande de Denis du 09/10/2026).
 - Pousser chaque commit sur sa branche, toujours (consigne de Denis du 24/09/2026). Fusionner
   dans `main` seulement sur demande explicite.
-- **Mode unique depuis le 09/10/2026 (demande de Denis) : intégré dans Jira, version 0.25.0.**
+- **Mode unique depuis le 09/10/2026 (demande de Denis) : intégré dans Jira, version 0.26.0.**
   Construire avec `npm run build` dans `dist/`, prêt à charger dans Chrome. `watch`, `check` et
   `package` ciblent aussi ce mode ; les alias `:jira-direct-test` restent compatibles.
   Supprimer le fonctionnement autonome : toute vue métier exige une page Jira hôte autorisée.
-  Le lanceur peut demander une URL de board et l'autorisation Chrome, puis ouvrir Jira ; il ne
-  charge aucun ticket et ne comporte pas d'administration.
+  Le lanceur reconnaît le board de l'onglet courant (`activeTab`) ou demande son URL, demande
+  l'autorisation Chrome, puis ouvre Jira ; il ne charge aucun ticket et ne comporte pas
+  d'administration.
 - IntelliJ IDEA : configurations npm partagées dans `.run/`, réglages locaux `.idea/` ignorés.
   La compilation et la surveillance à choisir sont celles du paquet Jira intégré.
 
@@ -75,7 +76,10 @@ supplémentaire, tout hôte supplémentaire, tout assouplissement de la CSP doit
 Denis avant d'être codé**. La décision du 09/10/2026 autorise la promotion du manifest intégré
 déjà utilisé : `storage`, `declarativeNetRequestWithHostAccess` et `scripting` à l'installation ;
 accès à un site `https://*.atlassian.net`
-demandé à l'exécution ; CSP `connect-src https://*.atlassian.net`.
+demandé à l'exécution ; CSP `connect-src https://*.atlassian.net`. `activeTab` s'y ajoute en
+0.26.0 (choix de Denis du 09/10/2026, préféré à un accès à `*.atlassian.net` dès l'installation) :
+il ne sert qu'à lire l'adresse de l'onglet courant au clic sur l'icône. Ne pas le remplacer par
+`tabs` ni par une permission d'hôte à l'installation sans nouvelle décision.
 
 `declarativeNetRequestWithHostAccess` ne sert qu'à UNE règle de session
 (`src/app/platform/originRule.ts`) : en-tête `Origin` retiré ou remplacé par l'adresse du site,
@@ -215,6 +219,27 @@ autonomes et versions `.2` ; elles ne remplacent pas les procédures actuelles c
 0.25.0 (décision de Denis du 09/10/2026) : abandon du mode autonome. Toutes les constructions
 ciblent l'intégration Jira ; le lanceur ouvre une URL Jira autorisée, sans charger de vue métier.
 Le manifest intégré devient la source, l'identifiant et les données locales sont conservés.
+
+0.26.0 (demandes de Denis du 09/10/2026, branche `codex/bouton-board`, plan validé) : plus
+d'adresse à coller, un bouton dans Jira, et le changement de board change la page.
+1. `activeTab` (seul droit ajouté) : au clic sur l'icône, le lanceur lit l'adresse de l'onglet
+   courant et reconnaît son board (`LauncherModel.detected`) ; l'accès au site reste demandé sur
+   le clic « Ouvrir dans Jira ». Sur une page Jira qui n'est pas un board, il dit d'en ouvrir un.
+2. Bouton « Sprint Goals » flottant en bas à droite de tout board d'un site autorisé
+   (`bootstrap.ts`, script de contenu sans import, racine fantôme, rien n'est inséré dans
+   l'interface de Jira). Il suit la navigation interne de Jira. Clic : `sprintGoals=1` ajouté à
+   l'adresse par `history.pushState`, sans recharger Jira (`selectedIssue` retiré) ; retour
+   arrière = board natif et son bouton. Le bouton n'existe pas avant la première autorisation du
+   site, qui passe par l'icône.
+3. Changer de board dans la vue (menu des boards, ajout par la recherche, retrait du board
+   affiché) change de page Jira : `BoardModel.hostBoardNavigator`, message
+   `sprint-goals:open-board` (identifiant et clé de projet, JAMAIS une adresse) ; la page hôte
+   (`injectBoard.ts`) valide, forme l'adresse sur son propre site et y navigue. Le board est rendu
+   actif avant de partir ; rien n'est relu dans la vue quittée. Un board sans clé de projet
+   s'affiche sur place avec un avertissement (la page Jira derrière ne suit pas).
+À CONSTATER chez Denis : que Jira garde `sprintGoals=1` après le `pushState` du bouton ; que
+l'adresse `/jira/software/c/projects/<clé>/boards/<id>` ouvre aussi les boards des projets gérés
+par l'équipe ; que le bouton ne recouvre rien d'utile. Aucune écriture ni hôte nouveaux.
 
 Constats sur l'instance de Denis (18/09/2026) : la session du navigateur est reconnue ; les POST
 de lecture REST et les écritures REST (PUT/DELETE de propriété de sprint) passent SANS en-tête

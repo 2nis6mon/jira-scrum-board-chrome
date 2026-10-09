@@ -44,7 +44,7 @@ Daily, présentation, filtres, transitions et rang fonctionnent dans les deux mo
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.25.0 — uniquement intégré dans Jira.** La vue métier s'affiche toujours sur
+> **État : 0.26.0 — uniquement intégré dans Jira.** La vue métier s'affiche toujours sur
 > l'URL du board Jira ; le mode autonome est abandonné. Point d'entrée pour reprendre le projet :
 > [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
 > santé du sprint (6a), plusieurs boards (6b), audit de sécurité (6d,
@@ -68,8 +68,8 @@ npm run build
 ```
 
 Puis dans Chrome : `chrome://extensions` → activer **Mode développeur** → **Charger l'extension
-non empaquetée** → choisir le dossier `dist/`. Au premier clic sur l'icône, coller l'URL du board
-dans le lanceur, puis autoriser ce site. L'extension ouvre la vraie URL Jira avec `sprintGoals=1`.
+non empaquetée** → choisir le dossier `dist/`. Au premier clic sur l'icône depuis un board
+Jira, le lanceur reconnaît ce board ; il reste à autoriser ce site. L'extension ouvre la vraie URL Jira avec `sprintGoals=1`.
 
 Après une reconstruction, cliquer sur la flèche de rechargement de la carte de l'extension.
 
@@ -99,7 +99,7 @@ propre à un poste. Après chaque construction, recharger l'extension dans `chro
 
 | | |
 |---|---|
-| À l'installation | `storage`, `declarativeNetRequestWithHostAccess` et `scripting`. **Aucun accès à aucun site.** |
+| À l'installation | `storage`, `declarativeNetRequestWithHostAccess`, `scripting` et `activeTab` (adresse de l'onglet courant, au clic sur l'icône seulement). **Aucun accès à aucun site.** |
 | Règle d'en-tête | Une seule règle de session : retire (ou remplace par l'adresse du site) l'en-tête `Origin` des **seules requêtes de l'extension**, en POST, vers l'adresse exacte `https://<site>/gateway/api/graphql`. Posée à la connexion, retirée à la déconnexion. Les pages web ne sont pas touchées. |
 | À la connexion | Chrome demande l'accès à **un seul** site `https://….atlassian.net`, celui que vous saisissez. « Se déconnecter » rend cet accès. |
 | Authentification | La session Jira déjà ouverte dans Chrome. L'extension ne demande et ne voit ni mot de passe ni jeton. |
@@ -116,9 +116,10 @@ inventaire des écritures, fuites possibles, constats et correctifs.
 
 ## Utiliser
 
-1. Être connecté à Jira dans Chrome et copier l'URL du board Scrum ou Kanban.
-2. Cliquer sur l'icône de l'extension, coller cette URL dans le lanceur et accepter la demande
-   d'accès à ce seul site. Le lanceur ne charge aucun ticket.
+1. Être connecté à Jira dans Chrome et ouvrir le board Scrum ou Kanban.
+2. Cliquer sur l'icône de l'extension : le lanceur reconnaît le board de l'onglet. Choisir
+   « Ouvrir dans Jira » et accepter la demande d'accès à ce seul site. Le lanceur ne charge aucun
+   ticket. Ensuite, un bouton « Sprint Goals » en bas à droite de chaque board du site ouvre la vue.
 3. Le board s'ouvre sur son URL Jira, avec `sprintGoals=1`. Cette URL peut être mise en favori ;
    sans ce paramètre, Jira conserve son affichage habituel. Le board mémorisé sert aux ouvertures suivantes.
 
@@ -562,7 +563,7 @@ nom suivi du statut d'arrivée. Jira dessine alors sa fenêtre, que la popin iso
 taille. Sans correspondance certaine, rien n'est cliqué : la fiche vous est rendue, le menu reste
 à votre main. C'est vous qui validez le formulaire ; valider ou annuler referme la popin et relit
 le board.
-À charger aujourd'hui : `dist/`, après `npm run build`, version `0.25.0`.
+À charger aujourd'hui : `dist/`, après `npm run build`, version `0.26.0`.
 
 Vérifié historiquement dans Chrome (faux Jira, profil vierge) par `verify:jira-direct-test` : refus sans
 autorisation du site, refus dans la page d'un autre site Atlassian, écran de transition ouvert

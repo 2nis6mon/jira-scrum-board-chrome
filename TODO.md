@@ -5,6 +5,11 @@ la vue métier. Le lanceur ne fait que choisir l'URL d'un board et autoriser son
 `build`, `watch`, `check` et `package` produisent ce seul mode. Les rubriques datées ci-dessous
 conservent l'historique des livraisons ; les procédures actuelles sont dans `DEVELOPER.md`.
 
+**0.26.0 (09/10/2026)** : board reconnu au clic sur l'icône (`activeTab`), bouton « Sprint
+Goals » sur les boards Jira, changement de board par navigation. À constater sur le Jira de
+Denis : `sprintGoals=1` conservé après le clic sur le bouton, adresse des boards de projets gérés
+par l'équipe, emplacement du bouton.
+
 Mis à jour le 20/09/2026 pour la version 0.19.1, après revue du code et précisions de Denis.
 Denis confirme utiliser la dernière version dans Chrome et que les fonctionnalités marchent.
 Ce retour ne constitue pas un relevé détaillé de chaque scénario testé sur son Jira.

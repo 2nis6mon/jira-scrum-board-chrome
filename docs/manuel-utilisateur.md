@@ -1,7 +1,7 @@
 # Sprint Goals Board pour Jira — manuel d'installation et d'utilisation
 
 > Extension Chrome pour boards Scrum et Kanban Jira Cloud : objectifs, Build et swimlanes par
-> type configurables. Version couverte par ce manuel : **0.25.0**, intégré uniquement dans Jira. Les captures illustrent la
+> type configurables. Version couverte par ce manuel : **0.26.0**, intégré uniquement dans Jira. Les captures illustrent la
 > version Scrum 0.22.7 ; certains libellés ont évolué.
 
 Ce document est prêt à coller dans une page Confluence (titres, listes et texte en gras se
@@ -53,12 +53,19 @@ version à l'autre tant que le dossier garde le même identifiant d'extension.
 
 ## 2. Premier lancement
 
-1. Connectez-vous à Jira dans Chrome, ouvrez votre board **Scrum ou Kanban** et copiez son URL.
-2. Cliquez sur l'icône de l'extension dans la barre d'outils Chrome. Dans le lanceur, collez l'URL
-   de ce board, par exemple `https://votre-domaine.atlassian.net/jira/software/c/projects/PROJET/boards/123`.
+1. Connectez-vous à Jira dans Chrome et ouvrez votre board **Scrum ou Kanban**.
+2. Cliquez sur l'icône de l'extension dans la barre d'outils Chrome. Le lanceur reconnaît le
+   board de l'onglet : il n'y a rien à coller. Cliquez « Ouvrir dans Jira ».
 3. Autorisez l'accès à ce seul site dans la demande de Chrome. L'extension ouvre la vraie page
    du board Jira, avec le paramètre `sprintGoals=1`, et y affiche Sprint Goals.
 4. La session Jira du navigateur est utilisée ; l'extension ne demande ni mot de passe ni jeton.
+
+Ensuite, sur chaque board de ce site, un bouton **Sprint Goals** apparaît en bas à droite de la
+page Jira : un clic ouvre la vue pour ce board, sans passer par l'icône. Le bouton « Précédent »
+du navigateur ramène au board Jira habituel.
+
+Changer de board depuis le menu des boards de l'extension change aussi la page Jira : l'adresse
+de l'onglet est toujours celle du board affiché.
 
 Le lanceur ne charge aucun ticket. Il n'existe plus de vue du board dans un onglet autonome de
 l'extension : l'URL Jira reste toujours derrière le board. Vous pouvez enregistrer cette URL

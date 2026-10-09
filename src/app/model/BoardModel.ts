@@ -90,6 +90,8 @@ export interface SyncProblem extends UserMessage {
 }
 
 /** Résultat d'une écriture qui mérite d'être dit : refus, conflit, issue incertaine. */
+export type HostBoardAnswer = "leaving" | "current" | "unreachable";
+
 export interface WriteNotice extends UserMessage {
   readonly tone: "error" | "warning";
   readonly sessionLost: boolean;
@@ -199,6 +201,14 @@ export interface BoardModelOptions {
 export class BoardModel {
   /** Adaptateur de la page Jira hôte ; les tests peuvent exercer le formulaire interne sans lui. */
   nativeTransitionHandler: ((key: string, transition: JiraTransition) => boolean) | null = null;
+  /**
+   * Page Jira hôte : un autre board s'ouvre en changeant de page (`leaving`), pour que l'adresse
+   * et le board Jira derrière la vue suivent. `current` : c'est déjà le board de la page.
+   * `unreachable` : aucune adresse constructible, le board s'affiche sur place.
+   */
+  hostBoardNavigator:
+    | ((board: Pick<BoardConfiguration, "boardId" | "projectKeys">) => HostBoardAnswer)
+    | null = null;
   readonly nativeTransitionPending = signal(false);
   readonly site: JiraSite;
 
@@ -437,8 +447,26 @@ export class BoardModel {
       return;
     }
     await this.#queued(() => activateBoard(this.#platform.store, this.site.origin, boardId));
+    if (this.#showBoard(configuration)) await this.sync();
+  }
+
+  /**
+   * Affiche un board enregistré. Dans une page Jira, c'est elle qui change de board : `false`
+   * signifie que la page part, rien n'est à relire ici.
+   */
+  #showBoard(configuration: BoardConfiguration): boolean {
+    const answer = this.hostBoardNavigator?.(configuration);
+    if (answer === "leaving") return false;
     this.#enterBoard(configuration);
-    await this.sync();
+    if (answer === "unreachable")
+      this.writeNotice.value = {
+        tone: "warning",
+        text: "Ce board s'affiche ici, mais la page Jira derrière reste celle du board précédent.",
+        suggestion: "Son adresse Jira n'a pas pu être formée : il n'a pas de clé de projet.",
+        issueKey: null,
+        sessionLost: false,
+      };
+    return true;
   }
 
   /**
@@ -458,8 +486,7 @@ export class BoardModel {
     const configuration =
       next === null ? null : await loadBoard(this.#platform.store, this.site.origin, next);
     if (configuration) {
-      this.#enterBoard(configuration);
-      await this.sync();
+      if (this.#showBoard(configuration)) await this.sync();
       return;
     }
     this.#enterBoard(null);
@@ -490,7 +517,7 @@ export class BoardModel {
       const existing = await this.#existingFor(urlText);
       const configuration = await detectBoard(this.#client, urlText, existing);
       await this.#persist(configuration, { activate: true });
-      this.#enterBoard(configuration);
+      if (!this.#showBoard(configuration)) return;
       await this.#refreshBoards();
     } catch (error) {
       this.setupError.value = toMessage(error);

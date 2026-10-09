@@ -5,7 +5,7 @@ import { configuredBoardAddress, launchBoardAddress } from "./launchAddress";
 
 export interface LauncherTab {
   readonly id?: number | undefined;
-  /** Chrome ne fournit l'adresse que pour les sites déjà autorisés. */
+  /** Fournie par `activeTab` au clic sur l'icône, ou parce que le site est déjà autorisé. */
   readonly url?: string | undefined;
 }
 
@@ -19,12 +19,26 @@ export interface LauncherPlatform {
   readonly close: () => void;
 }
 
+function isJiraPage(address: string | undefined): boolean {
+  if (!address) return false;
+  try {
+    normalizeSiteUrl(address);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Le lanceur n'a ni modèle de board ni transport Jira : il prépare seulement sa page hôte. */
 export class LauncherModel {
   readonly address = signal("");
   readonly ready = signal(false);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
+  /** Board reconnu dans l'onglet courant : l'adresse n'a pas à être saisie. */
+  readonly detected = signal(false);
+  /** L'onglet est une page Jira qui n'est pas un board. */
+  readonly offBoard = signal(false);
   #tab: LauncherTab | null = null;
   readonly #platform: LauncherPlatform;
 
@@ -41,8 +55,11 @@ export class LauncherModel {
         this.#platform.store.get("launcher.v1"),
       ]);
       this.#tab = tab;
+      const tabAddress = tab?.url ? launchBoardAddress(tab.url) : null;
+      this.detected.value = tabAddress !== null;
+      this.offBoard.value = tabAddress === null && isJiraPage(tab?.url);
       this.address.value =
-        (tab?.url ? launchBoardAddress(tab.url) : null) ??
+        tabAddress ??
         configuredBoardAddress(connection, boards) ??
         (typeof lastAddress === "string" ? launchBoardAddress(lastAddress) : null) ??
         "";

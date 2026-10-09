@@ -1,6 +1,7 @@
 import { effect } from "@preact/signals";
 import type { AppModel } from "../app/model/AppModel";
 import type { Platform } from "../app/platform/types";
+import { parseBoardUrl } from "../jira/site";
 import { type EmbeddingTarget, embeddingTarget } from "./embeddingGuard";
 
 /**
@@ -23,9 +24,13 @@ export async function embeddedBoardTarget(
   return (await platform.permissions.contains(target.permissionPattern)) ? target : null;
 }
 
+/** Clé de projet utilisable dans une adresse de board Jira. */
+const PROJECT_KEY = /^[A-Z][A-Z0-9_]*$/;
+
 /** Relie les cartes de l'application embarquée à la page Jira qui l'héberge, déjà vérifiée. */
-export function installEmbeddedLinks(model: AppModel, origin: string): void {
+export function installEmbeddedLinks(model: AppModel, origin: string, address: string): void {
   if (window.parent === window) return;
+  const hostBoardId = parseBoardUrl(address)?.boardId ?? null;
 
   effect(() => {
     const connection = model.connection.value;
@@ -46,8 +51,23 @@ export function installEmbeddedLinks(model: AppModel, origin: string): void {
       );
       return true;
     };
+    // Changer de board, c'est changer de page Jira : l'adresse et le board affiché derrière
+    // suivent. Seuls l'identifiant et la clé de projet partent ; la page hôte forme l'adresse.
+    board.hostBoardNavigator = (target) => {
+      if (board.site.origin !== origin) return "unreachable";
+      if (target.boardId === hostBoardId) return "current";
+      const projectKey = target.projectKeys.find((key) => PROJECT_KEY.test(key));
+      if (!projectKey) return "unreachable";
+      model.exitPresentation();
+      window.parent.postMessage(
+        { type: "sprint-goals:open-board", boardId: target.boardId, projectKey },
+        origin,
+      );
+      return "leaving";
+    };
     return () => {
       board.nativeTransitionHandler = null;
+      board.hostBoardNavigator = null;
     };
   });
 

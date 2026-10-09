@@ -88,12 +88,13 @@ jamais synchronisé avec votre compte Google :</p>
 <ul>
   <li><strong>Accès au site Jira que vous choisissez</strong> (<code>https://votre-site.atlassian.net/*</code>), demandé au moment de la connexion : pour lire et écrire ce qui est décrit ci-dessus. L'extension n'accède à aucun autre site.</li>
   <li><strong>Stockage</strong> : pour garder vos réglages dans votre navigateur.</li>
-  <li><strong>Intégration dans Jira</strong> (<code>scripting</code>) : pour afficher le board Sprint Goals sur le site autorisé, lorsque l'URL du board porte <code>sprintGoals=1</code>, et ouvrir les fiches et formulaires natifs Jira. Sans ce paramètre, Jira garde son affichage habituel. L'extension ne remplit ni ne valide automatiquement les formulaires.</li>
+  <li><strong>Onglet actif</strong> (<code>activeTab</code>) : quand vous cliquez sur l'icône de l'extension, pour lire l'adresse de l'onglet affiché et reconnaître votre board Jira sans vous la faire saisir. Cette adresse n'est ni conservée ni transmise tant que vous n'ouvrez pas le board.</li>
+  <li><strong>Intégration dans Jira</strong> (<code>scripting</code>) : pour afficher le board Sprint Goals sur le site autorisé, lorsque l'URL du board porte <code>sprintGoals=1</code>, et ouvrir les fiches et formulaires natifs Jira. Sans ce paramètre, Jira garde son affichage habituel, avec un simple bouton « Sprint Goals » sur ses boards. L'extension ne remplit ni ne valide automatiquement les formulaires.</li>
   <li><strong>Règle d'en-tête réseau</strong> (<code>declarativeNetRequestWithHostAccess</code>) : pour que la passerelle des Goals Atlassian de votre site accepte les requêtes de l'extension. La règle ne touche que ces requêtes, émises par l'extension vers votre site.</li>
 </ul>
 
 <h2>Conservation et suppression</h2>
-<p>Au premier lancement, le lanceur demande seulement l'URL du board et l'autorisation du site, puis ouvre Jira. Il ne lit aucun ticket. La vue métier ne fonctionne pas dans un onglet autonome de l'extension : elle exige la page Jira autorisée.</p>
+<p>Au premier lancement, le lanceur reconnaît le board de l'onglet (ou demande son URL), demande l'autorisation du site, puis ouvre Jira. Il ne lit aucun ticket. La vue métier ne fonctionne pas dans un onglet autonome de l'extension : elle exige la page Jira autorisée.</p>
 <ul>
   <li><strong>Se déconnecter</strong> (Administration → Se déconnecter) efface le site, les boards, leurs réglages, les messages fermés et le journal des écritures de ce site, et rend à Chrome l'accès au site. Restent les préférences d'interface, qui ne contiennent aucune donnée Jira.</li>
   <li><strong>Désinstaller l'extension</strong> efface tout ce qu'elle a enregistré dans votre navigateur.</li>
@@ -166,7 +167,8 @@ and Kanban boards as swimlanes grouped by Goal, directly within their Jira pages
 <ul>
   <li><strong>Access to the Jira site you choose</strong> (<code>https://your-site.atlassian.net/*</code>), requested when you connect: to read and write what is described above. The extension accesses no other site.</li>
   <li><strong>Storage</strong>: to keep your settings in your browser.</li>
-  <li><strong>Jira integration</strong> (<code>scripting</code>): to display the Sprint Goals board on the authorized site when the board URL contains <code>sprintGoals=1</code>, and open native Jira issue views and forms. Without this parameter, Jira keeps its usual interface. The extension does not automatically fill in or submit forms.</li>
+  <li><strong>Active tab</strong> (<code>activeTab</code>): when you click the extension icon, to read the address of the displayed tab and recognize your Jira board without asking you to type it. This address is neither stored nor transmitted until you open the board.</li>
+  <li><strong>Jira integration</strong> (<code>scripting</code>): to display the Sprint Goals board on the authorized site when the board URL contains <code>sprintGoals=1</code>, and open native Jira issue views and forms. Without this parameter, Jira keeps its usual interface, with a plain "Sprint Goals" button on its boards. The extension does not automatically fill in or submit forms.</li>
   <li><strong>Network header rule</strong> (<code>declarativeNetRequestWithHostAccess</code>): so that your site's Atlassian Goals gateway accepts the extension's requests. The rule only affects those requests, sent by the extension to your site.</li>
 </ul>
 

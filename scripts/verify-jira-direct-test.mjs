@@ -17,7 +17,7 @@ if (!existsSync(join(dist, "manifest.json"))) {
 }
 const manifest = JSON.parse(readFileSync(join(dist, "manifest.json"), "utf8"));
 const browser = launchIsolatedBrowser("1600,900");
-const { send, evaluate, events } = browser;
+const { send, evaluate, waitFor, events } = browser;
 function assert(condition, message) {
   if (!condition) throw new Error(message);
   console.log(`✓ ${message}`);
@@ -215,6 +215,31 @@ try {
       "document.querySelector('dialog[open]').dispatchEvent(new Event('cancel'))",
     );
     await sleep(400);
+    // Changement de board demandé par la vue : la page hôte n'accepte qu'un identifiant et une clé
+    // de projet valides, venus de son cadre, et forme elle-même l'adresse sur son propre site.
+    await evaluate(
+      child.sessionId,
+      "['../../x','xyz','XYZ/boards/9?x='].forEach(projectKey=>window.parent.postMessage({type:'sprint-goals:open-board',boardId:8,projectKey,url:'https://evil.atlassian.net/'},'https://acme.atlassian.net'));window.parent.postMessage({type:'sprint-goals:open-board',boardId:'8',projectKey:'XYZ'},'https://acme.atlassian.net')",
+    );
+    await evaluate(
+      sessionId,
+      "window.postMessage({type:'sprint-goals:open-board',boardId:8,projectKey:'XYZ'},location.origin)",
+    );
+    await sleep(600);
+    assert(
+      (await evaluate(sessionId, "location.href")) === special,
+      "demande de board forgée ou venue d'ailleurs que la vue : la page ne bouge pas",
+    );
+    await evaluate(
+      child.sessionId,
+      "window.parent.postMessage({type:'sprint-goals:open-board',boardId:8,projectKey:'XYZ'},'https://acme.atlassian.net')",
+    );
+    await waitFor(
+      sessionId,
+      "location.href==='https://acme.atlassian.net/jira/software/c/projects/XYZ/boards/8?sprintGoals=1'&&document.readyState==='complete'",
+      "le changement de board n'a pas changé la page Jira",
+    );
+    assert(true, "changer de board charge la page Jira de ce board, marquée pour la vue");
     // Un autre site Atlassian qui encadre la page du board, en annonçant le vôtre : refusé.
     await send(
       "Page.navigate",
@@ -252,6 +277,47 @@ try {
     assert(
       await evaluate(sessionId, "!document.querySelector('#sprint-goals-direct')"),
       "une URL Jira normale reste entièrement normale",
+    );
+    // Bouton du script de contenu. Profil vierge : le site n'est pas autorisé, Chrome n'injecte
+    // donc pas le script ; le fichier construit est exécuté ici avec un faux `chrome.runtime`.
+    const bootstrap = readFileSync(join(dist, "jira-direct-bootstrap.js"), "utf8");
+    const runBootstrap = `(()=>{window.chrome=Object.assign(window.chrome||{},{runtime:{sendMessage:async()=>{window.__launches=(window.__launches||0)+1},getURL:p=>'chrome-extension://${extensionId}/'+p}});})();${bootstrap}`;
+    const openButton =
+      "document.querySelector('#sprint-goals-open')?.shadowRoot.querySelector('button')";
+    await evaluate(sessionId, runBootstrap);
+    await waitFor(
+      sessionId,
+      `(()=>{const b=${openButton};if(!b)return false;const r=b.getBoundingClientRect();const top=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return b.textContent==='Sprint Goals'&&r.right<=innerWidth&&r.bottom<=innerHeight&&r.left>innerWidth/2&&r.top>innerHeight/2&&top?.id==='sprint-goals-open'&&b.querySelector('img').naturalWidth===32&&!window.__launches})()`,
+      "le bouton Sprint Goals n'est pas affiché en bas à droite du board Jira",
+    );
+    assert(
+      true,
+      "sur un board Jira, le bouton Sprint Goals s'affiche en bas à droite, sans rien lancer",
+    );
+    await evaluate(sessionId, `${openButton}.click()`);
+    await waitFor(
+      sessionId,
+      "location.href==='https://acme.atlassian.net/jira/software/c/projects/ABC/boards/7?sprintGoals=1'&&window.__launches===1&&!document.querySelector('#sprint-goals-open')&&document.querySelector('#jira').isConnected",
+      "le clic sur le bouton n'a pas demandé la vue",
+    );
+    assert(true, "le clic marque l'adresse et demande la vue, sans recharger Jira");
+    await evaluate(sessionId, "history.back()");
+    await waitFor(
+      sessionId,
+      `!location.search&&Boolean(${openButton})&&window.__launches===1`,
+      "le bouton n'est pas revenu après le retour arrière",
+    );
+    assert(true, "retour arrière : le board Jira natif retrouve son bouton");
+    await send("Page.navigate", { url: "https://acme.atlassian.net/browse/ABC-102" }, sessionId);
+    await sleep(700);
+    await evaluate(sessionId, runBootstrap);
+    await sleep(700);
+    assert(
+      await evaluate(
+        sessionId,
+        "!document.querySelector('#sprint-goals-open')&&!window.__launches",
+      ),
+      "hors d'un board, le script de contenu n'ajoute rien à la page Jira",
     );
   } finally {
     clearInterval(pump);

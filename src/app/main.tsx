@@ -26,7 +26,7 @@ async function startInJira(container: HTMLElement): Promise<void> {
   }
   const model = new AppModel(platform, target.address);
   render(<App model={model} />, container);
-  installEmbeddedLinks(model, target.origin);
+  installEmbeddedLinks(model, target.origin, target.address);
   await model.start(target.address);
 }
 

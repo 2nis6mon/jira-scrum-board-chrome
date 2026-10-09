@@ -166,9 +166,9 @@ try {
     JSON.stringify(granted),
   );
   check(
-    "permissions : stockage, injection Jira et règle d'en-tête",
+    "permissions : onglet actif, stockage, injection Jira et règle d'en-tête",
     JSON.stringify([...granted.permissions].sort()) ===
-      JSON.stringify(["declarativeNetRequestWithHostAccess", "scripting", "storage"]),
+      JSON.stringify(["activeTab", "declarativeNetRequestWithHostAccess", "scripting", "storage"]),
     JSON.stringify(granted.permissions),
   );
 

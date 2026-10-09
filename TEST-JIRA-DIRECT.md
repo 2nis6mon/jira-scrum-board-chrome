@@ -14,13 +14,18 @@ restent pour les liens et procédures existants.
 ## Comportement attendu
 
 - Le clic sur l'icône d'un board Jira déjà autorisé ouvre directement Sprint Goals pour ce board.
+- Sur un board d'un site pas encore autorisé, le lanceur reconnaît son adresse (0.26.0,
+  `activeTab`) : rien à coller, il reste à choisir « Ouvrir dans Jira » et à autoriser le site.
+- Sur un board d'un site autorisé, un bouton « Sprint Goals » flotte en bas à droite de la page
+  Jira ; son clic ouvre la vue sans recharger Jira, et « Précédent » ramène au board natif.
+- Choisir un autre board dans le menu des boards de la vue charge la page Jira de ce board.
 - Sinon, le lanceur affiche un formulaire : coller l'URL d'un board Scrum ou Kanban, autoriser
   ce seul site dans Chrome, puis ouvrir Jira. Le dernier board est prérempli lorsqu'il est connu ;
   son adresse peut être remplacée, notamment pour choisir un autre site.
 - Le lanceur ne lit aucun ticket et n'affiche ni board ni administration.
 - La vue s'ouvre sur l'URL Jira avec `sprintGoals=1` ; Sprint Goals recouvre cette page, qui reste chargée derrière.
 - Cette URL peut être enregistrée dans les favoris et ouverte directement.
-- La même URL Jira sans `sprintGoals=1` reste une page Jira normale, sans bouton ni onglet ajouté.
+- La même URL Jira sans `sprintGoals=1` reste une page Jira normale, avec le seul bouton flottant.
 - Un clic sur une carte ouvre le vrai panneau Jira dans une popin de 1 280 px de large, avec des
   marges adaptatives de 16 à 60 px.
 - La fermeture du ticket conserve le board Sprint Goals et déclenche sa mise à jour.

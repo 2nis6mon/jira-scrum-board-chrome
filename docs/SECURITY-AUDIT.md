@@ -1,5 +1,13 @@
 # Audit de sécurité — Sprint Goals Board pour Jira
 
+> **Suivi (0.26.0, 09/10/2026)** — Trois changements, aucun hôte ni écriture nouveaux.
+> (1) Permission `activeTab`, choisie par Denis plutôt qu'un accès à `*.atlassian.net` dès
+> l'installation : au clic sur l'icône, le lanceur lit l'adresse du seul onglet courant pour
+> reconnaître son board ; l'accès au site reste demandé sur un clic. (2) Le script de contenu
+> affiche un bouton flottant sur les boards des sites autorisés ; son clic ne fait qu'ajouter
+> `sprintGoals=1` à l'adresse courante. (3) Nouveau message `sprint-goals:open-board` de la vue
+> vers la page hôte : voir S12 en fin de document.
+>
 > **Suivi (0.25.0, 09/10/2026)** — À la demande de Denis, l'intégration Jira devient le mode
 > unique. Le manifest source reprend les droits du mode intégré déjà utilisé : `scripting`,
 > ressources exposées limitées à `board.html`, `assets/*` et `icons/*`, et encadrement limité à
@@ -174,7 +182,10 @@ trouvée (voir 2.3).
 
 ### 2.2 Permissions et surface d'exposition
 
-- À l'installation : `storage`, `declarativeNetRequestWithHostAccess` et `scripting`.
+- À l'installation : `storage`, `declarativeNetRequestWithHostAccess`, `scripting` et, depuis
+  0.26.0, `activeTab` (adresse et titre de l'onglet courant, seulement quand l'utilisateur clique
+  l'icône, sans avertissement à l'installation ; le lanceur n'en lit que l'adresse et n'injecte
+  rien par ce droit).
   Aucune permission d'hôte : l'accès à **un** site `https://<site>.atlassian.net/*` est demandé à
   la connexion, et rendu à la déconnexion.
 - CSP des pages de l'extension :
@@ -186,7 +197,8 @@ trouvée (voir 2.3).
   - Aucun formulaire n'est envoyé.
   - Aucune ressource externe n'est chargée.
 - Le clic sur l'icône ouvre le lanceur : il rejoint automatiquement le board courant si son site
-  est déjà autorisé. Sinon, un formulaire préremplit le board mémorisé et permet de choisir une
+  est déjà autorisé. Sinon, un formulaire préremplit le board de l'onglet (reconnu par
+  `activeTab`) ou le board mémorisé et permet de choisir une
   URL, puis de demander l'autorisation sur un clic. Le service worker enregistre les
   scripts de contenu sur le site autorisé. Sur une URL de board marquée
   `sprintGoals=1`, l'intégration injecte la vue et ouvre les fiches/formulaires natifs Jira.
@@ -402,13 +414,16 @@ Tests unitaires, modèle et banc Chrome fictif ; validation Jira réel encore à
 
 L'intégration a été introduite en 0.19.8.2 et durcie en 0.19.9.2. Depuis la décision du
 09/10/2026, elle remplace le mode autonome. Son manifest est le manifest source et comprend :
-- la permission `scripting` : un script de contenu sur le seul site autorisé, qui ne fait rien
-  hors d'une adresse de board suivie de `?sprintGoals=1`, et l'injection de l'overlay ;
+- la permission `scripting` : un script de contenu sur le seul site autorisé, et l'injection de
+  l'overlay sur une adresse de board suivie de `?sprintGoals=1`. Depuis 0.26.0, sur un board sans
+  ce marqueur, il affiche un bouton flottant (racine fantôme, aucune lecture de la page) dont le
+  clic ajoute le marqueur à l'adresse ; ailleurs, il ne fait rien ;
 - `web_accessible_resources` : la page du board et ses ressources, exposées aux pages
   `https://*.atlassian.net/*` ;
 - `frame-ancestors https://*.atlassian.net` pour les pages de l'extension ;
 - des messages `postMessage` entre la page Jira hôte et la page du board encadrée, origine et
-  fenêtre vérifiées, clés de ticket et identifiants de transition validés.
+  fenêtre vérifiées, clés de ticket, identifiants de transition, identifiant de board et clé de
+  projet validés.
 
 L'ancienne absence de scripts de contenu et de ressources exposées concernait le mode autonome
 historique. La section 2.2 décrit désormais la surface du paquet intégré.
@@ -418,6 +433,19 @@ historique. La section 2.2 décrit désormais la surface du paquet intégré.
 | S9 | La page du board, exposée à tout `*.atlassian.net` et encadrable par lui, pouvait être affichée par un autre site Atlassian (n'importe qui peut en créer un), chargée avec la session de l'utilisateur : glisser-déposer provoqué à son insu (écritures dans son Jira), et clé du ticket cliqué envoyée à la page hôte sans vérifier le site. | Moyenne | **Corrigé en 0.19.9.2** |
 | S10 | Le clic automatique dans le menu de statut de Jira reconnaissait la transition par un libellé qui commence ou finit par son nom. Un élément voisin sans écran (« Démarrer la revue » pour « Revue ») pouvait être cliqué, et Jira l'exécutait aussitôt : une transition non voulue, hors de l'inventaire `writes.ts`. | Moyenne | **Correspondance stricte depuis 0.19.9.2, règle actuelle détaillée en 0.19.13.2 ci-dessous** |
 | S11 | La reconnaissance de la fiche, du menu de statut et du formulaire dépend du DOM de Jira Cloud (rôles ARIA, libellés français et anglais). Une refonte d'Atlassian peut la mettre en défaut. | Information | Structurel, voir `DEVELOPER.md` §9 |
+
+**S12 (0.26.0, information) — changement de board par la page hôte.** La vue demande à la page
+Jira d'ouvrir un autre board par `sprint-goals:open-board`. Risque écarté : faire naviguer
+l'onglet vers une adresse choisie par un tiers. La page hôte n'accepte le message que de son cadre
+(`event.source`) et de l'origine de l'extension, exige un identifiant entier positif et une clé de
+projet `^[A-Z][A-Z0-9_]*$`, ignore toute adresse reçue et forme elle-même
+`/jira/software/c/projects/<clé>/boards/<id>?sprintGoals=1` sur sa propre origine. La vue n'envoie
+le message que si le site connecté est celui de la page hôte. Une page Jira qui se poste le message
+à elle-même est ignorée. Tests : `tests/experiment/hostBoardSwitch.test.ts`,
+`tests/app/BoardModel.boards.test.ts` ; contrôle Chrome : `verify:jira` (messages forgés ignorés,
+message valide suivi). Le bouton flottant, lui, n'ajoute qu'un paramètre à l'adresse courante :
+une page pourrait le faire elle-même, et le garde-fou d'hébergement (S9) s'applique ensuite
+inchangé.
 
 **S9 — correctif.** `src/experiment/embeddingGuard.ts` (`embeddingTarget`) et `embeddedBoardTarget`
 (`embedded.ts`), appelés dans `main.tsx` **avant tout rendu et toute lecture** : la page encadrée

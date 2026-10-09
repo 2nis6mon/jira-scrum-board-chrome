@@ -2,7 +2,7 @@
 
 Textes prêts à coller dans le tableau de bord développeur du Chrome Web Store, onglet par onglet.
 Paquet à envoyer : `release/sprint-goals-board-<version>.zip`, produit par `npm run package`
-(paquet intégré dans Jira, version 0.25.0, sans le champ `key`). Le mode autonome est abandonné.
+(paquet intégré dans Jira, version 0.26.0, sans le champ `key`). Le mode autonome est abandonné.
 Ces textes et ce paquet sont préparés pour une publication ; leur mise à jour locale ne publie rien.
 
 ## Onglet « Fiche Play Store » (Store listing)
@@ -48,7 +48,7 @@ CONFIDENTIALITÉ
 • Rien n'est écrit dans Jira sans un geste de votre part.
 
 Pour Jira Cloud (*.atlassian.net), boards Scrum et Kanban. Goals Atlassian dans les deux modes, texte du Sprint Goal en Scrum uniquement.
-Au premier lancement, collez l'URL de votre board et autorisez ce seul site. La vue s'ouvre sur l'URL Jira avec sprintGoals=1 ; sans ce paramètre, Jira conserve son affichage habituel. Le lanceur ne charge aucun ticket et il n'existe pas de board autonome.
+Au premier lancement, ouvrez votre board Jira, cliquez sur l'icône de l'extension et autorisez ce seul site : le board est reconnu, rien n'est à coller. Ensuite, un bouton « Sprint Goals » apparaît sur chaque board du site. La vue s'ouvre sur l'URL Jira avec sprintGoals=1 ; sans ce paramètre, Jira conserve son affichage habituel. Le lanceur ne charge aucun ticket et il n'existe pas de board autonome.
 
 Jira et Atlassian sont des marques d'Atlassian. Cette extension n'est ni développée ni approuvée par Atlassian.
 ```
@@ -84,13 +84,19 @@ Une seule règle de session : pour les requêtes POST émises par l'extension el
 **Justification de l'autorisation d'hôte** (`optional_host_permissions: https://*.atlassian.net/*`) :
 
 ```
-L'extension lit et met à jour le board Jira Cloud de l'utilisateur par l'API REST de Jira et la passerelle GraphQL de son site. L'accès est optionnel : aucun site n'est autorisé à l'installation ; l'utilisateur colle l'URL de son board Jira et Chrome lui demande l'accès à CE seul site (https://son-site.atlassian.net/*). L'accès est rendu à la déconnexion.
+L'extension lit et met à jour le board Jira Cloud de l'utilisateur par l'API REST de Jira et la passerelle GraphQL de son site. L'accès est optionnel : aucun site n'est autorisé à l'installation ; l'utilisateur ouvre son board Jira, clique sur l'icône de l'extension, et Chrome lui demande l'accès à CE seul site (https://son-site.atlassian.net/*). L'accès est rendu à la déconnexion.
+```
+
+**Justification de `activeTab`** :
+
+```
+Quand l'utilisateur clique sur l'icône de l'extension, lire l'adresse de l'onglet affiché pour reconnaître son board Jira et lui éviter de la saisir. Aucun script n'est injecté par ce droit ; l'accès au site reste demandé explicitement ensuite, pour ce seul site.
 ```
 
 **Justification de `scripting`** :
 
 ```
-Afficher la vue Sprint Goals dans la page du board Jira choisi, uniquement sur le site autorisé par l'utilisateur et lorsque l'URL contient sprintGoals=1. Le script de contenu installe la vue intégrée et permet d'ouvrir les fiches et formulaires natifs Jira. Il ne remplit ni ne valide automatiquement un formulaire. Sans ce paramètre, la page Jira garde son affichage habituel. La vue métier refuse de démarrer hors de la page Jira de premier niveau autorisée.
+Afficher la vue Sprint Goals dans la page du board Jira choisi, uniquement sur le site autorisé par l'utilisateur et lorsque l'URL contient sprintGoals=1. Sur les boards de ce site, le script de contenu affiche aussi un bouton « Sprint Goals » qui ouvre cette vue. Le script de contenu installe la vue intégrée et permet d'ouvrir les fiches et formulaires natifs Jira. Il ne remplit ni ne valide automatiquement un formulaire. Sans ce paramètre, la page Jira garde son affichage habituel. La vue métier refuse de démarrer hors de la page Jira de premier niveau autorisée.
 ```
 
 **Code distant** : Non, je n'utilise pas de code distant. Tout le code est dans le paquet ; la

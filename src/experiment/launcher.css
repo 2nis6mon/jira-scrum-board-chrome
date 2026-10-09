@@ -74,6 +74,12 @@ button:disabled {
   color: #ae2a19;
 }
 
+.detected {
+  padding: 8px 10px;
+  background: #e9f2ff;
+  border-radius: 5px;
+}
+
 .hint {
   color: #626f86;
   font-size: 12px;

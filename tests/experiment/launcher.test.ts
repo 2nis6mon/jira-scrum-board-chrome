@@ -182,4 +182,34 @@ describe("lanceur de Sprint Goals dans Jira", () => {
     expect(platform.hasPermission).not.toHaveBeenCalled();
     expect(platform.navigate).not.toHaveBeenCalled();
   });
+
+  it("reconnaît le board de l'onglet au clic sur l'icône, sans demander l'accès avant le geste", async () => {
+    // activeTab : Chrome donne l'adresse de l'onglet courant, le site n'est pas encore autorisé.
+    const tab = { id: 4, url: `${BOARD}/backlog?selectedIssue=ABC-19` };
+    const { model, platform } = setup(tab);
+    await model.start();
+    expect(model.detected.value).toBe(true);
+    expect(model.offBoard.value).toBe(false);
+    expect(model.address.value).toBe(`${BOARD}/backlog?sprintGoals=1`);
+    expect(platform.requestPermission).not.toHaveBeenCalled();
+    expect(platform.navigate).not.toHaveBeenCalled();
+    await model.open();
+    expect(platform.requestPermission).toHaveBeenCalledWith(`${SITE}/*`);
+    expect(platform.navigate).toHaveBeenCalledWith(`${BOARD}/backlog?sprintGoals=1`, tab);
+  });
+
+  it.each([
+    [`${SITE}/browse/ABC-7`, true],
+    [`${SITE}/jira/your-work`, true],
+    ["https://example.com/jira/software/c/projects/ABC/boards/7", false],
+    ["chrome://extensions/", false],
+  ])("hors d'un board (%s), rien n'est prérempli et l'aide suit la page", async (url, jira) => {
+    const { model, platform } = setup({ id: 4, url });
+    await model.start();
+    expect(model.detected.value).toBe(false);
+    expect(model.offBoard.value).toBe(jira);
+    expect(model.address.value).toBe("");
+    expect(platform.hasPermission).not.toHaveBeenCalled();
+    expect(platform.navigate).not.toHaveBeenCalled();
+  });
 });

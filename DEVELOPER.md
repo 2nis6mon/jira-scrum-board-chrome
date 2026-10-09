@@ -1,7 +1,7 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
 Dernière mise à jour : **9 octobre 2026**\
-Version décrite : **0.25.0** (Scrum et Kanban, swimlanes par type)\
+Version décrite : **0.26.0** (Scrum et Kanban, swimlanes par type)\
 Mode unique : **intégré dans Jira**, URL Jira toujours présente derrière le board.
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
@@ -45,7 +45,8 @@ reste consultable en lecture seule.
 ## 2. Un seul mode : intégré dans Jira
 
 Décision de Denis du 09/10/2026 : supprimer la possibilité d'exécuter le board hors de Jira.
-Le lanceur sert seulement à choisir une URL de board et à demander l'autorisation Chrome ;
+Le lanceur sert seulement à reconnaître ou choisir une URL de board et à demander
+l'autorisation Chrome ;
 aucune vue métier, aucun ticket et aucune administration ne s'affichent dans ce lanceur.
 
 Commande :
@@ -56,11 +57,12 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.25.0` (sans suffixe `.2`)\
+Version : `0.26.0` (sans suffixe `.2`)\
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 Le manifest source est celui de l'intégration : permissions `storage`,
-`declarativeNetRequestWithHostAccess` et `scripting`, autorisation optionnelle limitée à
+`declarativeNetRequestWithHostAccess`, `scripting` et `activeTab` (0.26.0 : adresse de l'onglet
+courant au clic sur l'icône, rien d'autre), autorisation optionnelle limitée à
 `https://*.atlassian.net/*`, ressources exposées limitées à `board.html`, `assets/*` et `icons/*`,
 et `frame-ancestors https://*.atlassian.net`. Cette promotion des droits déjà utilisés par
 l'intégration applique la décision produit ; aucun hôte supplémentaire n'est ajouté.
@@ -89,15 +91,23 @@ https://site.atlassian.net/jira/software/c/projects/PROJET/boards/123?sprintGoal
 
 - Un clic sur l'icône ouvre le lanceur `launcher.html`. Si l'onglet courant est un board Jira
   déjà autorisé, ce board s'ouvre automatiquement dans Sprint Goals.
+- Si l'onglet courant est un board d'un site pas encore autorisé, son adresse est reconnue
+  (`activeTab`) et préremplie : il reste à cliquer « Ouvrir dans Jira » et à accepter la demande
+  de Chrome. Rien n'est à coller.
 - Sinon, le lanceur affiche son formulaire et préremplit le board mémorisé s'il en existe un.
   L'utilisateur peut remplacer l'URL, notamment pour changer de site, puis choisir « Ouvrir
   dans Jira ». Chrome demande l'autorisation du site si nécessaire, avant d'ouvrir la vraie
   URL Jira avec `sprintGoals=1`. Un refus ou une erreur laisse le formulaire disponible.
-- Choisir un autre board depuis la vue intégrée navigue vers son URL Jira ; le site et le board
-  affichés restent ceux de la page hôte.
+- Choisir un autre board depuis la vue intégrée navigue vers son URL Jira (0.26.0 : message
+  `sprint-goals:open-board`, identifiant et clé de projet ; la page hôte forme l'adresse) ; le
+  site et le board affichés restent ceux de la page hôte. Un board sans clé de projet s'affiche
+  sur place, avec un avertissement.
+- Sur tout board d'un site autorisé, le script de contenu affiche un bouton flottant « Sprint
+  Goals » en bas à droite ; son clic ajoute `sprintGoals=1` à l'adresse sans recharger Jira.
 - L’URL peut être enregistrée dans les favoris.
 - Une URL Jira sans ce paramètre reste entièrement normale.
-- Aucun onglet, bouton ou lien Sprint Goals n’est ajouté à l’interface Jira.
+- Rien n'est inséré dans l'interface de Jira : le bouton flotte au-dessus de la page, dans sa
+  propre racine fantôme.
 - La vue Sprint Goals recouvre toute la page Jira, qui reste chargée derrière.
 
 ### Ouverture des tickets

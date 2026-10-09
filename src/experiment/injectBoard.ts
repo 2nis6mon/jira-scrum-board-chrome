@@ -21,6 +21,7 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
     section{height:100%;display:flex;flex-direction:column;background:white;overflow:hidden}
     header{display:none}
     :host([data-error]) header{display:flex;padding:8px 12px;color:#ae2a19;background:#ffebe6;font:14px system-ui}
+    :host([data-leaving]) header{display:flex;padding:8px 12px;color:#172b4d;background:#e9f2ff;font:14px system-ui}
     iframe{border:0;width:100%;min-height:0;flex:1;background:white}
   `;
   const section = document.createElement("section");
@@ -393,6 +394,26 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
   const onMessage = (event: MessageEvent) => {
     if (event.source !== frame.contentWindow || event.origin !== url.origin) return;
     const data = event.data;
+    if (data?.type === "sprint-goals:open-board") {
+      // Jamais d'adresse reçue : la page hôte construit elle-même celle du board, sur son site.
+      if (
+        !Number.isSafeInteger(data.boardId) ||
+        data.boardId <= 0 ||
+        typeof data.projectKey !== "string" ||
+        !/^[A-Z][A-Z0-9_]*$/.test(data.projectKey)
+      )
+        return;
+      const board = new URL(
+        `/jira/software/c/projects/${data.projectKey}/boards/${data.boardId}`,
+        location.origin,
+      );
+      board.searchParams.set("sprintGoals", "1");
+      closeTicket();
+      host.setAttribute("data-leaving", "");
+      status.textContent = "Ouverture du board dans Jira…";
+      location.assign(board.href);
+      return;
+    }
     if (data?.type !== "sprint-goals:open-issue" || !/^[A-Z][A-Z0-9_]*-[1-9]\d*$/.test(data.key))
       return;
     const transition =
