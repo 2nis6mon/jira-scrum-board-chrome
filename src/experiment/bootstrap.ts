@@ -21,7 +21,10 @@
     void check();
   };
 
-  /** Bouton flottant, isolé des styles de Jira ; rien n'est inséré dans son interface. */
+  /**
+   * Bouton flottant, isolé des styles de Jira ; rien n'est inséré dans son interface. Il se place
+   * à gauche du bouton Rovo de Jira, lui-même en bas à droite de la page.
+   */
   const showButton = () => {
     if (document.getElementById(buttonId)) return;
     const host = document.createElement("div");
@@ -29,7 +32,7 @@
     const root = host.attachShadow({ mode: "open" });
     const style = document.createElement("style");
     style.textContent = `
-      :host{position:fixed;right:24px;bottom:24px;z-index:2147482000;display:block}
+      :host{position:fixed;right:96px;bottom:28px;z-index:2147482000;display:block}
       button{display:flex;align-items:center;gap:8px;padding:8px 14px 8px 10px;border:1px solid #dcdfe4;border-radius:20px;background:white;color:#172b4d;font:600 14px system-ui,sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(9,30,66,.25)}
       button:hover{background:#f1f2f4}
       button:focus-visible{outline:2px solid #0c66e4;outline-offset:2px}
@@ -59,21 +62,24 @@
   let busy = false;
   const check = async () => {
     const address = location.href;
+    const url = new URL(address);
+    const marked = url.searchParams.get("sprintGoals") === "1";
+    // Revu à chaque passage, même sans changement d'adresse : Jira peut reconstruire sa page et
+    // emporter le bouton, qui est alors reposé.
+    if (marked || !isBoardPage(url)) hideButton();
+    else
+      try {
+        showButton();
+      } catch {
+        stop();
+        return;
+      }
     if (busy || previous === address) return;
     previous = address;
-    const url = new URL(address);
-    if (url.searchParams.get("sprintGoals") !== "1") {
+    if (!marked) {
       document.getElementById("sprint-goals-direct")?.remove();
-      if (!isBoardPage(url)) hideButton();
-      else
-        try {
-          showButton();
-        } catch {
-          stop();
-        }
       return;
     }
-    hideButton();
     busy = true;
     try {
       await chrome.runtime.sendMessage({ type: "sprint-goals:launch" });

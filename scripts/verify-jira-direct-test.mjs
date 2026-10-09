@@ -287,12 +287,12 @@ try {
     await evaluate(sessionId, runBootstrap);
     await waitFor(
       sessionId,
-      `(()=>{const b=${openButton};if(!b)return false;const r=b.getBoundingClientRect();const top=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return b.textContent==='Sprint Goals'&&r.right<=innerWidth&&r.bottom<=innerHeight&&r.left>innerWidth/2&&r.top>innerHeight/2&&top?.id==='sprint-goals-open'&&b.querySelector('img').naturalWidth===32&&!window.__launches})()`,
+      `(()=>{const b=${openButton};if(!b)return false;const r=b.getBoundingClientRect();const top=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return b.textContent==='Sprint Goals'&&r.right<=innerWidth-88&&r.bottom<=innerHeight&&r.left>innerWidth/2&&r.top>innerHeight/2&&top?.id==='sprint-goals-open'&&b.querySelector('img').naturalWidth===32&&!window.__launches})()`,
       "le bouton Sprint Goals n'est pas affiché en bas à droite du board Jira",
     );
     assert(
       true,
-      "sur un board Jira, le bouton Sprint Goals s'affiche en bas à droite, sans rien lancer",
+      "sur un board Jira, le bouton Sprint Goals s'affiche en bas à droite, à gauche de l'emplacement de Rovo, sans rien lancer",
     );
     await evaluate(sessionId, `${openButton}.click()`);
     await waitFor(

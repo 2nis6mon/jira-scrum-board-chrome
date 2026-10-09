@@ -74,6 +74,15 @@ describe("bouton Sprint Goals sur les boards Jira", () => {
     expect(sendMessage).not.toHaveBeenCalled();
   });
 
+  it("un bouton emporté par une reconstruction de la page Jira est reposé", async () => {
+    await load(BOARD);
+    document.body.replaceChildren();
+    expect(button()).toBeNull();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(button()).not.toBeNull();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
   it("une adresse déjà marquée lance la vue sans bouton", async () => {
     await load(`${BOARD}?sprintGoals=1`);
     expect(document.getElementById("sprint-goals-open")).toBeNull();

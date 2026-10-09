@@ -44,7 +44,7 @@ Daily, présentation, filtres, transitions et rang fonctionnent dans les deux mo
 Version Chrome de l'app macOS « Scrum Board », projet distinct dont il reprend la spécification
 ([`docs/reference-app-mac/PROMPT.md`](docs/reference-app-mac/PROMPT.md)).
 
-> **État : 0.26.0 — uniquement intégré dans Jira.** La vue métier s'affiche toujours sur
+> **État : 0.26.1 — uniquement intégré dans Jira.** La vue métier s'affiche toujours sur
 > l'URL du board Jira ; le mode autonome est abandonné. Point d'entrée pour reprendre le projet :
 > [`DEVELOPER.md`](DEVELOPER.md). Étape 6 :
 > santé du sprint (6a), plusieurs boards (6b), audit de sécurité (6d,
@@ -563,7 +563,7 @@ nom suivi du statut d'arrivée. Jira dessine alors sa fenêtre, que la popin iso
 taille. Sans correspondance certaine, rien n'est cliqué : la fiche vous est rendue, le menu reste
 à votre main. C'est vous qui validez le formulaire ; valider ou annuler referme la popin et relit
 le board.
-À charger aujourd'hui : `dist/`, après `npm run build`, version `0.26.0`.
+À charger aujourd'hui : `dist/`, après `npm run build`, version `0.26.1`.
 
 Vérifié historiquement dans Chrome (faux Jira, profil vierge) par `verify:jira-direct-test` : refus sans
 autorisation du site, refus dans la page d'un autre site Atlassian, écran de transition ouvert

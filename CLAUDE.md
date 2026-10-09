@@ -59,7 +59,7 @@ historiques.
   trailer `Co-Authored-By` (demande de Denis du 09/10/2026).
 - Pousser chaque commit sur sa branche, toujours (consigne de Denis du 24/09/2026). Fusionner
   dans `main` seulement sur demande explicite.
-- **Mode unique depuis le 09/10/2026 (demande de Denis) : intégré dans Jira, version 0.26.0.**
+- **Mode unique depuis le 09/10/2026 (demande de Denis) : intégré dans Jira, version 0.26.1.**
   Construire avec `npm run build` dans `dist/`, prêt à charger dans Chrome. `watch`, `check` et
   `package` ciblent aussi ce mode ; les alias `:jira-direct-test` restent compatibles.
   Supprimer le fonctionnement autonome : toute vue métier exige une page Jira hôte autorisée.
@@ -240,6 +240,12 @@ d'adresse à coller, un bouton dans Jira, et le changement de board change la pa
 À CONSTATER chez Denis : que Jira garde `sprintGoals=1` après le `pushState` du bouton ; que
 l'adresse `/jira/software/c/projects/<clé>/boards/<id>` ouvre aussi les boards des projets gérés
 par l'équipe ; que le bouton ne recouvre rien d'utile. Aucune écriture ni hôte nouveaux.
+
+0.26.1 (retour de Denis du 09/10/2026 : bouton invisible sur son board) : le bouton se place à
+gauche du bouton Rovo de Jira (`right: 96px ; bottom: 28px`, valeurs estimées, à ajuster sur son
+Jira), et il est reposé à chaque passage du script s'il a disparu — Jira peut reconstruire sa page
+après l'injection. La cause exacte chez lui n'est pas établie. Un onglet Jira ouvert avant le
+rechargement de l'extension garde l'ancien script : il faut recharger la page.
 
 Constats sur l'instance de Denis (18/09/2026) : la session du navigateur est reconnue ; les POST
 de lecture REST et les écritures REST (PUT/DELETE de propriété de sprint) passent SANS en-tête
