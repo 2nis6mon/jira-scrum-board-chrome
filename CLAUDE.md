@@ -55,8 +55,8 @@ historiques.
   contre son vrai Jira : c'est lui qui installe, se connecte et valide. `npm run verify:load`
   utilise un profil Chrome temporaire vierge et n'émet aucune requête vers Jira.
 - Répondre en français. Code, commentaires et messages de commit en français.
-- Commits : `git -c user.name="2nis6mon" -c user.email="denis.simon@gmail.com" commit …`, avec le
-  trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- Commits : `git -c user.name="2nis6mon" -c user.email="denis.simon@gmail.com" commit …`, sans
+  trailer `Co-Authored-By` (demande de Denis du 09/10/2026).
 - Pousser chaque commit sur sa branche, toujours (consigne de Denis du 24/09/2026). Fusionner
   dans `main` seulement sur demande explicite.
 - **Mode unique depuis le 09/10/2026 (demande de Denis) : intégré dans Jira, version 0.25.0.**
