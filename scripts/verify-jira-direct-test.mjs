@@ -297,14 +297,28 @@ try {
     await evaluate(sessionId, `${openButton}.click()`);
     await waitFor(
       sessionId,
-      "location.href==='https://acme.atlassian.net/jira/software/c/projects/ABC/boards/7?sprintGoals=1'&&window.__launches===1&&!document.querySelector('#sprint-goals-open')&&document.querySelector('#jira').isConnected",
-      "le clic sur le bouton n'a pas demandé la vue",
+      // Page rechargée : le faux `chrome.runtime` posé plus haut n'existe plus.
+      "location.href==='https://acme.atlassian.net/jira/software/c/projects/ABC/boards/7?sprintGoals=1'&&document.readyState==='complete'&&window.__launches===undefined",
+      "le clic sur le bouton n'a pas chargé l'adresse marquée",
     );
-    assert(true, "le clic marque l'adresse et demande la vue, sans recharger Jira");
+    assert(true, "le clic charge la page du board marquée pour la vue");
+    await evaluate(sessionId, runBootstrap);
+    await waitFor(
+      sessionId,
+      "window.__launches===1&&!document.querySelector('#sprint-goals-open')",
+      "la page marquée n'a pas demandé la vue",
+    );
+    assert(true, "sur la page marquée, la vue est demandée et le bouton n'est pas affiché");
     await evaluate(sessionId, "history.back()");
     await waitFor(
       sessionId,
-      `!location.search&&Boolean(${openButton})&&window.__launches===1`,
+      "!location.search&&document.readyState==='complete'&&window.__launches===undefined",
+      "le retour arrière n'a pas ramené au board Jira",
+    );
+    await evaluate(sessionId, runBootstrap);
+    await waitFor(
+      sessionId,
+      `Boolean(${openButton})&&!window.__launches`,
       "le bouton n'est pas revenu après le retour arrière",
     );
     assert(true, "retour arrière : le board Jira natif retrouve son bouton");

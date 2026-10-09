@@ -54,13 +54,13 @@ describe("bouton Sprint Goals sur les boards Jira", () => {
     expect(sendMessage).not.toHaveBeenCalled();
   });
 
-  it("le clic marque l'adresse du board, sans la fiche ouverte, et lance la vue", async () => {
+  it("le clic charge l'adresse marquée du board, sans la fiche ouverte", async () => {
     await load(`${BOARD}?selectedIssue=ABC-19&filter=3`);
+    const assign = vi.spyOn(location, "assign").mockImplementation(() => {});
     button()?.click();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(location.href).toBe(`${BOARD}?filter=3&sprintGoals=1`);
-    expect(sendMessage).toHaveBeenCalledExactlyOnceWith({ type: "sprint-goals:launch" });
-    expect(document.getElementById("sprint-goals-open")).toBeNull();
+    // Un vrai chargement de page, pas un simple changement d'adresse que Jira peut défaire.
+    expect(assign).toHaveBeenCalledExactlyOnceWith(`${BOARD}?filter=3&sprintGoals=1`);
+    expect(sendMessage).not.toHaveBeenCalled();
   });
 
   it("suit la navigation interne de Jira : le bouton disparaît puis revient", async () => {
@@ -91,9 +91,10 @@ describe("bouton Sprint Goals sur les boards Jira", () => {
 
   it("extension rechargée : le script s'efface au lieu de laisser un bouton mort", async () => {
     await load(BOARD);
+    expect(button()).not.toBeNull();
     sendMessage.mockRejectedValueOnce(new Error("Extension context invalidated."));
-    button()?.click();
-    await vi.advanceTimersByTimeAsync(0);
+    history.pushState(null, "", `${BOARD}?sprintGoals=1`);
+    await vi.advanceTimersByTimeAsync(500);
     expect(document.getElementById("sprint-goals-open")).toBeNull();
     expect(document.documentElement.hasAttribute("sprint-goals-direct-bootstrap")).toBe(false);
   });

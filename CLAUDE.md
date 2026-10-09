@@ -59,7 +59,7 @@ historiques.
   trailer `Co-Authored-By` (demande de Denis du 09/10/2026).
 - Pousser chaque commit sur sa branche, toujours (consigne de Denis du 24/09/2026). Fusionner
   dans `main` seulement sur demande explicite.
-- **Mode unique depuis le 09/10/2026 (demande de Denis) : intégré dans Jira, version 0.26.1.**
+- **Mode unique depuis le 09/10/2026 (demande de Denis) : intégré dans Jira, version 0.26.2.**
   Construire avec `npm run build` dans `dist/`, prêt à charger dans Chrome. `watch`, `check` et
   `package` ciblent aussi ce mode ; les alias `:jira-direct-test` restent compatibles.
   Supprimer le fonctionnement autonome : toute vue métier exige une page Jira hôte autorisée.
@@ -227,9 +227,9 @@ d'adresse à coller, un bouton dans Jira, et le changement de board change la pa
    le clic « Ouvrir dans Jira ». Sur une page Jira qui n'est pas un board, il dit d'en ouvrir un.
 2. Bouton « Sprint Goals » flottant en bas à droite de tout board d'un site autorisé
    (`bootstrap.ts`, script de contenu sans import, racine fantôme, rien n'est inséré dans
-   l'interface de Jira). Il suit la navigation interne de Jira. Clic : `sprintGoals=1` ajouté à
-   l'adresse par `history.pushState`, sans recharger Jira (`selectedIssue` retiré) ; retour
-   arrière = board natif et son bouton. Le bouton n'existe pas avant la première autorisation du
+   l'interface de Jira). Il suit la navigation interne de Jira. Clic : chargement de
+   l'adresse suivie de `sprintGoals=1` (`selectedIssue` retiré ; `location.assign` depuis
+   0.26.2) ; retour arrière = board natif et son bouton. Le bouton n'existe pas avant la première autorisation du
    site, qui passe par l'icône.
 3. Changer de board dans la vue (menu des boards, ajout par la recherche, retrait du board
    affiché) change de page Jira : `BoardModel.hostBoardNavigator`, message
@@ -237,7 +237,7 @@ d'adresse à coller, un bouton dans Jira, et le changement de board change la pa
    (`injectBoard.ts`) valide, forme l'adresse sur son propre site et y navigue. Le board est rendu
    actif avant de partir ; rien n'est relu dans la vue quittée. Un board sans clé de projet
    s'affiche sur place avec un avertissement (la page Jira derrière ne suit pas).
-À CONSTATER chez Denis : que Jira garde `sprintGoals=1` après le `pushState` du bouton ; que
+À CONSTATER chez Denis : que
 l'adresse `/jira/software/c/projects/<clé>/boards/<id>` ouvre aussi les boards des projets gérés
 par l'équipe ; que le bouton ne recouvre rien d'utile. Aucune écriture ni hôte nouveaux.
 
@@ -246,6 +246,13 @@ gauche du bouton Rovo de Jira (`right: 96px ; bottom: 28px`, valeurs estimées, 
 Jira), et il est reposé à chaque passage du script s'il a disparu — Jira peut reconstruire sa page
 après l'injection. La cause exacte chez lui n'est pas établie. Un onglet Jira ouvert avant le
 rechargement de l'extension garde l'ancien script : il faut recharger la page.
+
+0.26.2 (essai de Denis du 09/10/2026 sur son Jira : bouton visible, mais le clic n'ouvrait pas
+la vue) : le clic ne passe plus par `history.pushState`. Il charge l'adresse marquée
+(`location.assign`), le chemin déjà validé chez lui avec le lanceur. La cause exacte de l'échec
+n'est pas établie (marqueur retiré par le routeur de Jira, ou adresse de l'expéditeur non mise à
+jour pour le service worker) : ne pas revenir à une ouverture sans rechargement sans l'avoir
+constatée sur son instance.
 
 Constats sur l'instance de Denis (18/09/2026) : la session du navigateur est reconnue ; les POST
 de lecture REST et les écritures REST (PUT/DELETE de propriété de sprint) passent SANS en-tête

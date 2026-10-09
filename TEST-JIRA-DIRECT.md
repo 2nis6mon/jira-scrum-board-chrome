@@ -17,7 +17,7 @@ restent pour les liens et procédures existants.
 - Sur un board d'un site pas encore autorisé, le lanceur reconnaît son adresse (0.26.0,
   `activeTab`) : rien à coller, il reste à choisir « Ouvrir dans Jira » et à autoriser le site.
 - Sur un board d'un site autorisé, un bouton « Sprint Goals » flotte en bas à droite de la page
-  Jira ; son clic ouvre la vue sans recharger Jira, et « Précédent » ramène au board natif.
+  Jira ; son clic recharge la page sur l'adresse marquée et ouvre la vue, et « Précédent » ramène au board natif.
 - Choisir un autre board dans le menu des boards de la vue charge la page Jira de ce board.
 - Sinon, le lanceur affiche un formulaire : coller l'URL d'un board Scrum ou Kanban, autoriser
   ce seul site dans Chrome, puis ouvrir Jira. Le dernier board est prérempli lorsqu'il est connu ;

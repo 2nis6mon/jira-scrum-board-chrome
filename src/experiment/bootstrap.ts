@@ -10,15 +10,18 @@
   /** Même forme d'adresse que `sprintGoalsBoardRoute` (boardRoute.ts), sans le marqueur. */
   const isBoardPage = (url: URL) => /^\/jira\/.*\/boards\/[1-9]\d*(?:\/|$)/.test(url.pathname);
 
-  /** Adresse courante marquée pour la vue Sprint Goals ; la page Jira n'est pas rechargée. */
+  /**
+   * Charge l'adresse courante marquée pour la vue Sprint Goals. C'est un vrai chargement de page :
+   * ajouté sans recharger (`history.pushState`), le marqueur ne tenait pas dans le Jira de Denis
+   * et la vue ne s'ouvrait pas (0.26.1).
+   */
   const open = () => {
     const url = new URL(location.href);
     if (!isBoardPage(url)) return;
     url.searchParams.set("sprintGoals", "1");
     // Une fiche ticket ouverte sur le board ne doit pas remplacer le board au lancement.
     url.searchParams.delete("selectedIssue");
-    history.pushState(history.state, "", url.href);
-    void check();
+    location.assign(url.href);
   };
 
   /**
