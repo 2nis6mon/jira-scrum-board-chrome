@@ -206,7 +206,9 @@ supprimées ; `codex/swimlanes-par-type` (0.23.0) part de là. La branche du pro
 la demande de Denis le 23/09/2026 (avance rapide, 27 commits), puis supprimée avec les autres
 branches `codex/...`. Cet historique précédait la décision du 09/10/2026 : l'intégration Jira
 est désormais le mode unique et son manifest est le manifest source. Une validation locale
-avec faux Jira ne vaut jamais validation sur l'instance de Denis.
+avec faux Jira ne vaut jamais validation sur l'instance de Denis. `codex/jira-only` (0.25.0) puis
+`codex/bouton-board` (0.26.0–0.26.6) ont été fusionnées dans `main` le 09/10/2026, à sa demande
+(avance rapide, 12 commits).
 
 Dépendances en versions exactes (`.npmrc` : `save-exact`, `ignore-scripts`). Toute nouvelle
 dépendance d'exécution se justifie : il y en a deux aujourd'hui (`preact`, `@preact/signals`).
