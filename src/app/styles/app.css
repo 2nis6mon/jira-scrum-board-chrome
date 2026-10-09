@@ -1493,6 +1493,11 @@ ul.lane-cell {
   --icon-color: #fff;
 }
 
+/* Au survol, seul le curseur change : le fond clair des autres boutons rendrait le texte illisible. */
+.host-return:hover:not(:disabled) {
+  background: var(--in-progress);
+}
+
 .host-return:disabled {
   opacity: 0.55;
 }

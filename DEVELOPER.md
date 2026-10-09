@@ -1,7 +1,7 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
 Dernière mise à jour : **9 octobre 2026**\
-Version décrite : **0.26.5** (Scrum et Kanban, swimlanes par type)\
+Version décrite : **0.26.6** (Scrum et Kanban, swimlanes par type)\
 Mode unique : **intégré dans Jira**, URL Jira toujours présente derrière le board.
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
@@ -57,7 +57,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.26.5` (sans suffixe `.2`)\
+Version : `0.26.6` (sans suffixe `.2`)\
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 Le manifest source est celui de l'intégration : permissions `storage`,
