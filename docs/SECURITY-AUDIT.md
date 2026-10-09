@@ -1,5 +1,14 @@
 # Audit de sécurité — Sprint Goals Board pour Jira
 
+> **Suivi (0.27.0, 09/10/2026)** — À la première installation, le service worker ouvre le
+> lanceur dans un onglet (`launcher.html?bienvenue=1`, `chrome.tabs.create` sans permission
+> « tabs »). Aucun accès n'est demandé d'office : la demande suit le clic de l'utilisateur. Le
+> lanceur accepte désormais l'adresse du site seule ; la validation reste celle de
+> `normalizeSiteUrl` (HTTPS, `*.atlassian.net`, sans identifiants ni port) AVANT toute demande
+> d'accès, et la page ouverte est l'accueil de ce site ou l'onglet Jira courant du même site. Le
+> service worker reconnaît le lanceur par son chemin, paramètres d'affichage ignorés
+> (`sender.id` toujours exigé). Aucun droit, hôte ni écriture nouveaux.
+>
 > **Suivi (0.26.0, 09/10/2026)** — Trois changements, aucun hôte ni écriture nouveaux.
 > (1) Permission `activeTab`, choisie par Denis plutôt qu'un accès à `*.atlassian.net` dès
 > l'installation : au clic sur l'icône, le lanceur lit l'adresse du seul onglet courant pour

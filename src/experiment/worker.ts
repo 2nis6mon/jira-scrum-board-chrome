@@ -20,7 +20,8 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (
     message?.type === "sprint-goals:prepare-launch" &&
     sender.id === chrome.runtime.id &&
-    sender.url === chrome.runtime.getURL("launcher.html")
+    // Le lanceur s'ouvre aussi en onglet de bienvenue, avec un paramètre d'affichage.
+    sender.url?.split(/[?#]/)[0] === chrome.runtime.getURL("launcher.html")
   ) {
     void registerSites()
       .then(() => respond({ ok: true }))
@@ -76,5 +77,11 @@ function registerSites(): Promise<void> {
 chrome.permissions.onAdded.addListener(registerSites);
 chrome.permissions.onRemoved.addListener(registerSites);
 chrome.runtime.onInstalled.addListener(registerSites);
+// Première installation seulement (pas les mises à jour) : le lanceur s'ouvre en pleine page pour
+// demander l'adresse du Jira. L'accès au site reste demandé sur un clic, dans cette page.
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason !== "install") return;
+  void chrome.tabs.create({ url: chrome.runtime.getURL("launcher.html?bienvenue=1") });
+});
 chrome.runtime.onStartup.addListener(registerSites);
 void registerSites();

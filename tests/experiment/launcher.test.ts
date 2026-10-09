@@ -103,17 +103,48 @@ describe("lanceur de Sprint Goals dans Jira", () => {
     "https://example.com/jira/software/c/projects/ABC/boards/7",
     "http://acme.atlassian.net/jira/software/c/projects/ABC/boards/7",
     "https://user:secret@acme.atlassian.net/jira/software/c/projects/ABC/boards/7",
-    `${SITE}/browse/ABC-7`,
-    `${SITE}/jira/software/c/projects/ABC/boards/0`,
-    SITE,
-  ])("refuse %s avant la demande d'accès", async (address) => {
+    "https://user:secret@acme.atlassian.net",
+    "http://acme.atlassian.net",
+    "https://acme.atlassian.net.example.com",
+    "boards",
+    "",
+  ])("refuse « %s » avant la demande d'accès", async (address) => {
     const { model, platform } = setup();
     await model.start();
     model.address.value = address;
     await model.open();
-    expect(model.error.value).toContain("adresse complète");
+    if (address) expect(model.error.value).toContain("l'adresse de votre Jira Cloud");
     expect(platform.requestPermission).not.toHaveBeenCalled();
     expect(platform.navigate).not.toHaveBeenCalled();
+  });
+
+  it.each([SITE, "acme.atlassian.net", `${SITE}/browse/ABC-7`, `${SITE}/jira/your-work`])(
+    "l'adresse du site seule suffit (%s) : il est autorisé puis son accueil s'ouvre",
+    async (address) => {
+      const { model, platform, stored } = setup();
+      await model.start();
+      model.address.value = address;
+      await model.open();
+      expect(model.error.value).toBeNull();
+      expect(platform.requestPermission).toHaveBeenCalledWith(`${SITE}/*`);
+      expect(platform.prepareLaunch).toHaveBeenCalledOnce();
+      expect(platform.navigate).toHaveBeenCalledWith(`${SITE}/`, null);
+      expect(stored.get("connection.v1")).toEqual({ origin: SITE });
+      // Aucun board n'est mémorisé : il n'y en a pas encore.
+      expect(stored.has("launcher.v1")).toBe(false);
+      expect(platform.close).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("site refusé dans Chrome : rien n'est ouvert ni enregistré", async () => {
+    const { model, platform, stored } = setup();
+    await model.start();
+    model.address.value = SITE;
+    platform.requestPermission.mockResolvedValue(false);
+    await model.open();
+    expect(model.error.value).toContain("n'a pas été autorisé");
+    expect(platform.navigate).not.toHaveBeenCalled();
+    expect(stored.size).toBe(0);
   });
 
   it("ouvre directement le board courant déjà autorisé, avant celui enregistré", async () => {
@@ -203,13 +234,30 @@ describe("lanceur de Sprint Goals dans Jira", () => {
     [`${SITE}/jira/your-work`, true],
     ["https://example.com/jira/software/c/projects/ABC/boards/7", false],
     ["chrome://extensions/", false],
-  ])("hors d'un board (%s), rien n'est prérempli et l'aide suit la page", async (url, jira) => {
+  ])("hors d'un board (%s), seul le site d'une page Jira est proposé", async (url, jira) => {
     const { model, platform } = setup({ id: 4, url });
+    // Même déjà autorisé, un site sans board ne s'ouvre jamais de lui-même.
+    platform.hasPermission.mockResolvedValue(true);
     await model.start();
     expect(model.detected.value).toBe(false);
     expect(model.offBoard.value).toBe(jira);
-    expect(model.address.value).toBe("");
+    expect(model.address.value).toBe(jira ? SITE : "");
     expect(platform.hasPermission).not.toHaveBeenCalled();
     expect(platform.navigate).not.toHaveBeenCalled();
+  });
+
+  it("site autorisé depuis une page Jira qui n'est pas un board : cette page est rechargée", async () => {
+    const tab = { id: 4, url: `${SITE}/jira/your-work` };
+    const { model, platform } = setup(tab);
+    await model.start();
+    await model.open();
+    expect(platform.requestPermission).toHaveBeenCalledWith(`${SITE}/*`);
+    expect(platform.navigate).toHaveBeenCalledWith(tab.url, tab);
+  });
+
+  it("sur une page Jira sans board, le board mémorisé garde la priorité sur le site", async () => {
+    const { model } = setup({ id: 4, url: `${SITE}/browse/ABC-7` }, { "launcher.v1": BOARD });
+    await model.start();
+    expect(model.address.value).toBe(MARKED);
   });
 });

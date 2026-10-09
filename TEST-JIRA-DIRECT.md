@@ -13,6 +13,9 @@ restent pour les liens et procédures existants.
 
 ## Comportement attendu
 
+- À la première installation (retirer puis recharger l'extension pour le revoir), un onglet
+  « Sprint Goals est installé » demande l'adresse du Jira. L'adresse du site seule suffit :
+  « Autoriser et ouvrir Jira », accepter la demande de Chrome, et l'onglet devient Jira.
 - Le clic sur l'icône d'un board Jira déjà autorisé ouvre directement Sprint Goals pour ce board.
 - Sur un board d'un site pas encore autorisé, le lanceur reconnaît son adresse (0.26.0,
   `activeTab`) : rien à coller, il reste à choisir « Ouvrir dans Jira » et à autoriser le site.

@@ -1,7 +1,7 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
 Dernière mise à jour : **9 octobre 2026**\
-Version décrite : **0.26.6** (Scrum et Kanban, swimlanes par type)\
+Version décrite : **0.27.0** (Scrum et Kanban, swimlanes par type)\
 Mode unique : **intégré dans Jira**, URL Jira toujours présente derrière le board.
 
 Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
@@ -57,7 +57,7 @@ npm run build
 
 Sortie : `dist/`  
 Manifest source : `public/manifest.json`  
-Version : `0.26.6` (sans suffixe `.2`)\
+Version : `0.27.0` (sans suffixe `.2`)\
 Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
 
 Le manifest source est celui de l'intégration : permissions `storage`,
@@ -89,6 +89,12 @@ Exemple :
 https://site.atlassian.net/jira/software/c/projects/PROJET/boards/123?sprintGoals=1
 ```
 
+- À la première installation (pas aux mises à jour), le service worker ouvre le lanceur en
+  pleine page, `launcher.html?bienvenue=1` (0.27.0). Il demande l'adresse du Jira ; l'accès au
+  site n'est demandé qu'au clic sur « Autoriser et ouvrir Jira », puis l'onglet devient Jira.
+- Le lanceur accepte l'adresse d'un board ou celle du site seule. Avec le site seul, il
+  l'autorise et ouvre son accueil (ou recharge l'onglet Jira courant) ; aucun board n'est
+  mémorisé, et le bouton « Sprint Goals » apparaît ensuite sur ses boards.
 - Un clic sur l'icône ouvre le lanceur `launcher.html`. Si l'onglet courant est un board Jira
   déjà autorisé, ce board s'ouvre automatiquement dans Sprint Goals.
 - Si l'onglet courant est un board d'un site pas encore autorisé, son adresse est reconnue

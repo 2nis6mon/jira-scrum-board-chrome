@@ -58,20 +58,24 @@ export class LauncherModel {
       const tabAddress = tab?.url ? launchBoardAddress(tab.url) : null;
       this.detected.value = tabAddress !== null;
       this.offBoard.value = tabAddress === null && isJiraPage(tab?.url);
-      this.address.value =
+      const boardAddress =
         tabAddress ??
         configuredBoardAddress(connection, boards) ??
-        (typeof lastAddress === "string" ? launchBoardAddress(lastAddress) : null) ??
-        "";
+        (typeof lastAddress === "string" ? launchBoardAddress(lastAddress) : null);
+      // Sur une page Jira sans board connu, le site de l'onglet est proposé : l'autoriser suffit
+      // pour que le bouton « Sprint Goals » apparaisse sur ses boards.
+      this.address.value =
+        boardAddress ?? (this.offBoard.value && tab?.url ? new URL(tab.url).origin : "");
+      // Seul un board s'ouvre de lui-même ; une adresse de site attend toujours un clic.
       if (
-        this.address.value &&
-        (await this.#platform.hasPermission(normalizeSiteUrl(this.address.value).permissionPattern))
+        boardAddress &&
+        (await this.#platform.hasPermission(normalizeSiteUrl(boardAddress).permissionPattern))
       ) {
         // L'icône conserve son ouverture directe pour un board déjà autorisé.
         // Aucune demande Chrome n'est déclenchée en dehors du clic sur le formulaire.
         this.busy.value = true;
         try {
-          await this.#enter(this.address.value);
+          await this.#enter(boardAddress, true);
         } catch {
           this.error.value = "Impossible d'ouvrir le board dans Jira. Vous pouvez réessayer.";
         } finally {
@@ -89,10 +93,12 @@ export class LauncherModel {
   async open(): Promise<void> {
     if (!this.ready.value || this.busy.value) return;
     this.error.value = null;
-    const address = launchBoardAddress(this.address.value);
+    const board = launchBoardAddress(this.address.value);
+    // Sans board, l'adresse du site suffit : il est autorisé, puis Jira s'ouvre sur ce site.
+    const address = board ?? this.#siteAddress(this.address.value);
     if (!address) {
       this.error.value =
-        "Collez l'adresse complète d'un board Jira Cloud : https://votre-site.atlassian.net/jira/…/boards/…";
+        "Saisissez l'adresse de votre Jira Cloud (https://votre-site.atlassian.net) ou celle d'un de ses boards.";
       return;
     }
     const site = normalizeSiteUrl(address);
@@ -102,18 +108,36 @@ export class LauncherModel {
         this.error.value = `L'accès à ${site.host} n'a pas été autorisé. Vous pouvez réessayer.`;
         return;
       }
-      await this.#enter(address);
+      await this.#enter(address, board !== null);
     } catch {
-      this.error.value = "Impossible d'ouvrir le board dans Jira. Réessayez depuis l'extension.";
+      this.error.value = "Impossible d'ouvrir Jira. Réessayez depuis l'extension.";
     } finally {
       this.busy.value = false;
     }
   }
 
-  async #enter(address: string): Promise<void> {
+  /**
+   * Page à ouvrir pour un site Jira Cloud saisi sans board : l'onglet courant s'il est déjà sur ce
+   * site (il est rechargé, le bouton y apparaît), sinon l'accueil du site. `null` hors Jira Cloud.
+   */
+  #siteAddress(raw: string): string | null {
+    try {
+      const text = raw.trim();
+      const url = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`);
+      if (url.username || url.password) return null;
+      const { origin } = normalizeSiteUrl(url.origin);
+      const tab = this.#tab?.url;
+      return tab && new URL(tab).origin === origin ? tab : `${origin}/`;
+    } catch {
+      return null;
+    }
+  }
+
+  async #enter(address: string, isBoard: boolean): Promise<void> {
     await this.#platform.prepareLaunch();
     await this.#platform.store.set("connection.v1", { origin: new URL(address).origin });
-    await this.#platform.store.set("launcher.v1", address);
+    // Seule l'adresse d'un board est mémorisée pour les ouvertures suivantes.
+    if (isBoard) await this.#platform.store.set("launcher.v1", address);
     await this.#platform.navigate(address, this.#tab);
     this.#platform.close();
   }

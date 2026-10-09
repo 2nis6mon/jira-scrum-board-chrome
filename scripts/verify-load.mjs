@@ -45,6 +45,36 @@ try {
 
   await sleep(1000);
   const { targetInfos } = await send("Target.getTargets");
+  const welcomeTab = targetInfos.find(
+    (t) => t.type === "page" && t.url === `chrome-extension://${id}/launcher.html?bienvenue=1`,
+  );
+  check(
+    "à l'installation, le lanceur s'ouvre dans un onglet de bienvenue",
+    Boolean(welcomeTab),
+    welcomeTab?.url ?? "absent",
+  );
+  if (welcomeTab) {
+    const welcome = await send("Target.attachToTarget", {
+      targetId: welcomeTab.targetId,
+      flatten: true,
+    });
+    const page = await evaluate(
+      welcome.sessionId,
+      "JSON.stringify({text:document.body.innerText,field:Boolean(document.querySelector('form #board-address')),width:document.querySelector('main').getBoundingClientRect().width})",
+    );
+    const { text, field, width } = JSON.parse(page);
+    check(
+      "l'onglet de bienvenue demande l'adresse du Jira, sans accès demandé d'office",
+      text.includes("Sprint Goals est installé") &&
+        text.includes("Autoriser et ouvrir Jira") &&
+        field &&
+        width <= 460 &&
+        JSON.parse(
+          await evaluate(welcome.sessionId, "chrome.permissions.getAll().then(JSON.stringify)"),
+        ).origins.length === 0,
+      `largeur ${width}px`,
+    );
+  }
   const worker = targetInfos.find((t) => t.type === "service_worker" && t.url.includes(id));
   check(
     "service worker Jira enregistré",

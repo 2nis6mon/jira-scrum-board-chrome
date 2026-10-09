@@ -59,7 +59,7 @@ historiques.
   trailer `Co-Authored-By` (demande de Denis du 09/10/2026).
 - Pousser chaque commit sur sa branche, toujours (consigne de Denis du 24/09/2026). Fusionner
   dans `main` seulement sur demande explicite.
-- **Mode unique depuis le 09/10/2026 (demande de Denis) : intégré dans Jira, version 0.26.6.**
+- **Mode unique depuis le 09/10/2026 (demande de Denis) : intégré dans Jira, version 0.27.0.**
   Construire avec `npm run build` dans `dist/`, prêt à charger dans Chrome. `watch`, `check` et
   `package` ciblent aussi ce mode ; les alias `:jira-direct-test` restent compatibles.
   Supprimer le fonctionnement autonome : toute vue métier exige une page Jira hôte autorisée.
@@ -277,6 +277,16 @@ l'administration. Les bandeaux flottants montent d'un cran quand il est là. Tou
 présentation et en daily, désactivé pendant une écriture. 0.26.6 (signalé par Denis) : au survol, il
 garde sa couleur — le fond clair du survol générique des boutons rendait son texte blanc illisible ;
 seul le curseur change.
+
+0.27.0 (demande de Denis du 09/10/2026, branche `codex/installation`) : l'adresse du Jira est
+demandée dès l'installation. `worker.ts` ouvre `launcher.html?bienvenue=1` dans un onglet sur
+`onInstalled` de raison `install` seulement (ni mise à jour ni rechargement) ; aucun droit en plus.
+Chrome n'affiche une demande d'accès qu'après un geste : le bouton « Autoriser et ouvrir Jira »
+reste nécessaire. En onglet de bienvenue (`isWelcomeTab`, `launcherChrome.ts`), la page n'a pas
+d'onglet courant à lire et se remplace elle-même par Jira. Le lanceur accepte l'adresse du site
+seule (`LauncherModel.#siteAddress`) : site autorisé, accueil du site ouvert (ou onglet Jira
+courant rechargé), aucun board mémorisé ; seul un board s'ouvre de lui-même au clic sur l'icône.
+Sur une page Jira qui n'est pas un board, le site de l'onglet est proposé.
 
 Constats sur l'instance de Denis (18/09/2026) : la session du navigateur est reconnue ; les POST
 de lecture REST et les écritures REST (PUT/DELETE de propriété de sprint) passent SANS en-tête

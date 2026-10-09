@@ -2,7 +2,7 @@
 
 Textes prêts à coller dans le tableau de bord développeur du Chrome Web Store, onglet par onglet.
 Paquet à envoyer : `release/sprint-goals-board-<version>.zip`, produit par `npm run package`
-(paquet intégré dans Jira, version 0.26.6, sans le champ `key`). Le mode autonome est abandonné.
+(paquet intégré dans Jira, version 0.27.0, sans le champ `key`). Le mode autonome est abandonné.
 Ces textes et ce paquet sont préparés pour une publication ; leur mise à jour locale ne publie rien.
 
 ## Onglet « Fiche Play Store » (Store listing)
@@ -48,7 +48,7 @@ CONFIDENTIALITÉ
 • Rien n'est écrit dans Jira sans un geste de votre part.
 
 Pour Jira Cloud (*.atlassian.net), boards Scrum et Kanban. Goals Atlassian dans les deux modes, texte du Sprint Goal en Scrum uniquement.
-Au premier lancement, ouvrez votre board Jira, cliquez sur l'icône de l'extension et autorisez ce seul site : le board est reconnu, rien n'est à coller. Ensuite, un bouton « Sprint Goals » apparaît sur chaque board du site. La vue s'ouvre sur l'URL Jira avec sprintGoals=1 ; sans ce paramètre, Jira conserve son affichage habituel. Le lanceur ne charge aucun ticket et il n'existe pas de board autonome.
+À l'installation, un onglet vous demande l'adresse de votre Jira et vous propose d'autoriser ce seul site. Vous pouvez aussi ouvrir votre board Jira et cliquer sur l'icône de l'extension : le board est reconnu, rien n'est à coller. Ensuite, un bouton « Sprint Goals » apparaît sur chaque board du site. La vue s'ouvre sur l'URL Jira avec sprintGoals=1 ; sans ce paramètre, Jira conserve son affichage habituel. Le lanceur ne charge aucun ticket et il n'existe pas de board autonome.
 
 Jira et Atlassian sont des marques d'Atlassian. Cette extension n'est ni développée ni approuvée par Atlassian.
 ```

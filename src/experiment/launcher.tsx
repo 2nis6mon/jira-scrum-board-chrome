@@ -1,21 +1,25 @@
 import { render } from "preact";
-import { chromeLauncherPlatform } from "../app/platform/launcherChrome";
+import { chromeLauncherPlatform, isWelcomeTab } from "../app/platform/launcherChrome";
 import { LauncherModel } from "./LauncherModel";
 import "./launcher.css";
 
-function Launcher({ model }: { model: LauncherModel }) {
+function Launcher({ model, welcome }: { model: LauncherModel; welcome: boolean }) {
   return (
     <main>
       <header>
         <img src="/icons/icon-32.png" alt="" width="32" height="32" />
-        <h1>Sprint Goals dans Jira</h1>
+        <h1>{welcome ? "Sprint Goals est installé" : "Sprint Goals dans Jira"}</h1>
       </header>
-      <p>Ouvrez vos objectifs et vos tickets directement dans leur board Jira.</p>
+      <p>
+        {welcome
+          ? "Indiquez l'adresse de votre Jira pour l'autoriser. Vos objectifs et vos tickets s'ouvriront ensuite directement dans leur board Jira."
+          : "Ouvrez vos objectifs et vos tickets directement dans leur board Jira."}
+      </p>
       {model.detected.value && <p class="detected">Board Jira reconnu dans cet onglet.</p>}
       {model.offBoard.value && (
         <p class="detected">
-          Ouvrez un board Jira dans cet onglet, puis cliquez de nouveau sur l'icône : son adresse
-          sera reconnue.
+          Cet onglet n'est pas un board. Autorisez ce site ci-dessous, ou ouvrez un board puis
+          cliquez de nouveau sur l'icône.
         </p>
       )}
       <form
@@ -24,14 +28,14 @@ function Launcher({ model }: { model: LauncherModel }) {
           void model.open();
         }}
       >
-        <label for="board-address">Adresse du board Jira</label>
+        <label for="board-address">Adresse de votre Jira ou d'un board</label>
         <input
           id="board-address"
           type="text"
           inputMode="url"
           autocomplete="off"
           spellcheck={false}
-          placeholder="https://votre-site.atlassian.net/jira/…/boards/…"
+          placeholder="https://votre-site.atlassian.net"
           value={model.address.value}
           onInput={(event) => {
             model.address.value = event.currentTarget.value;
@@ -45,7 +49,11 @@ function Launcher({ model }: { model: LauncherModel }) {
           type="submit"
           disabled={!model.ready.value || model.busy.value || !model.address.value.trim()}
         >
-          {model.busy.value ? "Ouverture…" : "Ouvrir dans Jira"}
+          {model.busy.value
+            ? "Ouverture…"
+            : welcome
+              ? "Autoriser et ouvrir Jira"
+              : "Ouvrir dans Jira"}
         </button>
       </form>
       <p class="hint">
@@ -59,6 +67,8 @@ function Launcher({ model }: { model: LauncherModel }) {
 
 const container = document.getElementById("launcher");
 if (!container) throw new Error("Élément #launcher introuvable dans launcher.html");
+const welcome = isWelcomeTab(location.search);
+if (welcome) document.documentElement.classList.add("welcome");
 const model = new LauncherModel(chromeLauncherPlatform());
-render(<Launcher model={model} />, container);
+render(<Launcher model={model} welcome={welcome} />, container);
 void model.start();
