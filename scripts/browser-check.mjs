@@ -102,9 +102,24 @@ export function launchIsolatedBrowser(size = "1280,800") {
       );
     });
   }
-  async function loadExtension(path) {
+  // À l'installation, l'extension ouvre un onglet de bienvenue qui passe au premier plan : laissé
+  // ouvert, il met l'onglet du contrôle en arrière-plan et Chrome y ralentit les minuteurs.
+  async function closeWelcomeTab() {
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const { targetInfos } = await send("Target.getTargets");
+      const tab = targetInfos.find((t) => t.type === "page" && t.url.includes("bienvenue=1"));
+      if (tab) {
+        await send("Target.closeTarget", { targetId: tab.targetId });
+        return;
+      }
+      await sleep(100);
+    }
+  }
+  async function loadExtension(path, { keepWelcomeTab = false } = {}) {
     try {
-      return await send("Extensions.loadUnpacked", { path });
+      const loaded = await send("Extensions.loadUnpacked", { path });
+      if (!keepWelcomeTab) await closeWelcomeTab();
+      return loaded;
     } catch (error) {
       throw new Error(
         `${error.message}\nLe navigateur n'a pas confirmé le chargement automatisé de l'extension. CHROME_PATH permet de choisir un Chrome compatible avec Extensions.loadUnpacked. Aucun profil utilisateur n'a été utilisé.`,

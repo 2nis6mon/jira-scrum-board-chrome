@@ -37,7 +37,7 @@ function check(label, ok, detail = "") {
 try {
   console.log((await send("Browser.getVersion")).product);
 
-  const { id } = await browser.loadExtension(dist);
+  const { id } = await browser.loadExtension(dist, { keepWelcomeTab: true });
   check("Chrome accepte le manifest", true);
   // Le paquet du Store n'a pas de clé : c'est le Store qui attribue l'identifiant.
   if ("key" in manifest) check("identifiant figé par la clé", id === EXPECTED_ID, id);
