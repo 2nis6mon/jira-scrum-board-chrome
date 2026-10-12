@@ -83,6 +83,7 @@ npm run verify:load       # chargement et lanceur, Chrome temporaire
 npm run verify:jira       # intégration et popins natives, Chrome temporaire avec faux Jira
 npm run verify:transition # même contrôle natif que verify:jira
 npm run verify:drag       # gestes sur le banc visuel avec faux Jira
+npm run verify:button     # déplacement et stockage du bouton Jira, Chrome temporaire
 npm run harness           # banc visuel http://localhost:5199/?scenario=board
 npm run package           # archive Store dans release/, sans clé publique de développement
 npm run store:screenshots # captures fictives du Store

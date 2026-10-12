@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-État décrit : **0.27.1**, 12 octobre 2026. Mode unique : extension Chrome intégrée dans Jira.
+État décrit : **0.28.0**, 12 octobre 2026. Mode unique : extension Chrome intégrée dans Jira.
 Les règles de contribution sont dans `CLAUDE.md`, les travaux ouverts dans `TODO.md` et les
 évolutions livrées dans `CHANGELOG.md`. Ce document est la référence de l'architecture et du produit.
 
@@ -196,7 +196,7 @@ Il ne crée ni sprint ni propriété de sprint. Les règles ci-dessous relatives
   nouvel objectif) n’est jamais écrit seul. Échec réseau : la modification est perdue au prochain
   chargement (accepté par Denis).
 - Sans droit de modifier le board (`canEdit`, ou refus de Jira) : administration réduite au
-  Diagnostic, ni ordre, ni couleur, ni masquage des swimlanes ; le repli reste personnel.
+  Diagnostic et aux préférences personnelles, ni ordre, ni couleur, ni masquage des swimlanes ; le repli reste personnel.
 - Les Goals épinglés vivent dans la propriété de sprint
   `com.scrumboardmac.sprintgoals.v1` (nom hérité de l’application Mac, abandonnée).
 - Les préférences personnelles ne sont jamais publiées dans Jira.
@@ -229,6 +229,7 @@ Clés `chrome.storage.local` :
 | `launcher.v1` | Dernière adresse de board |
 | `boards.v1` | Boards, configuration et sélection par site |
 | `interface.v1` | Préférences de présentation |
+| `jira-button-position.v1:<origine Jira>` | Position relative du bouton flottant, par site |
 | `dismissedNotices.v1` | Avis fermés par site et board |
 | `graphqlOrigin.v1` | Variante Origin du site |
 | `audit.v1` | Journal local des écritures |

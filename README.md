@@ -70,6 +70,7 @@ npm run harness     # interface locale avec données fictives
 npm run verify:load # chargement/lanceur dans un Chrome temporaire
 npm run verify:jira # intégration, fiche et transitions natives avec faux Jira
 npm run verify:drag # glisser-déposer dans un Chrome temporaire
+npm run verify:button     # déplacement et stockage du bouton Jira, Chrome temporaire
 npm run package     # archive pour distribution dans release/
 ```
 

@@ -26,6 +26,33 @@ développeur. Le service worker compilé est `jira-worker.js` et le script de co
 - Après rechargement de l'extension dans Chrome, recharger aussi la page Jira pour remplacer
   le script de contenu déjà injecté.
 
+## Placement personnel du bouton
+
+La poignée à gauche permet de déplacer le bouton avec la souris ou le doigt ; le libellé garde
+son clic d'ouverture. Un déplacement inférieur à 5 px est ignoré. Échap, une interruption du
+pointeur ou un redimensionnement pendant le geste annulent celui-ci sans enregistrer.
+La poignée est accessible avec Tab ; les flèches déplacent de 10 px, ou de 1 px avec Maj.
+
+La clé locale `jira-button-position.v1:<origine Jira>` contient `{ x, y }`, deux ratios entre
+0 et 1 de la course disponible dans le viewport visible après retrait des dimensions du bouton
+et des marges de 12 px. Elle est commune aux boards d'un site dans le même profil Chrome.
+Les déplacements sont enregistrés au relâchement ; le clavier enregistre chaque pas.
+Aucun cookie, requête Jira ni nouvelle permission. Le réglage est effacé à la déconnexion du site.
+
+Le viewport visuel, sa position et la taille du bouton sont observés : une fenêtre réduite, un
+zoom ou le plein écran changent le placement affiché, jamais le réglage enregistré. Une valeur
+hors bornes est ramenée entre 0 et 1 ; une valeur illisible revient au défaut (96 px de la droite,
+28 px du bas, bornés à la fenêtre). Les changements locaux dans un autre onglet sont appliqués.
+Une lecture initiale tardive ne peut pas remplacer un déplacement déjà effectué.
+
+**Administration → Préférences personnelles → Réinitialiser la position du bouton Jira**
+retire uniquement la préférence du site connecté, sans toucher aux réglages d'équipe.
+
+`npm run verify:button` charge une copie temporaire du paquet qui autorise à l'installation deux
+hôtes fictifs pour contourner la boîte de permission native du banc headless. Le script de contenu
+et `chrome.storage.local` sont ceux de Chrome ; les pages HTTPS sont interceptées. Le manifest
+distribué et le profil de l'utilisateur ne sont pas modifiés.
+
 ## Hébergement et communication
 
 `board.html` ne démarre que dans un cadre avec un parent unique, le même site normalisé que

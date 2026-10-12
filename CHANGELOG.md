@@ -3,6 +3,14 @@
 Les détails des anciennes versions, prototypes et validations sont conservés dans l'historique
 Git. Ce fichier décrit les évolutions du produit, sans remplacer les procédures actuelles.
 
+## 0.28.0 — Bouton Jira déplaçable
+
+- Poignée de déplacement à la souris ou au toucher ; flèches du clavier (10 px, Maj : 1 px).
+- Position relative enregistrée dans Chrome pour chaque site, commune à ses boards.
+- Bornes de 12 px et adaptation à la fenêtre, au zoom et au plein écran, sans écraser le placement choisi.
+- Réinitialisation dans Administration → Préférences personnelles, accessible sans droit de modification du board.
+- Nouveau contrôle `verify:button` sur Chrome isolé, avec le vrai stockage de l'extension et des pages Jira fictives.
+
 ## 0.27.1 — Nettoyage de l'intégration Jira
 
 - `src/integration/` et `tests/integration/` remplacent les dossiers `experiment/`.

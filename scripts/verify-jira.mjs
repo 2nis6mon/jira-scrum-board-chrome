@@ -312,9 +312,9 @@ try {
     // Bouton du script de contenu. Profil vierge : le site n'est pas autorisé, Chrome n'injecte
     // donc pas le script ; le fichier construit est exécuté ici avec un faux `chrome.runtime`.
     const bootstrap = readFileSync(join(dist, "jira-bootstrap.js"), "utf8");
-    const runBootstrap = `(()=>{window.chrome=Object.assign(window.chrome||{},{runtime:{sendMessage:async()=>{window.__launches=(window.__launches||0)+1},getURL:p=>'chrome-extension://${extensionId}/'+p}});})();${bootstrap}`;
+    const runBootstrap = `(()=>{window.chrome=Object.assign(window.chrome||{},{storage:{local:{get:async()=>({}),set:async()=>{}},onChanged:{addListener:()=>{},removeListener:()=>{}}},runtime:{sendMessage:async()=>{window.__launches=(window.__launches||0)+1},getURL:p=>'chrome-extension://${extensionId}/'+p}});})();${bootstrap}`;
     const openButton =
-      "document.querySelector('#sprint-goals-open')?.shadowRoot.querySelector('button')";
+      "document.querySelector('#sprint-goals-open')?.shadowRoot.querySelector('.open')";
     await evaluate(sessionId, runBootstrap);
     await waitFor(
       sessionId,

@@ -36,7 +36,13 @@ export type Connection =
 export type View = "board" | "admin";
 
 /** Sections de l'administration : réglages du board, diagnostic, compte. */
-export type AdminSection = "board" | "goals" | "cardFields" | "cardColors" | "diagnostic";
+export type AdminSection =
+  | "board"
+  | "goals"
+  | "cardFields"
+  | "cardColors"
+  | "personal"
+  | "diagnostic";
 
 /** Racine de l'état de l'interface : connexion à un site, puis board ou administration. */
 export class AppModel {
@@ -169,6 +175,7 @@ export class AppModel {
     }
     await forgetSite(this.#platform.store, current.site.origin);
     await forgetDismissedNotices(this.#platform.store, current.site.origin).catch(() => {});
+    await this.resetJiraButtonPosition();
     await this.#audit.forgetSite(current.site.origin);
     this.connectionError.value = null;
     this.view.value = "board";
@@ -262,6 +269,14 @@ export class AppModel {
   async resetSidebarWidth(): Promise<void> {
     this.sidebarWidth.value = SIDEBAR_WIDTH.default;
     await this.#saveInterface();
+  }
+
+  /** Préférence personnelle du site, indépendante des droits de modification du board. */
+  async resetJiraButtonPosition(): Promise<void> {
+    const current = this.connection.value;
+    if (current.state !== "connected") return;
+    // Même clé dans le script de contenu sans import : integration/bootstrap.ts.
+    await this.#platform.store.remove(`jira-button-position.v1:${current.site.origin}`);
   }
 
   async #restoreInterface(): Promise<void> {

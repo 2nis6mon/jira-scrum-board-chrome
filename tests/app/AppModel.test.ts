@@ -195,6 +195,23 @@ describe("AppModel — mode présentation", () => {
 });
 
 describe("AppModel — largeur de la barre latérale", () => {
+  it("réinitialise la position du bouton pour le site connecté seulement, et l'oublie à la déconnexion", async () => {
+    const platform = fakePlatform(new FakeJira());
+    const model = new AppModel(platform);
+    await model.connect("acme.atlassian.net");
+    const key = "jira-button-position.v1:https://acme.atlassian.net";
+    const other = "jira-button-position.v1:https://other.atlassian.net";
+    platform.stored.set(key, { x: 0.3, y: 0.4 });
+    platform.stored.set(other, { x: 0, y: 1 });
+    await model.resetJiraButtonPosition();
+    expect(platform.stored.has(key)).toBe(false);
+    expect(platform.stored.get(other)).toEqual({ x: 0, y: 1 });
+    platform.stored.set(key, { x: 1, y: 0 });
+    await model.disconnect();
+    expect(platform.stored.has(key)).toBe(false);
+    expect(platform.stored.get(other)).toEqual({ x: 0, y: 1 });
+  });
+
   it("de 200 px à la moitié de la fenêtre, arrondie", () => {
     expect(clampSidebarWidth(120, 1600)).toBe(200);
     expect(clampSidebarWidth(420.6, 1600)).toBe(421);
