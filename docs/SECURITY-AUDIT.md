@@ -1,6 +1,6 @@
 # Sécurité — Sprint Goals Board pour Jira
 
-Périmètre documentaire : **0.28.0**, 12 octobre 2026, mode intégré dans Jira.
+Périmètre documentaire : **0.28.1**, 12 octobre 2026, mode intégré dans Jira.
 Ce document consolide l'audit initial du 19 septembre 2026 (`c785ea0`) et ses correctifs.
 Il décrit les garanties du code et les risques connus, sans revendiquer un nouvel audit
 indépendant, un test d'intrusion ou une vérification des workflows Jira réels.

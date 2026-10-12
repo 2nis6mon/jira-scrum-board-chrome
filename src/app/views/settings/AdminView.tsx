@@ -4,9 +4,8 @@ import { BoardSettings } from "./BoardSettings";
 import { CardColorSettings } from "./CardColorSettings";
 import { CardFieldSettings } from "./CardFieldSettings";
 import { GoalSettings } from "./GoalSettings";
-import { PersonalSettings } from "./PersonalSettings";
 
-type BoardSection = Exclude<AdminSection, "diagnostic" | "personal">;
+type BoardSection = Exclude<AdminSection, "diagnostic">;
 
 /**
  * Diagnostic affiché : Denis l'a masqué puis rétabli le 24/09/2026, le bandeau « Invalid CORS
@@ -37,20 +36,15 @@ export function AdminView({
 }) {
   const { board, diagnostic } = connection;
   const configuration = board.configuration.value;
-  const section =
-    model.adminSection.value === "personal" || board.canEditSettings.value
-      ? model.adminSection.value
-      : DIAGNOSTIC_ENABLED
-        ? "diagnostic"
-        : "personal";
-  const shared = section !== "diagnostic" && section !== "personal";
+  // Sans droit de modifier le board, seul le diagnostic reste : les réglages sont partagés.
+  const section = board.canEditSettings.value ? model.adminSection.value : "diagnostic";
   const teamNotice = board.teamNotice.value;
   const team = board.team.value;
 
   return (
     <main class="settings">
       <div class="settings-content">
-        {shared && teamNotice && (
+        {section !== "diagnostic" && teamNotice && (
           <div class={`notice notice-${teamNotice.tone} notice-inline`} role="alert">
             <p>
               <strong>{teamNotice.text}</strong>
@@ -61,14 +55,12 @@ export function AdminView({
             </button>
           </div>
         )}
-        {shared && team.kind === "unreadable" && (
+        {section !== "diagnostic" && team.kind === "unreadable" && (
           <div class="notice notice-warning" role="status">
             <p>Réglages du board non relus dans Jira : {team.message}</p>
           </div>
         )}
-        {section === "personal" ? (
-          <PersonalSettings model={model} />
-        ) : section === "diagnostic" ? (
+        {section === "diagnostic" ? (
           <DiagnosticView diagnostic={diagnostic} />
         ) : !board.loaded.value ? (
           <div class="centered" aria-busy="true" />

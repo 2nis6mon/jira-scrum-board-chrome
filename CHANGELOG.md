@@ -3,6 +3,11 @@
 Les détails des anciennes versions, prototypes et validations sont conservés dans l'historique
 Git. Ce fichier décrit les évolutions du produit, sans remplacer les procédures actuelles.
 
+## 0.28.1 — Simplification du bouton déplaçable
+
+- Retrait de la section « Préférences personnelles » et de la commande de réinitialisation.
+- Position du bouton toujours mémorisée localement par site, avec maintien automatique dans l'écran.
+
 ## 0.28.0 — Bouton Jira déplaçable
 
 - Poignée de déplacement à la souris ou au toucher ; flèches du clavier (10 px, Maj : 1 px).

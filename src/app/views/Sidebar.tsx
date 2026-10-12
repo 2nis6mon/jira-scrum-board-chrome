@@ -23,6 +23,12 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
     snapshot && configuration && (snapshot.sprint || kanban)
       ? laneSummaries(snapshot, configuration)
       : null;
+  // Sans droit de modifier le board et sans diagnostic, l'administration n'a plus rien à montrer.
+  const adminAvailable = board.canEditSettings.value || DIAGNOSTIC_ENABLED;
+  // Le droit peut tomber (403) pendant qu'elle est ouverte : on revient alors au sprint.
+  useEffect(() => {
+    if (!adminAvailable && model.view.value === "admin") model.showBoard();
+  }, [model, adminAvailable, view]);
 
   return (
     <aside
@@ -51,17 +57,23 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
       </div>
       <HiddenGoals board={board} />
       <div class="sidebar-divider" />
-      {/* Les préférences personnelles restent disponibles même sans droit sur le board. */}
-      <div class={`sidebar-admin-block${view === "admin" ? " is-open" : ""}`}>
-        <NavButton
-          icon="settings"
-          label="Administration"
-          current={view === "admin"}
-          expanded={view === "admin"}
-          onClick={() => model.toggleAdmin()}
-        />
-        {view === "admin" && <AdminMenu model={model} board={board} />}
-      </div>
+      {/* Administration : son bouton reste en tête, ses sections se déplient dessous, sur un fond
+          distinct de celui de la barre. Sans rien à y faire, elle disparaît : reste la
+          déconnexion (demande de Denis du 24/09/2026). */}
+      {adminAvailable ? (
+        <div class={`sidebar-admin-block${view === "admin" ? " is-open" : ""}`}>
+          <NavButton
+            icon="settings"
+            label="Administration"
+            current={view === "admin"}
+            expanded={view === "admin"}
+            onClick={() => model.toggleAdmin()}
+          />
+          {view === "admin" && <AdminMenu model={model} board={board} />}
+        </div>
+      ) : (
+        <SiteAccount model={model} host={board.site.host} />
+      )}
     </aside>
   );
 }
@@ -151,12 +163,7 @@ function AdminMenu({ model, board }: { model: AppModel; board: BoardModel }) {
   const host = board.site.host;
   // Sans droit de modifier le board dans Jira, ses réglages (partagés) ne se changent pas ici.
   const editable = board.canEditSettings.value;
-  const section =
-    model.adminSection.value === "personal" || editable
-      ? model.adminSection.value
-      : DIAGNOSTIC_ENABLED
-        ? "diagnostic"
-        : "personal";
+  const section = editable || !DIAGNOSTIC_ENABLED ? model.adminSection.value : "diagnostic";
   return (
     <nav class="sidebar-admin" aria-label="Sections de l'administration">
       <p class="settings-group">{configuration?.boardName ?? "Board"}</p>
@@ -181,15 +188,6 @@ function AdminMenu({ model, board }: { model: AppModel; board: BoardModel }) {
             : "Réglages du board en lecture seule : seules les personnes qui peuvent modifier le board dans Jira les changent."}
         </p>
       )}
-      <p class="settings-group">Ce navigateur</p>
-      <button
-        type="button"
-        class="settings-tab"
-        aria-pressed={section === "personal"}
-        onClick={() => model.showAdmin("personal")}
-      >
-        Préférences personnelles
-      </button>
       {DIAGNOSTIC_ENABLED && (
         <>
           <p class="settings-group">Site Jira</p>

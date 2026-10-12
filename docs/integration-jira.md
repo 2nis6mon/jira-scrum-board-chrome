@@ -45,9 +45,6 @@ hors bornes est ramenée entre 0 et 1 ; une valeur illisible revient au défaut 
 28 px du bas, bornés à la fenêtre). Les changements locaux dans un autre onglet sont appliqués.
 Une lecture initiale tardive ne peut pas remplacer un déplacement déjà effectué.
 
-**Administration → Préférences personnelles → Réinitialiser la position du bouton Jira**
-retire uniquement la préférence du site connecté, sans toucher aux réglages d'équipe.
-
 `npm run verify:button` charge une copie temporaire du paquet qui autorise à l'installation deux
 hôtes fictifs pour contourner la boîte de permission native du banc headless. Le script de contenu
 et `chrome.storage.local` sont ceux de Chrome ; les pages HTTPS sont interceptées. Le manifest

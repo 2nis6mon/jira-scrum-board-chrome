@@ -7,7 +7,7 @@
   document.documentElement.setAttribute(marker, "");
 
   const buttonId = "sprint-goals-open";
-  // Même clé dans AppModel.resetJiraButtonPosition ; une entrée par site, jamais partagée avec Jira.
+  // Même clé dans AppModel.disconnect ; une entrée par site, jamais partagée avec Jira.
   const positionKey = `jira-button-position.v1:${location.origin}`;
   type Position = { x: number; y: number };
   let position: Position | null = null;
