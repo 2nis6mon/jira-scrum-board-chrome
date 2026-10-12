@@ -18,10 +18,10 @@ import { applyFilters, type BoardFilters } from "./filters";
 import type { SprintGoal } from "./sprintGoals";
 
 /**
- * Sprint Health, porté de `SprintHealthView` (Mac) : des COMPTAGES directs sur les données Jira
+ * Santé du sprint : des comptages directs sur les données Jira
  * lues, filtres de la barre appliqués. Aucun score, aucune projection, aucune pondération.
  *
- * Écart voulu avec le Mac : la charge par colonne ignore les filtres, comme les limites WIP du
+ * La charge par colonne ignore les filtres, comme les limites WIP du
  * board ; une limite se compare à la charge réelle de la colonne, pas à ce qu'un filtre montre.
  */
 export interface SprintHealth {

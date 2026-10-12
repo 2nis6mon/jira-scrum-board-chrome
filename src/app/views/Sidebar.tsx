@@ -9,7 +9,7 @@ import { Icon, type IconName } from "./Icon";
 import { BOARD_SECTIONS, DIAGNOSTIC_ENABLED } from "./settings/AdminView";
 
 /**
- * Barre latérale, reprise de l'app Mac. De haut en bas : board affiché (et son menu), vue du sprint
+ * Barre latérale. De haut en bas : board affiché (et son menu), vue du sprint
  * (la santé du sprint y est un panneau), swimlanes dans l'ordre du board (un clic y mène, un glissé
  * les réordonne), objectifs masqués, et Administration en pied de barre : son bouton déplie ses
  * sections au-dessus de lui, et les replie au clic suivant ou dès qu'une autre vue est choisie.
@@ -253,7 +253,7 @@ function NavButton(props: {
 }
 
 /**
- * Board affiché et son menu, repris du sélecteur de boards du Mac : les boards enregistrés pour ce
+ * Board affiché et son menu : les boards enregistrés pour ce
  * site (un clic bascule), l'ajout d'un board par son nom, les actions du board affiché, et son
  * retrait de l'extension. Chaque board garde ses propres réglages dans ce navigateur.
  */
@@ -390,7 +390,7 @@ function BoardSwitcher(props: {
   );
 }
 
-/** « Équipe Paiement · ABC », comme le sélecteur du Mac. */
+/** « Équipe Paiement · ABC ». */
 function boardTitle(board: BoardSummary): string {
   const [project] = board.projectKeys;
   return project ? `${board.boardName} · ${project}` : board.boardName;

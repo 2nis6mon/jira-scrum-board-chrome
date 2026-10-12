@@ -62,7 +62,7 @@ function registerSites(): Promise<void> {
       const script = {
         id: CONTENT_SCRIPT_ID,
         matches,
-        js: ["jira-direct-bootstrap.js"],
+        js: ["jira-bootstrap.js"],
         runAt: "document_idle" as const,
         allFrames: false,
         persistAcrossSessions: true,

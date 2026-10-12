@@ -5,7 +5,7 @@
  * fenêtre sans défilement horizontal. En dessous d'une largeur minimale par colonne, elles
  * cessent de rétrécir et le défilement horizontal reprend.
  */
-/** 150 sur le Mac ; 170 ici pour qu'une clé longue tienne sur sa carte (demande de Denis). */
+/** Largeur minimale pour qu'une clé longue tienne sur sa carte. */
 export const MINIMUM_COLUMN_WIDTH = 170;
 export const MINIMUM_COLUMN_WIDTH_PRESENTATION = 190;
 /** Espace entre deux colonnes, et habillage horizontal propre à chaque colonne. */

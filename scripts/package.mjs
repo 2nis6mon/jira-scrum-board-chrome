@@ -61,8 +61,8 @@ try {
   check(!("key" in manifest), "le champ key est encore présent");
   check(
     JSON.stringify([...(manifest.permissions ?? [])].sort()) ===
-      JSON.stringify(["declarativeNetRequestWithHostAccess", "scripting", "storage"]),
-    "permissions différentes du stockage, de l'injection Jira et de la règle d'en-tête",
+      JSON.stringify(["activeTab", "declarativeNetRequestWithHostAccess", "scripting", "storage"]),
+    "permissions différentes de l'onglet actif, du stockage, de l'injection Jira et de la règle d'en-tête",
   );
   check(!manifest.host_permissions?.length, "accès à un hôte accordé dès l'installation");
   check(
@@ -70,10 +70,7 @@ try {
       JSON.stringify(["https://*.atlassian.net/*"]),
     "les hôtes facultatifs ne sont pas limités à Jira Cloud",
   );
-  check(
-    manifest.background?.service_worker === "jira-direct-worker.js",
-    "service worker Jira absent",
-  );
+  check(manifest.background?.service_worker === "jira-worker.js", "service worker Jira absent");
   check(manifest.action?.default_popup === "launcher.html", "lanceur Jira absent de l'action");
   const resources = manifest.web_accessible_resources ?? [];
   check(
@@ -102,17 +99,17 @@ try {
   const walk = (dir) => {
     for (const name of readdirSync(dir)) {
       const path = join(dir, name);
+      // Vite recopie public/ : les métadonnées du Finder ne font pas partie de l'extension.
+      if (name === ".DS_Store") {
+        rmSync(path);
+        continue;
+      }
       if (statSync(path).isDirectory()) walk(path);
       else files.push(relative(build, path).replaceAll("\\", "/"));
     }
   };
   walk(build);
-  for (const required of [
-    "board.html",
-    "launcher.html",
-    "jira-direct-worker.js",
-    "jira-direct-bootstrap.js",
-  ]) {
+  for (const required of ["board.html", "launcher.html", "jira-worker.js", "jira-bootstrap.js"]) {
     check(files.includes(required), `ressource de l'intégration Jira absente : ${required}`);
   }
   check(!files.includes("service-worker.js"), "ancien service worker autonome encore livré");

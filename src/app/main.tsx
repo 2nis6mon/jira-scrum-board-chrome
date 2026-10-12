@@ -1,5 +1,5 @@
 import { render } from "preact";
-import { embeddedBoardTarget, installEmbeddedLinks } from "../experiment/embedded";
+import { embeddedBoardTarget, installEmbeddedLinks } from "../integration/embedded";
 import { App } from "./App";
 import { AppModel } from "./model/AppModel";
 import { chromePlatform } from "./platform/chrome";

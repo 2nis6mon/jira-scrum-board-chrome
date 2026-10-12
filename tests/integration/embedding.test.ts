@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { embeddedBoardTarget } from "../../src/experiment/embedded";
-import { embeddingTarget } from "../../src/experiment/embeddingGuard";
+import { embeddedBoardTarget } from "../../src/integration/embedded";
+import { embeddingTarget } from "../../src/integration/embeddingGuard";
 
 // Données FICTIVES. Paquet d'essai : la page du board encadrée dans une page Jira.
 

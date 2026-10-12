@@ -10,7 +10,7 @@ async function load(address: string): Promise<void> {
   (window as unknown as { happyDOM: { setURL(url: string): void } }).happyDOM.setURL(address);
   vi.resetModules();
   // @ts-expect-error script de contenu sans export : il s'exécute à l'import.
-  await import("../../src/experiment/bootstrap");
+  await import("../../src/integration/bootstrap");
   await vi.advanceTimersByTimeAsync(0);
 }
 const button = () =>

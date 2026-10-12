@@ -2,7 +2,6 @@ import type { JiraClient } from "../jira/client";
 import { JiraError } from "../jira/errors";
 import { isRecord, type JsonObject, type JsonValue } from "../jira/json";
 import type { JiraStatus, JiraTransition } from "../jira/models";
-import { type TransitionDraft, transitionInput } from "../jira/transitionFields";
 import { resolveTransition } from "../jira/transitionPlanner";
 import type { JiraTransport } from "../jira/transport";
 import { SPRINT_PROPERTY_KEYS } from "../jira/writes";
@@ -22,10 +21,7 @@ import {
 // sert à vérifier que Jira est toujours dans l'état affiché.
 
 /** Lectures dont les écritures ont besoin. `JiraClient` les fournit. */
-export type WriteReader = Pick<
-  JiraClient,
-  "issueStatus" | "issueFields" | "transitions" | "sprintProperty"
->;
+export type WriteReader = Pick<JiraClient, "issueStatus" | "transitions" | "sprintProperty">;
 /** Seule porte d'écriture : l'inventaire fermé de `writes.ts`. */
 export type JiraWriter = Pick<JiraTransport, "write">;
 
@@ -60,7 +56,6 @@ export async function moveToColumn(
     knownStatusId: string;
     targetStatusIds: readonly string[];
     transitionId?: string;
-    draft?: TransitionDraft;
   },
 ): Promise<MoveOutcome> {
   const currentStatus = await reader.issueStatus(input.issueKey);
@@ -72,25 +67,6 @@ export async function moveToColumn(
     input.targetStatusIds,
     input.transitionId ? transitions.filter((t) => t.id === input.transitionId) : transitions,
   );
-  if (
-    input.draft &&
-    input.transitionId &&
-    (resolution.kind === "requiresFields" || resolution.kind === "ready")
-  ) {
-    const transition = resolution.transition;
-    const current = await reader.issueFields(input.issueKey, Object.keys(transition.fields));
-    const values = transitionInput(transition, input.draft, current);
-    // La lecture des champs a pu prendre du temps : revalide le statut avant l’unique envoi.
-    const latest = await reader.issueStatus(input.issueKey);
-    if (latest.id !== input.knownStatusId) return { kind: "conflict", currentStatus: latest };
-    await writer.write({
-      kind: "issue.transition",
-      issueKey: input.issueKey,
-      transitionId: transition.id,
-      ...values,
-    });
-    return { kind: "moved", transition };
-  }
   switch (resolution.kind) {
     case "alreadyInTargetColumn":
       return { kind: "alreadyThere" };
@@ -114,15 +90,6 @@ export async function moveToColumn(
       });
       return { kind: "moved", transition: resolution.transition };
   }
-}
-
-/** Transition choisie explicitement par l'utilisateur parmi celles que Jira propose. */
-export async function performTransition(
-  writer: JiraWriter,
-  issueKey: string,
-  transition: JiraTransition,
-): Promise<void> {
-  await writer.write({ kind: "issue.transition", issueKey, transitionId: transition.id });
 }
 
 // ─── Rang ────────────────────────────────────────────────────────────────────
@@ -176,9 +143,8 @@ export function rankFailures(body: JsonValue | null): string[] | null {
 /**
  * Rattache (ou détache, `goalId` à `null`) un ticket à un objectif du TEXTE du sprint.
  *
- * Le lien est stocké dans la propriété d'entité du sprint, partagée avec l'app Mac. La
- * propriété est relue juste avant l'écriture et seule l'entrée du ticket change : ce que l'autre
- * application y a mis (Goals épinglés, liens d'autres tickets) est conservé. Le champ
+ * Le lien est stocké dans la propriété d'entité du sprint. La propriété est relue juste avant
+ * l'écriture et seule l'entrée du ticket change : les autres Goals et liens sont conservés. Le champ
  * « Objectif » du sprint, lui, n'est jamais touché.
  */
 export async function linkToTextGoal(
@@ -271,11 +237,8 @@ export type PinOutcome =
 /**
  * Épingle des Goals Atlassian au sprint, pour les afficher même sans ticket rattaché. Jira n'a
  * aucune relation native entre un sprint et un Goal : la sélection est enregistrée dans la
- * propriété d'entité du sprint, partagée avec l'app Mac. Le champ « Objectif » du sprint n'est
- * jamais touché. Portage de `SprintGoalStore.saveAtlassianSelection` (Mac), avec deux écarts
- * voulus :
- * - si la relecture de la propriété échoue, RIEN n'est écrit (le Mac écrivait alors un document
- *   privé de ses objectifs et de ses liens du mode texte) ;
+ * propriété d'entité du sprint. Le champ « Objectif » du sprint n'est jamais touché.
+ * - si la relecture de la propriété échoue, RIEN n'est écrit ;
  * - si la sélection relue n'est plus celle que l'utilisateur avait sous les yeux (`shownGoalIds`),
  *   rien n'est écrit : quelqu'un l'a modifiée entre-temps, on la relit plutôt que de l'écraser.
  * Seul `atlassianGoalIds` change : objectifs, liens du mode texte et clés inconnues sont gardés.
@@ -349,8 +312,7 @@ const DOCUMENT_KEYS = new Set([
 interface StoredDocument {
   readonly document: SprintGoalDocument | null;
   /**
-   * Clés que cette version ne connaît pas — ajoutées par une version plus récente de l'app Mac,
-   * par exemple. Elles sont réécrites telles quelles : le document est partagé.
+   * Clés inconnues, éventuellement ajoutées par une autre version : conservées telles quelles.
    */
   readonly unknownKeys: JsonObject;
 }
@@ -380,7 +342,7 @@ function documentValue(stored: StoredDocument, document: SprintGoalDocument): Js
   return { ...stored.unknownKeys, ...encodeSprintGoalDocument(document) };
 }
 
-/** Horodatage au format écrit par l'app Mac (ISO 8601, à la seconde). */
+/** Horodatage persisté : ISO 8601, à la seconde. */
 function timestamp(now: Date): string {
   return now.toISOString().replace(/\.\d{3}Z$/, "Z");
 }

@@ -98,7 +98,7 @@ export async function runReadProbes(
   );
 
   // 3. La passerelle GraphQL (API Goals) accepte-t-elle la session ? Requête documentée
-  //    `tenantContexts`, la même que l'app Mac. Lecture seule.
+  //    `tenantContexts`. Lecture seule.
   const cloudIdQuery = (atlassianToken: AtlassianTokenHeader) =>
     transport.graphqlQuery(
       "query siteCloudId($hosts: [String!]!) { tenantContexts(hostNames: $hosts) { cloudId } }",

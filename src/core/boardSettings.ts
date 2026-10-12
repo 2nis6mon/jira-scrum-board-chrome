@@ -14,8 +14,7 @@ import {
 import { type CardField, cardFieldId, MAX_CARD_FIELDS } from "./cardFields";
 import { foldText } from "./text";
 
-// Réglages de l'administration, portés de l'administration du Mac (`AdminView`,
-// `CardFieldsAdminView`). Tous sont LOCAUX à ce navigateur : rien n'est écrit dans Jira.
+// Transformations pures des réglages. Le modèle publie ensuite les changements partagés dans Jira.
 
 export const ISSUE_CATEGORY_LABEL: Record<IssueCategory, string> = {
   GOAL: "Par objectif",
@@ -23,7 +22,7 @@ export const ISSUE_CATEGORY_LABEL: Record<IssueCategory, string> = {
   IGNORED: "Ignoré",
 };
 
-/** Rafraîchissements automatiques proposés, en secondes (`null` = désactivé), comme le Mac. */
+/** Rafraîchissements automatiques proposés, en secondes (`null` = désactivé). */
 export const AUTO_REFRESH_CHOICES: readonly (number | null)[] = [null, 60, 120, 300];
 
 // ─── Section Board : chaque réglage s'applique seul, dès qu'il est validé ────

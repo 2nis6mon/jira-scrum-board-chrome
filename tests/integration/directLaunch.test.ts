@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { sprintGoalsBoardRoute } from "../../src/experiment/boardRoute";
-import { configuredBoardAddress } from "../../src/experiment/launchAddress";
+import { sprintGoalsBoardRoute } from "../../src/integration/boardRoute";
+import { configuredBoardAddress } from "../../src/integration/launchAddress";
 
 describe("ouverture directe depuis Jira", () => {
   it("construit l'URL spéciale du board actif", () => {

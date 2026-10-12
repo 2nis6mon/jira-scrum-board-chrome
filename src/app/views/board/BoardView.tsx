@@ -53,7 +53,6 @@ import { FilterMenu } from "./FilterMenu";
 import { placeFloatingMenu } from "./floatingMenu";
 import { IssueCard } from "./IssueCard";
 import { LANE_DRAG_TYPE, revealLane } from "./lanes";
-import { TransitionFormDialog } from "./TransitionFormDialog";
 
 /**
  * Santé du sprint : bouton de l'en-tête et panneau. Masquée à la demande de Denis (24/09/2026,
@@ -129,7 +128,6 @@ export function BoardView({
         />
       )}
       <TransitionChoiceDialog board={board} />
-      <TransitionFormDialog board={board} />
       {snapshot === null ? (
         !board.syncProblem.value && <p class="board-empty">Lecture du board dans Jira…</p>
       ) : snapshot.sprint === null && !kanban ? (

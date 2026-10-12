@@ -6,7 +6,7 @@ import {
 import { decodeIssue, decodeSprint, type JiraIssue, type JiraSprint } from "../../src/jira/models";
 
 // Fabriques de données FICTIVES, calquées sur la forme des réponses Jira. Équivalent des
-// `makeIssue` / `makeConfiguration` des tests Swift. Jamais importé par src/.
+// formats Jira employés par les tests. Jamais importé par src/.
 
 export function statusJson(id: string, name: string, category = "indeterminate") {
   return { id, name, statusCategory: { id: 4, key: category, name: "X" } };

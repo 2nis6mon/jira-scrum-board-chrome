@@ -143,7 +143,7 @@ describe("BoardModel — épinglage de Goals au sprint", () => {
     const { board, jira, property } = await pinBoard();
     await openWithSiteGoals(board);
     board.togglePinned(SECURITE);
-    // Quelqu'un épingle un autre Goal depuis l'app Mac pendant ce temps.
+    // Quelqu'un épingle un autre Goal depuis un autre poste pendant ce temps.
     property.state.value = { ...GOALS_DOCUMENT, atlassianGoalIds: [STABILITE] };
 
     await board.savePinnedGoals();

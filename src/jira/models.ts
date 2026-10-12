@@ -1,9 +1,9 @@
 import { JiraError } from "./errors";
 import { isRecord, type JsonValue } from "./json";
 
-// Modèles Jira et leur décodage. Portage de Models.swift (app Mac).
+// Modèles Jira et leur décodage.
 //
-// Le décodage est tolérant comme celui du Mac : un champ facultatif absent ou mal formé
+// Le décodage est tolérant : un champ facultatif absent ou mal formé
 // devient `null` ou une liste vide ; seuls les champs sans lesquels un ticket n'a pas de
 // sens (identifiant, clé, statut, type) font échouer le décodage. Aucune valeur n'est inventée.
 
@@ -399,10 +399,7 @@ export function sprintActivated(sprint: JiraSprint): Date | null {
 // ─── Transitions ─────────────────────────────────────────────────────────────
 
 export interface JiraTransitionField {
-  readonly schema?: { type: string; items: string | null; custom: string | null };
-  readonly operations?: readonly string[];
-  readonly allowedValues?: readonly JsonValue[];
-  readonly defaultValue?: JsonValue;
+  // Seules les informations nécessaires pour déléguer la saisie à Jira sont conservées.
   readonly required: boolean;
   readonly name: string | null;
   readonly hasDefaultValue: boolean | null;
@@ -673,24 +670,6 @@ export function decodeTransition(value: unknown): JiraTransition {
     for (const [id, field] of Object.entries(value.fields)) {
       if (!isRecord(field)) continue;
       fields[id] = {
-        ...(isRecord(field.schema) && typeof field.schema.type === "string"
-          ? {
-              schema: {
-                type: field.schema.type,
-                items: text(field.schema.items),
-                custom: text(field.schema.custom),
-              },
-            }
-          : {}),
-        operations: Array.isArray(field.operations)
-          ? field.operations.filter((item): item is string => typeof item === "string")
-          : [],
-        ...(Array.isArray(field.allowedValues)
-          ? { allowedValues: field.allowedValues as JsonValue[] }
-          : {}),
-        ...(field.defaultValue !== undefined
-          ? { defaultValue: field.defaultValue as JsonValue }
-          : {}),
         required: field.required === true,
         name: text(field.name),
         hasDefaultValue: typeof field.hasDefaultValue === "boolean" ? field.hasDefaultValue : null,

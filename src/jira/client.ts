@@ -143,7 +143,7 @@ const MAX_BOARD_SEARCH = 500;
 
 /**
  * Lectures REST de Jira Cloud. Portée limitée aux endpoints vérifiés dans
- * docs/reference-app-mac/ATLASSIAN-API-CAPABILITIES.md. Aucune écriture ici : elles passent
+ * docs/API-CONTRACTS.md. Aucune écriture ici : elles passent
  * toutes par `JiraTransport.write` et l'inventaire `writes.ts`.
  */
 export class JiraClient {
@@ -352,23 +352,6 @@ export class JiraClient {
       query,
       `les tickets du board ${boardId}`,
     );
-  }
-
-  /** Valeurs actuelles des seuls champs exposés par l’écran de transition. */
-  async issueFields(
-    issueKey: string,
-    ids: readonly string[],
-  ): Promise<import("./json").JsonObject> {
-    assertIssueKey(issueKey);
-    const names = ids.filter((id) => id !== "comment" && id !== "worklog");
-    if (!names.length) return {};
-    const { body } = await this.#transport.get(`/rest/api/3/issue/${issueKey}`, {
-      query: { fields: names.join(",") },
-      resource: "les champs de la transition",
-    });
-    if (!isRecord(body) || !isRecord(body.fields))
-      decodingFailure("champs de transition", "fields absent");
-    return body.fields as import("./json").JsonObject;
   }
 
   /** Statut actuel d'un ticket dans Jira : relu juste avant une transition. */

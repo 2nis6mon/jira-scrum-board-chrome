@@ -2,7 +2,7 @@ import type { JiraSite } from "../../src/jira/site";
 import type { FetchLike } from "../../src/jira/transport";
 
 // Faux Jira pour les tests : rejoue des réponses et enregistre ce que l'extension a émis.
-// Équivalent du StubURLProtocol de l'app Mac. N'est jamais importé par src/.
+// Transport Jira fictif. N'est jamais importé par src/.
 
 export const ACME: JiraSite = {
   origin: "https://acme.atlassian.net",

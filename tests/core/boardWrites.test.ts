@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   linkToTextGoal,
   moveToColumn,
-  performTransition,
   pinAtlassianGoals,
   rankFailures,
   rankIssue,
@@ -12,7 +11,6 @@ import {
 import { makeSprintGoal, makeSprintGoalDocument } from "../../src/core/sprintGoals";
 import { JiraClient } from "../../src/jira/client";
 import { JiraError } from "../../src/jira/errors";
-import { decodeTransition } from "../../src/jira/models";
 import { JiraTransport } from "../../src/jira/transport";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { ACME, FakeJira } from "../support/fakeJira";
@@ -134,9 +132,21 @@ describe("moveToColumn", () => {
     await expect(move(jira)).rejects.toThrowError("Validation du workflow refusée");
   });
 
-  it("transition choisie : une écriture, l'identifiant choisi", async () => {
-    const jira = new FakeJira().on("POST", TRANSITIONS, { status: 204 });
-    await performTransition(setup(jira).writer, "ABC-1", decodeTransition(transition("11", "4")));
+  it("transition choisie : relecture puis une seule écriture avec cet identifiant", async () => {
+    const jira = new FakeJira()
+      .on("GET", ISSUE, status("3", "En cours"))
+      .on("GET", TRANSITIONS, {
+        status: 200,
+        json: { transitions: [transition("11", "4"), transition("12", "4")] },
+      })
+      .on("POST", TRANSITIONS, { status: 204 });
+    const { reader, writer } = setup(jira);
+    await moveToColumn(reader, writer, {
+      issueKey: "ABC-1",
+      knownStatusId: "3",
+      targetStatusIds: ["4"],
+      transitionId: "11",
+    });
     expect(jira.sent("POST").map((r) => r.body)).toEqual([{ transition: { id: "11" } }]);
   });
 });
@@ -330,7 +340,7 @@ describe("épinglage de Goals Atlassian au sprint", () => {
           links: { "ABC-7": "g1" },
           atlassianGoalIds: [PAIEMENT],
           updatedBy: "compte-mac",
-          ajoutMac: { conserve: true },
+          ajoutAutreVersion: { conserve: true },
         }),
       )
       .on("PUT", GOALS, { status: 200 });
@@ -340,7 +350,7 @@ describe("épinglage de Goals Atlassian au sprint", () => {
     expect(outcome).toEqual({ kind: "pinned", goalIds: [PAIEMENT, STABILITE] });
     expect(jira.sent("PUT")).toHaveLength(1);
     expect(jira.sent("PUT")[0]?.body).toEqual({
-      ajoutMac: { conserve: true },
+      ajoutAutreVersion: { conserve: true },
       version: 1,
       goals: [{ id: "g1", title: "Paiement", color: "goal4", position: 0 }],
       links: { "ABC-7": "g1" },
@@ -412,7 +422,7 @@ describe("épinglage de Goals Atlassian au sprint", () => {
     expect(document.atlassianGoalIds).toEqual([STABILITE, PAIEMENT]);
   });
 
-  it("relecture impossible : rien n'est écrit (le Mac écrivait alors un document vidé)", async () => {
+  it("relecture impossible : rien n'est écrit", async () => {
     const jira = new FakeJira().on("GET", GOALS, { status: 403, json: {} });
     await expect(pin(jira, [PAIEMENT])).rejects.toMatchObject({ info: { kind: "forbidden" } });
     expect(jira.sent("PUT")).toEqual([]);
@@ -444,7 +454,7 @@ describe("épinglage de Goals Atlassian au sprint", () => {
 
   it("sélection au-delà de la limite Atlassian de 32 Ko : refusée avant tout envoi", async () => {
     const jira = new FakeJira().on("GET", GOALS, { status: 404 });
-    // Volume irréaliste, uniquement pour prouver que la limite s'applique (test repris du Mac).
+    // Volume irréaliste, uniquement pour prouver que la limite s'applique.
     const ids = Array.from(
       { length: 400 },
       (_, index) => `ari:cloud:townsquare:site:goal/${"x".repeat(100)}-${index}`,
@@ -454,7 +464,7 @@ describe("épinglage de Goals Atlassian au sprint", () => {
   });
 });
 
-describe("document partagé avec l'app Mac", () => {
+describe("document Jira partagé entre versions", () => {
   it("un rattachement du mode texte garde les clés que cette version ne connaît pas", async () => {
     const jira = new FakeJira()
       .on("GET", GOALS, {

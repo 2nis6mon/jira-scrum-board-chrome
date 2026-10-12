@@ -1,4 +1,4 @@
-/* Jetons repris de Theme.swift (app macOS). Seul le jeu clair est défini pour l'instant.
+/* Jetons visuels du board. Seul le jeu clair est défini pour l'instant.
    Une couleur d'objectif n'apparaît que sur son anneau, la teinte de sa ligne et sa barre ;
    un statut n'apparaît jamais sans son icône et son libellé. */
 :root {

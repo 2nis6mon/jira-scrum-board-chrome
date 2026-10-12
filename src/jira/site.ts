@@ -12,8 +12,7 @@ export interface JiraSite {
 /**
  * Seul domaine admis. Il doit rester aligné sur `optional_host_permissions` du manifest :
  * Chrome refuserait de toute façon la permission pour un autre hôte.
- * (L'app Mac admet aussi `*.jira.com` et les domaines personnalisés sur confirmation ;
- * l'extension ne les gère pas.)
+ * Les domaines personnalisés et `*.jira.com` ne sont pas pris en charge.
  */
 const TRUSTED_SUFFIX = ".atlassian.net";
 
@@ -96,7 +95,7 @@ export interface ParsedBoardUrl {
 /**
  * Extrait le site et l'identifiant du board depuis une URL Jira.
  *
- * Formats reconnus (vérifiés sur Jira Cloud par l'app Mac) :
+ * Formats de board reconnus :
  * - `https://site.atlassian.net/jira/software/c/projects/ABC/boards/123`
  * - `https://site.atlassian.net/jira/software/projects/ABC/boards/123/backlog`
  * - `https://site.atlassian.net/secure/RapidBoard.jspa?rapidView=123&projectKey=ABC`

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppModel } from "../../src/app/model/AppModel";
-import { installEmbeddedLinks } from "../../src/experiment/embedded";
+import { installEmbeddedLinks } from "../../src/integration/embedded";
 import {
   BOARD_URL,
   boardSiteJira,
@@ -37,6 +37,47 @@ async function hosted() {
 }
 
 describe("changement de board demandé à la page Jira hôte", () => {
+  it("seule la fermeture reçue de l'hôte libère une transition native et relit le board", async () => {
+    const board = await hosted();
+    const sync = vi.spyOn(board, "sync").mockResolvedValue();
+    board.nativeTransitionPending.value = true;
+    board.writeNotice.value = {
+      tone: "warning",
+      text: "Complétez la transition dans Jira.",
+      suggestion: null,
+      sessionLost: false,
+      issueKey: "ABC-102",
+    };
+    expect(board.canSwitchBoard.value).toBe(false);
+
+    for (const event of [
+      { origin: "https://autre.atlassian.net", source: window.parent },
+      { origin: SITE, source: window },
+    ]) {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          ...event,
+          data: { type: "sprint-goals:refresh" },
+        }),
+      );
+    }
+    expect(board.nativeTransitionPending.value).toBe(true);
+    expect(sync).not.toHaveBeenCalled();
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        origin: SITE,
+        source: window.parent,
+        data: { type: "sprint-goals:refresh" },
+      }),
+    );
+    expect(board.nativeTransitionPending.value).toBe(false);
+    expect(board.writeNotice.value).toBeNull();
+    expect(board.canSwitchBoard.value).toBe(true);
+    expect(sync).toHaveBeenCalledTimes(1);
+    board.dispose();
+  });
+
   it("le board de la page s'affiche sans rien demander à l'hôte", async () => {
     const board = await hosted();
     expect(board.configuration.value?.boardId).toBe(7);

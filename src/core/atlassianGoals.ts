@@ -19,7 +19,7 @@ export interface AtlassianSprintGoals {
 }
 
 /**
- * Objectifs du sprint en mode « Goals Atlassian ». Portage de `loadAtlassianSprintGoals` (Mac).
+ * Objectifs du sprint en mode « Goals Atlassian ».
  *
  * Les Goals se rattachent aux TICKETS, jamais aux sprints : les objectifs d'un sprint sont
  * DÉDUITS de ses tickets, par deux lectures combinées :
@@ -77,9 +77,7 @@ export async function loadAtlassianSprintGoals(input: {
   let candidates = unique([...input.pinnedGoalIds, ...discovered]);
 
   // Aucun objectif déclaré par les tickets : on interroge les objectifs du site, pour que le
-  // board fonctionne sans réglage. Écart voulu avec le Mac, qui ne le fait qu'en l'absence de tout
-  // candidat : un Goal épinglé y masquait ceux que portent les tickets quand leur champ « Goals »
-  // est illisible.
+  // board fonctionne sans réglage, même avec des Goals épinglés et un champ Goals illisible.
   if (discovered.length === 0) {
     try {
       const site = await reader.searchGoals({ limit: 100, loadAll: true });

@@ -78,7 +78,7 @@ try {
   const worker = targetInfos.find((t) => t.type === "service_worker" && t.url.includes(id));
   check(
     "service worker Jira enregistré",
-    worker?.url.endsWith("/jira-direct-worker.js"),
+    worker?.url.endsWith("/jira-worker.js"),
     worker?.url ?? "absent",
   );
 

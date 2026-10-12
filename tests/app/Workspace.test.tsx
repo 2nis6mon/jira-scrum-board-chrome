@@ -17,7 +17,7 @@ import { isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 import { statusJson } from "../support/jiraFixtures";
 
-// Barre latérale, en-tête, barre de filtres et administration (maquette de l'app Mac).
+// Barre latérale, en-tête, barre de filtres et administration.
 
 afterEach(() => {
   render(null, document.body);

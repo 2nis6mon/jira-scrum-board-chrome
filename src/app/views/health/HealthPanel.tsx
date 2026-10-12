@@ -16,7 +16,7 @@ const SCOPE_LIMIT = 6;
 const WATCH_LIMIT = 12;
 
 /**
- * Santé du sprint, portée de Sprint Health de l'app Mac : des comptages directs sur les tickets lus
+ * Santé du sprint : des comptages directs sur les tickets lus
  * dans Jira, filtres de la barre appliqués. Aucun score, aucune projection. Lecture seule.
  * Panneau repliable de la vue du sprint, au-dessus des swimlanes ; le bouton icône de l'en-tête
  * l'ouvre et le referme.

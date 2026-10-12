@@ -1,7 +1,7 @@
 import type { ComponentChildren } from "preact";
 
 // Icônes de l'interface, dessinées ici (traits sur une grille 24 × 24) : aucune ressource externe,
-// aucune bibliothèque. Elles reprennent le sens des symboles de l'app Mac, pas leur dessin.
+// aucune bibliothèque. Dessins SVG locaux.
 // Décoratives : le libellé ou l'`aria-label` du bouton qui les porte dit ce qu'elles font.
 
 const PATHS = {

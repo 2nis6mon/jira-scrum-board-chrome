@@ -847,7 +847,7 @@ details.filter-menu > summary.active {
 /* ─── Board ──────────────────────────────────────────────────────────────── */
 
 .board {
-  /* Largeur minimale d'une colonne (150 px sur le Mac) : 170 px, pour qu'une clé comme
+  /* Largeur minimale d'une colonne : 170 px, pour qu'une clé comme
      CLIENT-10114 tienne en entier sur sa carte, drapeau et priorité compris. En dessous, le board
      défile horizontalement. Même valeur que MINIMUM_COLUMN_WIDTH (core/layoutMetrics.ts). */
   --column-min: 170px;
@@ -2318,7 +2318,7 @@ input.color-rule-name {
   flex-direction: column;
 }
 
-/* Barre latérale (reprise de l'app Mac) : fixe à l'écran, sa liste de swimlanes défile seule. */
+/* Barre latérale : fixe à l'écran, sa liste de swimlanes défile seule. */
 .sidebar {
   position: sticky;
   /* « sticky » crée un empilement à part : au-dessus du board (bande des colonnes collante), pour
@@ -3478,48 +3478,6 @@ details.lane-menu:not([data-placed]) .menu-panel {
   position: relative;
   z-index: 3;
   pointer-events: none;
-}
-
-/* Écran de transition reconstruit à partir des métadonnées Jira. */
-dialog.transition-form {
-  max-width: 620px;
-  width: calc(100% - 32px);
-  max-height: calc(100vh - 48px);
-  overflow-y: auto;
-  border: 1px solid var(--line);
-}
-dialog.transition-form:not([open]) {
-  display: none;
-}
-dialog.transition-form::backdrop {
-  background: rgb(0 0 0 / 35%);
-}
-.transition-form form,
-.transition-field {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.transition-field {
-  margin: 8px 0;
-}
-.transition-field label {
-  font-weight: 600;
-}
-.transition-field textarea {
-  font: inherit;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  resize: vertical;
-}
-.transition-field select[multiple] {
-  height: 110px;
-}
-.transition-field-error {
-  color: var(--blocked);
-  margin: 0;
-  font-size: 12px;
 }
 
 /* Le vert est réservé à la réussite calculée depuis les tickets du Goal. */

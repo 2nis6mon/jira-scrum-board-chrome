@@ -152,7 +152,7 @@ describe("ordre des swimlanes", () => {
     ]);
   });
 
-  it("un objectif masqué garde sa place pour son retour (le Mac le renvoyait en fin de liste)", () => {
+  it("un objectif masqué garde sa place pour son retour", () => {
     const hidden = withGoalHidden(
       { ...config, blockOrder: ["goal:g2", "goal:g1", "goal:g3"] },
       "g2",

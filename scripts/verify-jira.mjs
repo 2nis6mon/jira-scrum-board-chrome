@@ -6,11 +6,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launchIsolatedBrowser, sleep } from "./browser-check.mjs";
 
-// EXTENSION_DIR permet de contrôler une autre construction ; l'ancien nom reste accepté.
-const dist =
-  process.env.EXTENSION_DIR ??
-  process.env.JIRA_DIRECT_DIST ??
-  fileURLToPath(new URL("../dist", import.meta.url));
+// EXTENSION_DIR permet de contrôler une construction isolée.
+const dist = process.env.EXTENSION_DIR ?? fileURLToPath(new URL("../dist", import.meta.url));
 if (!existsSync(join(dist, "manifest.json"))) {
   console.error("dist/manifest.json introuvable : lancer `npm run build` d'abord.");
   process.exit(2);
@@ -26,7 +23,7 @@ function assert(condition, message) {
 try {
   console.log((await send("Browser.getVersion")).product);
   assert(
-    manifest.background?.service_worker === "jira-direct-worker.js" &&
+    manifest.background?.service_worker === "jira-worker.js" &&
       manifest.action?.default_popup === "launcher.html",
     "le paquet utilise le lanceur et le service worker Jira intégrés",
   );
@@ -90,7 +87,7 @@ try {
     await send("Page.navigate", { url: special }, sessionId);
     await sleep(500);
     const injectSource = stripTypeScriptTypes(
-      readFileSync(new URL("../src/experiment/injectBoard.ts", import.meta.url), "utf8"),
+      readFileSync(new URL("../src/integration/injectBoard.ts", import.meta.url), "utf8"),
     ).replace("export function", "function");
     await evaluate(
       sessionId,
@@ -314,7 +311,7 @@ try {
     );
     // Bouton du script de contenu. Profil vierge : le site n'est pas autorisé, Chrome n'injecte
     // donc pas le script ; le fichier construit est exécuté ici avec un faux `chrome.runtime`.
-    const bootstrap = readFileSync(join(dist, "jira-direct-bootstrap.js"), "utf8");
+    const bootstrap = readFileSync(join(dist, "jira-bootstrap.js"), "utf8");
     const runBootstrap = `(()=>{window.chrome=Object.assign(window.chrome||{},{runtime:{sendMessage:async()=>{window.__launches=(window.__launches||0)+1},getURL:p=>'chrome-extension://${extensionId}/'+p}});})();${bootstrap}`;
     const openButton =
       "document.querySelector('#sprint-goals-open')?.shadowRoot.querySelector('button')";

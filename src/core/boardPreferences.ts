@@ -17,10 +17,9 @@ import { blockTitle, laneKey } from "./boardLayout";
 import { GOAL_COLOR_COUNT, type SprintGoal } from "./sprintGoals";
 
 // Réglages d'affichage modifiés depuis le board : ordre, repli, masquage, couleur des objectifs.
-// Portage des méthodes correspondantes de `BoardController` (Mac). Tous sont LOCAUX : chaque
-// fonction rend une nouvelle configuration, rien n'est écrit dans Jira.
+// Fonctions pures : elles rendent une configuration. Le modèle publie les réglages partagés.
 
-/** Noms des couleurs d'objectif, dans l'ordre de la palette (repris du Mac). */
+/** Noms des couleurs d'objectif, dans l'ordre de la palette. */
 export const GOAL_COLOR_NAMES = [
   "Bleu",
   "Bleu ardoise",
@@ -107,7 +106,7 @@ export function laneSummaries(
 /**
  * Range les swimlanes dans l'ordre donné. Un bloc absent de l'affichage (objectif masqué, objectif
  * d'un autre sprint, swimlane par type sans ticket) reste juste après le bloc qui le précédait, pour retrouver
- * sa place s'il revient. Écart voulu avec le Mac, qui le renvoyait en fin de liste : un objectif
+ * sa place s'il revient : un objectif
  * masqué puis réaffiché réapparaissait alors sous Build.
  */
 export function withBlockOrder(
@@ -128,7 +127,7 @@ export function withBlockOrder(
     }
     result.splice(at, 0, id);
   });
-  // Un objectif masqué jamais rangé prend place en fin de liste, comme sur le Mac.
+  // Un objectif masqué jamais rangé prend place en fin de liste.
   for (const goalId of configuration.hiddenGoalIds) {
     const id = blockIdentifier(goalBlock(goalId));
     if (!result.includes(id)) result.push(id);
@@ -188,7 +187,7 @@ export function withGoalColor(
 
 /**
  * Sélection d'épinglage gardée dans ce navigateur pour un sprint, quand Jira a refusé de
- * l'enregistrer. Une liste vide l'oublie. Portage de `setLocalGoalSelection` (Mac).
+ * l'enregistrer. Une liste vide l'oublie.
  */
 export function withLocalPins(
   configuration: BoardConfiguration,

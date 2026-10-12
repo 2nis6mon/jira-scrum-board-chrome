@@ -1,4 +1,4 @@
-import type { LauncherPlatform } from "../../experiment/LauncherModel";
+import type { LauncherPlatform } from "../../integration/LauncherModel";
 
 /** Le lanceur ouvert en pleine page par le service worker, à l'installation. */
 export function isWelcomeTab(search: string): boolean {

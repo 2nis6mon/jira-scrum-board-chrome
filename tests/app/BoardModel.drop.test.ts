@@ -474,7 +474,7 @@ describe("choix du statut et de la transition avant toute écriture", () => {
     expect(board.transitionChoice.value).toBeNull();
   });
 
-  it("écran de transition sans champ obligatoire : confirmation locale avant écriture", async () => {
+  it("écran de transition sans champ obligatoire : délégation à Jira avant toute écriture", async () => {
     const { board, jira, writes } = await prepare();
     jira.on("GET", path, {
       status: 200,
@@ -490,12 +490,12 @@ describe("choix du statut et de la transition avant toute écriture", () => {
         ],
       },
     });
+    const open = vi.fn(() => true);
+    board.nativeTransitionHandler = open;
     await board.dropIssue(drop);
     expect(writes()).toEqual([]);
-    expect(board.transitionForm.value?.transition.id).toBe("21");
-    expect(board.writeNotice.value).toBeNull();
-    board.cancelTransitionForm();
-    expect(writes()).toEqual([]);
+    expect(open).toHaveBeenCalledWith("ABC-102", expect.objectContaining({ id: "21" }));
+    expect(board.nativeTransitionPending.value).toBe(true);
   });
 
   it("même colonne à plusieurs statuts : aucune lecture ni écriture de transition", async () => {
@@ -663,56 +663,8 @@ it("retire le repère de déplacement après quatre secondes", async () => {
   }
 });
 
-describe("écran de transition dynamique", () => {
+describe("formulaire de transition natif Jira", () => {
   const path = "/rest/api/3/issue/ABC-102/transitions";
-  async function prepareForm() {
-    const result = await boardWith();
-    result.jira.on("GET", "/rest/api/3/issue/ABC-102", {
-      status: 200,
-      json: { fields: { status: statusJson("1", "À faire"), summary: "Résumé actuel" } },
-    });
-    result.jira.on("GET", path, {
-      status: 200,
-      json: {
-        transitions: [
-          {
-            id: "21",
-            name: "Démarrer",
-            hasScreen: true,
-            to: statusJson("3", "En cours"),
-            fields: {
-              resolution: {
-                name: "Résolution",
-                required: true,
-                operations: ["set"],
-                schema: { type: "resolution" },
-                allowedValues: [{ id: "1", name: "Résolu" }],
-              },
-              comment: {
-                name: "Commentaire",
-                required: false,
-                operations: ["add"],
-                schema: { type: "array" },
-              },
-              worklog: {
-                name: "Log work",
-                required: false,
-                operations: ["add"],
-                schema: { type: "array", items: "worklog" },
-              },
-            },
-          },
-        ],
-      },
-    });
-    await result.board.dropIssue({
-      issueKey: "ABC-102",
-      block: goalBlock("g-paiement"),
-      columnId: DOING,
-      beforeKey: null,
-    });
-    return result;
-  }
   it("vue intégrée à Jira : l'écran de la transition est délégué par identifiants, sans écriture", async () => {
     const { board, jira, writes } = await boardWith();
     jira.on("GET", "/rest/api/3/issue/ABC-102", {
@@ -755,84 +707,82 @@ describe("écran de transition dynamique", () => {
     // Clé du ticket et identifiant de la transition : de quoi ouvrir la fiche et y désigner la
     // transition dans le menu de statut de Jira.
     expect(calls).toEqual([["ABC-102", "21"]]);
-    expect(board.transitionForm.value).toBeNull();
     expect(board.nativeTransitionPending.value).toBe(true);
     expect(writes()).toEqual([]);
     board.dispose();
   });
-  it("détecte les champs, ne fait aucune écriture avant validation et permet l’annulation", async () => {
-    const { board, writes } = await prepareForm();
-    expect(board.transitionForm.value?.transition.fields.resolution?.name).toBe("Résolution");
-    expect(board.pendingKeys.value.size).toBe(0);
-    expect(board.pendingMove.value).toBeNull();
+  it.each(["absent", "refusé"])(
+    "hôte %s : erreur explicite, aucune écriture ni formulaire local",
+    async (mode) => {
+      const { board, jira, writes } = await boardWith();
+      jira.on("GET", "/rest/api/3/issue/ABC-102", statusReply("1", "À faire"));
+      jira.on("GET", path, {
+        status: 200,
+        json: {
+          transitions: [
+            {
+              id: "21",
+              name: "Démarrer",
+              hasScreen: true,
+              to: statusJson("3", "En cours"),
+              fields: {},
+            },
+          ],
+        },
+      });
+      if (mode === "refusé") board.nativeTransitionHandler = () => false;
+      await board.dropIssue({
+        issueKey: "ABC-102",
+        block: goalBlock("g-paiement"),
+        columnId: DOING,
+        beforeKey: null,
+      });
+      expect(board.writeNotice.value).toMatchObject({ tone: "error", issueKey: "ABC-102" });
+      expect(board.writeNotice.value?.text).toContain("formulaire Jira");
+      expect(board.nativeTransitionPending.value).toBe(false);
+      expect(board.pendingMove.value).toBeNull();
+      expect(board.canSwitchBoard.value).toBe(true);
+      expect(writes()).toEqual([]);
+      // Aucune lecture de valeurs pour reconstruire un formulaire de secours.
+      expect(
+        jira
+          .sent("GET", "/rest/api/3/issue/ABC-102")
+          .every((request) => request.url.searchParams.get("fields") === "status"),
+      ).toBe(true);
+      board.dispose();
+    },
+  );
+
+  it("une transition native ouverte bloque un second déplacement jusqu'à sa fermeture", async () => {
+    const { board, jira, writes } = await boardWith();
+    jira.on("GET", "/rest/api/3/issue/ABC-102", statusReply("1", "À faire"));
+    jira.on("GET", path, {
+      status: 200,
+      json: {
+        transitions: [
+          {
+            id: "21",
+            name: "Démarrer",
+            hasScreen: true,
+            to: statusJson("3", "En cours"),
+            fields: {},
+          },
+        ],
+      },
+    });
+    const open = vi.fn(() => true);
+    board.nativeTransitionHandler = open;
+    const drop = {
+      issueKey: "ABC-102",
+      block: goalBlock("g-paiement"),
+      columnId: DOING,
+      beforeKey: null,
+    };
+    await board.dropIssue(drop);
+    await board.dropIssue(drop);
+    expect(open).toHaveBeenCalledTimes(1);
     expect(board.canSwitchBoard.value).toBe(false);
     expect(writes()).toEqual([]);
-    board.cancelTransitionForm();
-    expect(board.transitionForm.value).toBeNull();
-    expect(writes()).toEqual([]);
-    board.dispose();
-  });
-  it("valide les champs puis garde les valeurs et les erreurs Jira pour correction", async () => {
-    const { board, jira, writes } = await prepareForm();
-    await board.submitTransitionForm();
-    expect(board.transitionForm.value?.fieldErrors.resolution).toBe("Champ obligatoire.");
-    expect(writes()).toEqual([]);
-    board.changeTransitionField("resolution", '{"id":"1"}');
-    board.changeTransitionField("comment", "Analyse terminée");
-    jira.on(
-      "POST",
-      path,
-      { status: 400, json: { errors: { resolution: "Choix refusé par le validateur" } } },
-      { status: 204 },
-    );
-    await board.submitTransitionForm();
-    expect(board.transitionForm.value?.draft.comment).toBe("Analyse terminée");
-    expect(board.transitionForm.value?.fieldErrors.resolution).toBe(
-      "Choix refusé par le validateur",
-    );
-    expect(board.transitionForm.value?.blocked).toBe(false);
-    await board.submitTransitionForm();
-    expect(board.transitionForm.value).toBeNull();
-    expect(writes()).toHaveLength(2);
-    expect(writes()[1]?.body).toMatchObject({
-      transition: { id: "21" },
-      fields: { resolution: { id: "1" } },
-      update: { comment: [{ add: { body: { type: "doc", version: 1 } } }] },
-    });
-    board.dispose();
-  });
-  it("ne rejoue jamais une écriture à l’issue incertaine", async () => {
-    const { board, jira, writes } = await prepareForm();
-    board.changeTransitionField("resolution", '{"id":"1"}');
-    board.changeTransitionField("worklog", "45m");
-    jira.on("POST", path, { networkError: "connexion coupée après envoi" });
-    await board.submitTransitionForm();
-    expect(board.transitionForm.value?.blocked).toBe(true);
-    expect(writes()).toHaveLength(1);
-    expect(writes()[0]?.body).toMatchObject({
-      update: { worklog: [{ add: { timeSpent: "45m" } }] },
-    });
-    await board.submitTransitionForm();
-    expect(writes()).toHaveLength(1);
-    board.dispose();
-  });
-  it("refuse une transition devenue indisponible et conserve la saisie", async () => {
-    const { board, jira, writes } = await prepareForm();
-    board.changeTransitionField("resolution", '{"id":"1"}');
-    jira.on("GET", path, { status: 200, json: { transitions: [] } });
-    await board.submitTransitionForm();
-    expect(board.transitionForm.value?.blocked).toBe(true);
-    expect(writes()).toEqual([]);
-    board.dispose();
-  });
-  it("bloque le double clic sur Valider", async () => {
-    const { board, jira, writes } = await prepareForm();
-    board.changeTransitionField("resolution", '{"id":"1"}');
-    jira.on("POST", path, { status: 204 });
-    const first = board.submitTransitionForm();
-    const second = board.submitTransitionForm();
-    await Promise.all([first, second]);
-    expect(writes()).toHaveLength(1);
     board.dispose();
   });
 });

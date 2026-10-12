@@ -22,13 +22,13 @@ export default defineConfig(({ mode }) => {
         input: {
           board: `${root}board.html`,
           launcher: `${root}launcher.html`,
-          "jira-direct-worker": `${root}src/experiment/worker.ts`,
-          "jira-direct-bootstrap": `${root}src/experiment/bootstrap.ts`,
+          "jira-worker": `${root}src/integration/worker.ts`,
+          "jira-bootstrap": `${root}src/integration/bootstrap.ts`,
         },
         output: {
           // Le manifest désigne le service worker par un nom fixe, à la racine.
           entryFileNames: (chunk) =>
-            chunk.name.startsWith("jira-direct-") ? "[name].js" : "assets/[name]-[hash].js",
+            chunk.name.startsWith("jira-") ? "[name].js" : "assets/[name]-[hash].js",
           chunkFileNames: "assets/[name]-[hash].js",
           assetFileNames: "assets/[name]-[hash][extname]",
         },

@@ -21,7 +21,7 @@ vi.mock("../../src/app/model/AppModel", () => ({
     }
   },
 }));
-vi.mock("../../src/experiment/embedded", () => ({
+vi.mock("../../src/integration/embedded", () => ({
   embeddedBoardTarget: mocks.target,
   installEmbeddedLinks: mocks.links,
 }));

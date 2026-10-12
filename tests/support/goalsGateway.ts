@@ -1,6 +1,6 @@
 import type { RecordedRequest, Reply } from "./fakeJira";
 
-// Fausse passerelle GraphQL Goals, calquée sur le schéma relevé par l'app Mac sur une instance
+// Fausse passerelle GraphQL Goals, calquée sur le schéma relevé sur une instance
 // Jira Cloud réelle : type `TownsquareGoal`, `owner` en INTERFACE, `status` et `targetDate`
 // composites, lien Goal → tickets par `workItems { edges { node { key } } }`. Données FICTIVES.
 

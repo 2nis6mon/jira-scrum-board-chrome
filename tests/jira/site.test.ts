@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { JiraError } from "../../src/jira/errors";
 import { atlassianLink, isTrustedHost, normalizeSiteUrl, parseBoardUrl } from "../../src/jira/site";
 
-// Cas repris de SecurityHardeningTests / AtlassianHostTests de l'app Mac, adaptés :
+// Cas de validation et de restriction des hôtes :
 // l'extension n'admet que *.atlassian.net (ni *.jira.com, ni domaine personnalisé).
 
 describe("normalizeSiteUrl", () => {

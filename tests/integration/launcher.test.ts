@@ -3,8 +3,8 @@ import {
   LauncherModel,
   type LauncherPlatform,
   type LauncherTab,
-} from "../../src/experiment/LauncherModel";
-import { launchBoardAddress } from "../../src/experiment/launchAddress";
+} from "../../src/integration/LauncherModel";
+import { launchBoardAddress } from "../../src/integration/launchAddress";
 
 // Données fictives : aucun navigateur connecté ni serveur Jira n'est utilisé.
 const SITE = "https://acme.atlassian.net";

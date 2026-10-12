@@ -4,7 +4,7 @@ import type { AtlassianGoal } from "./models";
 import type { JiraTransport } from "./transport";
 import { buildGraphqlWrite, type GraphqlWrite } from "./writes";
 
-// Client de l'API GraphQL Goals d'Atlassian. Portage de GoalsClient.swift (app Mac).
+// Client de l'API GraphQL Goals d'Atlassian, adapté au schéma exposé par le site.
 //
 // RIEN n'est supposé du schéma : le nom réel du type des objectifs (`TownsquareGoal` sur Jira
 // Cloud), ses champs, leur nature (scalaire, objet, INTERFACE), la forme du lien Goal → tickets

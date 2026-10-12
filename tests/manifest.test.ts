@@ -65,7 +65,7 @@ describe("manifest", () => {
   it("ouvre le lanceur Jira depuis l'icône et utilise le worker d'intégration", () => {
     expect(manifest.action).toMatchObject({ default_popup: "launcher.html" });
     expect(manifest.background).toEqual({
-      service_worker: "jira-direct-worker.js",
+      service_worker: "jira-worker.js",
       type: "module",
     });
   });

@@ -1,153 +1,55 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Dernière mise à jour : **9 octobre 2026**\
-Version décrite : **0.27.0** (Scrum et Kanban, swimlanes par type)\
-Mode unique : **intégré dans Jira**, URL Jira toujours présente derrière le board.
+État décrit : **0.27.1**, 12 octobre 2026. Mode unique : extension Chrome intégrée dans Jira.
+Les règles de contribution sont dans `CLAUDE.md`, les travaux ouverts dans `TODO.md` et les
+évolutions livrées dans `CHANGELOG.md`. Ce document est la référence de l'architecture et du produit.
 
-Ce document est le point d’entrée pour reprendre le projet. Il décrit l’état réel du dépôt, les
-décisions produit, l’architecture, les invariants de sécurité, les procédures de test et de
-livraison, les problèmes connus et les évolutions envisagées.
+## Parcours et points d'entrée
 
-Les détails historiques restent disponibles dans `README.md`, `TODO.md`, `CLAUDE.md` et
-`docs/SECURITY-AUDIT.md`. En cas de contradiction, vérifier le code et les tests de la branche :
-les versions datées conservent l'historique de l'application autonome et du prototype Jira,
-abandonnés comme modes de livraison depuis la 0.25.0.
+`launcher.html` sert à reconnaître un board depuis l'onglet courant, choisir une adresse et
+demander la permission du site. Il ne charge aucun ticket. `board.html` contient l'application
+Preact, affichée uniquement dans une iframe autorisée de la page Jira.
 
----
+Le paramètre `sprintGoals=1` ouvre Sprint Goals. Sans lui, Jira conserve son affichage normal,
+avec le bouton flottant d'ouverture sur les boards autorisés. Le changement de board suit l'URL
+Jira ; « Retour à Jira » retire le paramètre par rechargement. Le parcours et les popins sont
+décrits dans [l'intégration Jira](docs/integration-jira.md).
 
-## 1. Objectif du produit
-
-L’extension fournit une vue Scrum ou Kanban centrée sur les objectifs :
-
-- les tickets des sprints actifs (Scrum) ou du périmètre du board (Kanban) sont organisés par **Goal Atlassian** ;
-- chaque Goal devient une swimlane ;
-- les tickets sans Goal visible rejoignent **Build** ;
-- les objectifs vides restent affichés ; Build et les swimlanes par type ne sont affichés que
-  lorsqu'ils contiennent des tickets. Build vide apparaît provisoirement pendant le déplacement
-  d'un ticket par objectif, afin de conserver la possibilité de le détacher ;
-- les tickets hors objectifs sont rangés dans des **swimlanes par type** (0.23.0) : chacune
-  regroupe un ou plusieurs types de tickets (par exemple « RUN » : Anomalie Prod et Anomalie de
-  Recette ; « OPS » : Demande de configuration et Demande de service). Son nom est celui de ses
-  types tant qu’on ne le change pas. Réglages partagés avec l’équipe ; l’ancienne swimlane
-  Kanban (« RUN » jusqu’en 0.20.2) est relue comme une swimlane par type ;
-- les colonnes, statuts, transitions, types, filtres rapides et limites WIP viennent du board Jira ;
-- Jira reste la source de vérité ;
-- les boards **Scrum et Kanban** sont pris en charge depuis 0.24.0. Kanban n'utilise aucun sprint ;
-  les objectifs y sont épinglés dans les réglages du board et partagés avec l'équipe.
-
-Le projet est distinct de l’application macOS `jira-scrum-board-advanced`, même s’il reprend une
-partie de sa spécification et de ses concepts. L’application Mac est **abandonnée** (décision de
-Denis du 24/09/2026) : ne plus en tenir compte, ni pour les formats ni pour la parité. Son dépôt
-reste consultable en lecture seule.
-
----
-
-## 2. Un seul mode : intégré dans Jira
-
-Décision de Denis du 09/10/2026 : supprimer la possibilité d'exécuter le board hors de Jira.
-Le lanceur sert seulement à reconnaître ou choisir une URL de board et à demander
-l'autorisation Chrome ;
-aucune vue métier, aucun ticket et aucune administration ne s'affichent dans ce lanceur.
-
-Commande :
-
-```bash
-npm run build
-```
-
-Sortie : `dist/`  
-Manifest source : `public/manifest.json`  
-Version : `0.27.0` (sans suffixe `.2`)\
-Identifiant Chrome stable : `efhpkdoiimdggndnfcgdoaniobdcmokb`
-
-Le manifest source est celui de l'intégration : permissions `storage`,
-`declarativeNetRequestWithHostAccess`, `scripting` et `activeTab` (0.26.0 : adresse de l'onglet
-courant au clic sur l'icône, rien d'autre), autorisation optionnelle limitée à
-`https://*.atlassian.net/*`, ressources exposées limitées à `board.html`, `assets/*` et `icons/*`,
-et `frame-ancestors https://*.atlassian.net`. Cette promotion des droits déjà utilisés par
-l'intégration applique la décision produit ; aucun hôte supplémentaire n'est ajouté.
-
-L'identifiant et le stockage des installations de développement sont conservés. Les commandes
-historiques `build:jira-direct-test`, `watch:jira-direct-test` et `check:jira-direct-test` restent
-des alias compatibles et produisent exactement le même paquet. Il n'existe plus de construction autonome.
-
-Avant tout rendu métier et toute lecture Jira, le garde-fou d'hébergement exige une seule origine
-parente, égale au site Jira annoncé, une URL de board de ce site et l'autorisation Chrome.
-L'ouverture directe de `board.html`, les cadres imbriqués et un autre site hôte sont refusés.
-
-### Activation
-
-L’intégration n’est active que sur une URL de board contenant :
+## Architecture
 
 ```text
-?sprintGoals=1
+board.html                 entrée Preact de la vue intégrée
+launcher.html              entrée Preact du lanceur / bienvenue
+public/manifest.json       permissions, CSP, identité Chrome et entrées compilées
+src/app/                   modèles, vues et styles
+src/app/platform/          adaptateurs Chrome injectés dans les modèles
+src/core/                  logique métier, indépendante du DOM et de Chrome
+src/jira/                  transport REST/GraphQL, décodage et inventaire des écritures
+src/integration/           service worker, script de contenu, iframe et popins natives
+tests/support/             faux services et fabriques de données
+tests/harness/             banc visuel fictif, absent du paquet de production
+scripts/                   vérification navigateur et distribution
+docs/                      documentation utilisateur et technique
 ```
 
-Exemple :
+- `AppModel` pilote connexion, vue et présentation ; `BoardModel` pilote chargement, réglages,
+  filtres, déplacements et notifications. `DiagnosticModel` teste les capacités disponibles.
+- `boardSync` lit le périmètre ; `boardIssue` assemble tickets et métriques ; `boardLayout` et
+  `boardBlocks` répartissent colonnes et swimlanes ; `pendingMove` projette un déplacement en cours.
+- `dropPlan` prépare l'intention et `boardWrites` l'exécute après relecture. Les formulaires avec
+  champs sont délégués par `nativeTransitionHandler` à l'hôte Jira. Pendant leur ouverture, les
+  nouveaux déplacements et le changement de board sont bloqués ; le message de fermeture vérifié
+  libère l'état et relit Jira. Aucun formulaire local ni envoi de champs n'est maintenu en secours.
+- `teamSettings` relit, fusionne et écrit les réglages partagés ; `boardStore` conserve une copie
+  et le board actif par origine. `auditLog` conserve les tentatives d'écriture de l'extension.
+- `integration/LauncherModel` utilise `launchAddress` pour reconnaître et valider les adresses.
+  `worker` enregistre `bootstrap` sur les sites autorisés et injecte `injectBoard` sur une URL marquée.
+- `embeddingGuard` vérifie l'origine parente et l'autorisation avant tout modèle métier.
+  `embedded` raccorde le modèle aux messages vérifiés de l'hôte.
+- `injectBoard` et `bootstrap` s'exécutent dans la page Jira : la fonction injectée ne doit dépendre
+  d'aucun import ni état extérieur, et le script de contenu n'a pas d'import.
 
-```text
-https://site.atlassian.net/jira/software/c/projects/PROJET/boards/123?sprintGoals=1
-```
-
-- À la première installation (pas aux mises à jour), le service worker ouvre le lanceur en
-  pleine page, `launcher.html?bienvenue=1` (0.27.0). Il demande l'adresse du Jira ; l'accès au
-  site n'est demandé qu'au clic sur « Autoriser et ouvrir Jira », puis l'onglet devient Jira.
-- Le lanceur accepte l'adresse d'un board ou celle du site seule. Avec le site seul, il
-  l'autorise et ouvre son accueil (ou recharge l'onglet Jira courant) ; aucun board n'est
-  mémorisé, et le bouton « Sprint Goals » apparaît ensuite sur ses boards.
-- Un clic sur l'icône ouvre le lanceur `launcher.html`. Si l'onglet courant est un board Jira
-  déjà autorisé, ce board s'ouvre automatiquement dans Sprint Goals.
-- Si l'onglet courant est un board d'un site pas encore autorisé, son adresse est reconnue
-  (`activeTab`) et préremplie : il reste à cliquer « Ouvrir dans Jira » et à accepter la demande
-  de Chrome. Rien n'est à coller.
-- Sinon, le lanceur affiche son formulaire et préremplit le board mémorisé s'il en existe un.
-  L'utilisateur peut remplacer l'URL, notamment pour changer de site, puis choisir « Ouvrir
-  dans Jira ». Chrome demande l'autorisation du site si nécessaire, avant d'ouvrir la vraie
-  URL Jira avec `sprintGoals=1`. Un refus ou une erreur laisse le formulaire disponible.
-- Choisir un autre board depuis la vue intégrée navigue vers son URL Jira (0.26.0 : message
-  `sprint-goals:open-board`, identifiant et clé de projet ; la page hôte forme l'adresse) ; le
-  site et le board affichés restent ceux de la page hôte. Un board sans clé de projet s'affiche
-  sur place, avec un avertissement.
-- « Retour à Jira » (0.26.4 ; bouton flottant en bas à droite de la vue depuis 0.26.5) : message
-  `sprint-goals:close` ; la page hôte recharge sa propre adresse sans `sprintGoals=1`.
-- Sur tout board d'un site autorisé, le script de contenu affiche un bouton flottant « Sprint
-  Goals » en bas à droite, à gauche du bouton Rovo ; son clic charge l'adresse du board suivie de `sprintGoals=1` (rechargement de la page).
-- L’URL peut être enregistrée dans les favoris.
-- Une URL Jira sans ce paramètre reste entièrement normale.
-- Rien n'est inséré dans l'interface de Jira : le bouton flotte au-dessus de la page, dans sa
-  propre racine fantôme.
-- La vue Sprint Goals recouvre toute la page Jira, qui reste chargée derrière.
-
-### Ouverture des tickets
-
-Deux comportements doivent rester distincts :
-
-1. **Clic normal sur une carte** : la fiche Jira complète est affichée dans une popin de `1280 px`
-   de large, avec des marges adaptatives de `16 à 60 px`.
-2. **Transition du workflow exigeant des champs** (0.19.15.2) : un seul chemin. La fiche du
-   ticket est chargée **cachée** dans la popin ; l’extension y ouvre le menu de statut de Jira et
-   clique la transition — seulement si le libellé d’un élément, comparé sans accents, espaces,
-   flèches ni ponctuation, vaut exactement son nom ou « nom + statut d’arrivée ». Sinon rien n’est
-   cliqué et la fiche est montrée : l’utilisateur choisit. Jira dessine alors sa fenêtre (moderne,
-   ou « classique » dans son iframe), que la popin isole et dimensionne.
-   L’extension ne remplit ni ne valide aucun champ.
-   Jira Cloud n’a **aucune adresse** qui serve cette fenêtre : elle est dessinée par son
-   application. L’essai par `/secure/CommentAssignIssue!default.jspa` (0.19.11 à 0.19.13,
-   documenté pour Data Center) est retiré — sur le Jira de Denis il renvoyait une page vide, et
-   quand Jira refusait d’encadrer cette adresse, le cadre restait sur `about:blank` : la popin ne
-   sortait alors jamais de son message d’attente.
-   Garde-fous d’affichage : fiche jamais reconnue au bout de 12 s → la page de Jira est montrée
-   telle quelle ; cadre jamais accessible au bout de 20 s → la popin se ferme et le dit. Une popin
-   blanche qui ne bouge plus n’est jamais un état d’arrivée. Les étapes sont tracées dans la
-   console de l’onglet (`Sprint Goals — …`) : c’est le seul moyen de savoir où l’ouverture s’arrête
-   sur un Jira auquel le développeur n’a pas accès.
-
-La fermeture de la fiche ou du formulaire conserve le board Sprint Goals et provoque une relecture
-de Jira.
-
----
-
-## 3. Décisions fonctionnelles à conserver
+## Décisions fonctionnelles
 
 ### Goals et sprints
 
@@ -160,7 +62,7 @@ lecture empêche la nouvelle photographie de remplacer l'ancienne : pas de repli
 par la même relecture, détection de conflit et écriture unique que les autres réglages partagés.
 Il ne crée ni sprint ni propriété de sprint. Les règles ci-dessous relatives au sprint concernent Scrum.
 
-- Depuis 0.26.3, le **texte du Sprint Goal** est la source par défaut d'un board Scrum
+- Le **texte du Sprint Goal** est la source par défaut d'un board Scrum
   nouvellement ajouté ; les **Goals Atlassian** se choisissent dans l'administration. Un board
   déjà enregistré, ou dont les réglages partagés disent autre chose, garde sa source.
 - En Kanban, les Goals Atlassian restent la seule source.
@@ -189,10 +91,6 @@ Il ne crée ni sprint ni propriété de sprint. Les règles ci-dessous relatives
   Jira fait foi pour les statuts du périmètre : un statut absent de la structure locale reste
   compté et signalé comme non mappé ; « Relire structure » permet de replacer sa carte.
   Les filtres rapides et les règles de couleur JQL utilisent le même sous-filtre, sans clause sprint.
-  Référence API vérifiée le 01/10/2026 :
-  https://developer.atlassian.com/cloud/jira/software/rest/api-group-board/
-  L'endpoint Agile existant de lecture des tickets est annoncé déprécié par Atlassian ; la migration
-  vers l'endpoint Software « enhanced » est distincte de ce changement.
 - Limites de lecture explicites : la limite de sécurité de 5 000 tickets refuse désormais un
   périmètre plus grand au lieu de le tronquer. Les liens Goal → tickets sont paginés quand
   l'introspection expose les arguments et champs nécessaires. Sans pagination exploitable, une
@@ -234,10 +132,7 @@ Il ne crée ni sprint ni propriété de sprint. Les règles ci-dessous relatives
   « Types de tickets et swimlanes » : un bloc par groupe, un menu « Déplacer vers » par type ; une
   swimlane naît de son premier type et disparaît avec le dernier ; nom vide = noms des types
   réunis (`swimlaneName`). Une carte d’une swimlane par type ne se dépose que dans la sienne.
-  Compatibilité 0.22.7 (collègues sur le même board) : la propriété du board garde les anciennes
-  clés, DÉDUITES (`kanbanColumns`, `showKanbanSection`, `kanbanSectionLabel`,
-  `dailyKanbanStockLimit`, catégories `SCRUM`/`KANBAN`), et ajoute `ticketSwimlanes` et
-  `dailyStockLimit`, que la 0.22.7 réécrit telles quelles (`core/teamSettings.ts`).
+  La compatibilité des propriétés existantes est décrite dans `docs/API-CONTRACTS.md`.
 - Épinglage des Goals au sprint directement dans Administration → Objectifs, sans fenêtre
   (0.22.4). « Goals associés au board » n’existe plus. Depuis 0.22.5, une seule section
   « Objectifs du sprint » (`SprintGoalsPanel.tsx`) : couleur, masquage et épinglage par objectif.
@@ -258,7 +153,7 @@ Il ne crée ni sprint ni propriété de sprint. Les règles ci-dessous relatives
   aucune nouvelle écriture) ; changer de Goal par glissé n’est pas possible, une seule swimlane
   étant affichée. Les filtres restent ceux de l’utilisateur ; le repli enregistré des swimlanes
   n’est pas touché. Durée : section Board de l’administration, 15 min par défaut, de 1 à 120,
-  locale au board (`dailyMinutes`), jamais dans les réglages d’équipe. Rien n’est enregistré de la
+  partagée au board (`dailyMinutes`). Rien n’est enregistré de la
   séance : recharger la page l’arrête. Stock (0.20.2, étendu à toutes les swimlanes en 0.23.0) :
   en daily, la première colonne de chaque swimlane n’affiche que ses N premières cartes dans
   l’ordre de Jira (`dailyStockLimit`, 3 par défaut, réglable dans la section Board), puis
@@ -310,383 +205,107 @@ Il ne crée ni sprint ni propriété de sprint. Les règles ci-dessous relatives
 
 ---
 
-## 4. Invariants de sécurité et d’écriture
+## Données, permissions et écritures
 
-### Écritures Jira autorisées
+Les [contrats API](docs/API-CONTRACTS.md) décrivent les appels et les données persistées.
+L'[audit de sécurité](docs/SECURITY-AUDIT.md) est la référence des écritures E1–E7 et risques S1–S12.
+Les nouvelles permissions, hôtes, écritures et modifications de CSP nécessitent une décision
+produit explicite. Actualiser l'inventaire, ses tests et l'audit lors de toute évolution.
 
-Il existe cinq catégories d’écriture :
+Le manifest utilise `storage`, `scripting`, `activeTab` et
+`declarativeNetRequestWithHostAccess`. L'hôte `https://<site>.atlassian.net/*` est demandé au clic.
+Aucun jeton ni mot de passe ; les requêtes utilisent la session Jira du navigateur.
 
-1. transition d’un ticket ;
-2. rang d’un ticket ;
-3. lien ticket ↔ Goal ;
-4. propriété du sprint ;
-5. propriété du board.
+Règles d'exécution : une tentative par écriture, relecture après résultat incertain, aucune
+réussite annoncée avant confirmation. `transport.ts` centralise les sorties réseau et refuse
+les redirections. La règle Origin ne vise que les POST de l'extension vers la passerelle GraphQL
+exacte du site. Les données de test ne doivent jamais entrer dans le paquet de production.
 
-Le diagnostic peut temporairement écrire puis supprimer sa propriété technique dédiée.
+Clés `chrome.storage.local` :
 
-Toute nouvelle écriture doit :
+| Clé | Contenu |
+|---|---|
+| `connection.v1` | Site connecté |
+| `launcher.v1` | Dernière adresse de board |
+| `boards.v1` | Boards, configuration et sélection par site |
+| `interface.v1` | Préférences de présentation |
+| `dismissedNotices.v1` | Avis fermés par site et board |
+| `graphqlOrigin.v1` | Variante Origin du site |
+| `audit.v1` | Journal local des écritures |
 
-1. être approuvée comme décision produit ;
-2. être vérifiée dans la documentation ou le schéma Atlassian ;
-3. être ajoutée à `src/jira/writes.ts` ;
-4. être couverte par des tests ;
-5. être documentée dans `README.md`, `TODO.md`, `DEVELOPER.md` et
-   `docs/SECURITY-AUDIT.md`.
+Ne pas renommer les propriétés `com.scrumboardmac.*` ni les identifiants stockés. Leur nom est
+historique mais les données restent actives. Les anciennes configurations doivent rester lisibles,
+les valeurs absentes recevoir un défaut et les champs inconnus être préservés. La clé publique du
+manifest conserve l'identifiant de développement `efhpkdoiimdggndnfcgdoaniobdcmokb`.
+Les identifiants internes des scripts de contenu et des éléments injectés sont également conservés
+pour reconnaître une intégration déjà présente lors d'une mise à jour.
 
-### Règles d’exécution
+## Développement et validation
 
-- Un POST, PUT ou DELETE n’est tenté qu’une fois.
-- Une écriture incertaine n’est jamais rejouée automatiquement.
-- Jira est relu après une issue incertaine.
-- Aucune réussite n’est affichée avant la confirmation de Jira.
-- Les champs d’une transition, le commentaire, le temps passé et les Story Points sont envoyés avec
-  la transition, jamais dans une écriture préparatoire séparée.
-- L’extension ne demande ni mot de passe ni jeton. Elle utilise la session Jira du navigateur.
-- Aucune donnée fictive ne doit entrer dans `src/`, `public/` ou `board.html`.
+Node >= 22.12. Installer avec `npm ci`, puis `npm run check` (types, lint, tests, construction).
+`npm run watch` reconstruit le même paquet intégré dans `dist/`. Les configurations IntelliJ
+partagées sont dans `.run/` ; les préférences de l'IDE restent ignorées.
 
-### GraphQL Goals et règle Origin
+| Commande | Usage |
+|---|---|
+| `npm run test` / `test:watch` | Tests Vitest |
+| `npm run typecheck` / `lint` | Contrôles statiques |
+| `npm run format` | Formatage Biome |
+| `npm run harness` | Interface fictive, port 5199 |
+| `npm run verify:load` | Chargement, bienvenue, permissions et lanceur |
+| `npm run verify:jira` | Hébergement, navigation, fiche et formulaires natifs |
+| `npm run verify:transition` | Alias du contrôle natif `verify:jira` |
+| `npm run verify:drag` | Gestes de déplacement sur le banc visuel |
 
-La passerelle Goals refuse l’Origin `chrome-extension://…`. La plateforme installe une unique règle
-de session qui retire ou remplace l’Origin par le site Jira, seulement pour :
+Les scripts navigateur utilisent un profil temporaire vierge et du faux Jira. `CHROME_PATH`
+permet de choisir l'exécutable compatible avec le chargement automatisé d'une extension.
+Ne pas confondre ces contrôles avec une validation sur l'instance Jira réelle.
 
-- les requêtes POST de l’extension ;
-- l’URL exacte `/gateway/api/graphql` ;
-- l’identifiant de l’extension comme initiateur.
-
-Ne jamais élargir cette règle aux pages Jira ni à d’autres URLs.
-
----
-
-## 5. Architecture
-
-```text
-board.html                       point d’entrée de la vue intégrée, protégé hors de Jira
-launcher.html                    choix de l'URL du board et autorisation du site
-public/manifest.json             manifest intégré, permissions et ressources contrôlées
-src/app/                          Preact, styles, modèles et vues
-src/core/                         logique métier pure, sans DOM ni chrome.*
-src/jira/                         transport, décodage, API REST/GraphQL, écritures
-src/experiment/                   intégration Jira (nom historique du dossier)
-tests/                            tests Vitest et faux Jira
-tests/harness/                    banc visuel, données fictives
-scripts/                          vérifications Chrome et outils
-docs/                             audit et références de l’application Mac
-```
-
-### Couche application
-
-- `AppModel` : connexion au site, vue, présentation, préférences globales.
-- `BoardModel` : configuration active, synchronisation, filtres, glisser-déposer, écritures,
-  notifications et état des fenêtres.
-- `boardStore.ts` : boards enregistrés par origine Jira et board actif par site.
-- `DiagnosticModel` : tests des capacités Jira et diagnostic de la règle Origin.
-- `auditLog.ts` : journal local des tentatives d’écriture.
-
-### Couche métier
-
-- `boardSync.ts` : découverte et lecture du board/sprints/tickets.
-- `boardIssue.ts` : assemblage des tickets, métriques et progression des Goals.
-- `boardLayout.ts` / `boardBlocks.ts` : colonnes et swimlanes.
-- `dropPlan.ts` / `boardWrites.ts` : planification puis exécution des déplacements.
-- `filters.ts` / `jiraQuickFilters.ts` : filtres locaux et JQL Jira.
-- `teamSettings.ts` : sérialisation et fusion des réglages d’équipe.
-- `pendingMove.ts` : projection visuelle d’un déplacement en cours.
-
-### Couche Jira
-
-- `transport.ts` : HTTP, erreurs et absence de retry des écritures.
-- `client.ts` : API REST Jira Software/Platform.
-- `goals.ts` : introspection et opérations Goals GraphQL.
-- `transitionPlanner.ts` / `transitionFields.ts` : transitions et formulaire dynamique.
-- `writes.ts` : inventaire fermé des écritures autorisées.
-
-### Intégration Jira
-
-- `boardRoute.ts` : accepte uniquement une route moderne de board avec `sprintGoals=1`.
-- `launchAddress.ts` : construit l’URL du board actif à partir du stockage local.
-- `worker.ts` : enregistrement du content script et injection sur le site autorisé.
-- `bootstrap.ts` : reste inerte sans le paramètre ; retire l’overlay si le paramètre disparaît.
-- `injectBoard.ts` : overlay plein écran, iframe de l’application et popins Jira.
-- `embedded.ts` : communication entre le board embarqué et la page Jira hôte.
-
-La communication utilise `postMessage` avec vérification stricte de l’origine et de la fenêtre
-source. Les clés de ticket et les identifiants de transition sont validés avant usage.
-
----
-
-## 6. Modèle de données local
-
-Principales clés `chrome.storage.local` :
-
-- `connection.v1` : origine Jira connectée ;
-- `launcher.v1` : dernière URL de board choisie dans le lanceur ;
-- `boards.v1` : boards et board actif, groupés par origine ;
-- `interface.v1` : largeur/repli de la barre, panneau santé et préférences d’interface ;
-- `dismissedNotices.v1` : explications du board fermées pour de bon, par site et par board
-  (`src/app/model/noticeStore.ts`) ; effacées avec le board retiré ou à la déconnexion ;
-- réglage de variante GraphQL par site ;
-- journal d’audit local.
-
-`BoardConfiguration` se trouve dans `src/core/boardConfiguration.ts`. Lors de toute évolution de
-son format :
-
-- garder le décodage tolérant aux anciennes valeurs ;
-- fournir des valeurs par défaut ;
-- ne jamais rendre une installation inutilisable à cause d’un champ local absent ;
-- tester la lecture d’une configuration ancienne.
-
-Le paquet intégré conserve l'identifiant Chrome de développement et relit le stockage des
-versions précédentes. Le changement de mode ne remet pas les préférences à zéro.
-
----
-
-## 7. Développement local
-
-Prérequis : Node `>= 22.12`.
+Pour ne pas écraser `dist/` pendant un essai :
 
 ```bash
-npm ci
-npm run check
+npx vite build --outDir /tmp/sprint-goals-check
+EXTENSION_DIR=/tmp/sprint-goals-check node scripts/verify-jira.mjs
+EXTENSION_DIR=/tmp/sprint-goals-check node scripts/verify-load.mjs
 ```
 
-`npm run check` exécute le typage, le lint, les tests et la construction intégrée dans `dist/`.
-`npm run watch` surveille les sources et reconstruit ce même paquet. Les alias
-`:jira-direct-test` conservent ces comportements pour les procédures existantes.
+Les anciens alias npm `*:jira-direct-test` et la variable `JIRA_DIRECT_DIST` sont retirés.
+Les procédures utilisent les commandes ci-dessus et `EXTENSION_DIR`.
 
-IntelliJ IDEA ouvre directement la racine contenant `package.json`. Le plugin Node.js et un
-interpréteur Node `>= 22.12` sont nécessaires. Les configurations npm partagées de `.run/`
-permettent l'installation, la compilation intégrée, la compilation continue et les contrôles
-complets. `.idea/` et les fichiers personnels de l'IDE sont ignorés, `.run/` est versionné.
+## Git et livraison
 
-Validation de la 0.24.0, le 01/10/2026 : typage et lint réussis ; 890 tests réussis, 1 ignoré.
-Les deux constructions ont été réalisées dans `release/kanban-0.24.0` et
-`release/kanban-jira-0.24.0`, sans modifier `dist/`. Les scripts de vérification du chargement et
-de l'intégration Jira ont été exécutés sous Edge Chromium, sur profils temporaires et faux Jira.
-Le banc visuel Kanban couvre objectifs, Build/RUN/OPS, épinglage partagé, Daily et board vide.
-La compatibilité avec l'instance Jira réelle reste à valider par Denis.
-Validation de la 0.24.1 : typage et lint réussis ; 895 tests réussis, 1 ignoré ; paquet intégré
-`0.24.1.2` construit dans `dist/` et contrôle navigateur isolé du mode intégré réussi.
-Validation de la 0.24.2 : Build et les swimlanes par type vides sont masqués ; les objectifs vides
-restent visibles. La barre latérale suit la même règle et l'indicateur Build disparaît à zéro.
-Typage et lint réussis ; 899 tests réussis, 1 ignoré ; paquet intégré `0.24.2.2` construit dans
-`dist/` et vérifié sous Edge Chromium avec un profil isolé et un faux Jira.
-En 0.24.3, l'information de lecture partielle des Goals se ferme comme les autres explications
-flottantes. Sa fermeture reste personnelle, par site et par board ; une erreur bloquante de
-synchronisation reste visible.
-Typage et lint réussis ; 900 tests réussis, 1 ignoré ; paquet intégré `0.24.3.2` construit dans
-`dist/` et vérifié sous Edge Chromium avec un profil isolé et un faux Jira.
-En 0.24.4, le projet inclut des configurations IntelliJ partagées pour installer les dépendances,
-construire ou surveiller le paquet Jira intégré et lancer les contrôles complets.
-Typage et lint réussis ; 900 tests réussis, 1 ignoré ; paquet intégré `0.24.4.2` construit dans
-`dist/`. La vérification navigateur isolée n'a pas abouti sur cette machine : Edge ne répond pas
-à `Extensions.loadUnpacked` dans le délai imparti.
+- Branche dédiée `codex/...`, commits cohérents sous `2nis6mon <denis.simon@gmail.com>`, sans
+  trailer de co-auteur. Chaque commit est poussé ; fusion dans `main` sur demande explicite.
+- Avant commit : tests appropriés, `npm run check`, contrôle Jira intégré, examen du diff et des
+  fichiers non suivis. Actualiser version, documentation concernée et changelog.
+- `dist/`, `release/`, les profils navigateur et les clés privées restent hors de Git.
+- `npm run package` construit dans `release/` et produit `sprint-goals-board-<version>.zip` pour
+  le Store. Il retire la clé publique de développement : ce paquet peut avoir un autre identifiant.
+  Le script refuse clés privées, cartes de sources et données du banc d'essai.
+- Textes du Store : `docs/store/fiche.md`. Captures fictives : `npm run store:screenshots`.
+  Politique : `docs/privacy/index.html`, à recopier lors d'une modification dans le dépôt public
+  `2nis6mon/sprint-goals-privacy` qui la publie via GitHub Pages.
+- Préparer une archive ne signifie pas la publier sur le Store.
 
-Commandes utiles :
+## Limites connues et reprise
 
-```bash
-npm run test
-npm run test:watch
-npm run typecheck
-npm run lint
-npm run format
-npm run build
-npm run watch
-npm run verify:load
-npm run verify:drag
-npm run verify:transition
-npm run harness
-```
+- Le DOM de Jira commande la reconnaissance de la fiche, du menu de statut et du formulaire.
+  En cas d'ambiguïté, aucun clic de transition ; la fiche est rendue à l'utilisateur. Les délais
+  et critères sont documentés dans `docs/integration-jira.md`.
+- L'encadrement de Jira dépend de sa politique d'iframe. Un changement côté Atlassian peut
+  empêcher l'affichage de la fiche native.
+- Le changement de board construit une route moderne avec clé projet ; sans cette clé, le board
+  reste affichable sur place avec un avertissement. Les variantes de routes restent à valider.
+- La pagination des Goals dépend du schéma exposé. Sans résultat complet, Kanban utilise le
+  champ Goals si possible, sinon conserve le dernier état et signale l'échec.
+- Un ticket avec plusieurs Goals apparaît dans une seule swimlane ; le mode texte n'agrège pas
+  les textes de plusieurs sprints. Un objectif vide ne compte pas comme atteint.
+- Les limites WIP portent sur les tickets ; les avatars externes ne sont pas téléchargés ; les
+  préférences personnelles ne sont pas synchronisées entre postes.
+- Les transitions natives sont exécutées par Jira : le journal de l'extension ne couvre pas
+  les écritures effectuées depuis la fiche Jira elle-même.
 
-Contrôle de l'intégration Jira :
-
-```bash
-npm run verify:jira
-```
-
-`verify:jira` (alias historique `verify:jira-direct-test`) utilise un profil Chrome temporaire
-et un faux Jira. Pour ne pas reconstruire un paquet chargé dans Chrome, construire ailleurs
-puis vérifier ce dossier :
-
-```bash
-npx vite build --outDir <dossier>
-JIRA_DIRECT_DIST=<dossier> node scripts/verify-jira-direct-test.mjs
-```
-
-Il vérifie :
-
-- l’overlay uniquement sur l’URL spéciale ;
-- le recouvrement plein écran ;
-- l’iframe réelle de l’application ;
-- la fiche complète à `1280 px` lors d’un clic normal ;
-- le formulaire natif ouvert directement lors d’une transition ;
-- le recadrage sur ce seul formulaire ;
-- l’absence de validation automatique ;
-- l’absence de clic sur une transition ambiguë ;
-- le refus d’afficher le board sans autorisation du site ou dans la page d’un autre site Atlassian ;
-- l’absence d’effet sur une URL Jira normale.
-
-Les essais Chrome automatisés n’utilisent ni la session ni les données Jira de l’utilisateur.
-
----
-
-## 8. Stratégie Git et livraison
-
-**Consigne de Denis du 09/10/2026 : fonctionnement uniquement dans Jira.** `npm run build`
-produit dans `dist/` le seul paquet, chargeable dans Chrome. `npm run package` prépare le même
-mode intégré pour le Store. L'ancien mode autonome est supprimé ; la version est unique, sans
-suffixe `.2`. L'historique des validations ci-dessus décrit les anciennes livraisons.
-
-- Travailler dans une branche `codex/...` dédiée.
-- Faire un commit cohérent par correction ou fonctionnalité.
-- Utiliser l’identité `2nis6mon <denis.simon@gmail.com>`.
-- Pousser chaque commit sur sa branche (consigne de Denis du 24/09/2026) ; ne fusionner dans
-  `main` que sur demande explicite.
-- Ne jamais committer `.secrets/extension-key.pem`, un profil Chrome, des cookies, des captures de
-  données Jira ou un paquet contenant des secrets.
-- `dist/` est généré et ignoré par Git ; il reçoit toujours le paquet intégré.
-
-Avant un commit :
-
-1. exécuter les tests ciblés pendant le développement ;
-2. exécuter `npm run check` ;
-3. exécuter aussi `npm run verify:jira` ;
-4. vérifier `git diff` et `git status` ;
-5. mettre à jour la documentation et le numéro du paquet concerné.
-
-Ne pas reconstruire le paquet que Denis est en train de tester. Utiliser un dossier temporaire
-lorsqu’une autre version est active dans Chrome.
-
----
-
-## 9. Problèmes et limites connus
-
-### Problèmes ouverts confirmés par la revue
-
-1. **Pagination des tickets liés à un Goal selon le schéma Atlassian**\
-   Depuis 0.24.0, `src/jira/goals.ts` pagine si le schéma expose les champs nécessaires. Sinon,
-   une page pleine de 100 liens est signalée comme potentiellement incomplète et bloque le
-   chargement Kanban. Ce comportement doit encore être validé sur l'instance Jira réelle.
-
-2. **Documentation historique**
-   Les notes de versions conservent les choix et résultats de tests de leur époque, notamment
-   les suffixes `.2` et l'ancien mode autonome. Les procédures actuelles décrivent la 0.25.0.
-
-3. **Validations réelles de workflows encore incomplètes**  
-   Les transitions Time Spent, Story Points, Resolution et certains écrans fournis par des apps Jira
-   tierces doivent continuer à être essayés sur les workflows réels. Les tests locaux prouvent le
-   comportement du code, pas la stabilité du DOM de chaque instance Jira.
-
-### Limites intentionnelles
-
-- Kanban utilise les Goals Atlassian ; le mode texte du champ « Sprint Goal » reste propre à Scrum.
-- Un ticket avec plusieurs Goals n’est affiché que dans une swimlane.
-- Le mode texte n’agrège pas les textes de plusieurs sprints actifs.
-- Le déplacement par glisser-déposer est à la souris ; le déplacement clavier a été abandonné par
-  décision produit.
-- Les limites WIP comparent un nombre de tickets, pas des points.
-- Les avatars externes ne sont pas téléchargés ; les initiales sont affichées.
-- `storage.sync` est exclu.
-- Les écritures ne sont jamais rejouées automatiquement.
-
-### Fragilités de l'intégration Jira
-
-Ces points sont des risques techniques connus, même lorsqu’aucun incident n’est actuellement
-reproduit :
-
-- L’extraction de la fiche (clic sur une carte) dépend du DOM accessible de Jira Cloud : boutons
-  Fermer/Close, lien `/browse/{clé}`.
-- L’ouverture d’une transition dépend du DOM de Jira : un bouton de statut reconnaissable
-  (`aria-label`/`title` « changer le statut », ou un `data-testid` contenant `status` avec
-  `aria-haspopup`), puis un élément de menu dont le libellé vaut le nom de la transition, seul ou
-  suivi de son statut d’arrivée. Si Atlassian change ces libellés, rien n’est cliqué et la fiche
-  est rendue à l’utilisateur — jamais une transition voisine.
-- La hauteur de la popin suit celle du formulaire, limitée à la fenêtre du navigateur avec une
-  marge de 16 px.
-- Le mode direct reconnaît les routes modernes `/jira/.../boards/{id}` et requiert une clé projet
-  enregistrée pour construire l’URL depuis l’icône.
-- Si Jira interdit un jour l’affichage de sa propre page dans une iframe de même origine, la fiche
-  et les formulaires natifs ne pourront plus être cadrés de cette manière.
-
----
-
-## 10. Améliorations futures
-
-### À court terme
-
-- Tester le formulaire Jira natif sur davantage de transitions réelles : Time Spent, Story Points,
-  Resolution, commentaires, écrans avec plusieurs champs et champs d’applications tierces.
-- Ajouter un diagnostic visible lorsque le formulaire natif n’est pas reconnu, sans exposer de
-  données du ticket.
-- Tester l’annulation et la validation du formulaire natif, puis confirmer que le board se relit et
-  que la carte revient ou reste à destination selon la réponse Jira.
-- Corriger la pagination `workItems` des Goals.
-- Mettre à jour les sections historiques du README et du TODO devenues obsolètes.
-
-### Produit et ergonomie
-
-- Export/import JSON des réglages, avec validation et aperçu des changements.
-- Synchronisation des préférences personnelles entre postes via une propriété utilisateur Jira,
-  uniquement après validation de cette nouvelle écriture.
-- Limites WIP en points et éventuellement minimums de colonne.
-- Adapter la proposition Goals aux capacités réellement disponibles sur le board.
-- Déploiement Chrome géré via `storage.managed` si un besoin IT apparaît.
-- Améliorer l’accessibilité du glisser-déposer si la décision d’abandon du clavier est réouverte.
-- Mode Daily : livré en 0.20.0 sur la branche `codex/mode-daily`, à valider par Denis (voir
-  « Board et affichage »). Pistes : réglage partagé par l’équipe, temps indicatif par objectif.
-
-### Sprint Planning, non autorisé à ce jour
-
-Une vue de préparation du prochain sprint a été envisagée, puis redemandée par Denis le
-24/09/2026 : objectifs, tickets, capacité et éventuellement démarrage du sprint. Elle demanderait de nouvelles écritures Jira : ajout au sprint,
-démarrage du sprint et peut-être création de Goal. Ne rien implémenter avant d’avoir décidé :
-
-- préparation seule ou démarrage inclus ;
-- sprint futur automatique ou sprint choisi ;
-- Goals existants, texte ou création de Goals ;
-- forme de la vue Planning ;
-- calcul de capacité.
-
-Chaque nouvelle écriture devra suivre le processus de sécurité décrit plus haut.
-
-### Distribution
-
-- Chrome Web Store, visibilité publique ; le paquet préparé est désormais intégré dans Jira
-  (décision du 09/10/2026). La publication reste une opération distincte.
-- `npm run package` : `release/sprint-goals-board-<version>.zip`, construit hors de `dist/`, sans
-  le champ `key` (le Store attribue son identifiant : c'est une autre extension que celle de
-  développement), avec les droits contrôlés du manifest intégré ; refusé s'il contient une carte de sources, une clé privée ou le
-  banc d'essai. `EXTENSION_DIR=release/build node scripts/verify-load.mjs` le charge dans un
-  Chrome vierge.
-- Fiche du Store (textes, justifications des droits, déclarations) : `docs/store/fiche.md` ;
-  captures : `npm run store:screenshots` → `docs/store/captures/`.
-- Politique de confidentialité : `docs/privacy/index.html`, publiée par GitHub Pages depuis le
-  dépôt public `2nis6mon/sprint-goals-privacy` : https://2nis6mon.github.io/sprint-goals-privacy/
-  (y recopier le fichier à chaque modification).
-
----
-
-## 11. Checklist de reprise
-
-Avant de modifier le projet :
-
-1. lire ce document, `CLAUDE.md` et `docs/SECURITY-AUDIT.md` ;
-2. vérifier la branche et le dernier commit ;
-3. préserver le fonctionnement exclusivement dans une page Jira autorisée ;
-4. lancer `npm ci` puis `npm run check` ;
-5. construire le paquet intégré ;
-6. ne pas ajouter d’endpoint, permission ou écriture non validés ;
-7. préserver les deux comportements d’ouverture de ticket ;
-8. tester toute modification de transition avec un cas sans champ et un cas avec champ requis ;
-9. noter clairement ce qui a été testé localement et ce qui a été essayé sur Jira réel ;
-10. vérifier le manifest intégré, le garde-fou d'hébergement et le lanceur sans vue métier ;
-    ne pas présenter les tests sur faux Jira comme une validation de l'instance de Denis.
-
-Historique Git (23/09/2026) : `codex/test-ouverture-jira-directe` a été fusionnée dans `main` à la
-demande de Denis (avance rapide, 27 commits, aucun conflit), puis supprimée, comme
-`codex/board-search-confirmation` (déjà fusionnée) et `codex/test-board-dans-jira` (ancien
-prototype à onglet, abandonné, 17 commits perdus volontairement). L’intégration directe y a suivi ce
-chemin : ouverture du board dans Jira (`66e865e`), ouverture du formulaire de transition
-(`b3d2c09`), recadrage de la popin (`5161b49`), durcissements de la 0.19.9 (hébergement du board,
-clic de transition), essai par adresse directe (0.19.11 à 0.19.13) puis son retrait au profit du
-seul menu de statut (0.19.14).
-
+La liste d'actions et de validations à mener est dans [TODO.md](TODO.md). Ne pas réintroduire
+le mode autonome ni l'application Mac pour résoudre une limitation. Avant de reprendre : lire
+ce guide, `CLAUDE.md` et l'audit ; vérifier branche et état du dépôt ; conserver les deux parcours
+fiche complète/formulaire seul et les garde-fous d'hébergement ; distinguer tests locaux et essais réels.

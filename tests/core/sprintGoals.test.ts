@@ -60,8 +60,7 @@ describe("parseSprintGoalText", () => {
   });
 
   it("n'offre aucune fonction qui recomposerait le champ du sprint", () => {
-    // Le champ « Sprint Goal » n'est jamais réécrit : la fonction `render` du Mac, qui ne
-    // servait qu'à cela, n'est volontairement pas portée.
+    // Le champ « Sprint Goal » appartient à Jira ; aucun encodeur ne le recompose.
     expect(Object.keys(sprintGoals).filter((name) => /render|compose|format/i.test(name))).toEqual(
       [],
     );
@@ -149,7 +148,7 @@ describe("reconcileSprintGoals", () => {
   });
 });
 
-// Format partagé avec l'app Mac
+// Format Jira persisté
 describe("SprintGoalDocument", () => {
   it("survit à un aller-retour encodage / décodage", () => {
     const document = makeSprintGoalDocument({
@@ -180,7 +179,7 @@ describe("SprintGoalDocument", () => {
     expect(decoded.atlassianGoalIds).toEqual(["ari-1", "ari-2"]);
   });
 
-  it("écrit les mêmes clés JSON que l'app Mac et omet les champs vides", () => {
+  it("conserve les clés JSON persistées et omet les champs vides", () => {
     const encoded = encodeSprintGoalDocument(
       makeSprintGoalDocument({
         goals: [

@@ -1,8 +1,7 @@
 import type { BoardIssue } from "./boardIssue";
 
 /**
- * Couleur du badge « parent » des cartes (demande de Denis, sans équivalent sur le Mac, qui
- * affiche le parent en texte). Tous les tickets d'un même parent partagent sa couleur ; deux
+ * Couleur du badge « parent » : tous les tickets d'un même parent partagent sa couleur ; deux
  * parents du board n'ont jamais la même. Non configurable pour l'instant.
  *
  * Une couleur est une teinte (0–360) et une intensité. Les douze premières teintes sont choisies

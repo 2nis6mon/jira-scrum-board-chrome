@@ -12,7 +12,7 @@ import { plural } from "../format";
 
 /**
  * Règles de couleur des cartes : un JQL, une couleur. Le JQL est soumis tel quel à Jira, restreint
- * aux sprints actifs ; l'extension ne l'interprète pas. Portage de `CardColorsAdminView` (Mac).
+ * aux sprints actifs ; l'extension ne l'interprète pas.
  */
 export function CardColorSettings({
   board,

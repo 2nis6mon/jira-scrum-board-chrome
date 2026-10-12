@@ -217,7 +217,7 @@ describe("loadAtlassianSprintGoals", () => {
   });
 
   it("un Goal épinglé ne masque pas ceux que portent les tickets quand leur champ est muet", async () => {
-    // Écart voulu avec le Mac : il n'interrogeait le site qu'en l'absence de tout candidat.
+    // Rechercher les Goals du site même lorsqu'un Goal a déjà été épinglé.
     const r = reader({
       site: [goal("g-site")],
       workItems: { "g-site": ["ABC-3"] },

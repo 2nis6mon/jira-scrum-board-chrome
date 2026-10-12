@@ -249,7 +249,7 @@ export async function loadSnapshot(input: {
   let goalsWarnings: readonly string[] = [];
 
   // La sélection enregistrée dans Jira fait foi ; à défaut, celle gardée dans ce navigateur quand
-  // Jira a refusé de l'enregistrer (même règle que le Mac).
+  // Jira a refusé de l'enregistrer.
   const localPins = configuration.localPinnedGoalIds[String(sprint.id)] ?? [];
   const localPinnedGoalIds =
     (pinnedGoalIds ?? []).length === 0 && localPins.length > 0 ? [...localPins] : null;

@@ -33,7 +33,7 @@ export const CARD_COLOR_PALETTE = [
   "gray",
 ] as const;
 
-/** Noms affichés des couleurs, repris du Mac. */
+/** Noms affichés des couleurs. */
 export const CARD_COLOR_LABEL: Record<string, string> = {
   blue: "Bleu",
   teal: "Turquoise",
@@ -46,7 +46,7 @@ export const CARD_COLOR_LABEL: Record<string, string> = {
   gray: "Gris",
 };
 
-/** Même identifiant que l'app Mac, pour que la règle intégrée se reconnaisse d'une app à l'autre. */
+/** Identifiant persisté de la règle intégrée, conservé entre versions. */
 export const SCOPE_CHANGE_RULE_ID = "5C0DE000-0000-4000-8000-000000000001";
 
 /** Règle intégrée « ajouté en cours de sprint », bleue par défaut. */

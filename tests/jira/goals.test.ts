@@ -8,7 +8,7 @@ import { ACME, FakeJira, type RecordedRequest, type Reply } from "../support/fak
 import { type GatewayOptions, goalsGateway, graphqlQueries } from "../support/goalsGateway";
 
 // GoalsClientTests, GoalsRealSchemaTests, GoalLinkMutationTests, GoalWorkItemsTests et
-// WorkItemsArgumentsTests (app Mac), contre une fausse passerelle.
+// Arguments workItems, contre une fausse passerelle.
 
 const GRAPHQL = "/gateway/api/graphql";
 

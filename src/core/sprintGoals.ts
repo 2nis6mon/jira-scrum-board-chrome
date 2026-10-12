@@ -3,7 +3,7 @@ import { isRecord, type JsonObject } from "../jira/json";
 /**
  * Un objectif de sprint tel que manipulé par l'application.
  *
- * Rappel de la contrainte réelle (docs/reference-app-mac/ATLASSIAN-API-CAPABILITIES.md) : Jira
+ * Rappel de la contrainte réelle (docs/API-CONTRACTS.md) : Jira
  * ne connaît qu'UN SEUL champ texte `goal` par sprint. En mode « texte du sprint », les objectifs
  * sont les lignes de ce champ — lu, jamais écrit — et leurs identifiants stables sont conservés
  * dans une propriété d'entité du sprint, c'est-à-dire un stockage Jira officiel.
@@ -92,7 +92,7 @@ export function assignGoalColors(
 // ─── Propriété d'entité du sprint ────────────────────────────────────────────
 
 /**
- * Contenu de la propriété d'entité `com.scrumboardmac.sprintgoals.v1`, PARTAGÉE avec l'app Mac :
+ * Contenu de la propriété d'entité `com.scrumboardmac.sprintgoals.v1`, conservée entre versions :
  * son format ne doit pas diverger.
  */
 export interface SprintGoalDocument {
@@ -171,7 +171,7 @@ export function decodeSprintGoalDocument(value: unknown): SprintGoalDocument {
   };
 }
 
-/** Forme JSON écrite dans Jira. Les champs vides sont omis, comme le fait l'app Mac. */
+/** Forme JSON écrite dans Jira. Les champs vides sont omis. */
 export function encodeSprintGoalDocument(document: SprintGoalDocument): JsonObject {
   const encoded: JsonObject = {
     version: document.version,

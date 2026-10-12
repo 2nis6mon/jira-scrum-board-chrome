@@ -1,6 +1,5 @@
 import { ENTITY_PROPERTY_LIMIT_BYTES, JiraError } from "./errors";
 import type { JsonObject } from "./json";
-import { plainDocument, workDuration } from "./transitionFields";
 
 /**
  * INVENTAIRE EXHAUSTIF des écritures REST de l'extension dans Jira.
@@ -19,24 +18,20 @@ import { plainDocument, workDuration } from "./transitionFields";
 export type JiraWrite =
   | { kind: "sprintProperty.put"; sprintId: number; key: SprintPropertyKey; value: JsonObject }
   | { kind: "sprintProperty.delete"; sprintId: number; key: SprintPropertyKey }
-  /** Réglages d'équipe du board, publiés par « Publier pour l'équipe ». Jira répond 200 ou 201. */
+  /** Réglages d'équipe du board, enregistrés sur chaque modification explicite. Jira répond 200 ou 201. */
   | { kind: "boardProperty.put"; boardId: number; key: BoardPropertyKey; value: JsonObject }
-  /** Transition de workflow, choisie parmi celles que Jira propose. Jira répond 204. */
+  /** Transition sans formulaire. Les champs requis sont saisis et envoyés par Jira lui-même. */
   | {
       kind: "issue.transition";
       issueKey: string;
       transitionId: string;
-      fields?: JsonObject;
-      comment?: string;
-      timeSpent?: string;
     }
   /** Rang du board (global) : juste avant, ou juste après, un autre ticket. 204 ou 207. */
   | { kind: "issue.rank"; issueKey: string; before: string }
   | { kind: "issue.rank"; issueKey: string; after: string };
 
 /**
- * Clés de propriété de sprint, identiques à celles de l'app Mac pour que les deux
- * applications partagent l'épinglage des objectifs.
+ * Clés persistées dans Jira : conserver ces noms pour relire les sprints existants.
  */
 export const SPRINT_PROPERTY_KEYS = {
   /** Sélection d'objectifs épinglés au sprint. */
@@ -48,8 +43,7 @@ export const SPRINT_PROPERTY_KEYS = {
 export type SprintPropertyKey = (typeof SPRINT_PROPERTY_KEYS)[keyof typeof SPRINT_PROPERTY_KEYS];
 
 /**
- * Clés de propriété du board. Même espace de noms que celles du sprint : l'app Mac pourra lire
- * les réglages d'équipe dans le même format.
+ * Clés persistées du board : conserver les noms et le format des réglages existants.
  */
 export const BOARD_PROPERTY_KEYS = {
   /** Réglages d'équipe du board (colonnes, types, couleurs, règles…). */
@@ -112,8 +106,6 @@ export function buildWriteRequest(write: JiraWrite): WriteRequest {
       };
     case "issue.transition":
       assertIssueKey(write.issueKey);
-      if (write.timeSpent !== undefined && !workDuration(write.timeSpent))
-        throw new JiraError({ kind: "decoding", context: "temps passé", detail: "durée invalide" });
       if (!/^\d+$/.test(write.transitionId)) {
         throw new JiraError({
           kind: "decoding",
@@ -126,28 +118,6 @@ export function buildWriteRequest(write: JiraWrite): WriteRequest {
         path: `/rest/api/3/issue/${write.issueKey}/transitions`,
         body: JSON.stringify({
           transition: { id: write.transitionId },
-          ...(write.fields && Object.keys(write.fields).length ? { fields: write.fields } : {}),
-          ...(write.comment || write.timeSpent
-            ? {
-                update: {
-                  ...(write.comment
-                    ? { comment: [{ add: { body: plainDocument(write.comment) } }] }
-                    : {}),
-                  ...(write.timeSpent
-                    ? {
-                        worklog: [
-                          {
-                            add: {
-                              timeSpent: write.timeSpent,
-                              started: new Date().toISOString().replace("Z", "+0000"),
-                            },
-                          },
-                        ],
-                      }
-                    : {}),
-                },
-              }
-            : {}),
         }),
         resource: `la transition de ${write.issueKey}`,
       };
@@ -201,7 +171,7 @@ export function assertEntityId(id: number, what: string): void {
 /**
  * INVENTAIRE EXHAUSTIF des écritures GraphQL : poser ou retirer le lien NATIF entre un ticket et
  * un Goal Atlassian (mutations `goals_linkWorkItem` / `goals_unlinkWorkItem`, signature relevée
- * du schéma par l'app Mac). Le lien reste visible dans Jira ; rien n'est stocké par l'extension.
+ * du schéma Atlassian). Le lien reste visible dans Jira ; rien n'est stocké par l'extension.
  */
 export type GraphqlWrite =
   | { kind: "goal.link"; goalId: string; workItemId: string }
