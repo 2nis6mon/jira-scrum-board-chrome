@@ -12,7 +12,7 @@ const server = await createServer({
 });
 await server.listen();
 const browser = launchIsolatedBrowser("1440,1000");
-const { send, evaluate, waitFor } = browser;
+const { send, evaluate, waitFor, navigateToHarness } = browser;
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
@@ -26,7 +26,7 @@ try {
     { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false },
     session,
   );
-  await send("Page.navigate", { url: "http://127.0.0.1:5203/?scenario=board-chargement" }, session);
+  await navigateToHarness(session, "http://127.0.0.1:5203/?scenario=board-chargement");
   await waitFor(
     session,
     "document.querySelector('.load-diagnostics-active')?.textContent.includes('Tickets')",

@@ -9,7 +9,7 @@ const server = await createServer({
 });
 await server.listen();
 const browser = launchIsolatedBrowser("1600,1200");
-const { send, evaluate, waitFor, events } = browser;
+const { send, evaluate, waitFor, navigateToHarness, events } = browser;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -27,11 +27,7 @@ try {
       { width: 1600, height, deviceScaleFactor: 1, mobile: false },
       sessionId,
     );
-    await send(
-      "Page.navigate",
-      { url: "http://127.0.0.1:5201/?scenario=board-drag-regression" },
-      sessionId,
-    );
+    await navigateToHarness(sessionId, "http://127.0.0.1:5201/?scenario=board-drag-regression");
     // Premier chargement : le serveur du banc d'essai compile encore, pas d'attente fixe.
     await waitFor(
       sessionId,

@@ -184,6 +184,30 @@ export function launchIsolatedBrowser(size = "1280,800") {
       .slice(-10);
     throw new Error(`${message}\n${JSON.stringify({ page, errors }).slice(0, 8000)}`);
   }
+  const harnessSessions = new Set();
+  async function navigateToHarness(sessionId, url) {
+    const target = new URL(url);
+    if (target.protocol !== "http:" || target.hostname !== "127.0.0.1")
+      throw new Error("La navigation du banc est réservée au serveur local de données fictives.");
+    const first = !harnessSessions.has(sessionId);
+    harnessSessions.add(sessionId);
+    if (first)
+      await waitFor(
+        sessionId,
+        "location.href === 'about:blank' && document.readyState === 'complete'",
+        "Le document initial du navigateur de test n'est pas prêt",
+      );
+    try {
+      await send("Page.navigate", { url }, sessionId);
+    } catch (error) {
+      if (!first || error.message !== "Page.navigate : net::ERR_ABORTED") throw error;
+      // Chrome peut abandonner la toute première navigation au démarrage. Seul ce GET
+      // du banc fictif est repris, une fois ; aucune action testée ni écriture Jira.
+      console.warn("Navigation initiale du banc interrompue par Chrome : une seule reprise.");
+      await send("Page.stopLoading", {}, sessionId);
+      await send("Page.navigate", { url }, sessionId);
+    }
+  }
   async function close() {
     await send("Browser.close", {}, undefined, 2000).catch(() => {});
     if (!stopped) browser.kill();
@@ -203,5 +227,5 @@ export function launchIsolatedBrowser(size = "1280,800") {
       );
     }
   }
-  return { send, evaluate, waitFor, events, loadExtension, close };
+  return { send, evaluate, waitFor, navigateToHarness, events, loadExtension, close };
 }

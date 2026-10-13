@@ -12,7 +12,7 @@ const server = await createServer({
 });
 await server.listen();
 const browser = launchIsolatedBrowser("1440,1000");
-const { send, evaluate, waitFor, events } = browser;
+const { send, evaluate, waitFor, navigateToHarness, events } = browser;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -32,10 +32,9 @@ try {
   const run = (expression) => evaluate(sessionId, expression);
 
   const open = async (tab, ready) => {
-    await send(
-      "Page.navigate",
-      { url: `http://127.0.0.1:${PORT}/?scenario=board-reglages&onglet=${tab}` },
+    await navigateToHarness(
       sessionId,
+      `http://127.0.0.1:${PORT}/?scenario=board-reglages&onglet=${tab}`,
     );
     // Premier chargement : le serveur du banc d'essai compile encore, pas d'attente fixe.
     await waitFor(sessionId, ready, `Le banc d'essai n'a pas affiché l'onglet ${tab}`);
