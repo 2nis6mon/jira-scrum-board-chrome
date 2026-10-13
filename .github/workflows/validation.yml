@@ -1,0 +1,42 @@
+name: Validation de l'extension
+
+on:
+  push:
+    branches: [main, "codex/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Récupérer les sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Préparer Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Installer les dépendances verrouillées
+        run: npm ci
+      - name: Vérifier les types, le style, les tests et la compilation
+        run: npm run check
+      - name: Vérifier les fenêtres natives Jira dans Chrome isolé
+        run: npm run verify:jira
+      - name: Vérifier les déplacements
+        run: npm run verify:drag
+      - name: Vérifier le diagnostic de chargement du banc
+        run: npm run verify:loading
+      - name: Vérifier le paquet de distribution
+        run: npm run package

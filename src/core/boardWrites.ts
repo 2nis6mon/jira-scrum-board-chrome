@@ -244,7 +244,7 @@ export type PinOutcome =
  * Seul `atlassianGoalIds` change : objectifs, liens du mode texte et clés inconnues sont gardés.
  */
 export async function pinAtlassianGoals(
-  reader: WriteReader,
+  reader: Pick<WriteReader, "sprintProperty">,
   writer: JiraWriter,
   input: {
     sprintId: number;
@@ -321,7 +321,10 @@ interface StoredDocument {
  * Relit la propriété juste avant de l'écrire. Une valeur qui n'est pas un objet JSON n'est pas
  * écrasée : on ne sait ni ce qu'elle contient, ni qui l'a posée.
  */
-async function readStoredDocument(reader: WriteReader, sprintId: number): Promise<StoredDocument> {
+async function readStoredDocument(
+  reader: Pick<WriteReader, "sprintProperty">,
+  sprintId: number,
+): Promise<StoredDocument> {
   const stored = await reader.sprintProperty(sprintId, SPRINT_PROPERTY_KEYS.goals);
   if (stored === null) return { document: null, unknownKeys: {} };
   if (!isRecord(stored)) {

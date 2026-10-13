@@ -3,6 +3,14 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.30.0 — Architecture et tests automatisés
+
+- Chargement, déplacements et réglages/épinglage extraits de `BoardModel` en services testables.
+- Introspection et décodage des Goals séparés du client ; étapes des fenêtres natives Jira explicites.
+- Régressions sur lectures concurrentes, cache et pagination Goals, sérialisation et parcours natifs.
+- Garde-fous de dépendances entre couches et validation automatique sur GitHub, jusqu'au paquet Chrome.
+- API des vues, données enregistrées et périmètre des écritures Jira conservés.
+
 ## 0.29.3 — Documentation regroupée
 
 - Six fichiers Markdown au lieu de dix, avec un index dans le README.

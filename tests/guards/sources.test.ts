@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { join, posix, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -91,10 +91,36 @@ describe("code de production", () => {
     expect(filesMatching(/href=\{[^}]*atlassianUrl/)).toEqual([]);
   });
 
-  it("garde jira/ indépendant de chrome.* et du DOM", () => {
-    const jira = sources.filter(({ file }) => file.startsWith("src/jira/"));
-    for (const { file, code } of jira) {
-      expect(code, file).not.toMatch(/\bchrome\.|\bdocument\.|\bwindow\.|\bnavigator\./);
+  it("garde le métier, Jira et les services indépendants de chrome.* et du DOM", () => {
+    const modules = sources.filter(({ file }) => /^src\/(core|jira|app\/services)\//.test(file));
+    for (const { file, code } of modules) {
+      expect(code, file).not.toMatch(/\bchrome\.|\bwindow\.|\bnavigator\./);
+      if (file.startsWith("src/jira/")) expect(code, file).not.toMatch(/\bdocument\./);
+      // « document » nomme aussi une propriété Jira décodée ; viser les API du DOM.
+      expect(code, file).not.toMatch(
+        /\bdocument\.(?:body|head|documentElement|create\w+|querySelector\w*|getElement\w+|addEventListener|removeEventListener|location|cookie)\b|\b(?:HTMLElement|MutationObserver|DOMParser)\b/,
+      );
+    }
+  });
+
+  it("interdit aux couches métier et Jira de dépendre de l'interface ou de l'intégration", () => {
+    for (const { file, code } of sources.filter(({ file }) => /^src\/(core|jira)\//.test(file))) {
+      for (const match of code.matchAll(/(?:from\s*|import\s*\(\s*)["']([^"']+)["']/g)) {
+        const target = posix.normalize(posix.join(posix.dirname(file), match[1] ?? ""));
+        expect(target, `${file} → ${target}`).not.toMatch(/^src\/(app|integration)\//);
+      }
+    }
+  });
+
+  it("interdit aux services de revenir vers la façade BoardModel ou les vues", () => {
+    for (const { file, code } of sources.filter(({ file }) =>
+      file.startsWith("src/app/services/"),
+    )) {
+      for (const match of code.matchAll(/(?:from\s*|import\s*\(\s*)["']([^"']+)["']/g)) {
+        expect(match[1], file).not.toMatch(/^@preact\/|^preact(?:\/|$)/);
+        const target = posix.normalize(posix.join(posix.dirname(file), match[1] ?? ""));
+        expect(target, `${file} → ${target}`).not.toMatch(/\/views\/|\/BoardModel(?:\.|$)/);
+      }
     }
   });
 });

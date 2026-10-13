@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.29.3**, 13 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.30.0**, 13 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -22,7 +22,20 @@ Accès direct : [intégration Jira](#integration-jira), [API](#contrats-api),
 | `scripts/`, `.run/` | Contrôles navigateur, distribution et configurations IntelliJ partagées |
 
 [`AppModel`](src/app/model/AppModel.ts) pilote connexion et présentation ;
-[`BoardModel`](src/app/model/BoardModel.ts) pilote synchronisation, réglages, filtres et déplacements.
+[`BoardModel`](src/app/model/BoardModel.ts) reste la façade des vues : signaux, état visuel,
+filtres et méthodes publiques. Trois services dans `src/app/services/` portent les opérations :
+
+| Service | Responsabilité |
+|---|---|
+| `BoardLoadingService` | Synchronisation, relance des lectures concurrentes, résultats périmés, types observés et diagnostic |
+| `BoardMovementService` | Commandes transition → Goal → rang, délégation native, erreurs partielles et journal |
+| `BoardSettingsService` | Écritures de réglages en file, conflits, permissions et épinglage Scrum/Kanban |
+
+Leurs ports décrivent les seuls états et effets nécessaires ; ils n'importent ni `BoardModel`,
+ni les vues, ni Preact, ni le DOM ou Chrome. Les types communs sont dans `BoardTypes.ts`, réexportés
+par la façade pour conserver les imports existants. Les adaptateurs réels sont assemblés dans
+le constructeur du modèle ; les tests peuvent fournir des états ordinaires et des services fictifs.
+
 `boardSync` lit le périmètre, `boardIssue` assemble les cartes, `boardLayout`/`boardBlocks` les
 répartissent ; `pendingMove` projette les déplacements. `dropPlan` prépare l'intention et
 `boardWrites` l'exécute après relecture. `teamSettings` gère le partage, `boardStore` la copie locale
@@ -116,6 +129,9 @@ copie, historique, fermeture et format étroit, avec captures dans `.vite/`.
 [`bootstrap`](src/integration/bootstrap.ts) (`jira-bootstrap.js`) sur les sites autorisés et
 injecte [`injectBoard`](src/integration/injectBoard.ts) sur l'adresse marquée `sprintGoals=1`.
 `injectBoard` est copié via `executeScript` : aucun import ni état extérieur ; `bootstrap` n'a pas d'import.
+Le parcours natif utilise des étapes explicites : attente de fiche, sélection de transition,
+attente de formulaire, formulaire affiché et fermeture. Ses helpers restent internes à la fonction
+injectée ; un test reconstruit la fonction depuis son texte pour vérifier cette autonomie.
 
 À l'installation, `launcher.html?bienvenue=1` demande une adresse et la permission du site au clic.
 L'icône reconnaît l'onglet via `activeTab` ; hors board, le lanceur propose la dernière adresse.
@@ -183,6 +199,9 @@ chaîne découpée en objectifs texte ; ses identifiants/liens vivent dans une p
 
 [`goals.ts`](src/jira/goals.ts) utilise `/gateway/api/graphql` sur le site autorisé. Types, sélections,
 variantes de `workItems` et pagination sont découverts par introspection, jamais devinés.
+La façade conserve ses opérations publiques ; `goals/schema.ts` isole l'introspection et son cache,
+`goals/decode.ts` décode les réponses sans accès réseau. Les lectures de champs rejetées sont retirées
+du cache ; une découverte des liens `workItems` interrompue peut reprendre lors d'une lecture ultérieure.
 `goals_search` emploie `containerId`, `searchString` (TQL), `after`, `first`, `sort` selon le schéma,
 avec conteneur résolu depuis le site ; `goals_byIds` reçoit `goalIds`. Les références des tickets
 complètent épinglages et recherche. Liens Goal → tickets paginés si arguments et `pageInfo` exploitables.
@@ -318,10 +337,19 @@ Pour préserver un `dist/` en essai : construire avec `npx vite build --outDir <
 `node scripts/verify-jira.mjs` ou `verify-load.mjs` avec `EXTENSION_DIR=<dossier>` dans l'environnement.
 Les anciens alias `*:jira-direct-test` et `JIRA_DIRECT_DIST` restent retirés.
 
+[Le workflow GitHub](.github/workflows/validation.yml) exécute les contrôles à chaque push sur
+`main` ou `codex/**` et sur les demandes de fusion vers `main` : typage, style, tests, compilation,
+intégration Jira, glisser-déposer, diagnostic du banc et paquet. Il utilise Node 22, un profil Chrome
+temporaire et uniquement Jira fictif ; aucune session ou donnée Jira réelle n'est nécessaire.
+
 Garde-fous : [`sources.test.ts`](tests/guards/sources.test.ts) (réseau/couches/mutations/fixtures),
 [`manifest.test.ts`](tests/manifest.test.ts) (permissions/CSP),
 [`writes.test.ts`](tests/jira/writes.test.ts) (inventaire), tests transport/modèle (conflits,
 échecs/retry/délégation native), `tests/integration/` (hôte et refus avant démarrage).
+Les tests de services couvrent leurs ports isolément ; les tests du modèle gardent la composition
+réelle. `BoardModel.concurrency.test.ts` contrôle en particulier une réponse de l'ancien board
+après changement et une lecture de réglages dépassée par une écriture plus récente. Les gardes
+de sources empêchent le retour de dépendances vers les vues depuis les couches métier et Jira.
 Ces contrôles ne valident pas les workflows réels. Un ancien `npm audit` ne garantit pas les dépendances
 actuelles : le relancer lors d'une revue de distribution ; prévoir une revue indépendante avant diffusion large.
 

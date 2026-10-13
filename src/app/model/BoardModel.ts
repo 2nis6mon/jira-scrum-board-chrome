@@ -8,7 +8,7 @@ import {
   isBlockCollapsed,
   isGoalHidden,
 } from "../../core/boardConfiguration";
-import { allIssues, type BoardIssue, type BoardSnapshot, findIssue } from "../../core/boardIssue";
+import { allIssues, type BoardSnapshot, findIssue } from "../../core/boardIssue";
 import { buildBoardLayout, filterOptions } from "../../core/boardLayout";
 import {
   laneOrder,
@@ -20,14 +20,7 @@ import {
   withLocalPins,
 } from "../../core/boardPreferences";
 import { customFieldChoices } from "../../core/boardSettings";
-import { detectBoard, loadSnapshot, refreshBoardStructure } from "../../core/boardSync";
-import {
-  linkToTextGoal,
-  type MoveOutcome,
-  moveToColumn,
-  pinAtlassianGoals,
-  rankIssue,
-} from "../../core/boardWrites";
+import { detectBoard, refreshBoardStructure } from "../../core/boardSync";
 import {
   type CardColorRule,
   evaluateColorRules,
@@ -36,37 +29,37 @@ import {
 } from "../../core/cardColors";
 import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/dropPlan";
 import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../../core/filters";
-import { withObservedIssueTypes } from "../../core/issueTypeDiscovery";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
-import type { LoadTrace } from "../../core/loadTrace";
 import { parentColors } from "../../core/parentColors";
 import { type PendingMove, withPendingMove } from "../../core/pendingMove";
 import { goalColorName, type SprintGoal } from "../../core/sprintGoals";
 import { sprintHealth } from "../../core/sprintHealth";
-import {
-  decodeTeamDocument,
-  encodeTeamSettings,
-  publishTeamSettings,
-  sameTeamSettings,
-  type TeamDocument,
-  teamDifferences,
-  teamSettingsOf,
-  withTeamSettings,
-} from "../../core/teamSettings";
 import { JiraClient, type JiraField, type JiraQuickFilter } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import { GoalsClient } from "../../jira/goals";
-import {
-  type AtlassianGoal,
-  blockingRequiredFields,
-  type JiraTransition,
-  type JiraUser,
-} from "../../jira/models";
+import { type AtlassianGoal, blockingRequiredFields, type JiraTransition } from "../../jira/models";
 import { type JiraSite, parseBoardUrl } from "../../jira/site";
 import { JiraTransport } from "../../jira/transport";
-import { BOARD_PROPERTY_KEYS } from "../../jira/writes";
 import type { Platform } from "../platform/types";
+import { BoardLoadingService } from "../services/BoardLoadingService";
+import { BoardMovementService } from "../services/BoardMovementService";
+import { BoardSettingsService } from "../services/BoardSettingsService";
 import { type AuditEntry, AuditLog } from "./auditLog";
+import type {
+  BoardSummary,
+  DragState,
+  DragTransitions,
+  DropTarget,
+  HostBoardAnswer,
+  IssueDrop,
+  PinEditor,
+  SyncProblem,
+  TeamNotice,
+  TeamState,
+  TransitionChoice,
+  TransitionSelection,
+  WriteNotice,
+} from "./BoardTypes";
 import {
   activateBoard,
   listBoards,
@@ -85,100 +78,21 @@ import {
   saveDismissedNotice,
 } from "./noticeStore";
 
-export interface SyncProblem extends UserMessage {
-  /** La session Jira du navigateur n'est plus reconnue : il faut se reconnecter à Jira. */
-  readonly sessionLost: boolean;
-}
-
-/** Résultat d'une écriture qui mérite d'être dit : refus, conflit, issue incertaine. */
-export type HostBoardAnswer = "leaving" | "current" | "unreachable";
-
-export interface WriteNotice extends UserMessage {
-  readonly tone: "error" | "warning";
-  readonly sessionLost: boolean;
-  /** Ticket concerné, pour proposer de l'ouvrir dans Jira. */
-  readonly issueKey: string | null;
-}
-
-export interface IssueDrop {
-  readonly issueKey: string;
-  readonly block: BoardBlock;
-  readonly columnId: string;
-  readonly beforeKey: string | null;
-  readonly targetStatusId?: string;
-}
-
-interface TransitionSelection {
-  id: string;
-  knownStatusId: string;
-}
-export type DragTransitions =
-  | { kind: "loading" }
-  | { kind: "ready"; transitions: readonly JiraTransition[] }
-  | { kind: "error"; message: string };
-
-/** Choix en attente : aucune écriture du déplacement n'a encore eu lieu. */
-export interface TransitionChoice {
-  readonly drop: IssueDrop;
-  readonly knownStatusId: string;
-  readonly issueKey: string;
-  readonly columnName: string;
-  readonly available: readonly JiraTransition[];
-}
-
-/** Carte en cours de glisser-déposer. */
-export interface DragState {
-  readonly issueKey: string;
-  /** Swimlane par type de la carte ; `null` pour une carte par objectif. */
-  readonly lane: string | null;
-}
-
-/** Emplacement visé : une case (swimlane × colonne), devant un ticket ou à la fin. */
-export interface DropTarget {
-  readonly statusId?: string;
-  readonly laneId: string;
-  readonly columnId: string;
-  readonly beforeKey: string | null;
-}
-
-/** Sélection des Goals épinglés au sprint, ou au board Kanban sans sprint. */
-export interface PinEditor {
-  readonly sprintId: number | null;
-  readonly sprintName: string;
-  /** Sélection lue dans Jira à l'ouverture : l'écriture est refusée si Jira ne la porte plus. */
-  readonly base: readonly string[];
-  /** Sélection en cours, dans l'ordre d'épinglage (celui des swimlanes). */
-  readonly selection: readonly string[];
-  readonly saving: boolean;
-  readonly notice: (UserMessage & { readonly tone: "error" | "warning" }) | null;
-  /** La sélection de départ est celle gardée dans ce navigateur, Jira n'en ayant aucune. */
-  readonly fromLocal: boolean;
-  /** Jira vient de refuser l'enregistrement faute de droits : on peut la garder localement. */
-  readonly canKeepLocally: boolean;
-}
-
-/** Board enregistré du site, tel que le menu des boards le présente. */
-export interface BoardSummary {
-  readonly boardId: number;
-  readonly boardName: string;
-  readonly projectKeys: readonly string[];
-}
-
-/** Réglages d'équipe du board, tels que lus dans Jira (propriété du board). */
-export type TeamState =
-  /** Pas encore lus pour ce board. */
-  | { readonly kind: "unknown" }
-  /** Personne n'a encore publié de réglages d'équipe pour ce board. */
-  | { readonly kind: "none" }
-  /** Lecture impossible, ou format inconnu : rien n'est appliqué. */
-  | { readonly kind: "unreadable"; readonly message: string }
-  | { readonly kind: "published"; readonly document: TeamDocument };
-
-export interface TeamNotice {
-  readonly tone: "success" | "warning" | "error";
-  readonly text: string;
-  readonly suggestion: string | null;
-}
+export type {
+  BoardSummary,
+  DragState,
+  DragTransitions,
+  DropTarget,
+  HostBoardAnswer,
+  IssueDrop,
+  PinEditor,
+  SyncProblem,
+  TeamNotice,
+  TeamState,
+  TransitionChoice,
+  TransitionSelection,
+  WriteNotice,
+} from "./BoardTypes";
 
 export interface BoardModelOptions {
   readonly loadDiagnostics?: LoadDiagnostics;
@@ -243,7 +157,6 @@ export class BoardModel {
   readonly pendingMove = signal<PendingMove | null>(null);
   readonly moveFeedback = signal<{ issueKey: string; kind: "warning" } | null>(null);
   #feedbackTimer: ReturnType<typeof setTimeout> | null = null;
-  #syncTask: Promise<void> | null = null;
   readonly pendingKeys = signal<ReadonlySet<string>>(new Set());
   readonly writeNotice = signal<WriteNotice | null>(null);
   readonly transitionChoice = signal<TransitionChoice | null>(null);
@@ -352,12 +265,11 @@ export class BoardModel {
   readonly #platform: Platform;
   readonly #client: JiraClient;
   readonly #goals: GoalsClient;
-  readonly #transport: JiraTransport;
   readonly #now: () => Date;
-  #currentUser: JiraUser | null = null;
+  readonly #settings: BoardSettingsService;
+  readonly #loading: BoardLoadingService;
+  readonly #movements: BoardMovementService;
   #generation = 0;
-  #resyncRequested = false;
-  #preparedResyncId: string | undefined;
   #disposed = false;
   /** Enregistrements locaux enchaînés : le dernier demandé est le dernier écrit. */
   #saveQueue: Promise<unknown> = Promise.resolve();
@@ -368,13 +280,6 @@ export class BoardModel {
   /** Derniers tickets retenus par règle, pour colorer sans attendre la réévaluation. */
   #colorMatches: Record<string, ReadonlySet<string>> = {};
   #colorRun = 0;
-  /** Le prochain relevé des réglages d'équipe les applique sans demander (board tout juste ajouté). */
-  /** Droit d'édition du board déjà demandé à Jira pour le board affiché. */
-  #canEditAsked = false;
-  /** Écritures des réglages partagés, enchaînées ; compteur pour écarter une relecture dépassée. */
-  #teamQueue: Promise<void> = Promise.resolve();
-  #teamWrites = 0;
-
   constructor(site: JiraSite, platform: Platform, options: BoardModelOptions = {}) {
     this.site = site;
     this.#platform = platform;
@@ -387,10 +292,83 @@ export class BoardModel {
       observeRead: (kind) =>
         this.#disposed ? undefined : this.loadDiagnostics.observeTransport(kind),
     });
-    this.#transport = transport;
     this.#client = new JiraClient(transport);
     this.#goals = new GoalsClient(transport);
     this.images = new ImageCache((url) => transport.fetchImage(url));
+    const scope = { generation: () => this.#generation, disposed: () => this.#disposed };
+    this.#settings = new BoardSettingsService(
+      this.#client,
+      transport,
+      {
+        configuration: this.configuration,
+        pinEditor: this.pinEditor,
+        team: this.team,
+        teamSaving: this.teamSaving,
+        teamNotice: this.teamNotice,
+        canEditBoard: this.canEditBoard,
+        canEditSettings: this.canEditSettings,
+        canPinGoals: this.canPinGoals,
+      },
+      {
+        scope,
+        currentUser: () => this.snapshot.value?.currentUser ?? this.#loading.currentUser,
+        now: this.#now,
+        updatePreferences: (change) => this.#updatePreferences(change),
+        record: (entry) => this.#record(entry),
+        sync: () => this.sync(),
+      },
+    );
+    this.#loading = new BoardLoadingService(
+      this.#client,
+      {
+        load: (input) => loadAtlassianSprintGoals({ reader: this.#goals, ...input }),
+      },
+      {
+        configuration: this.configuration,
+        snapshot: this.snapshot,
+        setupBusy: this.setupBusy,
+        syncing: this.syncing,
+        syncProblem: this.syncProblem,
+        goalsNotice: this.goalsNotice,
+        goalsWarnings: this.goalsWarnings,
+      },
+      this.loadDiagnostics,
+      {
+        scope,
+        now: this.#now,
+        refreshSettings: () => this.#settings.refresh(),
+        prepareFilters: (configuration) => {
+          if (
+            configuration.boardType === "kanban" &&
+            this.filters.value.quickFilters.has("addedAfterStart")
+          )
+            this.setFilters(this.filters.value);
+        },
+        updatePreferences: (change) => this.#updatePreferences(change),
+        refreshFilters: async (boardId, isStale) => {
+          await this.#loadJiraQuickFilters(boardId);
+          if (isStale()) return;
+          if (this.filters.value.jiraQuickFilterIds.size > 0) await this.#applyJiraQuickFilters();
+        },
+        refreshColors: () => this.#refreshCardColors(),
+      },
+    );
+    this.#movements = new BoardMovementService(
+      this.#client,
+      transport,
+      this.#goals,
+      {
+        writeNotice: this.writeNotice,
+        nativeTransitionPending: this.nativeTransitionPending,
+        transitionChoice: this.transitionChoice,
+      },
+      {
+        now: this.#now,
+        record: (entry) => this.#record(entry),
+        openNative: (key, transition) => this.nativeTransitionHandler?.(key, transition) ?? false,
+        sync: () => this.sync(),
+      },
+    );
   }
 
   /** Relit le board enregistré pour ce site et, s'il y en a un, le synchronise. */
@@ -514,11 +492,11 @@ export class BoardModel {
     const target = parseBoardUrl(urlText);
     const runId =
       preparedRunId ??
-      (this.#syncTask ? this.loadDiagnostics.current.peek()?.id : undefined) ??
+      (this.#loading.running ? this.loadDiagnostics.current.peek()?.id : undefined) ??
       (target?.site.origin === this.site.origin
         ? this.loadDiagnostics.begin("opening")
         : undefined);
-    const trace = this.#traceFor(runId);
+    const trace = this.#loading.traceFor(runId);
     this.setupBusy.value = true;
     this.setupError.value = null;
     try {
@@ -529,13 +507,13 @@ export class BoardModel {
       });
       await this.#persist(configuration, { activate: true });
       if (!this.#showBoard(configuration)) {
-        this.#finishLoad(runId, "cancelled");
+        this.#loading.finish(runId, "cancelled");
         return;
       }
       await this.#refreshBoards();
     } catch (error) {
       this.setupError.value = toMessage(error);
-      this.#finishLoad(runId, "error");
+      this.#loading.finish(runId, "error");
       return;
     } finally {
       this.setupBusy.value = false;
@@ -547,10 +525,10 @@ export class BoardModel {
   async refreshStructure(): Promise<void> {
     const current = this.configuration.value;
     if (this.#disposed || !current || this.setupBusy.value) return;
-    const runId = this.#syncTask
+    const runId = this.#loading.running
       ? this.loadDiagnostics.current.peek()?.id
       : this.loadDiagnostics.begin("refresh");
-    const trace = this.#traceFor(runId);
+    const trace = this.#loading.traceFor(runId);
     this.setupBusy.value = true;
     try {
       const configuration = await refreshBoardStructure(
@@ -565,7 +543,7 @@ export class BoardModel {
       this.#quickFiltersBoardId = null; // relus avec la structure
     } catch (error) {
       this.syncProblem.value = { ...toMessage(error), sessionLost: isSessionLost(error) };
-      this.#finishLoad(runId, "error");
+      this.#loading.finish(runId, "error");
       return;
     } finally {
       this.setupBusy.value = false;
@@ -577,187 +555,8 @@ export class BoardModel {
    * Relit le board dans Jira. Une demande faite pendant une synchronisation en relance une après
    * elle, plutôt que d'en lancer deux en parallèle. Aucune écriture.
    */
-  async sync(preparedRunId?: string): Promise<void> {
-    if (this.#disposed || !this.configuration.value) return;
-    if (this.#syncTask) {
-      if (preparedRunId) this.#preparedResyncId = preparedRunId;
-      this.#resyncRequested = true;
-      await this.#syncTask;
-      return;
-    }
-    this.syncing.value = true;
-    this.#syncTask = (async () => {
-      do {
-        this.#resyncRequested = false;
-        const active = this.loadDiagnostics.current.peek();
-        preparedRunId ??= this.#preparedResyncId;
-        if (!preparedRunId && this.setupBusy.value && active?.status === "loading")
-          preparedRunId = active.id;
-        this.#preparedResyncId = undefined;
-        const runId =
-          preparedRunId && active?.id === preparedRunId && active.status === "loading"
-            ? preparedRunId
-            : this.loadDiagnostics.begin("refresh");
-        preparedRunId = undefined;
-        const generation = this.#generation;
-        this.loadDiagnostics.setContext({
-          boardType: this.configuration.value?.boardType === "kanban" ? "kanban" : "scrum",
-        });
-        try {
-          await this.#syncOnce(this.#traceFor(runId));
-          // Une relecture de structure en parallèle appartient au même chargement ; elle
-          // déclenche sa propre synchronisation ensuite, sans perdre sa durée d'attente.
-          if (!this.setupBusy.value && this.#preparedResyncId !== runId)
-            this.#finishLoad(
-              runId,
-              generation !== this.#generation
-                ? "cancelled"
-                : this.syncProblem.value
-                  ? "error"
-                  : "ok",
-            );
-        } catch (error) {
-          this.#finishLoad(runId, "error");
-          throw error;
-        }
-      } while (this.#resyncRequested && !this.#disposed);
-    })();
-    try {
-      await this.#syncTask;
-    } finally {
-      this.#syncTask = null;
-      this.syncing.value = false;
-    }
-  }
-
-  async #syncOnce(trace: LoadTrace): Promise<void> {
-    const generation = this.#generation;
-    // Réglages d'équipe d'abord : une version appliquée sert déjà à cette lecture du board.
-    await trace.measure("settings", () => this.#refreshTeamSettings());
-    if (this.#disposed || generation !== this.#generation) return;
-    const configuration = this.configuration.value;
-    if (!configuration) return;
-    if (
-      configuration.boardType === "kanban" &&
-      this.filters.value.quickFilters.has("addedAfterStart")
-    ) {
-      this.setFilters(this.filters.value);
-    }
-    const isStale = () =>
-      this.#disposed ||
-      generation !== this.#generation ||
-      this.configuration.value?.boardId !== configuration.boardId;
-
-    try {
-      this.#currentUser ??= await trace.measure("user", () => this.#client.myself());
-      const result = await loadSnapshot({
-        reader: this.#client,
-        configuration,
-        currentUser: this.#currentUser,
-        goalsLoader: {
-          load: (input) => loadAtlassianSprintGoals({ reader: this.#goals, ...input }),
-        },
-        now: this.#now(),
-        trace,
-        onIssueTypesDiscovered: async (types) => {
-          if (isStale()) return;
-          const current = this.configuration.value;
-          if (!current || withObservedIssueTypes(current, types) === current) return;
-          // L'administration garde les types lus même si les Goals échouent ensuite.
-          // Le cache reste local et conserve les réglages modifiés pendant la lecture.
-          await this.#updatePreferences((latest) => withObservedIssueTypes(latest, types));
-        },
-      });
-      if (isStale()) return;
-
-      // Couleurs des objectifs : mémorisées localement pour rester stables d'un sprint à l'autre.
-      // Une couleur choisie PENDANT la lecture l'emporte sur celle connue à son début.
-      const current = this.configuration.value ?? configuration;
-      const latest = withObservedIssueTypes(current, result.discoveredIssueTypes);
-      const typesChanged = latest !== current;
-      if (typesChanged) this.configuration.value = latest;
-      const previous = this.snapshot.value;
-      const knownGoalIds = new Set([
-        ...Object.keys(latest.goalColorIndex),
-        ...(previous?.goals.map((goal) => goal.id) ?? []),
-      ]);
-      const linkedGoalIds = new Set(
-        result.snapshot.goalIssues.flatMap((issue) => (issue.goalId ? [issue.goalId] : [])),
-      );
-      // À la toute première lecture, les Goals constituent le board initial et restent visibles.
-      // Ensuite, un Goal inconnu introduit par un ticket arrive masqué : le ticket reste dans
-      // Build jusqu'à ce que l'utilisateur le réaffiche depuis « Goals masqués ».
-      const newLinkedGoalIds =
-        knownGoalIds.size === 0
-          ? []
-          : result.snapshot.goals
-              .filter((goal) => linkedGoalIds.has(goal.id) && !knownGoalIds.has(goal.id))
-              .map((goal) => goal.id);
-      const colors = { ...result.goalColorIndex, ...latest.goalColorIndex };
-      this.snapshot.value = {
-        ...result.snapshot,
-        goals: result.snapshot.goals.map((goal) => ({
-          ...goal,
-          color: goalColorName(colors[goal.id] ?? 0),
-        })),
-      };
-      this.goalsNotice.value =
-        result.goalsIssue === null
-          ? null
-          : `Goals Atlassian illisibles : ${result.goalsIssue} Les objectifs affichés sont les lignes du champ « Objectif » du sprint.`;
-      this.goalsWarnings.value = result.goalsWarnings;
-      this.syncProblem.value = null;
-      this.loadDiagnostics.setContext({
-        boardType: configuration.boardType === "kanban" ? "kanban" : "scrum",
-        issues: allIssues(result.snapshot).length,
-        goals: result.snapshot.goals.length,
-      });
-      this.loadDiagnostics.markDataReady();
-
-      if (
-        typesChanged ||
-        !sameIndex(latest.goalColorIndex, colors) ||
-        newLinkedGoalIds.length > 0
-      ) {
-        await this.#updatePreferences((current) => ({
-          ...withObservedIssueTypes(current, result.discoveredIssueTypes),
-          goalColorIndex: { ...colors, ...current.goalColorIndex },
-          hiddenGoalIds: [...new Set([...current.hiddenGoalIds, ...newLinkedGoalIds])].sort(),
-        }));
-      }
-    } catch (error) {
-      if (isStale()) return;
-      const sessionLost = isSessionLost(error);
-      if (sessionLost) this.#currentUser = null;
-      this.syncProblem.value = { ...toMessage(error), sessionLost };
-      return;
-    }
-
-    await trace.measure("filters", async () => {
-      await this.#loadJiraQuickFilters(configuration.boardId);
-      if (isStale()) return;
-      // Les filtres rapides actifs sont réévalués après la relecture des tickets.
-      if (this.filters.value.jiraQuickFilterIds.size > 0) await this.#applyJiraQuickFilters();
-    });
-    if (isStale()) return;
-    await trace.measure("colors", () => this.#refreshCardColors());
-  }
-
-  /** Une lecture ancienne ne doit pas ajouter ses phases à celle d'un nouveau board. */
-  #traceFor(id: string | undefined): LoadTrace {
-    const active = () => {
-      const run = this.loadDiagnostics.current.peek();
-      return run?.id === id && run?.status === "loading";
-    };
-    return {
-      measure: (phase, work) => (active() ? this.loadDiagnostics.measure(phase, work) : work()),
-      measureSync: (phase, work) =>
-        active() ? this.loadDiagnostics.measureSync(phase, work) : work(),
-    };
-  }
-
-  #finishLoad(id: string | undefined, status: "ok" | "error" | "cancelled"): void {
-    if (this.loadDiagnostics.current.peek()?.id === id) this.loadDiagnostics.finish(status);
+  sync(preparedRunId?: string): Promise<void> {
+    return this.#loading.sync(preparedRunId);
   }
 
   /**
@@ -916,16 +715,16 @@ export class BoardModel {
 
   #reorderLanes(order: readonly string[]): Promise<void> {
     if (sameOrder(order, this.laneOrder.value)) return Promise.resolve();
-    return this.#changeShared((current) => withBlockOrder(current, order));
+    return this.#settings.changeShared((current) => withBlockOrder(current, order));
   }
 
   setGoalHidden(goalId: string, hidden: boolean): Promise<void> {
-    return this.#changeShared((current) => withGoalHidden(current, goalId, hidden));
+    return this.#settings.changeShared((current) => withGoalHidden(current, goalId, hidden));
   }
 
   setGoalColor(goalId: string, index: number): Promise<void> {
     if (!this.canEditSettings.value) return Promise.resolve();
-    const update = this.#changeShared((current) => withGoalColor(current, goalId, index));
+    const update = this.#settings.changeShared((current) => withGoalColor(current, goalId, index));
     // La couleur change tout de suite à l'écran, sans attendre de relire Jira.
     const snapshot = this.snapshot.value;
     const chosen = this.configuration.value?.goalColorIndex[goalId];
@@ -1096,31 +895,17 @@ export class BoardModel {
     this.#setPending(input.issueKey, true);
     this.writeNotice.value = null;
     let finished = false;
-    const completed: string[] = [];
     try {
-      if (plan.changesColumn) {
-        if (input.targetStatusId && !column.statusIds.includes(input.targetStatusId)) return;
-        const moved = await this.#moveIssue(issue, column, input, selection);
-        if (!moved) return;
-        completed.push("statut modifié");
-      }
-      if (plan.goalChange.kind === "assign") {
-        const linked = await this.#assignGoal(issue, snapshot, plan.goalChange.goalId);
-        if (!linked) return;
-        completed.push("objectif modifié");
-      }
-      if (rank.kind !== "none") await this.#rank(issue, rank);
-      finished = this.writeNotice.peek() === null;
+      finished = await this.#movements.execute({
+        issue,
+        snapshot,
+        column,
+        drop: input,
+        ...(selection ? { selection } : {}),
+        plan,
+        rank,
+      });
     } finally {
-      const notice = this.writeNotice.peek();
-      if (notice && completed.length > 0) {
-        this.writeNotice.value = {
-          ...notice,
-          text: `${notice.text} Déjà effectué : ${completed.join(", ")}.`,
-          suggestion:
-            "Le board est relu pour montrer l'état de Jira. Aucun retour arrière automatique n'est effectué.",
-        };
-      }
       let refreshed = false;
       try {
         if (!this.transitionChoice.value && !this.nativeTransitionPending.value) {
@@ -1210,13 +995,8 @@ export class BoardModel {
   async forgetLocalPins(): Promise<void> {
     const sprint = this.snapshot.value?.sprint;
     if (!sprint) return;
-    await this.#forgetLocalPins(sprint.id);
+    await this.#settings.forgetLocalPins(sprint.id);
     await this.sync();
-  }
-
-  async #forgetLocalPins(sprintId: number): Promise<void> {
-    if (!this.configuration.value?.localPinnedGoalIds[String(sprintId)]) return;
-    await this.#updatePreferences((current) => withLocalPins(current, sprintId, []));
   }
 
   /** Épingle ou désépingle un Goal dans la fenêtre. Rien n'est écrit avant « Enregistrer ». */
@@ -1252,241 +1032,8 @@ export class BoardModel {
    * Enregistre la sélection dans la propriété du sprint : UNE écriture, sur geste explicite. La
    * fenêtre ne se ferme qu'une fois Jira d'accord ; le board est relu dans tous les cas.
    */
-  async savePinnedGoals(): Promise<void> {
-    const editor = this.pinEditor.value;
-    if (!editor || editor.saving) return;
-    if (editor.sprintId === null) {
-      await this.#saveBoardPinnedGoals(editor);
-      return;
-    }
-    const saving: PinEditor = { ...editor, saving: true, notice: null };
-    this.pinEditor.value = saving;
-    // La fenêtre a pu disparaître pendant l'écriture (changement de board) : on ne la rouvre pas.
-    const settle = (next: PinEditor | null) => {
-      if (this.pinEditor.value === saving) this.pinEditor.value = next;
-    };
-    const count = editor.selection.length;
-    const to = `${count} Goal${count > 1 ? "s" : ""} épinglé${count > 1 ? "s" : ""}`;
-    const entry = { action: "épinglage", issueKey: null, from: null, to } as const;
-    try {
-      const outcome = await pinAtlassianGoals(this.#client, this.#transport, {
-        sprintId: editor.sprintId,
-        shownGoalIds: editor.base,
-        goalIds: editor.selection,
-        accountId: this.snapshot.value?.currentUser?.accountId ?? null,
-        now: this.#now(),
-      });
-      switch (outcome.kind) {
-        case "pinned":
-          settle(null);
-          await this.#record({ ...entry, outcome: "réussi", detail: "propriété du sprint" });
-          // Enregistré dans Jira : la copie locale de repli devient inutile.
-          await this.#forgetLocalPins(editor.sprintId);
-          break;
-        case "unchanged":
-          settle(null);
-          await this.#forgetLocalPins(editor.sprintId);
-          break;
-        case "conflict":
-          // Rien n'est écrasé : la fenêtre repart de ce que Jira porte maintenant.
-          settle({
-            ...editor,
-            base: outcome.current,
-            selection: outcome.current,
-            canKeepLocally: false,
-            notice: {
-              tone: "warning",
-              text: "Les Goals épinglés ont été modifiés dans Jira pendant votre sélection.",
-              suggestion:
-                "Rien n'a été écrit. La fenêtre montre maintenant la sélection enregistrée dans Jira : refaites vos changements, puis enregistrez.",
-            },
-          });
-          await this.#record({
-            ...entry,
-            outcome: "échec",
-            detail: "conflit : sélection modifiée dans Jira",
-          });
-          break;
-      }
-    } catch (error) {
-      const jiraError = error instanceof JiraError ? error : null;
-      const uncertain = jiraError?.isOutcomeUnknown ?? false;
-      const message = toMessage(error);
-      const forbidden = jiraError?.info.kind === "forbidden";
-      settle({
-        ...editor,
-        canKeepLocally: forbidden,
-        notice: uncertain
-          ? {
-              tone: "warning",
-              text: `Jira n'a pas confirmé l'enregistrement (${message.text.replace(/\.$/, "")}).`,
-              suggestion:
-                "Il a peut-être eu lieu : le board vient d'être relu. Vérifiez-le avant de recommencer ; l'extension ne rejoue jamais une écriture.",
-            }
-          : {
-              tone: "error",
-              text: message.text,
-              suggestion: forbidden
-                ? "Épingler un Goal au sprint exige en général la permission Jira de gérer les sprints. Vous pouvez garder cette sélection dans ce navigateur, sans la partager."
-                : message.suggestion,
-            },
-      });
-      await this.#record({
-        ...entry,
-        outcome: uncertain ? "incertain" : "échec",
-        detail: message.text,
-      });
-    }
-    await this.sync();
-  }
-
-  /** Épinglage Kanban partagé : même file et même propriété que les réglages, sans optimisme. */
-  async #saveBoardPinnedGoals(editor: PinEditor): Promise<void> {
-    const configuration = this.configuration.value;
-    if (configuration?.boardType !== "kanban" || !this.canPinGoals.value) return;
-    const generation = this.#generation;
-    const stale = () =>
-      generation !== this.#generation ||
-      this.configuration.value?.boardId !== configuration.boardId;
-    const saving: PinEditor = { ...editor, saving: true, notice: null };
-    this.pinEditor.value = saving;
-    const settle = (next: PinEditor | null) => {
-      if (!stale() && this.pinEditor.value === saving) this.pinEditor.value = next;
-    };
-    const entry = {
-      action: "épinglage",
-      issueKey: null,
-      from: null,
-      to: `${editor.selection.length} Goal${editor.selection.length > 1 ? "s" : ""} épinglé${editor.selection.length > 1 ? "s" : ""}`,
-    } as const;
-    const conflict = async (current: TeamDocument | null) => {
-      if (current) {
-        this.team.value = { kind: "published", document: current };
-        await this.#applyTeamDocument(current);
-      } else {
-        this.team.value = { kind: "none" };
-        await this.#updatePreferences((latest) => ({ ...latest, boardPinnedGoalIds: [] }));
-      }
-      const ids = current?.settings.boardPinnedGoalIds ?? [];
-      settle({
-        ...editor,
-        base: ids,
-        selection: ids,
-        canKeepLocally: false,
-        notice: {
-          tone: "warning",
-          text: "Les Goals épinglés ou les réglages du board ont changé dans Jira pendant votre sélection.",
-          suggestion:
-            "Rien n'a été écrit. La sélection de Jira est affichée : refaites vos changements, puis enregistrez.",
-        },
-      });
-      await this.#record({
-        ...entry,
-        outcome: "échec",
-        detail: "conflit : réglages du board modifiés",
-      });
-    };
-    this.#teamWrites += 1;
-    this.teamSaving.value += 1;
-    const task = this.#teamQueue.then(async () => {
-      if (stale()) return;
-      if (!this.canEditSettings.value) {
-        settle({
-          ...editor,
-          notice: {
-            tone: "error",
-            text: "Il faut pouvoir modifier le board pour y épingler des Goals.",
-            suggestion: null,
-          },
-        });
-        return;
-      }
-      try {
-        const raw = await this.#client.boardProperty(
-          configuration.boardId,
-          BOARD_PROPERTY_KEYS.teamSettings,
-        );
-        if (stale()) return;
-        const current = raw === null ? null : decodeTeamDocument(raw);
-        if (raw !== null && !current)
-          throw new Error("Les réglages du board sont illisibles : rien n'a été écrit.");
-        const currentIds = current?.settings.boardPinnedGoalIds ?? [];
-        if (!sameOrder(currentIds, editor.base)) {
-          await conflict(current);
-          return;
-        }
-        if (sameOrder(currentIds, editor.selection)) {
-          settle(null);
-          return;
-        }
-        const latest = this.configuration.value ?? configuration;
-        const base = current ? withTeamSettings(latest, current.settings) : latest;
-        const user = this.snapshot.value?.currentUser ?? this.#currentUser;
-        const outcome = await publishTeamSettings(
-          this.#client,
-          {
-            write: async (write) => {
-              if (stale() || !this.canEditSettings.value)
-                throw new Error("Le board ou vos droits ont changé : rien n'a été écrit.");
-              return this.#transport.write(write);
-            },
-          },
-          {
-            boardId: configuration.boardId,
-            settings: teamSettingsOf({ ...base, boardPinnedGoalIds: [...editor.selection] }),
-            basePublishedAt: current?.publishedAt ?? null,
-            publishedBy: {
-              accountId: user?.accountId ?? null,
-              displayName: user?.displayName ?? null,
-            },
-            now: this.#now(),
-          },
-        );
-        if (stale()) return;
-        if (outcome.kind === "conflict") {
-          await conflict(outcome.current);
-          return;
-        }
-        this.team.value = { kind: "published", document: outcome.document };
-        await this.#applyTeamDocument(outcome.document);
-        settle(null);
-        await this.#record({ ...entry, outcome: "réussi", detail: "propriété du board Kanban" });
-      } catch (error) {
-        if (stale()) return;
-        const jiraError = error instanceof JiraError ? error : null;
-        const uncertain = jiraError?.isOutcomeUnknown ?? false;
-        const forbidden = jiraError?.info.kind === "forbidden";
-        const message = toMessage(error);
-        if (forbidden) this.canEditBoard.value = false;
-        settle({
-          ...editor,
-          canKeepLocally: false,
-          notice: {
-            tone: uncertain ? "warning" : "error",
-            text: uncertain
-              ? `Jira n'a pas confirmé l'enregistrement (${message.text.replace(/\.$/, "")}).`
-              : message.text,
-            suggestion: uncertain
-              ? "Le board va être relu. Vérifiez sa sélection avant de recommencer ; l'extension ne rejoue jamais une écriture."
-              : forbidden
-                ? "Il faut pouvoir modifier le board pour y épingler des Goals."
-                : message.suggestion,
-          },
-        });
-        await this.#record({
-          ...entry,
-          outcome: uncertain ? "incertain" : "échec",
-          detail: message.text,
-        });
-      }
-    });
-    this.#teamQueue = task.catch(() => {});
-    try {
-      await task;
-    } finally {
-      this.teamSaving.value -= 1;
-    }
-    if (!stale()) await this.sync();
+  savePinnedGoals(): Promise<void> {
+    return this.#settings.savePinnedGoals();
   }
 
   /** Rang à écrire : devant la carte visée, ou à la fin de la case. Rien si la place ne change pas. */
@@ -1504,304 +1051,6 @@ export class BoardModel {
     return planRank(input.issueKey, ordered, input.beforeKey);
   }
 
-  async #assignGoal(
-    issue: BoardIssue,
-    snapshot: BoardSnapshot,
-    goalId: string | null,
-  ): Promise<boolean> {
-    const issueKey = issue.issue.key;
-    const title =
-      goalId === null
-        ? "aucun objectif"
-        : (snapshot.goals.find((goal) => goal.id === goalId)?.title ?? goalId);
-    if (snapshot.goalsOrigin === "atlassianGoals") {
-      return this.#assignAtlassianGoal(issue, goalId, title);
-    }
-    if (!snapshot.sprint) return false;
-    try {
-      await linkToTextGoal(this.#client, this.#transport, {
-        sprintId: snapshot.sprint.id,
-        issueKey,
-        goalId,
-        goals: snapshot.goals,
-        accountId: snapshot.currentUser?.accountId ?? null,
-        now: this.#now(),
-      });
-      await this.#record({
-        action: "rattachement",
-        issueKey,
-        from: null,
-        to: title,
-        outcome: "réussi",
-        detail: "propriété du sprint",
-      });
-      return true;
-    } catch (error) {
-      await this.#fail(
-        "rattachement",
-        issueKey,
-        title,
-        error,
-        "Rattacher un ticket à un objectif du sprint exige en général la permission Jira de gérer les sprints.",
-      );
-      return false;
-    }
-  }
-
-  /**
-   * Lien NATIF ticket↔Goal Atlassian. L'ancien Goal est détaché d'abord ; si Atlassian refuse ce
-   * détachement, on s'arrête là : poursuivre laisserait le ticket rattaché à deux Goals.
-   */
-  async #assignAtlassianGoal(
-    issue: BoardIssue,
-    goalId: string | null,
-    title: string,
-  ): Promise<boolean> {
-    const issueKey = issue.issue.key;
-    const previous = issue.goalId;
-    if (previous === goalId) return true;
-    let detached = false;
-    const refused = async (text: string, messages: readonly string[]) => {
-      const detail = messages.join(" ") || "aucun détail fourni par Atlassian";
-      this.writeNotice.value = {
-        tone: "error",
-        text: detached ? `${text} Le lien avec l’ancien Goal a déjà été retiré.` : text,
-        suggestion: `${detail}. Vérifiez le board après sa relecture.`,
-        sessionLost: false,
-        issueKey,
-      };
-      await this.#record({
-        action: "rattachement",
-        issueKey,
-        from: null,
-        to: title,
-        outcome: "échec",
-        detail,
-      });
-      return false;
-    };
-    try {
-      if (previous !== null) {
-        const removal = await this.#goals.setLink("goal.unlink", previous, issue.issue.id);
-        if (!removal.success) {
-          return refused(
-            "Atlassian a refusé de détacher le ticket de son Goal actuel.",
-            removal.messages,
-          );
-        }
-        detached = true;
-        if (goalId === null) {
-          await this.#record({
-            action: "rattachement",
-            issueKey,
-            from: null,
-            to: title,
-            outcome: "réussi",
-            detail: "lien Goal retiré",
-          });
-          return true;
-        }
-      }
-      if (goalId === null) return true;
-      const link = await this.#goals.setLink("goal.link", goalId, issue.issue.id);
-      if (!link.success)
-        return refused("Atlassian a refusé de rattacher le ticket au Goal.", link.messages);
-      await this.#record({
-        action: "rattachement",
-        issueKey,
-        from: null,
-        to: title,
-        outcome: "réussi",
-        detail: "lien Goal Atlassian natif",
-      });
-      return true;
-    } catch (error) {
-      await this.#fail("rattachement", issueKey, title, error);
-      const notice = this.writeNotice.peek();
-      if (detached && notice) {
-        this.writeNotice.value = {
-          ...notice,
-          text: `${notice.text} Le lien avec l’ancien Goal a déjà été retiré.`,
-        };
-      }
-      return false;
-    }
-  }
-
-  async #moveIssue(
-    issue: BoardIssue,
-    column: { name: string; statusIds: readonly string[] },
-    drop: IssueDrop,
-    selection?: TransitionSelection,
-  ): Promise<boolean> {
-    const issueKey = issue.issue.key;
-    const from = issue.issue.fields.status.name;
-    let outcome: MoveOutcome;
-    try {
-      outcome = await moveToColumn(this.#client, this.#transport, {
-        issueKey,
-        knownStatusId: selection?.knownStatusId ?? issue.issue.fields.status.id,
-        targetStatusIds: drop.targetStatusId ? [drop.targetStatusId] : column.statusIds,
-        ...(selection ? { transitionId: selection.id } : {}),
-      });
-    } catch (error) {
-      await this.#fail("transition", issueKey, column.name, error);
-      return false;
-    }
-
-    switch (outcome.kind) {
-      case "moved":
-        this.nativeTransitionPending.value = false;
-        await this.#record({
-          action: "transition",
-          issueKey,
-          from,
-          to: outcome.transition.to.name,
-          outcome: "réussi",
-          detail: `Transition « ${outcome.transition.name} »`,
-        });
-        return true;
-      case "alreadyThere":
-        return true;
-      case "conflict":
-        this.writeNotice.value = {
-          tone: "warning",
-          text: `${issueKey} a changé dans Jira : il est maintenant « ${outcome.currentStatus.name} ».`,
-          suggestion: "L'affichage a été relu dans Jira. Relancez le déplacement si besoin.",
-          sessionLost: false,
-          issueKey,
-        };
-        await this.#record({
-          action: "transition",
-          issueKey,
-          from,
-          to: column.name,
-          outcome: "échec",
-          detail: "conflit : statut modifié dans Jira",
-        });
-        if (this.nativeTransitionPending.value) await this.sync();
-        return false;
-      case "requiresFields": {
-        if (this.nativeTransitionHandler?.(issueKey, outcome.transition)) {
-          this.nativeTransitionPending.value = true;
-          this.writeNotice.value = {
-            tone: "warning",
-            text: `Complétez « ${outcome.transition.name} » dans Jira pour ${issueKey}.`,
-            suggestion: "Le board sera actualisé à la fermeture du ticket.",
-            sessionLost: false,
-            issueKey,
-          };
-          return false;
-        }
-        this.writeNotice.value = {
-          tone: "error",
-          text: `Impossible d'ouvrir le formulaire Jira pour ${issueKey}.`,
-          suggestion:
-            "Rechargez la page Jira puis recommencez le déplacement. Rien n'a été modifié.",
-          sessionLost: false,
-          issueKey,
-        };
-        return false;
-      }
-      case "noTransition":
-        this.writeNotice.value = {
-          tone: "error",
-          text: `Aucune transition disponible vers « ${column.name} » pour ${issueKey} depuis « ${outcome.currentStatus.name} ».`,
-          suggestion: "Rien n'a été modifié.",
-          sessionLost: false,
-          issueKey,
-        };
-        await this.#record({
-          action: "transition",
-          issueKey,
-          from,
-          to: column.name,
-          outcome: "échec",
-          detail: "aucune transition proposée",
-        });
-        return false;
-      case "choose":
-        // Le choix porte uniquement sur les transitions vers la destination demandée.
-        this.transitionChoice.value = {
-          drop,
-          knownStatusId: selection?.knownStatusId ?? issue.issue.fields.status.id,
-          issueKey,
-          columnName: column.name,
-          available: outcome.available,
-        };
-        return false;
-    }
-  }
-
-  async #rank(issue: BoardIssue, change: RankChange): Promise<void> {
-    const issueKey = issue.issue.key;
-    const to =
-      change.kind === "before"
-        ? `avant ${change.issueKey}`
-        : change.kind === "after"
-          ? `après ${change.issueKey}`
-          : null;
-    try {
-      await rankIssue(this.#transport, issueKey, change);
-      await this.#record({
-        action: "classement",
-        issueKey,
-        from: null,
-        to,
-        outcome: "réussi",
-        detail: "rang du board Jira",
-      });
-    } catch (error) {
-      await this.#fail(
-        "classement",
-        issueKey,
-        to,
-        error,
-        "Réordonner un ticket exige la permission Jira « Planifier les tickets ».",
-      );
-    }
-  }
-
-  /** Échec d'une écriture : message, et entrée au journal. Jamais de nouvelle tentative. */
-  async #fail(
-    action: AuditEntry["action"],
-    issueKey: string,
-    to: string | null,
-    error: unknown,
-    forbiddenHint?: string,
-  ): Promise<void> {
-    const jiraError = error instanceof JiraError ? error : null;
-    const uncertain = jiraError?.isOutcomeUnknown ?? false;
-    const message = toMessage(error);
-    this.writeNotice.value = uncertain
-      ? {
-          tone: "warning",
-          text: `Jira n'a pas confirmé l'écriture sur ${issueKey} (${message.text.replace(/\.$/, "")}).`,
-          suggestion:
-            "Elle a peut-être eu lieu : l'affichage a été relu dans Jira. Vérifiez-le avant de recommencer ; l'extension ne rejoue jamais une écriture.",
-          sessionLost: false,
-          issueKey,
-        }
-      : {
-          tone: "error",
-          text: message.text,
-          suggestion:
-            jiraError?.info.kind === "forbidden" && forbiddenHint
-              ? forbiddenHint
-              : message.suggestion,
-          sessionLost: isSessionLost(error),
-          issueKey,
-        };
-    await this.#record({
-      action,
-      issueKey,
-      from: null,
-      to,
-      outcome: uncertain ? "incertain" : "échec",
-      detail: message.text,
-    });
-  }
-
   // ─── Réglages d'équipe (propriété du board) ───────────────────────────────
   //
   // Depuis 0.22.0 (demande de Denis du 24/09/2026), plus de publication manuelle : la version de
@@ -1815,210 +1064,8 @@ export class BoardModel {
    * touche un réglage partagé, écrite dans la propriété du board. Refusée d'emblée si Jira a dit
    * que le compte ne peut pas modifier le board.
    */
-  async #changeShared(
-    change: (configuration: BoardConfiguration) => BoardConfiguration,
-  ): Promise<void> {
-    const before = this.configuration.value;
-    if (!before) return;
-    const shared = !sameTeamSettings(before, change(before));
-    if (shared && !this.canEditSettings.value) return;
-    await this.#updatePreferences(change);
-    if (!shared) return;
-    this.#teamWrites += 1;
-    this.teamSaving.value += 1;
-    const task = this.#teamQueue.then(() => this.#saveShared(change));
-    this.#teamQueue = task.catch(() => {});
-    try {
-      await task;
-    } finally {
-      this.teamSaving.value -= 1;
-    }
-  }
-
-  /** Écrit une modification des réglages partagés sur la version relue dans Jira. */
-  async #saveShared(change: (configuration: BoardConfiguration) => BoardConfiguration) {
-    const configuration = this.configuration.value;
-    if (!configuration) return;
-    const boardId = configuration.boardId;
-    const stale = () => this.configuration.value?.boardId !== boardId;
-    const user = this.snapshot.value?.currentUser ?? this.#currentUser;
-    const entry = {
-      action: "réglages d'équipe",
-      issueKey: null,
-      from: null,
-      to: "enregistrement",
-    } as const;
-    this.teamNotice.value = null;
-    try {
-      const raw = await this.#client.boardProperty(boardId, BOARD_PROPERTY_KEYS.teamSettings);
-      if (stale()) return;
-      const current = raw === null ? null : decodeTeamDocument(raw);
-      if (raw !== null && !current) {
-        this.teamNotice.value = {
-          tone: "error",
-          text: "Réglage non enregistré dans Jira : les réglages du board y sont dans un format inconnu.",
-          suggestion:
-            "Ils ne sont jamais écrasés. Une version plus récente de l'extension les a peut-être écrits.",
-        };
-        return;
-      }
-      // La modification est rejouée sur la version la plus récente : celles des autres sont gardées.
-      const next = current
-        ? change(withTeamSettings(configuration, current.settings))
-        : configuration;
-      const outcome = await publishTeamSettings(this.#client, this.#transport, {
-        boardId,
-        settings: teamSettingsOf(next),
-        basePublishedAt: current?.publishedAt ?? null,
-        publishedBy: {
-          accountId: user?.accountId ?? null,
-          displayName: user?.displayName ?? null,
-        },
-        now: this.#now(),
-      });
-      if (stale()) return;
-      if (outcome.kind === "published") {
-        this.team.value = { kind: "published", document: outcome.document };
-        await this.#applyTeamDocument(outcome.document);
-        const changes = current ? teamDifferences(next, current.settings) : [];
-        await this.#record({
-          ...entry,
-          outcome: "réussi",
-          detail: changes.length > 0 ? changes.join(" ; ") : "réglages du board",
-        });
-      } else {
-        if (outcome.current) {
-          this.team.value = { kind: "published", document: outcome.current };
-          await this.#applyTeamDocument(outcome.current);
-        } else {
-          await this.#refreshTeamSettings({ force: true });
-        }
-        const who = outcome.current?.publishedBy.displayName ?? "Quelqu'un";
-        this.teamNotice.value = {
-          tone: "warning",
-          text: `Réglage non enregistré : ${who} a modifié les réglages du board au même moment.`,
-          suggestion: "Ses réglages sont maintenant affichés ; refaites votre modification.",
-        };
-        await this.#record({ ...entry, outcome: "échec", detail: "modifiés au même moment" });
-      }
-    } catch (error) {
-      if (stale()) return;
-      const jiraError = error instanceof JiraError ? error : null;
-      const uncertain = jiraError?.isOutcomeUnknown ?? false;
-      const forbidden = jiraError?.info.kind === "forbidden";
-      const message = toMessage(error);
-      if (forbidden) this.canEditBoard.value = false;
-      this.teamNotice.value = forbidden
-        ? {
-            tone: "error",
-            text: "Jira a refusé d'enregistrer ce réglage : il faut pouvoir modifier le board.",
-            suggestion:
-              "Les réglages du board sont maintenant en lecture seule ici ; ceux de l'équipe vont être rechargés.",
-          }
-        : uncertain
-          ? {
-              tone: "warning",
-              text: `Jira n'a pas confirmé l'enregistrement du réglage (${message.text.replace(/\.$/, "")}).`,
-              suggestion:
-                "Les réglages du board vont être relus. L'extension ne rejoue jamais une écriture.",
-            }
-          : {
-              tone: "error",
-              text: `Réglage non enregistré dans Jira (${message.text.replace(/\.$/, "")}).`,
-              suggestion: "Il sera remplacé par les réglages du board au prochain chargement.",
-            };
-      await this.#record({
-        ...entry,
-        outcome: uncertain ? "incertain" : "échec",
-        detail: message.text,
-      });
-      if (forbidden || uncertain) await this.#refreshTeamSettings({ force: true });
-    }
-  }
-
-  /**
-   * Relit les réglages d'équipe du board et applique la version de Jira : elle fait foi à chaque
-   * chargement. Une lecture commencée avant une écriture de réglage est écartée (elle la
-   * défairait). Demande aussi, une fois par board, si le compte peut le modifier.
-   */
-  async #refreshTeamSettings(options: { force?: boolean } = {}): Promise<void> {
-    const configuration = this.configuration.value;
-    if (!configuration) return;
-    void this.#askCanEdit(configuration);
-    const generation = this.#generation;
-    const writes = this.#teamWrites;
-    const stale = () =>
-      generation !== this.#generation ||
-      this.configuration.value?.boardId !== configuration.boardId ||
-      (!options.force && (writes !== this.#teamWrites || this.teamSaving.value > 0));
-    let raw: unknown;
-    try {
-      raw = await this.#client.boardProperty(
-        configuration.boardId,
-        BOARD_PROPERTY_KEYS.teamSettings,
-      );
-    } catch (error) {
-      if (!stale()) this.team.value = { kind: "unreadable", message: toMessage(error).text };
-      return;
-    }
-    if (stale()) return;
-    if (raw === null) {
-      this.team.value = { kind: "none" };
-      if (configuration.boardType === "kanban" && configuration.boardPinnedGoalIds.length > 0) {
-        await this.#updatePreferences((current) => ({ ...current, boardPinnedGoalIds: [] }));
-      }
-      return;
-    }
-    const document = decodeTeamDocument(raw);
-    if (!document) {
-      this.team.value = {
-        kind: "unreadable",
-        message:
-          "Les réglages du board enregistrés dans Jira sont dans un format inconnu (version plus récente de l'extension ?) : ils ne sont pas appliqués.",
-      };
-      return;
-    }
-    this.team.value = { kind: "published", document };
-    const latest = this.configuration.value;
-    if (
-      !latest ||
-      (latest.teamBase?.publishedAt === document.publishedAt &&
-        teamDifferences(latest, document.settings).length === 0)
-    ) {
-      return;
-    }
-    await this.#applyTeamDocument(document);
-  }
-
-  /** Droit d'édition du board, demandé une fois par board ; une erreur laisse « inconnu ». */
-  async #askCanEdit(configuration: BoardConfiguration): Promise<void> {
-    if (this.#canEditAsked) return;
-    this.#canEditAsked = true;
-    const generation = this.#generation;
-    try {
-      const canEdit = await this.#client.boardCanEdit(
-        configuration.boardId,
-        configuration.boardName,
-        configuration.projectKeys[0] ?? null,
-      );
-      if (generation === this.#generation && canEdit !== null) this.canEditBoard.value = canEdit;
-    } catch {
-      // Inconnu : les réglages restent modifiables, un refus de Jira tranchera.
-    }
-  }
-
   dismissTeamNotice(): void {
     this.teamNotice.value = null;
-  }
-
-  #applyTeamDocument(document: TeamDocument): Promise<void> {
-    return this.#updatePreferences((current) => ({
-      ...withTeamSettings(current, document.settings),
-      teamBase: {
-        publishedAt: document.publishedAt,
-        settings: encodeTeamSettings(document.settings),
-      },
-    }));
   }
 
   async #record(entry: Omit<AuditEntry, "at" | "site">): Promise<void> {
@@ -2044,9 +1091,7 @@ export class BoardModel {
 
   dispose(): void {
     this.#disposed = true;
-    this.#resyncRequested = false;
-    this.#preparedResyncId = undefined;
-    this.loadDiagnostics.finish("cancelled");
+    this.#loading.cancel();
     this.#clearMoveFeedback();
     this.pendingMove.value = null;
     this.nativeTransitionPending.value = false;
@@ -2065,7 +1110,7 @@ export class BoardModel {
     change: (configuration: BoardConfiguration) => BoardConfiguration,
     options: { resync: boolean },
   ): Promise<void> {
-    await this.#changeShared(change);
+    await this.#settings.changeShared(change);
     this.#restartAutoRefresh();
     if (options.resync) await this.sync();
   }
@@ -2250,7 +1295,7 @@ export class BoardModel {
       this.dismissedNotices.value = null;
     });
     void this.#loadDismissedNotices(configuration);
-    this.#canEditAsked = false;
+    this.#settings.resetBoard();
     this.#colorMatches = {};
     this.#quickFiltersBoardId = null;
     this.#restartAutoRefresh();
@@ -2299,9 +1344,4 @@ function sameOrder(a: readonly string[], b: readonly string[]): boolean {
 
 function sameIds(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
   return a.size === b.size && [...a].every((id) => b.has(id));
-}
-
-function sameIndex(a: Readonly<Record<string, number>>, b: Readonly<Record<string, number>>) {
-  const keys = Object.keys(a);
-  return keys.length === Object.keys(b).length && keys.every((key) => a[key] === b[key]);
 }

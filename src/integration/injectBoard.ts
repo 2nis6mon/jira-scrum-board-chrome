@@ -40,15 +40,14 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
 
   const refresh = () =>
     frame.contentWindow?.postMessage({ type: "sprint-goals:refresh" }, url.origin);
-  let ticketDialog: HTMLDialogElement | null = null;
-  let ticketTimer: ReturnType<typeof setInterval> | null = null;
+  let ticketSession: { dialog: HTMLDialogElement; stop: () => void } | null = null;
   const closeTicket = () => {
-    const wasOpen = ticketDialog !== null;
-    if (ticketTimer) clearInterval(ticketTimer);
-    ticketTimer = null;
-    ticketDialog?.remove();
-    ticketDialog = null;
-    if (wasOpen) refresh();
+    const session = ticketSession;
+    if (!session) return;
+    ticketSession = null;
+    session.stop();
+    session.dialog.remove();
+    refresh();
   };
 
   /** Élément réellement affiché (les mesures viennent de la page Jira encadrée). */
@@ -61,7 +60,8 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
   const popin = (label: string, css: string) => {
     closeTicket();
     const dialog = document.createElement("dialog");
-    ticketDialog = dialog;
+    const session = { dialog, stop: () => {} };
+    ticketSession = session;
     dialog.setAttribute("aria-label", label);
     dialog.style.cssText = `${css};box-sizing:border-box;margin:auto;padding:0;border:1px solid #dcdfe4;border-radius:10px;background:white;overflow:hidden;z-index:2147483647`;
     const hint = document.createElement("p");
@@ -74,14 +74,14 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
     document.body.append(dialog);
     dialog.addEventListener("cancel", (event) => {
       event.preventDefault();
-      closeTicket();
+      if (ticketSession === session) closeTicket();
     });
     dialog.showModal();
     const reveal = () => {
       page.style.visibility = "visible";
       hint.remove();
     };
-    return { dialog, hint, page, reveal };
+    return { dialog, hint, page, reveal, session };
   };
 
   /**
@@ -92,6 +92,175 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
     // biome-ignore lint/suspicious/noConsole: journal de diagnostic de l'intégration Jira.
     console.info("Sprint Goals —", step, detail);
 
+  type Transition = { id: string; name: string; to: string | null };
+  const label = (element: HTMLElement) =>
+    (element.getAttribute("aria-label") ?? element.textContent ?? "").trim();
+  const normalized = (value: string) =>
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLocaleLowerCase();
+
+  /** La fiche doit réunir bouton de fermeture, taille de panneau et lien du ticket demandé. */
+  const findTicketPanel = (doc: Document, win: Window, key: string): HTMLElement | null => {
+    const close = [...doc.querySelectorAll<HTMLElement>('button,[role="button"]')].find(
+      (element) => /^(Close|Fermer)$/.test(label(element)) && visible(element),
+    );
+    let panel: HTMLElement | null = null;
+    for (
+      let parent = close?.parentElement;
+      parent && parent !== doc.body;
+      parent = parent.parentElement
+    ) {
+      const box = parent.getBoundingClientRect();
+      if (
+        box.height > win.innerHeight * 0.45 &&
+        box.width > 250 &&
+        box.width < win.innerWidth * 0.95
+      )
+        panel = parent;
+    }
+    return panel &&
+      [...panel.querySelectorAll<HTMLAnchorElement>("a[href]")].some(
+        (link) => new URL(link.href).pathname === `/browse/${key}`,
+      )
+      ? panel
+      : null;
+  };
+
+  const isolateTicketPanel = (doc: Document, panel: HTMLElement) => {
+    const css = doc.createElement("style");
+    css.textContent =
+      'body{visibility:hidden!important}[data-sprint-goals-ticket],[data-sprint-goals-ticket] *{visibility:visible!important}[role="dialog"],[role="dialog"] *,[role="menu"],[role="menu"] *,[role="listbox"],[role="listbox"] *{visibility:visible!important}';
+    doc.head.append(css);
+    panel.setAttribute("data-sprint-goals-ticket", "");
+    panel.style.cssText +=
+      ";position:fixed!important;inset:0!important;width:100%!important;height:100vh!important;max-width:none!important;max-height:none!important;margin:0!important;box-sizing:border-box!important;background:white;z-index:10;overflow:auto";
+  };
+
+  const statusButtons = (scope: HTMLElement) =>
+    [...scope.querySelectorAll<HTMLElement>('button,[role="button"]')].filter((element) => {
+      if (!visible(element)) return false;
+      const description = normalized(
+        `${element.getAttribute("aria-label") ?? ""} ${element.getAttribute("title") ?? ""}`,
+      );
+      const testId = normalized(
+        `${element.getAttribute("data-testid") ?? ""} ${element.getAttribute("data-test-id") ?? ""}`,
+      );
+      return (
+        /(?:change|changer|modifier).*(?:status|statut)|(?:status|statut).*(?:change|changer|modifier)/.test(
+          description,
+        ) ||
+        (testId.includes("status") && element.getAttribute("aria-haspopup") !== null)
+      );
+    });
+
+  /**
+   * Un clic peut écrire dans Jira : exiger un identifiant délimité avec le nom, ou un libellé
+   * exact et unique (nom seul ou suivi du statut). Toute ambiguïté rend la main à l'utilisateur.
+   */
+  const transitionChoice = (doc: Document, transition: Transition) => {
+    const squashed = (value: string) => normalized(value).replace(/[^\p{L}\p{N}]+/gu, "");
+    const texts = (element: HTMLElement) =>
+      [element.getAttribute("aria-label"), element.textContent]
+        .filter((value): value is string => Boolean(value))
+        .map(squashed);
+    const transitionName = squashed(transition.name);
+    const wanted = [
+      transitionName,
+      ...(transition.to ? [squashed(`${transition.name} ${transition.to}`)] : []),
+    ];
+    const items = [
+      ...doc.querySelectorAll<HTMLElement>(
+        '[role="menuitem"],[role="option"],[role="menu"] button,[role="listbox"] button',
+      ),
+    ].filter(visible);
+    const mentions = items.filter((element) =>
+      texts(element).some((text) => text.includes(transitionName)),
+    );
+    if (mentions.length === 0) return { kind: "waiting" as const };
+    const idPattern = new RegExp(`(?:^|\\D)${transition.id}(?:\\D|$)`);
+    const identified = mentions.filter((element) =>
+      [...element.attributes].some(({ value }) => idPattern.test(value)),
+    );
+    const exact = items.filter((element) => texts(element).some((text) => wanted.includes(text)));
+    const choice =
+      identified.length === 1
+        ? identified[0]
+        : identified.length === 0 && exact.length === 1
+          ? exact[0]
+          : null;
+    return choice
+      ? { kind: "automatic" as const, element: choice }
+      : { kind: "manual" as const, wanted, labels: items.map(label) };
+  };
+
+  /** Formulaire Jira nouveau, moderne ou classique dans une iframe de même origine. */
+  const findTransitionForm = (
+    doc: Document,
+    panel: HTMLElement,
+    previous: Set<Element>,
+    transition: Transition,
+  ): HTMLElement | null => {
+    const fresh = [...doc.querySelectorAll<HTMLElement>('[role="dialog"]')].filter(
+      (element) =>
+        !previous.has(element) &&
+        element !== panel &&
+        !element.contains(panel) &&
+        visible(element) &&
+        Boolean(
+          element.querySelector(
+            'form,input,textarea,select,[role="combobox"],[contenteditable="true"],iframe',
+          ),
+        ),
+    );
+    const text = (element: HTMLElement) => {
+      let content = element.textContent ?? "";
+      for (const frame of element.querySelectorAll("iframe")) {
+        try {
+          content += ` ${frame.contentDocument?.body?.textContent ?? ""}`;
+        } catch {
+          // Iframe d'une autre origine : son texte n'est pas lisible, on s'en passe.
+        }
+      }
+      return normalized(content);
+    };
+    const named = fresh.filter((element) => text(element).includes(normalized(transition.name)));
+    return (named.length === 1 ? named[0] : fresh.length === 1 ? fresh[0] : null) ?? null;
+  };
+
+  const formFramesLoaded = (candidate: HTMLElement) =>
+    [...candidate.querySelectorAll("iframe")].every((frame) => {
+      try {
+        return frame.contentDocument?.readyState === "complete";
+      } catch {
+        return true;
+      }
+    });
+
+  const isolateTransitionForm = (
+    doc: Document,
+    win: Window,
+    form: HTMLElement,
+    dialog: HTMLDialogElement,
+    box: DOMRect,
+  ) => {
+    const crop = doc.createElement("style");
+    crop.setAttribute("data-sprint-goals-transition-style", "");
+    crop.textContent =
+      'body *,[data-sprint-goals-ticket],[data-sprint-goals-ticket] *{visibility:hidden!important}[data-sprint-goals-transition],[data-sprint-goals-transition] *{visibility:visible!important}[role="menu"],[role="menu"] *,[role="listbox"],[role="listbox"] *{visibility:visible!important}';
+    doc.head.append(crop);
+    form.setAttribute("data-sprint-goals-transition", "");
+    form.style.cssText +=
+      ";position:fixed!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;margin:0!important;box-sizing:border-box!important;overflow:auto!important";
+    dialog.style.width = `${Math.round(Math.max(320, Math.min(box.width, win.innerWidth - 32)))}px`;
+    dialog.style.height = `${Math.round(Math.max(240, Math.min(box.height, win.innerHeight - 32)))}px`;
+    dialog.style.maxWidth = "calc(100vw - 32px)";
+    dialog.style.maxHeight = "calc(100vh - 32px)";
+  };
+
   /**
    * Fiche du ticket, chargée cachée dans la popin. Sans transition, elle est montrée telle quelle.
    * Avec une transition qui exige des champs, la fiche reste cachée : on ouvre le menu de statut de
@@ -99,15 +268,13 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
    * « classique » dans son iframe) est isolée dans la popin. C'est le seul chemin qui fait ouvrir sa
    * fenêtre à Jira Cloud : elle n'a pas d'adresse à laquelle la demander.
    */
-  const openTicket = (
-    key: string,
-    transition: { id: string; name: string; to: string | null } | null = null,
-  ) => {
+  const openTicket = (key: string, transition: Transition | null = null) => {
     // Dimensions mesurées sur la popin Jira : 1 280 px, avec 60 px de marge verticale.
     const {
       dialog,
       hint,
       page: ticket,
+      session,
       reveal,
     } = popin(
       `Ticket Jira ${key}`,
@@ -119,29 +286,129 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
     address.searchParams.set("selectedIssue", key);
     ticket.src = address.href;
 
+    type NativeStep =
+      | { kind: "waiting-ticket" }
+      | { kind: "ticket-visible" }
+      | {
+          kind: "choosing-transition";
+          panel: HTMLElement;
+          deadline: number;
+          menuAttemptedAt: number | null;
+          missingButtonTraced: boolean;
+        }
+      | {
+          kind: "waiting-form";
+          panel: HTMLElement;
+          deadline: number;
+          dialogsBefore: Set<Element>;
+          lastSize: string;
+          stableTicks: number;
+        }
+      | { kind: "form-visible"; form: HTMLElement; missingSince: number | null }
+      | { kind: "closed" };
+    let step: NativeStep = { kind: "waiting-ticket" };
     let reachable = false;
-    let ready = false;
-    let ticketPanel: HTMLElement | null = null;
-    let transitionMenuOpened = false;
-    let transitionMenuAttemptedAt = 0;
-    let statusButtonTraced = false;
-    let transitionOpened = false;
-    let focusedTransitionDialog: HTMLElement | null = null;
-    // Fenêtres déjà présentes au choix de la transition (fiche du ticket comprise) : celle du
-    // formulaire est celle qui apparaît ensuite.
-    let dialogsBefore: Set<Element> | null = null;
-    let lastDialogSize = "";
-    let stableTicks = 0;
-    // Transition : la fiche reste cachée jusqu'à ce que son formulaire soit isolé ; passé ce délai
-    // sans formulaire reconnu, elle est montrée pour que l'utilisateur agisse lui-même.
-    let transitionDeadline = 0;
-    const revealTicket = reveal;
-    let transitionDialogMissingSince = 0;
-    // Fiche jamais reconnue : la page est montrée telle quelle, plutôt qu'une popin blanche.
     const revealAt = Date.now() + 12000;
-    // Page jamais accessible (cadre refusé par Jira) : la popin se ferme et le dit.
     const expires = Date.now() + 20000;
-    ticketTimer = setInterval(() => {
+
+    const recognizeTicket = (doc: Document, win: Window) => {
+      const panel = findTicketPanel(doc, win, key);
+      if (!panel) return;
+      isolateTicketPanel(doc, panel);
+      if (!transition) {
+        step = { kind: "ticket-visible" };
+        reveal();
+        return;
+      }
+      hint.textContent = `Ouverture de « ${transition.name} »…`;
+      step = {
+        kind: "choosing-transition",
+        panel,
+        deadline: Date.now() + 8000,
+        menuAttemptedAt: null,
+        missingButtonTraced: false,
+      };
+      trace("fiche reconnue, ouverture du menu de statut", transition.name);
+    };
+
+    const chooseTransition = (
+      current: Extract<NativeStep, { kind: "choosing-transition" }>,
+      doc: Document,
+    ) => {
+      if (!transition) return;
+      const choice = transitionChoice(doc, transition);
+      if (choice.kind !== "waiting") {
+        // Avant tout clic : mémoriser les fenêtres existantes et interdire un second choix.
+        step = {
+          kind: "waiting-form",
+          panel: current.panel,
+          deadline: current.deadline,
+          dialogsBefore: new Set(doc.querySelectorAll('[role="dialog"]')),
+          lastSize: "",
+          stableTicks: 0,
+        };
+        if (choice.kind === "automatic") {
+          trace("transition choisie dans le menu de Jira", label(choice.element));
+          choice.element.click();
+        } else {
+          trace("aucun élément sûr, le menu reste au choix de l'utilisateur", {
+            attendu: choice.wanted,
+            proposés: choice.labels,
+          });
+          reveal();
+        }
+        return;
+      }
+      const menuVisible = [
+        ...doc.querySelectorAll<HTMLElement>('[role="menu"],[role="listbox"]'),
+      ].some(visible);
+      if (
+        current.menuAttemptedAt !== null &&
+        (Date.now() - current.menuAttemptedAt <= 1500 || menuVisible)
+      )
+        return;
+      const buttons = statusButtons(current.panel);
+      if (buttons.length === 1) {
+        current.menuAttemptedAt = Date.now();
+        buttons[0]?.click();
+      } else if (!current.missingButtonTraced) {
+        current.missingButtonTraced = true;
+        trace("bouton de statut pas encore reconnu, candidats", buttons.length);
+      }
+    };
+
+    const recognizeForm = (
+      current: Extract<NativeStep, { kind: "waiting-form" }>,
+      doc: Document,
+      win: Window,
+    ) => {
+      if (!transition) return;
+      const candidate = findTransitionForm(doc, current.panel, current.dialogsBefore, transition);
+      const box = candidate?.getBoundingClientRect();
+      const size = box ? `${Math.round(box.width)}x${Math.round(box.height)}` : "";
+      // Trois passages stables après la première mesure ; une iframe classique peut agrandir Jira.
+      const loaded = candidate !== null && formFramesLoaded(candidate);
+      current.stableTicks = loaded && size === current.lastSize ? current.stableTicks + 1 : 0;
+      current.lastSize = size;
+      if (current.stableTicks < 3 || !box || !candidate) return;
+      trace("fenêtre de Jira isolée", size);
+      step = { kind: "form-visible", form: candidate, missingSince: null };
+      reveal();
+      isolateTransitionForm(doc, win, candidate, dialog, box);
+    };
+
+    const monitorFormClosure = (current: Extract<NativeStep, { kind: "form-visible" }>) => {
+      if (current.form.isConnected && visible(current.form)) {
+        current.missingSince = null;
+      } else if (current.missingSince === null) {
+        current.missingSince = Date.now();
+      } else if (Date.now() - current.missingSince > 600) {
+        closeTicket();
+      }
+    };
+
+    const tick = () => {
+      if (step.kind === "closed") return;
       if (!host.isConnected) {
         closeTicket();
         return;
@@ -151,233 +418,25 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
         const win = ticket.contentWindow;
         if (!doc || !win) throw new Error("frame inaccessible");
         reachable = true;
-        if (ready && !new URL(win.location.href).searchParams.has("selectedIssue")) {
+        if (
+          step.kind !== "waiting-ticket" &&
+          !new URL(win.location.href).searchParams.has("selectedIssue")
+        ) {
           closeTicket();
           return;
         }
-        const label = (element: HTMLElement) =>
-          (element.getAttribute("aria-label") ?? element.textContent ?? "").trim();
-        const normalized = (value: string) =>
-          value
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/\s+/g, " ")
-            .trim()
-            .toLocaleLowerCase();
-        if (!ready) {
-          const close = [...doc.querySelectorAll<HTMLElement>('button,[role="button"]')].find(
-            (element) => /^(Close|Fermer)$/.test(label(element)) && visible(element),
-          );
-          let panel: HTMLElement | null = null;
-          for (
-            let parent = close?.parentElement;
-            parent && parent !== doc.body;
-            parent = parent.parentElement
-          ) {
-            const box = parent.getBoundingClientRect();
-            if (
-              box.height > win.innerHeight * 0.45 &&
-              box.width > 250 &&
-              box.width < win.innerWidth * 0.95
-            )
-              panel = parent;
-          }
-          if (
-            panel &&
-            [...panel.querySelectorAll<HTMLAnchorElement>("a[href]")].some(
-              (link) => new URL(link.href).pathname === `/browse/${key}`,
-            )
-          ) {
-            const css = doc.createElement("style");
-            css.textContent =
-              'body{visibility:hidden!important}[data-sprint-goals-ticket],[data-sprint-goals-ticket] *{visibility:visible!important}[role="dialog"],[role="dialog"] *,[role="menu"],[role="menu"] *,[role="listbox"],[role="listbox"] *{visibility:visible!important}';
-            doc.head.append(css);
-            panel.setAttribute("data-sprint-goals-ticket", "");
-            panel.style.cssText +=
-              ";position:fixed!important;inset:0!important;width:100%!important;height:100vh!important;max-width:none!important;max-height:none!important;margin:0!important;box-sizing:border-box!important;background:white;z-index:10;overflow:auto";
-            if (transition) {
-              hint.textContent = `Ouverture de « ${transition.name} »…`;
-              transitionDeadline = Date.now() + 8000;
-              trace("fiche reconnue, ouverture du menu de statut", transition.name);
-            } else {
-              revealTicket();
-            }
-            ready = true;
-            ticketPanel = panel;
-          }
-        }
-        if (ready && transition && !transitionOpened) {
-          // Libellés comparés sans accents, espaces, flèches ni ponctuation : Jira écrit
-          // « Merge into develop → To merge into develop », la flèche étant parfois une icône.
-          const squashed = (value: string) => normalized(value).replace(/[^\p{L}\p{N}]+/gu, "");
-          const texts = (element: HTMLElement) =>
-            [element.getAttribute("aria-label"), element.textContent]
-              .filter((value): value is string => Boolean(value))
-              .map(squashed);
-          const transitionName = squashed(transition.name);
-          // Libellés admis : le nom seul, ou le nom suivi du statut d'arrivée de la transition.
-          const wanted = [
-            transitionName,
-            ...(transition.to ? [squashed(`${transition.name} ${transition.to}`)] : []),
-          ];
-          const items = [
-            ...doc.querySelectorAll<HTMLElement>(
-              '[role="menuitem"],[role="option"],[role="menu"] button,[role="listbox"] button',
-            ),
-          ].filter(visible);
-          // Cliquer un élément de ce menu exécute la transition dans Jira si elle n'a pas d'écran :
-          // une erreur d'élément serait une écriture non voulue. On ne clique donc que sur un
-          // élément sûr : il porte l'identifiant exact de la transition (valeur d'attribut
-          // délimitée) et son nom, ou, à défaut, son libellé est exactement le nom de la
-          // transition, seul ou suivi de son statut d'arrivée, sans autre candidat. Sinon, le menu
-          // reste ouvert : l'utilisateur choisit.
-          const idPattern = new RegExp(`(?:^|\\D)${transition.id}(?:\\D|$)`);
-          const mentions = items.filter((element) =>
-            texts(element).some((text) => text.includes(transitionName)),
-          );
-          if (mentions.length > 0) {
-            const identified = mentions.filter((element) =>
-              [...element.attributes].some(({ value }) => idPattern.test(value)),
-            );
-            const exact = items.filter((element) =>
-              texts(element).some((text) => wanted.includes(text)),
-            );
-            const choice =
-              identified.length === 1
-                ? identified[0]
-                : identified.length === 0 && exact.length === 1
-                  ? exact[0]
-                  : null;
-            // Choix automatique ou manuel, plus aucun clic n'est tenté pour cette transition.
-            transitionOpened = true;
-            dialogsBefore = new Set(doc.querySelectorAll('[role="dialog"]'));
-            // Sans choix sûr, la fiche est montrée : l'utilisateur choisit dans le menu de Jira.
-            if (choice) {
-              trace("transition choisie dans le menu de Jira", label(choice));
-              choice.click();
-            } else {
-              trace("aucun élément sûr, le menu reste au choix de l'utilisateur", {
-                attendu: wanted,
-                proposés: items.map(label),
-              });
-              revealTicket();
-            }
-          } else if (
-            !transitionMenuOpened ||
-            (Date.now() - transitionMenuAttemptedAt > 1500 &&
-              ![...doc.querySelectorAll<HTMLElement>('[role="menu"],[role="listbox"]')].some(
-                visible,
-              ))
-          ) {
-            const scope = ticketPanel ?? doc.body;
-            const statusButtons = [
-              ...scope.querySelectorAll<HTMLElement>('button,[role="button"]'),
-            ].filter((element) => {
-              if (!visible(element)) return false;
-              const description = normalized(
-                `${element.getAttribute("aria-label") ?? ""} ${element.getAttribute("title") ?? ""}`,
-              );
-              const testId = normalized(
-                `${element.getAttribute("data-testid") ?? ""} ${element.getAttribute("data-test-id") ?? ""}`,
-              );
-              return (
-                /(?:change|changer|modifier).*(?:status|statut)|(?:status|statut).*(?:change|changer|modifier)/.test(
-                  description,
-                ) ||
-                (testId.includes("status") && element.getAttribute("aria-haspopup") !== null)
-              );
-            });
-            if (statusButtons.length === 1) {
-              transitionMenuOpened = true;
-              transitionMenuAttemptedAt = Date.now();
-              statusButtons[0]?.click();
-            } else if (!statusButtonTraced) {
-              statusButtonTraced = true;
-              trace("bouton de statut pas encore reconnu, candidats", statusButtons.length);
-            }
-          }
-        }
-        if (ready && transition && transitionOpened) {
-          if (!focusedTransitionDialog) {
-            const transitionName = normalized(transition.name);
-            // Fenêtre apparue depuis le choix de la transition, avec un formulaire ou une iframe :
-            // Jira affiche certains écrans de transition « classiques » (temps passé, estimation
-            // restante, commentaire) dans une iframe de même origine, où se trouvent les champs
-            // et même le titre.
-            const fresh = [...doc.querySelectorAll<HTMLElement>('[role="dialog"]')].filter(
-              (element) =>
-                !dialogsBefore?.has(element) &&
-                element !== ticketPanel &&
-                !(ticketPanel && element.contains(ticketPanel)) &&
-                visible(element) &&
-                Boolean(
-                  element.querySelector(
-                    'form,input,textarea,select,[role="combobox"],[contenteditable="true"],iframe',
-                  ),
-                ),
-            );
-            const text = (element: HTMLElement) => {
-              let content = element.textContent ?? "";
-              for (const frame of element.querySelectorAll("iframe")) {
-                try {
-                  content += ` ${frame.contentDocument?.body?.textContent ?? ""}`;
-                } catch {
-                  // Iframe d'une autre origine : son texte n'est pas lisible, on s'en passe.
-                }
-              }
-              return normalized(content);
-            };
-            const named = fresh.filter((element) => text(element).includes(transitionName));
-            const candidate = named.length === 1 ? named[0] : fresh.length === 1 ? fresh[0] : null;
-            // La taille de la fenêtre donne celle de la popin.
-            const box = candidate?.getBoundingClientRect();
-            const size = box ? `${Math.round(box.width)}x${Math.round(box.height)}` : "";
-            // Iframes chargées et taille inchangée pendant trois passages (environ une seconde) : un
-            // écran classique grandit après le chargement de son iframe.
-            const loaded =
-              candidate !== null &&
-              candidate !== undefined &&
-              [...candidate.querySelectorAll("iframe")].every((frame) => {
-                try {
-                  return frame.contentDocument?.readyState === "complete";
-                } catch {
-                  return true;
-                }
-              });
-            stableTicks = loaded && size === lastDialogSize ? stableTicks + 1 : 0;
-            lastDialogSize = size;
-            if (stableTicks >= 3 && box && candidate) {
-              trace("fenêtre de Jira isolée", size);
-              revealTicket();
-              focusedTransitionDialog = candidate;
-              const crop = doc.createElement("style");
-              crop.setAttribute("data-sprint-goals-transition-style", "");
-              crop.textContent =
-                'body *,[data-sprint-goals-ticket],[data-sprint-goals-ticket] *{visibility:hidden!important}[data-sprint-goals-transition],[data-sprint-goals-transition] *{visibility:visible!important}[role="menu"],[role="menu"] *,[role="listbox"],[role="listbox"] *{visibility:visible!important}';
-              doc.head.append(crop);
-              focusedTransitionDialog.setAttribute("data-sprint-goals-transition", "");
-              focusedTransitionDialog.style.cssText +=
-                ";position:fixed!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;margin:0!important;box-sizing:border-box!important;overflow:auto!important";
-              const width = Math.max(320, Math.min(box.width, win.innerWidth - 32));
-              const height = Math.max(240, Math.min(box.height, win.innerHeight - 32));
-              dialog.style.width = `${Math.round(width)}px`;
-              dialog.style.height = `${Math.round(height)}px`;
-              dialog.style.maxWidth = "calc(100vw - 32px)";
-              dialog.style.maxHeight = "calc(100vh - 32px)";
-            }
-          } else if (!focusedTransitionDialog.isConnected || !visible(focusedTransitionDialog)) {
-            if (transitionDialogMissingSince === 0) transitionDialogMissingSince = Date.now();
-            else if (Date.now() - transitionDialogMissingSince > 600) closeTicket();
-          } else {
-            transitionDialogMissingSince = 0;
-          }
-        }
-        // Menu ou formulaire jamais reconnu : la fiche est montrée, l'utilisateur agit dans Jira.
-        if (ready && transition && !focusedTransitionDialog && Date.now() > transitionDeadline)
-          revealTicket();
-        // Fiche elle-même jamais reconnue : la page de Jira est montrée telle quelle. Une popin
-        // blanche qui ne bouge plus n'est jamais une réponse acceptable.
-        if (!ready && Date.now() > revealAt) revealTicket();
+        if (step.kind === "waiting-ticket") recognizeTicket(doc, win);
+        // Chaque étape peut débloquer la suivante dans le même passage, comme le fait Jira.
+        if (step.kind === "choosing-transition") chooseTransition(step, doc);
+        if (step.kind === "waiting-form") recognizeForm(step, doc, win);
+        if (step.kind === "form-visible") monitorFormClosure(step);
+        // Repli sans clic supplémentaire imposé : afficher Jira pour une action manuelle.
+        if (
+          (step.kind === "choosing-transition" || step.kind === "waiting-form") &&
+          Date.now() > step.deadline
+        )
+          reveal();
+        if (step.kind === "waiting-ticket" && Date.now() > revealAt) reveal();
       } catch {
         // Jira peut momentanément reconstruire son panneau pendant son chargement.
       }
@@ -388,7 +447,12 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
         status.textContent =
           "Jira n'a pas permis d'afficher ce ticket ici. Rechargez la vue puis réessayez.";
       }
-    }, 300);
+    };
+    const timer = setInterval(tick, 300);
+    session.stop = () => {
+      step = { kind: "closed" };
+      clearInterval(timer);
+    };
   };
 
   const onMessage = (event: MessageEvent) => {
