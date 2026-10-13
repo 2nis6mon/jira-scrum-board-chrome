@@ -3,6 +3,11 @@
 Les détails des anciennes versions, prototypes et validations sont conservés dans l'historique
 Git. Ce fichier décrit les évolutions du produit, sans remplacer les procédures actuelles.
 
+## 0.28.2 — Vérification du bouton sous Windows
+
+- Le contrôle Chrome du placement prend en compte la largeur des barres de défilement Windows.
+- Les scénarios de déplacement, redimensionnement, zoom et plein écran vérifient les marges dans le viewport visible.
+
 ## 0.28.1 — Simplification du bouton déplaçable
 
 - Retrait de la section « Préférences personnelles » et de la commande de réinitialisation.

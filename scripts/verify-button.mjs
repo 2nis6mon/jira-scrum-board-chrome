@@ -77,6 +77,9 @@ try {
   const rectangle = `(()=>{const r=${host}?.getBoundingClientRect();return r?{x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}:null})()`;
   const rect = () => evaluate(sessionId, rectangle);
   const near = (a, b) => Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
+  // Sous Windows, la barre de défilement réduit le viewport visible sans réduire innerWidth.
+  const atRightMargin = (margin) =>
+    `(()=>{const r=${rectangle},v=visualViewport;return r&&Math.abs(r.right-(v.offsetLeft+v.width-${margin}))<1})()`;
   const visible = `(()=>{const r=${host}?.getBoundingClientRect();const v=visualViewport;return r&&r.left>=v.offsetLeft+11&&r.top>=v.offsetTop+11&&r.right<=v.offsetLeft+v.width-11&&r.bottom<=v.offsetTop+v.height-11})()`;
   async function navigate(url) {
     await send("Page.navigate", { url }, sessionId);
@@ -98,7 +101,7 @@ try {
     const wanted = await readPosition();
     await waitFor(
       sessionId,
-      `(()=>{const r=${rectangle},p=${JSON.stringify(wanted)};if(!r)return false;return Math.abs(r.x-(12+(p?p.x*Math.max(0,innerWidth-r.width-24):Math.max(0,innerWidth-r.width-108))))<1&&Math.abs(r.y-(12+(p?p.y*Math.max(0,innerHeight-r.height-24):Math.max(0,innerHeight-r.height-40))))<1})()`,
+      `(()=>{const r=${rectangle},p=${JSON.stringify(wanted)},v=visualViewport;if(!r)return false;return Math.abs(r.x-(v.offsetLeft+12+(p?p.x*Math.max(0,v.width-r.width-24):Math.max(0,v.width-r.width-108))))<1&&Math.abs(r.y-(v.offsetTop+12+(p?p.y*Math.max(0,v.height-r.height-24):Math.max(0,v.height-r.height-40))))<1})()`,
       "le placement ne suit pas le redimensionnement",
     );
   }
@@ -139,7 +142,7 @@ try {
   await navigate(board);
   const initial = await rect();
   assert(
-    (await evaluate(sessionId, visible)) && initial.right === 1504,
+    (await evaluate(sessionId, visible)) && (await evaluate(sessionId, atRightMargin(96))),
     "position initiale visible, à gauche de l'emplacement de Rovo",
   );
   await dragBy(-350, -220);
@@ -214,11 +217,7 @@ try {
     "le coin inférieur droit reste entièrement accessible",
   );
   await navigate(`${site}/jira/software/c/projects/XYZ/boards/12`);
-  await waitFor(
-    sessionId,
-    `${host}.getBoundingClientRect().right>1587`,
-    "le second board ne reprend pas la position",
-  );
+  await waitFor(sessionId, atRightMargin(12), "le second board ne reprend pas la position");
   assert(true, "les boards d'un même site partagent la position");
   await navigate(`${otherSite}/jira/software/c/projects/XYZ/boards/12`);
   assert(near(await rect(), initial), "un autre site Jira garde son placement par défaut");
@@ -229,7 +228,7 @@ try {
   );
   await waitFor(
     sessionId,
-    `(()=>{const r=${rectangle};return r&&r.y===12&&r.right>1587})()`,
+    `(${atRightMargin(12)})&&Math.abs(${host}.getBoundingClientRect().y-(visualViewport.offsetTop+12))<1`,
     "position hors écran non corrigée",
   );
   assert(true, "une ancienne position hors limites est corrigée à l'affichage");
@@ -271,7 +270,7 @@ try {
   );
   await waitFor(
     sessionId,
-    `(()=>{const r=${rectangle};return r&&Math.abs(r.right-(innerWidth-96))<1&&Math.abs(r.bottom-(innerHeight-28))<1})()`,
+    `(${atRightMargin(96)})&&Math.abs(${host}.getBoundingClientRect().bottom-(visualViewport.offsetTop+visualViewport.height-28))<1`,
     "placement non restauré après le plein écran",
   );
   await waitFor(sessionId, visible, "le bouton sort après le plein écran");
@@ -294,7 +293,7 @@ try {
     console.error(
       await evaluate(
         inspectedSession,
-        `(()=>{const h=document.getElementById('sprint-goals-open'),r=h?.getBoundingClientRect();return {url:location.href,ready:document.readyState,rect:r?.toJSON(),viewport:{width:innerWidth,height:innerHeight,visual:visualViewport.height},fullscreen:Boolean(document.fullscreenElement),frame:Boolean(document.querySelector('#sprint-goals-direct')),button:h?.shadowRoot.querySelector('.open')?.outerHTML}})()`,
+        `(()=>{const h=document.getElementById('sprint-goals-open'),r=h?.getBoundingClientRect(),v=visualViewport;return {url:location.href,ready:document.readyState,rect:r?.toJSON(),viewport:{width:innerWidth,height:innerHeight,visual:{width:v.width,height:v.height,offsetLeft:v.offsetLeft,offsetTop:v.offsetTop}},fullscreen:Boolean(document.fullscreenElement),frame:Boolean(document.querySelector('#sprint-goals-direct')),button:h?.shadowRoot.querySelector('.open')?.outerHTML}})()`,
       ).catch(() => null),
     );
   process.exitCode = 1;
