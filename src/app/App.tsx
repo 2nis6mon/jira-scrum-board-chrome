@@ -5,24 +5,11 @@ import { BoardView, type ScreenControls } from "./views/board/BoardView";
 import { ConnectionView } from "./views/ConnectionView";
 import { exitFullscreen } from "./views/fullscreen";
 import { Icon } from "./views/Icon";
-import { LoadDiagnosticsView } from "./views/LoadDiagnosticsView";
 import { Sidebar } from "./views/Sidebar";
 import { AdminView } from "./views/settings/AdminView";
 
 /** Racine de l'interface. Sans site Jira connecté, elle n'affiche aucune donnée. */
 export function App({ model }: { model: AppModel }) {
-  return (
-    <>
-      <AppContent model={model} />
-      <LoadDiagnosticsView
-        diagnostics={model.loadDiagnostics}
-        hidden={model.presenting.value || model.daily.value !== null}
-      />
-    </>
-  );
-}
-
-function AppContent({ model }: { model: AppModel }) {
   const connection = model.connection.value;
   if (connection.state === "connected") {
     return <Workspace model={model} connection={connection} />;

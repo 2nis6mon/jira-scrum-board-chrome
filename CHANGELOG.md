@@ -3,6 +3,11 @@
 Les détails des anciennes versions, prototypes et validations sont conservés dans l'historique
 Git. Ce fichier décrit les évolutions du produit, sans remplacer les procédures actuelles.
 
+## 0.29.2 — Retrait de l'affichage des temps de chargement
+
+- L'extension distribuée n'affiche plus l'indicateur de durée ni la fenêtre de diagnostic du chargement.
+- Les optimisations du chargement sont conservées ; l'interface de diagnostic reste uniquement dans le banc d'essai technique.
+
 ## 0.29.1 — Ouverture sans recensement historique des types
 
 - Suppression du parcours de tous les tickets du board pour découvrir les types à chaque ouverture.

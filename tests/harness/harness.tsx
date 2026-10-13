@@ -11,6 +11,7 @@ import { render } from "preact";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
 import "../../src/app/styles/app.css";
+import { LoadDiagnosticsView } from "../../src/app/views/LoadDiagnosticsView";
 import { withSwimlaneName, withTypeDestination } from "../../src/core/boardSettings";
 import { BOARD_PROPERTY_KEYS, SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import {
@@ -498,7 +499,17 @@ if (scenario.startsWith("board")) {
   }
   // `&hote=1` : comme dans une page Jira hôte, pour voir le bouton « Retour à Jira » (sans effet ici).
   if (new URLSearchParams(location.search).get("hote") === "1") model.hostReturn.value = () => {};
-  if (container) render(<App model={model} />, container);
+  if (container)
+    render(
+      <>
+        <App model={model} />
+        {/* Le diagnostic visuel est réservé à ce scénario technique. */}
+        {scenario === "board-chargement" && (
+          <LoadDiagnosticsView diagnostics={model.loadDiagnostics} />
+        )}
+      </>,
+      container,
+    );
   await model.connect("acme.atlassian.net");
   const connection = model.connection.value;
   if (connection.state === "connected") {

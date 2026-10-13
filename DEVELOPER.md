@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-État décrit : **0.28.1**, 12 octobre 2026. Mode unique : extension Chrome intégrée dans Jira.
+État décrit : **0.29.2**, 13 octobre 2026. Mode unique : extension Chrome intégrée dans Jira.
 Les règles de contribution sont dans `CLAUDE.md`, les travaux ouverts dans `TODO.md` et les
 évolutions livrées dans `CHANGELOG.md`. Ce document est la référence de l'architecture et du produit.
 
@@ -44,11 +44,14 @@ docs/                      documentation utilisateur et technique
   Les relectures de structure lancées pendant une synchronisation prolongent la mesure en cours.
   L'historique `loadDiagnostics.v1` est borné à cinq chargements et 500 segments par chargement ;
   toute troncature est indiquée. Le stockage ne bloque pas le chargement et une déconnexion
-  efface cet historique. La popin reste disponible en cours de lecture et après une erreur.
+  efface cet historique. Depuis 0.29.2, ces mesures restent internes : l'application Jira
+  n'affiche ni indicateur de durée ni accès à la popin.
   L'historique est celui connu de l'onglet, relu à son ouverture ; il n'est pas consolidé
   entre plusieurs onglets simultanés, qui peuvent remplacer leurs historiques respectifs.
-  `npm run verify:loading` contrôle dans Chrome isolé le scénario lent du banc fictif,
-  le rapport copié, l'historique, la fermeture et le format étroit ; captures dans `.vite/`.
+  `LoadDiagnosticsView` est montée seulement dans le scénario `board-chargement` du banc fictif
+  (`npm run harness`, puis `?scenario=board-chargement`). `npm run verify:loading` contrôle
+  ce scénario dans Chrome isolé : rapport copié, historique, fermeture et format étroit ;
+  captures dans `.vite/`.
 - `boardSync` lit le périmètre ; `boardIssue` assemble tickets et métriques ; `boardLayout` et
   `boardBlocks` répartissent colonnes et swimlanes ; `pendingMove` projette un déplacement en cours.
 - L'ouverture relit structure, statuts et champs, mais ne parcourt plus tout l'historique du board
