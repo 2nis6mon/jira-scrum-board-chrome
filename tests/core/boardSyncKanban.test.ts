@@ -28,6 +28,37 @@ function sync(
 }
 
 describe("photographie Kanban", () => {
+  it("découvre les types avec les tickets, avant les Goals et sans second parcours du board", async () => {
+    const jira = new FakeJira().on("GET", PATH, {
+      status: 200,
+      json: {
+        total: 2,
+        issues: [
+          issueJson("ABC-1"),
+          issueJson("RUN-1", { typeId: "incident", typeName: "Incident" }),
+        ],
+      },
+    });
+    const result = await sync(
+      jira,
+      makeConfiguration({ boardType: "kanban", issueTypes: [], ticketSwimlanes: [] }),
+      {
+        load: async ({ configuration }) => {
+          expect(configuration.issueTypes.map((type) => [type.id, type.category])).toEqual([
+            ["incident", "SWIMLANE"],
+            ["10001", "GOAL"],
+          ]);
+          return { goals: [], links: {} };
+        },
+      },
+    );
+
+    expect(result.snapshot.goalIssues.map((issue) => issue.issue.key)).toEqual(["ABC-1"]);
+    expect(result.snapshot.swimlaneIssues.map((issue) => issue.issue.key)).toEqual(["RUN-1"]);
+    expect(result.discoveredIssueTypes.map((type) => type.id)).toEqual(["10001", "incident"]);
+    expect(jira.sent("GET", PATH)).toHaveLength(1);
+  });
+
   it("board vide : aucune lecture ni faux objet sprint, Goals épinglés conservés", async () => {
     const jira = new FakeJira().on("GET", PATH, { status: 200, json: { issues: [], total: 0 } });
     const result = await sync(

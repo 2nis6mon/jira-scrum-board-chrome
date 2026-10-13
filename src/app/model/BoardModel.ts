@@ -36,6 +36,7 @@ import {
 } from "../../core/cardColors";
 import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/dropPlan";
 import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../../core/filters";
+import { withObservedIssueTypes } from "../../core/issueTypeDiscovery";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
 import type { LoadTrace } from "../../core/loadTrace";
 import { parentColors } from "../../core/parentColors";
@@ -658,12 +659,23 @@ export class BoardModel {
         },
         now: this.#now(),
         trace,
+        onIssueTypesDiscovered: async (types) => {
+          if (isStale()) return;
+          const current = this.configuration.value;
+          if (!current || withObservedIssueTypes(current, types) === current) return;
+          // L'administration garde les types lus même si les Goals échouent ensuite.
+          // Le cache reste local et conserve les réglages modifiés pendant la lecture.
+          await this.#updatePreferences((latest) => withObservedIssueTypes(latest, types));
+        },
       });
       if (isStale()) return;
 
       // Couleurs des objectifs : mémorisées localement pour rester stables d'un sprint à l'autre.
       // Une couleur choisie PENDANT la lecture l'emporte sur celle connue à son début.
-      const latest = this.configuration.value ?? configuration;
+      const current = this.configuration.value ?? configuration;
+      const latest = withObservedIssueTypes(current, result.discoveredIssueTypes);
+      const typesChanged = latest !== current;
+      if (typesChanged) this.configuration.value = latest;
       const previous = this.snapshot.value;
       const knownGoalIds = new Set([
         ...Object.keys(latest.goalColorIndex),
@@ -702,9 +714,13 @@ export class BoardModel {
       });
       this.loadDiagnostics.markDataReady();
 
-      if (!sameIndex(latest.goalColorIndex, colors) || newLinkedGoalIds.length > 0) {
+      if (
+        typesChanged ||
+        !sameIndex(latest.goalColorIndex, colors) ||
+        newLinkedGoalIds.length > 0
+      ) {
         await this.#updatePreferences((current) => ({
-          ...current,
+          ...withObservedIssueTypes(current, result.discoveredIssueTypes),
           goalColorIndex: { ...colors, ...current.goalColorIndex },
           hiddenGoalIds: [...new Set([...current.hiddenGoalIds, ...newLinkedGoalIds])].sort(),
         }));

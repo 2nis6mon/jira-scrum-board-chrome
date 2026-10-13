@@ -51,6 +51,16 @@ docs/                      documentation utilisateur et technique
   le rapport copié, l'historique, la fermeture et le format étroit ; captures dans `.vite/`.
 - `boardSync` lit le périmètre ; `boardIssue` assemble tickets et métriques ; `boardLayout` et
   `boardBlocks` répartissent colonnes et swimlanes ; `pendingMove` projette un déplacement en cours.
+- L'ouverture relit structure, statuts et champs, mais ne parcourt plus tout l'historique du board
+  pour découvrir les types (0.29.1). Les types connus de ce site/board et ceux des réglages partagés
+  sont conservés, même absents des tickets actuels. `issueTypeDiscovery` les complète depuis les
+  tickets des sprints actifs ou du périmètre Kanban, avant la résolution des Goals et l'assemblage.
+  Un type nouveau reçoit sa catégorie par défaut seulement s'il n'a aucun choix partagé ; un type
+  connu conserve catégorie, comptage des bugs et swimlane. Les métadonnées observées sont mises
+  en cache localement dès lecture des tickets, même si les Goals échouent ensuite, sans écriture
+  Jira automatique. La relecture explicite de
+  structure conserve le recensement exhaustif et paginé ; les lectures des tickets utiles restent
+  complètes, avec les mêmes filtres et contrôles de pagination.
 - `dropPlan` prépare l'intention et `boardWrites` l'exécute après relecture. Les formulaires avec
   champs sont délégués par `nativeTransitionHandler` à l'hôte Jira. Pendant leur ouverture, les
   nouveaux déplacements et le changement de board sont bloqués ; le message de fermeture vérifié

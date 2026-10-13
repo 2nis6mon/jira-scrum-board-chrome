@@ -42,6 +42,18 @@ const tuned = {
   autoRefreshSeconds: 120,
 };
 
+/** Types partagés dont les tickets peuvent être uniquement dans le backlog ou un autre sprint. */
+const sharedTypesConfiguration = makeConfiguration({
+  issueTypes: [
+    STORY_TYPE,
+    { ...SWIMLANE_TYPE, countsAsBug: true },
+    { ...SWIMLANE_TYPE, id: "10006", name: "Demande de service", countsAsBug: false },
+    { ...STORY_TYPE, id: "10007", name: "Sous-tâche", category: "IGNORED" },
+  ],
+  ticketSwimlanes: [{ id: "run", name: "RUN", typeIds: ["10004", "10006"], hidden: true }],
+  blockOrder: ["swimlane:run", "build"],
+});
+
 describe("réglages d'équipe ↔ configuration", () => {
   it("un autre poste qui applique les réglages retrouve les mêmes, sans ses réglages personnels", () => {
     const settings = teamSettingsOf(tuned);
@@ -74,6 +86,46 @@ describe("réglages d'équipe ↔ configuration", () => {
     expect(applied.columns[1]).toMatchObject({ name: "Développement", wipLimit: 3 });
     expect(applied.columns[3]).toMatchObject({ name: "Recette", wipLimit: 2 });
     expect(applied.columns[4]?.hidden).toBe(true);
+  });
+
+  it("un premier chargement sans types locaux conserve tous les types et regroupements partagés", () => {
+    const settings = teamSettingsOf(sharedTypesConfiguration);
+    const applied = withTeamSettings(makeConfiguration({ issueTypes: [] }), settings);
+
+    expect(applied.issueTypes).toEqual(sharedTypesConfiguration.issueTypes);
+    expect(applied.ticketSwimlanes).toEqual([
+      { id: "run", name: "RUN", typeIds: ["10004", "10006"], hidden: true },
+    ]);
+    expect(applied.blockOrder).toEqual(["swimlane:run", "build"]);
+    expect(teamDifferences(applied, settings)).toEqual([]);
+  });
+
+  it("conserve les métadonnées Jira connues et le réglage local d'un type absent de l'équipe", () => {
+    const known = {
+      ...SWIMLANE_TYPE,
+      name: "Incident de production",
+      iconUrl: "https://acme.atlassian.net/issuetype/10004.png",
+      category: "GOAL" as const,
+      countsAsBug: false,
+    };
+    const newType = { ...STORY_TYPE, id: "10008", name: "Nouveau type" };
+    const local = makeConfiguration({ issueTypes: [known, newType] });
+    const applied = withTeamSettings(local, teamSettingsOf(sharedTypesConfiguration));
+
+    expect(applied.issueTypes.find((type) => type.id === known.id)).toEqual({
+      ...known,
+      category: "SWIMLANE",
+      countsAsBug: true,
+    });
+    expect(applied.issueTypes.find((type) => type.id === newType.id)).toEqual(newType);
+    expect(applied.issueTypes.map((type) => type.id)).toEqual([
+      "10004",
+      "10008",
+      "10001",
+      "10006",
+      "10007",
+    ]);
+    expect(applied.ticketSwimlanes).toEqual(sharedTypesConfiguration.ticketSwimlanes);
   });
 
   it("couleurs : celle de l'équipe l'emporte, un objectif qu'elle ne connaît pas garde la sienne", () => {
@@ -148,6 +200,27 @@ const publish = (jira: ReturnType<typeof fakeJira>, basePublishedAt: string | nu
   });
 
 describe("publier les réglages d'équipe", () => {
+  it("modifier un autre réglage republie aussi les types et swimlanes absents du sprint chargé", async () => {
+    const settings = teamSettingsOf(sharedTypesConfiguration);
+    const stored = { ...DOCUMENT, settings };
+    const jira = fakeJira(encodeTeamDocument(stored));
+    // Le snapshot courant ne fournit qu'une Story : les autres types restent ceux de l'équipe.
+    const loaded = withTeamSettings(makeConfiguration({ issueTypes: [STORY_TYPE] }), settings);
+    const outcome = await publishTeamSettings(jira.reader, jira.writer as never, {
+      boardId: 7,
+      settings: teamSettingsOf({ ...loaded, agingThresholdDays: 8 }),
+      basePublishedAt: stored.publishedAt,
+      publishedBy: { accountId: "u2", displayName: "Alex Martin" },
+      now: new Date("2026-09-19T09:30:12.345Z"),
+    });
+
+    expect(outcome.kind).toBe("published");
+    expect(jira.writes).toHaveLength(1);
+    const write = jira.writes[0];
+    const published = decodeTeamDocument(write?.kind === "boardProperty.put" ? write.value : null);
+    expect(published?.settings).toEqual({ ...settings, agingThresholdDays: 8 });
+  });
+
   it("première publication : une seule écriture, sur la propriété du board", async () => {
     const jira = fakeJira(null);
     const outcome = await publish(jira, null);

@@ -5,6 +5,7 @@ import {
   BoardSetupError,
   detectBoard,
   loadSnapshot,
+  refreshBoardStructure,
 } from "../../src/core/boardSync";
 import type { LoadPhase, LoadTrace } from "../../src/core/loadTrace";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
@@ -161,9 +162,29 @@ describe("detectBoard", () => {
     expect(jira.requests).toEqual([]);
   });
 
-  it("lit colonnes, types et champs dans Jira", async () => {
+  it.each(["scrum", "kanban"])(
+    "première ouverture %s : lit la structure sans recenser les tickets pour leurs types",
+    async (boardType) => {
+      const jira = discoveryJira()
+        .on("GET", "/rest/agile/1.0/board/7", {
+          status: 200,
+          json: { id: 7, name: "Board de test", type: boardType },
+        })
+        .on("GET", "/rest/agile/1.0/board/7/issue", { status: 500 });
+      const config = await detectBoard(readerFor(jira), BOARD_URL, null);
+
+      expect(config.issueTypes).toEqual([]);
+      expect(config.ticketSwimlanes).toEqual([]);
+      expect(config.boardType).toBe(boardType);
+      expect(config.goalsFieldId).toBe("customfield_10100");
+      expect(jira.sent("GET", "/rest/agile/1.0/board/7/issue")).toEqual([]);
+      expect(jira.requests).toHaveLength(4);
+    },
+  );
+
+  it("la relecture explicite recense les types de tout le board", async () => {
     const jira = discoveryJira();
-    const config = await detectBoard(readerFor(jira), BOARD_URL, null);
+    const config = await refreshBoardStructure(readerFor(jira), 7, null);
 
     expect(config.boardId).toBe(7);
     expect(config.siteOrigin).toBe("https://acme.atlassian.net");
@@ -192,14 +213,32 @@ describe("detectBoard", () => {
       blockOrder: ["build"],
       buildSectionLabel: "Hors objectif",
     });
-    const config = await detectBoard(readerFor(discoveryJira()), BOARD_URL, existing);
+    const jira = discoveryJira();
+    const config = await detectBoard(readerFor(jira), BOARD_URL, existing);
     expect(config.boardName).toBe("Board de test");
     expect(config.hiddenGoalIds).toEqual(["g9"]);
     expect(config.blockOrder).toEqual(["build"]);
     expect(config.buildSectionLabel).toBe("Hors objectif");
+    expect(config.issueTypes).toEqual(expect.arrayContaining([...existing.issueTypes]));
+    expect(config.ticketSwimlanes).toEqual(existing.ticketSwimlanes);
+    expect(jira.sent("GET", "/rest/agile/1.0/board/7/issue")).toEqual([]);
   });
 
-  it("découvre les types Kanban dans le sous-filtre, sans charger l'historique exclu", async () => {
+  it.each([
+    { boardId: 8, siteOrigin: ACME.origin },
+    { boardId: 7, siteOrigin: "https://autre.atlassian.net" },
+  ])("ne reprend pas les types d'un autre board ou site : %j", async (identity) => {
+    const config = await detectBoard(
+      readerFor(discoveryJira()),
+      BOARD_URL,
+      makeConfiguration({ ...identity, buildSectionLabel: "Autre board" }),
+    );
+    expect(config.issueTypes).toEqual([]);
+    expect(config.ticketSwimlanes).toEqual([]);
+    expect(config.buildSectionLabel).toBe("Build");
+  });
+
+  it("la relecture explicite des types Kanban respecte le sous-filtre", async () => {
     const query = "fixVersion in unreleasedVersions() OR fixVersion is EMPTY";
     const jira = discoveryJira()
       .on("GET", "/rest/agile/1.0/board/7", {
@@ -213,7 +252,7 @@ describe("detectBoard", () => {
           subQuery: { query },
         },
       });
-    const config = await detectBoard(readerFor(jira), BOARD_URL, null);
+    const config = await refreshBoardStructure(readerFor(jira), 7, null);
     expect(config.boardType).toBe("kanban");
     expect(config.kanbanSubQuery).toBe(query);
     expect(jira.sent("GET", "/rest/agile/1.0/board/7/issue")[0]?.url.searchParams.get("jql")).toBe(
@@ -250,7 +289,6 @@ describe("detectBoard", () => {
       ["structure", false],
       ["statuses", true],
       ["fields", true],
-      ["types", false],
     ]);
   });
 });
@@ -262,6 +300,7 @@ describe("loadSnapshot", () => {
 
     expect(result.snapshot.sprint).toBeNull();
     expect(result.snapshot.goalIssues).toEqual([]);
+    expect(result.discoveredIssueTypes).toEqual([]);
     expect(jira.requests).toHaveLength(1);
   });
 
@@ -309,12 +348,54 @@ describe("loadSnapshot", () => {
         ],
       },
     });
-    const { snapshot } = await sync(jira, configuration);
+    const { snapshot, discoveredIssueTypes } = await sync(jira, configuration);
 
     expect(snapshot.goalIssues.map((i) => i.issue.key)).toEqual(["ABC-1"]);
     expect(snapshot.swimlaneIssues.map((i) => i.issue.key)).toEqual(["RUN-1"]);
     expect(snapshot.swimlaneIssues[0]?.columnId).toBe("prog");
     expect(snapshot.swimlaneIssues[0]?.swimlaneId).toBe("1");
+    expect(discoveredIssueTypes.map((type) => type.id)).toContain("10099");
+  });
+
+  it("complète les types avant les Goals et classe immédiatement un nouveau parent Incident", async () => {
+    const jira = boardJira({
+      issues: {
+        42: [
+          issueJson("ABC-1"),
+          issueJson("RUN-1", { typeId: "incident", typeName: "Incident" }),
+          issueJson("RUN-2", {
+            parent: "RUN-1",
+            extraFields: { issuetype: { id: "sub", name: "Sous-tâche", subtask: true } },
+          }),
+        ],
+      },
+    });
+    const configuration = makeConfiguration({ goalSource: "atlassianGoals" });
+    const result = await sync(jira, configuration, {
+      load: async ({ configuration: enriched }) => {
+        expect(enriched.issueTypes.find((type) => type.id === "incident")?.category).toBe(
+          "SWIMLANE",
+        );
+        expect(enriched.issueTypes.find((type) => type.id === "10004")?.category).toBe("SWIMLANE");
+        expect(enriched.issueTypes.some((type) => type.id === "sub")).toBe(false);
+        expect(enriched.ticketSwimlanes[0]?.typeIds).toEqual(["10004", "incident"]);
+        return { goals: [], links: {} };
+      },
+    });
+
+    expect(result.snapshot.goalIssues.map((issue) => issue.issue.key)).toEqual(["ABC-1"]);
+    expect(
+      result.snapshot.swimlaneIssues.map((issue) => [issue.issue.key, issue.swimlaneId]),
+    ).toEqual([
+      ["RUN-1", "1"],
+      ["RUN-2", "1"],
+    ]);
+    expect(result.discoveredIssueTypes.map((type) => type.id)).toEqual([
+      "10001",
+      "incident",
+      "sub",
+    ]);
+    expect(jira.sent("GET", "/rest/agile/1.0/board/1/issue")).toEqual([]);
   });
 
   it("réunit les sprints actifs ; un ticket présent dans deux sprints n'apparaît qu'une fois", async () => {
@@ -561,10 +642,12 @@ describe("phases de chargement", () => {
 
     expect(actual).toEqual(expected);
     expect(completed).toEqual(
-      ["sprints", "issues", "issues", "goalSettings", "goals", "assemble"].map((phase) => ({
-        phase,
-        error: null,
-      })),
+      ["sprints", "issues", "issues", "types", "goalSettings", "goals", "assemble"].map(
+        (phase) => ({
+          phase,
+          error: null,
+        }),
+      ),
     );
   });
 
@@ -597,12 +680,13 @@ describe("phases de chargement", () => {
     expect(completed.map(({ phase, error }) => [phase, error !== null])).toEqual([
       ["sprints", false],
       ["issues", false],
+      ["types", false],
       ["goalSettings", true],
       ["goals", true],
       ["goals", false],
       ["assemble", false],
     ]);
-    expect(completed[3]?.error).toBe(failure);
+    expect(completed[4]?.error).toBe(failure);
   });
 
   it("conserve l'erreur des tickets et n'annonce aucune phase ultérieure", async () => {
@@ -633,7 +717,7 @@ describe("phases de chargement", () => {
 
     expect(actual).toEqual(expected);
     expect(completed).toEqual(
-      ["issues", "goals", "assemble"].map((phase) => ({ phase, error: null })),
+      ["issues", "types", "goals", "assemble"].map((phase) => ({ phase, error: null })),
     );
     expect(tracedJira.requests).toHaveLength(2);
   });
@@ -655,6 +739,7 @@ describe("phases de chargement", () => {
     ).rejects.toBe(failure);
     expect(completed).toEqual([
       { phase: "issues", error: null },
+      { phase: "types", error: null },
       { phase: "goals", error: failure },
     ]);
   });

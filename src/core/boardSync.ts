@@ -13,6 +13,7 @@ import {
 } from "./boardConfiguration";
 import { assembleBoardIssues, type BoardIssue, type BoardSnapshot } from "./boardIssue";
 import { cardFieldJiraId } from "./cardFields";
+import { withObservedIssueTypes } from "./issueTypeDiscovery";
 import type { LoadPhase, LoadTrace } from "./loadTrace";
 import {
   assignGoalColors,
@@ -63,9 +64,8 @@ export class BoardSetupError extends Error {
 }
 
 /**
- * Analyse l'URL du board puis lit sa structure dans Jira : colonnes, statuts, types, champ
- * d'estimation, champ Goals, champ du drapeau. Si ce board est déjà enregistré, ses réglages
- * locaux sont conservés.
+ * Analyse l'URL puis lit la structure du board. Les types déjà connus sont conservés ; les
+ * tickets affichés les compléteront lors de la synchronisation, sans lire tout le backlog.
  */
 export async function detectBoard(
   reader: BoardReader,
@@ -82,7 +82,7 @@ export async function detectBoard(
       found: parsed.site.host,
     });
   }
-  return refreshBoardStructure(reader, parsed.boardId, existing, trace);
+  return readBoardStructure(reader, parsed.boardId, existing, false, trace);
 }
 
 /** Relit colonnes, statuts, types et champs depuis Jira, en gardant les réglages locaux. */
@@ -92,15 +92,33 @@ export async function refreshBoardStructure(
   existing: BoardConfiguration | null,
   trace?: LoadTrace,
 ): Promise<BoardConfiguration> {
+  return readBoardStructure(reader, boardId, existing, true, trace);
+}
+
+async function readBoardStructure(
+  reader: BoardReader,
+  boardId: number,
+  existing: BoardConfiguration | null,
+  discoverAllTypes: boolean,
+  trace?: LoadTrace,
+): Promise<BoardConfiguration> {
+  const saved =
+    existing?.boardId === boardId && existing.siteOrigin === reader.site.origin ? existing : null;
   const board = await measure(trace, "structure", () => reader.boardStructure(boardId));
 
   // Statuts et champs servent à qualifier les colonnes et à repérer les champs : leur absence
   // dégrade la configuration sans empêcher le board de s'afficher.
   const statuses = await measure(trace, "statuses", () => reader.statuses()).catch(() => []);
   const allFields = await measure(trace, "fields", () => reader.fields()).catch(() => []);
-  const issueTypes = await measure(trace, "types", () =>
-    discoverIssueTypes(reader, boardId, board.boardType === "kanban" ? board.kanbanSubQuery : null),
-  );
+  const issueTypes = discoverAllTypes
+    ? await measure(trace, "types", () =>
+        discoverIssueTypes(
+          reader,
+          boardId,
+          board.boardType === "kanban" ? board.kanbanSubQuery : null,
+        ),
+      )
+    : (saved?.issueTypes ?? []).map((type) => ({ ...type, subtask: false }));
 
   const fresh = buildConfiguration({
     board,
@@ -112,7 +130,7 @@ export async function refreshBoardStructure(
     goalsFieldId: goalsFieldId(allFields),
     flaggedFieldId: flaggedFieldId(allFields),
   });
-  return mergeConfiguration(fresh, existing);
+  return mergeConfiguration(fresh, saved);
 }
 
 /** Types de tickets réellement présents sur le board. Seuls le type et le statut sont lus. */
@@ -126,9 +144,7 @@ async function discoverIssueTypes(
     includeChangelog: false,
     onlyFields: ["issuetype", "status"],
   });
-  const seen = new Map<string, JiraIssueType>();
-  for (const issue of issues) seen.set(issue.fields.issuetype.id, issue.fields.issuetype);
-  return [...seen.values()];
+  return observedIssueTypes(issues);
 }
 
 // ─── Photographie du sprint ──────────────────────────────────────────────────
@@ -147,6 +163,8 @@ export interface AtlassianGoalsLoader {
 
 export interface SyncResult {
   readonly snapshot: BoardSnapshot;
+  /** Types observés avant tout filtrage métier, y compris ceux ignorés dans l'affichage. */
+  readonly discoveredIssueTypes: readonly JiraIssueType[];
   /** Propriété d'entité du sprint de référence, telle que lue dans Jira. */
   readonly document: SprintGoalDocument | null;
   /**
@@ -171,8 +189,11 @@ export async function loadSnapshot(input: {
   goalsLoader: AtlassianGoalsLoader | null;
   now?: Date;
   trace?: LoadTrace;
+  /** Rend les types disponibles même si une lecture complémentaire échoue ensuite. */
+  onIssueTypesDiscovered?: (types: readonly JiraIssueType[]) => void | Promise<void>;
 }): Promise<SyncResult> {
-  const { reader, configuration, trace } = input;
+  const { reader, trace } = input;
+  let { configuration } = input;
   const now = input.now ?? new Date();
   if (configuration.boardType === "kanban") return loadKanbanSnapshot({ ...input, now });
 
@@ -186,6 +207,7 @@ export async function loadSnapshot(input: {
   if (candidateSprints.length === 0) {
     return measureSync(trace, "assemble", () => ({
       snapshot: emptySnapshot(now, input.currentUser),
+      discoveredIssueTypes: [],
       document: null,
       goalsIssue: null,
       goalsWarnings: [],
@@ -234,6 +256,11 @@ export async function loadSnapshot(input: {
     }),
   }));
   const sprintIssues = issuesBySprint.flatMap((entry) => entry.issues);
+  const discoveredIssueTypes = observedIssueTypes(sprintIssues);
+  configuration = measureSync(trace, "types", () =>
+    withObservedIssueTypes(configuration, discoveredIssueTypes),
+  );
+  await input.onIssueTypesDiscovered?.(discoveredIssueTypes);
 
   // Propriété d'entité du sprint : épinglage des Goals, et liens du mode texte.
   let document: SprintGoalDocument | null = null;
@@ -324,6 +351,7 @@ export async function loadSnapshot(input: {
         pinnedGoalIds,
         localPinnedGoalIds: goalsOrigin === "atlassianGoals" ? localPinnedGoalIds : null,
       },
+      discoveredIssueTypes,
       document,
       goalsIssue,
       goalsWarnings,
@@ -343,8 +371,10 @@ async function loadKanbanSnapshot(input: {
   goalsLoader: AtlassianGoalsLoader | null;
   now: Date;
   trace?: LoadTrace;
+  onIssueTypesDiscovered?: (types: readonly JiraIssueType[]) => void | Promise<void>;
 }): Promise<SyncResult> {
-  const { reader, configuration, now, trace } = input;
+  const { reader, now, trace } = input;
+  let { configuration } = input;
   const extraFieldIds = [
     configuration.goalsFieldId,
     configuration.flaggedFieldId,
@@ -359,6 +389,11 @@ async function loadKanbanSnapshot(input: {
       extraFieldIds,
     }),
   );
+  const discoveredIssueTypes = observedIssueTypes(issues);
+  configuration = measureSync(trace, "types", () =>
+    withObservedIssueTypes(configuration, discoveredIssueTypes),
+  );
+  await input.onIssueTypesDiscovered?.(discoveredIssueTypes);
   if (!input.goalsLoader) {
     throw new Error(
       "Lecture des Goals Atlassian indisponible : le board Kanban ne peut pas déterminer ses objectifs.",
@@ -407,12 +442,19 @@ async function loadKanbanSnapshot(input: {
         pinnedGoalIds: [...configuration.boardPinnedGoalIds],
         localPinnedGoalIds: null,
       },
+      discoveredIssueTypes,
       document: null,
       goalsIssue: null,
       goalsWarnings: resolved.warnings ?? [],
       goalColorIndex,
     };
   });
+}
+
+function observedIssueTypes(issues: readonly JiraIssue[]): JiraIssueType[] {
+  const types = new Map<string, JiraIssueType>();
+  for (const issue of issues) types.set(issue.fields.issuetype.id, issue.fields.issuetype);
+  return [...types.values()];
 }
 
 /** L'instrumentation reste facultative ; les lectures et leurs erreurs gardent leur ordre. */

@@ -3,6 +3,13 @@
 Les détails des anciennes versions, prototypes et validations sont conservés dans l'historique
 Git. Ce fichier décrit les évolutions du produit, sans remplacer les procédures actuelles.
 
+## 0.29.1 — Ouverture sans recensement historique des types
+
+- Suppression du parcours de tous les tickets du board pour découvrir les types à chaque ouverture.
+- Types complétés depuis les tickets réellement chargés, avant calcul des objectifs et swimlanes ; catégories et réglages partagés conservés, même pour les types absents du sprint.
+- Le recensement exhaustif reste disponible via « Relire colonnes et types depuis Jira ».
+- Correction ciblée sur le rapport utilisateur : la phase Types prenait 6,77 s et 14 requêtes sur 9,54 s. Le gain réel doit être confirmé par un nouveau relevé.
+
 ## 0.29.0 — Diagnostic du chargement
 
 - Indicateur du temps et de la phase en cours, avec une fenêtre de détail fermable pendant et après le chargement.

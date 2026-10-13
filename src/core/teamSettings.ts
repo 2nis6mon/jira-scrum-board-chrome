@@ -180,10 +180,11 @@ export function teamSettingsOf(configuration: BoardConfiguration): TeamSettings 
 }
 
 /**
- * Applique les réglages d'équipe à la configuration de ce navigateur. La STRUCTURE reste celle lue
- * dans Jira : une colonne ou un type inconnu de l'équipe garde son réglage local, une colonne que
- * Jira n'a plus est ignorée, une colonne sans statut reste masquée. Les couleurs d'objectifs se
- * combinent : celle de l'équipe l'emporte, un objectif qu'elle ne connaît pas garde la sienne.
+ * Applique les réglages d'équipe à la configuration de ce navigateur. Les colonnes restent celles
+ * lues dans Jira, celles sans statut restent masquées. Les types partagés absents des tickets
+ * chargés sont conservés : leurs catégories et leurs swimlanes doivent survivre à une publication.
+ * Un type inconnu de l'équipe garde son réglage local. Les couleurs d'objectifs se combinent : celle
+ * de l'équipe l'emporte, un objectif qu'elle ne connaît pas garde la sienne.
  */
 export function withTeamSettings(
   configuration: BoardConfiguration,
@@ -200,12 +201,19 @@ export function withTeamSettings(
         wipLimit: shared.wipLimit,
       };
     });
-  const issueTypes = configuration.issueTypes.map((type) => {
-    const shared = settings.issueTypes.find((candidate) => candidate.id === type.id);
-    return shared
-      ? { ...type, category: readCategory(shared.category), countsAsBug: shared.countsAsBug }
-      : type;
-  });
+  const typesById = new Map(configuration.issueTypes.map((type) => [type.id, type]));
+  for (const shared of settings.issueTypes) {
+    typesById.set(shared.id, {
+      id: shared.id,
+      name: shared.name,
+      iconUrl: null,
+      // Le nom et l'icône lus dans Jira restent prioritaires lorsqu'ils sont disponibles.
+      ...typesById.get(shared.id),
+      category: readCategory(shared.category),
+      countsAsBug: shared.countsAsBug,
+    });
+  }
+  const issueTypes = [...typesById.values()];
   return {
     ...configuration,
     columns: columns(configuration.columns, settings.scrumColumns),

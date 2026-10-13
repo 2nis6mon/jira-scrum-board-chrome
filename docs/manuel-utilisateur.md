@@ -1,7 +1,7 @@
 # Sprint Goals Board pour Jira — manuel d'installation et d'utilisation
 
 > Extension Chrome pour boards Scrum et Kanban Jira Cloud : objectifs, Build et swimlanes par
-> type configurables. Version couverte par ce manuel : **0.29.0**, intégré uniquement dans Jira. Les captures illustrent la
+> type configurables. Version couverte par ce manuel : **0.29.1**, intégré uniquement dans Jira. Les captures illustrent la
 > version Scrum 0.22.7 ; certains libellés ont évolué.
 
 Ce document est prêt à coller dans une page Confluence (titres, listes et texte en gras se
@@ -215,6 +215,11 @@ normale.
 ## 8. Support
 
 ### Comprendre un chargement lent
+
+À l'ouverture, les types connus sont conservés et complétés par les tickets du sprint ou du
+board Kanban. L'historique complet du board n'est plus parcouru uniquement pour recenser les
+types. Pour découvrir aussi des types présents seulement dans le backlog ou d'anciens tickets,
+utilisez **Relire colonnes et types depuis Jira** dans les réglages du board.
 
 Un indicateur en bas à gauche montre le temps écoulé et l'étape en cours. Cliquez sur
 **Voir les détails** pour ouvrir le diagnostic de chargement, même pendant l'attente.
