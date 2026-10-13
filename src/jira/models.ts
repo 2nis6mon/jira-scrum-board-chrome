@@ -369,7 +369,8 @@ export interface JiraSprint {
   readonly activatedDate: Date | null;
   readonly originBoardId: number | null;
   /**
-   * Objectif de sprint natif Atlassian : UNE SEULE chaîne de texte libre. Lu, jamais écrit.
+   * Objectif de sprint natif Atlassian : UNE SEULE chaîne de texte libre.
+   * Le Planning peut la publier explicitement pour un sprint futur.
    */
   readonly goal: string | null;
 }

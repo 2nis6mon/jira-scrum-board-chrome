@@ -30,7 +30,7 @@ L'extension utilise votre session Jira, directement depuis le navigateur. Aucun 
 
 À l'installation, autorisez votre site Jira. Sur son board, l'icône de l'extension ou le bouton « Sprint Goals » ouvre la vue intégrée. « Retour à Jira » retrouve le board habituel.
 
-Compatible avec les boards Scrum et Kanban de Jira Cloud (*.atlassian.net). Goals Atlassian dans les deux modes ; texte du Sprint Goal en Scrum uniquement. Le champ Sprint Goal est lu sans être modifié.
+Compatible avec les boards Scrum et Kanban de Jira Cloud (*.atlassian.net). Goals Atlassian dans les deux modes ; texte du Sprint Goal en Scrum uniquement. L'atelier Sprint Planning prépare les sprints futurs par objectifs texte, avec brouillon local, backlog et RAF consultatif. Seule sa publication confirmée modifie le texte du sprint et ajoute les tickets retenus.
 
 Jira et Atlassian sont des marques d'Atlassian. Cette extension n'est ni développée ni approuvée par Atlassian.
 ```

@@ -32,7 +32,11 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
   if (window.parent === window) return;
   const hostBoardId = parseBoardUrl(address)?.boardId ?? null;
   // « Retour à Jira » : la page hôte retire elle-même le marqueur de sa propre adresse.
-  model.hostReturn.value = () => {
+  model.hostReturn.value = async () => {
+    const current = model.connection.peek();
+    if (current.state !== "connected" || current.board.planning.publishing.value) return;
+    await current.board.planning.flushDraft();
+    if (model.connection.peek() !== current || !current.board.canSwitchBoard.value) return;
     model.exitPresentation();
     window.parent.postMessage({ type: "sprint-goals:close" }, origin);
   };
@@ -41,6 +45,10 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
     const connection = model.connection.value;
     if (connection.state !== "connected") return;
     const board = connection.board;
+    board.nativeIssueHandler = (key) => {
+      if (board.site.origin !== origin || board.planning.publishing.value) return;
+      window.parent.postMessage({ type: "sprint-goals:open-issue", key }, origin);
+    };
     board.nativeTransitionHandler = (key, transition) => {
       if (board.site.origin !== origin) return false;
       model.exitPresentation();
@@ -72,6 +80,7 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
     };
     return () => {
       board.nativeTransitionHandler = null;
+      board.nativeIssueHandler = null;
       board.hostBoardNavigator = null;
     };
   });
@@ -88,6 +97,7 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
     connection.board.nativeTransitionPending.value = false;
     connection.board.writeNotice.value = null;
     void connection.board.sync();
+    if (model.view.peek() === "planning") void connection.board.planning.refresh();
   });
 
   document.addEventListener("click", (event) => {

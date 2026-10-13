@@ -6,7 +6,7 @@ Le mode autonome et l'application macOS sont abandonnés.
 ## Références
 
 - [README](README.md) : entrée du projet et index des documents.
-- [Guide développeur](DEVELOPER.md) : architecture, API, intégration, sécurité E1–E7/S1–S12,
+- [Guide développeur](DEVELOPER.md) : architecture, API, intégration, sécurité E1–E9/S1–S12,
   validation, livraison et travaux restants. Référence technique unique.
 - [Manuel](docs/manuel-utilisateur.md) : utilisation ; [historique](CHANGELOG.md) : versions livrées.
 
@@ -14,12 +14,15 @@ Le mode autonome et l'application macOS sont abandonnés.
 
 ## Règles produit et sécurité
 
-- Écritures métier limitées aux transitions, rang, liens ticket ↔ Goal et propriétés de sprint/board.
+- Écritures métier limitées aux transitions, rang, liens ticket ↔ Goal, propriétés de sprint/board
+  et publication explicite du Sprint Planning (texte `goal` et ajout de tickets du backlog à un sprint futur).
   Le diagnostic peut écrire puis supprimer sa propriété technique. Aucun nouvel endpoint
   d'écriture, hôte, droit Chrome ou assouplissement de CSP sans décision produit explicite et
   vérification du contrat Atlassian. Ne pas inventer d'API.
-- Le texte natif « Sprint Goal » est lu, jamais écrit. Aucun démarrage de sprint, ajout au sprint
-  ni création de Goal dans le périmètre actuel.
+- Décision produit du 14/10/2026 : Sprint Planning prépare des objectifs texte, sans Goals Atlassian.
+  Seule sa confirmation de publication peut modifier le texte natif et ajouter des tickets du backlog
+  à un sprint futur ; RAF actif consultatif. Aucun démarrage/création de sprint, retrait de ticket,
+  ni création de Goal. Préparation locale, relecture avant écriture, conflit conservant le brouillon.
 - Réglages partagés relus à chaque chargement, écrits seulement sur modification explicite.
   Aucun calcul automatique ne publie dans Jira. Sans `canEdit`, ils restent en lecture seule ;
   les préférences personnelles restent locales.

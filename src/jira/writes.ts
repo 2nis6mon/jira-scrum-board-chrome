@@ -5,9 +5,8 @@ import type { JsonObject } from "./json";
  * INVENTAIRE EXHAUSTIF des écritures REST de l'extension dans Jira.
  *
  * Le transport n'accepte d'écrire que ce que ce type sait exprimer : une écriture absente
- * d'ici est impossible à émettre. En particulier, RIEN ici ne permet de cibler
- * `POST|PUT /rest/agile/1.0/sprint/{id}` : le champ « Sprint Goal » du sprint appartient à
- * l'équipe et n'est jamais réécrit.
+ * d'ici est impossible à émettre. Le Sprint Planning autorise uniquement le texte `goal`
+ * et l'ajout de tickets : ni création, démarrage, clôture, dates ou nom de sprint.
  *
  * Catégories validées : propriété de sprint, lien ticket↔Goal, transition, rang, et (validée par
  * Denis le 19/09/2026) propriété du board pour les réglages d'équipe, publiés sur un geste
@@ -16,6 +15,8 @@ import type { JsonObject } from "./json";
  * `GraphqlWrite` plus bas, seul endroit où un document `mutation` existe.
  */
 export type JiraWrite =
+  | { kind: "sprint.goal"; sprintId: number; goal: string }
+  | { kind: "sprint.issues.add"; sprintId: number; issueKeys: readonly string[] }
   | { kind: "sprintProperty.put"; sprintId: number; key: SprintPropertyKey; value: JsonObject }
   | { kind: "sprintProperty.delete"; sprintId: number; key: SprintPropertyKey }
   /** Réglages d'équipe du board, enregistrés sur chaque modification explicite. Jira répond 200 ou 201. */
@@ -83,6 +84,34 @@ function propertyBody(value: JsonObject): string {
 /** Seul endroit où une écriture REST prend la forme d'une requête HTTP. */
 export function buildWriteRequest(write: JiraWrite): WriteRequest {
   switch (write.kind) {
+    case "sprint.goal":
+      assertEntityId(write.sprintId, "sprint");
+      return {
+        method: "POST",
+        path: `/rest/agile/1.0/sprint/${write.sprintId}`,
+        body: JSON.stringify({ goal: write.goal }),
+        resource: `les objectifs du sprint ${write.sprintId}`,
+      };
+    case "sprint.issues.add":
+      assertEntityId(write.sprintId, "sprint");
+      if (
+        write.issueKeys.length < 1 ||
+        write.issueKeys.length > 50 ||
+        new Set(write.issueKeys).size !== write.issueKeys.length
+      ) {
+        throw new JiraError({
+          kind: "decoding",
+          context: "ajout au sprint",
+          detail: "1 à 50 tickets distincts attendus",
+        });
+      }
+      for (const key of write.issueKeys) assertIssueKey(key);
+      return {
+        method: "POST",
+        path: `/rest/agile/1.0/sprint/${write.sprintId}/issue`,
+        body: JSON.stringify({ issues: [...write.issueKeys] }),
+        resource: `les tickets du sprint ${write.sprintId}`,
+      };
     case "sprintProperty.put":
       return {
         method: "PUT",

@@ -143,7 +143,10 @@ describe("barre latérale", () => {
       (item) => [item.textContent, item.getAttribute("aria-current")],
     );
     // Les réglages restent accessibles dans l'en-tête et le menu du board.
-    expect(nav).toEqual([["Sprint", "page"]]);
+    expect(nav).toEqual([
+      ["Sprint", "page"],
+      ["Sprint Planning", null],
+    ]);
     expect(document.querySelector("button.settings-open")).not.toBeNull();
     expect(document.querySelector(".menu-settings")).not.toBeNull();
     const site = sidebar?.querySelector(".sidebar-site-toggle");
@@ -678,7 +681,7 @@ describe("réglages du board et menu « Site Jira »", () => {
     expect(document.querySelector(".menu-settings")).toBeNull();
     expect(
       [...document.querySelectorAll(".sidebar-nav .sidebar-nav-item")].map((b) => b.textContent),
-    ).toEqual(["Sprint"]);
+    ).toEqual(["Sprint", "Sprint Planning"]);
     model.showSettings("board");
     await tick();
     expect(document.querySelector(".settings-screen")).toBeNull();
@@ -752,8 +755,8 @@ describe("réglages du board et menu « Site Jira »", () => {
     await tick();
 
     const nav = [...document.querySelectorAll(".sidebar-nav .sidebar-nav-item")];
-    expect(nav.map((item) => item.textContent)).toEqual(["Sprint"]);
-    expect(nav.map((item) => item.getAttribute("aria-current"))).toEqual([null]);
+    expect(nav.map((item) => item.textContent)).toEqual(["Sprint", "Sprint Planning"]);
+    expect(nav.map((item) => item.getAttribute("aria-current"))).toEqual([null, null]);
     expect([...document.querySelectorAll("[role=tab]")].map((tab) => tab.textContent)).toEqual([
       "Board",
       "Objectifs",

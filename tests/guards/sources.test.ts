@@ -45,11 +45,19 @@ describe("code de production", () => {
     expect(filesMatching(/["'`]PATCH["'`]/)).toEqual([]);
   });
 
-  it("n'écrit jamais le sprint lui-même (champ « Sprint Goal »)", () => {
+  it("limite les chemins sprint aux propriétés, au texte et aux ajouts du planning", () => {
     const writes = sources.find(({ file }) => file === "src/jira/writes.ts");
     const sprintPaths = writes?.code.match(/\/rest\/agile\/1\.0\/sprint[^`"']*/g) ?? [];
     expect(sprintPaths.length).toBeGreaterThan(0);
-    for (const path of sprintPaths) expect(path).toContain("/properties/");
+    for (const path of sprintPaths) {
+      expect(path).toMatch(
+        /^\/rest\/agile\/1\.0\/sprint\/\$\{(?:sprintId|write\.sprintId)\}(?:\/properties\/\$\{key\}|\/issue)?$/,
+      );
+    }
+    // Le corps de publication ne peut porter ni état de sprint, ni dates, ni création.
+    expect(writes?.code).not.toMatch(
+      /state:\s*write\.|startDate:\s*write\.|endDate:\s*write\.|name:\s*write\./,
+    );
   });
 
   it("ne déclare de mutation GraphQL que dans l'inventaire, et seulement les deux de rattachement", () => {

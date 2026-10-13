@@ -298,6 +298,65 @@ export class JiraClient {
     return result;
   }
 
+  /** Relecture du sprint avant publication du planning : l'état et le texte natif font foi. */
+  async sprint(sprintId: number): Promise<JiraSprint> {
+    assertEntityId(sprintId, "sprint");
+    const { body } = await this.#transport.get(`/rest/agile/1.0/sprint/${sprintId}`, {
+      resource: `le sprint ${sprintId}`,
+    });
+    return decodeSprint(body);
+  }
+
+  /**
+   * Backlog sans sprint futur/actif. Contrat Software « enhanced », vérifié le 14/10/2026 :
+   * pagination par jeton, filtre du board conservé, ordre natif du rang.
+   */
+  async backlogIssues(boardId: number, query: IssueQuery): Promise<JiraIssue[]> {
+    assertEntityId(boardId, "board");
+    const fields = query.onlyFields
+      ? [...new Set(query.onlyFields)].join(",")
+      : fieldList(query.estimationFieldId, query.extraFieldIds);
+    const result: JiraIssue[] = [];
+    const seenKeys = new Set<string>();
+    const seenTokens = new Set<string>();
+    let nextPageToken: string | null = null;
+    for (;;) {
+      const { body } = await this.#transport.get(`/rest/software/1.0/board/${boardId}/backlog`, {
+        query: {
+          maxResults: String(ISSUE_PAGE_SIZE),
+          fields,
+          ...(query.includeChangelog ? { expand: "changelog" } : {}),
+          ...(nextPageToken ? { nextPageToken } : {}),
+        },
+        resource: `le backlog du board ${boardId}`,
+      });
+      if (!isRecord(body) || !Array.isArray(body.issues))
+        decodingFailure("backlog", "issues absent");
+      for (const raw of body.issues) {
+        const issue = decodeIssue(raw);
+        if (seenKeys.has(issue.key)) {
+          throw new Error("Chargement incomplet : Jira a répété des tickets du backlog.");
+        }
+        seenKeys.add(issue.key);
+        result.push(issue);
+      }
+      if (result.length > MAX_ISSUES) {
+        throw new Error(`Le backlog dépasse la limite de ${MAX_ISSUES} tickets.`);
+      }
+      const token = typeof body.nextPageToken === "string" ? body.nextPageToken : null;
+      if (body.isLast === true) break;
+      if (!token || seenTokens.has(token) || body.issues.length === 0) {
+        throw new Error("Chargement incomplet : la pagination du backlog Jira est incohérente.");
+      }
+      if (result.length >= MAX_ISSUES) {
+        throw new Error(`Le backlog dépasse la limite de ${MAX_ISSUES} tickets.`);
+      }
+      seenTokens.add(token);
+      nextPageToken = token;
+    }
+    return result;
+  }
+
   /**
    * Filtres rapides du board, dans l'ordre de Jira. `GET /rest/agile/1.0/board/{id}/quickfilter`
    * est absent de ATLASSIAN-API-CAPABILITIES.md ; forme vérifiée dans la spécification OpenAPI de

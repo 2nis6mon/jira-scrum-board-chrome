@@ -51,13 +51,23 @@ export function Sidebar({
           icon="board"
           label={kanban ? "Kanban" : "Sprint"}
           current={view === "board"}
+          disabled={board.planning.publishing.value}
           onClick={() => model.showBoard()}
         />
+        {configuration?.boardType === "scrum" && (
+          <NavButton
+            icon="goal"
+            label="Sprint Planning"
+            current={view === "planning"}
+            disabled={!board.canSwitchBoard.value}
+            onClick={() => model.showPlanning()}
+          />
+        )}
       </nav>
       <div class="sidebar-divider" />
       <div class="sidebar-scroll">
-        {lanes && <LaneList model={model} board={board} lanes={lanes} />}
-        <HiddenGoals board={board} />
+        {view !== "planning" && lanes && <LaneList model={model} board={board} lanes={lanes} />}
+        {view !== "planning" && <HiddenGoals board={board} />}
       </div>
       <div class="sidebar-divider" />
       <SiteMenu model={model} host={board.site.host} />
@@ -213,6 +223,7 @@ function NavButton(props: {
   icon: IconName;
   label: string;
   current: boolean;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -220,6 +231,7 @@ function NavButton(props: {
       type="button"
       class="sidebar-nav-item"
       aria-current={props.current ? "page" : undefined}
+      disabled={props.disabled}
       onClick={props.onClick}
     >
       <Icon name={props.icon} size={16} />

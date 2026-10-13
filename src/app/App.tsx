@@ -6,6 +6,7 @@ import { ConnectionView } from "./views/ConnectionView";
 import { DiagnosticView } from "./views/DiagnosticView";
 import { exitFullscreen } from "./views/fullscreen";
 import { Icon } from "./views/Icon";
+import { PlanningView } from "./views/planning/PlanningView";
 import { Sidebar } from "./views/Sidebar";
 import { SettingsView } from "./views/settings/SettingsView";
 
@@ -55,6 +56,11 @@ function Workspace({
   useEffect(() => {
     if (view === "settings" && !settingsAvailable) model.showBoard();
   }, [model, view, settingsAvailable]);
+  useEffect(() => {
+    if (view !== "planning") return;
+    if (configuration?.boardType !== "scrum") model.showBoard();
+    else void board.planning.load();
+  }, [model, board, view, configuration?.boardId, configuration?.boardType]);
 
   // Fin de la daily ou de la présentation : le plein écran demandé à leur lancement est rendu.
   const immersive = dailyRunning || presenting;
@@ -158,6 +164,14 @@ function Workspace({
       <div class={`workspace-main${showReturnBar ? " workspace-main-with-return" : ""}`}>
         {showReturnBar && <div class="workspace-return">{returnToJira}</div>}
         {view === "board" && <BoardScreen connection={connection} controls={controls} />}
+        {view === "planning" && configuration?.boardType === "scrum" && (
+          <PlanningView
+            planning={board.planning}
+            sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={() => model.toggleSidebar()}
+            onBack={() => model.showBoard()}
+          />
+        )}
         {view === "settings" && configuration && settingsAvailable && (
           <SettingsView model={model} board={board} configuration={configuration} />
         )}

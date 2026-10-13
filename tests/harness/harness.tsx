@@ -6,7 +6,7 @@
 //                            board-vide|board-dnd|board-choix|board-statuts|board-erreur|board-goals|
 //                            board-epingle|board-epingle-refus|board-multi|board-infos|
 //                            board-soustaches|board-kanban|board-kanban-vide|ok|xsrf|refuse|session|deconnecte|
-//                            board-chargement|connexion|recherche-board|
+//                            board-chargement|board-planning|connexion|recherche-board|
 //                            board-reglages[&onglet=board|goals|cardFields|cardColors]
 import { render } from "preact";
 import { App } from "../../src/app/App";
@@ -28,6 +28,7 @@ import { fakePlatform } from "../support/fakePlatform";
 import { goalsGateway } from "../support/goalsGateway";
 import { issueJson, statusJson } from "../support/jiraFixtures";
 import { KANBAN_NAME, KANBAN_SUBQUERY } from "../support/kanbanFixture";
+import { planningFixture } from "../support/planningFixture";
 
 const PROPERTY = `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.diagnostic}`;
 const OK: Reply = { status: 200, json: {} };
@@ -470,7 +471,29 @@ if (scenario.startsWith("board")) {
       });
     }
   }
+  const planning = scenario === "board-planning" ? planningFixture(jira) : null;
+  let planningReady = false;
   const platform = fakePlatform(jira);
+  if (planning) {
+    // Simule le stockage Chrome après un rechargement, uniquement dans le profil de test vierge.
+    const storageKey = "harness-planning-store";
+    const saved = JSON.parse(localStorage.getItem(storageKey) ?? "[]") as [string, unknown][];
+    for (const [key, value] of saved) platform.stored.set(key, value);
+    const persist = () => localStorage.setItem(storageKey, JSON.stringify([...platform.stored]));
+    Object.assign(platform.store, {
+      set: async (key: string, value: unknown) => {
+        platform.stored.set(key, value);
+        persist();
+      },
+      remove: async (key: string) => {
+        platform.stored.delete(key);
+        persist();
+      },
+    });
+    Object.assign(window, {
+      __planning: { inspect: planning.inspect, ready: () => planningReady },
+    });
+  }
   // Épinglage et réglages : un board déjà réglé sur les Goals Atlassian, comme après un choix fait
   // dans les réglages ; sinon ses Goals, découverts après une première lecture, arriveraient masqués.
   if (pinning || reglages) await preferAtlassianGoals(platform);
@@ -526,7 +549,7 @@ if (scenario.startsWith("board")) {
       await connection.board.detect(SECOND_BOARD_URL);
     }
     await connection.board.detect(BOARD_URL);
-    if (scenario !== "board-chargement")
+    if (scenario !== "board-chargement" && scenario !== "board-planning")
       await connection.board.applySettings(
         (current) => ({
           ...current,
@@ -622,6 +645,7 @@ if (scenario.startsWith("board")) {
         connection.board.snapshot.value = { ...snapshot, goals: [...snapshot.goals, ...hidden] };
       }
     }
+    planningReady = true;
   }
 } else if (scenario === "connexion") {
   // Premier lancement : aucun site enregistré, aucune requête vers un faux Jira.

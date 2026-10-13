@@ -5,7 +5,7 @@ import { isRecord, type JsonObject } from "../jira/json";
  *
  * Rappel de la contrainte réelle (DEVELOPER.md, section Contrats API) : Jira
  * ne connaît qu'UN SEUL champ texte `goal` par sprint. En mode « texte du sprint », les objectifs
- * sont les lignes de ce champ — lu, jamais écrit — et leurs identifiants stables sont conservés
+ * sont les lignes de ce champ et leurs identifiants stables sont conservés
  * dans une propriété d'entité du sprint, c'est-à-dire un stockage Jira officiel.
  */
 export interface SprintGoal {
@@ -208,8 +208,8 @@ const BULLET_PREFIXES = ["🎯", "-", "–", "—", "*", "•", "‣"];
 /**
  * Découpe le champ natif en titres d'objectifs : une ligne non vide = un objectif.
  *
- * Il n'existe volontairement pas de fonction inverse : le champ appartient à l'équipe et
- * l'application ne le réécrit jamais.
+ * La lecture du board n'écrit jamais ce champ. Sa publication explicite vers un sprint futur
+ * appartient au module Sprint Planning.
  */
 export function parseSprintGoalText(raw: string | null | undefined): string[] {
   if (!raw || raw.trim() === "") return [];

@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.31.2**, 13 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.32.0**, 14 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -67,7 +67,7 @@ copie, historique, fermeture et format étroit, avec captures dans `.vite/`.
   d'entrée de chaque ticket restent celles de son sprint. Les textes de plusieurs sprints ne sont pas agrégés.
 - Le texte `sprint.goal` est la source par défaut d'un nouveau Scrum ; les choix existants ou
   partagés sont conservés. Les Goals Atlassian sont optionnels ; leur échec permet un repli texte explicite.
-  **Le champ natif Sprint Goal n'est jamais écrit.**
+  **Seule la publication explicite du Sprint Planning peut modifier le champ natif d'un sprint futur.**
 - Kanban utilise le périmètre du board et `subQuery.query`, avec ses statuts mappés : aucun faux
   sprint, lecture séparée du backlog ou âge limite local des tickets terminés. `snapshot.sprint=null`
   et `activeSprints=[]` n'indiquent pas un board vide. Filtres rapides et couleurs JQL gardent ce
@@ -96,6 +96,21 @@ copie, historique, fermeture et format étroit, avec captures dans `.vite/`.
   la largeur logique. Les Goals atteints sont verts ; le compteur porte sur les Goals visibles.
 
 ### Déplacements, présentation et réglages
+
+- Sprint Planning (0.32.0) : `PlanningModel` pilote un atelier chargé uniquement à son ouverture,
+  `core/sprintPlanning.ts` porte lectures, validation et publication, `views/planning/` sa présentation.
+  Choix d'un sprint futur existant, backlog du board paginé, RAF actif consultatif (statut hors Done),
+  objectifs texte éditables, sélection/affectation locale, capacité facultative et synthèse copiable.
+  Aucun appel Goals Atlassian par cet atelier, même si le board les utilise ; aucune modification de
+  sa source d'objectifs. Pour retrouver ces objectifs sur le board actif, choisir la source texte.
+  Les sous-tâches ne sont pas ajoutées séparément ; les tickets déjà dans le sprint restent présents.
+  Brouillons par site/board/sprint, sauvegardes ordonnées et copie mémoire conservée en cas d'échec local.
+  La publication compare texte, propriété et périmètre de la photographie avec Jira frais ; un conflit
+  conserve le brouillon et demande de copier la synthèse puis repartir de Jira. Ordre : texte → ajouts
+  par lots de 50 → propriété des rattachements, avec vérification de chaque étape. Refus/résultat
+  incertain arrête la séquence, sans rollback ni retry ; les étapes confirmées sont indiquées.
+  Les droits sprint et tickets sont appliqués par Jira, distincts du `canEdit` des réglages du board.
+  Durant la publication, retour Jira, changement de board, déconnexion et sorties de vue sont protégés.
 
 - Même colonne : aucun changement de statut. Autre colonne : seuls les statuts accessibles
   acceptent le dépôt ; transition ambiguë = choix demandé. Ordre : **transition → Goal → rang**.
@@ -204,7 +219,8 @@ Ces contrats décrivent le code, sans certifier toutes les capacités Atlassian.
 | Utilisateur | `GET /rest/api/3/myself` |
 | Recherche/droit du board | `GET /rest/agile/1.0/board`, dont `expand=permissions` |
 | Structure | `GET /rest/agile/1.0/board/{id}` et `/{id}/configuration` |
-| Sprints actifs | `GET /rest/agile/1.0/board/{id}/sprint` |
+| Sprints actifs/futurs | `GET /rest/agile/1.0/board/{id}/sprint`, filtre `state` ; `GET /rest/agile/1.0/sprint/{id}` pour relecture |
+| Backlog du planning | `GET /rest/software/1.0/board/{id}/backlog`, pagination `nextPageToken` et `isLast`, limite 5 000 |
 | Tickets Scrum | `GET /rest/agile/1.0/board/{board}/sprint/{sprint}/issue` ; jamais le sprint seul |
 | Tickets Kanban / filtres JQL | `GET /rest/agile/1.0/board/{id}/issue` |
 | Transitions / statut courant | `GET /rest/api/3/issue/{key}/transitions?expand=transitions.fields` ; `GET /rest/api/3/issue/{key}?fields=status` |
@@ -260,6 +276,7 @@ aucune migration n'écrit automatiquement dans Jira. Le signalement des bugs li�
 |---|---|
 | `connection.v1`, `launcher.v1` | Site connecté ; dernière adresse de board |
 | `boards.v1`, `interface.v1` | Boards/configuration/sélection par site ; préférences de présentation |
+| `sprint-planning.v1:<origine Jira>` | Brouillons par board/sprint : objectifs texte, clés/rattachements, capacité, révision de base ; oubli du board/site les efface |
 | `jira-button-position.v1:<origine Jira>` | Position personnelle commune aux boards d'un site |
 | `dismissedNotices.v1`, `graphqlOrigin.v1` | Avis fermés par site/board ; variante Origin du site |
 | `audit.v1` | Au plus 500 écritures de l'extension : clés des tickets, résultat, erreurs, aucun cookie ni saisie native |
@@ -307,13 +324,15 @@ Données rendues en texte Preact, liens externes `noopener noreferrer`. Nouvelle
 | E5 | `PUT /rest/agile/1.0/sprint/{id}/properties/com.scrumboardmac.sprintgoals.v1` | Épinglage Scrum / lien en mode texte |
 | E6 | `PUT /rest/agile/1.0/board/{id}/properties/com.scrumboardmac.boardsettings.v1` | Réglage explicite, dont épinglage Kanban |
 | E7 | `PUT` puis `DELETE /rest/agile/1.0/sprint/{id}/properties/com.scrumboardmac.diagnostic` | Test demandé dans Diagnostic |
+| E8 | `POST /rest/agile/1.0/sprint/{id}`, seul champ `goal` | Confirmation du planning, sprint futur relu, sans dates/état/nom |
+| E9 | `POST /rest/agile/1.0/sprint/{id}/issue`, seul tableau `issues`, au plus 50 | Confirmation du planning, tickets du backlog relus, jamais du RAF actif |
 
 Une tentative par écriture POST/PUT/DELETE ; relecture après résultat incertain, jamais de succès
 avant confirmation. Lectures rejouables seulement sur erreur transitoire. E1 relit statut/transitions ;
 E3/E4 s'arrêtent si le détachement échoue, annoncent le succès partiel si seul le nouveau lien échoue,
 sans rollback. E5/E6 appliquent les protections de propriétés ci-dessus et les droits Jira.
 Les réglages partagés, IDs de Goals et métadonnées d'auteur (nom/compte) sont visibles aux lecteurs
-Jira de l'entité ; préférences personnelles exclues. Aucun champ natif de sprint/board n'est écrit ;
+Jira de l'entité ; préférences personnelles exclues. Hors texte `goal` de E8, aucun champ natif de sprint/board n'est écrit ;
 aucune création/suppression de ticket, modification de workflow, création de Goal ou démarrage de sprint.
 Les formulaires et fiches **Jira natifs** gardent les droits et actions de Jira : leurs requêtes et
 saisies sont hors du transport et du journal de l'extension, qui ne les remplit ni ne les valide.
@@ -351,6 +370,7 @@ Node >= 22.12 ; dépendances exactes dans `package-lock.json`, scripts d'install
 | `npm run verify:jira` / `verify:transition` | Hébergement, messages forgés, navigation, fiche et formulaire seul, ambiguïté, absence de validation automatique, fermeture |
 | `npm run verify:drag` / `verify:button` | Gestes ; bouton et stockage Chrome, zoom/redimensionnement/plein écran |
 | `npm run verify:settings` | Glissés des réglages : swimlanes, types, champs et règles de couleur |
+| `npm run verify:planning` | Atelier, glissés/affectations, brouillon, publication, RAF consultatif et petit écran |
 | `npm run verify:loading` | Diagnostic de chargement du banc fictif |
 | `npm run package` | Archive `release/sprint-goals-board-<version>.zip` vérifiée |
 | `npm run store:screenshots` | Captures fictives du Store |
@@ -364,7 +384,7 @@ Les anciens alias `*:jira-direct-test` et `JIRA_DIRECT_DIST` restent retirés.
 
 [Le workflow GitHub](.github/workflows/validation.yml) exécute les contrôles à chaque push sur
 `main` ou `codex/**` et sur les demandes de fusion vers `main` : typage, style, tests, compilation,
-intégration Jira, glisser-déposer (board et réglages), diagnostic du banc et paquet. Il utilise une machine Windows,
+intégration Jira, glisser-déposer (board et réglages), Sprint Planning, diagnostic du banc et paquet. Il utilise une machine Windows,
 Node 24 et Chrome for Testing 155.0.8059.39 téléchargé depuis la distribution officielle Google.
 Profil temporaire et uniquement Jira fictif : aucune session ou donnée Jira réelle n'est nécessaire.
 
@@ -411,6 +431,8 @@ Préparer une archive ne la publie pas sur le Store.
 - [ ] WIP en points et minimums de colonne ; présentation des sources Goals selon capacités du site.
 - [ ] Déploiement IT via `storage.managed` si besoin ; déplacement clavier si la décision d'abandon est réouverte.
 
-**Sprint Planning demandé, non implémenté.** Définir sprint futur, source des objectifs, capacité et
-frontière préparation/démarrage. Ajouter des tickets au sprint, le démarrer ou créer des Goals
-introduit de nouvelles écritures à autoriser et documenter séparément. Sprint Goal natif reste en lecture seule.
+Sprint Planning livré en 0.32.0 : valider ensuite les droits et volumes sur une instance réelle.
+Le démarrage/création de sprint, le report automatique du RAF et la création de Goals restent hors périmètre.
+Contrats de publication et backlog vérifiés le 14/10/2026 dans les références officielles
+[Sprint](https://developer.atlassian.com/cloud/jira/software/rest/api-group-sprint/) et
+[Board](https://developer.atlassian.com/cloud/jira/software/rest/api-group-board/).

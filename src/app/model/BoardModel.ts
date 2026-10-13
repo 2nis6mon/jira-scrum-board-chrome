@@ -77,6 +77,7 @@ import {
   type NoticeId,
   saveDismissedNotice,
 } from "./noticeStore";
+import { PlanningModel } from "./PlanningModel";
 
 export type {
   BoardSummary,
@@ -104,6 +105,8 @@ export interface BoardModelOptions {
 export class BoardModel {
   /** Ouvre le formulaire natif via la page Jira hôte ; sans adaptateur, le déplacement est refusé. */
   nativeTransitionHandler: ((key: string, transition: JiraTransition) => boolean) | null = null;
+  /** Fiche Jira native ouverte depuis le vivier du planning. */
+  nativeIssueHandler: ((key: string) => void) | null = null;
   /**
    * Page Jira hôte : un autre board s'ouvre en changeant de page (`leaving`), pour que l'adresse
    * et le board Jira derrière la vue suivent. `current` : c'est déjà le board de la page.
@@ -261,6 +264,7 @@ export class BoardModel {
   readonly images: ImageCache;
   readonly audit: AuditLog;
   readonly loadDiagnostics: LoadDiagnostics;
+  readonly planning: PlanningModel;
 
   readonly #platform: Platform;
   readonly #client: JiraClient;
@@ -293,6 +297,18 @@ export class BoardModel {
         this.#disposed ? undefined : this.loadDiagnostics.observeTransport(kind),
     });
     this.#client = new JiraClient(transport);
+    this.planning = new PlanningModel(this.#client, transport, platform, {
+      configuration: () => this.configuration.value,
+      canWrite: () =>
+        this.pendingKeys.value.size === 0 &&
+        this.teamSaving.value === 0 &&
+        !this.setupBusy.value &&
+        !this.nativeTransitionPending.value &&
+        this.transitionChoice.value === null,
+      accountId: () => this.snapshot.value?.currentUser?.accountId ?? null,
+      openIssue: (key) => this.nativeIssueHandler?.(key),
+      audit: this.audit,
+    });
     this.#goals = new GoalsClient(transport);
     this.images = new ImageCache((url) => transport.fetchImage(url));
     const scope = { generation: () => this.#generation, disposed: () => this.#disposed };
@@ -406,6 +422,8 @@ export class BoardModel {
       !this.setupBusy.value &&
       this.pendingKeys.value.size === 0 &&
       this.pinEditor.value?.saving !== true &&
+      !this.planning.publishing.value &&
+      this.planning.saving.value === 0 &&
       this.teamSaving.value === 0,
   );
 
@@ -459,6 +477,7 @@ export class BoardModel {
       removeBoard(this.#platform.store, this.site.origin, boardId),
     );
     await forgetDismissedNotices(this.#platform.store, this.site.origin, boardId).catch(() => {});
+    await this.planning.forgetBoard(boardId).catch(() => {});
     await this.#refreshBoards();
     if (!shown) return;
     const configuration =
@@ -1091,6 +1110,7 @@ export class BoardModel {
 
   dispose(): void {
     this.#disposed = true;
+    this.planning.dispose();
     this.#loading.cancel();
     this.#clearMoveFeedback();
     this.pendingMove.value = null;
@@ -1189,6 +1209,7 @@ export class BoardModel {
     if (seconds === null) return;
     this.#autoRefreshTimer = setInterval(() => {
       const busy =
+        this.planning.publishing.value ||
         this.transitionChoice.value !== null ||
         this.nativeTransitionPending.value ||
         this.dragging.value !== null ||
@@ -1265,6 +1286,7 @@ export class BoardModel {
    * synchronisation encore en cours appartient à l'ancien board : son résultat sera ignoré.
    */
   #enterBoard(configuration: BoardConfiguration | null): void {
+    this.planning.reset();
     this.#clearMoveFeedback();
     this.pendingMove.value = null;
     this.nativeTransitionPending.value = false;

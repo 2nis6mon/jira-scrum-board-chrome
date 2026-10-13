@@ -99,9 +99,28 @@ describe("changement de board demandé à la page Jira hôte", () => {
   it("« Retour à Jira » demande à l'hôte de fermer la vue, sans adresse, et quitte la présentation", async () => {
     const board = await hosted();
     board.app.presenting.value = true;
-    board.app.hostReturn.value?.();
+    await board.app.hostReturn.value?.();
     expect(postMessage).toHaveBeenCalledExactlyOnceWith({ type: "sprint-goals:close" }, SITE);
     expect(board.app.presenting.value).toBe(false);
+    board.dispose();
+  });
+
+  it("le retour attend la sauvegarde du brouillon et refuse de quitter pendant une publication", async () => {
+    const board = await hosted();
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(board.planning, "flushDraft").mockImplementation(() => gate);
+    const leaving = board.app.hostReturn.value?.();
+    expect(postMessage).not.toHaveBeenCalled();
+    release();
+    await leaving;
+    expect(postMessage).toHaveBeenCalledExactlyOnceWith({ type: "sprint-goals:close" }, SITE);
+    postMessage.mockClear();
+    board.planning.publishing.value = true;
+    await board.app.hostReturn.value?.();
+    expect(postMessage).not.toHaveBeenCalled();
     board.dispose();
   });
 

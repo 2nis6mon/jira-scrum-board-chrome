@@ -25,11 +25,14 @@ pour garder l'identité de l'installation.
 ## Utiliser
 
 - Scrum : tickets de tous les sprints actifs ; objectifs du texte du sprint ou Goals Atlassian.
+- Sprint Planning : préparer un sprint futur par objectifs texte, répartir le backlog, consulter
+  le reste à faire et publier le plan après revue. Brouillon personnel conservé dans Chrome.
 - Kanban : tickets du board et de son sous-filtre ; Goals Atlassian uniquement.
 - Déplacement des tickets, fiche et formulaires natifs Jira, filtres, sous-tâches, Daily et présentation.
 - Réglages du board partagés dans Jira ; préférences d'interface personnelles dans Chrome.
 
-Le champ natif « Sprint Goal » reste en lecture seule. Les écritures ne sont jamais rejouées
+Le texte natif « Sprint Goal » n'est modifié que lors d'une publication du Sprint Planning.
+Les écritures ne sont jamais rejouées
 automatiquement. Les limites et les réglages sont décrits dans le manuel.
 
 ## Documentation

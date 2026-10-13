@@ -3,6 +3,15 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.32.0 — Atelier Sprint Planning
+
+- Préparation des sprints futurs par objectifs texte : backlog filtrable, RAF consultatif, affectation
+  par glisser-déposer ou au clavier, focus sur un objectif, capacité et synthèse copiable, sans timer.
+- Brouillons locaux par sprint ; publication explicitement confirmée du texte, des tickets retenus
+  et de leurs rattachements, sans Goals Atlassian ni démarrage du sprint.
+- Relectures Jira, protection des modifications concurrentes, résultats partiels expliqués et tests
+  métier, interface et Chrome isolé ajoutés.
+
 ## 0.31.2 — Navigation et en-tête allégés
 
 - Retrait de l'entrée Réglages sous Sprint ; accès conservés dans l'en-tête et les menus du board.

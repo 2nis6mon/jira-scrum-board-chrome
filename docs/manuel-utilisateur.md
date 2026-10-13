@@ -76,7 +76,7 @@ début sert de référence pour les dates, l'épinglage et le texte des objectif
 L'en-tête indique les points terminés et les objectifs atteints. Les filtres rapides permettent
 de retrouver les tickets bloqués et ceux ajoutés en cours de sprint.
 
-Les objectifs proviennent par défaut du texte **Sprint Goal**, lu sans être modifié.
+Les objectifs proviennent par défaut du texte **Sprint Goal**, lu sans être modifié par la vue du sprint.
 Vous pouvez choisir les **Goals Atlassian** dans les réglages du board. Si leur lecture échoue,
 le board peut revenir au texte du sprint avec un message explicatif.
 
@@ -90,6 +90,32 @@ Un échec de lecture des Goals signale une synchronisation impossible ; les tick
 reclassés automatiquement dans Build. Si le lien Goal → tickets n'est pas disponible, le champ
 Goals des tickets peut servir de repli. S'il n'est pas identifié, relisez la structure (voir Support).
 La lecture est limitée à **5 000 tickets** : au-delà, elle est refusée ; réduisez le filtre du board.
+
+## Préparer le Sprint Planning
+
+Sur un board Scrum, ouvrez **Sprint Planning** dans la barre latérale et choisissez un sprint futur.
+S'il n'en existe pas, créez-le dans Jira puis cliquez sur **Actualiser**. Les objectifs viennent
+uniquement du texte de ce sprint : une ligne par objectif, sans création de Goal Atlassian.
+
+1. Nommez les résultats attendus avec **Ajouter un objectif**, puis ordonnez-les par priorité.
+2. Cherchez les stories dans le **Backlog** et glissez-les vers un objectif. Le sélecteur d'affectation
+   permet le même geste au clavier. **À organiser** accueille les tickets retenus sans objectif.
+3. Consultez le **Reste à faire** pour alimenter la discussion : ces tickets restent dans le sprint
+   actif. Après sa clôture dans Jira, ceux revenus au backlog pourront rejoindre le plan.
+4. Ajustez la capacité envisagée si utile et vérifiez la charge par objectif, les tickets non estimés
+   et ceux encore à organiser. Le mode de focus permet de discuter un objectif à la fois, sans timer.
+5. Cliquez sur **Publier dans Jira**, relisez le texte et les ajouts, puis confirmez. Le sprint reste
+   futur : son démarrage se fait dans Jira. **Copier la synthèse** prépare un compte rendu de la proposition.
+
+Les gestes de préparation restent dans un **brouillon local**, retrouvé sur ce navigateur ; seuls
+les plans publiés sont partagés via Jira. Les tickets déjà dans le sprint ne peuvent pas être retirés
+ici, et les sous-tâches suivent leur parent dans Jira. Le planning ne change pas les réglages du board :
+pour afficher ensuite ces objectifs sur la vue du sprint, utilisez sa source **texte du sprint**.
+
+Si Jira a changé depuis le brouillon, la publication s'arrête. Copiez votre synthèse puis choisissez
+**Repartir de Jira** pour examiner les nouvelles données. En cas d'échec à une étape de publication,
+les étapes déjà confirmées restent appliquées et sont indiquées ; aucune écriture n'est rejouée seule.
+Jira contrôle les droits de modification du sprint et d'ajout des tickets.
 
 ## Réglages du board et partage
 
@@ -160,7 +186,8 @@ sans barre latérale, en-tête ni panneau de santé. **Quitter** ou Échap retro
 
 L'extension utilise votre session Jira Cloud, sans serveur de l'éditeur ni mesure d'audience.
 Les écritures suivent vos actions et ne sont annoncées comme réussies qu'après confirmation de
-Jira. Elle ne crée ni Goal ni sprint, ne démarre pas de sprint et ne modifie pas le texte Sprint Goal.
+Jira. Elle ne crée ni Goal ni sprint et ne démarre pas de sprint. Seule la publication du Sprint Planning
+modifie le texte Sprint Goal et ajoute les tickets retenus du backlog à un sprint futur.
 
 Pour diffuser ce manuel dans Confluence, ajoutez le lien de l'archive de votre équipe et
 téléversez les cinq images de `docs/store/captures/` : le collage ne les récupère pas automatiquement.

@@ -15,7 +15,8 @@ export interface AuditEntry {
     | "classement"
     | "rattachement"
     | "épinglage"
-    | "réglages d'équipe";
+    | "réglages d'équipe"
+    | "sprint planning";
   /** Ticket concerné ; `null` pour une écriture qui porte sur le sprint ou le board. */
   readonly issueKey: string | null;
   readonly from: string | null;

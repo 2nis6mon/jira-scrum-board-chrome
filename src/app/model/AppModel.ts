@@ -34,7 +34,7 @@ export type Connection =
  * Vues de l'espace de travail : le sprint (swimlanes, et la santé du sprint dans un panneau
  * repliable), les réglages du board affiché et le diagnostic du site.
  */
-export type View = "board" | "settings" | "diagnostic";
+export type View = "board" | "planning" | "settings" | "diagnostic";
 
 /**
  * Onglets des réglages du board affiché. Depuis 0.31.0, ils s'ouvrent depuis le board (en-tête,
@@ -181,7 +181,10 @@ export class AppModel {
   async disconnect(): Promise<void> {
     const current = this.connection.value;
     if (current.state !== "connected") return;
+    if (current.board.planning.publishing.value) return;
+    await current.board.planning.flushDraft();
     current.board.dispose();
+    await current.board.planning.forgetSite();
     await this.loadDiagnostics.clear();
     await new GraphqlOrigin(this.#platform, current.site).forget().catch(() => {});
     await this.#platform.permissions.remove(current.site.permissionPattern);
@@ -207,8 +210,30 @@ export class AppModel {
   }
 
   showBoard(): void {
+    if (this.#planningPublishing()) return;
     this.#leaveDiagnostic();
     this.view.value = "board";
+  }
+
+  /** Ouvre le planning sans charger son backlog pour les autres vues. */
+  showPlanning(): void {
+    const current = this.connection.value;
+    if (
+      current.state !== "connected" ||
+      current.board.configuration.value?.boardType !== "scrum" ||
+      !current.board.canSwitchBoard.value
+    )
+      return;
+    this.#leaveDiagnostic();
+    this.presenting.value = false;
+    this.daily.value = null;
+    this.view.value = "planning";
+    void current.board.planning.load();
+  }
+
+  #planningPublishing(): boolean {
+    const current = this.connection.value;
+    return current.state === "connected" && current.board.planning.publishing.value;
   }
 
   /** Quitter le diagnostic replie le menu « Site Jira » qui le contient. */
@@ -225,6 +250,7 @@ export class AppModel {
 
   /** Mode présentation, sur la vue du sprint. La barre latérale retrouve ensuite son état. */
   enterPresentation(): void {
+    if (this.#planningPublishing()) return;
     this.#leaveDiagnostic();
     this.view.value = "board";
     this.presenting.value = true;
@@ -236,6 +262,7 @@ export class AppModel {
 
   /** Lance la daily sur la vue du sprint ; elle remplace le mode présentation. */
   startDaily(durationMinutes: number, firstStepId: string | null, now = Date.now()): void {
+    if (this.#planningPublishing()) return;
     this.#leaveDiagnostic();
     this.view.value = "board";
     this.presenting.value = false;
@@ -257,6 +284,7 @@ export class AppModel {
    * dans la page ; la barre latérale reste.
    */
   showSettings(section: SettingsSection = this.settingsSection.value): void {
+    if (this.#planningPublishing()) return;
     this.#leaveDiagnostic();
     this.presenting.value = false;
     this.daily.value = null;
@@ -276,6 +304,7 @@ export class AppModel {
 
   /** Ouvre le diagnostic ; ses lectures sont lancées à la première ouverture. */
   showDiagnostic(): void {
+    if (this.#planningPublishing()) return;
     this.presenting.value = false;
     this.daily.value = null;
     this.siteMenuOpen.value = true;

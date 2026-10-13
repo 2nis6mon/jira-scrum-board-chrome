@@ -10,6 +10,8 @@ import {
 // Un exemple de chaque écriture exprimable. Le type `Record<JiraWrite["kind"], …>` force
 // cette liste à rester exhaustive : ajouter une écriture sans l'inscrire ici ne compile pas.
 const EVERY_WRITE: Record<JiraWrite["kind"], JiraWrite> = {
+  "sprint.goal": { kind: "sprint.goal", sprintId: 42, goal: "Livrer le parcours" },
+  "sprint.issues.add": { kind: "sprint.issues.add", sprintId: 42, issueKeys: ["ABC-1"] },
   "sprintProperty.put": {
     kind: "sprintProperty.put",
     sprintId: 42,
@@ -33,6 +35,8 @@ const EVERY_WRITE: Record<JiraWrite["kind"], JiraWrite> = {
 
 /** Chemins qu'une écriture a le droit de viser. Rien d'autre. */
 const ALLOWED_PATHS = [
+  /^\/rest\/agile\/1\.0\/sprint\/\d+$/,
+  /^\/rest\/agile\/1\.0\/sprint\/\d+\/issue$/,
   /^\/rest\/agile\/1\.0\/sprint\/\d+\/properties\/com\.scrumboardmac\.[a-z0-9.]+$/,
   /^\/rest\/agile\/1\.0\/board\/\d+\/properties\/com\.scrumboardmac\.[a-z0-9.]+$/,
   /^\/rest\/api\/3\/issue\/[A-Z][A-Z0-9_]*-\d+\/transitions$/,
@@ -45,11 +49,36 @@ describe("inventaire des écritures", () => {
     expect(ALLOWED_PATHS.some((pattern) => pattern.test(request.path))).toBe(true);
   });
 
-  it("aucune écriture ne peut cibler le sprint lui-même, donc son champ « Sprint Goal »", () => {
+  it("le sprint lui-même n'accepte que le texte goal, sans état, dates, nom ou création", () => {
     for (const write of Object.values(EVERY_WRITE)) {
-      const { path } = buildWriteRequest(write);
-      expect(path).not.toMatch(/^\/rest\/agile\/1\.0\/sprint\/\d+\/?$/);
+      const { path, method, body } = buildWriteRequest(write);
+      if (/^\/rest\/agile\/1\.0\/sprint\/\d+\/?$/.test(path)) {
+        expect(write.kind).toBe("sprint.goal");
+        expect(method).toBe("POST");
+        expect(JSON.parse(body ?? "")).toEqual({ goal: "Livrer le parcours" });
+      }
       expect(path).not.toMatch(/^\/rest\/agile\/1\.0\/sprint\/?$/);
+    }
+  });
+
+  it("ajoute 1 à 50 clés distinctes au sprint, sans rang ni autre champ", () => {
+    const request = buildWriteRequest({
+      kind: "sprint.issues.add",
+      sprintId: 42,
+      issueKeys: ["ABC-1", "ABC-2"],
+    });
+    expect(request.method).toBe("POST");
+    expect(request.path).toBe("/rest/agile/1.0/sprint/42/issue");
+    expect(JSON.parse(request.body ?? "")).toEqual({ issues: ["ABC-1", "ABC-2"] });
+    for (const issueKeys of [
+      [],
+      ["ABC-1", "ABC-1"],
+      ["ABC-1/../x"],
+      Array.from({ length: 51 }, (_, index) => `ABC-${index + 1}`),
+    ]) {
+      expect(() =>
+        buildWriteRequest({ kind: "sprint.issues.add", sprintId: 42, issueKeys }),
+      ).toThrowError(JiraError);
     }
   });
 
