@@ -317,6 +317,7 @@ saisies sont hors du transport et du journal de l'extension, qui ne les remplit 
 Node >= 22.12 ; dépendances exactes dans `package-lock.json`, scripts d'installation désactivés par
 `.npmrc`. `npm ci`, puis `npm run check` (typage, lint, tests, build). Un seul paquet intégré `dist/` ;
 `npm run watch` le reconstruit. `.run/` partagé, `.idea/` et préférences personnelles ignorées.
+`.gitattributes` impose les fins de ligne LF pour conserver le même format dans chaque clone.
 
 | Commande | Contrôle / résultat |
 |---|---|
