@@ -104,6 +104,8 @@ export function launchIsolatedBrowser(size = "1280,800") {
       pending.set(id, (message) => {
         clearTimeout(timer);
         if (message.error) reject(new Error(`${method} : ${message.error.message}`));
+        else if (method === "Page.navigate" && message.result?.errorText)
+          reject(new Error(`${method} : ${message.result.errorText}`));
         else resolve(message.result);
       });
       browser.stdio[3].write(
@@ -155,13 +157,32 @@ export function launchIsolatedBrowser(size = "1280,800") {
   }
   // Attend qu'une expression devienne vraie dans la page ; une page en cours de chargement
   // (expression en erreur) compte comme « pas encore ».
+  const observedSessions = new Set();
   async function waitFor(sessionId, expression, message, timeout = 20000) {
+    if (!observedSessions.has(sessionId)) {
+      await send("Runtime.enable", {}, sessionId);
+      await send("Log.enable", {}, sessionId);
+      observedSessions.add(sessionId);
+    }
     const deadline = Date.now() + timeout;
     while (Date.now() < deadline) {
       if (await evaluate(sessionId, expression).catch(() => false)) return;
       await sleep(100);
     }
-    throw new Error(message);
+    // Ce navigateur ne contient que le Jira fictif ; joindre un état borné de la page
+    // évite de confondre un échec de compilation/navigation avec un simple rendu lent.
+    const page = await evaluate(
+      sessionId,
+      "({url: location.href, state: document.readyState, body: document.body?.innerText.slice(0, 2000)})",
+    ).catch((error) => ({ error: error.message }));
+    const errors = events
+      .filter(
+        (event) =>
+          event.sessionId === sessionId &&
+          (event.method === "Runtime.exceptionThrown" || event.method === "Log.entryAdded"),
+      )
+      .slice(-10);
+    throw new Error(`${message}\n${JSON.stringify({ page, errors }).slice(0, 8000)}`);
   }
   async function close() {
     await send("Browser.close", {}, undefined, 2000).catch(() => {});
