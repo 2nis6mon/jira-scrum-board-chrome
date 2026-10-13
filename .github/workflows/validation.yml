@@ -26,17 +26,27 @@ jobs:
       - name: Préparer Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
       - name: Installer les dépendances verrouillées
         run: npm ci
-      - name: Vérifier les types, le style, les tests et la compilation
-        run: npm run check
+      - name: Préparer Chrome for Testing
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP "chrome-testing.zip"
+          $browserDirectory = Join-Path $env:RUNNER_TEMP "chrome-testing"
+          Invoke-WebRequest "https://storage.googleapis.com/chrome-for-testing-public/155.0.8059.39/win64/chrome-win64.zip" -OutFile $archive
+          Expand-Archive -LiteralPath $archive -DestinationPath $browserDirectory
+          $browserExecutable = Join-Path $browserDirectory "chrome-win64/chrome.exe"
+          if (-not (Test-Path -LiteralPath $browserExecutable)) { throw "Chrome for Testing absent" }
+          "CHROME_PATH=$browserExecutable" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Vérifier les fenêtres natives Jira dans Chrome isolé
         run: npm run verify:jira
       - name: Vérifier les déplacements
         run: npm run verify:drag
       - name: Vérifier le diagnostic de chargement du banc
         run: npm run verify:loading
+      - name: Vérifier les types, le style, les tests et la compilation
+        run: npm run check
       - name: Vérifier le paquet de distribution
         run: npm run package

@@ -47,7 +47,7 @@ export function launchIsolatedBrowser(size = "1280,800") {
       `--window-size=${size}`,
       "about:blank",
     ],
-    { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"], windowsHide: true },
+    { stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"], windowsHide: true },
   );
   const pending = new Map();
   const events = [];
@@ -55,6 +55,16 @@ export function launchIsolatedBrowser(size = "1280,800") {
   let buffer = "";
   let stopped = false;
   let startupError;
+  // Les erreurs de démarrage restent utiles en CI ; ne garder que la fin, et seulement
+  // l'afficher en cas d'échec du navigateur de test (profil vierge, aucune session réelle).
+  let browserErrors = "";
+  browser.stderr.on("data", (chunk) => {
+    browserErrors = `${browserErrors}${chunk.toString("utf8")}`.slice(-4096);
+  });
+  const browserError = (message) =>
+    new Error(
+      `${message}\nNavigateur : ${executable} ; Node : ${process.version}${browserErrors.trim() ? `\nChrome : ${browserErrors.trim()}` : ""}`,
+    );
   const rejectPending = (error) => {
     for (const callback of pending.values()) callback({ error: { message: error.message } });
     pending.clear();
@@ -66,9 +76,11 @@ export function launchIsolatedBrowser(size = "1280,800") {
   });
   browser.stdio[3].on("error", rejectPending);
   browser.stdio[4].on("error", rejectPending);
-  browser.on("exit", () => {
+  browser.on("exit", (code, signal) => {
     stopped = true;
-    rejectPending(new Error("Le navigateur de vérification s'est arrêté."));
+    rejectPending(
+      browserError(`Le navigateur de vérification s'est arrêté (code ${code}, signal ${signal}).`),
+    );
   });
   browser.stdio[4].on("data", (chunk) => {
     buffer += chunk.toString("utf8");
@@ -87,7 +99,7 @@ export function launchIsolatedBrowser(size = "1280,800") {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         pending.delete(id);
-        reject(new Error(`délai dépassé : ${method}`));
+        reject(browserError(`délai dépassé : ${method}`));
       }, timeout);
       pending.set(id, (message) => {
         clearTimeout(timer);
