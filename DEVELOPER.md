@@ -339,8 +339,9 @@ Les anciens alias `*:jira-direct-test` et `JIRA_DIRECT_DIST` restent retirés.
 
 [Le workflow GitHub](.github/workflows/validation.yml) exécute les contrôles à chaque push sur
 `main` ou `codex/**` et sur les demandes de fusion vers `main` : typage, style, tests, compilation,
-intégration Jira, glisser-déposer, diagnostic du banc et paquet. Il utilise Node 22, un profil Chrome
-temporaire et uniquement Jira fictif ; aucune session ou donnée Jira réelle n'est nécessaire.
+intégration Jira, glisser-déposer, diagnostic du banc et paquet. Il utilise une machine Windows,
+Node 22, un profil Chrome temporaire et uniquement Jira fictif ; aucune session ou donnée Jira réelle
+n'est nécessaire.
 
 Garde-fous : [`sources.test.ts`](tests/guards/sources.test.ts) (réseau/couches/mutations/fixtures),
 [`manifest.test.ts`](tests/manifest.test.ts) (permissions/CSP),
