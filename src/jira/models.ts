@@ -252,23 +252,6 @@ export function estimate(fields: JiraIssueFields, fieldId: string | null): numbe
   return null;
 }
 
-/**
- * Tickets rattachés à celui-ci, par lien Jira ou comme sous-tâche, sans doublon.
- * Le sens du lien importe peu : un bug « lié à », « causé par » ou « bloque » reste un bug
- * rattaché au ticket.
- */
-export function relatedIssues(fields: JiraIssueFields): JiraLinkedIssueRef[] {
-  const linked = fields.issuelinks
-    .map((link) => link.inwardIssue ?? link.outwardIssue)
-    .filter((ref): ref is JiraLinkedIssueRef => ref !== null);
-  const seen = new Set<string>();
-  return [...linked, ...fields.subtasks].filter((ref) => {
-    if (seen.has(ref.key)) return false;
-    seen.add(ref.key);
-    return true;
-  });
-}
-
 export function isBlockedByLink(fields: JiraIssueFields): boolean {
   return fields.issuelinks.some(indicatesBlocked);
 }

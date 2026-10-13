@@ -3,6 +3,12 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.31.1 — Retrait du signalement des bugs liés
+
+- Suppression du bouton Bug dans les réglages des types et du badge de bugs liés sur les cartes.
+- Retrait de la détection, du comptage et du réglage associé ; les anciens réglages restent lisibles.
+- Les types Jira, leurs swimlanes, les blocages et les compteurs de sous-tâches sont conservés.
+
 ## 0.31.0 — Réglages du board repensés
 
 - Réglages ouverts depuis le board (en-tête, barre latérale, menu du board, menu d'une swimlane),

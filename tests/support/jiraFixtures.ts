@@ -91,7 +91,6 @@ export const STORY_TYPE: IssueTypeConfiguration = {
   name: "Story",
   iconUrl: null,
   category: "GOAL",
-  countsAsBug: null,
 };
 
 export const SWIMLANE_TYPE: IssueTypeConfiguration = {
@@ -99,7 +98,6 @@ export const SWIMLANE_TYPE: IssueTypeConfiguration = {
   name: "Anomalie Prod",
   iconUrl: null,
   category: "SWIMLANE",
-  countsAsBug: null,
 };
 
 export function makeConfiguration(parts: Partial<BoardConfiguration> = {}): BoardConfiguration {

@@ -28,7 +28,6 @@ export function withObservedIssueTypes(
           name: type.name,
           iconUrl: type.iconUrl,
           category: defaultCategory(type.name),
-          countsAsBug: null,
         };
     types.set(type.id, next);
     changed = true;

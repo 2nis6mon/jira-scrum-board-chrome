@@ -336,7 +336,7 @@ describe("loadSnapshot", () => {
     const configuration = makeConfiguration({
       issueTypes: [
         ...makeConfiguration().issueTypes,
-        { id: "10099", name: "Epic", iconUrl: null, category: "IGNORED", countsAsBug: null },
+        { id: "10099", name: "Epic", iconUrl: null, category: "IGNORED" },
       ],
     });
     const jira = boardJira({

@@ -1126,16 +1126,6 @@ button.lane-title[aria-pressed="true"] {
   color: #b91c1c;
 }
 
-.badge-bugs-open {
-  background: #fdecec;
-  color: #b91c1c;
-}
-
-.badge-bugs-done {
-  background: #e3f5e9;
-  color: #166534;
-}
-
 .badge-added {
   padding: 0 4px;
   background: #efe8fd;

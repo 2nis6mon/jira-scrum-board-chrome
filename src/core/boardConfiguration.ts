@@ -53,15 +53,6 @@ export interface IssueTypeConfiguration {
   readonly name: string;
   readonly iconUrl: string | null;
   readonly category: IssueCategory;
-  /**
-   * Ce type compte-t-il comme « bug » pour le signalement des bugs liés ?
-   * `null` = non réglé : on se fie au nom du type (voir `looksLikeBug`).
-   */
-  readonly countsAsBug: boolean | null;
-}
-
-export function isBugTypeConfiguration(type: IssueTypeConfiguration): boolean {
-  return type.countsAsBug ?? looksLikeBug(type.name);
 }
 
 /** D'où viennent les objectifs affichés sur le board. */
@@ -245,20 +236,6 @@ export function normalizeSwimlanes(
   return result.filter((swimlane) => swimlane.typeIds.length > 0);
 }
 
-/**
- * Un ticket lié de ce type compte-t-il comme bug ? Un type inconnu de ce board (ticket d'un
- * autre projet) est jugé sur son nom.
- */
-export function isBugType(
-  config: BoardConfiguration,
-  typeId: string | null,
-  typeName: string | null,
-): boolean {
-  const known = typeId === null ? undefined : config.issueTypes.find((type) => type.id === typeId);
-  if (known) return isBugTypeConfiguration(known);
-  return typeName === null ? false : looksLikeBug(typeName);
-}
-
 export function isGoalHidden(config: BoardConfiguration, goalId: string): boolean {
   return config.hiddenGoalIds.includes(goalId);
 }
@@ -306,13 +283,6 @@ const SWIMLANE_TYPE_PATTERNS = [
   "production",
   "recette",
 ];
-const BUG_TYPE_PATTERNS = ["bug", "bogue", "anomalie", "defect"];
-
-export function looksLikeBug(typeName: string): boolean {
-  const folded = foldText(typeName);
-  return BUG_TYPE_PATTERNS.some((pattern) => folded.includes(pattern));
-}
-
 export function defaultCategory(typeName: string): IssueCategory {
   const folded = foldText(typeName);
   return SWIMLANE_TYPE_PATTERNS.some((pattern) => folded.includes(pattern)) ? "SWIMLANE" : "GOAL";
@@ -356,7 +326,6 @@ export function buildConfiguration(input: {
         name: type.name,
         iconUrl: type.iconUrl,
         category: defaultCategory(type.name),
-        countsAsBug: null,
       }),
     )
     .sort((a, b) => a.name.localeCompare(b.name, "fr", { numeric: true, sensitivity: "base" }));
@@ -408,9 +377,7 @@ export function mergeConfiguration(
   const previousTypes = new Map(existing.issueTypes.map((type) => [type.id, type]));
   const issueTypes = fresh.issueTypes.map((type) => {
     const previous = previousTypes.get(type.id);
-    return previous
-      ? { ...type, category: previous.category, countsAsBug: previous.countsAsBug }
-      : type;
+    return previous ? { ...type, category: previous.category } : type;
   });
 
   return {
@@ -624,7 +591,6 @@ function decodeIssueTypeConfiguration(item: unknown): IssueTypeConfiguration | n
     name: item.name,
     iconUrl: textOrNull(item.iconUrl),
     category,
-    countsAsBug: typeof item.countsAsBug === "boolean" ? item.countsAsBug : null,
   };
 }
 

@@ -8,7 +8,6 @@ import {
   type JiraSprint,
   type JiraUser,
   lastStatusChange,
-  relatedIssues,
   sprintActivated,
   sprintScope,
 } from "../jira/models";
@@ -18,23 +17,9 @@ import {
   categoryForIssueType,
   type GoalSource,
   type IssueCategory,
-  isBugType,
   swimlaneOfType,
 } from "./boardConfiguration";
 import type { SprintGoal } from "./sprintGoals";
-
-/** Bug rattaché à un ticket (lien Jira ou sous-tâche). */
-export interface LinkedBug {
-  readonly key: string;
-  readonly summary: string | null;
-  readonly statusName: string | null;
-  /** `null` si Jira n'a pas fourni le statut : le bug est alors compté comme ouvert. */
-  readonly isDone: boolean | null;
-}
-
-export function isOpenBug(bug: LinkedBug): boolean {
-  return bug.isDone !== true;
-}
 
 /**
  * Ticket qui en bloque un autre (lien Jira « est bloqué par »), tel que Jira le décrit dans le
@@ -119,18 +104,12 @@ export interface BoardIssue {
    * pas déterminable — on n'affiche alors rien.
    */
   readonly addedAfterSprintStart: boolean | null;
-  /** Bugs rattachés à ce ticket, ouverts ou non. */
-  readonly linkedBugs: readonly LinkedBug[];
   /** Sous-tâches du ticket, dans l'ordre de Jira. Vide pour une sous-tâche. */
   readonly subtasks: readonly Subtask[];
 }
 
 export function isIssueDone(issue: BoardIssue): boolean {
   return isDoneStatus(issue.issue.fields.status);
-}
-
-export function openBugCount(issue: BoardIssue): number {
-  return issue.linkedBugs.filter(isOpenBug).length;
 }
 
 export function blockingKeys(issue: BoardIssue): string[] {
@@ -426,16 +405,6 @@ export function assembleBoardIssues(input: {
       daysInColumn,
       addedToSprintAt,
       addedAfterSprintStart,
-      linkedBugs: relatedIssues(fields)
-        .filter((ref) =>
-          isBugType(configuration, ref.issuetype?.id ?? null, ref.issuetype?.name ?? null),
-        )
-        .map((ref) => ({
-          key: ref.key,
-          summary: ref.summary,
-          statusName: ref.status?.name ?? null,
-          isDone: ref.status ? isDoneStatus(ref.status) : null,
-        })),
       subtasks: subtasksOf(issue, subtaskIssues),
     };
   });

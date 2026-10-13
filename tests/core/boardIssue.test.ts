@@ -9,19 +9,16 @@ import {
   browseUrl,
   goalProgress,
   locateBlocker,
-  openBugCount,
   snapshotGoalProgress,
   sprintMetrics,
 } from "../../src/core/boardIssue";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
-import { decodeIssue, type JiraIssue, type JiraSprint } from "../../src/jira/models";
+import type { JiraIssue, JiraSprint } from "../../src/jira/models";
 import {
   type IssueOptions,
   makeConfiguration,
   makeIssue,
   makeSprint,
-  STORY_TYPE,
-  SWIMLANE_TYPE,
   statusJson,
 } from "../support/jiraFixtures";
 
@@ -352,88 +349,6 @@ describe("bloquants", () => {
     expect(
       blocker && locateBlocker(snapshot(issues), blocker, makeConfiguration().columns),
     ).toEqual({ kind: "elsewhere", projectKey: "OPS", typeName: null });
-  });
-});
-
-// LinkedBugTests (BoardEvolutionTests.swift)
-describe("bugs liés", () => {
-  const types = [
-    STORY_TYPE,
-    { ...SWIMLANE_TYPE, id: "10004", name: "Bug" },
-    { ...STORY_TYPE, id: "10009", name: "Tâche technique" },
-  ];
-  const ref = (key: string, type: string, typeId: string, category: string) => ({
-    key,
-    fields: {
-      summary: `R ${key}`,
-      status: statusJson("3", `S-${category}`, category),
-      issuetype: { id: typeId, name: type, subtask: false },
-    },
-  });
-  function story(links: unknown[], subtasks: unknown[] = []): JiraIssue {
-    return decodeIssue({
-      id: "1",
-      key: "ABC-1",
-      fields: {
-        summary: "Story",
-        status: statusJson("3", "En cours"),
-        issuetype: { id: "10001", name: "Story", subtask: false },
-        issuelinks: links.map((target, index) => ({
-          type: { name: "Relates", inward: "relates to", outward: "relates to" },
-          [index % 2 === 0 ? "outwardIssue" : "inwardIssue"]: target,
-        })),
-        subtasks,
-      },
-    });
-  }
-  const bugsOf = (issue: JiraIssue, issueTypes = types) =>
-    assemble([issue], { config: makeConfiguration({ issueTypes }) })[0] as BoardIssue;
-
-  it("trouvés dans les deux sens du lien et parmi les sous-tâches", () => {
-    const issue = bugsOf(
-      story(
-        [
-          ref("ABC-2", "Bug", "10004", "indeterminate"),
-          ref("ABC-3", "Bug", "10004", "done"),
-          ref("ABC-4", "Story", "10001", "new"),
-        ],
-        [ref("ABC-5", "Bug", "10004", "new")],
-      ),
-    );
-    expect(issue.linkedBugs.map((bug) => bug.key)).toEqual(["ABC-2", "ABC-3", "ABC-5"]);
-    expect(openBugCount(issue)).toBe(2);
-  });
-
-  it("le réglage du board l'emporte sur le nom du type", () => {
-    const custom = [
-      types[0] as (typeof types)[number],
-      { ...(types[1] as (typeof types)[number]), countsAsBug: false },
-      { ...(types[2] as (typeof types)[number]), countsAsBug: true },
-    ];
-    const issue = bugsOf(
-      story([ref("ABC-2", "Bug", "10004", "new"), ref("ABC-6", "Tâche technique", "10009", "new")]),
-      custom,
-    );
-    expect(issue.linkedBugs.map((bug) => bug.key)).toEqual(["ABC-6"]);
-  });
-
-  it("un type inconnu, venu d'un autre projet, est jugé sur son nom", () => {
-    const issue = bugsOf(
-      story([ref("OTHER-9", "Anomalie", "99999", "new"), ref("OTHER-8", "Epic", "99998", "new")]),
-    );
-    expect(issue.linkedBugs.map((bug) => bug.key)).toEqual(["OTHER-9"]);
-  });
-
-  it("sans lien, pas de pastille", () => {
-    expect(bugsOf(story([])).linkedBugs).toEqual([]);
-  });
-
-  it("un bug sans statut fourni est compté comme ouvert", () => {
-    const issue = bugsOf(
-      story([{ key: "ABC-7", fields: { issuetype: { id: "10004", name: "Bug" } } }]),
-    );
-    expect(issue.linkedBugs[0]?.isDone).toBeNull();
-    expect(openBugCount(issue)).toBe(1);
   });
 });
 

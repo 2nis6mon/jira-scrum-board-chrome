@@ -58,7 +58,6 @@ export interface TeamIssueType {
   readonly id: string;
   readonly name: string;
   readonly category: TeamCategory;
-  readonly countsAsBug: boolean | null;
 }
 
 /**
@@ -142,11 +141,10 @@ export interface TeamDocument {
 export function teamSettingsOf(configuration: BoardConfiguration): TeamSettings {
   const swimlanes = configuration.ticketSwimlanes;
   return {
-    issueTypes: configuration.issueTypes.map(({ id, name, category, countsAsBug }) => ({
+    issueTypes: configuration.issueTypes.map(({ id, name, category }) => ({
       id,
       name,
       category: WRITTEN_CATEGORY[category],
-      countsAsBug,
     })),
     ticketSwimlanes: swimlanes.map(({ id, name, typeIds, hidden }) => ({
       id,
@@ -192,7 +190,6 @@ export function withTeamSettings(
       // Le nom et l'icône lus dans Jira restent prioritaires lorsqu'ils sont disponibles.
       ...typesById.get(shared.id),
       category: readCategory(shared.category),
-      countsAsBug: shared.countsAsBug,
     });
   }
   const issueTypes = [...typesById.values()];

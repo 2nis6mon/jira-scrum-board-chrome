@@ -1,7 +1,6 @@
 import {
   type BoardIssue,
   browseUrl,
-  isOpenBug,
   isSubtaskDone,
   type Subtask,
   type SubtaskProgress,
@@ -48,7 +47,6 @@ interface Props {
 export function IssueCard(props: Props) {
   const { issue } = props;
   const fields = issue.issue.fields;
-  const openBugs = issue.linkedBugs.filter(isOpenBug);
   const subtasks = subtaskProgress(issue, props.lastColumnId);
   const openInLastColumn = subtasks?.openInLastColumn ?? [];
   const aging =
@@ -165,28 +163,6 @@ export function IssueCard(props: Props) {
               title={blockedTitle(issue)}
             >
               <Icon name="blocked" size={13} />
-            </span>
-          )}
-          {issue.linkedBugs.length > 0 && (
-            <span
-              class={`badge ${openBugs.length > 0 ? "badge-bugs-open" : "badge-bugs-done"}`}
-              role="img"
-              aria-label={
-                openBugs.length > 0
-                  ? plural(openBugs.length, "bug ouvert", "bugs ouverts")
-                  : "Bugs liés terminés"
-              }
-              title={[
-                openBugs.length > 0
-                  ? plural(openBugs.length, "bug ouvert", "bugs ouverts")
-                  : "Bugs liés terminés",
-                ...issue.linkedBugs.map(
-                  (bug) => `${bug.key}${bug.statusName ? ` — ${bug.statusName}` : ""}`,
-                ),
-              ].join("\n")}
-            >
-              <Icon name="bug" size={13} />
-              {openBugs.length > 0 ? openBugs.length : issue.linkedBugs.length}
             </span>
           )}
           {issue.addedAfterSprintStart === true && (

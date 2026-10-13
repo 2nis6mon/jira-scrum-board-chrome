@@ -31,12 +31,6 @@ const PATHS = {
     </>
   ),
   points: <path d="M4 20V11M9.3 20V6M14.7 20V13M20 20V4" />,
-  bug: (
-    <>
-      <rect x="7.5" y="8" width="9" height="12.5" rx="4.5" />
-      <path d="M9.5 8.2a2.5 2.5 0 0 1 5 0M12 11.5v9M3.5 13h4M16.5 13h4M4.5 8.5l3 2M19.5 8.5l-3 2M4.5 19l3-2M19.5 19l-3-2" />
-    </>
-  ),
   clock: (
     <>
       <circle cx="12" cy="12" r="9" />

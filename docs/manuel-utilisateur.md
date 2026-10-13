@@ -109,8 +109,6 @@ n'apparaissent pas. L'en-tête indique qui les a enregistrés en dernier, et qua
   ou utilisez son menu. **Nouvelle swimlane** crée un groupe : donnez-lui un nom puis glissez ou
   choisissez son premier type ; déposer un type sur la zone **Nouvelle swimlane** le crée aussi.
   Retirer son dernier type supprime le groupe.
-- **Bouton Bug** d'un type : un ticket lié de ce type est signalé comme bug sur la carte du ticket
-  porteur, quelle que soit la swimlane où le type est classé.
 - **Affichage et daily** : seuil « vieillissant », durée de la Daily et nombre de cartes visibles
   dans la première colonne, réglables au clavier ou par − et +. Le rafraîchissement automatique
   reste personnel.

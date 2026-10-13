@@ -6,7 +6,6 @@ import {
   computedSwimlaneName,
   DEFAULT_BUILD_LABEL,
   type IssueTypeConfiguration,
-  isBugTypeConfiguration,
   MAX_DAILY_MINUTES,
   MAX_DAILY_STOCK,
   swimlaneName,
@@ -24,7 +23,6 @@ import {
   type SettingResult,
   type TypeDestination,
   withAgingThreshold,
-  withBugType,
   withBuildLabel,
   withDailyMinutes,
   withDailyStockLimit,
@@ -56,8 +54,8 @@ type Apply = (
  * rangent sur le board lui-même), les types de tickets, puis l'affichage et la daily.
  *
  * Tout s'enregistre aussitôt : un glissé dès qu'il est déposé, une case dès qu'elle change, un
- * champ texte quand on le valide (Entrée, ou sortie du champ). Ranger un type ou changer « bug »
- * change la lecture des tickets : le board est alors relu dans Jira (lecture seule).
+ * champ texte quand on le valide (Entrée, ou sortie du champ). Ranger un type change la lecture
+ * des tickets : le board est alors relu dans Jira (lecture seule).
  *
  * Chaque glissé a son équivalent sans souris : poignées aux flèches haut et bas, menu « Déplacer »
  * de chaque type, liste du premier type d'une nouvelle swimlane.
@@ -163,7 +161,6 @@ export function BoardSettings({
       configuration={configuration}
       images={board.images}
       onMove={(destination) => moveType(type.id, destination)}
-      onBug={(countsAsBug) => set((current) => withBugType(current, type.id, countsAsBug), true)}
       {...typeDrag(type)}
     />
   );
@@ -446,13 +443,6 @@ export function BoardSettings({
               />
             </>
           )}
-          <p class="settings-legend">
-            <span class="settings-legend-bug" aria-hidden="true">
-              <Icon name="bug" size={13} />
-            </span>
-            Bug activé : un ticket lié de ce type est signalé comme bug sur la carte du ticket
-            porteur, quelle que soit sa swimlane.
-          </p>
         </section>
       </div>
 
@@ -558,10 +548,7 @@ function TypeGroup(props: {
   );
 }
 
-/**
- * Type de ticket : glissé d'un groupe à l'autre, ou déplacé par son menu ; son bouton « bug »
- * signale ses tickets liés comme bugs sur la carte du ticket porteur.
- */
+/** Type de ticket : glissé d'un groupe à l'autre, ou déplacé par son menu. */
 function TypeChip(props: {
   type: IssueTypeConfiguration;
   configuration: BoardConfiguration;
@@ -570,10 +557,8 @@ function TypeChip(props: {
   onDragStart: (event: DragEvent) => void;
   onDragEnd: () => void;
   onMove: (destination: TypeDestination) => void;
-  onBug: (countsAsBug: boolean) => void;
 }) {
   const { type, configuration } = props;
-  const bug = isBugTypeConfiguration(type);
   const destinations: { label: string; destination: TypeDestination }[] = [
     { label: "Par objectif", destination: { kind: "goal" } },
     ...configuration.ticketSwimlanes.map((swimlane) => ({
@@ -597,20 +582,6 @@ function TypeChip(props: {
         <JiraIcon url={type.iconUrl} label={type.name} images={props.images} />
       </span>
       <span class="settings-chip-name">{type.name}</span>
-      <button
-        type="button"
-        class="settings-chip-bug"
-        aria-pressed={bug}
-        aria-label={`${type.name} compte comme bug`}
-        title={
-          bug
-            ? "Compte comme bug : un ticket lié de ce type est signalé sur la carte du ticket porteur"
-            : "Ne compte pas comme bug"
-        }
-        onClick={() => props.onBug(!bug)}
-      >
-        <Icon name="bug" size={13} />
-      </button>
       <details class="menu settings-chip-menu" name="settings-chip-menu">
         <summary aria-label={`Déplacer ${type.name}`} title="Déplacer vers…">
           <Icon name="chevronDown" size={12} />

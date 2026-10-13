@@ -9,7 +9,7 @@ import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture
 import { FakeJira, isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 import { goalsGateway } from "../support/goalsGateway";
-import { issueJson } from "../support/jiraFixtures";
+import { issueJson, statusJson } from "../support/jiraFixtures";
 
 afterEach(() => {
   render(null, document.body);
@@ -190,6 +190,67 @@ describe("App", () => {
     expect(text()).toContain("Sprint 42");
     // Texte du sprint par défaut : les Goals Atlassian ne sont pas interrogés.
     expect(text()).not.toContain("Goals Atlassian illisibles");
+  });
+
+  it("les bugs liés n'ont plus d'indicateur ni de réglage ; les types Jira et les liens bloquants restent visibles", async () => {
+    const bugType = { id: "10005", name: "Bug", subtask: false };
+    const story = issueJson("ABC-106", {
+      summary: "Story avec des tickets liés",
+      extraFields: {
+        issuelinks: [
+          {
+            type: { name: "Relates", inward: "relates to", outward: "relates to" },
+            outwardIssue: {
+              key: "ABC-107",
+              fields: { issuetype: bugType, status: statusJson("3", "En cours") },
+            },
+          },
+          {
+            type: { name: "Relates", inward: "relates to", outward: "relates to" },
+            outwardIssue: {
+              key: "ABC-108",
+              fields: { issuetype: bugType, status: statusJson("6", "Terminé", "done") },
+            },
+          },
+          {
+            type: { name: "Blocks", inward: "is blocked by", outward: "blocks" },
+            inwardIssue: {
+              key: "OPS-9",
+              fields: {
+                issuetype: { id: "10004", name: "Anomalie Prod", subtask: false },
+                status: statusJson("3", "En cours"),
+              },
+            },
+          },
+        ],
+      },
+    });
+    const bug = issueJson("ABC-107", { typeId: bugType.id, typeName: bugType.name });
+    const { jira } = await connectedBoard(
+      boardSiteJira({ sprintIssues: [...SPRINT_ISSUES, story, bug] }),
+    );
+
+    const card = document.querySelector('[data-issue-key="ABC-106"]');
+    expect(card?.querySelector(".card-summary")?.textContent).toBe("Story avec des tickets liés");
+    expect(card?.querySelector(".badge-blocked")?.getAttribute("title")).toContain("OPS-9");
+    expect(
+      [...(card?.querySelectorAll(".card-alerts [role=img]") ?? [])].map((alert) =>
+        alert.getAttribute("aria-label"),
+      ),
+    ).toEqual(["Bloqué"]);
+    expect(document.querySelector(".badge-bugs-open, .badge-bugs-done")).toBeNull();
+    expect(
+      document.querySelector('[data-issue-key="ABC-107"] .jira-icon[aria-label="Bug"]'),
+    ).not.toBeNull();
+
+    await openSettings();
+    expect(document.querySelector('[data-type-id="10005"] .settings-chip-name')?.textContent).toBe(
+      "Bug",
+    );
+    expect(document.querySelector('[aria-label="Déplacer Bug"]')).not.toBeNull();
+    expect(document.querySelector('button[aria-label$="compte comme bug"]')).toBeNull();
+    expect(text()).not.toContain("Bug activé");
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
   it("« Retour à Jira » : flottant, seulement dans une page Jira hôte, pas pendant une écriture ni en présentation", async () => {

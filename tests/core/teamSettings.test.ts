@@ -25,9 +25,6 @@ const base = makeConfiguration();
 /** Configuration réglée par une personne de l'équipe. */
 const tuned = {
   ...base,
-  issueTypes: base.issueTypes.map((type) =>
-    type.id === "10001" ? { ...type, countsAsBug: true } : type,
-  ),
   buildSectionLabel: "Sprint Backlog",
   agingThresholdDays: 5,
   goalColorIndex: { g1: 4 },
@@ -42,8 +39,8 @@ const tuned = {
 const sharedTypesConfiguration = makeConfiguration({
   issueTypes: [
     STORY_TYPE,
-    { ...SWIMLANE_TYPE, countsAsBug: true },
-    { ...SWIMLANE_TYPE, id: "10006", name: "Demande de service", countsAsBug: false },
+    SWIMLANE_TYPE,
+    { ...SWIMLANE_TYPE, id: "10006", name: "Demande de service" },
     { ...STORY_TYPE, id: "10007", name: "Sous-tâche", category: "IGNORED" },
   ],
   ticketSwimlanes: [{ id: "run", name: "RUN", typeIds: ["10004", "10006"], hidden: true }],
@@ -100,7 +97,6 @@ describe("réglages d'équipe ↔ configuration", () => {
       name: "Incident de production",
       iconUrl: "https://acme.atlassian.net/issuetype/10004.png",
       category: "GOAL" as const,
-      countsAsBug: false,
     };
     const newType = { ...STORY_TYPE, id: "10008", name: "Nouveau type" };
     const local = makeConfiguration({ issueTypes: [known, newType] });
@@ -109,7 +105,6 @@ describe("réglages d'équipe ↔ configuration", () => {
     expect(applied.issueTypes.find((type) => type.id === known.id)).toEqual({
       ...known,
       category: "SWIMLANE",
-      countsAsBug: true,
     });
     expect(applied.issueTypes.find((type) => type.id === newType.id)).toEqual(newType);
     expect(applied.issueTypes.map((type) => type.id)).toEqual([

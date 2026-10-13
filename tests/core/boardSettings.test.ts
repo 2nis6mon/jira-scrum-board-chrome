@@ -8,7 +8,6 @@ import {
   sameCardFields,
   searchFields,
   withAgingThreshold,
-  withBugType,
   withBuildLabel,
   withCardField,
   withDefaultBlockOrder,
@@ -28,13 +27,12 @@ describe("onglet Board : chaque réglage s'applique seul", () => {
     return result.configuration;
   };
 
-  it("types : classement et bug", () => {
+  it("classement des types", () => {
     const [type] = config.issueTypes;
     if (!type) throw new Error("type attendu");
     expect(withTypeDestination(config, type.id, { kind: "ignored" }).issueTypes[0]?.category).toBe(
       "IGNORED",
     );
-    expect(withBugType(config, type.id, true).issueTypes[0]?.countsAsBug).toBe(true);
   });
 
   it("nom de Build (vide : le nom par défaut), seuil vieillissant", () => {

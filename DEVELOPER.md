@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.31.0**, 13 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.31.1**, 13 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -44,7 +44,7 @@ et le board actif par origine, `auditLog` les écritures. `DiagnosticModel` test
 L'ouverture relit structure, statuts et champs, sans parcourir l'historique pour recenser les types.
 Les types connus du même site/board et ceux des réglages partagés restent présents même sans ticket.
 [`issueTypeDiscovery`](src/core/issueTypeDiscovery.ts) les complète depuis les tickets utiles,
-avant les Goals et l'assemblage : catégories, comptage des bugs et groupes choisis sont conservés ;
+avant les Goals et l'assemblage : catégories et groupes choisis sont conservés ;
 seuls les types nouveaux sans choix partagé reçoivent un défaut. Les métadonnées sont mémorisées
 localement dès lecture des tickets, même si les Goals échouent ensuite, sans écriture Jira.
 La relecture explicite de structure conserve le recensement exhaustif et paginé.
@@ -248,6 +248,9 @@ anciennes installations. Valeurs absentes : défauts compatibles, pas de perte d
 Depuis 0.31.0, `scrumColumns`, `kanbanColumns` et `blockedLabels` ne sont plus lus : clés inconnues,
 ils sont réécrits tels quels pour les versions précédentes, qui exigent les colonnes ; un premier
 document reçoit celles de Jira. Localement, masquage et noms de colonnes enregistrés sont ignorés.
+Depuis 0.31.1, le marquage `countsAsBug` des types est ignoré dans les anciens documents et caches,
+et absent des nouvelles configurations sérialisées. Les catégories et swimlanes sont conservées ;
+aucune migration n'écrit automatiquement dans Jira. Le signalement des bugs liés a été retiré.
 
 | Clé `chrome.storage.local` | Contenu |
 |---|---|

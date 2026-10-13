@@ -159,19 +159,6 @@ function editSwimlane(
   };
 }
 
-export function withBugType(
-  configuration: BoardConfiguration,
-  typeId: string,
-  countsAsBug: boolean,
-): BoardConfiguration {
-  return {
-    ...configuration,
-    issueTypes: configuration.issueTypes.map((type) =>
-      type.id === typeId ? { ...type, countsAsBug } : type,
-    ),
-  };
-}
-
 /** Nom du bloc Build ; vide = le nom par défaut. */
 export function withBuildLabel(
   configuration: BoardConfiguration,

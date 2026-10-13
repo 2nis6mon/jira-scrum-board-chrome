@@ -25,10 +25,7 @@ describe("types observés dans les tickets affichés", () => {
 
   it("actualise les métadonnées sans perdre les choix des types présents ou absents", () => {
     const configuration = makeConfiguration({
-      issueTypes: [
-        { ...STORY_TYPE, category: "IGNORED", countsAsBug: false },
-        { ...SWIMLANE_TYPE, countsAsBug: true },
-      ],
+      issueTypes: [{ ...STORY_TYPE, category: "IGNORED" }, SWIMLANE_TYPE],
       ticketSwimlanes: [{ id: "9", name: "RUN", typeIds: [SWIMLANE_TYPE.id], hidden: true }],
     });
     const result = withObservedIssueTypes(configuration, [
@@ -42,12 +39,8 @@ describe("types observés dans les tickets affichés", () => {
       name: "Incident renommé",
       iconUrl: "https://example.test/type.svg",
       category: "IGNORED",
-      countsAsBug: false,
     });
-    expect(result.issueTypes.find((type) => type.id === SWIMLANE_TYPE.id)).toEqual({
-      ...SWIMLANE_TYPE,
-      countsAsBug: true,
-    });
+    expect(result.issueTypes.find((type) => type.id === SWIMLANE_TYPE.id)).toEqual(SWIMLANE_TYPE);
     expect(result.issueTypes.find((type) => type.id === "incident")?.category).toBe("SWIMLANE");
     expect(result.issueTypes.find((type) => type.id === "work")?.category).toBe("GOAL");
     expect(result.ticketSwimlanes).toEqual([

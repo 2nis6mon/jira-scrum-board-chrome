@@ -5,8 +5,6 @@ import {
   type DiscoveredBoard,
   decodeStoredConfiguration,
   defaultCategory,
-  isBugType,
-  looksLikeBug,
   mergeConfiguration,
   swimlaneName,
   visibleColumns,
@@ -18,7 +16,7 @@ import {
   type JiraIssueType,
   type JiraStatus,
 } from "../../src/jira/models";
-import { column, makeConfiguration, STORY_TYPE, statusJson } from "../support/jiraFixtures";
+import { column, makeConfiguration, statusJson } from "../support/jiraFixtures";
 
 const BOARD: DiscoveredBoard = {
   boardId: 7,
@@ -64,23 +62,9 @@ describe("classement par défaut des types", () => {
   it("range les types d'anomalie français hors objectifs", () => {
     expect(defaultCategory("Anomalie de Recette")).toBe("SWIMLANE");
     expect(defaultCategory("Anomalie Prod")).toBe("SWIMLANE");
+    expect(defaultCategory("Bug")).toBe("SWIMLANE");
     expect(defaultCategory("Story")).toBe("GOAL");
     expect(defaultCategory("User Story")).toBe("GOAL");
-  });
-
-  it("reconnaît un bug à son nom, sans tenir compte des accents", () => {
-    expect(looksLikeBug("Bogue")).toBe(true);
-    expect(looksLikeBug("Défect majeur")).toBe(true);
-    expect(looksLikeBug("Story")).toBe(false);
-  });
-
-  it("le réglage du board l'emporte ; un type inconnu est jugé sur son nom", () => {
-    const config = makeConfiguration({
-      issueTypes: [{ ...STORY_TYPE, id: "9", name: "Bug", countsAsBug: false }],
-    });
-    expect(isBugType(config, "9", "Bug")).toBe(false);
-    expect(isBugType(config, "autre", "Bug")).toBe(true);
-    expect(isBugType(config, null, null)).toBe(false);
   });
 });
 
@@ -129,7 +113,6 @@ describe("buildConfiguration", () => {
   });
 });
 
-// ConfigurationCompatibilityTests.testMergeKeepsColorRulesAndBugChoices + CollapsedBlocksTests
 describe("mergeConfiguration", () => {
   it("Kanban conserve les Goals épinglés mais reprend le sous-filtre Jira et impose les Goals Atlassian", () => {
     const fresh = { ...discovered(), boardType: "kanban", kanbanSubQuery: "resolution is EMPTY" };
@@ -150,7 +133,6 @@ describe("mergeConfiguration", () => {
       issueTypes: discovered().issueTypes.map((t) => ({
         ...t,
         category: "GOAL" as const,
-        countsAsBug: true,
       })),
       cardColorRules: [
         { id: "r1", name: "P2", jql: "priority = High", color: "red", enabled: true, kind: null },
@@ -185,9 +167,7 @@ describe("mergeConfiguration", () => {
     expect(merged.goalsFieldId).toBe("customfield_10100");
     expect(merged.flaggedFieldId).toBe("customfield_10021");
     expect(colorRules(merged).map((r) => r.name)).toEqual(["P2", "Ajouté en cours de sprint"]);
-    expect(merged.issueTypes.every((t) => t.category === "GOAL" && t.countsAsBug === true)).toBe(
-      true,
-    );
+    expect(merged.issueTypes.every((t) => t.category === "GOAL")).toBe(true);
     expect(merged.ticketSwimlanes).toEqual([]);
     expect(merged.collapsedBlockIds).toEqual(["build"]);
     expect(merged.hiddenGoalIds).toEqual(["g9"]);
@@ -228,6 +208,27 @@ describe("mergeConfiguration", () => {
     const existing = makeConfiguration({ boardId: 7, columns: [column("a", "A", [], 0)] });
     const fresh = { ...discovered(), columns: [{ ...column("a", "A", [], 0), hidden: true }] };
     expect(mergeConfiguration(fresh, existing).columns[0]?.hidden).toBe(true);
+  });
+});
+
+describe("anciens réglages d'identification des bugs", () => {
+  it("ignore le marquage des types et conserve leur classement et leurs swimlanes", () => {
+    const configuration = withSwimlaneName(discovered(), "1", "RUN");
+    const stored = decodeStoredConfiguration({
+      ...configuration,
+      issueTypes: configuration.issueTypes.map((type) => ({
+        ...type,
+        countsAsBug: type.category === "GOAL",
+      })),
+    });
+
+    expect(stored?.issueTypes).toEqual(configuration.issueTypes);
+    expect(stored?.ticketSwimlanes).toEqual(configuration.ticketSwimlanes);
+    expect(stored?.issueTypes.every((type) => !("countsAsBug" in type))).toBe(true);
+    const merged = mergeConfiguration(discovered(), stored);
+    expect(merged.issueTypes).toEqual(configuration.issueTypes);
+    expect(merged.ticketSwimlanes).toEqual(configuration.ticketSwimlanes);
+    expect(merged.issueTypes.every((type) => !("countsAsBug" in type))).toBe(true);
   });
 });
 

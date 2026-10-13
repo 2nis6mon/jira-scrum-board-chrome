@@ -748,29 +748,6 @@
   white-space: nowrap;
 }
 
-.settings-chip-bug {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  border: none;
-  border-radius: 6px;
-  background: none;
-  color: var(--ink-4);
-}
-
-.settings-chip-bug:hover:not(:disabled) {
-  background: var(--column);
-  color: var(--ink-2);
-}
-
-.settings-chip-bug[aria-pressed="true"],
-.settings-chip-bug[aria-pressed="true"]:hover:not(:disabled) {
-  background: #fdecec;
-  color: #c42323;
-}
-
 .settings-screen details.settings-color-menu > summary {
   width: auto;
   height: 32px;
@@ -847,27 +824,6 @@ details.settings-chip-menu .menu-panel {
   color: var(--ink-3);
   font-size: 12px;
   font-weight: 500;
-}
-
-.settings-legend {
-  margin: 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.settings-legend-bug {
-  width: 22px;
-  height: 22px;
-  flex: none;
-  display: grid;
-  place-items: center;
-  border-radius: 6px;
-  background: #fdecec;
-  color: #c42323;
 }
 
 /* ─── Onglet Board : affichage et daily ───────────────────────────────────── */

@@ -98,8 +98,8 @@ describe("BoardModel — types tirés des tickets affichés", () => {
       boardId: 7,
       issueTypes: [
         STORY_TYPE,
-        { id: "20001", name: "Archive", iconUrl: null, category: "IGNORED", countsAsBug: false },
-        { id: "20002", name: "Demande", iconUrl: null, category: "SWIMLANE", countsAsBug: true },
+        { id: "20001", name: "Archive", iconUrl: null, category: "IGNORED" },
+        { id: "20002", name: "Demande", iconUrl: null, category: "SWIMLANE" },
       ],
       ticketSwimlanes: [{ id: "7", name: "RUN équipe", typeIds: ["20002"], hidden: false }],
     });
@@ -107,7 +107,14 @@ describe("BoardModel — types tirés des tickets affichés", () => {
       version: 1,
       publishedAt: "2026-10-13T09:00:00Z",
       publishedBy: { accountId: "u9", displayName: "Alex Martin" },
-      settings: teamSettingsOf(sharedConfiguration),
+      settings: {
+        ...teamSettingsOf(sharedConfiguration),
+        // Document d'une ancienne version : ce marquage doit être ignoré au chargement.
+        issueTypes: teamSettingsOf(sharedConfiguration).issueTypes.map((type) => ({
+          ...type,
+          countsAsBug: type.id === "20002",
+        })),
+      },
     });
     const jira = boardSiteJira({ sprintIssues: [SPRINT_ISSUES[0]] })
       .on("GET", PROPERTY, () => ({ status: 200, json: { value: document } }))
@@ -123,6 +130,7 @@ describe("BoardModel — types tirés des tickets affichés", () => {
       expect.arrayContaining([...sharedConfiguration.issueTypes]),
     );
     expect(board.configuration.value?.ticketSwimlanes).toEqual(sharedConfiguration.ticketSwimlanes);
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
     await board.applySettings((current) => ({ ...current, agingThresholdDays: 12 }), {
       resync: false,
     });
@@ -131,8 +139,8 @@ describe("BoardModel — types tirés des tickets affichés", () => {
       settings: {
         agingThresholdDays: 12,
         issueTypes: expect.arrayContaining([
-          { id: "20001", name: "Archive", category: "IGNORED", countsAsBug: false },
-          { id: "20002", name: "Demande", category: "KANBAN", countsAsBug: true },
+          { id: "20001", name: "Archive", category: "IGNORED" },
+          { id: "20002", name: "Demande", category: "KANBAN" },
         ]),
         ticketSwimlanes: sharedConfiguration.ticketSwimlanes,
       },
