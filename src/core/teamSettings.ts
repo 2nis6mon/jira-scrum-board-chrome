@@ -30,6 +30,11 @@ import type { CardField } from "./cardFields";
  */
 export const TEAM_SETTINGS_VERSION = 1;
 
+/**
+ * Colonne telle que les versions d'avant 0.31.0 l'écrivent et l'exigent (`scrumColumns`,
+ * `kanbanColumns`). Depuis 0.31.0, ces colonnes ne sont plus ni lues ni modifiées : elles sont
+ * réécrites telles quelles, et un premier document reçoit les colonnes de Jira (`legacyColumns`).
+ */
 export interface TeamColumn {
   readonly id: string;
   readonly name: string;
@@ -62,12 +67,13 @@ export interface TeamIssueType {
  * les clés qu'elle ne connaît pas (`ticketSwimlanes`, `dailyStockLimit`). Les champs marqués
  * « 0.22.7 » sont donc DÉDUITS des autres, écrits pour elle et jamais relus quand
  * `ticketSwimlanes` est là : elle y voit une seule swimlane Kanban qui réunit tous ces tickets.
+ *
+ * Depuis 0.31.0 (demande de Denis du 13/10/2026), les colonnes (`scrumColumns`, `kanbanColumns` :
+ * noms, masquage, limites WIP) et les labels de blocage (`blockedLabels`) ne font plus partie des
+ * réglages : clés inconnues de cette version, elles sont réécrites telles quelles pour les versions
+ * précédentes encore installées (voir `publishTeamSettings`).
  */
 export interface TeamSettings {
-  /** Colonnes du board (nom de clé d'avant 0.23.0, gardé). */
-  readonly scrumColumns: readonly TeamColumn[];
-  /** 0.22.7 : copie de `scrumColumns`. */
-  readonly kanbanColumns: readonly TeamColumn[];
   readonly issueTypes: readonly TeamIssueType[];
   readonly ticketSwimlanes: readonly TicketSwimlane[];
   /** 0.22.7 : au moins une swimlane par type affichée. */
@@ -81,7 +87,6 @@ export interface TeamSettings {
   readonly dailyStockLimit: number;
   /** 0.22.7 : copie de `dailyStockLimit`. */
   readonly dailyKanbanStockLimit: number;
-  readonly blockedLabels: readonly string[];
   readonly goalSource: GoalSource;
   /** Goals épinglés au board Kanban, indépendants des épinglages de sprint. */
   readonly boardPinnedGoalIds: readonly string[];
@@ -93,8 +98,6 @@ export interface TeamSettings {
 }
 
 const SETTINGS_KEYS = [
-  "scrumColumns",
-  "kanbanColumns",
   "issueTypes",
   "ticketSwimlanes",
   "showKanbanSection",
@@ -104,7 +107,6 @@ const SETTINGS_KEYS = [
   "dailyMinutes",
   "dailyStockLimit",
   "dailyKanbanStockLimit",
-  "blockedLabels",
   "goalSource",
   "boardPinnedGoalIds",
   "goalColorIndex",
@@ -138,16 +140,8 @@ export interface TeamDocument {
 // ─── Configuration ↔ réglages d'équipe ───────────────────────────────────────
 
 export function teamSettingsOf(configuration: BoardConfiguration): TeamSettings {
-  const columns = configuration.columns.map(({ id, name, hidden, wipLimit }) => ({
-    id,
-    name,
-    hidden,
-    wipLimit,
-  }));
   const swimlanes = configuration.ticketSwimlanes;
   return {
-    scrumColumns: columns,
-    kanbanColumns: columns,
     issueTypes: configuration.issueTypes.map(({ id, name, category, countsAsBug }) => ({
       id,
       name,
@@ -168,7 +162,6 @@ export function teamSettingsOf(configuration: BoardConfiguration): TeamSettings 
     dailyStockLimit: configuration.dailyStockLimit,
     dailyKanbanStockLimit: configuration.dailyStockLimit,
     agingThresholdDays: configuration.agingThresholdDays,
-    blockedLabels: [...configuration.blockedLabels],
     goalSource: configuration.goalSource,
     boardPinnedGoalIds: [...configuration.boardPinnedGoalIds],
     goalColorIndex: { ...configuration.goalColorIndex },
@@ -181,7 +174,7 @@ export function teamSettingsOf(configuration: BoardConfiguration): TeamSettings 
 
 /**
  * Applique les réglages d'équipe à la configuration de ce navigateur. Les colonnes restent celles
- * lues dans Jira, celles sans statut restent masquées. Les types partagés absents des tickets
+ * lues dans Jira : les réglages ne les touchent plus. Les types partagés absents des tickets
  * chargés sont conservés : leurs catégories et leurs swimlanes doivent survivre à une publication.
  * Un type inconnu de l'équipe garde son réglage local. Les couleurs d'objectifs se combinent : celle
  * de l'équipe l'emporte, un objectif qu'elle ne connaît pas garde la sienne.
@@ -190,17 +183,6 @@ export function withTeamSettings(
   configuration: BoardConfiguration,
   settings: TeamSettings,
 ): BoardConfiguration {
-  const columns = (local: readonly ColumnConfiguration[], team: readonly TeamColumn[]) =>
-    local.map((column) => {
-      const shared = team.find((candidate) => candidate.id === column.id);
-      if (!shared) return column;
-      return {
-        ...column,
-        name: shared.name.trim() || column.name,
-        hidden: column.statusIds.length === 0 ? true : shared.hidden,
-        wipLimit: shared.wipLimit,
-      };
-    });
   const typesById = new Map(configuration.issueTypes.map((type) => [type.id, type]));
   for (const shared of settings.issueTypes) {
     typesById.set(shared.id, {
@@ -216,14 +198,12 @@ export function withTeamSettings(
   const issueTypes = [...typesById.values()];
   return {
     ...configuration,
-    columns: columns(configuration.columns, settings.scrumColumns),
     issueTypes,
     ticketSwimlanes: normalizeSwimlanes(issueTypes, settings.ticketSwimlanes),
     buildSectionLabel: settings.buildSectionLabel,
     dailyMinutes: settings.dailyMinutes,
     dailyStockLimit: settings.dailyStockLimit,
     agingThresholdDays: settings.agingThresholdDays,
-    blockedLabels: [...settings.blockedLabels],
     goalSource: configuration.boardType === "kanban" ? "atlassianGoals" : settings.goalSource,
     boardPinnedGoalIds: [...settings.boardPinnedGoalIds],
     goalColorIndex: { ...configuration.goalColorIndex, ...settings.goalColorIndex },
@@ -243,10 +223,8 @@ function readCategory(category: TeamCategory): IssueCategory {
  * déduits pour la 0.22.7 n'y sont pas : ils suivent les autres.
  */
 const FAMILIES: readonly (readonly [string, (settings: TeamSettings) => unknown])[] = [
-  ["Colonnes : noms, affichage, limites WIP", (s) => s.scrumColumns],
   ["Types de tickets et swimlanes par type", (s) => [s.issueTypes, s.ticketSwimlanes]],
   ["Nom de Build, seuil de vieillissement", (s) => [s.buildSectionLabel, s.agingThresholdDays]],
-  ["Labels de blocage", (s) => s.blockedLabels],
   ["Daily : durée et stock", (s) => [s.dailyMinutes, s.dailyStockLimit]],
   ["Source des objectifs", (s) => s.goalSource],
   ["Goals épinglés au board", (s) => s.boardPinnedGoalIds],
@@ -288,12 +266,14 @@ export function encodeTeamSettings(settings: TeamSettings): JsonObject {
 
 /**
  * Réglages lus dans Jira (ou gardés localement), validés champ par champ avec les décodeurs de la
- * configuration. `null` si colonnes et types manquent : le document n'est pas exploitable.
+ * configuration. `null` si les types manquent : le document n'est pas exploitable. Les colonnes ne
+ * sont plus lues (0.31.0) : illisibles ou absentes, elles n'empêchent rien.
  */
 export function decodeTeamSettings(value: unknown): TeamSettings | null {
   if (!isRecord(value)) return null;
   const decoded = decodeStoredConfiguration({
     ...value,
+    columns: [],
     boardId: 1,
     boardName: "réglages d'équipe",
     siteOrigin: "",
@@ -350,8 +330,12 @@ export type PublishOutcome =
  * 1. Relecture juste avant d'écrire : si la version publiée n'est plus celle que ce navigateur
  *    connaît (`basePublishedAt`), rien n'est écrit (conflit).
  * 2. Une valeur illisible (pas un objet, ou une version inconnue) n'est jamais écrasée.
- * 3. Les clés inconnues, du document comme des réglages, sont réécrites telles quelles.
+ * 3. Les clés inconnues, du document comme des réglages, sont réécrites telles quelles : colonnes et
+ *    labels de blocage des versions précédentes compris (0.31.0).
  * 4. Une seule écriture, jamais rejouée.
+ *
+ * Les versions d'avant 0.31.0 exigent `scrumColumns` et `kanbanColumns` : un document qui n'en a pas
+ * (premier enregistrement du board) les reçoit, tirées des colonnes de Jira (`columns`).
  */
 export async function publishTeamSettings(
   reader: TeamReader,
@@ -359,6 +343,8 @@ export async function publishTeamSettings(
   input: {
     boardId: number;
     settings: TeamSettings;
+    /** Colonnes lues dans Jira, écrites pour les versions précédentes si le document n'en a pas. */
+    columns: readonly ColumnConfiguration[];
     basePublishedAt: string | null;
     publishedBy: TeamPublisher;
     now: Date;
@@ -412,6 +398,7 @@ export async function publishTeamSettings(
     settings: input.settings,
   };
   const encoded = encodeTeamDocument(document);
+  const columns = legacyColumns(input.columns);
   await writer.write({
     kind: "boardProperty.put",
     boardId: input.boardId,
@@ -419,10 +406,26 @@ export async function publishTeamSettings(
     value: {
       ...extraKeys,
       ...encoded,
-      settings: { ...extraSettings, ...(encoded.settings as JsonObject) },
+      settings: {
+        scrumColumns: columns,
+        kanbanColumns: columns,
+        ...extraSettings,
+        ...(encoded.settings as JsonObject),
+      },
     },
   });
   return { kind: "published", document };
+}
+
+/** Colonnes de Jira dans le format des versions d'avant 0.31.0. */
+function legacyColumns(columns: readonly ColumnConfiguration[]): JsonValue {
+  const written: TeamColumn[] = columns.map(({ id, name, hidden, wipLimit }) => ({
+    id,
+    name,
+    hidden,
+    wipLimit,
+  }));
+  return JSON.parse(JSON.stringify(written)) as JsonValue;
 }
 
 function pickUnknown(value: Record<string, unknown>, known: ReadonlySet<string>): JsonObject {

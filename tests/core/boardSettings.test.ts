@@ -2,74 +2,31 @@ import { describe, expect, it } from "vitest";
 import { type BoardConfiguration, swimlaneName } from "../../src/core/boardConfiguration";
 import {
   customFieldChoices,
-  parseLabels,
+  isTypeIn,
+  moveCardField,
   type SettingResult,
   sameCardFields,
   searchFields,
-  shiftCardField,
   withAgingThreshold,
-  withBlockedLabels,
   withBugType,
   withBuildLabel,
   withCardField,
-  withColumnHidden,
-  withColumnName,
   withDefaultBlockOrder,
   withSwimlaneHidden,
   withSwimlaneName,
   withTypeDestination,
-  withWipLimit,
 } from "../../src/core/boardSettings";
-import type { CardField } from "../../src/core/cardFields";
+import { type CardField, cardFieldId } from "../../src/core/cardFields";
 import type { JiraField } from "../../src/jira/client";
 import { makeConfiguration, STORY_TYPE, SWIMLANE_TYPE } from "../support/jiraFixtures";
 
 const config = makeConfiguration();
-const [first] = config.columns;
-if (!first) throw new Error("colonne attendue");
 
-describe("section Board : chaque réglage s'applique seul", () => {
+describe("onglet Board : chaque réglage s'applique seul", () => {
   const ok = (result: SettingResult) => {
     if (!result.ok) throw new Error(result.error);
     return result.configuration;
   };
-
-  it("renomme une colonne (espaces retirés) sans toucher au reste de la configuration", () => {
-    const current = { ...config, goalColorIndex: { g1: 4 } };
-    const renamed = ok(withColumnName(current, first.id, "  À prendre  "));
-    expect(renamed.columns[0]?.name).toBe("À prendre");
-    expect(renamed.columns.slice(1)).toEqual(config.columns.slice(1));
-    expect(renamed.goalColorIndex).toEqual({ g1: 4 });
-  });
-
-  it("un nom vide est refusé", () => {
-    expect(withColumnName(config, first.id, "  ")).toEqual({
-      ok: false,
-      error: "Chaque colonne doit garder un nom.",
-    });
-  });
-
-  it("masquer une colonne", () => {
-    const hidden = withColumnHidden(config, first.id, true);
-    expect(hidden.columns[0]?.hidden).toBe(true);
-  });
-
-  it("limite WIP : entier de 1 à 999 ; vide la retire ; le reste est refusé", () => {
-    expect(ok(withWipLimit(config, first.id, " 4 ")).columns[0]?.wipLimit).toBe(4);
-    const limited = ok(withWipLimit(config, first.id, "4"));
-    expect(ok(withWipLimit(limited, first.id, "")).columns[0]?.wipLimit).toBeNull();
-    for (const raw of ["-2", "0", "1000", "2.5", "abc"]) {
-      expect(withWipLimit(config, first.id, raw)).toEqual({
-        ok: false,
-        error: `La limite WIP de « ${first.name} » doit être un entier entre 1 et 999, ou vide.`,
-      });
-    }
-  });
-
-  it("une colonne disparue entre-temps (structure relue) laisse la configuration intacte", () => {
-    expect(ok(withColumnName(config, "disparue", "X"))).toEqual(config);
-    expect(ok(withWipLimit(config, "disparue", "3"))).toEqual(config);
-  });
 
   it("types : classement et bug", () => {
     const [type] = config.issueTypes;
@@ -80,7 +37,7 @@ describe("section Board : chaque réglage s'applique seul", () => {
     expect(withBugType(config, type.id, true).issueTypes[0]?.countsAsBug).toBe(true);
   });
 
-  it("nom de Build (vide : le nom par défaut), seuil vieillissant, labels de blocage", () => {
+  it("nom de Build (vide : le nom par défaut), seuil vieillissant", () => {
     expect(withBuildLabel(config, "  Sprint Backlog ").buildSectionLabel).toBe("Sprint Backlog");
     expect(withBuildLabel(config, "   ").buildSectionLabel).toBe("Build");
     expect(ok(withAgingThreshold(config, " 5 ")).agingThresholdDays).toBe(5);
@@ -90,15 +47,6 @@ describe("section Board : chaque réglage s'applique seul", () => {
         error: "Le seuil « vieillissant » doit être un nombre entier de jours, entre 1 et 365.",
       });
     }
-    expect(withBlockedLabels(config, "bloqué, Impediment, , impediment").blockedLabels).toEqual([
-      "bloqué",
-      "Impediment",
-    ]);
-  });
-
-  it("labels : sans vide ni doublon, casse d'origine gardée", () => {
-    expect(parseLabels(" A, b ,a,, B ")).toEqual(["A", "b"]);
-    expect(parseLabels("")).toEqual([]);
   });
 
   it("réinitialiser l'ordre des swimlanes", () => {
@@ -157,6 +105,34 @@ describe("types de tickets et swimlanes par type", () => {
     expect(ignored.issueTypes.find((type) => type.id === "10005")?.category).toBe("IGNORED");
   });
 
+  it("une nouvelle swimlane peut recevoir son nom dès sa création", () => {
+    const named = withTypeDestination(base, "10006", { kind: "newSwimlane", name: "  OPS " });
+    expect(names(named)[1]).toEqual(["2", "OPS", ["10006"]]);
+    expect(named.ticketSwimlanes[1]?.name).toBe("OPS");
+    // Nom identique au nom calculé, ou vide : le nom suit ses types.
+    for (const name of ["Demande de service", "  "]) {
+      const same = withTypeDestination(base, "10006", { kind: "newSwimlane", name });
+      expect(same.ticketSwimlanes[1]?.name).toBe("");
+    }
+  });
+
+  it("déposer un type là où il est déjà ne change rien (et n'écrit donc rien)", () => {
+    expect(isTypeIn(base, "10004", { kind: "swimlane", swimlaneId: "1" })).toBe(true);
+    expect(isTypeIn(base, "10006", { kind: "goal" })).toBe(true);
+    expect(isTypeIn(base, "10006", { kind: "newSwimlane" })).toBe(false);
+    expect(isTypeIn(base, "inconnu", { kind: "goal" })).toBe(false);
+    expect(withTypeDestination(base, "10004", { kind: "swimlane", swimlaneId: "1" })).toBe(base);
+    expect(withTypeDestination(base, "10006", { kind: "goal" })).toBe(base);
+    const ignored = withTypeDestination(base, "10005", { kind: "ignored" });
+    expect(withTypeDestination(ignored, "10005", { kind: "ignored" })).toBe(ignored);
+  });
+
+  it("le dernier type d'une swimlane envoyé dans une nouvelle : une swimlane remplace l'autre", () => {
+    const alone = withTypeDestination(base, "10005", { kind: "goal" });
+    const moved = withTypeDestination(alone, "10004", { kind: "newSwimlane", name: "RUN" });
+    expect(names(moved)).toEqual([["2", "RUN", ["10004"]]]);
+  });
+
   it("type ou swimlane inconnus : rien ne change", () => {
     expect(withTypeDestination(base, "inconnu", { kind: "newSwimlane" })).toBe(base);
     expect(withTypeDestination(base, "10006", { kind: "swimlane", swimlaneId: "9" })).toBe(base);
@@ -204,7 +180,7 @@ describe("champs des cartes", () => {
     expect(searchFields("  ", fields)).toEqual([]);
   });
 
-  it("trois champs au plus, sans doublon ; monter et descendre restent dans la liste", () => {
+  it("trois champs au plus, sans doublon", () => {
     const labels: CardField = { kind: "labels" };
     const versions: CardField = { kind: "fixVersions" };
     const team: CardField = {
@@ -218,14 +194,31 @@ describe("champs des cartes", () => {
     fields = withCardField(fields, team);
     fields = withCardField(fields, { kind: "components" });
     expect(fields.map((f) => f.kind)).toEqual(["labels", "fixVersions", "custom"]);
+    expect(sameCardFields(fields, [...fields])).toBe(true);
+  });
 
-    expect(shiftCardField(fields, 2, -1).map((f) => f.kind)).toEqual([
+  it("glisser un champ avant un autre, ou en fin de liste", () => {
+    const fields: CardField[] = [
+      { kind: "labels" },
+      { kind: "fixVersions" },
+      { kind: "custom", customFieldId: "customfield_1", customFieldName: "Équipe" },
+    ];
+    const ids = (list: readonly CardField[]) => list.map(cardFieldId);
+    expect(ids(moveCardField(fields, "custom:customfield_1", "labels"))).toEqual([
+      "custom:customfield_1",
       "labels",
-      "custom",
       "fixVersions",
     ]);
-    expect(shiftCardField(fields, 0, -1)).toEqual(fields);
-    expect(sameCardFields(fields, [...fields])).toBe(true);
-    expect(sameCardFields(fields, shiftCardField(fields, 0, 1))).toBe(false);
+    expect(ids(moveCardField(fields, "labels", null))).toEqual([
+      "fixVersions",
+      "custom:customfield_1",
+      "labels",
+    ]);
+    // Déposé à sa propre place, ou champ inconnu : même ordre.
+    expect(
+      sameCardFields(moveCardField(fields, "fixVersions", "custom:customfield_1"), fields),
+    ).toBe(true);
+    expect(sameCardFields(moveCardField(fields, "inconnu", "labels"), fields)).toBe(true);
+    expect(sameCardFields(moveCardField(fields, "labels", "fixVersions"), fields)).toBe(true);
   });
 });

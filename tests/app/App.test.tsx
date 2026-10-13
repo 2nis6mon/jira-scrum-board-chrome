@@ -3,7 +3,7 @@ import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
-import { DIAGNOSTIC_ENABLED } from "../../src/app/views/settings/AdminView";
+import { DIAGNOSTIC_ENABLED } from "../../src/app/views/DiagnosticView";
 import { atlassianGoalsPlatform } from "../support/atlassianGoalsBoard";
 import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
 import { FakeJira, isWriteRequest } from "../support/fakeJira";
@@ -36,6 +36,64 @@ function laneTitle(label: string): HTMLButtonElement {
   );
   if (!found) throw new Error(`titre de swimlane « ${label} » introuvable`);
   return found;
+}
+
+/** Onglet des réglages du board. */
+function tab(label: string): HTMLButtonElement {
+  const found = [...document.querySelectorAll<HTMLButtonElement>("[role=tab]")].find(
+    (b) => b.textContent?.trim() === label,
+  );
+  if (!found) throw new Error(`onglet « ${label} » introuvable`);
+  return found;
+}
+
+/** Champ désigné par son aria-label. */
+function field(label: string): HTMLInputElement {
+  const found = document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
+  if (!found) throw new Error(`champ « ${label} » attendu`);
+  return found;
+}
+
+/** Saisie puis validation (Entrée ou sortie du champ) : le navigateur émet « change ». */
+function enter(input: HTMLInputElement, value: string) {
+  input.value = value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+/** Titres des swimlanes du board, dans l'ordre. */
+const laneTitles = () =>
+  [...document.querySelectorAll<HTMLElement>("section.lane")].map((lane) =>
+    lane.getAttribute("aria-label"),
+  );
+
+/** Entrée du menu « ⋯ » d'une swimlane du board. */
+function laneMenuButton(lane: string, label: string): HTMLButtonElement {
+  const section = [...document.querySelectorAll<HTMLElement>("section.lane")].find(
+    (candidate) => candidate.getAttribute("aria-label") === lane,
+  );
+  const found = [...(section?.querySelectorAll(".lane-menu button") ?? [])].find(
+    (b) => b.textContent?.trim() === label,
+  );
+  if (!found) throw new Error(`« ${label} » introuvable dans ${lane}`);
+  return found as HTMLButtonElement;
+}
+
+/** Entrée de la navigation de la barre latérale. */
+function navButton(label: string): HTMLButtonElement {
+  const found = [...document.querySelectorAll<HTMLButtonElement>(".sidebar-nav button")].find(
+    (b) => b.textContent?.trim() === label,
+  );
+  if (!found) throw new Error(`entrée « ${label} » introuvable dans la barre latérale`);
+  return found;
+}
+
+/** Ouvre les réglages du board par le bouton de l'en-tête du board. */
+async function openSettings() {
+  const open = document.querySelector<HTMLButtonElement>("button.settings-open");
+  if (!open) throw new Error("bouton « Réglages » de l'en-tête attendu");
+  open.click();
+  await tick();
 }
 
 function button(label: string): HTMLButtonElement {
@@ -88,7 +146,7 @@ describe("App", () => {
     expect(platform.requested).toEqual([]);
   });
 
-  it("connecté sans board : propose la recherche du board ; l'administration reste accessible", async () => {
+  it("connecté sans board : propose la recherche du board ; le menu « Site Jira » reste accessible", async () => {
     const model = new AppModel(fakePlatform(new FakeJira()));
     render(<App model={model} />, document.body);
     await model.connect("acme.atlassian.net");
@@ -96,13 +154,15 @@ describe("App", () => {
 
     expect(document.querySelector("h2")?.textContent).toBe("Quel board afficher ?");
     expect(document.querySelector(".board-switcher-button")?.textContent).toBe("Choisir un board");
+    // Sans board, pas de réglages de board.
+    expect(document.querySelector("button.settings-open")).toBeNull();
+    expect(text()).not.toContain("Réglages");
 
-    button("Administration").click();
+    button("Site Jira").click();
     await tick();
     expect(document.querySelector(".settings-site")?.textContent).toBe("acme.atlassian.net");
-    expect(button("Couleurs des cartes").disabled).toBe(true);
     if (DIAGNOSTIC_ENABLED) expect(button("Diagnostic").disabled).toBe(false);
-    expect(text()).toContain("Aucun board n'est encore choisi");
+    expect(button("Se déconnecter").disabled).toBe(false);
   });
 
   it("board : swimlanes par objectif, Build et Kanban, cartes vers la page Jira", async () => {
@@ -149,8 +209,8 @@ describe("App", () => {
     back()?.click();
     expect(leave).toHaveBeenCalledOnce();
 
-    // Présent aussi dans l'administration, absent quand l'écran est réservé au board.
-    model.showAdmin("board");
+    // Présent aussi dans les réglages, absent quand l'écran est réservé au board.
+    model.showSettings("board");
     await tick();
     expect(back()).not.toBeNull();
     model.showBoard();
@@ -291,7 +351,7 @@ describe("App", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
-  it("épingler un Goal : dans l'administration, une seule écriture sur « Enregistrer »", async () => {
+  it("épingler un Goal : dans les réglages, une seule écriture sur « Enregistrer »", async () => {
     const pinned = "ari:cloud:townsquare:c:goal/securite";
     const property = "/rest/agile/1.0/sprint/42/properties/com.scrumboardmac.sprintgoals.v1";
     // La propriété ne change qu'avec l'écriture, comme dans Jira.
@@ -331,12 +391,13 @@ describe("App", () => {
     expect(board.pinEditor.value?.selection).toEqual([pinned]);
     expect(button("Enregistrer dans Jira").disabled).toBe(false);
 
-    // Pas de fenêtre : la liste est dans la section Goals de l'administration.
+    // Pas de fenêtre : la liste est dans l'onglet Objectifs des réglages.
     expect(document.querySelector("[role=dialog]")).toBeNull();
-    // Une seule section : couleur, masquage et épinglage de chaque objectif.
+    expect(tab("Objectifs").getAttribute("aria-selected")).toBe("true");
+    // Un seul onglet : couleur, masquage et épinglage de chaque objectif.
     const section = document.querySelector("#settings-sprint-goals")?.closest("section");
-    expect(section?.querySelector(".settings-swatches")).not.toBeNull();
-    expect(section?.querySelector(".pin-list")).not.toBeNull();
+    expect(section?.querySelector(".settings-color-menu")).not.toBeNull();
+    expect(document.querySelector(".pin-list")).not.toBeNull();
     expect(document.querySelector("#settings-goal-colors")).toBeNull();
     button("Enregistrer dans Jira").click();
     await expect.poll(() => text()).toContain("Épinglage enregistré dans Jira.");
@@ -353,20 +414,7 @@ describe("App", () => {
 
   it("menu d'une swimlane : descendre et masquer partagés, replier personnel", async () => {
     const { jira } = await connectedBoard();
-    const laneTitles = () =>
-      [...document.querySelectorAll<HTMLElement>("section.lane")].map((lane) =>
-        lane.getAttribute("aria-label"),
-      );
-    const menuButton = (lane: string, label: string) => {
-      const section = [...document.querySelectorAll<HTMLElement>("section.lane")].find(
-        (candidate) => candidate.getAttribute("aria-label") === lane,
-      );
-      const found = [...(section?.querySelectorAll(".lane-menu button") ?? [])].find(
-        (b) => b.textContent?.trim() === label,
-      );
-      if (!found) throw new Error(`« ${label} » introuvable dans ${lane}`);
-      return found as HTMLButtonElement;
-    };
+    const menuButton = laneMenuButton;
     expect(laneTitles()).toEqual([
       "Finaliser le parcours de paiement",
       "Améliorer la stabilité",
@@ -416,65 +464,193 @@ describe("App", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
-  it("Administration, section Board : chaque champ validé est enregistré dans Jira pour l'équipe", async () => {
-    const { jira } = await connectedBoard();
-    button("Administration").click();
+  it("réglages : ouverts depuis le board (en-tête, barre latérale, menu d'une swimlane)", async () => {
+    const { model } = await connectedBoard();
+    expect(document.querySelector(".settings-screen")).toBeNull();
+
+    await openSettings();
+    expect(document.querySelector("h1")?.textContent).toBe("Réglages du board");
+    expect(document.querySelector(".settings-board")?.textContent).toContain("Équipe Paiement");
+    expect(tab("Board").getAttribute("aria-selected")).toBe("true");
+    // La barre latérale reste : son entrée « Réglages » est la page courante.
+    expect(navButton("Réglages").getAttribute("aria-current")).toBe("page");
+    expect(navButton("Sprint").getAttribute("aria-current")).toBeNull();
+    // Les colonnes et les labels de blocage ne se règlent plus ici (0.31.0).
+    expect(document.querySelector('input[aria-label^="Nom de la colonne"]')).toBeNull();
+    expect(text()).not.toContain("Labels marquant un ticket bloqué");
+
+    // Le dernier onglet ouvert reste celui des réglages.
+    tab("Champs des cartes").click();
     await tick();
-    expect(document.querySelector(".settings")).not.toBeNull();
+    expect(document.querySelector("#settings-card-fields")).not.toBeNull();
+    button("Retour au board").click();
+    await tick();
+    expect(document.querySelector(".settings-screen")).toBeNull();
+    navButton("Réglages").click();
+    await tick();
+    expect(tab("Champs des cartes").getAttribute("aria-selected")).toBe("true");
+
+    // Depuis le menu d'une swimlane : l'onglet qui la concerne.
+    model.showBoard();
+    await tick();
+    laneMenuButton("Anomalie Prod", "Configurer les swimlanes…").click();
+    await tick();
+    expect(tab("Board").getAttribute("aria-selected")).toBe("true");
+    model.showBoard();
+    await tick();
+    laneMenuButton("Améliorer la stabilité", "Gérer les objectifs…").click();
+    await tick();
+    expect(tab("Objectifs").getAttribute("aria-selected")).toBe("true");
+
+    // Onglets au clavier : flèches, Début et Fin.
+    tab("Objectifs").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    await tick();
+    expect(tab("Champs des cartes").getAttribute("aria-selected")).toBe("true");
+    tab("Champs des cartes").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "End", bubbles: true }),
+    );
+    await tick();
+    expect(tab("Couleurs des cartes").getAttribute("aria-selected")).toBe("true");
+    tab("Couleurs des cartes").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    await tick();
+    expect(tab("Board").getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("réglages, onglet Board : chaque champ validé est enregistré dans Jira pour l'équipe", async () => {
+    const { jira } = await connectedBoard();
+    await openSettings();
     const labels = [...document.querySelectorAll("button")].map((b) => b.textContent?.trim());
     expect(labels).not.toContain("Appliquer");
     expect(labels).not.toContain("Annuler");
+    // Les objectifs ne sont pas dans la liste : leur ordre se règle sur le board.
+    expect(
+      [...document.querySelectorAll(".settings-lanes .settings-grip")].map((grip) =>
+        grip.getAttribute("aria-label"),
+      ),
+    ).toEqual(["Déplacer la swimlane Build", "Déplacer la swimlane Anomalie Prod"]);
 
-    const field = (label: string) => {
-      const found = document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
-      if (!found) throw new Error(`champ « ${label} » attendu`);
-      return found;
-    };
-    // Saisie puis validation (Entrée ou sortie du champ) : le navigateur émet « change ».
-    const type = (input: HTMLInputElement, value: string) => {
-      input.value = value;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    };
-    const validate = (input: HTMLInputElement) =>
-      input.dispatchEvent(new Event("change", { bubbles: true }));
+    // Nom de Build : dans la liste des swimlanes, enregistré à la validation, pas à la frappe.
+    const build = document.querySelector<HTMLInputElement>("#settings-build-label");
+    if (!build) throw new Error("nom de Build attendu");
+    build.value = "Sprint Backlog";
+    build.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    expect(teamWrites(jira)).toBe(0);
+    build.dispatchEvent(new Event("change", { bubbles: true }));
+    await tick();
+    expect(teamWrites(jira)).toBe(1);
 
-    const name = field("Nom de la colonne À faire");
-    type(name, "À prendre");
+    enter(field("Nom de la swimlane Anomalie Prod"), "RUN");
     await tick();
-    // Rien n'est enregistré pendant la frappe.
-    expect(field("Nom de la colonne À faire")).toBe(name);
-    validate(name);
-    await tick();
-    const wip = field("Limite WIP de À prendre");
+    expect(field("Nom de la swimlane RUN").value).toBe("RUN");
 
-    type(wip, "abc");
-    validate(wip);
+    // Seuil « vieillissant » : saisie refusée, Échap, puis le bouton +.
+    const aging = document.querySelector<HTMLInputElement>("#settings-aging");
+    if (!aging) throw new Error("seuil attendu");
+    enter(aging, "abc");
     await tick();
-    expect(document.querySelector("[role=alert]")?.textContent).toContain("limite WIP");
-    expect(wip.getAttribute("aria-invalid")).toBe("true");
-    expect(wip.value).toBe("abc");
-
-    // Échap revient à la valeur enregistrée.
-    wip.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(document.querySelector("[role=alert]")?.textContent).toContain("vieillissant");
+    expect(aging.getAttribute("aria-invalid")).toBe("true");
+    expect(aging.value).toBe("abc");
+    aging.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await tick();
-    expect(wip.value).toBe("");
+    expect(aging.value).toBe("3");
     expect(document.querySelector("[role=alert]")).toBeNull();
-
-    type(wip, "1");
-    validate(wip);
+    labelled("Augmenter : Seuil « vieillissant »").click();
     await tick();
-    expect(document.querySelector("[role=alert]")).toBeNull();
+    expect(aging.value).toBe("4");
 
-    button("Sprint").click();
+    button("Retour au board").click();
     await tick();
-    const heads = [...document.querySelectorAll(".column-band .column-name")].map(
-      (head) => head.textContent,
-    );
-    expect(heads[0]).toBe("À prendre");
-    expect(document.querySelector(".column-over .column-count")?.textContent).toBe("2 / 1");
-    // Nom de colonne et limite WIP : une écriture partagée chacun ; la saisie invalide, aucune.
+    expect(laneTitles()).toEqual([
+      "Finaliser le parcours de paiement",
+      "Améliorer la stabilité",
+      "Sprint Backlog",
+      "RUN",
+    ]);
+    // Build, swimlane, seuil : une écriture partagée chacun ; la saisie invalide, aucune.
     expect(otherWrites(jira)).toEqual([]);
-    expect(teamWrites(jira)).toBe(2);
+    expect(teamWrites(jira)).toBe(3);
+  });
+
+  it("réglages, onglet Board : sans souris, la poignée déplace une swimlane et le menu d'un type le range", async () => {
+    const { jira } = await connectedBoard();
+    await openSettings();
+
+    // Build descend sous « Anomalie Prod » ; les objectifs gardent leur place.
+    labelled("Déplacer la swimlane Build").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    await tick();
+    expect(teamWrites(jira)).toBe(1);
+    // Déjà en fin de liste : rien ne change, rien n'est écrit.
+    labelled("Déplacer la swimlane Build").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    await tick();
+    expect(teamWrites(jira)).toBe(1);
+
+    // Le type « Anomalie Prod » va dans « Ignorés » : sa swimlane disparaît avec son dernier type.
+    const chip = document.querySelector('.settings-lanes [data-type-id="10004"]');
+    const current = [...(chip?.querySelectorAll(".settings-chip-menu button") ?? [])].find(
+      (b) => b.textContent?.trim() === "Swimlane « Anomalie Prod »",
+    );
+    expect((current as HTMLButtonElement | undefined)?.disabled).toBe(true);
+    const ignore = [...(chip?.querySelectorAll(".settings-chip-menu button") ?? [])].find(
+      (b) => b.textContent?.trim() === "Ignorés",
+    );
+    if (!(ignore instanceof HTMLButtonElement)) throw new Error("« Ignorés » attendu");
+    ignore.click();
+    await expect.poll(() => teamWrites(jira)).toBe(2);
+    await tick();
+    expect(
+      document.querySelector('input[aria-label="Nom de la swimlane Anomalie Prod"]'),
+    ).toBeNull();
+    expect(
+      [...document.querySelectorAll('[aria-label="Types ignorés"] [data-type-id]')].map((item) =>
+        item.getAttribute("data-type-id"),
+      ),
+    ).toContain("10004");
+
+    button("Retour au board").click();
+    await expect
+      .poll(() => laneTitles())
+      .toEqual(["Finaliser le parcours de paiement", "Améliorer la stabilité", "Build"]);
+    expect(cardKeys()).not.toContain("RUN-7");
+    expect(otherWrites(jira)).toEqual([]);
+  });
+
+  it("réglages, onglet Board : une nouvelle swimlane reçoit un nom et son premier type", async () => {
+    const { jira } = await connectedBoard();
+    await openSettings();
+    button("Nouvelle swimlane").click();
+    await tick();
+    const name = document.querySelector<HTMLInputElement>("#settings-new-swimlane");
+    if (!name) throw new Error("nom de la nouvelle swimlane attendu");
+    name.value = "Support";
+    name.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    // Rien n'est créé tant qu'aucun type n'est choisi.
+    expect(teamWrites(jira)).toBe(0);
+    const first = document.querySelector<HTMLSelectElement>(
+      'select[aria-label="Premier type de la nouvelle swimlane"]',
+    );
+    if (!first) throw new Error("choix du premier type attendu");
+    first.value = "10004";
+    first.dispatchEvent(new Event("change", { bubbles: true }));
+    await expect.poll(() => teamWrites(jira)).toBe(1);
+    await tick();
+    expect(document.querySelector("#settings-new-swimlane")).toBeNull();
+    expect(field("Nom de la swimlane Support").value).toBe("Support");
+    // Son dernier type parti, l'ancienne swimlane a disparu.
+    expect(
+      document.querySelector('input[aria-label="Nom de la swimlane Anomalie Prod"]'),
+    ).toBeNull();
+    expect(otherWrites(jira)).toEqual([]);
   });
 
   it("couleurs des cartes : une règle JQL ajoutée dans Réglages colore la carte que Jira désigne", async () => {
@@ -489,11 +665,10 @@ describe("App", () => {
       return { status: 200, json: { issues, total: issues.length } };
     });
     await connectedBoard(jira);
-    button("Administration").click();
+    await openSettings();
+    tab("Couleurs des cartes").click();
     await tick();
-    button("Couleurs des cartes").click();
-    await tick();
-    button("Ajouter une règle").click();
+    button("Nouvelle règle").click();
     await tick();
 
     const jql = document.querySelector<HTMLTextAreaElement>(".color-rule-jql");
@@ -522,7 +697,7 @@ describe("App", () => {
 
   // Diagnostic masqué pour l'instant (0.22.7) : son écran reste testé, prêt à revenir.
   it.skipIf(!DIAGNOSTIC_ENABLED)(
-    "le diagnostic reste accessible depuis l'administration, même session perdue",
+    "le diagnostic reste accessible depuis le menu « Site Jira », même session perdue",
     async () => {
       const jira = new FakeJira().on("GET", "/rest/api/3/myself", { status: 401 });
       const model = new AppModel(fakePlatform(jira));
@@ -530,7 +705,7 @@ describe("App", () => {
       await model.connect("acme.atlassian.net");
       await tick();
 
-      button("Administration").click();
+      button("Site Jira").click();
       await tick();
       button("Diagnostic").click();
       await expect.poll(() => document.querySelectorAll(".probe").length).toBe(3);

@@ -582,7 +582,7 @@ export function describeGoalsFailure(error: unknown): string {
     error.info.kind === "forbidden" &&
     /cors/i.test(error.info.bodyExcerpt)
   ) {
-    return "la passerelle GraphQL d'Atlassian refuse l'origine des requêtes de l'extension (« Invalid CORS request »). Administration → Diagnostic essaie les variantes de l'en-tête Origin et retient celle qui passe.";
+    return "la passerelle GraphQL d'Atlassian refuse l'origine des requêtes de l'extension (« Invalid CORS request »). Site Jira → Diagnostic, en bas de la barre latérale, essaie les variantes de l'en-tête Origin et retient celle qui passe.";
   }
   return error instanceof Error ? error.message : String(error);
 }

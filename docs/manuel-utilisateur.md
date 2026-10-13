@@ -2,7 +2,8 @@
 
 Extension Chrome pour les boards Scrum et Kanban de Jira Cloud (`*.atlassian.net`).
 Elle affiche objectifs, Build et swimlanes par type dans la page Jira, avec votre session habituelle.
-Les captures proviennent de la version Scrum 0.22.7 ; certains libellés ont évolué.
+Les captures proviennent de la version Scrum 0.22.7, sauf celle des réglages (0.31.0) ; certains
+libellés ont évolué.
 
 ## Installer et mettre à jour
 
@@ -75,7 +76,7 @@ L'en-tête indique notamment points terminés, objectifs atteints, blocages et a
 sprint. Le filtre « ajouté en cours de sprint » permet de retrouver ces derniers.
 
 Les objectifs proviennent par défaut du texte **Sprint Goal**, lu sans être modifié.
-Vous pouvez choisir les **Goals Atlassian** dans l'administration. Si leur lecture échoue,
+Vous pouvez choisir les **Goals Atlassian** dans les réglages du board. Si leur lecture échoue,
 le board peut revenir au texte du sprint avec un message explicatif.
 
 ### Kanban
@@ -89,27 +90,42 @@ reclassés automatiquement dans Build. Si le lien Goal → tickets n'est pas dis
 Goals des tickets peut servir de repli. S'il n'est pas identifié, relisez la structure (voir Support).
 La lecture est limitée à **5 000 tickets** : au-delà, elle est refusée ; réduisez le filtre du board.
 
-## Administration et partage
+## Réglages du board et partage
 
-**Administration**, en bas de la barre latérale, ouvre les réglages sans quitter le board.
-Les changements partagés sont enregistrés dans Jira pour toute l'équipe et exigent le droit de
-modifier le board. Sans ce droit, le diagnostic reste accessible.
+Chaque board a ses réglages, ouverts depuis le board lui-même : bouton **Réglages** de l'en-tête,
+entrée **Réglages** de la barre latérale, **Réglages de ce board** dans le menu du nom du board,
+ou **Configurer les swimlanes…** / **Gérer les objectifs…** dans le menu ⋯ d'une swimlane.
+Ils remplacent le board dans la page ; **Retour au board** y ramène. Ils sont enregistrés dans
+Jira pour toute l'équipe et exigent le droit de modifier le board : sans ce droit, ils
+n'apparaissent pas. L'en-tête indique qui les a enregistrés en dernier, et quand.
 
-![Administration des objectifs](store/captures/03-objectifs.png)
+![Réglages des objectifs](store/captures/03-objectifs.png)
 
-- **Objectifs du sprint / du board** : couleur, masquage et épinglage de Goals Atlassian.
-  L'épinglage garde une swimlane même sans ticket ; confirmez avec **Enregistrer dans Jira**.
-  En Scrum il concerne le sprint de référence, en Kanban le board.
-- **Colonnes** : renommez leur affichage, masquez-en ou ajustez leur limite WIP. Les statuts
-  viennent de Jira ; les colonnes sont communes à toutes les swimlanes.
-- **Types de tickets et swimlanes** : chaque type va dans **Par objectif**, une swimlane nommée
-  ou **Ignorés**. **Nouvelle swimlane** crée un groupe ; retirer son dernier type le supprime.
-  Vous pouvez renommer Build et les groupes, ou masquer une swimlane par type.
-- **Case Bug** : un ticket lié de ce type est signalé comme bug sur la carte du ticket porteur.
-  Ce choix est indépendant de la swimlane où le type est classé.
-- **Champs et couleurs des cartes** : choisissez les champs affichés et les règles de couleur
-  en JQL, évaluées par Jira.
-- **Daily** : réglez la durée et le nombre de cartes initialement visibles dans la première colonne.
+- **Board** : Build et les swimlanes par type, dans leur ordre sur le board. Glissez une swimlane
+  par sa poignée pour la déplacer ; les objectifs, eux, se rangent sur le board. Renommez Build
+  (« Nom du bloc des tickets rattachés à aucun objectif ») et chaque swimlane directement dans la
+  liste, ou masquez une swimlane par type avec son interrupteur.
+- **Types de tickets** : glissez un type vers une swimlane, vers **Par objectif** ou **Ignorés**,
+  ou utilisez son menu. **Nouvelle swimlane** crée un groupe : donnez-lui un nom puis glissez ou
+  choisissez son premier type ; déposer un type sur la zone **Nouvelle swimlane** le crée aussi.
+  Retirer son dernier type supprime le groupe.
+- **Bouton Bug** d'un type : un ticket lié de ce type est signalé comme bug sur la carte du ticket
+  porteur, quelle que soit la swimlane où le type est classé.
+- **Affichage et daily** : seuil « vieillissant », durée de la Daily et nombre de cartes visibles
+  dans la première colonne, réglables au clavier ou par − et +. Le rafraîchissement automatique
+  reste personnel.
+- **Objectifs** : source des objectifs en Scrum, puis couleur, masquage et épinglage de Goals
+  Atlassian. L'épinglage garde une swimlane même sans ticket ; confirmez avec **Enregistrer dans
+  Jira**. En Scrum il concerne le sprint de référence, en Kanban le board.
+- **Champs des cartes** et **Couleurs des cartes** : jusqu'à trois champs sous le titre, et des
+  règles de couleur en JQL évaluées par Jira, rangées par glissé (la première règle satisfaite
+  l'emporte). Un aperçu montre des cartes du board ; **Appliquer** enregistre.
+
+Au clavier, une poignée déplace sa ligne avec les flèches haut et bas ; les onglets se parcourent
+avec les flèches gauche et droite.
+
+Les colonnes sont celles du board Jira, avec leurs noms et leurs limites WIP : elles se règlent
+dans Jira. Un ticket est **bloqué** quand il a un lien Jira « est bloqué par ».
 
 Les préférences personnelles, notamment filtres, swimlanes repliées et position du bouton Jira,
 restent locales. Un calcul automatique ne publie pas de réglage dans Jira.
@@ -132,11 +148,13 @@ sans barre latérale, en-tête ni panneau de santé. **Quitter** ou Échap retro
 
 ## Support et limites
 
-- **Type absent de l'administration ou structure modifiée** : choisissez **Relire colonnes et
-  types depuis Jira**. À l'ouverture, les types connus sont complétés par les tickets affichés ;
-  cette relecture explicite recense aussi ceux du backlog ou d'anciens tickets.
-- **Connexion ou droits** : ouvrez **Administration → Diagnostic**, lancez les contrôles puis
-  relisez le rapport avant de le transmettre avec la description du problème.
+- **Type absent des réglages ou structure modifiée** : dans l'onglet Board des réglages, ou
+  dans le menu du nom du board, choisissez **Relire colonnes et types depuis Jira**.
+  À l'ouverture, les types connus sont complétés par les tickets affichés ; cette relecture
+  explicite recense aussi ceux du backlog ou d'anciens tickets.
+- **Connexion ou droits** : ouvrez **Site Jira → Diagnostic**, en bas de la barre latérale,
+  lancez les contrôles puis relisez le rapport avant de le transmettre avec la description du
+  problème.
 - **Lenteur** : indiquez version de l'extension, Scrum ou Kanban, action concernée (ouverture,
   actualisation ou relecture de structure) et durée approximative. Le diagnostic de connexion
   ne fournit pas le détail des phases de chargement dans la vue Jira.

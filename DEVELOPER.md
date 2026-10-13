@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.30.0**, 13 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.31.0**, 13 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -113,12 +113,25 @@ copie, historique, fermeture et format étroit, avec captures dans `.vite/`.
   la présentation via `fullscreenchange`, mais laisse la Daily active. Présentation : en-tête et
   barre latérale masqués, filtres conservés ; commandes détaillées dans le manuel.
 - `SPRINT_HEALTH_ENABLED` dans `BoardView.tsx` reste désactivé. `DIAGNOSTIC_ENABLED` dans
-  `AdminView.tsx` reste actif, notamment pour le renvoi « Invalid CORS request » ; le désactiver
-  retire toute administration aux comptes sans droit de modifier le board.
+  `DiagnosticView.tsx` reste actif, notamment pour le renvoi « Invalid CORS request » ; le désactiver
+  retire l'entrée Diagnostic du menu « Site Jira » (site et déconnexion restent).
+- Réglages du board ([`settings/`](src/app/views/settings/SettingsView.tsx), 0.31.0) : vue
+  `settings` à onglets Board, Objectifs, Champs et Couleurs des cartes, ouverte depuis le board
+  (en-tête, barre latérale, menu du board, menu ⋯ d'une swimlane) ; le pied de barre « Site Jira »
+  garde diagnostic et déconnexion. Glisser-déposer HTML5 à types de données propres
+  (`application/x-sprint-goals-settings-*`), sans effet sur les glissés du board, avec un équivalent
+  clavier ou menu pour chaque geste ; `verify:settings` les rejoue dans Chromium. La liste des
+  swimlanes est la sous-suite hors objectifs de `blockOrder` (`settingsLaneOrder`,
+  [`reorder`](src/core/reorder.ts)) : y déplacer Build ou une swimlane par type ne change jamais
+  l'ordre relatif des objectifs, réglé sur le board. Un dépôt sans effet n'écrit rien.
+- Colonnes telles que Jira les déclare (noms, limites WIP) ; seules celles sans statut sont
+  écartées. Bloqué = lien Jira « est bloqué par » uniquement. Les personnalisations de colonnes et
+  labels de blocage d'avant 0.31.0 ne sont plus lues (voir Données persistantes).
 - Les réglages partagés sont relus à chaque chargement ; chaque geste de modification est écrit
   immédiatement après relecture et fusion avec la version des collègues. Un calcul automatique
   n'écrit jamais seul. Une modification non enregistrée est perdue à la prochaine lecture.
-  Sans `canEdit` ou après refus Jira, seul le Diagnostic reste accessible ; repli des lignes personnel.
+  Sans `canEdit` ou après refus Jira, les réglages du board disparaissent (entrées et vue) ; le menu
+  « Site Jira » reste ; repli des lignes personnel.
 - Déconnexion confirmée : permission Chrome rendue, boards/réglages locaux du site et historique
   de chargement effacés. Les préférences personnelles ne sont jamais publiées ni synchronisées entre postes.
 
@@ -229,9 +242,12 @@ Références : [boards](https://developer.atlassian.com/cloud/jira/software/rest
 Préserver ces noms et les identifiants ; relecture avant modification, conflits refusés, données
 illisibles jamais écrasées, clés inconnues conservées, limite client 32 Ko. Références de format :
 [`sprintGoals.ts`](src/core/sprintGoals.ts), [`teamSettings.ts`](src/core/teamSettings.ts) et leurs tests.
-Les anciennes valeurs `SCRUM`/`KANBAN`, `scrumColumns`, `kanbanColumns`, `showKanbanSection`,
-`kanbanSectionLabel`, `dailyKanbanStockLimit` restent compatibles ; retrait seulement avec migration
-et décision sur les anciennes installations. Valeurs absentes : défauts compatibles, pas de perte des données.
+Les anciennes valeurs `SCRUM`/`KANBAN`, `showKanbanSection`, `kanbanSectionLabel`,
+`dailyKanbanStockLimit` restent compatibles ; retrait seulement avec migration et décision sur les
+anciennes installations. Valeurs absentes : défauts compatibles, pas de perte des données.
+Depuis 0.31.0, `scrumColumns`, `kanbanColumns` et `blockedLabels` ne sont plus lus : clés inconnues,
+ils sont réécrits tels quels pour les versions précédentes, qui exigent les colonnes ; un premier
+document reçoit celles de Jira. Localement, masquage et noms de colonnes enregistrés sont ignorés.
 
 | Clé `chrome.storage.local` | Contenu |
 |---|---|
@@ -327,6 +343,7 @@ Node >= 22.12 ; dépendances exactes dans `package-lock.json`, scripts d'install
 | `npm run verify:load` | Chargement, bienvenue, permissions, lanceur |
 | `npm run verify:jira` / `verify:transition` | Hébergement, messages forgés, navigation, fiche et formulaire seul, ambiguïté, absence de validation automatique, fermeture |
 | `npm run verify:drag` / `verify:button` | Gestes ; bouton et stockage Chrome, zoom/redimensionnement/plein écran |
+| `npm run verify:settings` | Glissés des réglages : swimlanes, types, champs et règles de couleur |
 | `npm run verify:loading` | Diagnostic de chargement du banc fictif |
 | `npm run package` | Archive `release/sprint-goals-board-<version>.zip` vérifiée |
 | `npm run store:screenshots` | Captures fictives du Store |
@@ -340,7 +357,7 @@ Les anciens alias `*:jira-direct-test` et `JIRA_DIRECT_DIST` restent retirés.
 
 [Le workflow GitHub](.github/workflows/validation.yml) exécute les contrôles à chaque push sur
 `main` ou `codex/**` et sur les demandes de fusion vers `main` : typage, style, tests, compilation,
-intégration Jira, glisser-déposer, diagnostic du banc et paquet. Il utilise une machine Windows,
+intégration Jira, glisser-déposer (board et réglages), diagnostic du banc et paquet. Il utilise une machine Windows,
 Node 24 et Chrome for Testing 155.0.8059.39 téléchargé depuis la distribution officielle Google.
 Profil temporaire et uniquement Jira fictif : aucune session ou donnée Jira réelle n'est nécessaire.
 

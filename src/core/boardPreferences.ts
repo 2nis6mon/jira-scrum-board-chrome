@@ -14,6 +14,7 @@ import {
 } from "./boardConfiguration";
 import { type BoardSnapshot, goalProgress, isIssueDone } from "./boardIssue";
 import { blockTitle, laneKey } from "./boardLayout";
+import { moveAmongShown, sameOrder, shiftTarget } from "./reorder";
 import { GOAL_COLOR_COUNT, type SprintGoal } from "./sprintGoals";
 
 // Réglages d'affichage modifiés depuis le board : ordre, repli, masquage, couleur des objectifs.
@@ -133,6 +134,61 @@ export function withBlockOrder(
     if (!result.includes(id)) result.push(id);
   }
   return { ...configuration, blockOrder: result };
+}
+
+/**
+ * Build et toutes les swimlanes par type, masquées et sans ticket comprises, dans leur ordre sur le
+ * board : la liste de l'onglet Board des réglages. Les objectifs n'y figurent pas : leur ordre se
+ * règle sur le board (demande de Denis du 13/10/2026).
+ */
+export function settingsLaneOrder(configuration: BoardConfiguration): string[] {
+  return resolveBlocks({
+    goals: [],
+    storedOrder: configuration.blockOrder,
+    includeBuild: true,
+    swimlaneIds: configuration.ticketSwimlanes.map((swimlane) => swimlane.id),
+  }).map(blockIdentifier);
+}
+
+/**
+ * Place Build ou une swimlane par type juste avant `before`, Build ou une autre swimlane par type
+ * (`null` : après la dernière d'entre elles). Les objectifs gardent leur place sur le board ; une
+ * place inchangée rend la configuration telle quelle, pour ne rien écrire.
+ *
+ * `goals` : objectifs du sprint ou du board affiché, pour ranger l'ordre complet du board.
+ */
+export function withSettingsLaneMoved(
+  configuration: BoardConfiguration,
+  goals: readonly SprintGoal[],
+  identifier: string,
+  before: string | null,
+): BoardConfiguration {
+  const full = resolveBlocks({
+    goals: goals.filter((goal) => !isGoalHidden(configuration, goal.id)),
+    storedOrder: configuration.blockOrder,
+    includeBuild: true,
+    swimlaneIds: configuration.ticketSwimlanes.map((swimlane) => swimlane.id),
+  }).map(blockIdentifier);
+  const moved = moveAmongShown(
+    full,
+    identifier,
+    before,
+    (id) => parseBlockIdentifier(id)?.kind !== "goal",
+  );
+  return sameOrder(moved, full) ? configuration : withBlockOrder(configuration, moved);
+}
+
+/** Monte (`-1`) ou descend (`+1`) Build ou une swimlane par type d'un cran dans la liste des réglages. */
+export function withSettingsLaneShifted(
+  configuration: BoardConfiguration,
+  goals: readonly SprintGoal[],
+  identifier: string,
+  offset: -1 | 1,
+): BoardConfiguration {
+  const before = shiftTarget(settingsLaneOrder(configuration), identifier, offset);
+  return before === undefined
+    ? configuration
+    : withSettingsLaneMoved(configuration, goals, identifier, before);
 }
 
 export function withBlockCollapsed(

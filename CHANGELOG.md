@@ -3,6 +3,20 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.31.0 — Réglages du board repensés
+
+- Réglages ouverts depuis le board (en-tête, barre latérale, menu du board, menu d'une swimlane),
+  en onglets Board, Objectifs, Champs et Couleurs des cartes ; le bouton Administration laisse
+  place au menu « Site Jira » (diagnostic, déconnexion) en pied de barre latérale.
+- Onglet Board : Build et swimlanes par type rangés par glissé, renommés dans la liste (nom de
+  Build compris), créés à la volée avec leur premier type ; types glissés d'un groupe à l'autre.
+  Les objectifs se rangent toujours sur le board.
+- Champs et règles de couleur des cartes réordonnés par glissé, avec aperçu de cartes du board.
+  Chaque glissé a son équivalent clavier ou menu ; `verify:settings` les contrôle dans Chromium.
+- Retirés : personnalisation des colonnes (noms, masquage, WIP : ceux de Jira s'appliquent) et
+  labels marquant un ticket bloqué (seul le lien « est bloqué par » compte). Leurs valeurs restent
+  dans la propriété du board pour les versions précédentes.
+
 ## 0.30.0 — Architecture et tests automatisés
 
 - Chargement, déplacements et réglages/épinglage extraits de `BoardModel` en services testables.

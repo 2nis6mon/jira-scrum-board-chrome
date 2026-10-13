@@ -129,10 +129,10 @@ describe("assembleBoardIssues", () => {
     expect(issue.isBlocked).toBe(true);
   });
 
-  it("un label ne compte comme blocage que s'il est configuré", () => {
+  it("un label ne compte jamais comme blocage, même configuré avant 0.31.0", () => {
     expect(one("ABC-1", { labels: ["bloque"] }).isBlocked).toBe(false);
-    const config = makeConfiguration({ blockedLabels: ["bloque"] });
-    expect(one("ABC-1", { labels: ["bloque"] }, config).isBlocked).toBe(true);
+    const old = { ...makeConfiguration(), blockedLabels: ["bloque"] };
+    expect(one("ABC-1", { labels: ["bloque"] }, old).isBlocked).toBe(false);
   });
 
   it("classe les types Kanban", () => {
@@ -352,14 +352,6 @@ describe("bloquants", () => {
     expect(
       blocker && locateBlocker(snapshot(issues), blocker, makeConfiguration().columns),
     ).toEqual({ kind: "elsewhere", projectKey: "OPS", typeName: null });
-  });
-
-  it("garde les labels de blocage qui correspondent, sans tenir compte de la casse", () => {
-    const config = makeConfiguration({ blockedLabels: ["Bloqué"] });
-    const issue = one("ABC-1", { labels: ["bloqué", "front"] }, config);
-    expect(issue.isBlocked).toBe(true);
-    expect(issue.blockedByLabels).toEqual(["bloqué"]);
-    expect(issue.blockers).toEqual([]);
   });
 });
 

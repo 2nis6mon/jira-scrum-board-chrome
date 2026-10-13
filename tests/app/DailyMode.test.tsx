@@ -112,7 +112,7 @@ describe("mode Daily", () => {
     expect(document.querySelector(".daily-bar")).toBeNull();
   });
 
-  it("le bouton Terminer arrête la daily ; l'administration aussi", async () => {
+  it("le bouton Terminer arrête la daily ; les réglages aussi", async () => {
     const { model } = await connectedBoard();
     labelled("Lancer la daily").click();
     await settle();
@@ -124,11 +124,11 @@ describe("mode Daily", () => {
     expect(model.daily.value).toBeNull();
 
     model.startDaily(15, null);
-    model.showAdmin("board");
+    model.showSettings("board");
     expect(model.daily.value).toBeNull();
   });
 
-  it("la durée vient de l'administration du board", async () => {
+  it("la durée vient des réglages du board", async () => {
     const { model } = await connectedBoard();
     const connection = model.connection.value;
     if (connection.state !== "connected") throw new Error("connexion attendue");

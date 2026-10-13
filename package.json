@@ -1,6 +1,6 @@
 {
   "name": "jira-scrum-board-chrome",
-  "version": "0.30.0",
+  "version": "0.31.0",
   "private": true,
   "description": "Boards Scrum et Kanban Jira Cloud : swimlanes par objectif, Build et RUN configurables, glisser-déposer et Daily.",
   "type": "module",
@@ -18,6 +18,7 @@
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
     "verify:transition": "npm run verify:jira",
     "verify:drag": "node scripts/verify-drag.mjs",
+    "verify:settings": "node scripts/verify-settings.mjs",
     "verify:loading": "node scripts/verify-loading.mjs",
     "verify:load": "npm run build && node scripts/verify-load.mjs",
     "verify:jira": "npm run build && node scripts/verify-jira.mjs",

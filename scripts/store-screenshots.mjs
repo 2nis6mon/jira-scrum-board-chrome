@@ -135,10 +135,10 @@ try {
     await shoot("02-famille");
   }
 
-  // 3. Administration : objectifs du sprint (couleur, masquage, épinglage) en une section.
+  // 3. Réglages du board, onglet Objectifs : couleur, masquage et épinglage de chaque objectif.
   await send("Page.navigate", { url: "http://127.0.0.1:5202/?scenario=board-epingle" }, sessionId);
   await waitFor(
-    "document.querySelectorAll('#settings-sprint-goals ~ ul .settings-row').length > 0 && document.querySelector('.pin-list') !== null",
+    "document.querySelectorAll('.settings-goal').length > 0 && document.querySelector('.pin-list') !== null",
     "les objectifs du sprint",
   );
   await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 1, y: HEIGHT - 1 }, sessionId);

@@ -4,15 +4,15 @@ import { type LaneSummary, laneSummaries } from "../../core/boardPreferences";
 import { type AppModel, clampSidebarWidth, SIDEBAR_WIDTH } from "../model/AppModel";
 import type { BoardModel, BoardSummary } from "../model/BoardModel";
 import { LANE_DRAG_TYPE, revealLane } from "./board/lanes";
+import { DIAGNOSTIC_ENABLED } from "./DiagnosticView";
 import { GoalMarker } from "./GoalMarker";
 import { Icon, type IconName } from "./Icon";
-import { BOARD_SECTIONS, DIAGNOSTIC_ENABLED } from "./settings/AdminView";
 
 /**
- * Barre latérale. De haut en bas : board affiché (et son menu), vue du sprint
- * (la santé du sprint y est un panneau), swimlanes dans l'ordre du board (un clic y mène, un glissé
- * les réordonne), objectifs masqués, et Administration en pied de barre : son bouton déplie ses
- * sections au-dessus de lui, et les replie au clic suivant ou dès qu'une autre vue est choisie.
+ * Barre latérale. De haut en bas : board affiché (et son menu), vue du sprint (la santé du sprint y
+ * est un panneau) et réglages du board, swimlanes dans l'ordre du board (un clic y mène, un glissé
+ * les réordonne), objectifs masqués, et « Site Jira » en pied de barre : son bouton déplie le
+ * diagnostic, le site et la déconnexion, communs à tous les boards.
  */
 export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }) {
   const view = model.view.value;
@@ -23,12 +23,8 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
     snapshot && configuration && (snapshot.sprint || kanban)
       ? laneSummaries(snapshot, configuration)
       : null;
-  // Sans droit de modifier le board et sans diagnostic, l'administration n'a plus rien à montrer.
-  const adminAvailable = board.canEditSettings.value || DIAGNOSTIC_ENABLED;
-  // Le droit peut tomber (403) pendant qu'elle est ouverte : on revient alors au sprint.
-  useEffect(() => {
-    if (!adminAvailable && model.view.value === "admin") model.showBoard();
-  }, [model, adminAvailable, view]);
+  // Réglages du board : partagés, donc réservés à qui peut modifier le board dans Jira.
+  const settingsAvailable = configuration !== null && board.canEditSettings.value;
 
   return (
     <aside
@@ -50,6 +46,14 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
           current={view === "board"}
           onClick={() => model.showBoard()}
         />
+        {settingsAvailable && (
+          <NavButton
+            icon="sliders"
+            label="Réglages"
+            current={view === "settings"}
+            onClick={() => model.showSettings()}
+          />
+        )}
       </nav>
       <div class="sidebar-divider" />
       <div class="sidebar-scroll">
@@ -57,23 +61,7 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
       </div>
       <HiddenGoals board={board} />
       <div class="sidebar-divider" />
-      {/* Administration : son bouton reste en tête, ses sections se déplient dessous, sur un fond
-          distinct de celui de la barre. Sans rien à y faire, elle disparaît : reste la
-          déconnexion (demande de Denis du 24/09/2026). */}
-      {adminAvailable ? (
-        <div class={`sidebar-admin-block${view === "admin" ? " is-open" : ""}`}>
-          <NavButton
-            icon="settings"
-            label="Administration"
-            current={view === "admin"}
-            expanded={view === "admin"}
-            onClick={() => model.toggleAdmin()}
-          />
-          {view === "admin" && <AdminMenu model={model} board={board} />}
-        </div>
-      ) : (
-        <SiteAccount model={model} host={board.site.host} />
-      )}
+      <SiteMenu model={model} host={board.site.host} />
     </aside>
   );
 }
@@ -155,58 +143,49 @@ function SidebarResizer({ model }: { model: AppModel }) {
 }
 
 /**
- * Sections de l'administration, dépliées dans la barre latérale sous son bouton : réglages du
- * board affiché, diagnostic, puis le site et sa déconnexion.
+ * « Site Jira », en pied de barre latérale : ce qui vaut pour tous les boards du site. Son bouton
+ * déplie le diagnostic, le site connecté et la déconnexion ; les réglages de chaque board
+ * s'ouvrent, eux, depuis le board (0.31.0).
  */
-function AdminMenu({ model, board }: { model: AppModel; board: BoardModel }) {
-  const configuration = board.configuration.value;
-  const host = board.site.host;
-  // Sans droit de modifier le board dans Jira, ses réglages (partagés) ne se changent pas ici.
-  const editable = board.canEditSettings.value;
-  const section = editable || !DIAGNOSTIC_ENABLED ? model.adminSection.value : "diagnostic";
+function SiteMenu({ model, host }: { model: AppModel; host: string }) {
+  const open = model.siteMenuOpen.value;
+  const view = model.view.value;
   return (
-    <nav class="sidebar-admin" aria-label="Sections de l'administration">
-      <p class="settings-group">{configuration?.boardName ?? "Board"}</p>
-      {(editable ? BOARD_SECTIONS : []).map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          class="settings-tab"
-          aria-pressed={section === item.id}
-          disabled={!configuration}
-          onClick={() => model.showAdmin(item.id)}
-        >
-          {item.label}
-        </button>
-      ))}
-      {/* Plus de texte quand tout est modifiable (demande de Denis) ; il reste là où le menu
-          serait autrement inexplicable : pas de board, ou sections retirées faute de droits. */}
-      {(!configuration || !editable) && (
-        <p class="hint settings-local">
-          {!configuration
-            ? "Choisissez d'abord un board : ces réglages portent sur lui."
-            : "Réglages du board en lecture seule : seules les personnes qui peuvent modifier le board dans Jira les changent."}
-        </p>
+    <div class={`sidebar-site${open ? " is-open" : ""}`}>
+      <button
+        type="button"
+        class="sidebar-nav-item sidebar-site-toggle"
+        aria-expanded={open}
+        aria-controls="sidebar-site-menu"
+        onClick={() => model.toggleSiteMenu()}
+      >
+        <Icon name="globe" size={16} />
+        <span class="sidebar-site-text">
+          <span class="sidebar-site-name">Site Jira</span>
+          <span class="sidebar-site-host">{host}</span>
+        </span>
+        <Icon name={open ? "chevronDown" : "chevronUp"} size={12} />
+      </button>
+      {open && (
+        <nav id="sidebar-site-menu" class="sidebar-site-menu" aria-label="Site Jira">
+          {DIAGNOSTIC_ENABLED && (
+            <button
+              type="button"
+              class="sidebar-nav-item sidebar-site-entry"
+              aria-current={view === "diagnostic" ? "page" : undefined}
+              onClick={() => model.showDiagnostic()}
+            >
+              Diagnostic
+            </button>
+          )}
+          <SiteAccount model={model} host={host} />
+        </nav>
       )}
-      {DIAGNOSTIC_ENABLED && (
-        <>
-          <p class="settings-group">Site Jira</p>
-          <button
-            type="button"
-            class="settings-tab"
-            aria-pressed={section === "diagnostic"}
-            onClick={() => model.showDiagnostic()}
-          >
-            Diagnostic
-          </button>
-        </>
-      )}
-      <SiteAccount model={model} host={host} />
-    </nav>
+    </div>
   );
 }
 
-/** Site connecté et sa déconnexion : en pied d'administration, ou seuls quand elle est masquée. */
+/** Site connecté et sa déconnexion, au bas du menu « Site Jira ». */
 function SiteAccount({ model, host }: { model: AppModel; host: string }) {
   return (
     <div class="settings-account">
@@ -235,15 +214,12 @@ function NavButton(props: {
   label: string;
   current: boolean;
   onClick: () => void;
-  /** Bouton qui déplie ses sections juste au-dessous de lui (Administration). */
-  expanded?: boolean;
 }) {
   return (
     <button
       type="button"
       class="sidebar-nav-item"
       aria-current={props.current ? "page" : undefined}
-      aria-expanded={props.expanded}
       onClick={props.onClick}
     >
       <Icon name={props.icon} size={16} />
@@ -346,6 +322,16 @@ function BoardSwitcher(props: {
             Ajouter un board…
           </button>
           <hr class="menu-separator" />
+          {board.canEditSettings.value && (
+            <button
+              type="button"
+              class="menu-settings"
+              onClick={(event) => act(event, () => model.showSettings())}
+            >
+              <Icon name="sliders" size={14} />
+              Réglages de ce board
+            </button>
+          )}
           <a
             href={`${board.site.origin}/secure/RapidBoard.jspa?rapidView=${configuration.boardId}`}
             target="_blank"
@@ -361,7 +347,10 @@ function BoardSwitcher(props: {
             Relire colonnes et types depuis Jira
           </button>
           {board.canPinGoals.value && board.canEditSettings.value && (
-            <button type="button" onClick={(event) => act(event, () => model.showAdmin("goals"))}>
+            <button
+              type="button"
+              onClick={(event) => act(event, () => model.showSettings("goals"))}
+            >
               Épingler des Goals au {configuration.boardType === "kanban" ? "board" : "sprint"}…
             </button>
           )}
@@ -420,8 +409,8 @@ function RemoveBoardDialog(props: {
       >
         <h2 id="remove-board-title">Retirer « {props.target.boardName} » de l'extension ?</h2>
         <p class="hint">
-          Les réglages de ce board dans ce navigateur seront effacés : colonnes, types, objectifs du
-          board, couleurs, ordre et repli des swimlanes, champs et règles de couleur des cartes.
+          Les réglages de ce board dans ce navigateur seront effacés : types et swimlanes, objectifs
+          du board, couleurs, ordre et repli des swimlanes, champs et règles de couleur des cartes.
           Rien n'est supprimé dans Jira ; vous pourrez l'ajouter de nouveau par son nom.
         </p>
         <div class="row">

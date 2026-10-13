@@ -44,6 +44,8 @@ jobs:
         run: npm run verify:jira
       - name: Vérifier les déplacements
         run: npm run verify:drag
+      - name: Vérifier les glissés des réglages du board
+        run: npm run verify:settings
       - name: Vérifier le diagnostic de chargement du banc
         run: npm run verify:loading
       - name: Vérifier les types, le style, les tests et la compilation

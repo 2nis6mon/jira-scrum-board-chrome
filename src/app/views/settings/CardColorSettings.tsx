@@ -1,18 +1,28 @@
 import { useState } from "preact/hooks";
 import { type BoardConfiguration, colorRules } from "../../../core/boardConfiguration";
+import { allIssues } from "../../../core/boardIssue";
 import {
   CARD_COLOR_LABEL,
   CARD_COLOR_PALETTE,
   type CardColorRule,
   cleanedColorRules,
+  moveColorRule,
   nextRuleColor,
 } from "../../../core/cardColors";
+import { shiftTarget } from "../../../core/reorder";
 import type { BoardModel } from "../../model/BoardModel";
 import { plural } from "../format";
+import { Icon } from "../Icon";
+import { CardPreview } from "./CardPreview";
+import { ColorMenu, Grip, SaveBar, Switch, useReorder } from "./controls";
+
+const RULE_DRAG = "application/x-sprint-goals-settings-rule";
+const CARD_COLORS = CARD_COLOR_PALETTE.map((id) => ({ id, name: CARD_COLOR_LABEL[id] ?? id }));
 
 /**
- * Règles de couleur des cartes : un JQL, une couleur. Le JQL est soumis tel quel à Jira, restreint
- * aux sprints actifs ; l'extension ne l'interprète pas.
+ * Onglet Couleurs des cartes : un JQL, une couleur. Le JQL est soumis tel quel à Jira, restreint
+ * aux sprints actifs ou au périmètre Kanban ; l'extension ne l'interprète pas. L'ordre de la liste
+ * est la priorité (glissé, ou poignée aux flèches). Un brouillon, enregistré sur « Appliquer ».
  */
 export function CardColorSettings({
   board,
@@ -24,25 +34,40 @@ export function CardColorSettings({
   const kanban = configuration.boardType === "kanban";
   const stored = colorRules(configuration);
   const [rules, setRules] = useState<readonly CardColorRule[]>(stored);
-  const visibleRules = rules.filter((rule) => !kanban || rule.kind !== "addedAfterSprintStart");
+  // En Kanban, la règle « ajouté en cours de sprint » n'a pas de sens : cachée, mais gardée.
+  const shown = (rule: CardColorRule) => !kanban || rule.kind !== "addedAfterSprintStart";
+  const visibleRules = rules.filter(shown);
+  const ids = visibleRules.map((rule) => rule.id);
   const [applying, setApplying] = useState(false);
   const changed = JSON.stringify(rules) !== JSON.stringify(stored);
 
   // Chaque modification repart de la liste COURANTE.
   const edit = (id: string, parts: Partial<CardColorRule>) =>
     setRules((current) => current.map((rule) => (rule.id === id ? { ...rule, ...parts } : rule)));
-  const move = (id: string, offset: number) =>
-    setRules((current) => {
-      const visible = current.filter((rule) => !kanban || rule.kind !== "addedAfterSprintStart");
-      const destination = visible[visible.findIndex((rule) => rule.id === id) + offset];
-      if (!destination) return current;
-      const index = current.findIndex((rule) => rule.id === id);
-      const target = current.findIndex((rule) => rule.id === destination.id);
-      const result = [...current];
-      const [moved] = result.splice(index, 1);
-      if (moved) result.splice(target, 0, moved);
-      return result;
-    });
+  const reorder = useReorder(RULE_DRAG, ids, (id, before) =>
+    setRules((current) => moveColorRule(current, id, before, shown)),
+  );
+  const shift = (id: string, offset: -1 | 1) => {
+    const before = shiftTarget(ids, id, offset);
+    if (before !== undefined) setRules((current) => moveColorRule(current, id, before, shown));
+  };
+  const addRule = () => {
+    setRules((current) => [
+      {
+        id: crypto.randomUUID(),
+        name: "",
+        jql: "",
+        color: nextRuleColor(current),
+        enabled: true,
+        kind: null,
+      },
+      ...current,
+    ]);
+    // La nouvelle règle, en tête de liste, reçoit la saisie.
+    requestAnimationFrame(() =>
+      document.querySelector<HTMLInputElement>(".color-rule-name")?.focus(),
+    );
+  };
 
   const apply = async () => {
     setApplying(true);
@@ -55,170 +80,205 @@ export function CardColorSettings({
     }
   };
 
+  // Aperçu : les cartes colorées par les règles enregistrées, à la dernière évaluation de Jira.
+  const tints = board.cardColors.value;
+  const snapshot = board.snapshot.value;
+  const issues = snapshot ? allIssues(snapshot) : [];
+  const colored = issues.filter((issue) => tints[issue.issue.key] !== undefined).slice(0, 3);
+  const plain = issues.find((issue) => tints[issue.issue.key] === undefined);
+  const sample = plain && colored.length < 3 ? [...colored, plain] : colored;
+  const why = (key: string) => {
+    const color = tints[key];
+    if (color === undefined) return "Aucune règle : carte inchangée.";
+    const owners = stored.filter((rule) => rule.enabled && rule.color === color && shown(rule));
+    const [owner] = owners;
+    return owners.length === 1 && owner
+      ? `Règle « ${owner.name || "sans nom"} »`
+      : `Couleur ${(CARD_COLOR_LABEL[color] ?? color).toLowerCase()}`;
+  };
+
   return (
-    <div class="settings-section">
-      <section class="panel" aria-labelledby="settings-card-colors">
-        <h2 id="settings-card-colors">Couleur de fond des cartes</h2>
-        <p class="hint">
-          Chaque règle colore les cartes des tickets qui satisfont son JQL, par exemple{" "}
-          <code>priority = Highest</code> ou <code>"Priorité incident" = P2</code>. Jira évalue la
-          requête à chaque actualisation,{" "}
-          {kanban ? "dans le périmètre du board Kanban" : "sur les sprints actifs"} ; l'extension ne
-          l'interprète pas.
-        </p>
-        <p class="hint">
-          L'ordre de la liste est l'ordre de priorité : quand plusieurs règles s'appliquent au même
-          ticket, la plus haute l'emporte.
-          {!kanban && " La règle « Ajouté en cours de sprint » se place comme les autres."}
-        </p>
-        <div class="row">
-          <button
-            type="button"
-            onClick={() =>
-              setRules((current) => [
-                {
-                  id: crypto.randomUUID(),
-                  name: "",
-                  jql: "",
-                  color: nextRuleColor(current),
-                  enabled: true,
-                  kind: null,
-                },
-                ...current,
-              ])
-            }
-          >
-            Ajouter une règle
-          </button>
-        </div>
-      </section>
+    <>
+      <div class="settings-columns">
+        <section class="settings-card" aria-labelledby="settings-card-colors">
+          <header class="settings-card-header">
+            <div class="settings-card-title">
+              <h2 id="settings-card-colors">Couleur de fond des cartes</h2>
+              <p class="settings-help">
+                Chaque règle colore les cartes des tickets qui satisfont son JQL, par exemple{" "}
+                <code>priority = Highest</code> ou <code>"Priorité incident" = P2</code>. Jira
+                évalue la requête à chaque actualisation,{" "}
+                {kanban ? "dans le périmètre du board Kanban" : "sur les sprints actifs"} ;
+                l'extension ne l'interprète pas.
+              </p>
+              <p class="settings-help">
+                L'ordre de la liste est l'ordre de priorité : quand plusieurs règles s'appliquent au
+                même ticket, la plus haute l'emporte. Glissez pour réordonner.
+                {!kanban && " La règle « Ajouté en cours de sprint » se place comme les autres."}
+              </p>
+            </div>
+            <button type="button" class="settings-button primary" onClick={addRule}>
+              <Icon name="plus" size={14} />
+              Nouvelle règle
+            </button>
+          </header>
 
-      <ol class="color-rules">
-        {visibleRules.map((rule, index) => {
-          const builtIn = rule.kind !== null;
-          const label = rule.name.trim() || (builtIn ? rule.name : `Règle ${index + 1}`);
-          return (
-            <li key={rule.id} class="panel color-rule" data-card-color={rule.color}>
-              <div class="color-rule-head">
-                <span class="color-rule-rank" title="Rang de priorité : 1 = la plus prioritaire">
-                  {index + 1}
-                </span>
-                <input
-                  type="checkbox"
-                  aria-label={`Activer la règle ${label}`}
-                  title="Activer ou suspendre cette règle"
-                  checked={rule.enabled}
-                  onChange={(event) => {
-                    const enabled = event.currentTarget.checked;
-                    edit(rule.id, { enabled });
-                  }}
-                />
-                {builtIn ? (
-                  <strong class="color-rule-name">{rule.name}</strong>
-                ) : (
-                  <input
-                    type="text"
-                    class="color-rule-name"
-                    aria-label={`Nom de la règle ${index + 1}`}
-                    placeholder="Nom (ex. Incident P2)"
-                    value={rule.name}
-                    onInput={(event) => {
-                      const name = event.currentTarget.value;
-                      edit(rule.id, { name });
-                    }}
-                  />
-                )}
-                <fieldset class="settings-swatches">
-                  <legend class="visually-hidden">Couleur de la règle {label}</legend>
-                  {CARD_COLOR_PALETTE.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      class="swatch card-swatch"
-                      data-card-color={color}
-                      aria-label={CARD_COLOR_LABEL[color] ?? color}
-                      title={CARD_COLOR_LABEL[color] ?? color}
-                      aria-pressed={rule.color === color}
-                      onClick={() => edit(rule.id, { color })}
-                    />
-                  ))}
-                </fieldset>
-                <span class="color-rule-actions">
-                  <button
-                    type="button"
-                    aria-label={`Rendre la règle ${label} plus prioritaire`}
-                    disabled={index === 0}
-                    onClick={() => move(rule.id, -1)}
+          {visibleRules.length === 0 ? (
+            <p class="settings-empty">Aucune règle : les cartes gardent leur fond.</p>
+          ) : (
+            <ol class="settings-list color-rules">
+              {visibleRules.map((rule, index) => {
+                const builtIn = rule.kind !== null;
+                const label = rule.name.trim() || (builtIn ? rule.name : `Règle ${index + 1}`);
+                return (
+                  <li
+                    key={rule.id}
+                    class={`settings-rule color-rule${rule.enabled ? "" : " is-disabled"}${reorder.dragged === rule.id ? " is-dragging" : ""}`}
+                    data-card-color={rule.color}
+                    data-reorder-row
+                    data-drop={reorder.marker(rule.id)}
+                    onDragOver={reorder.over(rule.id)}
+                    onDrop={reorder.drop}
                   >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Rendre la règle ${label} moins prioritaire`}
-                    disabled={index === visibleRules.length - 1}
-                    onClick={() => move(rule.id, 1)}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Supprimer la règle ${label}`}
-                    title={
-                      builtIn
-                        ? "Règle intégrée : décochez-la pour la suspendre"
-                        : "Supprimer cette règle"
-                    }
-                    disabled={builtIn}
-                    onClick={() => setRules((current) => current.filter((r) => r.id !== rule.id))}
-                  >
-                    ×
-                  </button>
-                </span>
-              </div>
-              {builtIn ? (
-                <p class="hint">
-                  Règle intégrée, sans JQL : ticket entré dans le sprint après son démarrage,
-                  d'après l'historique Jira.
-                </p>
-              ) : (
-                <textarea
-                  class="color-rule-jql"
-                  aria-label={`JQL de la règle ${label}`}
-                  rows={2}
-                  spellcheck={false}
-                  placeholder='JQL — ex. "Priorité incident" = P2'
-                  value={rule.jql}
-                  onInput={(event) => {
-                    const jql = event.currentTarget.value;
-                    edit(rule.id, { jql });
-                  }}
-                />
-              )}
-              <RuleStatus board={board} rule={rule} stored={stored} />
-            </li>
-          );
-        })}
-      </ol>
+                    <div class="settings-rule-head">
+                      <Grip
+                        label={`Déplacer la règle ${label}`}
+                        onMove={(offset) => shift(rule.id, offset)}
+                        onDragStart={reorder.start(rule.id)}
+                        onDragEnd={reorder.end}
+                      />
+                      <span
+                        class="settings-rank"
+                        title="Rang de priorité : 1 = la plus prioritaire"
+                      >
+                        {index + 1}
+                      </span>
+                      <Switch
+                        checked={rule.enabled}
+                        label={`Activer la règle ${label}`}
+                        onChange={(enabled) => edit(rule.id, { enabled })}
+                      />
+                      {builtIn ? (
+                        <span class="settings-rule-title">
+                          <strong>{rule.name}</strong>
+                          <span class="settings-badge">
+                            <Icon name="lock" size={11} />
+                            Règle intégrée
+                          </span>
+                        </span>
+                      ) : (
+                        <input
+                          type="text"
+                          class="color-rule-name"
+                          aria-label={`Nom de la règle ${index + 1}`}
+                          placeholder="Nom (ex. Incident P2)"
+                          value={rule.name}
+                          onInput={(event) => {
+                            const name = event.currentTarget.value;
+                            edit(rule.id, { name });
+                          }}
+                        />
+                      )}
+                      <ColorMenu
+                        label={`Couleur de la règle ${label}`}
+                        title="Couleur de fond"
+                        choices={CARD_COLORS}
+                        selected={rule.color}
+                        swatch={(id) => (
+                          <span class="settings-swatch settings-swatch-card" data-card-color={id} />
+                        )}
+                        onPick={(color) => edit(rule.id, { color })}
+                      />
+                      <button
+                        type="button"
+                        class="icon-button settings-icon-button"
+                        aria-label={`Supprimer la règle ${label}`}
+                        title={
+                          builtIn
+                            ? "Règle intégrée : décochez-la pour la suspendre"
+                            : "Supprimer cette règle"
+                        }
+                        disabled={builtIn}
+                        onClick={() =>
+                          setRules((current) => current.filter((r) => r.id !== rule.id))
+                        }
+                      >
+                        <Icon name="trash" size={15} />
+                      </button>
+                    </div>
+                    {builtIn ? (
+                      <p class="settings-rule-body settings-help">
+                        Règle intégrée, sans JQL : ticket entré dans le sprint après son démarrage,
+                        d'après l'historique Jira.
+                      </p>
+                    ) : (
+                      <textarea
+                        class="settings-rule-body color-rule-jql"
+                        aria-label={`JQL de la règle ${label}`}
+                        rows={2}
+                        spellcheck={false}
+                        placeholder='JQL — ex. "Priorité incident" = P2'
+                        value={rule.jql}
+                        onInput={(event) => {
+                          const jql = event.currentTarget.value;
+                          edit(rule.id, { jql });
+                        }}
+                      />
+                    )}
+                    <RuleStatus board={board} rule={rule} stored={stored} />
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </section>
 
-      <div class="settings-actions">
-        <span class="hint">
-          {changed
-            ? "Modifications non appliquées. Une règle sans JQL n'est pas enregistrée."
-            : "Aucune modification en cours."}
-        </span>
-        <button type="button" disabled={!changed || applying} onClick={() => setRules(stored)}>
-          Annuler
-        </button>
-        <button
-          type="button"
-          class="primary"
-          disabled={!changed || applying}
-          onClick={() => void apply()}
+        <aside
+          class="settings-card settings-preview-card"
+          aria-labelledby="settings-colors-preview"
         >
-          {applying ? "Évaluation par Jira…" : "Appliquer"}
-        </button>
+          <header class="settings-card-header">
+            <div class="settings-card-title">
+              <h2 id="settings-colors-preview">Aperçu</h2>
+              <p class="settings-help">D'après la dernière évaluation des règles par Jira.</p>
+            </div>
+          </header>
+          {sample.length > 0 ? (
+            <ul class="settings-preview-list">
+              {sample.map((issue) => (
+                <li key={issue.issue.key} class="settings-preview-item">
+                  <CardPreview
+                    board={board}
+                    configuration={configuration}
+                    issues={[issue]}
+                    cardFields={[]}
+                    tints={tints}
+                  />
+                  <span class="settings-help">{why(issue.issue.key)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p class="settings-empty">L'aperçu apparaît quand le board a été lu dans Jira.</p>
+          )}
+        </aside>
       </div>
-    </div>
+
+      <SaveBar
+        changed={changed}
+        message={
+          changed
+            ? "Modifications non appliquées · une règle sans JQL n'est pas enregistrée"
+            : "Aucune modification en cours."
+        }
+        busy={applying}
+        cancelDisabled={!changed || applying}
+        onCancel={() => setRules(stored)}
+        confirm={applying ? "Évaluation par Jira…" : "Appliquer"}
+        confirmDisabled={!changed || applying}
+        onConfirm={() => void apply()}
+      />
+    </>
   );
 }
 
@@ -230,14 +290,21 @@ function RuleStatus(props: {
 }) {
   const { board, rule } = props;
   const saved = props.stored.find((candidate) => candidate.id === rule.id);
+  const status = (tone: string, text: string, role?: "status") => (
+    <p class={`settings-rule-status settings-rule-status-${tone}`} role={role}>
+      <span class="settings-status-dot" aria-hidden="true" />
+      {text}
+    </p>
+  );
   if (!saved || JSON.stringify(saved) !== JSON.stringify(rule)) {
-    return <p class="hint">Non appliquée : « Appliquer » la fait évaluer par Jira.</p>;
+    return status("pending", "Non appliquée : « Appliquer » la fait évaluer par Jira.");
   }
-  if (!rule.enabled) return <p class="hint">Suspendue.</p>;
+  if (!rule.enabled) return status("off", "Suspendue.");
   const refusal = board.colorRuleIssues.value[rule.id];
   if (refusal) {
     return (
-      <p class="color-rule-error" role="status">
+      <p class="settings-rule-status settings-rule-status-error color-rule-error" role="status">
+        <span class="settings-status-dot" aria-hidden="true" />
         Jira a refusé cette requête : {refusal}
       </p>
     );
@@ -245,7 +312,10 @@ function RuleStatus(props: {
   const count = board.colorRuleCounts.value[rule.id];
   if (count === undefined) return null;
   return (
-    <p class={count > 0 ? "color-rule-ok" : "hint"}>
+    <p
+      class={`settings-rule-status ${count > 0 ? "settings-rule-status-ok color-rule-ok" : "settings-rule-status-off"}`}
+    >
+      <span class="settings-status-dot" aria-hidden="true" />
       {plural(count, "ticket affiché satisfait", "tickets affichés satisfont")} cette règle.
     </p>
   );

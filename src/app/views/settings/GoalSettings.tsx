@@ -15,7 +15,7 @@ const SOURCES: readonly { id: GoalSource; label: string; help: string }[] = [
   },
 ];
 
-/** Source des objectifs, puis les objectifs du sprint : couleur, masquage, épinglage. */
+/** Onglet Objectifs : leur source, puis les objectifs du sprint (couleur, masquage, épinglage). */
 export function GoalSettings({
   board,
   configuration,
@@ -27,17 +27,25 @@ export function GoalSettings({
   const source = kanban ? "atlassianGoals" : configuration.goalSource;
 
   return (
-    <div class="settings-section">
-      <section class="panel" aria-labelledby="settings-source">
-        <h2 id="settings-source">Source des objectifs</h2>
+    <>
+      <section class="settings-card" aria-labelledby="settings-source">
+        <header class="settings-card-header">
+          <div class="settings-card-title">
+            <h2 id="settings-source">Source des objectifs</h2>
+            <p class="settings-help">
+              {kanban
+                ? "Les Goals Atlassian liés aux tickets deviennent les objectifs du board. Épinglez un Goal pour garder sa ligne visible même sans ticket."
+                : "Jira n'a aucune relation native entre un sprint et un Goal : les Goals sont au niveau de l'organisation."}
+            </p>
+          </div>
+        </header>
         <fieldset class="settings-choices">
-          <legend class="hint">
-            {kanban
-              ? "Les Goals Atlassian liés aux tickets deviennent les objectifs du board. Épinglez un Goal pour garder sa ligne visible même sans ticket."
-              : "Jira n'a aucune relation native entre un sprint et un Goal : les Goals sont au niveau de l'organisation."}
-          </legend>
+          <legend class="visually-hidden">Source des objectifs</legend>
           {SOURCES.filter((option) => !kanban || option.id === "atlassianGoals").map((option) => (
-            <label key={option.id} class="settings-choice">
+            <label
+              key={option.id}
+              class={`settings-choice${source === option.id ? " is-checked" : ""}`}
+            >
               <input
                 type="radio"
                 name="goal-source"
@@ -49,9 +57,9 @@ export function GoalSettings({
                   })
                 }
               />
-              <span>
+              <span class="settings-choice-text">
                 <strong>{option.label}</strong>
-                <span class="hint">{option.help}</span>
+                <span class="settings-help">{option.help}</span>
               </span>
             </label>
           ))}
@@ -60,6 +68,6 @@ export function GoalSettings({
       </section>
 
       <SprintGoalsPanel board={board} pinning={source === "atlassianGoals"} />
-    </div>
+    </>
   );
 }

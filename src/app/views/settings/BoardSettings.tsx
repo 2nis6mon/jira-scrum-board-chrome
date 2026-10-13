@@ -1,47 +1,66 @@
+import type { ComponentChildren, JSX } from "preact";
 import { useState } from "preact/hooks";
+import { parseBlockIdentifier } from "../../../core/boardBlocks";
 import {
   type BoardConfiguration,
-  type ColumnConfiguration,
   computedSwimlaneName,
   DEFAULT_BUILD_LABEL,
   type IssueTypeConfiguration,
   isBugTypeConfiguration,
+  MAX_DAILY_MINUTES,
+  MAX_DAILY_STOCK,
   swimlaneName,
-  swimlaneOfType,
   type TicketSwimlane,
 } from "../../../core/boardConfiguration";
+import { laneKey } from "../../../core/boardLayout";
+import {
+  settingsLaneOrder,
+  withSettingsLaneMoved,
+  withSettingsLaneShifted,
+} from "../../../core/boardPreferences";
 import {
   AUTO_REFRESH_CHOICES,
+  isTypeIn,
   type SettingResult,
   type TypeDestination,
   withAgingThreshold,
-  withBlockedLabels,
   withBugType,
   withBuildLabel,
-  withColumnHidden,
-  withColumnName,
   withDailyMinutes,
   withDailyStockLimit,
   withDefaultBlockOrder,
   withSwimlaneHidden,
   withSwimlaneName,
   withTypeDestination,
-  withWipLimit,
 } from "../../../core/boardSettings";
 import type { BoardModel } from "../../model/BoardModel";
+import type { ImageCache } from "../../model/ImageCache";
+import { JiraIcon } from "../board/JiraIcon";
 import { plural } from "../format";
+import { Icon } from "../Icon";
+import { CommitInput, Grip, Segmented, Stepper, Switch, useReorder } from "./controls";
+
+/** Types de donnée des glissés de cet onglet : ils n'entrent nulle part ailleurs. */
+const LANE_DRAG = "application/x-sprint-goals-settings-lane";
+const TYPE_DRAG = "application/x-sprint-goals-settings-type";
 
 /** Enregistre un réglage validé ; rend le message d'erreur s'il est refusé. */
-type Commit = (
-  change: (current: BoardConfiguration) => SettingResult,
-  options?: { resync?: boolean },
-) => string | null;
+type Commit = (change: (current: BoardConfiguration) => SettingResult) => string | null;
+type Apply = (
+  change: (current: BoardConfiguration) => BoardConfiguration,
+  resync?: boolean,
+) => void;
 
 /**
- * Colonnes, types de tickets, affichage. Chaque modification est enregistrée aussitôt : une case ou
- * une liste dès qu'on la change, un champ texte quand on le valide (Entrée, ou sortie du champ).
- * Classement des types, bugs et labels de blocage changent la lecture des tickets : le board est
- * alors relu dans Jira (lecture seule). Le reste ne change que l'affichage.
+ * Onglet Board : Build et les swimlanes par type, dans leur ordre sur le board (les objectifs se
+ * rangent sur le board lui-même), les types de tickets, puis l'affichage et la daily.
+ *
+ * Tout s'enregistre aussitôt : un glissé dès qu'il est déposé, une case dès qu'elle change, un
+ * champ texte quand on le valide (Entrée, ou sortie du champ). Ranger un type ou changer « bug »
+ * change la lecture des tickets : le board est alors relu dans Jira (lecture seule).
+ *
+ * Chaque glissé a son équivalent sans souris : poignées aux flèches haut et bas, menu « Déplacer »
+ * de chaque type, liste du premier type d'une nouvelle swimlane.
  */
 export function BoardSettings({
   board,
@@ -50,401 +69,576 @@ export function BoardSettings({
   board: BoardModel;
   configuration: BoardConfiguration;
 }) {
-  const commit: Commit = (change, options = {}) => {
+  const snapshot = board.snapshot.value;
+  const goals = snapshot?.goals ?? [];
+  const set: Apply = (change, resync = false) => void board.applySettings(change, { resync });
+  const commit: Commit = (change) => {
     const preview = change(configuration);
     if (!preview.ok) return preview.error;
     // Appliqué à la configuration la plus récente : deux saisies rapprochées s'additionnent.
-    void board.applySettings(
-      (current) => {
-        const latest = change(current);
-        return latest.ok ? latest.configuration : current;
-      },
-      { resync: options.resync ?? false },
-    );
+    set((current) => {
+      const latest = change(current);
+      return latest.ok ? latest.configuration : current;
+    });
     return null;
   };
-  const set = (change: (current: BoardConfiguration) => BoardConfiguration, resync = false) =>
-    commit((current) => ({ ok: true, configuration: change(current) }), { resync });
-  const buildLabel = configuration.buildSectionLabel || DEFAULT_BUILD_LABEL;
 
-  return (
-    <div class="settings-section">
-      <section class="panel" aria-labelledby="settings-columns">
-        <header class="panel-header">
-          <h2 id="settings-columns">Colonnes</h2>
-          <button
-            type="button"
-            onClick={() => void board.refreshStructure()}
-            disabled={board.setupBusy.value}
-          >
-            Relire colonnes et types depuis Jira
-          </button>
-        </header>
-        <p class="hint">
-          Les colonnes et leurs statuts viennent du board Jira. Vous pouvez en renommer l'affichage,
-          en masquer une et ajuster sa limite WIP. Toutes les swimlanes partagent ces colonnes, et
-          une limite WIP compte tous les tickets de la colonne. Chaque modification est enregistrée
-          dès que le champ est validé.
-        </p>
-        <ColumnEditor columns={configuration.columns} commit={commit} />
-      </section>
+  // Un type déposé là où il est déjà ne change rien : ni écriture ni relecture.
+  const moveType = (typeId: string, destination: TypeDestination) => {
+    if (isTypeIn(configuration, typeId, destination)) return;
+    set((current) => withTypeDestination(current, typeId, destination), true);
+  };
 
-      <TypeSettings configuration={configuration} set={set} />
-
-      <section class="panel" aria-labelledby="settings-display">
-        <h2 id="settings-display">Affichage et synchronisation</h2>
-        <div class="settings-field">
-          <label for="settings-build-label">
-            Nom du bloc des tickets rattachés à aucun objectif
-          </label>
-          <CommitInput
-            id="settings-build-label"
-            value={configuration.buildSectionLabel}
-            placeholder="Build"
-            onCommit={(raw) => set((current) => withBuildLabel(current, raw))}
-          />
-        </div>
-        <div class="settings-field settings-inline">
-          <label for="settings-aging">Seuil « vieillissant »</label>
-          <CommitInput
-            id="settings-aging"
-            value={String(configuration.agingThresholdDays)}
-            numeric
-            onCommit={(raw) => commit((current) => withAgingThreshold(current, raw))}
-          />
-          <span class="hint">jour(s) sans changement de statut</span>
-        </div>
-        <div class="settings-field settings-inline">
-          <label for="settings-daily">Durée de la daily</label>
-          <CommitInput
-            id="settings-daily"
-            value={String(configuration.dailyMinutes)}
-            numeric
-            onCommit={(raw) => commit((current) => withDailyMinutes(current, raw))}
-          />
-          <span class="hint">minute(s), pour le minuteur du mode Daily</span>
-        </div>
-        <div class="settings-field settings-inline">
-          <label for="settings-daily-stock">Stock en daily</label>
-          <CommitInput
-            id="settings-daily-stock"
-            value={String(configuration.dailyStockLimit)}
-            numeric
-            onCommit={(raw) => commit((current) => withDailyStockLimit(current, raw))}
-          />
-          <span class="hint">
-            carte(s) affichée(s) dans la première colonne de chaque swimlane, avant « + N autres »
-          </span>
-        </div>
-        <label class="settings-field settings-inline">
-          <span>Rafraîchissement automatique</span>
-          <select
-            value={
-              configuration.autoRefreshSeconds === null
-                ? ""
-                : String(configuration.autoRefreshSeconds)
-            }
-            onChange={(event) => {
-              const value = event.currentTarget.value;
-              const autoRefreshSeconds = value === "" ? null : Number(value);
-              set((current) => ({ ...current, autoRefreshSeconds }));
-            }}
-          >
-            {AUTO_REFRESH_CHOICES.map((seconds) => (
-              <option key={String(seconds)} value={seconds === null ? "" : String(seconds)}>
-                {seconds === null ? "Désactivé" : `Toutes les ${seconds / 60} min`}
-              </option>
-            ))}
-          </select>
-          <span class="hint">lecture seule : il relit Jira, n'écrit rien</span>
-        </label>
-        <div class="settings-field">
-          <label for="settings-blocked-labels">Labels marquant un ticket bloqué</label>
-          <CommitInput
-            id="settings-blocked-labels"
-            value={configuration.blockedLabels.join(", ")}
-            placeholder="séparés par des virgules — vide : seuls les liens Jira comptent"
-            onCommit={(raw) => set((current) => withBlockedLabels(current, raw), true)}
-          />
-          <span class="hint">Le lien Jira « est bloqué par » est toujours pris en compte.</span>
-        </div>
-        <div class="row">
-          <button
-            type="button"
-            disabled={configuration.blockOrder.length === 0}
-            onClick={() => set(withDefaultBlockOrder)}
-          >
-            Réinitialiser l'ordre des swimlanes
-          </button>
-          <span class="hint">
-            Objectifs dans leur ordre d'arrivée, puis {buildLabel} et les swimlanes par type.
-          </span>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-const GOAL_DESTINATION = "goal";
-const IGNORED_DESTINATION = "ignored";
-const NEW_DESTINATION = "new";
-
-function destinationValue(type: IssueTypeConfiguration, swimlane: TicketSwimlane | null): string {
-  if (swimlane) return `swimlane:${swimlane.id}`;
-  return type.category === "IGNORED" ? IGNORED_DESTINATION : GOAL_DESTINATION;
-}
-
-function parseDestination(value: string): TypeDestination {
-  if (value === IGNORED_DESTINATION) return { kind: "ignored" };
-  if (value === NEW_DESTINATION) return { kind: "newSwimlane" };
-  if (value.startsWith("swimlane:")) {
-    return { kind: "swimlane", swimlaneId: value.slice("swimlane:".length) };
+  // Tickets par swimlane, filtres ignorés ; inconnus tant que le board n'a pas été lu.
+  const counts = new Map<string, number>();
+  for (const issue of [...(snapshot?.goalIssues ?? []), ...(snapshot?.swimlaneIssues ?? [])]) {
+    const key = laneKey(configuration, issue);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
-  return { kind: "goal" };
-}
+  const count = (id: string) =>
+    snapshot ? (
+      <span class="settings-lane-count">{plural(counts.get(id) ?? 0, "ticket")}</span>
+    ) : null;
 
-/**
- * Types de tickets et swimlanes par type (demande de Denis du 25/09/2026) : un bloc par groupe —
- * par objectif, chaque swimlane par type, ignorés. Chaque type se déplace d'un groupe à l'autre ;
- * une swimlane naît de son premier type et disparaît avec le dernier.
- */
-function TypeSettings(props: {
-  configuration: BoardConfiguration;
-  set: (change: (current: BoardConfiguration) => BoardConfiguration, resync?: boolean) => unknown;
-}) {
-  const { configuration, set } = props;
-  const byCategory = (category: IssueTypeConfiguration["category"]) =>
-    configuration.issueTypes.filter((type) => type.category === category);
+  // Glissé d'une swimlane dans la liste.
+  const lanes = settingsLaneOrder(configuration);
+  const reorder = useReorder(LANE_DRAG, lanes, (id, before) =>
+    set((current) => withSettingsLaneMoved(current, goals, id, before)),
+  );
+  const shiftLane = (id: string, offset: -1 | 1) =>
+    set((current) => withSettingsLaneShifted(current, goals, id, offset));
+
+  // Glissé d'un type vers un groupe : `zone` est le groupe survolé.
+  const [draggedType, setDraggedType] = useState<string | null>(null);
+  const [zone, setZone] = useState<string | null>(null);
+  const endTypeDrag = () => {
+    setDraggedType(null);
+    setZone(null);
+  };
+  const typeZone = (zoneId: string, destination: TypeDestination) => ({
+    onDragOver: (event: DragEvent) => {
+      if (draggedType === null || !event.dataTransfer?.types.includes(TYPE_DRAG)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      if (zone !== zoneId) setZone(zoneId);
+    },
+    onDragLeave: (event: DragEvent) => {
+      const next = event.relatedTarget;
+      if (next instanceof Node && (event.currentTarget as Node).contains(next)) return;
+      if (zone === zoneId) setZone(null);
+    },
+    onDrop: (event: DragEvent) => {
+      if (draggedType === null || !event.dataTransfer?.types.includes(TYPE_DRAG)) return;
+      event.preventDefault();
+      const typeId = event.dataTransfer.getData(TYPE_DRAG);
+      endTypeDrag();
+      if (typeId === draggedType) {
+        moveType(typeId, destination);
+        if (destination.kind === "newSwimlane") setDraft(null);
+      }
+    },
+  });
+  const typeDrag = (type: IssueTypeConfiguration) => ({
+    dragging: draggedType === type.id,
+    onDragStart: (event: DragEvent) => {
+      if (!event.dataTransfer) return;
+      event.dataTransfer.setData(TYPE_DRAG, type.id);
+      event.dataTransfer.effectAllowed = "move";
+      setDraggedType(type.id);
+    },
+    onDragEnd: endTypeDrag,
+  });
+
+  // Nouvelle swimlane en préparation : un nom, puis un premier type (glissé ou choisi).
+  const [draft, setDraft] = useState<string | null>(null);
+  const openDraft = () => {
+    setDraft((current) => current ?? "");
+    requestAnimationFrame(() => document.getElementById("settings-new-swimlane")?.focus());
+  };
+
+  const chip = (type: IssueTypeConfiguration) => (
+    <TypeChip
+      key={type.id}
+      type={type}
+      configuration={configuration}
+      images={board.images}
+      onMove={(destination) => moveType(type.id, destination)}
+      onBug={(countsAsBug) => set((current) => withBugType(current, type.id, countsAsBug), true)}
+      {...typeDrag(type)}
+    />
+  );
   const typesOf = (swimlane: TicketSwimlane) =>
     swimlane.typeIds.flatMap((id) => {
       const type = configuration.issueTypes.find((candidate) => candidate.id === id);
       return type ? [type] : [];
     });
-  const move = (typeId: string, value: string) =>
-    set((current) => withTypeDestination(current, typeId, parseDestination(value)), true);
-
-  const rows = (types: readonly IssueTypeConfiguration[]) =>
-    types.length === 0 ? (
-      <p class="hint">Aucun type.</p>
-    ) : (
-      <table class="settings-table settings-types">
-        <thead>
-          <tr>
-            <th>Type</th>
-            <th>Déplacer vers</th>
-            <th>Bug</th>
-          </tr>
-        </thead>
-        <tbody>
-          {types.map((type) => (
-            <tr key={type.id}>
-              <td>{type.name}</td>
-              <td>
-                <select
-                  aria-label={`Groupe du type ${type.name}`}
-                  value={destinationValue(type, swimlaneOfType(configuration, type.id))}
-                  onChange={(event) => move(type.id, event.currentTarget.value)}
-                >
-                  <option value={GOAL_DESTINATION}>Par objectif</option>
-                  {configuration.ticketSwimlanes.map((swimlane) => (
-                    <option key={swimlane.id} value={`swimlane:${swimlane.id}`}>
-                      Swimlane « {swimlaneName(configuration, swimlane)} »
-                    </option>
-                  ))}
-                  <option value={NEW_DESTINATION}>Nouvelle swimlane</option>
-                  <option value={IGNORED_DESTINATION}>Ignorés</option>
-                </select>
-              </td>
-              <td>
-                <input
-                  type="checkbox"
-                  aria-label={`${type.name} compte comme bug`}
-                  checked={isBugTypeConfiguration(type)}
-                  onChange={(event) => {
-                    const countsAsBug = event.currentTarget.checked;
-                    set((current) => withBugType(current, type.id, countsAsBug), true);
-                  }}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+  const byCategory = (category: IssueTypeConfiguration["category"]) =>
+    configuration.issueTypes.filter((type) => type.category === category);
+  const buildLabel = configuration.buildSectionLabel || DEFAULT_BUILD_LABEL;
+  const dropSlot = (zoneId: string) =>
+    zone === zoneId && (
+      <li class="settings-drop-slot" aria-hidden="true">
+        Déposer ici
+      </li>
     );
 
   return (
-    <section class="panel" aria-labelledby="settings-types">
-      <h2 id="settings-types">Types de tickets et swimlanes</h2>
-      <p class="hint">
-        Un type de ticket est rangé par objectif (la swimlane de son Goal, ou Build sans Goal), dans
-        une swimlane par type, ou ignoré. Une swimlane par type se crée en y déplaçant un premier
-        type (« Nouvelle swimlane ») et disparaît avec son dernier ; son nom est, tant qu'on ne le
-        change pas, celui de ses types. « Bug » : un ticket lié de ce type est signalé comme bug sur
-        la carte du ticket porteur. Le board est relu dans Jira après chaque changement.
-      </p>
-      {configuration.issueTypes.length === 0 ? (
-        <p class="hint">Aucun type de ticket trouvé sur ce board.</p>
-      ) : (
-        <>
-          <div class="type-group">
-            <h3>Par objectif</h3>
-            {rows(byCategory("GOAL"))}
-          </div>
-          {configuration.ticketSwimlanes.map((swimlane) => (
-            <div key={swimlane.id} class="type-group type-group-swimlane">
-              <div class="type-group-header">
-                <h3>Swimlane</h3>
-                <CommitInput
-                  label={`Nom de la swimlane ${swimlaneName(configuration, swimlane)}`}
-                  value={swimlane.name}
-                  placeholder={computedSwimlaneName(configuration, swimlane)}
-                  onCommit={(raw) => {
-                    set((current) => withSwimlaneName(current, swimlane.id, raw));
-                    return null;
-                  }}
-                />
-                <label class="settings-check">
-                  <input
-                    type="checkbox"
-                    aria-label={`Afficher la swimlane ${swimlaneName(configuration, swimlane)}`}
-                    checked={!swimlane.hidden}
-                    onChange={(event) => {
-                      const hidden = !event.currentTarget.checked;
-                      set((current) => withSwimlaneHidden(current, swimlane.id, hidden));
-                    }}
-                  />
-                  Affichée
-                </label>
-              </div>
-              {rows(typesOf(swimlane))}
+    <>
+      <div class="settings-columns">
+        <section class="settings-card settings-lanes-card" aria-labelledby="settings-lanes">
+          <header class="settings-card-header">
+            <div class="settings-card-title">
+              <h2 id="settings-lanes">Swimlanes</h2>
+              <p class="settings-help">
+                {buildLabel} et les swimlanes par type, dans leur ordre sur le board. Glissez une
+                swimlane pour la déplacer, glissez un type pour changer son groupe.
+              </p>
             </div>
-          ))}
-          <div class="type-group">
-            <h3>Ignorés</h3>
-            {rows(byCategory("IGNORED"))}
+            <button
+              type="button"
+              class="settings-button"
+              disabled={configuration.blockOrder.length === 0}
+              title={`Objectifs dans leur ordre d'arrivée, puis ${buildLabel} et les swimlanes par type`}
+              onClick={() => set(withDefaultBlockOrder)}
+            >
+              <Icon name="reset" size={14} />
+              Réinitialiser l'ordre
+            </button>
+            <button type="button" class="settings-button primary" onClick={openDraft}>
+              <Icon name="plus" size={14} />
+              Nouvelle swimlane
+            </button>
+          </header>
+
+          <ol class="settings-lanes">
+            {lanes.map((id) => {
+              const block = parseBlockIdentifier(id);
+              const rowProps = {
+                "data-reorder-row": true,
+                "data-drop": reorder.marker(id),
+              };
+              if (block?.kind === "build") {
+                return (
+                  <li
+                    key={id}
+                    class={`settings-lane settings-lane-build${reorder.dragged === id ? " is-dragging" : ""}`}
+                    {...rowProps}
+                    onDragOver={reorder.over(id)}
+                    onDrop={reorder.drop}
+                  >
+                    <div class="settings-lane-head">
+                      <Grip
+                        label={`Déplacer la swimlane ${buildLabel}`}
+                        onMove={(offset) => shiftLane(id, offset)}
+                        onDragStart={reorder.start(id)}
+                        onDragEnd={reorder.end}
+                      />
+                      <span class="settings-lane-icon settings-lane-icon-build" aria-hidden="true">
+                        <Icon name="build" size={15} />
+                      </span>
+                      <span class="settings-lane-field">
+                        <label class="settings-caption" for="settings-build-label">
+                          Nom du bloc des tickets rattachés à aucun objectif
+                        </label>
+                        <CommitInput
+                          id="settings-build-label"
+                          class="settings-lane-name"
+                          value={configuration.buildSectionLabel}
+                          placeholder={DEFAULT_BUILD_LABEL}
+                          onCommit={(raw) => {
+                            set((current) => withBuildLabel(current, raw));
+                            return null;
+                          }}
+                        />
+                      </span>
+                      {count(id)}
+                      <span class="settings-badge">Sans objectif</span>
+                    </div>
+                    <p class="settings-lane-help">
+                      Reçoit les tickets des types « Par objectif » sans objectif, ou dont
+                      l'objectif est masqué.
+                    </p>
+                  </li>
+                );
+              }
+              const swimlane =
+                block?.kind === "swimlane"
+                  ? configuration.ticketSwimlanes.find((item) => item.id === block.swimlaneId)
+                  : undefined;
+              if (!swimlane) return null;
+              const name = swimlaneName(configuration, swimlane);
+              const zoneId = `swimlane:${swimlane.id}`;
+              const types = typeZone(zoneId, { kind: "swimlane", swimlaneId: swimlane.id });
+              return (
+                <li
+                  key={id}
+                  class={[
+                    "settings-lane settings-lane-swimlane",
+                    swimlane.hidden ? "is-hidden" : "",
+                    reorder.dragged === id ? "is-dragging" : "",
+                    zone === zoneId ? "is-type-target" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  {...rowProps}
+                  onDragOver={(event) => {
+                    reorder.over(id)(event);
+                    types.onDragOver(event);
+                  }}
+                  onDragLeave={types.onDragLeave}
+                  onDrop={(event) => {
+                    reorder.drop(event);
+                    types.onDrop(event);
+                  }}
+                >
+                  <div class="settings-lane-head">
+                    <Grip
+                      label={`Déplacer la swimlane ${name}`}
+                      onMove={(offset) => shiftLane(id, offset)}
+                      onDragStart={reorder.start(id)}
+                      onDragEnd={reorder.end}
+                    />
+                    <span class="settings-lane-icon" aria-hidden="true">
+                      <Icon name="kanban" size={15} />
+                    </span>
+                    <span class="settings-lane-field">
+                      <CommitInput
+                        class="settings-lane-name"
+                        label={`Nom de la swimlane ${name}`}
+                        value={swimlane.name}
+                        placeholder={computedSwimlaneName(configuration, swimlane)}
+                        onCommit={(raw) => {
+                          set((current) => withSwimlaneName(current, swimlane.id, raw));
+                          return null;
+                        }}
+                      />
+                    </span>
+                    {count(id)}
+                    <span class="settings-badge">{swimlane.hidden ? "Masquée" : "Par type"}</span>
+                    <Switch
+                      checked={!swimlane.hidden}
+                      label={`Afficher la swimlane ${name}`}
+                      text="Affichée"
+                      onChange={(checked) =>
+                        set((current) => withSwimlaneHidden(current, swimlane.id, !checked))
+                      }
+                    />
+                  </div>
+                  <ul class="settings-chips" aria-label={`Types de la swimlane ${name}`}>
+                    {typesOf(swimlane).map(chip)}
+                    {dropSlot(zoneId)}
+                  </ul>
+                </li>
+              );
+            })}
+            {draft !== null && (
+              <li
+                class={`settings-lane settings-lane-draft${zone === "draft" ? " is-type-target" : ""}`}
+                {...typeZone("draft", { kind: "newSwimlane", name: draft })}
+              >
+                <div class="settings-lane-head">
+                  <span class="settings-lane-icon" aria-hidden="true">
+                    <Icon name="kanban" size={15} />
+                  </span>
+                  <span class="settings-lane-field">
+                    <label class="settings-caption" for="settings-new-swimlane">
+                      Nom de la nouvelle swimlane
+                    </label>
+                    <input
+                      id="settings-new-swimlane"
+                      type="text"
+                      class="settings-lane-name"
+                      placeholder="ex. Support"
+                      value={draft}
+                      onInput={(event) => setDraft(event.currentTarget.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") setDraft(null);
+                      }}
+                    />
+                  </span>
+                  <button type="button" class="settings-button" onClick={() => setDraft(null)}>
+                    Annuler
+                  </button>
+                </div>
+                <div class="settings-draft-drop">
+                  <span>Glissez un premier type ici, ou choisissez-le :</span>
+                  <select
+                    aria-label="Premier type de la nouvelle swimlane"
+                    value=""
+                    onChange={(event) => {
+                      const typeId = event.currentTarget.value;
+                      if (!typeId) return;
+                      moveType(typeId, { kind: "newSwimlane", name: draft });
+                      setDraft(null);
+                    }}
+                  >
+                    <option value="">Choisir un type…</option>
+                    {configuration.issueTypes.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p class="settings-lane-help">
+                  La swimlane est créée avec son premier type ; elle disparaît avec son dernier.
+                </p>
+              </li>
+            )}
+          </ol>
+
+          <div
+            class={`settings-new-lane${zone === "new" ? " is-type-target" : ""}`}
+            {...typeZone("new", { kind: "newSwimlane" })}
+          >
+            <button type="button" class="settings-new-lane-button" onClick={openDraft}>
+              <Icon name="plus" size={15} />
+              <span>
+                <strong>Nouvelle swimlane</strong> : cliquez, ou déposez un type ici
+              </span>
+            </button>
           </div>
-        </>
-      )}
-    </section>
+        </section>
+
+        <section class="settings-card settings-types-card" aria-labelledby="settings-types">
+          <header class="settings-card-header">
+            <div class="settings-card-title">
+              <h2 id="settings-types">Types de tickets</h2>
+              <p class="settings-help">
+                Glissez un type vers une swimlane, ou utilisez son menu. Le board est relu dans Jira
+                après chaque changement.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="icon-button settings-icon-button"
+              aria-label="Relire colonnes et types depuis Jira"
+              title="Relire colonnes et types depuis Jira : recense aussi les types du backlog et des anciens tickets"
+              disabled={board.setupBusy.value}
+              onClick={() => void board.refreshStructure()}
+            >
+              <Icon name="refresh" size={16} />
+            </button>
+          </header>
+          {configuration.issueTypes.length === 0 ? (
+            <p class="settings-help">Aucun type de ticket trouvé sur ce board.</p>
+          ) : (
+            <>
+              <TypeGroup
+                title="Par objectif"
+                icon="goal"
+                help={`Dans la swimlane de leur objectif, ou dans ${buildLabel}.`}
+                types={byCategory("GOAL")}
+                target={zone === "goal"}
+                zone={typeZone("goal", { kind: "goal" })}
+                chip={chip}
+                slot={dropSlot("goal")}
+              />
+              <TypeGroup
+                title="Ignorés"
+                icon="eyeOff"
+                help="Jamais affichés sur le board."
+                types={byCategory("IGNORED")}
+                target={zone === "ignored"}
+                zone={typeZone("ignored", { kind: "ignored" })}
+                chip={chip}
+                slot={dropSlot("ignored")}
+              />
+            </>
+          )}
+          <p class="settings-legend">
+            <span class="settings-legend-bug" aria-hidden="true">
+              <Icon name="bug" size={13} />
+            </span>
+            Bug activé : un ticket lié de ce type est signalé comme bug sur la carte du ticket
+            porteur, quelle que soit sa swimlane.
+          </p>
+        </section>
+      </div>
+
+      <section class="settings-card" aria-labelledby="settings-display">
+        <header class="settings-card-header">
+          <div class="settings-card-title">
+            <h2 id="settings-display">Affichage et daily</h2>
+            <p class="settings-help">Enregistrés dès qu'ils sont modifiés.</p>
+          </div>
+        </header>
+        <div class="settings-tiles">
+          <Stepper
+            id="settings-aging"
+            label="Seuil « vieillissant »"
+            value={configuration.agingThresholdDays}
+            min={1}
+            max={365}
+            unit="jours"
+            help="Sans changement de statut : la carte le signale."
+            onCommit={(raw) => commit((current) => withAgingThreshold(current, raw))}
+          />
+          <Stepper
+            id="settings-daily"
+            label="Durée de la daily"
+            value={configuration.dailyMinutes}
+            min={1}
+            max={MAX_DAILY_MINUTES}
+            unit="minutes"
+            help="Minuteur du mode Daily."
+            onCommit={(raw) => commit((current) => withDailyMinutes(current, raw))}
+          />
+          <Stepper
+            id="settings-daily-stock"
+            label="Stock en daily"
+            value={configuration.dailyStockLimit}
+            min={1}
+            max={MAX_DAILY_STOCK}
+            unit="cartes"
+            help="Dans la première colonne de chaque swimlane, avant « + N autres »."
+            onCommit={(raw) => commit((current) => withDailyStockLimit(current, raw))}
+          />
+          <div class="settings-tile">
+            <span class="settings-tile-label">
+              Rafraîchissement automatique
+              <span class="settings-badge settings-badge-personal">Personnel</span>
+            </span>
+            <Segmented
+              label="Rafraîchissement automatique"
+              name="settings-auto-refresh"
+              value={String(configuration.autoRefreshSeconds ?? "")}
+              choices={AUTO_REFRESH_CHOICES.map((seconds) => ({
+                id: seconds === null ? "" : String(seconds),
+                label: seconds === null ? "Désactivé" : `${seconds / 60} min`,
+              }))}
+              onChange={(value) =>
+                set((current) => ({
+                  ...current,
+                  autoRefreshSeconds: value === "" ? null : Number(value),
+                }))
+              }
+            />
+            <span class="settings-help">
+              Gardé dans ce navigateur. Lecture seule : relit Jira, n'écrit rien.
+            </span>
+          </div>
+        </div>
+      </section>
+    </>
   );
 }
 
-function ColumnEditor(props: { columns: readonly ColumnConfiguration[]; commit: Commit }) {
-  const { commit } = props;
+/** Groupe de types du panneau de droite : par objectif, ou ignorés. Il reçoit les types glissés. */
+function TypeGroup(props: {
+  title: string;
+  icon: "goal" | "eyeOff";
+  help: string;
+  types: readonly IssueTypeConfiguration[];
+  target: boolean;
+  zone: {
+    onDragOver: (event: DragEvent) => void;
+    onDragLeave: (event: DragEvent) => void;
+    onDrop: (event: DragEvent) => void;
+  };
+  chip: (type: IssueTypeConfiguration) => JSX.Element;
+  slot: ComponentChildren;
+}) {
   return (
-    <table class="settings-table">
-      <thead>
-        <tr>
-          <th>Affichée</th>
-          <th>Nom</th>
-          <th>Statuts Jira</th>
-          <th>WIP</th>
-        </tr>
-      </thead>
-      <tbody>
-        {props.columns.map((column) => (
-          <tr key={column.id}>
-            <td>
-              <input
-                type="checkbox"
-                aria-label={`Afficher la colonne ${column.name}`}
-                checked={!column.hidden}
-                disabled={column.statusIds.length === 0}
-                onChange={(event) => {
-                  const hidden = !event.currentTarget.checked;
-                  commit((current) => ({
-                    ok: true,
-                    configuration: withColumnHidden(current, column.id, hidden),
-                  }));
-                }}
-              />
-            </td>
-            <td>
-              <CommitInput
-                label={`Nom de la colonne ${column.name}`}
-                value={column.name}
-                onCommit={(raw) => commit((current) => withColumnName(current, column.id, raw))}
-              />
-            </td>
-            <td class={column.statusIds.length === 0 ? "settings-warning" : "hint"}>
-              {column.statusIds.length === 0
-                ? "aucun statut Jira"
-                : plural(column.statusIds.length, "statut")}
-              {column.isDone && <span class="settings-done">terminé</span>}
-            </td>
-            <td>
-              <CommitInput
-                label={`Limite WIP de ${column.name}`}
-                value={column.wipLimit === null ? "" : String(column.wipLimit)}
-                placeholder="—"
-                numeric
-                onCommit={(raw) => commit((current) => withWipLimit(current, column.id, raw))}
-              />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div class={`settings-type-group${props.target ? " is-type-target" : ""}`} {...props.zone}>
+      <h3>
+        <Icon name={props.icon} size={15} />
+        {props.title}
+        <span class="settings-type-count">{plural(props.types.length, "type")}</span>
+      </h3>
+      <p class="settings-help">{props.help}</p>
+      <ul class="settings-chips" aria-label={`Types ${props.title.toLowerCase()}`}>
+        {props.types.map(props.chip)}
+        {props.types.length === 0 && !props.target && (
+          <li class="settings-chips-empty">Aucun type.</li>
+        )}
+        {props.slot}
+      </ul>
+    </div>
   );
 }
 
 /**
- * Champ texte enregistré à la validation (Entrée, ou sortie du champ), pas à chaque frappe. Une
- * saisie refusée reste affichée avec son erreur, sans rien changer ; Échap revient à la valeur
- * enregistrée.
+ * Type de ticket : glissé d'un groupe à l'autre, ou déplacé par son menu ; son bouton « bug »
+ * signale ses tickets liés comme bugs sur la carte du ticket porteur.
  */
-function CommitInput(props: {
-  id?: string;
-  value: string;
-  onCommit: (raw: string) => string | null;
-  label?: string;
-  placeholder?: string;
-  numeric?: boolean;
+function TypeChip(props: {
+  type: IssueTypeConfiguration;
+  configuration: BoardConfiguration;
+  images: ImageCache;
+  dragging: boolean;
+  onDragStart: (event: DragEvent) => void;
+  onDragEnd: () => void;
+  onMove: (destination: TypeDestination) => void;
+  onBug: (countsAsBug: boolean) => void;
 }) {
-  // Pendant la saisie, et tant qu'elle est refusée, le champ montre le texte tapé ; sinon, la
-  // valeur enregistrée (qui peut changer ailleurs : structure relue, autre onglet).
-  const [draft, setDraft] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const shown = draft ?? props.value;
-  // La valeur est lue dans le champ lui-même : l'état de la frappe peut ne pas être encore rendu.
-  const commit = (raw: string) => {
-    if (raw === props.value) {
-      setDraft(null);
-      setError(null);
-      return;
-    }
-    const refused = props.onCommit(raw);
-    setError(refused);
-    setDraft(refused === null ? null : raw);
-  };
+  const { type, configuration } = props;
+  const bug = isBugTypeConfiguration(type);
+  const destinations: { label: string; destination: TypeDestination }[] = [
+    { label: "Par objectif", destination: { kind: "goal" } },
+    ...configuration.ticketSwimlanes.map((swimlane) => ({
+      label: `Swimlane « ${swimlaneName(configuration, swimlane)} »`,
+      destination: { kind: "swimlane", swimlaneId: swimlane.id } as const,
+    })),
+    { label: "Nouvelle swimlane", destination: { kind: "newSwimlane" } },
+    { label: "Ignorés", destination: { kind: "ignored" } },
+  ];
   return (
-    <>
-      <input
-        type="text"
-        id={props.id}
-        inputMode={props.numeric ? "numeric" : undefined}
-        class={
-          [props.numeric ? "settings-number" : "", error ? "settings-invalid" : ""]
-            .filter(Boolean)
-            .join(" ") || undefined
+    <li
+      class={`settings-chip${props.dragging ? " is-dragging" : ""}`}
+      data-type-id={type.id}
+      draggable
+      title="Glisser vers une swimlane ou un groupe"
+      onDragStart={props.onDragStart}
+      onDragEnd={props.onDragEnd}
+    >
+      <span class="settings-grip-dots settings-chip-grip" aria-hidden="true" />
+      <span aria-hidden="true">
+        <JiraIcon url={type.iconUrl} label={type.name} images={props.images} />
+      </span>
+      <span class="settings-chip-name">{type.name}</span>
+      <button
+        type="button"
+        class="settings-chip-bug"
+        aria-pressed={bug}
+        aria-label={`${type.name} compte comme bug`}
+        title={
+          bug
+            ? "Compte comme bug : un ticket lié de ce type est signalé sur la carte du ticket porteur"
+            : "Ne compte pas comme bug"
         }
-        aria-label={props.label}
-        aria-invalid={error !== null ? true : undefined}
-        placeholder={props.placeholder}
-        value={shown}
-        onInput={(event) => setDraft(event.currentTarget.value)}
-        onChange={(event) => commit(event.currentTarget.value)}
-        onKeyDown={(event) => {
-          if (event.key !== "Escape") return;
-          setDraft(null);
-          setError(null);
-        }}
-      />
-      {error && (
-        <span class="settings-error" role="alert">
-          {error}
-        </span>
-      )}
-    </>
+        onClick={() => props.onBug(!bug)}
+      >
+        <Icon name="bug" size={13} />
+      </button>
+      <details class="menu settings-chip-menu" name="settings-chip-menu">
+        <summary aria-label={`Déplacer ${type.name}`} title="Déplacer vers…">
+          <Icon name="chevronDown" size={12} />
+        </summary>
+        <div class="menu-panel">
+          <p class="menu-section">Déplacer vers</p>
+          {destinations.map(({ label, destination }) => {
+            const current = isTypeIn(configuration, type.id, destination);
+            return (
+              <button
+                key={label}
+                type="button"
+                aria-current={current ? "true" : undefined}
+                disabled={current}
+                onClick={(event) => {
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                  props.onMove(destination);
+                }}
+              >
+                <span class="settings-menu-check">
+                  {current && <Icon name="check" size={13} />}
+                </span>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </details>
+    </li>
   );
 }

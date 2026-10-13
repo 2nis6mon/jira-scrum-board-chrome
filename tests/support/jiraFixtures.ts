@@ -123,7 +123,6 @@ export function makeConfiguration(parts: Partial<BoardConfiguration> = {}): Boar
     ],
     issueTypes,
     ticketSwimlanes: normalizeSwimlanes(issueTypes, []),
-    blockedLabels: [],
     agingThresholdDays: 3,
     autoRefreshSeconds: null,
     dailyMinutes: 15,

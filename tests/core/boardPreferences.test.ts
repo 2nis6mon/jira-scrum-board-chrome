@@ -6,17 +6,20 @@ import {
   GOAL_COLOR_NAMES,
   laneOrder,
   laneSummaries,
+  settingsLaneOrder,
   withAllBlocksCollapsed,
   withBlockCollapsed,
   withBlockOrder,
   withGoalColor,
   withGoalHidden,
+  withSettingsLaneMoved,
+  withSettingsLaneShifted,
 } from "../../src/core/boardPreferences";
-import { withSwimlaneHidden } from "../../src/core/boardSettings";
+import { withSwimlaneHidden, withTypeDestination } from "../../src/core/boardSettings";
 import { NO_FILTERS } from "../../src/core/filters";
 import { GOAL_COLOR_COUNT, makeSprintGoal } from "../../src/core/sprintGoals";
 import type { JiraIssue } from "../../src/jira/models";
-import { makeConfiguration, makeIssue } from "../support/jiraFixtures";
+import { makeConfiguration, makeIssue, STORY_TYPE, SWIMLANE_TYPE } from "../support/jiraFixtures";
 
 const config = makeConfiguration();
 const GOALS = [
@@ -188,6 +191,86 @@ describe("ordre des swimlanes", () => {
       "build",
     ]);
     expect(moved.blockOrder).toEqual(["goal:ancien", "goal:g1", "build"]);
+  });
+});
+
+describe("liste des swimlanes de l'onglet Board des réglages", () => {
+  const service = { ...SWIMLANE_TYPE, id: "10006", name: "Demande de service" };
+  // Swimlane 1 : Anomalie Prod ; swimlane 2 : Demande de service, masquée et sans ticket.
+  const two = withSwimlaneHidden(
+    withTypeDestination(
+      makeConfiguration({ issueTypes: [STORY_TYPE, SWIMLANE_TYPE, service] }),
+      "10006",
+      {
+        kind: "newSwimlane",
+      },
+    ),
+    "2",
+    true,
+  );
+  const ordered = {
+    ...two,
+    blockOrder: ["goal:g1", "build", "goal:g2", "swimlane:1", "goal:g3", "swimlane:2"],
+  };
+
+  it("Build et toutes les swimlanes par type, masquées comprises, sans les objectifs", () => {
+    expect(settingsLaneOrder(two)).toEqual(["build", "swimlane:1", "swimlane:2"]);
+    expect(settingsLaneOrder({ ...two, blockOrder: ["swimlane:2", "goal:g1", "build"] })).toEqual([
+      "swimlane:2",
+      "build",
+      "swimlane:1",
+    ]);
+  });
+
+  it("déplacer Build ou une swimlane laisse les objectifs à leur place", () => {
+    expect(withSettingsLaneMoved(ordered, GOALS, "swimlane:2", "build").blockOrder).toEqual([
+      "goal:g1",
+      "swimlane:2",
+      "build",
+      "goal:g2",
+      "swimlane:1",
+      "goal:g3",
+    ]);
+    expect(withSettingsLaneMoved(ordered, GOALS, "build", null).blockOrder).toEqual([
+      "goal:g1",
+      "goal:g2",
+      "swimlane:1",
+      "goal:g3",
+      "swimlane:2",
+      "build",
+    ]);
+  });
+
+  it("une place inchangée rend la configuration telle quelle : rien à enregistrer", () => {
+    expect(withSettingsLaneMoved(ordered, GOALS, "build", "goal:g2")).toBe(ordered);
+    expect(withSettingsLaneMoved(ordered, GOALS, "build", "build")).toBe(ordered);
+    expect(withSettingsLaneShifted(ordered, GOALS, "build", -1)).toBe(ordered);
+    expect(withSettingsLaneShifted(ordered, GOALS, "swimlane:2", 1)).toBe(ordered);
+  });
+
+  it("au clavier : un cran dans la liste des réglages", () => {
+    const up = withSettingsLaneShifted(ordered, GOALS, "swimlane:1", -1);
+    expect(settingsLaneOrder(up)).toEqual(["swimlane:1", "build", "swimlane:2"]);
+    expect(up.blockOrder.filter((id) => id.startsWith("goal:"))).toEqual([
+      "goal:g1",
+      "goal:g2",
+      "goal:g3",
+    ]);
+    const down = withSettingsLaneShifted(ordered, GOALS, "build", 1);
+    expect(settingsLaneOrder(down)).toEqual(["swimlane:1", "build", "swimlane:2"]);
+  });
+
+  it("un objectif masqué garde sa place dans l'ordre enregistré", () => {
+    const hidden = withGoalHidden(ordered, "g2", true);
+    const moved = withSettingsLaneMoved(hidden, GOALS, "swimlane:2", "build");
+    expect(moved.blockOrder).toEqual([
+      "goal:g1",
+      "swimlane:2",
+      "build",
+      "goal:g2",
+      "swimlane:1",
+      "goal:g3",
+    ]);
   });
 });
 

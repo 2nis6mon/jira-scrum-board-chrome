@@ -6,7 +6,8 @@
 //                            board-vide|board-dnd|board-choix|board-statuts|board-erreur|board-goals|
 //                            board-epingle|board-epingle-refus|board-multi|board-infos|
 //                            board-soustaches|board-kanban|board-kanban-vide|ok|xsrf|refuse|session|deconnecte|
-//                            board-chargement|connexion|recherche-board
+//                            board-chargement|connexion|recherche-board|
+//                            board-reglages[&onglet=board|goals|cardFields|cardColors]
 import { render } from "preact";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
@@ -14,6 +15,7 @@ import "../../src/app/styles/app.css";
 import { LoadDiagnosticsView } from "../../src/app/views/LoadDiagnosticsView";
 import { withSwimlaneName, withTypeDestination } from "../../src/core/boardSettings";
 import { BOARD_PROPERTY_KEYS, SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
+import { preferAtlassianGoals } from "../support/atlassianGoalsBoard";
 import {
   BOARD_URL,
   boardSiteJira,
@@ -83,8 +85,10 @@ if (scenario.startsWith("board")) {
   const pinning = scenario === "board-epingle" || scenario === "board-epingle-refus";
   const kanban = scenario.startsWith("board-kanban");
   const withSubtasks = scenario === "board-soustaches";
-  const swimlanes = scenario === "board-swimlanes" || kanban;
-  const withGoals = scenario === "board-goals" || pinning || withSubtasks || kanban;
+  // Réglages du board, sur l'onglet `onglet` : objectifs, swimlanes RUN et OPS, règles de couleur.
+  const reglages = scenario === "board-reglages";
+  const swimlanes = scenario === "board-swimlanes" || kanban || reglages;
+  const withGoals = scenario === "board-goals" || pinning || withSubtasks || kanban || reglages;
   // Filtres rapides FICTIFS du board ; le faux Jira « évalue » leur JQL par table.
   const quickFilters = [
     { id: 1, name: "Mes tickets", jql: "assignee = currentUser()", position: 0 },
@@ -234,7 +238,7 @@ if (scenario.startsWith("board")) {
           : SPRINT_ISSUES.filter((issue) => keys.includes(issue.key as string));
     return { status: 200, json: { issues, total: issues.length } };
   });
-  if (pinning) {
+  if (pinning || reglages) {
     // Propriété du sprint qui garde ce qu'on y écrit, comme Jira.
     const goalsProperty = `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.goals}`;
     let stored: unknown = { atlassianGoalIds: [] };
@@ -467,6 +471,9 @@ if (scenario.startsWith("board")) {
     }
   }
   const platform = fakePlatform(jira);
+  // Épinglage et réglages : un board déjà réglé sur les Goals Atlassian, comme après un choix fait
+  // dans les réglages ; sinon ses Goals, découverts après une première lecture, arriveraient masqués.
+  if (pinning || reglages) await preferAtlassianGoals(platform);
   let continueLoading = () => {};
   const loadingGate = new Promise<void>((resolve) => {
     continueLoading = resolve;
@@ -542,7 +549,37 @@ if (scenario.startsWith("board")) {
       connection.board.startDrag("ABC-102", null);
     }
     if (scenario === "board-filtre") connection.board.toggleQuickFilter("blocked");
-    if (pinning) model.showAdmin("goals");
+    if (pinning) model.showSettings("goals");
+    if (reglages) {
+      await connection.board.applySettings(
+        (current) => ({
+          ...current,
+          cardColorRules: [
+            {
+              id: "incident",
+              name: "Bloquant",
+              jql: "priority in (High, Highest)",
+              color: "red",
+              enabled: true,
+              kind: null,
+            },
+            {
+              id: "support",
+              name: "Support N3",
+              jql: 'component = "Support N3"',
+              color: "gray",
+              enabled: false,
+              kind: null,
+            },
+          ],
+        }),
+        { resync: true },
+      );
+      const tab = new URLSearchParams(location.search).get("onglet");
+      model.showSettings(
+        tab === "goals" || tab === "cardFields" || tab === "cardColors" ? tab : "board",
+      );
+    }
     if (["board-dnd", "board-choix", "board-erreur"].includes(scenario)) {
       await new Promise((resolve) => setTimeout(resolve, 100));
       await simulateDrop("ABC-102", "Finaliser le parcours de paiement", "En cours", null);

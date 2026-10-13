@@ -252,6 +252,7 @@ export class BoardSettingsService {
           {
             boardId: configuration.boardId,
             settings: teamSettingsOf({ ...base, boardPinnedGoalIds: [...editor.selection] }),
+            columns: base.columns,
             basePublishedAt: current?.publishedAt ?? null,
             publishedBy: {
               accountId: user?.accountId ?? null,
@@ -370,6 +371,7 @@ export class BoardSettingsService {
       const outcome = await publishTeamSettings(this.#reader, this.#writer, {
         boardId,
         settings: teamSettingsOf(next),
+        columns: next.columns,
         basePublishedAt: current?.publishedAt ?? null,
         publishedBy: {
           accountId: user?.accountId ?? null,

@@ -3,10 +3,11 @@ import type { AppModel, Connection } from "./model/AppModel";
 import { BoardSetupView } from "./views/BoardSetupView";
 import { BoardView, type ScreenControls } from "./views/board/BoardView";
 import { ConnectionView } from "./views/ConnectionView";
+import { DiagnosticView } from "./views/DiagnosticView";
 import { exitFullscreen } from "./views/fullscreen";
 import { Icon } from "./views/Icon";
 import { Sidebar } from "./views/Sidebar";
-import { AdminView } from "./views/settings/AdminView";
+import { SettingsView } from "./views/settings/SettingsView";
 
 /** Racine de l'interface. Sans site Jira connecté, elle n'affiche aucune donnée. */
 export function App({ model }: { model: AppModel }) {
@@ -29,7 +30,10 @@ export function App({ model }: { model: AppModel }) {
   );
 }
 
-/** Site connecté : barre latérale à gauche, vue courante à droite (sprint ou administration). */
+/**
+ * Site connecté : barre latérale à gauche, vue courante à droite (sprint, réglages du board ou
+ * diagnostic du site).
+ */
 function Workspace({
   model,
   connection,
@@ -43,6 +47,14 @@ function Workspace({
   const presenting = model.presenting.value && view === "board";
   const daily = view === "board" ? model.daily.value : null;
   const dailyRunning = daily !== null;
+  const configuration = board.configuration.value;
+  // Les réglages portent sur un board, et seulement pour qui peut le modifier dans Jira : le droit
+  // peut tomber (403) pendant qu'ils sont ouverts, le board peut être retiré. On revient alors au
+  // sprint.
+  const settingsAvailable = configuration !== null && board.canEditSettings.value;
+  useEffect(() => {
+    if (view === "settings" && !settingsAvailable) model.showBoard();
+  }, [model, view, settingsAvailable]);
 
   // Fin de la daily ou de la présentation : le plein écran demandé à leur lancement est rendu.
   const immersive = dailyRunning || presenting;
@@ -116,7 +128,8 @@ function Workspace({
     onStartDaily: (minutes, firstStepId) => model.startDaily(minutes, firstStepId),
     onUpdateDaily: (change) => model.updateDaily(change),
     onStopDaily: () => model.stopDaily(),
-    onShowPinning: () => model.showAdmin("goals"),
+    onShowPinning: () => model.showSettings("goals"),
+    onShowSettings: settingsAvailable ? (section) => model.showSettings(section) : null,
   };
 
   return (
@@ -143,7 +156,14 @@ function Workspace({
       )}
       <div class="workspace-main">
         {view === "board" && <BoardScreen connection={connection} controls={controls} />}
-        {view === "admin" && <AdminView model={model} connection={connection} />}
+        {view === "settings" && configuration && settingsAvailable && (
+          <SettingsView model={model} board={board} configuration={configuration} />
+        )}
+        {view === "diagnostic" && (
+          <main class="diagnostic-screen" aria-label="Diagnostic du site">
+            <DiagnosticView diagnostic={connection.diagnostic} />
+          </main>
+        )}
       </div>
     </div>
   );

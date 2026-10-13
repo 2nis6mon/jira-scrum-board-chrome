@@ -101,12 +101,10 @@ export interface BoardIssue {
   readonly columnId: string | null;
   readonly goalId: string | null;
   readonly estimate: number | null;
-  /** Bloqué par un lien Jira natif, ou par un label configuré comme marqueur de blocage. */
+  /** Bloqué par un lien Jira natif « est bloqué par » (seule source depuis 0.31.0). */
   readonly isBlocked: boolean;
   /** Tickets qui bloquent celui-ci, dans l'ordre des liens Jira. */
   readonly blockers: readonly Blocker[];
-  /** Labels configurés comme « bloqué » que porte ce ticket. */
-  readonly blockedByLabels: readonly string[];
   /** Drapeau Jira (« Flagged »). Indépendant de `isBlocked` : c'est un signal à part. */
   readonly isFlagged: boolean;
   /**
@@ -380,11 +378,9 @@ export function assembleBoardIssues(input: {
   for (const column of input.columns) {
     for (const statusId of column.statusIds) columnByStatus.set(statusId, column.id);
   }
-  const blockedLabels = new Set(configuration.blockedLabels.map((label) => label.toLowerCase()));
 
   return input.issues.map((issue): BoardIssue => {
     const fields = issue.fields;
-    const matchingLabels = fields.labels.filter((label) => blockedLabels.has(label.toLowerCase()));
 
     const since = (issue.changelog ? lastStatusChange(issue.changelog) : null) ?? fields.created;
     const daysInColumn =
@@ -418,7 +414,7 @@ export function assembleBoardIssues(input: {
       columnId: columnByStatus.get(fields.status.id) ?? null,
       goalId: input.links[issue.key] ?? null,
       estimate: estimate(fields, configuration.estimationFieldId),
-      isBlocked: isBlockedByLink(fields) || matchingLabels.length > 0,
+      isBlocked: isBlockedByLink(fields),
       blockers: blockingIssues(fields).map((ref) => ({
         key: ref.key,
         summary: ref.summary,
@@ -426,7 +422,6 @@ export function assembleBoardIssues(input: {
         statusCategoryKey: ref.status?.statusCategory?.key ?? null,
         typeName: ref.issuetype?.name ?? null,
       })),
-      blockedByLabels: matchingLabels,
       isFlagged: isFlagged(fields, configuration.flaggedFieldId),
       daysInColumn,
       addedToSprintAt,

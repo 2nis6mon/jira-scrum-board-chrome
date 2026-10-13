@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App, PRESENTATION_HINT_MS } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
 import { SPRINT_HEALTH_ENABLED } from "../../src/app/views/board/BoardView";
-import { DIAGNOSTIC_ENABLED } from "../../src/app/views/settings/AdminView";
+import { DIAGNOSTIC_ENABLED } from "../../src/app/views/DiagnosticView";
 import { visibleColumns } from "../../src/core/boardConfiguration";
 import { BOARD_PROPERTY_KEYS } from "../../src/jira/writes";
 import {
@@ -17,7 +17,7 @@ import { isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 import { statusJson } from "../support/jiraFixtures";
 
-// Barre latérale, en-tête, barre de filtres et administration.
+// Barre latérale, en-tête, barre de filtres, réglages du board et menu « Site Jira ».
 
 afterEach(() => {
   render(null, document.body);
@@ -134,20 +134,23 @@ describe("barre latérale", () => {
     board.dispose();
   });
 
-  it("board affiché, vue du sprint, swimlanes dans l'ordre du board, Administration en pied", async () => {
+  it("board affiché, vue du sprint, swimlanes dans l'ordre du board, « Site Jira » en pied", async () => {
     await connectedBoard();
     const sidebar = document.querySelector(".sidebar");
 
     expect(sidebar?.querySelector(".board-switcher-name")?.textContent).toBe("Équipe Paiement");
-    const nav = [...(sidebar?.querySelectorAll(".sidebar-nav-item") ?? [])].map((item) => [
-      item.textContent,
-      item.getAttribute("aria-current"),
-    ]);
-    // La vue s'appelle « Sprint » ; la santé du sprint n'est plus une vue à part.
+    const nav = [...(sidebar?.querySelectorAll(".sidebar-nav .sidebar-nav-item") ?? [])].map(
+      (item) => [item.textContent, item.getAttribute("aria-current")],
+    );
+    // La vue s'appelle « Sprint » ; la santé du sprint n'est plus une vue à part. Les réglages
+    // sont ceux du board affiché (0.31.0).
     expect(nav).toEqual([
       ["Sprint", "page"],
-      ["Administration", null],
+      ["Réglages", null],
     ]);
+    const site = sidebar?.querySelector(".sidebar-site-toggle");
+    expect(site?.textContent).toBe("Site Jiraacme.atlassian.net");
+    expect(site?.getAttribute("aria-expanded")).toBe("false");
     expect(sidebar?.querySelector(".sidebar-section-title")?.textContent).toBe(
       "Objectifs du sprint2",
     );
@@ -579,7 +582,7 @@ describe("barre de filtres", () => {
   });
 });
 
-describe("administration", () => {
+describe("réglages du board et menu « Site Jira »", () => {
   it("réglages partagés : chaque modification est écrite dans Jira et reprise au chargement", async () => {
     const jira = boardSiteJira();
     const { model, board } = await connectedBoard(jira);
@@ -593,10 +596,13 @@ describe("administration", () => {
     expect(written.settings.blockOrder.indexOf("build")).toBeLessThan(
       written.settings.blockOrder.indexOf("goal:g-stabilite"),
     );
-    // Plus de publication ni de choix à faire : ni onglet ni bandeau.
-    button("Administration").click();
+    // Plus de publication ni de choix à faire : ni onglet ni bandeau ; l'état est dans l'en-tête.
+    button("Réglages").click();
     await tick();
     expect(text()).not.toContain("Publier pour l'équipe");
+    expect(document.querySelector(".settings-status")?.textContent).toContain(
+      "Enregistrés dans Jira par Camille Durand",
+    );
     model.showBoard();
 
     // Un collègue, dans un autre navigateur, retrouve l'ordre au chargement du board.
@@ -618,34 +624,40 @@ describe("administration", () => {
 
   it("sans droit de modifier le board dans Jira : ni réglages du board, ni ordre, ni œil, ni couleur", async () => {
     const jira = boardSiteJira({ canEdit: false });
-    const { board } = await connectedBoard(jira);
+    const { model, board } = await connectedBoard(jira);
     await expect.poll(() => board.canEditBoard.value).toBe(false);
     await tick();
     expect(document.querySelector(".lane-grip")).toBeNull();
     expect(document.querySelector(".sidebar-grip")).toBeNull();
     expect(document.querySelector(".eye-toggle")).toBeNull();
-    expect(
-      [...document.querySelectorAll(".lane-menu button")].map((b) => b.textContent?.trim()),
-    ).not.toContain("Descendre");
+    const laneEntries = [...document.querySelectorAll(".lane-menu button")].map((b) =>
+      b.textContent?.trim(),
+    );
+    expect(laneEntries).not.toContain("Descendre");
+    expect(laneEntries).not.toContain("Configurer les swimlanes…");
+    expect(laneEntries).not.toContain("Gérer les objectifs…");
     // Le repli reste possible : il est personnel.
     expect(document.querySelector("[aria-label='Replier Build']")).not.toBeNull();
 
-    // Sans diagnostic non plus, l'administration disparaîtrait : resterait la déconnexion (0.22.7).
-    if (DIAGNOSTIC_ENABLED) {
-      button("Administration").click();
-      await tick();
-      expect([...document.querySelectorAll(".settings-tab")].map((tab) => tab.textContent)).toEqual(
-        ["Diagnostic"],
-      );
-      expect(text()).toContain("Réglages du board en lecture seule");
-    } else {
-      expect(document.querySelector(".sidebar-admin-block")).toBeNull();
-      expect(() => button("Administration")).toThrow();
-      expect(document.querySelector(".sidebar .settings-site")?.textContent).toBe(
-        "acme.atlassian.net",
-      );
-      expect(button("Se déconnecter")).not.toBeNull();
-    }
+    // Aucune entrée vers les réglages du board, et pas d'accès direct non plus.
+    expect(document.querySelector("button.settings-open")).toBeNull();
+    expect(document.querySelector(".menu-settings")).toBeNull();
+    expect(
+      [...document.querySelectorAll(".sidebar-nav .sidebar-nav-item")].map((b) => b.textContent),
+    ).toEqual(["Sprint"]);
+    model.showSettings("board");
+    await tick();
+    expect(document.querySelector(".settings-screen")).toBeNull();
+    await expect.poll(() => model.view.value).toBe("board");
+
+    // Le menu « Site Jira » reste : diagnostic, site et déconnexion.
+    button("Site Jira").click();
+    await tick();
+    expect(document.querySelector(".sidebar .settings-site")?.textContent).toBe(
+      "acme.atlassian.net",
+    );
+    expect(button("Se déconnecter")).not.toBeNull();
+    if (DIAGNOSTIC_ENABLED) expect(button("Diagnostic").disabled).toBe(false);
 
     // Même appelé directement, un réglage partagé n'est ni appliqué ni écrit.
     const before = board.laneOrder.value;
@@ -654,51 +666,71 @@ describe("administration", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
-  it("se déplie dans la barre latérale, sous son bouton, et se replie", async () => {
+  it("« Site Jira » se déplie sous son bouton et se replie, sans quitter le sprint", async () => {
     const { model } = await connectedBoard();
-    expect(document.querySelector(".sidebar-admin")).toBeNull();
+    expect(document.querySelector(".sidebar-site-menu")).toBeNull();
 
-    button("Administration").click();
+    button("Site Jira").click();
     await tick();
-    const menu = document.querySelector(".sidebar .sidebar-admin");
+    const menu = document.querySelector(".sidebar .sidebar-site-menu");
     expect(menu).not.toBeNull();
-    expect(button("Administration").getAttribute("aria-expanded")).toBe("true");
-    // Le bouton reste en tête de son panneau, ses sections juste au-dessous, sur un fond à part.
-    expect(menu?.previousElementSibling).toBe(button("Administration"));
-    expect(button("Administration").parentElement?.classList.contains("is-open")).toBe(true);
+    expect(button("Site Jira").getAttribute("aria-expanded")).toBe("true");
+    // Le bouton reste en tête de son panneau, ses entrées juste au-dessous, sur un fond à part.
+    expect(menu?.previousElementSibling).toBe(button("Site Jira"));
+    expect(button("Site Jira").parentElement?.classList.contains("is-open")).toBe(true);
     expect(menu?.querySelector(".settings-site")?.textContent).toBe("acme.atlassian.net");
-
-    // Un second clic replie et ramène au sprint.
-    button("Administration").click();
-    await tick();
-    expect(document.querySelector(".sidebar-admin")).toBeNull();
+    // Déplier le menu ne change pas de vue.
     expect(model.view.value).toBe("board");
     expect(cardKeys()).toContain("ABC-101");
 
-    // Choisir une autre entrée de la barre replie aussi.
-    button("Administration").click();
+    button("Site Jira").click();
+    await tick();
+    expect(document.querySelector(".sidebar-site-menu")).toBeNull();
+    expect(model.view.value).toBe("board");
+
+    if (!DIAGNOSTIC_ENABLED) return;
+    // Replier le menu pendant le diagnostic ramène au sprint.
+    button("Site Jira").click();
+    await tick();
+    button("Diagnostic").click();
+    await tick();
+    expect(button("Diagnostic").getAttribute("aria-current")).toBe("page");
+    expect(model.view.value).toBe("diagnostic");
+    button("Site Jira").click();
+    await tick();
+    expect(document.querySelector(".sidebar-site-menu")).toBeNull();
+    expect(model.view.value).toBe("board");
+
+    // Quitter le diagnostic par une autre entrée de la barre replie aussi le menu.
+    button("Site Jira").click();
+    await tick();
+    button("Diagnostic").click();
     await tick();
     button("Sprint").click();
     await tick();
-    expect(document.querySelector(".sidebar-admin")).toBeNull();
+    expect(document.querySelector(".sidebar-site-menu")).toBeNull();
     expect(model.view.value).toBe("board");
   });
 
-  it("regroupe les réglages du board, le diagnostic et la déconnexion", async () => {
+  it("réglages du board affiché en quatre onglets ; « Site Jira » : diagnostic et déconnexion", async () => {
     await connectedBoard();
-    button("Administration").click();
+    button("Réglages").click();
     await tick();
 
-    expect(button("Administration").getAttribute("aria-current")).toBe("page");
-    expect([...document.querySelectorAll(".settings-tab")].map((tab) => tab.textContent)).toEqual([
+    const nav = [...document.querySelectorAll(".sidebar-nav .sidebar-nav-item")];
+    expect(nav.map((item) => item.getAttribute("aria-current"))).toEqual([null, "page"]);
+    expect([...document.querySelectorAll("[role=tab]")].map((tab) => tab.textContent)).toEqual([
       "Board",
       "Objectifs",
       "Champs des cartes",
       "Couleurs des cartes",
-      ...(DIAGNOSTIC_ENABLED ? ["Diagnostic"] : []),
     ]);
-    expect(document.querySelector(".settings-group")?.textContent).toBe("Équipe Paiement");
+    expect(document.querySelector(".settings-board")?.textContent).toBe(
+      "Équipe Paiement · Scrum · #7",
+    );
 
+    button("Site Jira").click();
+    await tick();
     if (DIAGNOSTIC_ENABLED) {
       button("Diagnostic").click();
       await expect.poll(() => document.querySelectorAll(".probe").length).toBeGreaterThan(0);

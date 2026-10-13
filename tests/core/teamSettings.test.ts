@@ -25,13 +25,9 @@ const base = makeConfiguration();
 /** Configuration réglée par une personne de l'équipe. */
 const tuned = {
   ...base,
-  columns: base.columns.map((col, index) =>
-    index === 1 ? { ...col, name: "Développement", wipLimit: 3 } : col,
-  ),
   issueTypes: base.issueTypes.map((type) =>
     type.id === "10001" ? { ...type, countsAsBug: true } : type,
   ),
-  blockedLabels: ["bloqué"],
   buildSectionLabel: "Sprint Backlog",
   agingThresholdDays: 5,
   goalColorIndex: { g1: 4 },
@@ -64,28 +60,26 @@ describe("réglages d'équipe ↔ configuration", () => {
     expect(teamDifferences(elsewhere, settings)).toEqual([]);
   });
 
-  it("la structure reste celle de Jira : colonne inconnue ignorée, colonne locale gardée, sans statut masquée", () => {
+  it("les colonnes restent celles de Jira, même renommées ou masquées par une version précédente", () => {
     const local = {
       ...base,
-      columns: [
-        ...base.columns,
-        { ...column("col-9-Recette", "Recette", ["8"], 9), wipLimit: 2 },
-        column("col-10-Vide", "Vide", [], 10),
-      ],
+      columns: [...base.columns, { ...column("col-9-Recette", "Recette", ["8"], 9), wipLimit: 2 }],
     };
-    const settings = {
-      ...teamSettingsOf(tuned),
+    const published = {
+      ...(encodeTeamDocument(DOCUMENT).settings as object),
       scrumColumns: [
-        ...teamSettingsOf(tuned).scrumColumns,
-        { id: "col-99-Disparue", name: "Disparue", hidden: false, wipLimit: 1 },
-        { id: "col-10-Vide", name: "Vide", hidden: false, wipLimit: null },
+        { id: "prog", name: "Développement", hidden: true, wipLimit: 3 },
+        { id: "col-9-Recette", name: "QA", hidden: false, wipLimit: null },
       ],
+      blockedLabels: ["bloqué"],
     };
-    const applied = withTeamSettings(local, settings);
-    expect(applied.columns.map((col) => col.id)).toEqual(local.columns.map((c) => c.id));
-    expect(applied.columns[1]).toMatchObject({ name: "Développement", wipLimit: 3 });
-    expect(applied.columns[3]).toMatchObject({ name: "Recette", wipLimit: 2 });
-    expect(applied.columns[4]?.hidden).toBe(true);
+    const settings = decodeTeamDocument({
+      ...encodeTeamDocument(DOCUMENT),
+      settings: published,
+    })?.settings;
+    if (!settings) throw new Error("réglages attendus");
+    expect(settings).toEqual(DOCUMENT.settings);
+    expect(withTeamSettings(local, settings).columns).toEqual(local.columns);
   });
 
   it("un premier chargement sans types locaux conserve tous les types et regroupements partagés", () => {
@@ -148,7 +142,7 @@ describe("réglages d'équipe ↔ configuration", () => {
         settings,
       ),
     ).toEqual(["Objectifs masqués", "Champs des cartes"]);
-    expect(TEAM_FAMILIES).toHaveLength(12);
+    expect(TEAM_FAMILIES).toHaveLength(10);
     // Un réglage personnel changé n'est pas une différence.
     expect(teamDifferences({ ...changed, collapsedBlockIds: ["build"] }, settings)).toEqual([]);
   });
@@ -166,10 +160,14 @@ describe("document JSON de la propriété du board", () => {
     expect(decodeTeamDocument(encodeTeamDocument(DOCUMENT))).toEqual(DOCUMENT);
   });
 
-  it("une version inconnue, ou sans colonnes, n'est pas interprétée", () => {
+  it("une version inconnue, ou sans types, n'est pas interprétée", () => {
     const encoded = encodeTeamDocument(DOCUMENT);
     expect(decodeTeamDocument({ ...encoded, version: 2 })).toBeNull();
-    expect(decodeTeamDocument({ ...encoded, settings: { issueTypes: [] } })).toBeNull();
+    expect(decodeTeamDocument({ ...encoded, settings: { scrumColumns: [] } })).toBeNull();
+    // Les colonnes ne sont plus lues (0.31.0) : leur absence n'empêche rien.
+    expect(
+      decodeTeamDocument({ ...encoded, settings: { issueTypes: [] } })?.settings.issueTypes,
+    ).toEqual([]);
     expect(decodeTeamDocument({ ...encoded, publishedAt: "" })).toBeNull();
     expect(decodeTeamDocument("texte")).toBeNull();
   });
@@ -194,6 +192,7 @@ const publish = (jira: ReturnType<typeof fakeJira>, basePublishedAt: string | nu
   publishTeamSettings(jira.reader, jira.writer as never, {
     boardId: 7,
     settings: teamSettingsOf(tuned),
+    columns: base.columns,
     basePublishedAt,
     publishedBy: { accountId: "u2", displayName: "Alex Martin" },
     now: new Date("2026-09-19T09:30:12.345Z"),
@@ -209,6 +208,7 @@ describe("publier les réglages d'équipe", () => {
     const outcome = await publishTeamSettings(jira.reader, jira.writer as never, {
       boardId: 7,
       settings: teamSettingsOf({ ...loaded, agingThresholdDays: 8 }),
+      columns: loaded.columns,
       basePublishedAt: stored.publishedAt,
       publishedBy: { accountId: "u2", displayName: "Alex Martin" },
       now: new Date("2026-09-19T09:30:12.345Z"),
@@ -239,6 +239,40 @@ describe("publier les réglages d'équipe", () => {
       publishedBy: { accountId: "u2", displayName: "Alex Martin" },
       settings: teamSettingsOf(tuned),
     });
+    // Les versions d'avant 0.31.0 exigent des colonnes : celles de Jira, telles quelles.
+    const jiraColumns = base.columns.map(({ id, name, hidden, wipLimit }) => ({
+      id,
+      name,
+      hidden,
+      wipLimit,
+    }));
+    expect(written?.settings).toMatchObject({
+      scrumColumns: jiraColumns,
+      kanbanColumns: jiraColumns,
+    });
+  });
+
+  it("colonnes et labels de blocage d'une version précédente sont réécrits sans changement", async () => {
+    const columns = [{ id: "prog", name: "Développement", hidden: true, wipLimit: 3 }];
+    const stored = {
+      ...encodeTeamDocument(DOCUMENT),
+      settings: {
+        ...(encodeTeamDocument(DOCUMENT).settings as object),
+        scrumColumns: columns,
+        kanbanColumns: columns,
+        blockedLabels: ["bloqué"],
+      },
+    };
+    const jira = fakeJira(stored as JsonValue);
+    expect((await publish(jira, DOCUMENT.publishedAt)).kind).toBe("published");
+    const write = jira.writes[0];
+    const settings = (write?.kind === "boardProperty.put" ? write.value.settings : {}) as Record<
+      string,
+      unknown
+    >;
+    expect(settings.scrumColumns).toEqual(columns);
+    expect(settings.kanbanColumns).toEqual(columns);
+    expect(settings.blockedLabels).toEqual(["bloqué"]);
   });
 
   it("publié par quelqu'un depuis la version connue ici : conflit, rien n'est écrit", async () => {
@@ -337,7 +371,6 @@ describe("réglages publiés avant 0.21.0 (RUN, puis Kanban)", () => {
   it("se relit : une swimlane par type « 1 », masquée, à sa place dans l'ordre", () => {
     const settings = decodeTeamDocument(legacy)?.settings;
     expect(settings?.issueTypes.map((type) => type.category)).toEqual(["KANBAN", "SCRUM"]);
-    expect(settings?.scrumColumns.map((c) => c.name)).toEqual(["A faire"]);
     expect(settings?.ticketSwimlanes).toEqual([
       { id: "1", name: "", typeIds: ["10415"], hidden: true },
     ]);
@@ -357,6 +390,8 @@ describe("réglages publiés avant 0.21.0 (RUN, puis Kanban)", () => {
     // Goals associés au board, retirés en 0.22.4.
     expect(settings.boardGoalIds).toBeUndefined();
     expect(settings.ticketSwimlanes).toEqual(teamSettingsOf(tuned).ticketSwimlanes);
+    // Colonnes encore lues par les versions d'avant 0.31.0 : gardées.
+    expect(settings.scrumColumns).toEqual(legacyColumns);
   });
 });
 
@@ -379,7 +414,6 @@ describe("compatibilité avec la 0.22.7, sur le même board", () => {
       "KANBAN",
       "KANBAN",
     ]);
-    expect(settings.kanbanColumns).toEqual(settings.scrumColumns);
     expect(settings.showKanbanSection).toBe(true);
     expect(settings.kanbanSectionLabel).toBe("RUN / OPS");
     expect(settings.dailyKanbanStockLimit).toBe(5);

@@ -159,8 +159,9 @@ describe("AppModel — vues", () => {
 
     model.showDiagnostic();
     await expect.poll(() => connection.diagnostic.read.value).not.toBeNull();
-    expect(model.view.value).toBe("admin");
-    expect(model.adminSection.value).toBe("diagnostic");
+    expect(model.view.value).toBe("diagnostic");
+    // Le diagnostic fait partie du menu « Site Jira », déplié avec lui.
+    expect(model.siteMenuOpen.value).toBe(true);
     const requestsAfterFirstOpen = jira.requests.length;
 
     model.showBoard();
@@ -168,19 +169,47 @@ describe("AppModel — vues", () => {
     expect(jira.requests).toHaveLength(requestsAfterFirstOpen);
     expect(jira.requests.every((r) => r.method === "GET" || r.method === "POST")).toBe(true);
   });
+
+  it("replier le menu « Site Jira » pendant le diagnostic ramène au sprint", async () => {
+    const model = new AppModel(fakePlatform(readsOnlyJira()));
+    await model.connect("acme.atlassian.net");
+    model.showDiagnostic();
+    model.toggleSiteMenu();
+    expect(model.siteMenuOpen.value).toBe(false);
+    expect(model.view.value).toBe("board");
+    // Ailleurs, il se déplie et se replie sans changer de vue.
+    model.showSettings("cardColors");
+    model.toggleSiteMenu();
+    model.toggleSiteMenu();
+    expect(model.view.value).toBe("settings");
+  });
+
+  it("les réglages rouvrent le dernier onglet ; la déconnexion revient au premier", async () => {
+    const model = new AppModel(fakePlatform(readsOnlyJira()));
+    await model.connect("acme.atlassian.net");
+    model.showSettings("cardFields");
+    model.showBoard();
+    model.showSettings();
+    expect(model.view.value).toBe("settings");
+    expect(model.settingsSection.value).toBe("cardFields");
+    model.toggleSiteMenu();
+    await model.disconnect();
+    expect(model.settingsSection.value).toBe("board");
+    expect(model.siteMenuOpen.value).toBe(false);
+  });
 });
 
 describe("AppModel — mode présentation", () => {
-  it("sur la vue du sprint ; l'administration et la déconnexion en sortent ; jamais gardé", async () => {
+  it("sur la vue du sprint ; les réglages, le diagnostic et la déconnexion en sortent ; jamais gardé", async () => {
     const platform = fakePlatform(readsOnlyJira());
     const model = new AppModel(platform);
     await model.connect("acme.atlassian.net");
-    model.showAdmin("board");
+    model.showSettings("board");
 
     model.enterPresentation();
     expect(model.view.value).toBe("board");
     expect(model.presenting.value).toBe(true);
-    model.showAdmin();
+    model.showSettings();
     expect(model.presenting.value).toBe(false);
 
     model.enterPresentation();

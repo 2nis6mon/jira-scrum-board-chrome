@@ -17,7 +17,7 @@ export const QUICK_FILTER_LABEL: Record<QuickFilter, string> = {
 
 /** Libellé complet, pour l'infobulle. */
 export const QUICK_FILTER_HELP: Record<QuickFilter, string> = {
-  blocked: "Tickets bloqués par un lien Jira ou un label",
+  blocked: "Tickets bloqués par un lien Jira « est bloqué par »",
   addedAfterStart: "Tickets ajoutés au sprint après son démarrage",
 };
 

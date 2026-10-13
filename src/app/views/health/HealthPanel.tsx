@@ -90,7 +90,7 @@ function HealthBody(props: {
           tone="blocked"
           value={String(kpis.blocked)}
           of={String(kpis.allCount)}
-          detail="lien Jira « est bloqué par » ou label"
+          detail="lien Jira « est bloqué par »"
         />
         {kpis.added !== null && (
           <Kpi

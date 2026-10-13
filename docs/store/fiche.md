@@ -24,7 +24,7 @@ Sprint Goals Board affiche une swimlane par objectif, Build pour les tickets san
 • Filtrez par personne, type, parent, statut ou label, avec recherche et filtres rapides Jira.
 • Animez la Daily en plein écran, une swimlane à la fois, avec minuteur réglable et cartes déplaçables.
 • Projetez le board agrandi en mode présentation.
-• Partagez colonnes, groupes, couleurs, champs des cartes et réglages de Daily avec l'équipe. Les modifications sont enregistrées dans Jira et réservées aux personnes qui peuvent modifier le board.
+• Réglez le board en glissant-déposant : ordre et noms des swimlanes, groupes de types, couleurs, champs des cartes et Daily, partagés avec l'équipe. Les modifications sont enregistrées dans Jira et réservées aux personnes qui peuvent modifier le board.
 
 L'extension utilise votre session Jira, directement depuis le navigateur. Aucun serveur de l'éditeur ni mesure d'audience. L'accès est demandé pour le seul site choisi ; les écritures suivent vos actions.
 

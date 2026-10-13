@@ -1,7 +1,6 @@
 import type { JiraField } from "../jira/client";
 import {
   type BoardConfiguration,
-  type ColumnConfiguration,
   computedSwimlaneName,
   DEFAULT_BUILD_LABEL,
   type IssueCategory,
@@ -9,9 +8,11 @@ import {
   MAX_DAILY_STOCK,
   nextSwimlaneId,
   normalizeSwimlanes,
+  swimlaneOfType,
   type TicketSwimlane,
 } from "./boardConfiguration";
 import { type CardField, cardFieldId, MAX_CARD_FIELDS } from "./cardFields";
+import { moveAmongShown } from "./reorder";
 import { foldText } from "./text";
 
 // Transformations pures des réglages. Le modèle publie ensuite les changements partagés dans Jira.
@@ -28,84 +29,48 @@ export const AUTO_REFRESH_CHOICES: readonly (number | null)[] = [null, 60, 120, 
 // ─── Section Board : chaque réglage s'applique seul, dès qu'il est validé ────
 //
 // Chaque fonction part de la configuration QU'ON LUI DONNE (la plus récente au moment d'écrire) et
-// ne touche qu'à son réglage : deux modifications rapprochées s'additionnent, et une colonne ou un
-// type disparu entre-temps (structure relue dans Jira) laisse la configuration intacte.
+// ne touche qu'à son réglage : deux modifications rapprochées s'additionnent, et un type ou une
+// swimlane disparus entre-temps (structure relue dans Jira) laissent la configuration intacte.
 
 export type SettingResult =
   | { readonly ok: true; readonly configuration: BoardConfiguration }
   | { readonly ok: false; readonly error: string };
 
-function editColumn(
-  configuration: BoardConfiguration,
-  columnId: string,
-  parts: Partial<ColumnConfiguration>,
-): BoardConfiguration {
-  return {
-    ...configuration,
-    columns: configuration.columns.map((column) =>
-      column.id === columnId ? { ...column, ...parts } : column,
-    ),
-  };
-}
-
-function columnName(configuration: BoardConfiguration, columnId: string) {
-  return configuration.columns.find((column) => column.id === columnId)?.name ?? columnId;
-}
-
-export function withColumnName(
-  configuration: BoardConfiguration,
-  columnId: string,
-  name: string,
-): SettingResult {
-  const trimmed = name.trim();
-  if (trimmed === "") return { ok: false, error: "Chaque colonne doit garder un nom." };
-  return { ok: true, configuration: editColumn(configuration, columnId, { name: trimmed }) };
-}
-
-export function withColumnHidden(
-  configuration: BoardConfiguration,
-  columnId: string,
-  hidden: boolean,
-): BoardConfiguration {
-  return editColumn(configuration, columnId, { hidden });
-}
-
-/** Limite WIP saisie : vide = aucune limite, sinon un entier de 1 à 999. */
-export function withWipLimit(
-  configuration: BoardConfiguration,
-  columnId: string,
-  raw: string,
-): SettingResult {
-  const text = raw.trim();
-  if (text === "") {
-    return {
-      ok: true,
-      configuration: editColumn(configuration, columnId, { wipLimit: null }),
-    };
-  }
-  const limit = Number(text);
-  if (!Number.isInteger(limit) || limit < 1 || limit > 999) {
-    return {
-      ok: false,
-      error: `La limite WIP de « ${columnName(configuration, columnId)} » doit être un entier entre 1 et 999, ou vide.`,
-    };
-  }
-  return {
-    ok: true,
-    configuration: editColumn(configuration, columnId, { wipLimit: limit }),
-  };
-}
-
-/** Où ranger un type de ticket : par objectif, ignoré, dans une swimlane par type ou une nouvelle. */
+/**
+ * Où ranger un type de ticket : par objectif, ignoré, dans une swimlane par type ou une nouvelle.
+ * Une nouvelle swimlane peut recevoir son nom en même temps que son premier type (vide ou absent :
+ * le nom suit ses types).
+ */
 export type TypeDestination =
   | { readonly kind: "goal" }
   | { readonly kind: "ignored" }
   | { readonly kind: "swimlane"; readonly swimlaneId: string }
-  | { readonly kind: "newSwimlane" };
+  | { readonly kind: "newSwimlane"; readonly name?: string };
+
+/** Le type est-il déjà rangé là ? (Une nouvelle swimlane n'est jamais celle d'un type.) */
+export function isTypeIn(
+  configuration: BoardConfiguration,
+  typeId: string,
+  destination: TypeDestination,
+): boolean {
+  const type = configuration.issueTypes.find((candidate) => candidate.id === typeId);
+  if (!type) return false;
+  switch (destination.kind) {
+    case "goal":
+      return type.category === "GOAL";
+    case "ignored":
+      return type.category === "IGNORED";
+    case "swimlane":
+      return swimlaneOfType(configuration, typeId)?.id === destination.swimlaneId;
+    case "newSwimlane":
+      return false;
+  }
+}
 
 /**
  * Déplace un type de ticket. Une swimlane par type se crée en y mettant un premier type, et
- * disparaît avec son dernier type : sa place dans l'ordre et son repli sont alors oubliés.
+ * disparaît avec son dernier type : sa place dans l'ordre et son repli sont alors oubliés. Un type
+ * déposé là où il est déjà laisse la configuration telle quelle (même objet) : rien à écrire.
  */
 export function withTypeDestination(
   configuration: BoardConfiguration,
@@ -113,6 +78,7 @@ export function withTypeDestination(
   destination: TypeDestination,
 ): BoardConfiguration {
   if (!configuration.issueTypes.some((type) => type.id === typeId)) return configuration;
+  if (isTypeIn(configuration, typeId, destination)) return configuration;
   const swimlanes: TicketSwimlane[] = configuration.ticketSwimlanes.map((swimlane) => ({
     ...swimlane,
     typeIds: swimlane.typeIds.filter((id) => id !== typeId),
@@ -125,12 +91,17 @@ export function withTypeDestination(
     swimlanes[index] = { ...target, typeIds: [...target.typeIds, typeId] };
     category = "SWIMLANE";
   } else if (destination.kind === "newSwimlane") {
-    swimlanes.push({
+    const created: TicketSwimlane = {
       id: nextSwimlaneId(configuration.ticketSwimlanes),
       name: "",
       typeIds: [typeId],
       hidden: false,
-    });
+    };
+    const name = (destination.name ?? "").trim();
+    // Un nom identique au nom calculé n'est pas retenu : le nom suit alors ses types.
+    swimlanes.push(
+      name === computedSwimlaneName(configuration, created) ? created : { ...created, name },
+    );
     category = "SWIMLANE";
   } else {
     category = destination.kind === "goal" ? "GOAL" : "IGNORED";
@@ -250,27 +221,6 @@ export function withDailyStockLimit(configuration: BoardConfiguration, raw: stri
   return { ok: true, configuration: { ...configuration, dailyStockLimit: count } };
 }
 
-/** Labels de blocage saisis, séparés par des virgules. */
-export function withBlockedLabels(
-  configuration: BoardConfiguration,
-  raw: string,
-): BoardConfiguration {
-  return { ...configuration, blockedLabels: parseLabels(raw) };
-}
-
-/** Labels séparés par des virgules, sans vide ni doublon (à la casse près, comme Jira). */
-export function parseLabels(text: string): string[] {
-  const seen = new Set<string>();
-  const labels: string[] = [];
-  for (const raw of text.split(",")) {
-    const label = raw.trim();
-    if (label === "" || seen.has(label.toLowerCase())) continue;
-    seen.add(label.toLowerCase());
-    labels.push(label);
-  }
-  return labels;
-}
-
 /** Remet l'ordre des swimlanes à l'ordre d'arrivée des objectifs, Build et swimlanes par type en bas. */
 export function withDefaultBlockOrder(configuration: BoardConfiguration): BoardConfiguration {
   return { ...configuration, blockOrder: [] };
@@ -301,14 +251,17 @@ export function withCardField(fields: readonly CardField[], field: CardField): C
   return [...fields, field];
 }
 
-/** Déplace le champ d'un rang (`-1` monte, `+1` descend), sans sortir de la liste. */
-export function shiftCardField(fields: readonly CardField[], index: number, offset: number) {
-  const to = index + offset;
-  if (index < 0 || index >= fields.length || to < 0 || to >= fields.length) return [...fields];
-  const result = [...fields];
-  const [moved] = result.splice(index, 1);
-  if (moved) result.splice(to, 0, moved);
-  return result;
+/** Place le champ `id` juste avant le champ `before` (`null` : en dernier). */
+export function moveCardField(
+  fields: readonly CardField[],
+  id: string,
+  before: string | null,
+): CardField[] {
+  const byId = new Map(fields.map((field) => [cardFieldId(field), field]));
+  return moveAmongShown([...byId.keys()], id, before, () => true).flatMap((fieldId) => {
+    const field = byId.get(fieldId);
+    return field ? [field] : [];
+  });
 }
 
 export function sameCardFields(a: readonly CardField[], b: readonly CardField[]): boolean {

@@ -121,7 +121,7 @@ it("affiche objectifs, Build, RUN et OPS sans sprint et garde Daily et présenta
 
 it("épingle un Goal sans ticket au board dans les réglages partagés", async () => {
   const { model, board, jira } = await connectedBoard();
-  model.showAdmin("goals");
+  model.showSettings("goals");
   await expect.poll(() => document.querySelector(".pin-list")).not.toBeNull();
   expect(body()).toContain(`Objectifs du board « ${KANBAN_NAME} »`);
   expect(body()).not.toContain("Texte du sprint");
@@ -243,7 +243,7 @@ it("permet de désépingler un Goal supprimé quand le board n'a aucun snapshot"
   const current = connection.board;
   expect(current.snapshot.value).toBeNull();
   expect(current.syncProblem.value).not.toBeNull();
-  reloaded.showAdmin("goals");
+  reloaded.showSettings("goals");
   await expect.poll(() => current.pinEditor.value?.selection).toEqual([missing]);
   labelled(`Désépingler ${missing}`).click();
   await tick();
@@ -284,12 +284,20 @@ it("masque la règle sprint et réordonne les règles Kanban visibles sans la pe
     }),
     { resync: false },
   );
-  model.showAdmin("cardColors");
+  model.showSettings("cardColors");
   await tick();
   expect(body()).toContain("dans le périmètre du board Kanban");
   expect(body()).not.toContain("Ajouté en cours de sprint");
-  labelled("Rendre la règle Support plus prioritaire").click();
+  // Sans souris : la poignée monte la règle d'un cran, au-dessus d'« Urgent ».
+  labelled("Déplacer la règle Support").dispatchEvent(
+    new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+  );
   await tick();
+  expect(
+    [...document.querySelectorAll(".color-rule-name")].map(
+      (input) => (input as HTMLInputElement).value,
+    ),
+  ).toEqual(["Support", "Urgent"]);
   const apply = [...document.querySelectorAll("button")].find(
     (button) => button.textContent === "Appliquer",
   );

@@ -31,21 +31,26 @@ export type Connection =
   | { state: "connected"; site: JiraSite; board: BoardModel; diagnostic: DiagnosticModel };
 
 /**
- * Vues de la barre latérale : le sprint (swimlanes, et la santé du sprint dans un panneau
- * repliable) et l'administration.
+ * Vues de l'espace de travail : le sprint (swimlanes, et la santé du sprint dans un panneau
+ * repliable), les réglages du board affiché et le diagnostic du site.
  */
-export type View = "board" | "admin";
+export type View = "board" | "settings" | "diagnostic";
 
-/** Sections de l'administration : réglages du board, diagnostic, compte. */
-export type AdminSection = "board" | "goals" | "cardFields" | "cardColors" | "diagnostic";
+/**
+ * Onglets des réglages du board affiché. Depuis 0.31.0, ils s'ouvrent depuis le board (en-tête,
+ * barre latérale, menus) et non plus depuis l'administration : ils portent sur CE board.
+ */
+export type SettingsSection = "board" | "goals" | "cardFields" | "cardColors";
 
-/** Racine de l'état de l'interface : connexion à un site, puis board ou administration. */
+/** Racine de l'état de l'interface : connexion à un site, puis board, réglages ou diagnostic. */
 export class AppModel {
   readonly loadDiagnostics: LoadDiagnostics;
   readonly connection = signal<Connection>({ state: "loading" });
   readonly connectionError = signal<UserMessage | null>(null);
   readonly view = signal<View>("board");
-  readonly adminSection = signal<AdminSection>("board");
+  readonly settingsSection = signal<SettingsSection>("board");
+  /** Bloc « Site Jira » déplié en pied de barre latérale : diagnostic, site et déconnexion. */
+  readonly siteMenuOpen = signal(false);
   /** Barre latérale repliée par son bouton. Réglage de la session. */
   readonly sidebarCollapsed = signal(false);
   /** Largeur de la barre latérale choisie en tirant sa bordure ; gardée dans ce navigateur. */
@@ -194,14 +199,21 @@ export class AppModel {
     await this.#audit.forgetSite(current.site.origin);
     this.connectionError.value = null;
     this.view.value = "board";
-    this.adminSection.value = "board";
+    this.settingsSection.value = "board";
+    this.siteMenuOpen.value = false;
     this.presenting.value = false;
     this.daily.value = null;
     this.connection.value = { state: "disconnected", lastInput: current.site.host };
   }
 
   showBoard(): void {
+    this.#leaveDiagnostic();
     this.view.value = "board";
+  }
+
+  /** Quitter le diagnostic replie le menu « Site Jira » qui le contient. */
+  #leaveDiagnostic(): void {
+    if (this.view.value === "diagnostic") this.siteMenuOpen.value = false;
   }
 
   /** Déplie ou replie la santé du sprint, dans la vue du sprint. */
@@ -213,6 +225,7 @@ export class AppModel {
 
   /** Mode présentation, sur la vue du sprint. La barre latérale retrouve ensuite son état. */
   enterPresentation(): void {
+    this.#leaveDiagnostic();
     this.view.value = "board";
     this.presenting.value = true;
   }
@@ -223,6 +236,7 @@ export class AppModel {
 
   /** Lance la daily sur la vue du sprint ; elle remplace le mode présentation. */
   startDaily(durationMinutes: number, firstStepId: string | null, now = Date.now()): void {
+    this.#leaveDiagnostic();
     this.view.value = "board";
     this.presenting.value = false;
     this.daily.value = startDaily(durationMinutes, firstStepId, now);
@@ -239,32 +253,33 @@ export class AppModel {
   }
 
   /**
-   * Bouton Administration de la barre latérale : déplie ses sections au-dessus de lui, ou les
-   * replie et revient au sprint.
+   * Réglages du board affiché, sur un onglet (par défaut le dernier ouvert). Ils remplacent le board
+   * dans la page ; la barre latérale reste.
    */
-  toggleAdmin(): void {
-    if (this.view.value === "admin") this.showBoard();
-    else this.showAdmin();
-  }
-
-  /** Administration : réglages locaux du board, diagnostic, déconnexion. */
-  showAdmin(section: AdminSection = this.adminSection.value): void {
+  showSettings(section: SettingsSection = this.settingsSection.value): void {
+    this.#leaveDiagnostic();
     this.presenting.value = false;
     this.daily.value = null;
-    if (section === "diagnostic") {
-      this.showDiagnostic();
-      return;
-    }
-    this.adminSection.value = section;
-    this.view.value = "admin";
+    this.settingsSection.value = section;
+    this.view.value = "settings";
+  }
+
+  /**
+   * Bloc « Site Jira » du pied de barre latérale : le déplie ou le replie. Replié pendant le
+   * diagnostic, il ramène au sprint : le diagnostic en fait partie.
+   */
+  toggleSiteMenu(): void {
+    const open = !this.siteMenuOpen.value;
+    this.siteMenuOpen.value = open;
+    if (!open && this.view.value === "diagnostic") this.showBoard();
   }
 
   /** Ouvre le diagnostic ; ses lectures sont lancées à la première ouverture. */
   showDiagnostic(): void {
     this.presenting.value = false;
     this.daily.value = null;
-    this.adminSection.value = "diagnostic";
-    this.view.value = "admin";
+    this.siteMenuOpen.value = true;
+    this.view.value = "diagnostic";
     const current = this.connection.value;
     if (current.state !== "connected") return;
     if (current.diagnostic.read.value === null) void current.diagnostic.runReads();

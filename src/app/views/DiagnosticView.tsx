@@ -4,6 +4,14 @@ import { SPRINT_PROPERTY_KEYS } from "../../jira/writes";
 import type { DiagnosticModel } from "../model/DiagnosticModel";
 import { ErrorMessage } from "./Message";
 
+/**
+ * Diagnostic affiché : Denis l'a masqué puis rétabli le 24/09/2026, le bandeau « Invalid CORS
+ * request » y renvoyant — c'est le seul écran qui essaie les variantes de l'en-tête Origin et
+ * retient celle que la passerelle des Goals accepte. Le masquer coupe cette issue de secours.
+ * Il s'ouvre depuis « Site Jira », en pied de barre latérale (0.31.0).
+ */
+export const DIAGNOSTIC_ENABLED = true;
+
 const MARK = { ok: "✓", failed: "✗", skipped: "–" } as const;
 const STATUS_LABEL = { ok: "réussi", failed: "échec", skipped: "non lancé" } as const;
 

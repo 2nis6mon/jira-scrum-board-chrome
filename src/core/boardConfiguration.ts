@@ -29,16 +29,20 @@ export interface TicketSwimlane {
   readonly hidden: boolean;
 }
 
-/** Colonne affichée par l'application, adossée à des statuts Jira réels. */
+/**
+ * Colonne du board Jira, telle que Jira la déclare. Depuis 0.31.0, l'extension ne la renomme, ne la
+ * masque ni ne change sa limite WIP : seules les colonnes sans statut Jira restent écartées.
+ */
 export interface ColumnConfiguration {
   readonly id: string;
-  /** Libellé affiché. Par défaut celui du board Jira. */
+  /** Nom de la colonne dans le board Jira. */
   readonly name: string;
   /** Statuts Jira regroupés dans cette colonne (identifiants Jira). */
   readonly statusIds: readonly string[];
   readonly position: number;
+  /** Colonne sans statut Jira : inutilisable, donc jamais affichée. */
   readonly hidden: boolean;
-  /** Limite WIP. Reprise de `columns[].max` du board Jira, surchargeable. */
+  /** Limite WIP du board Jira (`columns[].max`). */
   readonly wipLimit: number | null;
   /** Vrai si tous les statuts de la colonne sont de catégorie « done ». */
   readonly isDone: boolean;
@@ -71,8 +75,9 @@ export type GoalSource =
  * Configuration complète d'un board : structure déduite de Jira, préférences de l'utilisateur.
  *
  * Rien n'est codé en dur : colonnes, statuts, types et champs proviennent de l'instance Jira.
- * Tout ce qui est préférence (ordre, couleurs, masquage, champs des cartes, règles de couleur)
- * est LOCAL à ce navigateur et n'est jamais écrit dans Jira.
+ * Les préférences sont gardées dans ce navigateur ; celles de l'équipe (ordre, couleurs, masquage,
+ * swimlanes, champs et règles de couleur des cartes) sont aussi partagées par la propriété du board
+ * (`teamSettings.ts`). Les autres (repli, rafraîchissement automatique…) restent personnelles.
  */
 export interface BoardConfiguration {
   readonly boardId: number;
@@ -96,11 +101,6 @@ export interface BoardConfiguration {
   /** Swimlanes par type, dans l'ordre de leur création. */
   readonly ticketSwimlanes: readonly TicketSwimlane[];
 
-  /**
-   * Libellés considérés comme marqueurs de blocage, en complément du lien natif
-   * « is blocked by ». Vide par défaut : aucune heuristique imposée.
-   */
-  readonly blockedLabels: readonly string[];
   /** Seuil d'ancienneté dans une colonne, en jours. */
   readonly agingThresholdDays: number;
   /** Rafraîchissement automatique, en secondes. `null` = désactivé. */
@@ -375,7 +375,6 @@ export function buildConfiguration(input: {
     columns,
     issueTypes,
     ticketSwimlanes: normalizeSwimlanes(issueTypes, []),
-    blockedLabels: [],
     agingThresholdDays: 3,
     autoRefreshSeconds: null,
     dailyMinutes: DEFAULT_DAILY_MINUTES,
@@ -421,9 +420,8 @@ export function mergeConfiguration(
     issueTypes,
     // Un type apparu depuis, classé hors objectifs, rejoint la première swimlane par type.
     ticketSwimlanes: normalizeSwimlanes(issueTypes, existing.ticketSwimlanes),
-    // Colonnes : la structure vient de Jira, l'affichage vient de l'utilisateur.
-    columns: applyColumnPreferences(fresh.columns, existing.columns),
-    blockedLabels: existing.blockedLabels,
+    // Colonnes : telles que Jira les déclare (noms, affichage et limites WIP ne se règlent plus ici).
+    columns: fresh.columns,
     agingThresholdDays: existing.agingThresholdDays,
     autoRefreshSeconds: existing.autoRefreshSeconds,
     dailyMinutes: existing.dailyMinutes,
@@ -440,28 +438,6 @@ export function mergeConfiguration(
     localPinnedGoalIds: existing.localPinnedGoalIds,
     teamBase: existing.teamBase,
   };
-}
-
-function applyColumnPreferences(
-  fresh: readonly ColumnConfiguration[],
-  existing: readonly ColumnConfiguration[],
-): ColumnConfiguration[] {
-  // Une colonne se reconnaît à l'ensemble de ses statuts Jira, pas à son nom ni à son rang.
-  const signature = (column: ColumnConfiguration) => JSON.stringify([...column.statusIds].sort());
-  const bySignature = new Map<string, ColumnConfiguration>();
-  for (const column of existing) {
-    if (!bySignature.has(signature(column))) bySignature.set(signature(column), column);
-  }
-  return fresh.map((column) => {
-    const previous = bySignature.get(signature(column));
-    if (!previous) return column;
-    return {
-      ...column,
-      name: previous.name, // renommage conservé
-      hidden: column.statusIds.length === 0 ? true : previous.hidden,
-      wipLimit: previous.wipLimit ?? column.wipLimit,
-    };
-  });
 }
 
 // ─── Relecture d'une configuration enregistrée localement ────────────────────
@@ -501,7 +477,6 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
     columns,
     issueTypes,
     ticketSwimlanes: decodeSwimlanes(value, issueTypes),
-    blockedLabels: strings(value.blockedLabels),
     agingThresholdDays: isPositiveInteger(value.agingThresholdDays) ? value.agingThresholdDays : 3,
     autoRefreshSeconds: isPositiveInteger(value.autoRefreshSeconds)
       ? value.autoRefreshSeconds
@@ -620,12 +595,14 @@ function decodeColumns(value: unknown): ColumnConfiguration[] | null {
   return decodeList(value, (item) => {
     if (!isObject(item) || typeof item.id !== "string" || typeof item.name !== "string")
       return null;
+    const statusIds = strings(item.statusIds);
     return {
       id: item.id,
       name: item.name,
-      statusIds: strings(item.statusIds),
+      statusIds,
       position: typeof item.position === "number" ? item.position : 0,
-      hidden: item.hidden === true,
+      // Le masquage choisi avant 0.31.0 n'est plus repris : seule une colonne sans statut l'est.
+      hidden: statusIds.length === 0,
       wipLimit: isPositiveInteger(item.wipLimit) ? item.wipLimit : null,
       isDone: item.isDone === true,
     };

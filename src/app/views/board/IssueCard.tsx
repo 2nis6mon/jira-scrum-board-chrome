@@ -299,7 +299,7 @@ function FlagIcon() {
   );
 }
 
-/** Info-bulle de la pastille « bloqué » : ce qui bloque, lien par lien et label par label. */
+/** Info-bulle de la pastille « bloqué » : ce qui bloque, lien par lien. */
 function blockedTitle(issue: BoardIssue): string {
   return ["Bloqué", blockedDetail(issue)].filter((line) => line !== "").join("\n");
 }
@@ -311,6 +311,5 @@ function blockedDetail(issue: BoardIssue): string {
     if (blocker.statusName) parts.push(`(${blocker.statusName})`);
     return `Bloqué par ${parts.join(" ")}`;
   });
-  for (const label of issue.blockedByLabels) lines.push(`Label « ${label} »`);
   return lines.join("\n");
 }

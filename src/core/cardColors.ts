@@ -1,5 +1,6 @@
 import type { JiraClient } from "../jira/client";
 import { type BoardJqlScope, inBoardScope, withoutOrderBy } from "./jql";
+import { moveAmongShown } from "./reorder";
 
 /**
  * Couleur de fond appliquée aux cartes qui satisfont une requête JQL.
@@ -156,6 +157,27 @@ export function cleanedColorRules(rules: readonly CardColorRule[]): CardColorRul
   return rules
     .map((rule) => ({ ...rule, name: rule.name.trim(), jql: rule.jql.trim() }))
     .filter((rule) => rule.kind !== null || rule.jql !== "");
+}
+
+/**
+ * Place la règle `id` juste avant la règle `before` parmi les règles montrées (`null` : après la
+ * dernière montrée). Une règle non montrée (la règle intégrée en Kanban) garde son rang relatif.
+ */
+export function moveColorRule(
+  rules: readonly CardColorRule[],
+  id: string,
+  before: string | null,
+  shown: (rule: CardColorRule) => boolean = () => true,
+): CardColorRule[] {
+  const byId = new Map(rules.map((rule) => [rule.id, rule]));
+  const visible = (ruleId: string) => {
+    const rule = byId.get(ruleId);
+    return rule !== undefined && shown(rule);
+  };
+  return moveAmongShown([...byId.keys()], id, before, visible).flatMap((ruleId) => {
+    const rule = byId.get(ruleId);
+    return rule ? [rule] : [];
+  });
 }
 
 /** Couleur proposée pour une nouvelle règle : la première que n'utilise aucune autre. */

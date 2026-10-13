@@ -1,18 +1,24 @@
 import { useEffect, useState } from "preact/hooks";
 import { type BoardConfiguration, displayedCardFields } from "../../../core/boardConfiguration";
+import { allIssues } from "../../../core/boardIssue";
 import {
+  moveCardField,
   sameCardFields,
   searchFields,
-  shiftCardField,
   withCardField,
 } from "../../../core/boardSettings";
 import {
   type CardField,
   cardFieldId,
   cardFieldLabel,
+  cardFieldValues,
   MAX_CARD_FIELDS,
 } from "../../../core/cardFields";
+import { shiftTarget } from "../../../core/reorder";
 import type { BoardModel } from "../../model/BoardModel";
+import { Icon } from "../Icon";
+import { CardPreview } from "./CardPreview";
+import { Grip, SaveBar, useReorder } from "./controls";
 
 const STANDARD_FIELDS: readonly CardField[] = [
   { kind: "fixVersions" },
@@ -21,8 +27,13 @@ const STANDARD_FIELDS: readonly CardField[] = [
   { kind: "components" },
 ];
 const MAX_RESULTS = 12;
+const FIELD_DRAG = "application/x-sprint-goals-settings-field";
 
-/** Champs affichés sous le titre des cartes : jusqu'à `MAX_CARD_FIELDS`, dans l'ordre choisi. */
+/**
+ * Onglet Champs des cartes : jusqu'à `MAX_CARD_FIELDS` champs sous le titre des cartes, dans l'ordre
+ * choisi (glissé, ou poignée aux flèches). Un brouillon, enregistré sur « Appliquer » : le board est
+ * alors relu dans Jira avec ces champs.
+ */
 export function CardFieldSettings({
   board,
   configuration,
@@ -41,8 +52,16 @@ export function CardFieldSettings({
 
   const full = fields.length >= MAX_CARD_FIELDS;
   const changed = !sameCardFields(fields, stored);
-  const chosen = new Set(fields.map(cardFieldId));
+  const ids = fields.map(cardFieldId);
+  const chosen = new Set(ids);
   const matches = searchFields(search, board.customFields.value ?? []);
+  const reorder = useReorder(FIELD_DRAG, ids, (id, before) =>
+    setFields((current) => moveCardField(current, id, before)),
+  );
+  const shift = (id: string, offset: -1 | 1) => {
+    const before = shiftTarget(ids, id, offset);
+    if (before !== undefined) setFields((current) => moveCardField(current, id, before));
+  };
 
   const apply = async () => {
     setApplying(true);
@@ -57,150 +76,234 @@ export function CardFieldSettings({
     }
   };
 
+  // Aperçu : les tickets qui ont le plus de valeurs à montrer, parmi celles déjà lues dans Jira.
+  const read = new Set(stored.map(cardFieldId));
+  const notRead = fields.filter((field) => !read.has(cardFieldId(field)));
+  const snapshot = board.snapshot.value;
+  const sample = snapshot
+    ? allIssues(snapshot)
+        .map((issue) => ({
+          issue,
+          score:
+            fields.filter((field) => cardFieldValues(field, issue.issue.fields).length > 0).length *
+              2 +
+            (issue.issue.fields.parent ? 1 : 0),
+        }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 2)
+        .map(({ issue }) => issue)
+    : [];
+
   return (
-    <div class="settings-section">
-      <section class="panel" aria-labelledby="settings-card-fields">
-        <h2 id="settings-card-fields">
-          Champs affichés sur les cartes{" "}
-          <span class="settings-count">
-            {fields.length}/{MAX_CARD_FIELDS}
-          </span>
-        </h2>
-        <p class="hint">
-          Jusqu'à {MAX_CARD_FIELDS} champs Jira sous le titre des cartes, dans l'ordre de la liste.
-          Un champ vide n'affiche rien. Le parent (epic ou ticket parent) est toujours affiché et
-          n'occupe pas de place ici.
-        </p>
-        {fields.length === 0 ? (
-          <p class="hint">Aucun champ : les cartes restent telles quelles.</p>
-        ) : (
-          <ol class="settings-card-fields">
-            {fields.map((field, index) => (
-              <li key={cardFieldId(field)} class="settings-row">
-                <span class="settings-goal-title">
-                  {cardFieldLabel(field)}
-                  {field.kind === "custom" && <span class="pin-meta"> {field.customFieldId}</span>}
+    <>
+      <div class="settings-columns">
+        <section class="settings-card" aria-labelledby="settings-card-fields">
+          <header class="settings-card-header">
+            <div class="settings-card-title">
+              <h2 id="settings-card-fields">
+                Champs sous le titre des cartes
+                <span class="settings-count">
+                  {fields.length} / {MAX_CARD_FIELDS}
                 </span>
-                <button
-                  type="button"
-                  aria-label={`Monter ${cardFieldLabel(field)}`}
-                  disabled={index === 0}
-                  onClick={() => setFields(shiftCardField(fields, index, -1))}
+              </h2>
+              <p class="settings-help">
+                Dans l'ordre de la liste : glissez pour réordonner. Un champ vide n'affiche rien. Le
+                parent (epic ou ticket parent) est toujours affiché et n'occupe pas de place ici.
+              </p>
+            </div>
+          </header>
+
+          <ol class="settings-list">
+            {fields.map((field, index) => {
+              const id = cardFieldId(field);
+              const label = cardFieldLabel(field);
+              return (
+                <li
+                  key={id}
+                  class={`settings-item${reorder.dragged === id ? " is-dragging" : ""}`}
+                  data-reorder-row
+                  data-drop={reorder.marker(id)}
+                  onDragOver={reorder.over(id)}
+                  onDrop={reorder.drop}
                 >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Descendre ${cardFieldLabel(field)}`}
-                  disabled={index === fields.length - 1}
-                  onClick={() => setFields(shiftCardField(fields, index, 1))}
-                >
-                  ↓
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Retirer ${cardFieldLabel(field)}`}
-                  onClick={() => setFields(fields.filter((_, at) => at !== index))}
-                >
-                  ×
-                </button>
+                  <Grip
+                    label={`Déplacer ${label}`}
+                    onMove={(offset) => shift(id, offset)}
+                    onDragStart={reorder.start(id)}
+                    onDragEnd={reorder.end}
+                  />
+                  <span class="settings-rank">{index + 1}</span>
+                  <span class="settings-item-text">
+                    <strong>{label}</strong>
+                    {field.kind === "custom" && (
+                      <span class="settings-item-meta">{field.customFieldId}</span>
+                    )}
+                  </span>
+                  <span
+                    class={`settings-badge${field.kind === "custom" ? " settings-badge-custom" : ""}`}
+                  >
+                    {field.kind === "custom" ? "Personnalisé" : "Standard"}
+                  </span>
+                  <button
+                    type="button"
+                    class="icon-button settings-icon-button"
+                    aria-label={`Retirer ${label}`}
+                    title="Retirer ce champ des cartes"
+                    onClick={() => setFields(fields.filter((_, at) => at !== index))}
+                  >
+                    <Icon name="close" size={15} />
+                  </button>
+                </li>
+              );
+            })}
+            {/* Emplacements libres jusqu'au maximum : sans identité, repérés par leur rang. */}
+            {Array.from({ length: MAX_CARD_FIELDS - fields.length }, (_, slot) => (
+              <li key={`slot-${slot}`} class="settings-slot">
+                {fields.length === 0 && slot === 0
+                  ? "Aucun champ : les cartes restent telles quelles. Ajoutez-en ci-dessous."
+                  : "Emplacement libre"}
               </li>
             ))}
           </ol>
-        )}
-      </section>
 
-      <section class="panel" aria-labelledby="settings-card-choices">
-        <h2 id="settings-card-choices">Champs disponibles</h2>
-        {full && <p class="hint">Maximum atteint : retirez un champ pour en ajouter un autre.</p>}
-        <div class="row settings-wrap">
-          {STANDARD_FIELDS.map((field) => (
-            <button
-              key={cardFieldId(field)}
-              type="button"
-              disabled={full || chosen.has(cardFieldId(field))}
-              onClick={() => setFields(withCardField(fields, field))}
-            >
-              {cardFieldLabel(field)}
-            </button>
-          ))}
-        </div>
-        <label class="settings-field">
-          <span>Champ personnalisé</span>
-          <input
-            type="search"
-            value={search}
-            placeholder="Rechercher un champ par son nom ou son identifiant"
-            onInput={(event) => setSearch(event.currentTarget.value)}
-          />
-          <span class="hint">
-            Texte, nombre, liste de choix, date ou utilisateur. Un champ plus complexe (texte riche,
-            objet) n'affiche rien.
-          </span>
-        </label>
-        {board.customFieldsLoading.value && <p class="hint">Lecture des champs de Jira…</p>}
-        {board.customFieldsError.value && (
-          <p class="notice notice-error" role="alert">
-            Champs de Jira illisibles : {board.customFieldsError.value.text}
-          </p>
-        )}
-        {search.trim() !== "" && board.customFields.value !== null && (
-          <>
-            {matches.length === 0 ? (
-              <p class="hint">Aucun champ personnalisé ne correspond.</p>
-            ) : (
-              <ul class="settings-field-results">
-                {matches.slice(0, MAX_RESULTS).map((choice) => {
-                  const field: CardField = {
-                    kind: "custom",
-                    customFieldId: choice.id,
-                    customFieldName: choice.name,
-                  };
-                  return (
-                    <li key={choice.id} class="settings-row">
-                      <span class="settings-goal-title">
-                        {choice.name} <span class="pin-meta">{choice.id}</span>
-                      </span>
-                      <button
-                        type="button"
-                        disabled={full || chosen.has(cardFieldId(field))}
-                        onClick={() => {
-                          setFields(withCardField(fields, field));
-                          setSearch("");
-                        }}
-                      >
-                        Ajouter
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {matches.length > MAX_RESULTS && (
-              <p class="hint">
-                {matches.length - MAX_RESULTS} autres résultats : précisez la recherche.
+          <div class="settings-subsection">
+            <h3>Ajouter un champ</h3>
+            {full && (
+              <p class="settings-help">
+                Maximum atteint : retirez un champ pour en ajouter un autre.
               </p>
             )}
-          </>
-        )}
-      </section>
+            <span class="settings-caption">Champs standard</span>
+            <div class="settings-chips">
+              {STANDARD_FIELDS.map((field) => {
+                const added = chosen.has(cardFieldId(field));
+                return (
+                  <button
+                    key={cardFieldId(field)}
+                    type="button"
+                    class={`settings-choice-chip${added ? " is-added" : ""}`}
+                    disabled={full || added}
+                    onClick={() => setFields(withCardField(fields, field))}
+                  >
+                    <Icon name={added ? "check" : "plus"} size={13} />
+                    {cardFieldLabel(field)}
+                  </button>
+                );
+              })}
+            </div>
+            <label class="settings-caption" for="settings-field-search">
+              Champ personnalisé
+            </label>
+            <span class="settings-search">
+              <Icon name="search" size={15} />
+              <input
+                id="settings-field-search"
+                type="search"
+                value={search}
+                placeholder="Rechercher un champ par son nom ou son identifiant"
+                onInput={(event) => setSearch(event.currentTarget.value)}
+              />
+            </span>
+            <p class="settings-help">
+              Texte, nombre, liste de choix, date ou utilisateur. Un champ plus complexe (texte
+              riche, objet) n'affiche rien.
+            </p>
+            {board.customFieldsLoading.value && (
+              <p class="settings-help">Lecture des champs de Jira…</p>
+            )}
+            {board.customFieldsError.value && (
+              <p class="notice notice-error" role="alert">
+                Champs de Jira illisibles : {board.customFieldsError.value.text}
+              </p>
+            )}
+            {search.trim() !== "" && board.customFields.value !== null && (
+              <>
+                {matches.length === 0 ? (
+                  <p class="settings-help">Aucun champ personnalisé ne correspond.</p>
+                ) : (
+                  <ul class="settings-results">
+                    {matches.slice(0, MAX_RESULTS).map((choice) => {
+                      const field: CardField = {
+                        kind: "custom",
+                        customFieldId: choice.id,
+                        customFieldName: choice.name,
+                      };
+                      const added = chosen.has(cardFieldId(field));
+                      return (
+                        <li key={choice.id} class="settings-result">
+                          <span class="settings-item-text">
+                            <strong>{choice.name}</strong>
+                            <span class="settings-item-meta">{choice.id}</span>
+                          </span>
+                          <button
+                            type="button"
+                            class={`settings-button${added ? " is-added" : ""}`}
+                            disabled={full || added}
+                            onClick={() => {
+                              setFields(withCardField(fields, field));
+                              setSearch("");
+                            }}
+                          >
+                            {added ? "Ajouté" : "Ajouter"}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                {matches.length > MAX_RESULTS && (
+                  <p class="settings-help">
+                    {matches.length - MAX_RESULTS} autres résultats : précisez la recherche.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </section>
 
-      <div class="settings-actions">
-        <span class="hint">
-          {changed ? "Modifications non appliquées." : "Aucune modification en cours."}
-        </span>
-        <button type="button" disabled={!changed || applying} onClick={() => setFields(stored)}>
-          Annuler
-        </button>
-        <button
-          type="button"
-          class="primary"
-          disabled={!changed || applying}
-          onClick={() => void apply()}
+        <aside
+          class="settings-card settings-preview-card"
+          aria-labelledby="settings-fields-preview"
         >
-          {applying ? "Application…" : "Appliquer"}
-        </button>
+          <header class="settings-card-header">
+            <div class="settings-card-title">
+              <h2 id="settings-fields-preview">Aperçu</h2>
+              <p class="settings-help">Des tickets du board, avec les champs de la liste.</p>
+            </div>
+          </header>
+          {sample.length > 0 ? (
+            <CardPreview
+              board={board}
+              configuration={configuration}
+              issues={sample}
+              cardFields={fields}
+            />
+          ) : (
+            <p class="settings-empty">L'aperçu apparaît quand le board a été lu dans Jira.</p>
+          )}
+          {notRead.length > 0 && (
+            <p class="settings-help">
+              Valeurs lues dans Jira après « Appliquer » :{" "}
+              {notRead.map((field) => cardFieldLabel(field)).join(", ")}.
+            </p>
+          )}
+        </aside>
       </div>
-    </div>
+
+      <SaveBar
+        changed={changed}
+        message={
+          changed
+            ? "Modifications non appliquées · le board sera relu dans Jira"
+            : "Aucune modification en cours."
+        }
+        busy={applying}
+        cancelDisabled={!changed || applying}
+        onCancel={() => setFields(stored)}
+        confirm={applying ? "Application…" : "Appliquer"}
+        confirmDisabled={!changed || applying}
+        onConfirm={() => void apply()}
+      />
+    </>
   );
 }

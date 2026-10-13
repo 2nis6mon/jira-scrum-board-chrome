@@ -42,6 +42,7 @@ import {
 } from "../../../core/filters";
 import { goalColorName } from "../../../core/sprintGoals";
 import { blockingRequiredFields } from "../../../jira/models";
+import type { SettingsSection } from "../../model/AppModel";
 import type { BoardModel } from "../../model/BoardModel";
 import type { NoticeId } from "../../model/noticeStore";
 import { formatDay, formatPoints, formatTime, plural, toggled } from "../format";
@@ -145,6 +146,7 @@ export function BoardView({
             board={board}
             configuration={configuration}
             layout={shownLayout}
+            onShowSettings={controls.onShowSettings}
             daily={daily !== null}
             dailyStock={
               daily
@@ -237,8 +239,13 @@ export interface ScreenControls {
   readonly onStartDaily: (minutes: number, firstStepId: string | null) => void;
   readonly onUpdateDaily: (change: (session: DailySession) => DailySession) => void;
   readonly onStopDaily: () => void;
-  /** Ouvre l'administration sur les Goals, où se fait l'épinglage au sprint. */
+  /** Ouvre les réglages du board sur les objectifs, où se fait l'épinglage au sprint. */
   readonly onShowPinning: () => void;
+  /**
+   * Ouvre les réglages du board affiché, sur un onglet (par défaut le dernier ouvert). `null` :
+   * réglages inaccessibles, faute de droit de modifier le board dans Jira.
+   */
+  readonly onShowSettings: ((section?: SettingsSection) => void) | null;
 }
 
 function SprintHeader(props: {
@@ -450,6 +457,17 @@ function SprintHeader(props: {
         >
           <Icon name="present" size={17} />
         </button>
+        {controls.onShowSettings && (
+          <button
+            type="button"
+            class="settings-open"
+            title="Réglages de ce board : swimlanes, objectifs, champs et couleurs des cartes, partagés avec l'équipe"
+            onClick={() => controls.onShowSettings?.()}
+          >
+            <Icon name="sliders" size={16} />
+            Réglages
+          </button>
+        )}
       </div>
     </header>
   );
@@ -1038,6 +1056,8 @@ function BoardGrid(props: {
   board: BoardModel;
   configuration: BoardConfiguration;
   layout: BoardLayout;
+  /** Réglages du board, ouverts depuis le menu d'une swimlane ; `null` sans droit de modifier. */
+  onShowSettings: ((section?: SettingsSection) => void) | null;
   /** Daily : une seule swimlane, sans poignée, repli ni menu (l'étape se choisit dans sa barre). */
   daily?: boolean;
   dailyStock?: DailyStock | null;
@@ -1112,6 +1132,7 @@ function BoardGrid(props: {
             layout={layout}
             lane={lane}
             nextLaneId={layout.lanes[index + 1]?.id ?? null}
+            onShowSettings={props.onShowSettings}
             daily={daily}
             dailyStock={dailyStock}
             hoveredFamily={hoveredFamily}
@@ -1135,6 +1156,7 @@ function LaneView(props: {
   lane: Lane;
   /** Swimlane affichée juste en dessous : un dépôt sur la moitié basse se place avant elle. */
   nextLaneId: string | null;
+  onShowSettings: ((section?: SettingsSection) => void) | null;
   daily: boolean;
   dailyStock: DailyStock | null;
   /** Famille survolée (une story et ses sous-tâches), à mettre en évidence ; `null` sinon. */
@@ -1260,7 +1282,7 @@ function LaneView(props: {
           </span>
         )}
         {progress?.state === "empty" && <span class="lane-progress">Aucun ticket rattaché</span>}
-        {!daily && <LaneMenu board={board} lane={lane} />}
+        {!daily && <LaneMenu board={board} lane={lane} onShowSettings={props.onShowSettings} />}
       </header>
       {!lane.collapsed && (
         <div class="board-row lane-cells">
@@ -1466,10 +1488,18 @@ function LaneView(props: {
 }
 
 /**
- * Réglages d'affichage d'une swimlane : ordre, repli, couleur, masquage. Tous restent dans ce
- * navigateur ; aucun n'écrit dans Jira.
+ * Réglages d'affichage d'une swimlane : ordre, couleur et masquage (partagés, écrits dans la
+ * propriété du board), repli (personnel) ; puis les réglages du board, qui vont plus loin.
  */
-function LaneMenu({ board, lane }: { board: BoardModel; lane: Lane }) {
+function LaneMenu({
+  board,
+  lane,
+  onShowSettings,
+}: {
+  board: BoardModel;
+  lane: Lane;
+  onShowSettings: ((section?: SettingsSection) => void) | null;
+}) {
   const order = board.laneOrder.value;
   const position = order.indexOf(lane.id);
   const goal = lane.goal;
@@ -1549,6 +1579,30 @@ function LaneMenu({ board, lane }: { board: BoardModel; lane: Lane }) {
             >
               Masquer cet objectif du board
             </button>
+          </>
+        )}
+        {onShowSettings && (
+          <>
+            <hr class="menu-separator" />
+            {goal ? (
+              <button
+                type="button"
+                class="menu-settings"
+                onClick={(event) => act(event, async () => onShowSettings("goals"))}
+              >
+                <Icon name="goal" size={14} />
+                Gérer les objectifs…
+              </button>
+            ) : (
+              <button
+                type="button"
+                class="menu-settings"
+                onClick={(event) => act(event, async () => onShowSettings("board"))}
+              >
+                <Icon name="sliders" size={14} />
+                Configurer les swimlanes…
+              </button>
+            )}
           </>
         )}
         <p class="menu-note">

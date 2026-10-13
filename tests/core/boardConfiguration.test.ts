@@ -121,7 +121,6 @@ describe("buildConfiguration", () => {
 
   it("n'impose aucune préférence par défaut", () => {
     const config = discovered();
-    expect(config.blockedLabels).toEqual([]);
     expect(config.blockOrder).toEqual([]);
     expect(config.cardColorRules).toEqual([]);
     // Source des objectifs d'un board Scrum : le texte du sprint (demande de Denis du 09/10/2026).
@@ -161,6 +160,7 @@ describe("mergeConfiguration", () => {
       blockOrder: ["build", "goal:g1"],
       goalColorIndex: { g1: 4 },
       buildSectionLabel: "Hors objectif",
+      // Personnalisation de colonne d'avant 0.31.0 : abandonnée, Jira fait foi.
       columns: discovered().columns.map((c) =>
         c.name === "En cours" ? { ...c, name: "Doing", wipLimit: 3, hidden: true } : c,
       ),
@@ -194,9 +194,9 @@ describe("mergeConfiguration", () => {
     expect(merged.blockOrder).toEqual(["build", "goal:g1"]);
     expect(merged.goalColorIndex).toEqual({ g1: 4 });
     expect(merged.buildSectionLabel).toBe("Hors objectif");
-    // Colonne reconnue à ses statuts, quel que soit leur ordre : nom, masquage et WIP conservés.
+    // Colonnes telles que Jira les déclare : nom, affichage et limite WIP ne se règlent plus ici.
     expect(merged.columns).toHaveLength(1);
-    expect(merged.columns[0]).toMatchObject({ name: "Doing", wipLimit: 3, hidden: true });
+    expect(merged.columns[0]).toMatchObject({ name: "Work", wipLimit: 8, hidden: false });
   });
 
   it("un type apparu dans Jira et classé hors objectifs rejoint la première swimlane par type", () => {
@@ -251,5 +251,25 @@ describe("configuration Kanban enregistrée", () => {
     expect(stored?.goalSource).toBe("sprintText");
     expect(stored?.boardPinnedGoalIds).toEqual([]);
     expect(stored?.kanbanSubQuery).toBeNull();
+  });
+});
+
+describe("configuration enregistrée avant 0.31.0", () => {
+  it("abandonne le masquage de colonne et les labels de blocage choisis localement", () => {
+    const old = {
+      ...makeConfiguration(),
+      blockedLabels: ["bloqué"],
+      columns: [
+        { ...column("todo", "À faire", ["1"], 0), hidden: true, wipLimit: 4 },
+        column("vide", "Sans statut", [], 1),
+      ],
+    };
+    const stored = decodeStoredConfiguration(old);
+    // Le nom et la limite restent ceux de la dernière lecture, remplacés à la prochaine.
+    expect(stored?.columns.map((c) => [c.name, c.hidden, c.wipLimit])).toEqual([
+      ["À faire", false, 4],
+      ["Sans statut", true, null],
+    ]);
+    expect(stored && "blockedLabels" in stored).toBe(false);
   });
 });
