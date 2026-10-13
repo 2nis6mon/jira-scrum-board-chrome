@@ -1,3 +1,4 @@
+import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import type { BoardConfiguration } from "../../core/boardConfiguration";
 import { type LaneSummary, laneSummaries } from "../../core/boardPreferences";
@@ -10,11 +11,19 @@ import { Icon, type IconName } from "./Icon";
 
 /**
  * Barre latérale. De haut en bas : board affiché (et son menu), vue du sprint (la santé du sprint y
- * est un panneau) et réglages du board, swimlanes dans l'ordre du board (un clic y mène, un glissé
+ * est un panneau), swimlanes dans l'ordre du board (un clic y mène, un glissé
  * les réordonne), objectifs masqués, et « Site Jira » en pied de barre : son bouton déplie le
- * diagnostic, le site et la déconnexion, communs à tous les boards.
+ * diagnostic, le site et la déconnexion, puis le retour à Jira dans le pied de barre.
  */
-export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }) {
+export function Sidebar({
+  model,
+  board,
+  returnToJira,
+}: {
+  model: AppModel;
+  board: BoardModel;
+  returnToJira?: ComponentChildren;
+}) {
   const view = model.view.value;
   const configuration = board.configuration.value;
   const snapshot = board.snapshot.value;
@@ -23,8 +32,6 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
     snapshot && configuration && (snapshot.sprint || kanban)
       ? laneSummaries(snapshot, configuration)
       : null;
-  // Réglages du board : partagés, donc réservés à qui peut modifier le board dans Jira.
-  const settingsAvailable = configuration !== null && board.canEditSettings.value;
 
   return (
     <aside
@@ -46,22 +53,15 @@ export function Sidebar({ model, board }: { model: AppModel; board: BoardModel }
           current={view === "board"}
           onClick={() => model.showBoard()}
         />
-        {settingsAvailable && (
-          <NavButton
-            icon="sliders"
-            label="Réglages"
-            current={view === "settings"}
-            onClick={() => model.showSettings()}
-          />
-        )}
       </nav>
       <div class="sidebar-divider" />
       <div class="sidebar-scroll">
         {lanes && <LaneList model={model} board={board} lanes={lanes} />}
+        <HiddenGoals board={board} />
       </div>
-      <HiddenGoals board={board} />
       <div class="sidebar-divider" />
       <SiteMenu model={model} host={board.site.host} />
+      {returnToJira && <div class="sidebar-return">{returnToJira}</div>}
     </aside>
   );
 }

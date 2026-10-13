@@ -115,6 +115,23 @@ function Workspace({
   }, [model, presenting]);
 
   const hostReturn = model.hostReturn.value;
+  const returnToJira = hostReturn && !immersive && (
+    <button
+      type="button"
+      class="host-return"
+      disabled={!board.canSwitchBoard.value}
+      title={
+        board.canSwitchBoard.value
+          ? "Fermer Sprint Goals et revenir au board Jira"
+          : "Possible dès que l'écriture en cours dans Jira est terminée"
+      }
+      onClick={hostReturn}
+    >
+      <Icon name="chevronLeft" size={16} />
+      Retour à Jira
+    </button>
+  );
+  const showReturnBar = Boolean(returnToJira) && sidebarCollapsed;
 
   const controls: ScreenControls = {
     sidebarCollapsed,
@@ -134,27 +151,12 @@ function Workspace({
 
   return (
     <div class="workspace">
-      {!sidebarCollapsed && !presenting && !daily && <Sidebar model={model} board={board} />}
-      {presenting && <PresentationHint />}
-      {/* Retour à Jira : flottant en bas à droite, toujours sous la main (demande de Denis), sauf
-          en présentation et en daily, où l'écran est réservé au board. */}
-      {hostReturn && !immersive && (
-        <button
-          type="button"
-          class="host-return"
-          disabled={!board.canSwitchBoard.value}
-          title={
-            board.canSwitchBoard.value
-              ? "Fermer Sprint Goals et revenir au board Jira"
-              : "Possible dès que l'écriture en cours dans Jira est terminée"
-          }
-          onClick={hostReturn}
-        >
-          <Icon name="chevronLeft" size={16} />
-          Retour à Jira
-        </button>
+      {!sidebarCollapsed && !presenting && !daily && (
+        <Sidebar model={model} board={board} returnToJira={returnToJira} />
       )}
-      <div class="workspace-main">
+      {presenting && <PresentationHint />}
+      <div class={`workspace-main${showReturnBar ? " workspace-main-with-return" : ""}`}>
+        {showReturnBar && <div class="workspace-return">{returnToJira}</div>}
         {view === "board" && <BoardScreen connection={connection} controls={controls} />}
         {view === "settings" && configuration && settingsAvailable && (
           <SettingsView model={model} board={board} configuration={configuration} />

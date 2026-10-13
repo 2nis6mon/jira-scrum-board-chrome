@@ -142,12 +142,10 @@ describe("barre latérale", () => {
     const nav = [...(sidebar?.querySelectorAll(".sidebar-nav .sidebar-nav-item") ?? [])].map(
       (item) => [item.textContent, item.getAttribute("aria-current")],
     );
-    // La vue s'appelle « Sprint » ; la santé du sprint n'est plus une vue à part. Les réglages
-    // sont ceux du board affiché (0.31.0).
-    expect(nav).toEqual([
-      ["Sprint", "page"],
-      ["Réglages", null],
-    ]);
+    // Les réglages restent accessibles dans l'en-tête et le menu du board.
+    expect(nav).toEqual([["Sprint", "page"]]);
+    expect(document.querySelector("button.settings-open")).not.toBeNull();
+    expect(document.querySelector(".menu-settings")).not.toBeNull();
     const site = sidebar?.querySelector(".sidebar-site-toggle");
     expect(site?.textContent).toBe("Site Jiraacme.atlassian.net");
     expect(site?.getAttribute("aria-expanded")).toBe("false");
@@ -386,19 +384,55 @@ describe("barre latérale", () => {
 });
 
 describe("en-tête du sprint", () => {
-  it("sprint actif, avancement en points, compteurs, heure de la dernière lecture", async () => {
-    await withScrollSpy(async (scrolled) => {
-      await connectedBoard();
-      expect(document.querySelector(".sprint-name")?.textContent).toBe("Sprint 42actif");
-      expect(document.querySelector(".sprint-progress strong")?.textContent).toBe("3/17 pts");
-      expect(document.querySelector(".sprint-percent")?.textContent).toBe("18 %");
-      expect(document.querySelector(".counter-blocked")?.textContent).toBe("1bloqué");
-      expect(document.querySelector(".sync-status")?.textContent).toMatch(/^Jira · \d\d:\d\d$/);
-
-      button("2dans Build").click();
-      await expect.poll(() => scrolled).toEqual(["build"]);
-    });
+  it("sprint actif, avancement en points, Goals atteints et heure de la dernière lecture", async () => {
+    await connectedBoard();
+    expect(document.querySelector(".sprint-name")?.textContent).toBe("Sprint 42actif");
+    expect(document.querySelector(".sprint-progress strong")?.textContent).toBe("3/17 pts");
+    expect(document.querySelector(".sprint-percent")?.textContent).toBe("18 %");
+    expect(document.querySelector(".counter-goals strong")?.textContent).toBe("1/2");
+    expect(document.querySelector(".sync-status")?.textContent).toMatch(/^Jira · \d\d:\d\d$/);
   });
+
+  it.each(["scrum", "kanban"] as const)(
+    "%s : aucun compteur bloqué, ajouté ou Build, mais les filtres restent utilisables",
+    async (boardType) => {
+      const { board } = await connectedBoard();
+      const snapshot = board.snapshot.value;
+      const configuration = board.configuration.value;
+      if (!snapshot || !configuration) throw new Error("board attendu");
+      board.configuration.value = { ...configuration, boardType };
+      board.snapshot.value = {
+        ...snapshot,
+        sprint: boardType === "kanban" ? null : snapshot.sprint,
+        activeSprints: boardType === "kanban" ? [] : snapshot.activeSprints,
+        goalIssues: snapshot.goalIssues.map((issue) => ({
+          ...issue,
+          addedAfterSprintStart: issue.issue.key === "ABC-105",
+        })),
+      };
+      await tick();
+
+      // La fixture contient un ticket bloqué, un ajouté et deux dans Build : aucun compteur
+      // ne réapparaît quand sa valeur est positive, en Scrum comme en Kanban.
+      const header = document.querySelector(".sprint-header");
+      expect(header?.textContent).not.toMatch(/bloqué|ajouté|dans Build/i);
+      expect(header?.querySelector(".counter-goals strong")?.textContent).toBe("1/2");
+      expect(sidebarLink("Build")).not.toBeNull();
+      if (boardType === "kanban") expect(header?.textContent).toContain("6 tickets · 1 terminé");
+
+      button("Bloqués").click();
+      await tick();
+      expect(cardKeys()).toEqual(["ABC-102"]);
+      button("Bloqués").click();
+      await tick();
+      expect(cardKeys()).toHaveLength(6);
+      if (boardType === "scrum") {
+        button("Ajoutés").click();
+        await tick();
+        expect(cardKeys()).toEqual(["ABC-105"]);
+      }
+    },
+  );
 
   it("le bouton de la barre latérale la masque et la rend", async () => {
     await connectedBoard();
@@ -718,7 +752,8 @@ describe("réglages du board et menu « Site Jira »", () => {
     await tick();
 
     const nav = [...document.querySelectorAll(".sidebar-nav .sidebar-nav-item")];
-    expect(nav.map((item) => item.getAttribute("aria-current"))).toEqual([null, "page"]);
+    expect(nav.map((item) => item.textContent)).toEqual(["Sprint"]);
+    expect(nav.map((item) => item.getAttribute("aria-current"))).toEqual([null]);
     expect([...document.querySelectorAll("[role=tab]")].map((tab) => tab.textContent)).toEqual([
       "Board",
       "Objectifs",

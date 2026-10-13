@@ -384,8 +384,8 @@ progress::-webkit-progress-value {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  height: 100vh;
-  max-height: 100vh;
+  height: calc(100vh - var(--workspace-navigation-height, 0px));
+  max-height: calc(100vh - var(--workspace-navigation-height, 0px));
   min-height: 0;
   overflow: hidden;
 }
@@ -486,7 +486,7 @@ progress::-webkit-progress-value {
   gap: 4px;
 }
 
-/* Compteurs de l'en-tête : icône, nombre, libellé ; bloqués et ajoutés filtrent le board. */
+/* Progression et objectifs atteints dans l'en-tête. */
 .counter {
   height: 26px;
   padding: 0 7px;
@@ -514,28 +514,6 @@ progress::-webkit-progress-value {
 
 .counter-goals strong {
   color: #14532d;
-}
-
-.counter-blocked.counter-alert {
-  --icon-color: var(--blocked);
-}
-
-.counter-added.counter-alert {
-  --icon-color: var(--added);
-}
-
-.counter-build {
-  --icon-color: var(--ink-3);
-}
-
-.counter-blocked[aria-pressed="true"] {
-  border-color: #f3c1c1;
-  background: #fde8e8;
-}
-
-.counter-added[aria-pressed="true"] {
-  border-color: #d6c4fa;
-  background: #efe8fd;
 }
 
 .sprint-actions {
@@ -1461,25 +1439,20 @@ ul.lane-cell {
   pointer-events: none;
 }
 
-/* Retour à Jira : au même niveau que les bandeaux flottants, qui montent d'un cran pour lui
-   laisser le coin. */
+/* Retour à Jira : dans la navigation, sans recouvrir les cartes ou les informations. */
 .host-return {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  z-index: 35;
-  height: 40px;
-  padding: 0 16px 0 12px;
-  display: flex;
+  min-height: 34px;
+  padding: 6px 12px;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   border-color: var(--in-progress);
-  border-radius: 20px;
+  border-radius: 6px;
   background: var(--in-progress);
   color: #fff;
   font-size: 14px;
   font-weight: 600;
-  box-shadow: 0 2px 8px rgb(9 30 66 / 25%);
   --icon-color: #fff;
 }
 
@@ -1492,8 +1465,31 @@ ul.lane-cell {
   opacity: 0.55;
 }
 
-.workspace:has(.host-return) .floating-notices {
-  bottom: 72px;
+.sidebar-return {
+  flex: none;
+  padding: 8px 12px 0;
+}
+
+.sidebar-return .host-return {
+  width: 100%;
+}
+
+/* Barre latérale repliée : le retour conserve sa place dans une ligne réservée. */
+.workspace-main-with-return {
+  --workspace-navigation-height: 48px;
+}
+
+.workspace-return {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  flex: none;
+  height: var(--workspace-navigation-height);
+  padding: 6px 20px;
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
 
 .floating-notice {

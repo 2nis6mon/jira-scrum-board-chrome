@@ -253,7 +253,7 @@ describe("App", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
-  it("« Retour à Jira » : flottant, seulement dans une page Jira hôte, pas pendant une écriture ni en présentation", async () => {
+  it("« Retour à Jira » : ancré dans la navigation, protégé pendant une écriture et masqué en présentation", async () => {
     const { model, board } = await connectedBoard();
     const back = () => document.querySelector<HTMLButtonElement>("button.host-return");
     expect(back()).toBeNull();
@@ -267,17 +267,40 @@ describe("App", () => {
     board.pendingKeys.value = new Set();
     await tick();
     expect(back()?.textContent?.trim()).toBe("Retour à Jira");
+    expect(back()?.closest(".sidebar-return")).not.toBeNull();
     back()?.click();
     expect(leave).toHaveBeenCalledOnce();
+
+    // Replier la barre latérale conserve un seul retour, dans une ligne réservée du contenu.
+    model.toggleSidebar();
+    await tick();
+    expect(document.querySelectorAll("button.host-return")).toHaveLength(1);
+    expect(back()?.closest(".workspace-return")).not.toBeNull();
+    expect(document.querySelector(".sidebar")).toBeNull();
+    back()?.click();
+    expect(leave).toHaveBeenCalledTimes(2);
 
     // Présent aussi dans les réglages, absent quand l'écran est réservé au board.
     model.showSettings("board");
     await tick();
-    expect(back()).not.toBeNull();
+    expect(back()?.closest(".workspace-return")).not.toBeNull();
+    model.view.value = "diagnostic";
+    await tick();
+    expect(back()?.closest(".workspace-return")).not.toBeNull();
+    model.toggleSidebar();
+    await tick();
+    expect(back()?.closest(".sidebar-return")).not.toBeNull();
     model.showBoard();
     model.presenting.value = true;
     await tick();
     expect(back()).toBeNull();
+    model.presenting.value = false;
+    model.startDaily(15, "build");
+    await tick();
+    expect(back()).toBeNull();
+    model.stopDaily();
+    await tick();
+    expect(back()?.closest(".sidebar-return")).not.toBeNull();
   });
 
   it("carte : parent en badge coloré sans sa clé, champs en badges, drapeau près de la priorité, sans statut", async () => {
@@ -525,7 +548,7 @@ describe("App", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
-  it("réglages : ouverts depuis le board (en-tête, barre latérale, menu d'une swimlane)", async () => {
+  it("réglages : ouverts depuis l'en-tête et les menus, sans entrée sous Sprint", async () => {
     const { model } = await connectedBoard();
     expect(document.querySelector(".settings-screen")).toBeNull();
 
@@ -533,8 +556,7 @@ describe("App", () => {
     expect(document.querySelector("h1")?.textContent).toBe("Réglages du board");
     expect(document.querySelector(".settings-board")?.textContent).toContain("Équipe Paiement");
     expect(tab("Board").getAttribute("aria-selected")).toBe("true");
-    // La barre latérale reste : son entrée « Réglages » est la page courante.
-    expect(navButton("Réglages").getAttribute("aria-current")).toBe("page");
+    expect(document.querySelector(".sidebar-nav")?.textContent).not.toContain("Réglages");
     expect(navButton("Sprint").getAttribute("aria-current")).toBeNull();
     // Les colonnes et les labels de blocage ne se règlent plus ici (0.31.0).
     expect(document.querySelector('input[aria-label^="Nom de la colonne"]')).toBeNull();
@@ -547,8 +569,7 @@ describe("App", () => {
     button("Retour au board").click();
     await tick();
     expect(document.querySelector(".settings-screen")).toBeNull();
-    navButton("Réglages").click();
-    await tick();
+    await openSettings();
     expect(tab("Champs des cartes").getAttribute("aria-selected")).toBe("true");
 
     // Depuis le menu d'une swimlane : l'onglet qui la concerne.

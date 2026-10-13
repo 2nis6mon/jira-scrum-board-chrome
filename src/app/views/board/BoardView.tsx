@@ -53,7 +53,7 @@ import { Icon } from "../Icon";
 import { FilterMenu } from "./FilterMenu";
 import { placeFloatingMenu } from "./floatingMenu";
 import { IssueCard } from "./IssueCard";
-import { LANE_DRAG_TYPE, revealLane } from "./lanes";
+import { LANE_DRAG_TYPE } from "./lanes";
 
 /**
  * Santé du sprint : bouton de l'en-tête et panneau. Masquée à la demande de Denis (24/09/2026,
@@ -261,13 +261,7 @@ function SprintHeader(props: {
   const metrics = snapshot ? sprintMetrics(snapshot, configuration.agingThresholdDays) : null;
   const kanbanIssues = kanban && snapshot ? allIssues(snapshot) : [];
   const kanbanDone = kanbanIssues.filter(isIssueDone).length;
-  const filters = board.filters.value;
   const remaining = daysRemaining(sprint?.endDate ?? null, new Date());
-  const buildLabel = configuration.buildSectionLabel || "Build";
-  const buildCount = snapshot
-    ? snapshot.goalIssues.filter((issue) => displayedGoalId(configuration, issue.goalId) === null)
-        .length
-    : 0;
   const goals = snapshot?.goals.filter((goal) => !isGoalHidden(configuration, goal.id)) ?? [];
   const lastColumnId = visibleColumns(configuration.columns).at(-1)?.id ?? null;
   const completedGoals = snapshot
@@ -280,13 +274,6 @@ function SprintHeader(props: {
           ).state === "completed",
       ).length
     : 0;
-  // Sans historique Jira, on ne sait pas quels tickets ont été ajoutés : on n'affiche pas « 0 ».
-  const addedKnown =
-    !kanban &&
-    snapshot !== null &&
-    [...snapshot.goalIssues, ...snapshot.swimlaneIssues].some(
-      (issue) => issue.addedAfterSprintStart !== null,
-    );
 
   return (
     <header class="sprint-header">
@@ -340,8 +327,8 @@ function SprintHeader(props: {
           ) : (
             <SprintProgress metrics={metrics} />
           )}
-          <div class="sprint-counters">
-            {goals.length > 0 && (
+          {goals.length > 0 && (
+            <div class="sprint-counters">
               <span
                 class="counter counter-goals"
                 title="Goals dont tous les tickets sont dans la dernière colonne"
@@ -352,44 +339,8 @@ function SprintHeader(props: {
                 </strong>
                 Goals atteints
               </span>
-            )}
-            <button
-              type="button"
-              class={`counter counter-blocked${metrics.blockedCount > 0 ? " counter-alert" : ""}`}
-              aria-pressed={filters.quickFilters.has("blocked")}
-              onClick={() => board.toggleQuickFilter("blocked")}
-              title={`Filtrer : ${QUICK_FILTER_HELP.blocked.toLowerCase()}`}
-            >
-              <Icon name="blocked" />
-              <strong>{metrics.blockedCount}</strong>
-              {metrics.blockedCount > 1 ? "bloqués" : "bloqué"}
-            </button>
-            {addedKnown && (
-              <button
-                type="button"
-                class={`counter counter-added${metrics.addedAfterStartCount > 0 ? " counter-alert" : ""}`}
-                aria-pressed={filters.quickFilters.has("addedAfterStart")}
-                onClick={() => board.toggleQuickFilter("addedAfterStart")}
-                title={`Filtrer : ${QUICK_FILTER_HELP.addedAfterStart.toLowerCase()}`}
-              >
-                <Icon name="added" />
-                <strong>{metrics.addedAfterStartCount}</strong>
-                {metrics.addedAfterStartCount > 1 ? "ajoutés" : "ajouté"}
-              </button>
-            )}
-            {buildCount > 0 && (
-              <button
-                type="button"
-                class="counter counter-build"
-                onClick={() => void revealLane(board, "build")}
-                title={`Aller à ${buildLabel} : tickets du ${kanban ? "board" : "sprint"} sans objectif affiché`}
-              >
-                <Icon name="build" />
-                <strong>{buildCount}</strong>
-                dans {buildLabel}
-              </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -603,6 +603,25 @@ if (scenario.startsWith("board")) {
         };
       }
     }
+    if (new URLSearchParams(location.search).get("masques") === "1") {
+      // Une longue liste FICTIVE vérifie que le pied de navigation reste à l'écran.
+      const snapshot = connection.board.snapshot.value;
+      const configuration = connection.board.configuration.value;
+      const first = snapshot?.goals[0];
+      if (snapshot && configuration && first) {
+        const hidden = Array.from({ length: 30 }, (_, index) => ({
+          ...first,
+          id: `masque-${index}`,
+          title: `Objectif masqué ${index + 1}`,
+          position: index + snapshot.goals.length,
+        }));
+        connection.board.configuration.value = {
+          ...configuration,
+          hiddenGoalIds: hidden.map((goal) => goal.id),
+        };
+        connection.board.snapshot.value = { ...snapshot, goals: [...snapshot.goals, ...hidden] };
+      }
+    }
   }
 } else if (scenario === "connexion") {
   // Premier lancement : aucun site enregistré, aucune requête vers un faux Jira.

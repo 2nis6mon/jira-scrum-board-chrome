@@ -3,6 +3,12 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.31.2 — Navigation et en-tête allégés
+
+- Retrait de l'entrée Réglages sous Sprint ; accès conservés dans l'en-tête et les menus du board.
+- Retour à Jira ancré au pied de la barre latérale, ou au-dessus du contenu lorsqu'elle est repliée.
+- Retrait des compteurs bloqués, ajoutés et dans Build de l'en-tête ; filtres rapides conservés.
+
 ## 0.31.1 — Retrait du signalement des bugs liés
 
 - Suppression du bouton Bug dans les réglages des types et du badge de bugs liés sur les cartes.

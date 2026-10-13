@@ -42,7 +42,8 @@ Déplacez-le par sa poignée gauche ; sa position est conservée pour ce site da
 Au clavier, placez le focus sur la poignée puis utilisez les flèches, avec Maj pour affiner.
 Échap annule un glissement.
 
-**Retour à Jira** retrouve le board habituel. Le menu du nom du board, dans la barre latérale,
+**Retour à Jira**, en bas de la barre latérale, retrouve le board habituel. Si la barre est repliée,
+le bouton reste visible au-dessus du contenu. Le menu du nom du board, dans la barre latérale,
 permet d'en choisir ou d'en ajouter un autre : l'adresse Jira suit toujours le board affiché.
 Vous pouvez enregistrer cette URL dans vos favoris. Le paramètre `sprintGoals=1` ouvre la vue
 Sprint Goals ; sans lui, Jira garde son affichage habituel. La vue ne s'ouvre pas hors de Jira.
@@ -72,8 +73,8 @@ Sprint Goals ; sans lui, Jira garde son affichage habituel. La vue ne s'ouvre pa
 
 Les tickets de tous les sprints actifs sont réunis sans doublon. Le premier sprint par date de
 début sert de référence pour les dates, l'épinglage et le texte des objectifs.
-L'en-tête indique notamment points terminés, objectifs atteints, blocages et ajouts en cours de
-sprint. Le filtre « ajouté en cours de sprint » permet de retrouver ces derniers.
+L'en-tête indique les points terminés et les objectifs atteints. Les filtres rapides permettent
+de retrouver les tickets bloqués et ceux ajoutés en cours de sprint.
 
 Les objectifs proviennent par défaut du texte **Sprint Goal**, lu sans être modifié.
 Vous pouvez choisir les **Goals Atlassian** dans les réglages du board. Si leur lecture échoue,
@@ -93,7 +94,7 @@ La lecture est limitée à **5 000 tickets** : au-delà, elle est refusée ; ré
 ## Réglages du board et partage
 
 Chaque board a ses réglages, ouverts depuis le board lui-même : bouton **Réglages** de l'en-tête,
-entrée **Réglages** de la barre latérale, **Réglages de ce board** dans le menu du nom du board,
+**Réglages de ce board** dans le menu du nom du board,
 ou **Configurer les swimlanes…** / **Gérer les objectifs…** dans le menu ⋯ d'une swimlane.
 Ils remplacent le board dans la page ; **Retour au board** y ramène. Ils sont enregistrés dans
 Jira pour toute l'équipe et exigent le droit de modifier le board : sans ce droit, ils

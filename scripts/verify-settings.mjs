@@ -200,6 +200,78 @@ try {
     `règle glissée en tête : ${rulesAfter} (au départ ${rulesBefore})`,
   );
   console.log("✓ Couleurs des cartes : « Support N3 » glissée en tête, priorité changée");
+
+  // Retour à Jira ancré : aucune carte ni information n'est recouverte, barre ouverte ou repliée.
+  for (const width of [1440, 640]) {
+    await send(
+      "Emulation.setDeviceMetricsOverride",
+      { width, height: 760, deviceScaleFactor: 1, mobile: false },
+      sessionId,
+    );
+    await navigateToHarness(sessionId, `http://127.0.0.1:${PORT}/?scenario=board&hote=1&masques=1`);
+    await waitFor(
+      sessionId,
+      "Boolean(document.querySelector('.sidebar-return .host-return')) && document.querySelectorAll('.sidebar-hidden-item').length === 30",
+      "Le retour à Jira n'est pas visible dans la barre latérale",
+    );
+    const visibleReturn = `(() => {
+      const button = document.querySelector('.host-return');
+      const r = button.getBoundingClientRect();
+      return getComputedStyle(button).position !== 'fixed'
+        && r.width > 0 && r.height > 0 && r.top >= 0 && r.bottom <= innerHeight
+        && r.left >= 0 && r.right <= innerWidth
+        && button.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+    })()`;
+    assert(
+      await run(visibleReturn),
+      `${width}px : retour masqué ou flottant dans la barre latérale`,
+    );
+    assert(
+      await run(`document.querySelector('.host-return').getBoundingClientRect().right
+        <= document.querySelector('.workspace-main').getBoundingClientRect().left`),
+      `${width}px : le retour latéral recouvre le contenu`,
+    );
+    await run(
+      "document.querySelector('.sidebar-hidden-item:last-child').scrollIntoView({ block: 'nearest' })",
+    );
+    assert(
+      await run(visibleReturn),
+      `${width}px : retour inaccessible après défilement des objectifs masqués`,
+    );
+    await run(`document.querySelector('[aria-label="Masquer la barre latérale"]').click()`);
+    await waitFor(
+      sessionId,
+      "Boolean(document.querySelector('.workspace-return .host-return')) && !document.querySelector('.sidebar')",
+      "Le retour à Jira n'est pas conservé lorsque la barre est repliée",
+    );
+    assert(await run(visibleReturn), `${width}px : retour masqué ou flottant après repli`);
+    assert(
+      await run(`document.querySelector('.host-return').getBoundingClientRect().bottom
+        <= document.querySelector('.sprint-header').getBoundingClientRect().top
+        && document.querySelector('.board-screen').getBoundingClientRect().bottom <= innerHeight + 1`),
+      `${width}px : le retour réduit mal l'espace disponible du board`,
+    );
+    await run("document.querySelector('.settings-open').click()");
+    await waitFor(
+      sessionId,
+      "Boolean(document.querySelector('.settings-screen'))",
+      "Réglages absents",
+    );
+    await run("window.scrollTo(0, document.body.scrollHeight)");
+    await sleep(100);
+    assert(
+      await run(visibleReturn),
+      `${width}px : retour inaccessible après défilement des réglages`,
+    );
+    assert(
+      await run(`document.querySelector('.settings-header').getBoundingClientRect().top
+        >= document.querySelector('.workspace-return').getBoundingClientRect().bottom - 1`),
+      `${width}px : les onglets passent sous le retour à Jira`,
+    );
+    console.log(
+      `✓ Navigation ${width}px : retour visible avec 30 objectifs masqués, après repli et sans recouvrement`,
+    );
+  }
 } finally {
   await browser.close();
   await server.close();

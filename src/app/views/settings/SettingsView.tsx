@@ -18,8 +18,8 @@ export const SETTINGS_SECTIONS: readonly { id: SettingsSection; label: string }[
 ];
 
 /**
- * Réglages du board affiché (0.31.0) : ils s'ouvrent depuis le board — en-tête, barre latérale,
- * menus — et remplacent le board dans la page, la barre latérale restant. Partagés avec l'équipe :
+ * Réglages du board : ils s'ouvrent depuis son en-tête ou ses menus et remplacent le board
+ * dans la page, la barre latérale restant. Partagés avec l'équipe :
  * chaque modification est enregistrée dans la propriété du board, sauf celles qui attendent
  * « Appliquer » ou « Enregistrer dans Jira » (champs, couleurs, épinglage).
  */

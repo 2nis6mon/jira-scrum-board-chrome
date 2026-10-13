@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.31.1**, 13 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.31.2**, 13 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -117,13 +117,17 @@ copie, historique, fermeture et format étroit, avec captures dans `.vite/`.
   retire l'entrée Diagnostic du menu « Site Jira » (site et déconnexion restent).
 - Réglages du board ([`settings/`](src/app/views/settings/SettingsView.tsx), 0.31.0) : vue
   `settings` à onglets Board, Objectifs, Champs et Couleurs des cartes, ouverte depuis le board
-  (en-tête, barre latérale, menu du board, menu ⋯ d'une swimlane) ; le pied de barre « Site Jira »
+  (en-tête, menu du board, menu ⋯ d'une swimlane) ; le pied de barre « Site Jira »
   garde diagnostic et déconnexion. Glisser-déposer HTML5 à types de données propres
   (`application/x-sprint-goals-settings-*`), sans effet sur les glissés du board, avec un équivalent
   clavier ou menu pour chaque geste ; `verify:settings` les rejoue dans Chromium. La liste des
   swimlanes est la sous-suite hors objectifs de `blockOrder` (`settingsLaneOrder`,
   [`reorder`](src/core/reorder.ts)) : y déplacer Build ou une swimlane par type ne change jamais
   l'ordre relatif des objectifs, réglé sur le board. Un dépôt sans effet n'écrit rien.
+- Depuis 0.31.2, l'entrée Réglages sous Sprint et les compteurs bloqués/ajoutés/Build de l'en-tête
+  sont retirés ; filtres et navigation vers les swimlanes restent disponibles. Retour à Jira est
+  ancré au pied de la barre latérale, ou dans une ligne réservée au-dessus du contenu si elle est
+  repliée. Il reste désactivé pendant une écriture et masqué en présentation/Daily.
 - Colonnes telles que Jira les déclare (noms, limites WIP) ; seules celles sans statut sont
   écartées. Bloqué = lien Jira « est bloqué par » uniquement. Les personnalisations de colonnes et
   labels de blocage d'avant 0.31.0 ne sont plus lues (voir Données persistantes).
