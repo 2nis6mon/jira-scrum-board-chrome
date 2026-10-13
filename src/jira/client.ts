@@ -143,7 +143,7 @@ const MAX_BOARD_SEARCH = 500;
 
 /**
  * Lectures REST de Jira Cloud. Portée limitée aux endpoints vérifiés dans
- * docs/API-CONTRACTS.md. Aucune écriture ici : elles passent
+ * DEVELOPER.md (section Contrats API). Aucune écriture ici : elles passent
  * toutes par `JiraTransport.write` et l'inventaire `writes.ts`.
  */
 export class JiraClient {

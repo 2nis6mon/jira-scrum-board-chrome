@@ -1,134 +1,96 @@
 # Fiche Chrome Web Store — Sprint Goals Board pour Jira
 
-Textes prêts à coller dans le tableau de bord développeur du Chrome Web Store, onglet par onglet.
-Paquet à envoyer : `release/sprint-goals-board-<version>.zip`, produit par `npm run package`
-(paquet intégré dans Jira, version 0.28.1, sans le champ `key`). Le mode autonome est abandonné.
-Ces textes et ce paquet sont préparés pour une publication ; leur mise à jour locale ne publie rien.
+Textes à copier dans le tableau de bord développeur. Paquet :
+`release/sprint-goals-board-<version>.zip`, produit par `npm run package`, sans le champ `key`.
+Cette fiche prépare une soumission ; elle ne confirme aucune publication.
 
-## Onglet « Fiche Play Store » (Store listing)
+## Fiche du produit
 
-**Langue principale** : français.
-
-**Nom** (repris du manifest) : Sprint Goals Board pour Jira
-
-**Résumé** (repris du manifest, 132 caractères au plus) :
-
-> Boards Scrum et Kanban Jira Cloud : swimlanes par objectif, Build et RUN configurables, glisser-déposer et Daily.
-
-**Catégorie** : Productivité → Workflow et planification.
+- **Langue principale** : français.
+- **Nom** : Sprint Goals Board pour Jira.
+- **Résumé** : Boards Scrum et Kanban Jira Cloud : swimlanes par objectif, Build et RUN configurables, glisser-déposer et Daily.
+- **Catégorie** : Productivité → Workflow et planification.
 
 **Description** :
 
-```
-Voyez vos boards Scrum et Kanban Jira par objectif, directement dans leur page Jira.
+```text
+Retrouvez vos tickets Scrum et Kanban par objectif, directement dans leur page Jira Cloud.
 
-Sprint Goals Board pour Jira affiche les tickets de votre board Scrum ou Kanban Jira Cloud en swimlanes par objectif. En Scrum, le périmètre est celui des sprints actifs ; en Kanban, celui du board et de son sous-filtre. Chaque ticket rejoint automatiquement la swimlane de son objectif ; ceux qui n'en ont pas restent dans « Build », les autres (support, anomalies de production, demandes…) dans des swimlanes par type de ticket, que vous composez et nommez comme vous voulez.
+Sprint Goals Board affiche une swimlane par objectif, Build pour les tickets sans objectif et des groupes par type, comme RUN ou OPS. En Scrum, les tickets viennent des sprints actifs ; en Kanban, du board et de son sous-filtre.
 
-POUR L'ÉQUIPE
-• Une swimlane par objectif, avec son avancement, et l'objectif en vert quand tous ses tickets sont terminés.
-• Glisser-déposer : changez le statut d'un ticket, son ordre ou son objectif en le déplaçant. Les formulaires de transition de Jira (commentaire, temps passé, story points…) s'ouvrent quand il le faut.
-• Sous-tâches rangées avec leur story ; survolez une story pour voir toute sa famille.
-• Compteurs du sprint : points terminés, Goals atteints, tickets bloqués ou ajoutés en cours de sprint.
-• Goals épinglés au sprint : un objectif a sa swimlane avant même d'avoir des tickets.
-• Filtres : personne, type, parent, statut, label, recherche, filtres rapides de votre board Jira.
+• Suivez l'avancement des objectifs et épinglez des Goals même sans ticket : au sprint en Scrum, au board en Kanban.
+• Déplacez les cartes pour changer statut, rang ou objectif. Les fiches et formulaires de transition restent ceux de Jira.
+• Retrouvez les sous-tâches avec leur story, les blocages et les compteurs du sprint.
+• Filtrez par personne, type, parent, statut ou label, avec recherche et filtres rapides Jira.
+• Animez la Daily en plein écran, une swimlane à la fois, avec minuteur réglable et cartes déplaçables.
+• Projetez le board agrandi en mode présentation.
+• Partagez colonnes, groupes, couleurs, champs des cartes et réglages de Daily avec l'équipe. Les modifications sont enregistrées dans Jira et réservées aux personnes qui peuvent modifier le board.
 
-POUR LA DAILY ET LES REVUES
-• Mode Daily, bouton « ▶ Daily » : plein écran, une swimlane à la fois, Précédent / Suivant, minuteur réglable. Dans chaque swimlane, la colonne de départ est plafonnée aux premières cartes, dépliable d'un clic. Les tickets restent déplaçables pour faire les mises à jour en direct.
-• Mode présentation : plein écran, board agrandi, lisible à distance.
+L'extension utilise votre session Jira, directement depuis le navigateur. Aucun serveur de l'éditeur ni mesure d'audience. L'accès est demandé pour le seul site choisi ; les écritures suivent vos actions.
 
-UN MÊME BOARD POUR TOUTE L'ÉQUIPE
-• Ordre et couleurs des swimlanes, colonnes, champs des cartes, règles de couleur en JQL, durée de la daily.
-• Enregistrés automatiquement dans une propriété de votre board Jira, et repris à chaque chargement : toute l'équipe voit le même board.
-• Seules les personnes qui peuvent modifier le board dans Jira peuvent changer ces réglages.
+À l'installation, autorisez votre site Jira. Sur son board, l'icône de l'extension ou le bouton « Sprint Goals » ouvre la vue intégrée. « Retour à Jira » retrouve le board habituel.
 
-CONFIDENTIALITÉ
-• L'extension parle directement à votre Jira, depuis votre navigateur, avec votre propre session.
-• Aucun serveur de l'éditeur, aucune mesure d'audience, aucune donnée transmise à un tiers.
-• Accès demandé uniquement pour le site Jira que vous choisissez, au moment de la connexion.
-• Rien n'est écrit dans Jira sans un geste de votre part.
-
-Pour Jira Cloud (*.atlassian.net), boards Scrum et Kanban. Goals Atlassian dans les deux modes, texte du Sprint Goal en Scrum uniquement.
-À l'installation, un onglet vous demande l'adresse de votre Jira et vous propose d'autoriser ce seul site. Vous pouvez aussi ouvrir votre board Jira et cliquer sur l'icône de l'extension : le board est reconnu, rien n'est à coller. Ensuite, un bouton « Sprint Goals » apparaît sur chaque board du site. La vue s'ouvre sur l'URL Jira avec sprintGoals=1 ; sans ce paramètre, Jira conserve son affichage habituel. Le lanceur ne charge aucun ticket et il n'existe pas de board autonome.
+Compatible avec les boards Scrum et Kanban de Jira Cloud (*.atlassian.net). Goals Atlassian dans les deux modes ; texte du Sprint Goal en Scrum uniquement. Le champ Sprint Goal est lu sans être modifié.
 
 Jira et Atlassian sont des marques d'Atlassian. Cette extension n'est ni développée ni approuvée par Atlassian.
 ```
 
-**Icône** : `public/icons/icon-128.png` (déjà dans le paquet).
+- **Icône** : `public/icons/icon-128.png`.
+- **Captures** : `docs/store/captures/*.png`, 1280 × 800, données fictives : board, famille,
+  objectifs, Daily, présentation. Captures existantes issues de Scrum 0.22.7 ; actualisables par
+  `npm run store:screenshots`.
+- **Assistance — contact** : `denis.simon.consulting@gmail.com`.
 
-**Captures d'écran** : `docs/store/captures/*.png` (1280 × 800, données fictives du banc d'essai),
-régénérées par `npm run store:screenshots` : board, famille d'une story, objectifs du sprint dans
-l'administration, Daily, présentation.
+## Confidentialité et permissions
 
-**Site web / assistance** : l'adresse de contact `denis.simon.consulting@gmail.com`.
+**Objectif unique** : Afficher les tickets d'un board Scrum ou Kanban Jira Cloud en swimlanes
+par objectif et permettre de modifier leur statut, leur rang et leur objectif depuis ce board.
 
-## Onglet « Confidentialité » (Privacy practices)
+**`storage`** : Conserver localement le site Jira, les boards et leurs réglages d'affichage,
+les préférences personnelles, le journal des écritures et des mesures techniques de chargement.
+Ce stockage n'est pas synchronisé vers un service de l'éditeur.
 
-**Objectif unique** (Single purpose) :
+**`declarativeNetRequestWithHostAccess`** : Adapter l'en-tête Origin des seuls POST émis par
+l'extension vers l'URL exacte `https://<site autorisé>/gateway/api/graphql`, pour éviter le refus
+CORS de la passerelle Goals Atlassian. La règle de session limite l'initiateur à l'identifiant
+de l'extension ; elle ne touche ni les requêtes des pages web ni les autres sites. Le diagnostic
+choisit le retrait de l'en-tête ou son remplacement par l'origine du site.
 
-```
-Afficher les tickets d'un board Scrum ou Kanban Jira Cloud en swimlanes par objectif, et permettre à l'utilisateur de le mettre à jour (statut, ordre, objectif des tickets) depuis ce board.
-```
+**Hôte facultatif — `https://*.atlassian.net/*`** : Lire et mettre à jour le board via les API
+REST et GraphQL de son site Jira Cloud. Aucun site n'est autorisé à l'installation ; Chrome
+demande l'accès au seul site choisi (`https://son-site.atlassian.net/*`). La déconnexion le retire.
 
-**Justification de `storage`** :
+**`activeTab`** : Lire l'adresse de l'onglet lors du clic sur l'icône pour reconnaître le board
+Jira et éviter sa saisie. Ce droit n'injecte aucun script ; l'accès au site est demandé séparément.
 
-```
-Garder dans le navigateur de l'utilisateur l'adresse de son site Jira, les boards qu'il a ajoutés et leurs réglages d'affichage (ordre et couleurs des swimlanes, colonnes, champs des cartes), ainsi qu'un journal local des écritures faites dans Jira. Rien n'est synchronisé ni transmis ailleurs.
-```
+**`scripting`** : Afficher le bouton Sprint Goals sur les boards autorisés et installer la vue
+intégrée quand l'URL contient `sprintGoals=1`. Le script ouvre aussi les fiches et formulaires
+natifs Jira, sans les remplir ni les valider. La vue refuse de démarrer hors du parent Jira autorisé.
 
-**Justification de `declarativeNetRequestWithHostAccess`** :
+**Code distant** : Non. Tout le code est inclus dans le paquet ; `script-src 'self'` interdit
+les scripts extérieurs.
 
-```
-Une seule règle de session : pour les requêtes POST émises par l'extension elle-même (initiatorDomains limité à son identifiant) vers l'adresse exacte https://<site de l'utilisateur>/gateway/api/graphql, l'en-tête Origin est retiré ou remplacé par l'adresse du site (variante retenue par le diagnostic de l'extension). Sans cela, la passerelle GraphQL d'Atlassian refuse les requêtes de l'extension (403 « Invalid CORS request ») et les Goals Atlassian du sprint ne peuvent pas être lus. La règle ne touche aucune requête de page web ni aucun autre site.
-```
+**Utilisation des données — catégories à déclarer** :
 
-**Justification de l'autorisation d'hôte** (`optional_host_permissions: https://*.atlassian.net/*`) :
+- ☑ Informations personnelles : noms affichés et identifiants Jira du compte connecté,
+  des personnes assignées et de l'auteur des réglages partagés.
+- ☑ Contenu du site Web : tickets Jira, résumés, statuts et champs affichés.
+- ☐ Autres catégories : santé, finances, authentification, communications personnelles,
+  localisation, historique Web et activité de l'utilisateur.
 
-```
-L'extension lit et met à jour le board Jira Cloud de l'utilisateur par l'API REST de Jira et la passerelle GraphQL de son site. L'accès est optionnel : aucun site n'est autorisé à l'installation ; l'utilisateur ouvre son board Jira, clique sur l'icône de l'extension, et Chrome lui demande l'accès à CE seul site (https://son-site.atlassian.net/*). L'accès est rendu à la déconnexion.
-```
-
-**Justification de `activeTab`** :
-
-```
-Quand l'utilisateur clique sur l'icône de l'extension, lire l'adresse de l'onglet affiché pour reconnaître son board Jira et lui éviter de la saisir. Aucun script n'est injecté par ce droit ; l'accès au site reste demandé explicitement ensuite, pour ce seul site.
-```
-
-**Justification de `scripting`** :
-
-```
-Afficher la vue Sprint Goals dans la page du board Jira choisi, uniquement sur le site autorisé par l'utilisateur et lorsque l'URL contient sprintGoals=1. Sur les boards de ce site, le script de contenu affiche aussi un bouton « Sprint Goals » qui ouvre cette vue. Le script de contenu installe la vue intégrée et permet d'ouvrir les fiches et formulaires natifs Jira. Il ne remplit ni ne valide automatiquement un formulaire. Sans ce paramètre, la page Jira garde son affichage habituel. La vue métier refuse de démarrer hors de la page Jira de premier niveau autorisée.
-```
-
-**Code distant** : Non, je n'utilise pas de code distant. Tout le code est dans le paquet ; la
-politique de sécurité (`script-src 'self'`) interdit tout script extérieur.
-
-**Utilisation des données** — cases à cocher (données que l'extension manipule) :
-
-- ☑ Informations permettant d'identifier personnellement l'utilisateur : nom affiché et
-  identifiant de compte Jira (utilisateur connecté, personnes assignées, auteur de la dernière
-  modification des réglages du board).
-- ☑ Contenu du site Web : contenu des tickets Jira (résumés, statuts, champs affichés).
-- ☐ Toutes les autres catégories (santé, finances, authentification, communications personnelles,
-  localisation, historique Web, activité de l'utilisateur).
-
-Les trois certifications à cocher :
+**Certifications** :
 
 - ☑ Je ne vends ni ne transfère les données des utilisateurs à des tiers, en dehors des cas d'utilisation approuvés.
 - ☑ Je n'utilise ni ne transfère les données des utilisateurs à des fins sans rapport avec l'objectif unique de mon article.
 - ☑ Je n'utilise ni ne transfère les données des utilisateurs pour déterminer leur solvabilité ou à des fins de prêt.
 
-**Règles de confidentialité (URL)** : https://2nis6mon.github.io/sprint-goals-privacy/
+**URL de confidentialité** : <https://2nis6mon.github.io/sprint-goals-privacy/>.
 
-## Onglet « Distribution »
+## Distribution et mises à jour
 
-- Visibilité : **Public**.
-- Régions : toutes (ou à restreindre selon votre choix).
-- Prix : gratuit.
+Choix de distribution : **Public**, gratuit, toutes régions sauf restriction souhaitée.
+Pour soumettre une mise à jour, suivre la livraison du [guide développeur](../../DEVELOPER.md),
+puis envoyer le nouveau ZIP dans l'onglet du paquet du Store.
 
-## Après la publication
-
-- L'identifiant du Store diffère de celui du paquet de développement : c'est une autre extension.
-  Il faut s'y reconnecter ; les préférences locales ne suivent pas, les réglages du board,
-  enregistrés dans Jira, reviennent d'eux-mêmes.
-- Mise à jour : augmenter la version (`package.json` et `public/manifest.json`), `npm run package`,
-  envoyer le nouveau zip dans l'onglet « Package ».
+L'identifiant Store diffère de celui du paquet de développement : il faut reconnecter le site.
+Les préférences locales ne suivent pas ; les réglages partagés reviennent depuis Jira.

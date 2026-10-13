@@ -3,7 +3,7 @@
   "name": "Sprint Goals Board pour Jira",
   "short_name": "Sprint Goals",
   "description": "Boards Scrum et Kanban Jira Cloud : swimlanes par objectif, Build et RUN configurables, glisser-déposer et Daily.",
-  "version": "0.29.2",
+  "version": "0.29.3",
   "minimum_chrome_version": "116",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7DbHebo4t43s5C7lmUZ13Wn3WUrb2pEdp40EwqeRmGBKjopYMlei1HSV7ZTNYYNgetKbaoO5hFVRBx+Ms10TnF8lAbYQipFCTKcCJXcE4sk7iO4ZUorbl1hQCTz1eGRzyKH+ShHpuFvDPEnZVVw1q+fxr8ikDgLmIz8pb8MMP8e6iZUnQKqG73IaH8xfapxl5I3Q25qQabftFZ7AQJSGeG0MBXckNsEM+1NzOFMMYS5Wu9XZNC9A6bW5IHXIOFc6E8P6va1TaCnB5JR3yjtqSjPVYvPLfV3DR04/5Z03A4HJ717hw+2srQuqyYz/ZBIrsFw/Dfh2inRf7llP6Gq+pQIDAQAB",
   "icons": {

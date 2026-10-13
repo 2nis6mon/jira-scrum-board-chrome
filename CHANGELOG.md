@@ -1,108 +1,46 @@
-# Historique synthétique
+# Historique
 
-Les détails des anciennes versions, prototypes et validations sont conservés dans l'historique
-Git. Ce fichier décrit les évolutions du produit, sans remplacer les procédures actuelles.
+Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
+sont dans le [guide développeur](DEVELOPER.md).
 
-## 0.29.2 — Retrait de l'affichage des temps de chargement
+## 0.29.3 — Documentation regroupée
 
-- L'extension distribuée n'affiche plus l'indicateur de durée ni la fenêtre de diagnostic du chargement.
-- Les optimisations du chargement sont conservées ; l'interface de diagnostic reste uniquement dans le banc d'essai technique.
+- Six fichiers Markdown au lieu de dix, avec un index dans le README.
+- Intégration Jira, contrats API, suivi de sécurité et travaux ouverts réunis dans le guide développeur.
+- Manuel, consignes et fiche Store raccourcis ; liens corrigés. Aucun changement fonctionnel.
 
-## 0.29.1 — Ouverture sans recensement historique des types
+## 0.29.2 — Temps de chargement masqués
 
-- Suppression du parcours de tous les tickets du board pour découvrir les types à chaque ouverture.
-- Types complétés depuis les tickets réellement chargés, avant calcul des objectifs et swimlanes ; catégories et réglages partagés conservés, même pour les types absents du sprint.
-- Le recensement exhaustif reste disponible via « Relire colonnes et types depuis Jira ».
-- Correction ciblée sur le rapport utilisateur : la phase Types prenait 6,77 s et 14 requêtes sur 9,54 s. Le gain réel doit être confirmé par un nouveau relevé.
+Retrait de l'indicateur et de sa fenêtre dans l'extension distribuée. Optimisations conservées ;
+interface de diagnostic réservée au banc d'essai.
+
+## 0.29.1 — Ouverture accélérée
+
+Types déduits des tickets chargés, sans parcourir tout l'historique du board. Réglages des types
+absents conservés ; recensement complet toujours disponible manuellement. Correction ciblant
+les 6,77 s et 14 requêtes de découverte relevées sur un chargement de 9,54 s ; gain réel à mesurer.
 
 ## 0.29.0 — Diagnostic du chargement
 
-- Indicateur du temps et de la phase en cours, avec une fenêtre de détail fermable pendant et après le chargement.
-- Chronologie des lectures Jira, tentatives, attentes et phases Scrum/Kanban ; distinction entre données prêtes, affichage et fin de synchronisation.
-- Rapport copiable et cinq derniers chargements conservés localement, sans contenu de ticket, nom, URL, JQL ou identifiant Jira.
-- Mesure depuis le démarrage du document de l'extension ; navigation préalable de Jira hors mesure. Affichage estimé après deux frames du navigateur.
+Mesure des phases et lectures, données prêtes, affichage estimé après deux frames et fin de
+synchronisation. Cinq rapports locaux copiables, sans contenu métier ; navigation Jira préalable
+hors mesure. L'accès visuel a été retiré en 0.29.2.
 
-## 0.28.2 — Vérification du bouton sous Windows
+## Versions précédentes
 
-- Le contrôle Chrome du placement prend en compte la largeur des barres de défilement Windows.
-- Les scénarios de déplacement, redimensionnement, zoom et plein écran vérifient les marges dans le viewport visible.
+| Versions | Évolution principale |
+|---|---|
+| 0.28.0–0.28.2 | Bouton Jira déplaçable à la souris, au toucher et au clavier ; position locale par site, adaptation au viewport. Réinitialisation retirée en 0.28.1 ; contrôle Windows corrigé en 0.28.2. |
+| 0.27.1 | Sources d'intégration regroupées, formulaire local et anciens alias de test retirés ; formulaires natifs Jira, paquet et documentation nettoyés. |
+| 0.27.0 | Accueil à l'installation et permission du seul site Jira choisi. |
+| 0.26.0–0.26.6 | Reconnaissance de l'onglet, bouton flottant, URL du board et retour à Jira ; texte du sprint par défaut pour les nouveaux Scrum. |
+| 0.25.0 | Mode unique dans Jira, lanceur sans lecture de tickets ; identité et stockage conservés. |
+| 0.24.0–0.24.4 | Kanban, sous-filtre, Goals épinglés au board, pagination et erreurs explicites ; swimlanes vides hors objectifs masquées, avis refermables, IntelliJ. |
+| 0.23.0–0.23.1 | Swimlanes par groupes de types ; détection des tickets ajoutés en cours de sprint. |
+| 0.22.0–0.22.7 | Réglages partagés à chaque modification, droit `canEdit`, épinglage et préparation du Store. |
+| 0.20.0–0.21.2 | Daily avec minuteur et stock limité, présentation plein écran. |
+| 0.19.x | Sous-tâches, Goals atteints, tickets limités au board, fiche et transition natives Jira. |
+| 0.16.x–0.18.x | Dépôt par statut, choix de transition, erreurs de déplacement et recherche de boards. |
 
-## 0.28.1 — Simplification du bouton déplaçable
-
-- Retrait de la section « Préférences personnelles » et de la commande de réinitialisation.
-- Position du bouton toujours mémorisée localement par site, avec maintien automatique dans l'écran.
-
-## 0.28.0 — Bouton Jira déplaçable
-
-- Poignée de déplacement à la souris ou au toucher ; flèches du clavier (10 px, Maj : 1 px).
-- Position relative enregistrée dans Chrome pour chaque site, commune à ses boards.
-- Bornes de 12 px et adaptation à la fenêtre, au zoom et au plein écran, sans écraser le placement choisi.
-- Réinitialisation dans Administration → Préférences personnelles, accessible sans droit de modification du board.
-- Nouveau contrôle `verify:button` sur Chrome isolé, avec le vrai stockage de l'extension et des pages Jira fictives.
-
-## 0.27.1 — Nettoyage de l'intégration Jira
-
-- `src/integration/` et `tests/integration/` remplacent les dossiers `experiment/`.
-- Entrées de compilation `jira-worker.js` et `jira-bootstrap.js`, contrôle `scripts/verify-jira.mjs`.
-- Suppression des alias npm `*:jira-direct-test` ; `verify:transition` contrôle les popins natives.
-- Retrait du formulaire de transition local, de sa sérialisation et de son banc d'essai.
-  Les champs sont saisis et validés par Jira ; une ouverture impossible produit une erreur explicite.
-- Documentation recentrée sur le mode Jira, retrait des copies de documentation macOS.
-- Contrôle de l'archive aligné sur `activeTab`, déjà autorisé dans le manifest depuis la 0.26.0.
-- Métadonnées Finder `.DS_Store` exclues des archives de distribution.
-- Identité Chrome, permissions, données existantes et règles des swimlanes conservées.
-
-## 0.27.0 — Installation
-
-Onglet de bienvenue à la première installation, autorisation du site Jira seul possible,
-puis ouverture de Jira. Le contrôle navigateur ferme cet onglet avant ses scénarios.
-Installation constatée par Denis ; fusion dans `main` consignée au commit `816b7f1`.
-
-## 0.26.0–0.26.6 — Accès au board
-
-Reconnaissance de l'onglet courant avec `activeTab`, bouton flottant Sprint Goals sur les boards
-autorisés, changement de board suivi dans l'URL et retour à Jira. Le clic charge réellement la
-page marquée : l'essai sans rechargement ne fonctionnait pas sur l'instance testée. Le texte du
-sprint devient la source par défaut des nouveaux boards Scrum, sans modifier les choix existants.
-
-## 0.25.0 — Jira devient le mode unique
-
-Le board exige une page Jira hôte autorisée. Un seul manifest et un seul paquet ; suppression du
-fonctionnement autonome. Le lanceur ouvre Jira sans lire de ticket. Identifiant et stockage conservés.
-
-## 0.24.0–0.24.4 — Kanban
-
-Boards Kanban sans sprint, sous-filtre du board, épinglage des Goals partagé au board,
-pagination des liens lorsque le schéma l'autorise et détection des lectures incomplètes.
-Masquage des swimlanes vides hors objectifs, avis refermables, configurations IntelliJ partagées.
-
-## 0.23.0–0.23.1 — Swimlanes par type
-
-Groupes de types configurables, colonnes communes, compatibilité des réglages existants.
-Détection de l'ajout en cours de sprint à partir de l'historique d'appartenance.
-
-## 0.22.0–0.22.7 — Réglages et distribution
-
-Enregistrement des réglages d'équipe à chaque modification explicite, droit `canEdit`,
-administration simplifiée, épinglage dans les objectifs, outillage et captures pour le Store.
-
-## 0.20.0–0.21.2 — Daily et présentation
-
-Daily avec minuteur, navigation par swimlane, stock limité ; plein écran et sortie de présentation.
-
-## 0.19.x — Tickets, objectifs et intégration
-
-Écrans de transition, Goals atteints, défilement fixe, largeur des swimlanes, sous-tâches,
-lecture des tickets restreinte au board. Exploration puis intégration directe dans Jira avec
-fiche native et formulaire isolé. Les prototypes à onglet et à URL de transition directe ont
-été abandonnés ; la transition est sélectionnée dans le menu natif Jira.
-
-## 0.16.x–0.18.x — Déplacements et recherche
-
-Dépôt par statut, choix de transition, refus des destinations inaccessibles, retour visuel en
-cas d'erreur ; recherche de boards et confirmation de déconnexion.
-
-## Versions initiales
-
-Portage des règles du board, Goals Atlassian et texte du sprint, filtres, réglages,
-contrôles réseau et sécurité. L'application macOS est abandonnée depuis septembre 2026.
+Les premières versions ont porté les règles du board, les Goals, les filtres et les contrôles
+de sécurité. L'application macOS est abandonnée depuis septembre 2026.

@@ -1,231 +1,149 @@
-# Sprint Goals Board pour Jira — manuel d'installation et d'utilisation
+# Sprint Goals Board pour Jira — manuel utilisateur
 
-> Extension Chrome pour boards Scrum et Kanban Jira Cloud : objectifs, Build et swimlanes par
-> type configurables. Version couverte par ce manuel : **0.29.2**, intégré uniquement dans Jira. Les captures illustrent la
-> version Scrum 0.22.7 ; certains libellés ont évolué.
+Extension Chrome pour les boards Scrum et Kanban de Jira Cloud (`*.atlassian.net`).
+Elle affiche objectifs, Build et swimlanes par type dans la page Jira, avec votre session habituelle.
+Les captures proviennent de la version Scrum 0.22.7 ; certains libellés ont évolué.
 
-Ce document est prêt à coller dans une page Confluence (titres, listes et texte en gras se
-convertissent automatiquement à l'insertion). Les images pointent vers `docs/store/captures/` du
-dépôt : consulté sur GitHub, ce fichier les affiche directement. Dans Confluence, le collage ne
-récupère pas les images distantes : téléversez les 5 captures utilisées séparément
-(`01-board.png` à `05-presentation.png`) et remplacez chaque image collée par la vôtre au même
-endroit. Ajoutez aussi le lien de téléchargement du fichier `.zip` en haut de la page, avant la
-section Installation.
+## Installer et mettre à jour
 
----
+### Installation depuis un dossier ou une archive
 
-## 1. Installation
+1. Préparez le dossier de l'extension : utilisez `dist/` après compilation du dépôt, ou
+   décompressez l'archive `sprint-goals-board-<version>.zip` fournie par votre équipe dans un
+   dossier permanent. Le dossier choisi doit contenir `manifest.json`.
+2. Ouvrez `chrome://extensions` et activez **Mode développeur**.
+3. Cliquez sur **Charger l'extension non empaquetée**, puis sélectionnez ce dossier.
+4. Épinglez **Sprint Goals Board** dans la barre d'outils Chrome depuis l'icône puzzle.
 
-L'extension n'est pas publiée sur le Chrome Web Store : elle s'installe **en mode développeur**,
-à partir du fichier `.zip` fourni sur cette page.
+Chrome charge un dossier, pas le fichier `.zip`. Pour compiler ou préparer une archive,
+consultez le [guide développeur](../DEVELOPER.md).
 
-### 1.1 Activer le mode développeur de Chrome
+### Mise à jour
 
-1. Ouvrez `chrome://extensions` dans la barre d'adresse (ou menu Chrome → Plus d'outils →
-   Extensions).
-2. En haut à droite de la page, activez l'interrupteur **Mode développeur**.
-3. Trois nouveaux boutons apparaissent en haut de la page : « Charger l'extension non
-   empaquetée », « Empaqueter l'extension » et « Mettre à jour ».
+1. Reconstruisez `dist/`, ou remplacez les fichiers du dossier installé par ceux de la nouvelle archive.
+2. Dans `chrome://extensions`, cliquez sur l'icône de rechargement de la carte de l'extension.
+3. Rechargez votre onglet Jira.
 
-### 1.2 Installer l'extension
+Gardez le même dossier et le même identifiant d'extension pour conserver vos préférences locales.
+Installer un paquet sous un autre identifiant crée une autre extension : reconnectez le site ;
+les réglages partagés reviennent depuis Jira, mais les préférences locales ne suivent pas.
 
-1. Téléchargez le fichier `sprint-goals-board-<version>.zip` depuis le lien en haut de cette page.
-2. **Décompressez-le** dans un dossier que vous garderez (par exemple `~/Applications/sprint-goals-board/`) :
-   Chrome charge un dossier, pas une archive.
-3. Retournez sur `chrome://extensions`, cliquez sur **Charger l'extension non empaquetée**, puis
-   sélectionnez le dossier décompressé.
-4. L'extension apparaît dans la liste, avec son icône. Épinglez-la dans la barre d'outils
-   (icône puzzle en haut à droite de Chrome → épingle à côté de « Sprint Goals Board »).
+## Ouvrir le board
 
-### 1.3 Mettre à jour l'extension
+À l'installation, l'onglet de bienvenue permet de saisir l'adresse de Jira, puis de cliquer sur
+**Autoriser et ouvrir Jira**. Acceptez l'accès demandé par Chrome pour ce seul site.
+Vous pouvez aussi vous connecter à Jira, ouvrir un board et cliquer sur l'icône de l'extension :
+elle reconnaît son adresse et propose **Ouvrir dans Jira** si une autorisation est nécessaire.
+Aucun mot de passe ni jeton n'est demandé par l'extension.
 
-Quand une nouvelle version est publiée sur cette page :
+Sur les boards autorisés, le bouton **Sprint Goals**, en bas à droite près de Rovo, ouvre la vue.
+Déplacez-le par sa poignée gauche ; sa position est conservée pour ce site dans ce profil Chrome.
+Au clavier, placez le focus sur la poignée puis utilisez les flèches, avec Maj pour affiner.
+Échap annule un glissement.
 
-1. Téléchargez et décomprimez le nouveau `.zip` **dans le même dossier** (remplacez les anciens
-   fichiers), ou dans un nouveau dossier si vous préférez garder l'ancien de côté.
-2. Sur `chrome://extensions`, cliquez sur l'icône de rafraîchissement de la carte « Sprint Goals
-   Board », ou sur **Mettre à jour** en haut de la page.
+**Retour à Jira** retrouve le board habituel. Le menu du nom du board, dans la barre latérale,
+permet d'en choisir ou d'en ajouter un autre : l'adresse Jira suit toujours le board affiché.
+Vous pouvez enregistrer cette URL dans vos favoris. Le paramètre `sprintGoals=1` ouvre la vue
+Sprint Goals ; sans lui, Jira garde son affichage habituel. La vue ne s'ouvre pas hors de Jira.
 
-Vos réglages personnels (site connecté, board choisi, swimlanes repliées…) sont conservés d'une
-version à l'autre tant que le dossier garde le même identifiant d'extension.
-
----
-
-## 2. Premier lancement
-
-À l'installation, un onglet « Sprint Goals est installé » s'ouvre. Saisissez-y l'adresse de votre
-Jira (par exemple `https://votre-domaine.atlassian.net`), cliquez « Autoriser et ouvrir Jira » et
-acceptez la demande de Chrome : c'est tout. Si vous avez fermé cet onglet, procédez ainsi :
-
-1. Connectez-vous à Jira dans Chrome et ouvrez votre board **Scrum ou Kanban**.
-2. Cliquez sur l'icône de l'extension dans la barre d'outils Chrome. Le lanceur reconnaît le
-   board de l'onglet : il n'y a rien à coller. Cliquez « Ouvrir dans Jira ».
-3. Autorisez l'accès à ce seul site dans la demande de Chrome. L'extension ouvre la vraie page
-   du board Jira, avec le paramètre `sprintGoals=1`, et y affiche Sprint Goals.
-4. La session Jira du navigateur est utilisée ; l'extension ne demande ni mot de passe ni jeton.
-
-Ensuite, sur chaque board de ce site, un bouton **Sprint Goals** apparaît en bas à droite de la
-page Jira, à gauche du bouton Rovo : un clic ouvre la vue pour ce board, sans passer par l'icône. Le bouton « Précédent »
-du navigateur ramène au board Jira habituel.
-
-Vous pouvez déplacer ce bouton en tirant la **poignée à gauche**. Sa position est conservée pour
-tous les boards de ce site dans votre navigateur. Il reste visible quand la fenêtre rétrécit.
-Au clavier : Tab jusqu'à la poignée, puis les flèches (Maj pour déplacer plus finement).
-Échap annule un glissement. La position reste locale à ce profil Chrome, sans cookie ni
-synchronisation entre postes.
-
-
-Pour refermer la vue et retrouver le board Jira habituel, cliquez **Retour à Jira**, le bouton
-bleu en bas à droite de la vue.
-
-Changer de board depuis le menu des boards de l'extension change aussi la page Jira : l'adresse
-de l'onglet est toujours celle du board affiché.
-
-Le lanceur ne charge aucun ticket. Il n'existe plus de vue du board dans un onglet autonome de
-l'extension : l'URL Jira reste toujours derrière le board. Vous pouvez enregistrer cette URL
-dans vos favoris. Sans `sprintGoals=1`, Jira conserve son affichage habituel.
-
-Si vous êtes sur un board Jira déjà autorisé, l'icône l'ouvre directement dans Sprint Goals.
-Sinon, le formulaire est prérempli avec le board mémorisé : vous pouvez garder son URL ou la
-remplacer, puis cliquer sur « Ouvrir dans Jira ». Cela permet aussi de choisir un autre site.
-Pour choisir un autre board du site courant depuis la vue intégrée, utilisez
-le menu du nom du board dans la barre latérale ; sa sélection ouvre l'URL Jira correspondante.
-Les anciennes captures de connexion et de recherche ne décrivent plus le premier lancement.
-
----
-
-## 3. Le board
+## Lire et utiliser le board
 
 ![Vue principale du board](store/captures/01-board.png)
 
-- **Barre latérale à gauche** : nom du board, vue Sprint en Scrum ou vue du board en Kanban,
-  liste des objectifs, puis **Build** et les swimlanes par type configurées, par exemple RUN et OPS.
-- **En-tête du sprint** : nom et dates du sprint, points terminés, nombre de Goals atteints,
-  compteurs de tickets bloqués / ajoutés en cours de sprint / dans Build s'il contient des tickets, heure de dernière
-  synchronisation avec Jira, bouton **▶ Daily** (section 5) et bouton mode présentation (section 6).
-- **Barre de filtres** : recherche libre, filtres à icônes (bloqués, ajoutés, mes tickets,
-  priorité haute, sans estimation), menus Personne / Type / Parent / Statut / Label, et les
-  filtres rapides définis dans votre board Jira.
-- **Swimlanes** : une par objectif, dans l'ordre du board ; chaque swimlane affiche son nombre de
-  tickets, sa progression et devient **verte** quand tous ses tickets sont dans la dernière colonne
-  visible (objectif atteint). Un objectif épinglé au sprint, ou au board Kanban, peut avoir sa swimlane même sans
-  ticket rattaché. Build et les swimlanes par type sont masqués lorsqu'ils n'ont aucun ticket.
-  Build vide apparaît le temps d'un glisser-déposer pour pouvoir y détacher un ticket.
-- **Glisser-déposer** : déplacer une carte change son statut (Jira ouvre le formulaire de
-  transition — commentaire, temps passé, champs obligatoires — quand il le faut), son rang, ou son
-  objectif si on la dépose dans une autre swimlane d'objectif ou dans Build. Une carte classée
-  dans une swimlane par type reste dans sa swimlane ; sa colonne et son rang peuvent changer.
-- **Informations flottantes** : la croix ferme définitivement l'information de lecture partielle
-  des Goals pour ce board. Ce choix est personnel et reste après rechargement.
-- **Sous-tâches** : rangées avec leur story ; un survol de la carte met en évidence toute sa
-  famille (story + sous-tâches).
-- **Ouverture d'un ticket** : cliquer sur sa carte affiche la fiche native Jira dans une fenêtre
-  superposée. La fermeture revient au board et relit les données.
+- **Objectifs** : une swimlane par objectif, sa progression et ses tickets. Elle devient verte
+  quand tous ses tickets sont dans la dernière colonne visible. Un objectif épinglé peut rester vide.
+- **Build** : tickets classés par objectif qui n'en ont pas, ou dont l'objectif est masqué.
+- **Swimlanes par type** : groupes configurables, par exemple RUN ou OPS. Build et ces groupes
+  disparaissent sans tickets ; Build réapparaît pendant un glissement pour permettre un détachement.
+- **Filtres** : recherche, Personne / Type / Parent / Statut / Label, filtres rapides Jira et
+  raccourcis pour tickets bloqués, mes tickets, priorité haute ou absence d'estimation.
+- **Cartes** : cliquez pour ouvrir la fiche native Jira. Sa fermeture revient au board et relit
+  les données. Les sous-tâches restent avec leur story ; le survol souligne toute la famille.
+- **Déplacements** : glissez une carte pour changer statut, rang ou objectif. Jira ouvre son
+  formulaire de transition si nécessaire. Les cartes d'une swimlane par type restent dans leur
+  groupe ; leur colonne et leur rang peuvent changer.
+- **Informations flottantes** : la croix ferme l'information pour ce board, y compris après
+  rechargement. Ce choix est personnel.
 
-![Survol d'une story et de sa famille de sous-tâches](store/captures/02-famille.png)
+![Story et sous-tâches au survol](store/captures/02-famille.png)
 
----
+### Scrum
 
-### Boards Kanban
+Les tickets de tous les sprints actifs sont réunis sans doublon. Le premier sprint par date de
+début sert de référence pour les dates, l'épinglage et le texte des objectifs.
+L'en-tête indique notamment points terminés, objectifs atteints, blocages et ajouts en cours de
+sprint. Le filtre « ajouté en cours de sprint » permet de retrouver ces derniers.
 
-Le board fonctionne sans sprint : son en-tête affiche le nom du board, sans dates de sprint,
-jours restants ni compteur ou filtre « ajouté en cours de sprint ». Les tickets correspondent
-au filtre et au sous-filtre Kanban du board, dans les statuts de ses colonnes. Le backlog n'est
-pas chargé séparément et les tickets terminés ne sont pas limités à un âge arbitraire.
+Les objectifs proviennent par défaut du texte **Sprint Goal**, lu sans être modifié.
+Vous pouvez choisir les **Goals Atlassian** dans l'administration. Si leur lecture échoue,
+le board peut revenir au texte du sprint avec un message explicatif.
 
-Les objectifs viennent des **Goals Atlassian** des tickets et de ceux épinglés au board.
-Le mode « Texte du sprint » n'est pas proposé. Si les Goals ne peuvent pas être lus, un message
-signale l'échec de synchronisation ; les tickets ne sont pas reclassés à tort dans Build.
-Si le lien GraphQL entre Goals et tickets n'est pas exposé par votre site, l'extension utilise
-le champ Goals des tickets Jira. Si elle indique que ce champ n'a pas été identifié, choisissez
-« Relire structure » dans l'administration du board.
-Un message « chargement incomplet » peut demander de réduire le filtre du board : la lecture est
-limitée à 5 000 tickets, et l'extension refuse d'afficher comme complet un résultat tronqué.
+### Kanban
 
-## 4. Réglages et objectifs (Administration)
+Le périmètre suit le filtre et le sous-filtre du board, dans les statuts de ses colonnes.
+Il n'y a ni sprint, ni dates de sprint, ni filtre « ajouté en cours de sprint ».
+Les objectifs viennent des **Goals Atlassian** liés aux tickets et de ceux épinglés au board.
 
-Le bouton **Administration**, en bas de la barre latérale, ouvre les sections de réglages
-directement sous ce bouton (le board reste affiché derrière).
+Un échec de lecture des Goals signale une synchronisation impossible ; les tickets ne sont pas
+reclassés automatiquement dans Build. Si le lien Goal → tickets n'est pas disponible, le champ
+Goals des tickets peut servir de repli. S'il n'est pas identifié, relisez la structure (voir Support).
+La lecture est limitée à **5 000 tickets** : au-delà, elle est refusée ; réduisez le filtre du board.
 
-![Section « Objectifs du sprint » de l'administration](store/captures/03-objectifs.png)
+## Administration et partage
 
-- **Objectifs du sprint / Objectifs du board** : couleur et masquage de chaque swimlane (enregistrés aussitôt, pour
-  toute l'équipe) ; si votre board utilise les **Goals Atlassian**, vous pouvez aussi épingler un
-  Goal du site à ce sprint (il aura sa swimlane même sans ticket) — l'épinglage se confirme en
-  cliquant sur « Enregistrer dans Jira ». En Kanban, le Goal est épinglé au board et partagé
-  avec l'équipe ; il faut le droit de modifier le board.
-- **Board** : colonnes communes, types de tickets et swimlanes, durée de la Daily et stock affiché.
-  Chaque type va dans « Par objectif », une swimlane nommée ou « Ignorés ». « Nouvelle swimlane »
-  crée un groupe ; retirer son dernier type le supprime. Le nom suit ceux des types tant que vous
-  ne le personnalisez pas. Build est renommable ; chaque swimlane par type peut être masquée.
-- **Champs des cartes** et **Couleurs des cartes** : quels champs Jira apparaissent sur une carte,
-  et des règles de couleur en JQL évaluées par Jira.
-- **Diagnostic** : informations techniques de connexion (utile en cas de souci, à fournir tel quel
-  en cas de demande de support).
+**Administration**, en bas de la barre latérale, ouvre les réglages sans quitter le board.
+Les changements partagés sont enregistrés dans Jira pour toute l'équipe et exigent le droit de
+modifier le board. Sans ce droit, le diagnostic reste accessible.
 
-> Ces réglages sont **partagés avec toute l'équipe** (enregistrés dans une propriété de votre
-> board Jira) : seules les personnes qui ont le droit de modifier le board dans Jira peuvent les
-> changer. Sans ce droit, seul le Diagnostic reste accessible.
+![Administration des objectifs](store/captures/03-objectifs.png)
 
----
+- **Objectifs du sprint / du board** : couleur, masquage et épinglage de Goals Atlassian.
+  L'épinglage garde une swimlane même sans ticket ; confirmez avec **Enregistrer dans Jira**.
+  En Scrum il concerne le sprint de référence, en Kanban le board.
+- **Colonnes** : renommez leur affichage, masquez-en ou ajustez leur limite WIP. Les statuts
+  viennent de Jira ; les colonnes sont communes à toutes les swimlanes.
+- **Types de tickets et swimlanes** : chaque type va dans **Par objectif**, une swimlane nommée
+  ou **Ignorés**. **Nouvelle swimlane** crée un groupe ; retirer son dernier type le supprime.
+  Vous pouvez renommer Build et les groupes, ou masquer une swimlane par type.
+- **Case Bug** : un ticket lié de ce type est signalé comme bug sur la carte du ticket porteur.
+  Ce choix est indépendant de la swimlane où le type est classé.
+- **Champs et couleurs des cartes** : choisissez les champs affichés et les règles de couleur
+  en JQL, évaluées par Jira.
+- **Daily** : réglez la durée et le nombre de cartes initialement visibles dans la première colonne.
 
-## 5. Mode Daily
+Les préférences personnelles, notamment filtres, swimlanes repliées et position du bouton Jira,
+restent locales. Un calcul automatique ne publie pas de réglage dans Jira.
 
-Le bouton **▶ Daily** de l'en-tête lance une présentation dédiée à la mêlée quotidienne : plein
-écran, une swimlane à la fois, dans l'ordre du board.
+## Daily et présentation
 
-![Écran de la Daily](store/captures/04-daily.png)
+![Mode Daily](store/captures/04-daily.png)
 
-- **Minuteur** en haut à gauche : orange dans les 2 dernières minutes, puis rouge avec le dépassement.
-- **Précédent / Suivant** pour passer d'un objectif, de Build ou d'une swimlane par type au suivant.
-- La première colonne de **chaque swimlane** limite l'affichage aux premières cartes (3 par défaut,
-  dans l'ordre Jira) ; « + N autres » déplie cette swimlane seule, « Afficher moins » la replie.
-- Les tickets restent **glissables** pendant la Daily : les mises à jour se font en direct.
-- Raccourcis clavier : flèches ← → pour naviguer, Espace pour mettre en pause, Échap pour
-  quitter.
-- Bouton **Terminer** en haut à droite pour sortir de la Daily à tout moment.
-
----
-
-## 6. Mode présentation
-
-Pour projeter le board (revue de sprint, écran partagé), utilisez le bouton en forme de chevalet
-dans l'en-tête.
+**▶ Daily** lance le plein écran, une swimlane à la fois, avec minuteur. Il devient orange dans
+les deux dernières minutes, puis rouge en dépassement. **Précédent / Suivant** ou les flèches
+← → changent de swimlane ; Espace met en pause, **Terminer** quitte la Daily.
+Échap sort d'abord du plein écran sans arrêter la Daily ; hors plein écran, il la termine.
+La première colonne montre trois cartes par défaut ; **+ N autres** déplie ce groupe seul.
+Les cartes restent déplaçables pendant la réunion.
 
 ![Mode présentation](store/captures/05-presentation.png)
 
-Ce mode passe en plein écran et agrandit le board, les filtres et les bandeaux pour une lecture à
-distance ; barre latérale, en-tête et panneau de santé du sprint sont masqués. Un bouton
-**Quitter** reste visible en bas de la barre de filtres, et l'appui sur Échap ramène à la vue
-normale.
+Le bouton chevalet de l'en-tête ouvre le **mode présentation** : board agrandi en plein écran,
+sans barre latérale, en-tête ni panneau de santé. **Quitter** ou Échap retrouve la vue normale.
 
----
+## Support et limites
 
-## 7. Bon à savoir
+- **Type absent de l'administration ou structure modifiée** : choisissez **Relire colonnes et
+  types depuis Jira**. À l'ouverture, les types connus sont complétés par les tickets affichés ;
+  cette relecture explicite recense aussi ceux du backlog ou d'anciens tickets.
+- **Connexion ou droits** : ouvrez **Administration → Diagnostic**, lancez les contrôles puis
+  relisez le rapport avant de le transmettre avec la description du problème.
+- **Lenteur** : indiquez version de l'extension, Scrum ou Kanban, action concernée (ouverture,
+  actualisation ou relecture de structure) et durée approximative. Le diagnostic de connexion
+  ne fournit pas le détail des phases de chargement dans la vue Jira.
 
-- **Rien n'est écrit dans Jira sans une action explicite de votre part** (glisser une carte,
-  changer un réglage, épingler un Goal…) ; les changements ne s'affichent comme réussis qu'après
-  confirmation de Jira.
-- L'extension utilise **votre propre session Jira Cloud**, directement depuis votre navigateur :
-  aucun serveur tiers, aucune mesure d'audience.
-- Elle fonctionne avec des boards **Scrum et Kanban** sur **Jira Cloud** (`*.atlassian.net`).
-- Le champ natif « Sprint Goal » du sprint Jira n'est jamais modifié par l'extension ; il est
-  seulement lu si votre board utilise le mode « Texte du sprint » plutôt que les Goals Atlassian.
+L'extension utilise votre session Jira Cloud, sans serveur de l'éditeur ni mesure d'audience.
+Les écritures suivent vos actions et ne sont annoncées comme réussies qu'après confirmation de
+Jira. Elle ne crée ni Goal ni sprint, ne démarre pas de sprint et ne modifie pas le texte Sprint Goal.
 
-## 8. Support
-
-### Chargement et types de tickets
-
-À l'ouverture, les types connus sont conservés et complétés par les tickets du sprint ou du
-board Kanban. L'historique complet du board n'est plus parcouru uniquement pour recenser les
-types. Pour découvrir aussi des types présents seulement dans le backlog ou d'anciens tickets,
-utilisez **Relire colonnes et types depuis Jira** dans les réglages du board.
-
-Pour signaler une lenteur, précisez la version de l'extension, le type de board (Scrum ou
-Kanban) et l'action concernée : ouverture, actualisation ou relecture de la structure.
-
-### Connexion ou droits Jira
-
-Ouvrez **Administration → Diagnostic**. Ce diagnostic vérifie les capacités de
-connexion et propose un rapport ; relisez-le avant de le transmettre avec la description du
-problème.
+Pour diffuser ce manuel dans Confluence, ajoutez le lien de l'archive de votre équipe et
+téléversez les cinq images de `docs/store/captures/` : le collage ne les récupère pas automatiquement.
