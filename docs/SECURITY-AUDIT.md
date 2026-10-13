@@ -78,6 +78,10 @@ Le transport n'admet pas de document GraphQL `mutation` ou `subscription` par le
   résultat et erreurs ; pas de contenu saisi dans les formulaires natifs ni de cookie.
 - Les erreurs et le rapport de diagnostic peuvent contenir des informations renvoyées par Jira :
   relire un rapport avant de le partager.
+- Le diagnostic de chargement `loadDiagnostics.v1` conserve cinq rapports bornés à 500 segments.
+  Ses observateurs ne reçoivent ni URL, JQL, identifiant Jira, en-tête, corps ni message brut.
+  Seuls les compteurs, temps, types de lecture et catégories d'erreur fermées sont exportés,
+  sur copie explicite. Aucun envoi automatique, droit Chrome ou endpoint supplémentaire.
 
 ## Constats suivis
 

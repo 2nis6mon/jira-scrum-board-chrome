@@ -37,6 +37,7 @@ import {
 import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/dropPlan";
 import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../../core/filters";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
+import type { LoadTrace } from "../../core/loadTrace";
 import { parentColors } from "../../core/parentColors";
 import { type PendingMove, withPendingMove } from "../../core/pendingMove";
 import { goalColorName, type SprintGoal } from "../../core/sprintGoals";
@@ -74,6 +75,7 @@ import {
   saveBoard,
 } from "./boardStore";
 import { ImageCache } from "./ImageCache";
+import { LoadDiagnostics } from "./LoadDiagnostics";
 import { toMessage, type UserMessage } from "./messages";
 import {
   forgetDismissedNotices,
@@ -178,6 +180,7 @@ export interface TeamNotice {
 }
 
 export interface BoardModelOptions {
+  readonly loadDiagnostics?: LoadDiagnostics;
   readonly now?: () => Date;
   readonly audit?: AuditLog;
 }
@@ -343,6 +346,7 @@ export class BoardModel {
 
   readonly images: ImageCache;
   readonly audit: AuditLog;
+  readonly loadDiagnostics: LoadDiagnostics;
 
   readonly #platform: Platform;
   readonly #client: JiraClient;
@@ -352,6 +356,8 @@ export class BoardModel {
   #currentUser: JiraUser | null = null;
   #generation = 0;
   #resyncRequested = false;
+  #preparedResyncId: string | undefined;
+  #disposed = false;
   /** Enregistrements locaux enchaînés : le dernier demandé est le dernier écrit. */
   #saveQueue: Promise<unknown> = Promise.resolve();
   /** Board dont les filtres rapides ont été lus. */
@@ -373,7 +379,13 @@ export class BoardModel {
     this.#platform = platform;
     this.#now = options.now ?? (() => new Date());
     this.audit = options.audit ?? new AuditLog(platform.store);
-    const transport = new JiraTransport({ site, fetch: platform.fetch });
+    this.loadDiagnostics = options.loadDiagnostics ?? new LoadDiagnostics(platform);
+    const transport = new JiraTransport({
+      site,
+      fetch: platform.fetch,
+      observeRead: (kind) =>
+        this.#disposed ? undefined : this.loadDiagnostics.observeTransport(kind),
+    });
     this.#transport = transport;
     this.#client = new JiraClient(transport);
     this.#goals = new GoalsClient(transport);
@@ -385,7 +397,10 @@ export class BoardModel {
     if (boardAddress) {
       this.loaded.value = false;
       try {
-        await this.detect(boardAddress);
+        const active = this.loadDiagnostics.current.peek();
+        const runId =
+          active?.status === "loading" ? active.id : this.loadDiagnostics.begin("opening");
+        await this.detect(boardAddress, runId);
       } finally {
         this.loaded.value = true;
       }
@@ -397,7 +412,7 @@ export class BoardModel {
     await this.#refreshBoards();
     this.loaded.value = true;
     this.#restartAutoRefresh();
-    if (configuration) await this.sync();
+    if (configuration) await this.sync(this.loadDiagnostics.begin("opening"));
   }
 
   /**
@@ -493,52 +508,78 @@ export class BoardModel {
   }
 
   /** Lit dans Jira la structure du board désigné par son adresse, l'enregistre, le synchronise. */
-  async detect(urlText: string): Promise<void> {
-    if (this.setupBusy.value) return;
+  async detect(urlText: string, preparedRunId?: string): Promise<void> {
+    if (this.#disposed || this.setupBusy.value) return;
+    const target = parseBoardUrl(urlText);
+    const runId =
+      preparedRunId ??
+      (this.#syncTask ? this.loadDiagnostics.current.peek()?.id : undefined) ??
+      (target?.site.origin === this.site.origin
+        ? this.loadDiagnostics.begin("opening")
+        : undefined);
+    const trace = this.#traceFor(runId);
     this.setupBusy.value = true;
     this.setupError.value = null;
     try {
       const existing = await this.#existingFor(urlText);
-      const configuration = await detectBoard(this.#client, urlText, existing);
+      const configuration = await detectBoard(this.#client, urlText, existing, trace);
+      this.loadDiagnostics.setContext({
+        boardType: configuration.boardType === "kanban" ? "kanban" : "scrum",
+      });
       await this.#persist(configuration, { activate: true });
-      if (!this.#showBoard(configuration)) return;
+      if (!this.#showBoard(configuration)) {
+        this.#finishLoad(runId, "cancelled");
+        return;
+      }
       await this.#refreshBoards();
     } catch (error) {
       this.setupError.value = toMessage(error);
+      this.#finishLoad(runId, "error");
       return;
     } finally {
       this.setupBusy.value = false;
     }
-    await this.sync();
+    await this.sync(runId);
   }
 
   /** Relit colonnes, statuts, types et champs dans Jira, en gardant les réglages locaux. */
   async refreshStructure(): Promise<void> {
     const current = this.configuration.value;
-    if (!current || this.setupBusy.value) return;
+    if (this.#disposed || !current || this.setupBusy.value) return;
+    const runId = this.#syncTask
+      ? this.loadDiagnostics.current.peek()?.id
+      : this.loadDiagnostics.begin("refresh");
+    const trace = this.#traceFor(runId);
     this.setupBusy.value = true;
     try {
-      const configuration = await refreshBoardStructure(this.#client, current.boardId, current);
+      const configuration = await refreshBoardStructure(
+        this.#client,
+        current.boardId,
+        current,
+        trace,
+      );
       await this.#persist(configuration);
       this.configuration.value = configuration;
       await this.#refreshBoards(); // le nom du board a pu changer dans Jira
       this.#quickFiltersBoardId = null; // relus avec la structure
     } catch (error) {
       this.syncProblem.value = { ...toMessage(error), sessionLost: isSessionLost(error) };
+      this.#finishLoad(runId, "error");
       return;
     } finally {
       this.setupBusy.value = false;
     }
-    await this.sync();
+    await this.sync(runId);
   }
 
   /**
    * Relit le board dans Jira. Une demande faite pendant une synchronisation en relance une après
    * elle, plutôt que d'en lancer deux en parallèle. Aucune écriture.
    */
-  async sync(): Promise<void> {
-    if (!this.configuration.value) return;
+  async sync(preparedRunId?: string): Promise<void> {
+    if (this.#disposed || !this.configuration.value) return;
     if (this.#syncTask) {
+      if (preparedRunId) this.#preparedResyncId = preparedRunId;
       this.#resyncRequested = true;
       await this.#syncTask;
       return;
@@ -547,8 +588,38 @@ export class BoardModel {
     this.#syncTask = (async () => {
       do {
         this.#resyncRequested = false;
-        await this.#syncOnce();
-      } while (this.#resyncRequested);
+        const active = this.loadDiagnostics.current.peek();
+        preparedRunId ??= this.#preparedResyncId;
+        if (!preparedRunId && this.setupBusy.value && active?.status === "loading")
+          preparedRunId = active.id;
+        this.#preparedResyncId = undefined;
+        const runId =
+          preparedRunId && active?.id === preparedRunId && active.status === "loading"
+            ? preparedRunId
+            : this.loadDiagnostics.begin("refresh");
+        preparedRunId = undefined;
+        const generation = this.#generation;
+        this.loadDiagnostics.setContext({
+          boardType: this.configuration.value?.boardType === "kanban" ? "kanban" : "scrum",
+        });
+        try {
+          await this.#syncOnce(this.#traceFor(runId));
+          // Une relecture de structure en parallèle appartient au même chargement ; elle
+          // déclenche sa propre synchronisation ensuite, sans perdre sa durée d'attente.
+          if (!this.setupBusy.value && this.#preparedResyncId !== runId)
+            this.#finishLoad(
+              runId,
+              generation !== this.#generation
+                ? "cancelled"
+                : this.syncProblem.value
+                  ? "error"
+                  : "ok",
+            );
+        } catch (error) {
+          this.#finishLoad(runId, "error");
+          throw error;
+        }
+      } while (this.#resyncRequested && !this.#disposed);
     })();
     try {
       await this.#syncTask;
@@ -558,9 +629,11 @@ export class BoardModel {
     }
   }
 
-  async #syncOnce(): Promise<void> {
+  async #syncOnce(trace: LoadTrace): Promise<void> {
+    const generation = this.#generation;
     // Réglages d'équipe d'abord : une version appliquée sert déjà à cette lecture du board.
-    await this.#refreshTeamSettings();
+    await trace.measure("settings", () => this.#refreshTeamSettings());
+    if (this.#disposed || generation !== this.#generation) return;
     const configuration = this.configuration.value;
     if (!configuration) return;
     if (
@@ -569,13 +642,13 @@ export class BoardModel {
     ) {
       this.setFilters(this.filters.value);
     }
-    const generation = this.#generation;
     const isStale = () =>
+      this.#disposed ||
       generation !== this.#generation ||
       this.configuration.value?.boardId !== configuration.boardId;
 
     try {
-      this.#currentUser ??= await this.#client.myself();
+      this.#currentUser ??= await trace.measure("user", () => this.#client.myself());
       const result = await loadSnapshot({
         reader: this.#client,
         configuration,
@@ -584,6 +657,7 @@ export class BoardModel {
           load: (input) => loadAtlassianSprintGoals({ reader: this.#goals, ...input }),
         },
         now: this.#now(),
+        trace,
       });
       if (isStale()) return;
 
@@ -621,6 +695,12 @@ export class BoardModel {
           : `Goals Atlassian illisibles : ${result.goalsIssue} Les objectifs affichés sont les lignes du champ « Objectif » du sprint.`;
       this.goalsWarnings.value = result.goalsWarnings;
       this.syncProblem.value = null;
+      this.loadDiagnostics.setContext({
+        boardType: configuration.boardType === "kanban" ? "kanban" : "scrum",
+        issues: allIssues(result.snapshot).length,
+        goals: result.snapshot.goals.length,
+      });
+      this.loadDiagnostics.markDataReady();
 
       if (!sameIndex(latest.goalColorIndex, colors) || newLinkedGoalIds.length > 0) {
         await this.#updatePreferences((current) => ({
@@ -637,12 +717,31 @@ export class BoardModel {
       return;
     }
 
-    await this.#loadJiraQuickFilters(configuration.boardId);
+    await trace.measure("filters", async () => {
+      await this.#loadJiraQuickFilters(configuration.boardId);
+      if (isStale()) return;
+      // Les filtres rapides actifs sont réévalués après la relecture des tickets.
+      if (this.filters.value.jiraQuickFilterIds.size > 0) await this.#applyJiraQuickFilters();
+    });
     if (isStale()) return;
-    // Le contenu des sprints a pu changer : les filtres rapides actifs sont réévalués par Jira.
-    if (this.filters.value.jiraQuickFilterIds.size > 0) await this.#applyJiraQuickFilters();
-    if (isStale()) return;
-    await this.#refreshCardColors();
+    await trace.measure("colors", () => this.#refreshCardColors());
+  }
+
+  /** Une lecture ancienne ne doit pas ajouter ses phases à celle d'un nouveau board. */
+  #traceFor(id: string | undefined): LoadTrace {
+    const active = () => {
+      const run = this.loadDiagnostics.current.peek();
+      return run?.id === id && run?.status === "loading";
+    };
+    return {
+      measure: (phase, work) => (active() ? this.loadDiagnostics.measure(phase, work) : work()),
+      measureSync: (phase, work) =>
+        active() ? this.loadDiagnostics.measureSync(phase, work) : work(),
+    };
+  }
+
+  #finishLoad(id: string | undefined, status: "ok" | "error" | "cancelled"): void {
+    if (this.loadDiagnostics.current.peek()?.id === id) this.loadDiagnostics.finish(status);
   }
 
   /**
@@ -1928,6 +2027,10 @@ export class BoardModel {
   }
 
   dispose(): void {
+    this.#disposed = true;
+    this.#resyncRequested = false;
+    this.#preparedResyncId = undefined;
+    this.loadDiagnostics.finish("cancelled");
     this.#clearMoveFeedback();
     this.pendingMove.value = null;
     this.nativeTransitionPending.value = false;

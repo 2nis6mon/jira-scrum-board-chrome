@@ -34,6 +34,21 @@ docs/                      documentation utilisateur et technique
 
 - `AppModel` pilote connexion, vue et présentation ; `BoardModel` pilote chargement, réglages,
   filtres, déplacements et notifications. `DiagnosticModel` teste les capacités disponibles.
+- `LoadDiagnostics` mesure le chargement sans nouvelles lectures Jira. `LoadTrace` instrumente
+  les phases de `boardSync` ; l'observateur du transport ne reçoit que le type de lecture, ses
+  tentatives, attentes, statuts et catégories d'erreur. Les écritures et images sont exclues.
+  Les temps utilisent une horloge monotone ; la date sert seulement à retrouver un rapport.
+  L'origine est la navigation du document de l'extension (pas le clic ni la navigation Jira
+  précédente). Le rendu est estimé par deux frames après publication des cartes à l'écran.
+  Les phases et requêtes peuvent se chevaucher : leurs durées ne s'additionnent pas.
+  Les relectures de structure lancées pendant une synchronisation prolongent la mesure en cours.
+  L'historique `loadDiagnostics.v1` est borné à cinq chargements et 500 segments par chargement ;
+  toute troncature est indiquée. Le stockage ne bloque pas le chargement et une déconnexion
+  efface cet historique. La popin reste disponible en cours de lecture et après une erreur.
+  L'historique est celui connu de l'onglet, relu à son ouverture ; il n'est pas consolidé
+  entre plusieurs onglets simultanés, qui peuvent remplacer leurs historiques respectifs.
+  `npm run verify:loading` contrôle dans Chrome isolé le scénario lent du banc fictif,
+  le rapport copié, l'historique, la fermeture et le format étroit ; captures dans `.vite/`.
 - `boardSync` lit le périmètre ; `boardIssue` assemble tickets et métriques ; `boardLayout` et
   `boardBlocks` répartissent colonnes et swimlanes ; `pendingMove` projette un déplacement en cours.
 - `dropPlan` prépare l'intention et `boardWrites` l'exécute après relecture. Les formulaires avec

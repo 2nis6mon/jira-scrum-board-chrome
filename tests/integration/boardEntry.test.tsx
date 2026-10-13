@@ -88,7 +88,7 @@ describe("point d'entrée réservé à une page Jira vérifiée", () => {
     expect(mocks.construct).not.toHaveBeenCalled();
     expect(mocks.start).not.toHaveBeenCalled();
     verified?.({ origin: SITE, permissionPattern: `${SITE}/*`, address: BOARD });
-    await vi.waitFor(() => expect(mocks.start).toHaveBeenCalledWith(BOARD));
+    await vi.waitFor(() => expect(mocks.start).toHaveBeenCalledWith(BOARD, expect.any(Number)));
     expect(mocks.construct).toHaveBeenCalledWith({}, BOARD);
     expect(mocks.render).toHaveBeenCalledOnce();
     expect(mocks.links).toHaveBeenCalledWith(expect.anything(), SITE, BOARD);

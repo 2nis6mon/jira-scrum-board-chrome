@@ -27,7 +27,8 @@ async function startInJira(container: HTMLElement): Promise<void> {
   const model = new AppModel(platform, target.address);
   render(<App model={model} />, container);
   installEmbeddedLinks(model, target.origin, target.address);
-  await model.start(target.address);
+  // Origine de la mesure : navigation du document de l'extension, pas celle de la page Jira.
+  await model.start(target.address, performance.now());
 }
 
 void startInJira(container);

@@ -6,7 +6,7 @@
 //                            board-vide|board-dnd|board-choix|board-statuts|board-erreur|board-goals|
 //                            board-epingle|board-epingle-refus|board-multi|board-infos|
 //                            board-soustaches|board-kanban|board-kanban-vide|ok|xsrf|refuse|session|deconnecte|
-//                            connexion|recherche-board
+//                            board-chargement|connexion|recherche-board
 import { render } from "preact";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
@@ -465,7 +465,37 @@ if (scenario.startsWith("board")) {
       });
     }
   }
-  const model = new AppModel(fakePlatform(jira));
+  const platform = fakePlatform(jira);
+  let continueLoading = () => {};
+  const loadingGate = new Promise<void>((resolve) => {
+    continueLoading = resolve;
+  });
+  const model = new AppModel(
+    scenario === "board-chargement"
+      ? {
+          ...platform,
+          fetch: async (url, init) => {
+            if (new URL(url).pathname === "/rest/agile/1.0/board/7/sprint/42/issue") {
+              await loadingGate;
+            }
+            return platform.fetch(url, init);
+          },
+        }
+      : platform,
+  );
+  if (scenario === "board-chargement") {
+    // Contrôles du seul banc fictif ; aucun de ces objets n'entre dans le paquet de production.
+    Object.assign(window, {
+      __chargement: {
+        continuer: continueLoading,
+        rapports: platform.copied,
+        actualiser: async () => {
+          const active = model.connection.value;
+          if (active.state === "connected") await active.board.sync();
+        },
+      },
+    });
+  }
   // `&hote=1` : comme dans une page Jira hôte, pour voir le bouton « Retour à Jira » (sans effet ici).
   if (new URLSearchParams(location.search).get("hote") === "1") model.hostReturn.value = () => {};
   if (container) render(<App model={model} />, container);
@@ -478,13 +508,14 @@ if (scenario.startsWith("board")) {
       await connection.board.detect(SECOND_BOARD_URL);
     }
     await connection.board.detect(BOARD_URL);
-    await connection.board.applySettings(
-      (current) => ({
-        ...current,
-        cardFields: [{ kind: "fixVersions" }, { kind: "components" }, { kind: "labels" }],
-      }),
-      { resync: true },
-    );
+    if (scenario !== "board-chargement")
+      await connection.board.applySettings(
+        (current) => ({
+          ...current,
+          cardFields: [{ kind: "fixVersions" }, { kind: "components" }, { kind: "labels" }],
+        }),
+        { resync: true },
+      );
     if (swimlanes) {
       // RUN : les anomalies (classées d'office hors objectifs) ; OPS : les demandes, regroupées.
       await connection.board.applySettings(

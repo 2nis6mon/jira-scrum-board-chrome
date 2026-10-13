@@ -71,6 +71,13 @@ Les anciennes valeurs `SCRUM`/`KANBAN`, `scrumColumns`, `kanbanColumns`, `showKa
 partagées. Leur suppression exige une migration et une décision concernant les anciennes
 installations ; le nettoyage du code ne les retire pas.
 
+Le diagnostic de chargement n'ajoute aucun contrat réseau. Son historique local
+`loadDiagnostics.v1` conserve au plus cinq rapports : version, date, type Scrum/Kanban,
+comptages, durées et segments de phases/lectures/attentes. Les segments sont bornés à 500 ;
+la troncature est comptée. Le décodeur n'accepte que les catégories fermées et nombres attendus,
+sans URL, ressource, corps de réponse ou identifiant Jira. Les identifiants de rapports et
+d'appels sont locaux à la mesure. Ce stockage reste indépendant des propriétés Jira.
+
 ## Références de contrat
 
 - [Jira Software : boards](https://developer.atlassian.com/cloud/jira/software/rest/api-group-board/)

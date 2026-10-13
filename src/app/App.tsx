@@ -5,11 +5,24 @@ import { BoardView, type ScreenControls } from "./views/board/BoardView";
 import { ConnectionView } from "./views/ConnectionView";
 import { exitFullscreen } from "./views/fullscreen";
 import { Icon } from "./views/Icon";
+import { LoadDiagnosticsView } from "./views/LoadDiagnosticsView";
 import { Sidebar } from "./views/Sidebar";
 import { AdminView } from "./views/settings/AdminView";
 
 /** Racine de l'interface. Sans site Jira connecté, elle n'affiche aucune donnée. */
 export function App({ model }: { model: AppModel }) {
+  return (
+    <>
+      <AppContent model={model} />
+      <LoadDiagnosticsView
+        diagnostics={model.loadDiagnostics}
+        hidden={model.presenting.value || model.daily.value !== null}
+      />
+    </>
+  );
+}
+
+function AppContent({ model }: { model: AppModel }) {
   const connection = model.connection.value;
   if (connection.state === "connected") {
     return <Workspace model={model} connection={connection} />;
@@ -178,6 +191,20 @@ function BoardScreen({
   controls: ScreenControls;
 }) {
   const { board } = connection;
+  const loaded = board.loaded.value;
+  const snapshot = board.snapshot.value;
+  const showingBoard = !board.editingBoard.value && board.configuration.value !== null;
+  const run = board.loadDiagnostics.current.value;
+  const runId = run?.id;
+  const dataReady = run?.dataReadyMs;
+  useEffect(() => {
+    if (!showingBoard || !loaded || !snapshot || !runId || dataReady == null) return;
+    // Deux frames laissent au navigateur l'occasion de peindre les nouvelles cartes.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => board.loadDiagnostics.markVisible(runId));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [board, loaded, snapshot, runId, dataReady, showingBoard]);
   if (!board.loaded.value) return <main class="centered" aria-busy="true" />;
   const configuration = board.configuration.value;
   if (!configuration || board.editingBoard.value) return <BoardSetupView board={board} />;

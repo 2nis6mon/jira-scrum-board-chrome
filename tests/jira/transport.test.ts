@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { ObserveRead, ReadResult } from "../../src/core/loadTrace";
 import { JiraError, type JiraErrorInfo } from "../../src/jira/errors";
 import { isReadOnlyGraphql, JiraTransport } from "../../src/jira/transport";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
@@ -331,5 +332,123 @@ describe("JiraTransport — images", () => {
     await expect(transport.fetchImage(url)).rejects.toThrowError(JiraError);
     await expect(transport.fetchImage(url)).rejects.toThrowError(JiraError);
     expect(jira.requests).toHaveLength(2);
+  });
+});
+
+describe("JiraTransport — observation des lectures", () => {
+  it.each(["observer", "attempt", "finish", "wait", "waitFinish"])(
+    "un diagnostic qui échoue à %s ne change ni réponse ni reprise",
+    async (step) => {
+      const failure = () => {
+        throw new Error("diagnostic défaillant");
+      };
+      const jira = new FakeJira().on(
+        "GET",
+        "/rest/api/3/myself",
+        { status: 503 },
+        { status: 200, json: { ok: true } },
+      );
+      const observeRead: ObserveRead = () => {
+        if (step === "observer") failure();
+        return {
+          attempt: () => {
+            if (step === "attempt") failure();
+            return {
+              finish: () => {
+                if (step === "finish") failure();
+              },
+            };
+          },
+          wait: () => {
+            if (step === "wait") failure();
+            return {
+              finish: () => {
+                if (step === "waitFinish") failure();
+              },
+            };
+          },
+        };
+      };
+      const sleep = vi.fn(async () => {});
+      const transport = new JiraTransport({ site: ACME, fetch: jira.fetch, observeRead, sleep });
+      await expect(transport.get("/rest/api/3/myself", { resource: "SECRET" })).resolves.toEqual({
+        status: 200,
+        body: { ok: true },
+      });
+      expect(jira.requests).toHaveLength(2);
+      expect(sleep).toHaveBeenCalledExactlyOnceWith(600);
+    },
+  );
+
+  it("un observateur qui jette n'altère pas l'erreur HTTP finale", async () => {
+    const jira = new FakeJira().on("GET", "/rest/api/3/myself", { status: 401 });
+    const transport = new JiraTransport({
+      site: ACME,
+      fetch: jira.fetch,
+      observeRead: () => {
+        throw new Error("diagnostic");
+      },
+    });
+    expect(await errorOf(transport.get("/rest/api/3/myself", { resource: "compte" }))).toEqual({
+      kind: "unauthorized",
+    });
+    expect(jira.requests).toHaveLength(1);
+  });
+
+  it("observe les POST de lecture et erreurs GraphQL sans transmettre le corps à l'observateur", async () => {
+    const jira = new FakeJira()
+      .on("POST", "/rest/api/3/jql/parse", { status: 200, json: { ok: true } })
+      .on("POST", "/gateway/api/graphql", {
+        status: 200,
+        json: { errors: [{ message: "SECRET" }] },
+      });
+    const results: ReadResult[] = [];
+    const observeRead = vi.fn<ObserveRead>(() => ({
+      attempt: () => ({
+        finish: (result) => {
+          results.push(result);
+        },
+      }),
+      wait: () => undefined,
+    }));
+    const transport = new JiraTransport({ site: ACME, fetch: jira.fetch, observeRead });
+    await transport.readByPost(
+      "/rest/api/3/jql/parse",
+      { queries: ["SECRET"] },
+      { resource: "SECRET" },
+    );
+    const response = await transport.graphqlQuery(
+      "query Secret { data }",
+      { id: "SECRET" },
+      { resource: "SECRET" },
+    );
+    expect(response.body).toEqual({ errors: [{ message: "SECRET" }] });
+    expect(observeRead.mock.calls).toEqual([["readPost"], ["graphql"]]);
+    expect(results).toEqual([
+      { status: 200, error: null },
+      { status: 200, error: "graphql" },
+    ]);
+    expect(JSON.stringify(results)).not.toContain("SECRET");
+  });
+
+  it("n'observe ni écritures ni icônes", async () => {
+    const jira = new FakeJira()
+      .on("PUT", PROPERTY, { status: 204 })
+      .on("POST", "/gateway/api/graphql", { status: 200, json: { data: { success: true } } })
+      .on("GET", "/icon", {
+        status: 200,
+        text: "<svg/>",
+        headers: { "Content-Type": "image/svg+xml" },
+      });
+    const observeRead = vi.fn<ObserveRead>(() => undefined);
+    const transport = new JiraTransport({ site: ACME, fetch: jira.fetch, observeRead });
+    await transport.write(PUT_PROBE);
+    await transport.graphqlWrite({
+      kind: "goal.link",
+      goalId: "goal-fictif",
+      workItemId: "ticket-fictif",
+    });
+    await transport.fetchImage(`${ACME.origin}/icon`);
+    expect(observeRead).not.toHaveBeenCalled();
   });
 });

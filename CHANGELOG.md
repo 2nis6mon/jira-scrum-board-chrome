@@ -3,6 +3,13 @@
 Les détails des anciennes versions, prototypes et validations sont conservés dans l'historique
 Git. Ce fichier décrit les évolutions du produit, sans remplacer les procédures actuelles.
 
+## 0.29.0 — Diagnostic du chargement
+
+- Indicateur du temps et de la phase en cours, avec une fenêtre de détail fermable pendant et après le chargement.
+- Chronologie des lectures Jira, tentatives, attentes et phases Scrum/Kanban ; distinction entre données prêtes, affichage et fin de synchronisation.
+- Rapport copiable et cinq derniers chargements conservés localement, sans contenu de ticket, nom, URL, JQL ou identifiant Jira.
+- Mesure depuis le démarrage du document de l'extension ; navigation préalable de Jira hors mesure. Affichage estimé après deux frames du navigateur.
+
 ## 0.28.2 — Vérification du bouton sous Windows
 
 - Le contrôle Chrome du placement prend en compte la largeur des barres de défilement Windows.

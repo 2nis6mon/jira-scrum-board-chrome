@@ -8,6 +8,7 @@ import { BoardModel } from "./BoardModel";
 import { forgetSite } from "./boardStore";
 import { DiagnosticModel } from "./DiagnosticModel";
 import { GraphqlOrigin } from "./graphqlOrigin";
+import { LoadDiagnostics } from "./LoadDiagnostics";
 import { toMessage, type UserMessage } from "./messages";
 import { forgetDismissedNotices } from "./noticeStore";
 
@@ -40,6 +41,7 @@ export type AdminSection = "board" | "goals" | "cardFields" | "cardColors" | "di
 
 /** Racine de l'état de l'interface : connexion à un site, puis board ou administration. */
 export class AppModel {
+  readonly loadDiagnostics: LoadDiagnostics;
   readonly connection = signal<Connection>({ state: "loading" });
   readonly connectionError = signal<UserMessage | null>(null);
   readonly view = signal<View>("board");
@@ -73,6 +75,7 @@ export class AppModel {
 
   constructor(platform: Platform, hostBoardAddress?: string) {
     this.#platform = platform;
+    this.loadDiagnostics = new LoadDiagnostics(platform);
     this.#audit = new AuditLog(platform.store);
     this.#hostBoardAddress = hostBoardAddress;
     this.hostSite = hostBoardAddress ? (parseBoardUrl(hostBoardAddress)?.site ?? null) : null;
@@ -83,8 +86,25 @@ export class AppModel {
   }
 
   /** Reprend le site enregistré, si Chrome lui accorde toujours l'accès. */
-  async start(boardAddress?: string): Promise<void> {
+  async start(boardAddress?: string, initialMs = 0): Promise<void> {
     boardAddress = this.#hostBoardAddress ?? boardAddress;
+    if (boardAddress) this.loadDiagnostics.begin("opening", initialMs);
+    void this.loadDiagnostics.loadHistory();
+    try {
+      const connection = await this.loadDiagnostics.measure("startup", () =>
+        this.#restoreConnection(boardAddress),
+      );
+      if (connection) await this.#enter(connection.site, connection.address);
+      else this.loadDiagnostics.finish("cancelled");
+    } catch (error) {
+      this.loadDiagnostics.finish("error");
+      throw error;
+    }
+  }
+
+  async #restoreConnection(
+    boardAddress?: string,
+  ): Promise<{ site: JiraSite; address: string | undefined } | null> {
     await this.#restoreInterface();
     const saved = await this.#platform.store.get(CONNECTION_KEY);
     const target = boardAddress ? parseBoardUrl(boardAddress) : null;
@@ -93,21 +113,21 @@ export class AppModel {
       (isRecord(saved) && typeof saved.origin === "string" ? saved.origin : null);
     if (origin === null) {
       this.connection.value = { state: "disconnected", lastInput: "" };
-      return;
+      return null;
     }
     let site: JiraSite;
     try {
       site = normalizeSiteUrl(origin);
     } catch {
       this.connection.value = { state: "disconnected", lastInput: "" };
-      return;
+      return null;
     }
     if (!(await this.#platform.permissions.contains(site.permissionPattern))) {
       // L'accès a été retiré depuis chrome://extensions : on le redemandera sur un geste.
       this.connection.value = { state: "disconnected", lastInput: site.host };
-      return;
+      return null;
     }
-    await this.#enter(site, target ? boardAddress : undefined);
+    return { site, address: target ? boardAddress : undefined };
   }
 
   /**
@@ -157,6 +177,7 @@ export class AppModel {
     const current = this.connection.value;
     if (current.state !== "connected") return;
     current.board.dispose();
+    await this.loadDiagnostics.clear();
     await new GraphqlOrigin(this.#platform, current.site).forget().catch(() => {});
     await this.#platform.permissions.remove(current.site.permissionPattern);
     await this.#platform.store.remove(CONNECTION_KEY);
@@ -287,8 +308,11 @@ export class AppModel {
     // Règle `Origin` du site (passerelle GraphQL). Un échec (permission absente, par exemple
     // si l'extension n'a pas été rechargée) n'empêche pas le board : le diagnostic le montrera.
     const origin = new GraphqlOrigin(this.#platform, site);
-    await origin.restore().catch(() => {});
-    const board = new BoardModel(site, this.#platform, { audit: this.#audit });
+    await this.loadDiagnostics.measure("startup", () => origin.restore()).catch(() => {});
+    const board = new BoardModel(site, this.#platform, {
+      audit: this.#audit,
+      loadDiagnostics: this.loadDiagnostics,
+    });
     const diagnostic = new DiagnosticModel(site, this.#platform, this.#audit, origin);
     this.connection.value = { state: "connected", site, board, diagnostic };
     await board.load(boardAddress);

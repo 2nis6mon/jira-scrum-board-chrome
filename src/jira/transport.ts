@@ -1,3 +1,4 @@
+import { loadError, type ObserveRead, type ReadObserver } from "../core/loadTrace";
 import { JiraError } from "./errors";
 import { isRecord, type JsonObject, type JsonValue } from "./json";
 import type { JiraSite } from "./site";
@@ -34,6 +35,8 @@ export interface TransportOptions {
   readonly maxGetAttempts?: number;
   readonly atlassianToken?: AtlassianTokenHeader;
   readonly sleep?: (ms: number) => Promise<void>;
+  /** Diagnostic facultatif, limité aux lectures : aucune URL ni donnée Jira n'est transmise. */
+  readonly observeRead?: ObserveRead;
 }
 
 /** POST qui ne sont que des lectures. Tout autre POST passe par `JiraWrite`. */
@@ -61,6 +64,7 @@ export class JiraTransport {
   readonly #maxGetAttempts: number;
   readonly #atlassianToken: AtlassianTokenHeader;
   readonly #sleep: (ms: number) => Promise<void>;
+  readonly #observeRead: ObserveRead | undefined;
 
   constructor(options: TransportOptions) {
     this.site = options.site;
@@ -70,18 +74,26 @@ export class JiraTransport {
     this.#atlassianToken = options.atlassianToken ?? "absent";
     this.#sleep =
       options.sleep ?? ((ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+    this.#observeRead = options.observeRead;
   }
 
   async get(path: string, options: RequestOptions): Promise<JiraResponse> {
+    const observer = safelyObserve(() => this.#observeRead?.("get"));
     let attempt = 0;
     for (;;) {
       attempt += 1;
       try {
-        return await this.#send("GET", path, null, options);
+        return await this.#read("GET", path, null, options, observer, attempt);
       } catch (error) {
         if (!(error instanceof JiraError) || !error.isRetryable) throw error;
         if (attempt >= this.#maxGetAttempts) throw error;
-        await this.#sleep(backoffMs(attempt, error));
+        const delay = backoffMs(attempt, error);
+        const wait = safelyObserve(() => observer?.wait(delay));
+        try {
+          await this.#sleep(delay);
+        } finally {
+          safelyObserve(() => wait?.finish());
+        }
       }
     }
   }
@@ -95,7 +107,14 @@ export class JiraTransport {
     if (!READ_POST_PATHS.includes(path)) {
       throw new Error(`POST de lecture non répertorié : ${path}`);
     }
-    return this.#send("POST", path, JSON.stringify(body), options);
+    return this.#read(
+      "POST",
+      path,
+      JSON.stringify(body),
+      options,
+      safelyObserve(() => this.#observeRead?.("readPost")),
+      1,
+    );
   }
 
   /**
@@ -111,7 +130,14 @@ export class JiraTransport {
       throw new Error("Seules les requêtes GraphQL de lecture (query) passent par graphqlQuery.");
     }
     const body = JSON.stringify({ query: operation, variables });
-    return this.#send("POST", GRAPHQL_PATH, body, options);
+    return this.#read(
+      "POST",
+      GRAPHQL_PATH,
+      body,
+      options,
+      safelyObserve(() => this.#observeRead?.("graphql")),
+      1,
+    );
   }
 
   /**
@@ -190,6 +216,40 @@ export class JiraTransport {
     return blob;
   }
 
+  async #read(
+    method: "GET" | "POST",
+    path: string,
+    body: string | null,
+    options: RequestOptions,
+    observer: ReadObserver | undefined,
+    attempt: number,
+  ): Promise<JiraResponse> {
+    const measurement = safelyObserve(() => observer?.attempt(attempt));
+    try {
+      const response = await this.#send(method, path, body, options);
+      const graphqlError =
+        path === GRAPHQL_PATH &&
+        isRecord(response.body) &&
+        Array.isArray(response.body.errors) &&
+        response.body.errors.length > 0;
+      safelyObserve(() =>
+        measurement?.finish({
+          status: response.status,
+          error: graphqlError ? "graphql" : null,
+        }),
+      );
+      return response;
+    } catch (error) {
+      safelyObserve(() =>
+        measurement?.finish({
+          status: error instanceof JiraError ? error.httpStatus : null,
+          error: loadError(error),
+        }),
+      );
+      throw error;
+    }
+  }
+
   async #send(
     method: "GET" | "POST" | "PUT" | "DELETE",
     path: string,
@@ -248,6 +308,15 @@ export class JiraTransport {
       throw new Error(`Requête hors du site Jira refusée : ${url.origin}`);
     }
     return url.toString();
+  }
+}
+
+/** Un observateur défaillant ne modifie ni la réponse, ni les erreurs, ni les reprises HTTP. */
+function safelyObserve<T>(work: () => T): T | undefined {
+  try {
+    return work();
+  } catch {
+    return undefined;
   }
 }
 

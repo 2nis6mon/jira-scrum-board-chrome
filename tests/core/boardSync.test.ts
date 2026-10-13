@@ -6,8 +6,10 @@ import {
   detectBoard,
   loadSnapshot,
 } from "../../src/core/boardSync";
+import type { LoadPhase, LoadTrace } from "../../src/core/loadTrace";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
 import { JiraClient } from "../../src/jira/client";
+import { JiraError } from "../../src/jira/errors";
 import { JiraTransport } from "../../src/jira/transport";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { ACME, FakeJira, type Reply } from "../support/fakeJira";
@@ -58,6 +60,7 @@ function sync(
   jira: FakeJira,
   configuration: BoardConfiguration = makeConfiguration(),
   goalsLoader: AtlassianGoalsLoader | null = null,
+  trace?: LoadTrace,
 ) {
   return loadSnapshot({
     reader: readerFor(jira),
@@ -65,7 +68,35 @@ function sync(
     currentUser: null,
     goalsLoader,
     now: NOW,
+    ...(trace ? { trace } : {}),
   });
+}
+
+function recordingTrace() {
+  const completed: { phase: LoadPhase; error: unknown | null }[] = [];
+  const trace: LoadTrace = {
+    async measure(phase, work) {
+      try {
+        const value = await work();
+        completed.push({ phase, error: null });
+        return value;
+      } catch (error) {
+        completed.push({ phase, error });
+        throw error;
+      }
+    },
+    measureSync(phase, work) {
+      try {
+        const value = work();
+        completed.push({ phase, error: null });
+        return value;
+      } catch (error) {
+        completed.push({ phase, error });
+        throw error;
+      }
+    },
+  };
+  return { trace, completed };
 }
 
 describe("detectBoard", () => {
@@ -198,6 +229,29 @@ describe("detectBoard", () => {
     expect(config.columns.every((c) => !c.isDone)).toBe(true);
     expect(config.goalsFieldId).toBeNull();
     expect(config.estimationFieldId).toBe("customfield_10016");
+  });
+
+  it("mesure la découverte et ses replis sans changer les données ni les lectures", async () => {
+    const unavailableFields = () =>
+      discoveryJira()
+        .on("GET", "/rest/api/3/status", { status: 403, json: {} })
+        .on("GET", "/rest/api/3/field", { status: 500 });
+    const plainJira = unavailableFields();
+    const tracedJira = unavailableFields();
+    const { trace, completed } = recordingTrace();
+    const expected = await detectBoard(readerFor(plainJira), BOARD_URL, null);
+    const actual = await detectBoard(readerFor(tracedJira), BOARD_URL, null, trace);
+
+    expect(actual).toEqual(expected);
+    expect(tracedJira.requests.map((request) => request.url.href)).toEqual(
+      plainJira.requests.map((request) => request.url.href),
+    );
+    expect(completed.map(({ phase, error }) => [phase, error !== null])).toEqual([
+      ["structure", false],
+      ["statuses", true],
+      ["fields", true],
+      ["types", false],
+    ]);
   });
 });
 
@@ -483,5 +537,125 @@ describe("loadSnapshot", () => {
       status: 401,
     });
     await expect(sync(jira)).rejects.toMatchObject({ info: { kind: "unauthorized" } });
+  });
+});
+
+describe("phases de chargement", () => {
+  const configuration = makeConfiguration({ goalSource: "atlassianGoals" });
+  const loader: AtlassianGoalsLoader = {
+    load: async () => ({
+      goals: [makeSprintGoal({ id: "g1", title: "Objectif", position: 0 })],
+      links: { "ABC-1": "g1" },
+    }),
+  };
+
+  it("mesure les tickets de chaque sprint, les objectifs et l'assemblage sans changer le résultat", async () => {
+    const jira = () =>
+      boardJira({
+        sprints: [sprintJson(42), sprintJson(43)],
+        issues: { 42: [issueJson("ABC-1")], 43: [issueJson("ABC-2")] },
+      });
+    const { trace, completed } = recordingTrace();
+    const expected = await sync(jira(), configuration, loader);
+    const actual = await sync(jira(), configuration, loader, trace);
+
+    expect(actual).toEqual(expected);
+    expect(completed).toEqual(
+      ["sprints", "issues", "issues", "goalSettings", "goals", "assemble"].map((phase) => ({
+        phase,
+        error: null,
+      })),
+    );
+  });
+
+  it("termine l'assemblage d'un board sans sprint, sans inventer de lectures", async () => {
+    const { trace, completed } = recordingTrace();
+    const jira = boardJira({ sprints: [] });
+    const actual = await sync(jira, configuration, loader, trace);
+
+    expect(actual.snapshot.sprint).toBeNull();
+    expect(completed.map(({ phase }) => phase)).toEqual(["sprints", "assemble"]);
+    expect(jira.requests).toHaveLength(1);
+  });
+
+  it("garde visibles les échecs récupérés de propriété et de Goals avant le repli texte", async () => {
+    const { trace, completed } = recordingTrace();
+    const failure = new Error("Objectifs temporairement indisponibles");
+    const result = await sync(
+      boardJira({
+        sprints: [sprintJson(42, { goal: "Texte de repli" })],
+        property: { status: 403 },
+      }),
+      configuration,
+      { load: async () => Promise.reject(failure) },
+      trace,
+    );
+
+    expect(result.snapshot.goals[0]?.title).toBe("Texte de repli");
+    expect(result.snapshot.goalsReadOnly).toBe(true);
+    expect(result.goalsIssue).toBe(failure.message);
+    expect(completed.map(({ phase, error }) => [phase, error !== null])).toEqual([
+      ["sprints", false],
+      ["issues", false],
+      ["goalSettings", true],
+      ["goals", true],
+      ["goals", false],
+      ["assemble", false],
+    ]);
+    expect(completed[3]?.error).toBe(failure);
+  });
+
+  it("conserve l'erreur des tickets et n'annonce aucune phase ultérieure", async () => {
+    const { trace, completed } = recordingTrace();
+    const jira = boardJira({}).on("GET", "/rest/agile/1.0/board/1/sprint/42/issue", {
+      status: 401,
+    });
+    const failure = await sync(jira, configuration, loader, trace).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({ info: { kind: "unauthorized" } });
+    expect(completed.map(({ phase }) => phase)).toEqual(["sprints", "issues"]);
+    expect(completed[1]?.error).toBe(failure);
+  });
+
+  it("englobe toutes les pages Kanban dans les tickets et produit le même board", async () => {
+    const jira = () =>
+      new FakeJira().on(
+        "GET",
+        "/rest/agile/1.0/board/1/issue",
+        { status: 200, json: { issues: [issueJson("ABC-1")], total: 2 } },
+        { status: 200, json: { issues: [issueJson("ABC-2")], total: 2 } },
+      );
+    const kanban = makeConfiguration({ boardType: "kanban" });
+    const tracedJira = jira();
+    const { trace, completed } = recordingTrace();
+    const expected = await sync(jira(), kanban, loader);
+    const actual = await sync(tracedJira, kanban, loader, trace);
+
+    expect(actual).toEqual(expected);
+    expect(completed).toEqual(
+      ["issues", "goals", "assemble"].map((phase) => ({ phase, error: null })),
+    );
+    expect(tracedJira.requests).toHaveLength(2);
+  });
+
+  it("conserve la perte de session Kanban après la mesure des Goals en échec", async () => {
+    const { trace, completed } = recordingTrace();
+    const failure = new JiraError({ kind: "unauthorized" });
+    const jira = new FakeJira().on("GET", "/rest/agile/1.0/board/1/issue", {
+      status: 200,
+      json: { issues: [], total: 0 },
+    });
+    await expect(
+      sync(
+        jira,
+        makeConfiguration({ boardType: "kanban" }),
+        { load: async () => Promise.reject(failure) },
+        trace,
+      ),
+    ).rejects.toBe(failure);
+    expect(completed).toEqual([
+      { phase: "issues", error: null },
+      { phase: "goals", error: failure },
+    ]);
   });
 });

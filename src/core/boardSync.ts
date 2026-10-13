@@ -13,6 +13,7 @@ import {
 } from "./boardConfiguration";
 import { assembleBoardIssues, type BoardIssue, type BoardSnapshot } from "./boardIssue";
 import { cardFieldJiraId } from "./cardFields";
+import type { LoadPhase, LoadTrace } from "./loadTrace";
 import {
   assignGoalColors,
   decodeSprintGoalDocument,
@@ -70,6 +71,7 @@ export async function detectBoard(
   reader: BoardReader,
   urlText: string,
   existing: BoardConfiguration | null,
+  trace?: LoadTrace,
 ): Promise<BoardConfiguration> {
   const parsed = parseBoardUrl(urlText);
   if (!parsed) throw new BoardSetupError({ kind: "unrecognizedUrl" });
@@ -80,7 +82,7 @@ export async function detectBoard(
       found: parsed.site.host,
     });
   }
-  return refreshBoardStructure(reader, parsed.boardId, existing);
+  return refreshBoardStructure(reader, parsed.boardId, existing, trace);
 }
 
 /** Relit colonnes, statuts, types et champs depuis Jira, en gardant les réglages locaux. */
@@ -88,17 +90,16 @@ export async function refreshBoardStructure(
   reader: BoardReader,
   boardId: number,
   existing: BoardConfiguration | null,
+  trace?: LoadTrace,
 ): Promise<BoardConfiguration> {
-  const board = await reader.boardStructure(boardId);
+  const board = await measure(trace, "structure", () => reader.boardStructure(boardId));
 
   // Statuts et champs servent à qualifier les colonnes et à repérer les champs : leur absence
   // dégrade la configuration sans empêcher le board de s'afficher.
-  const statuses = await reader.statuses().catch(() => []);
-  const allFields = await reader.fields().catch(() => []);
-  const issueTypes = await discoverIssueTypes(
-    reader,
-    boardId,
-    board.boardType === "kanban" ? board.kanbanSubQuery : null,
+  const statuses = await measure(trace, "statuses", () => reader.statuses()).catch(() => []);
+  const allFields = await measure(trace, "fields", () => reader.fields()).catch(() => []);
+  const issueTypes = await measure(trace, "types", () =>
+    discoverIssueTypes(reader, boardId, board.boardType === "kanban" ? board.kanbanSubQuery : null),
   );
 
   const fresh = buildConfiguration({
@@ -169,24 +170,27 @@ export async function loadSnapshot(input: {
   currentUser: JiraUser | null;
   goalsLoader: AtlassianGoalsLoader | null;
   now?: Date;
+  trace?: LoadTrace;
 }): Promise<SyncResult> {
-  const { reader, configuration } = input;
+  const { reader, configuration, trace } = input;
   const now = input.now ?? new Date();
   if (configuration.boardType === "kanban") return loadKanbanSnapshot({ ...input, now });
 
   // Le board montre les sprints ACTIFS, tous ensemble. Aucun autre sprint n'est consultable.
-  const candidateSprints = (await reader.sprints(configuration.boardId, ["active"]))
+  const candidateSprints = (
+    await measure(trace, "sprints", () => reader.sprints(configuration.boardId, ["active"]))
+  )
     .filter((sprint) => sprint.state === "active")
     .sort((a, b) => (a.startDate?.getTime() ?? 0) - (b.startDate?.getTime() ?? 0));
 
   if (candidateSprints.length === 0) {
-    return {
+    return measureSync(trace, "assemble", () => ({
       snapshot: emptySnapshot(now, input.currentUser),
       document: null,
       goalsIssue: null,
       goalsWarnings: [],
       goalColorIndex: { ...configuration.goalColorIndex },
-    };
+    }));
   }
 
   const extraFieldIds = [
@@ -203,11 +207,13 @@ export async function loadSnapshot(input: {
   for (const candidate of candidateSprints) {
     read.push({
       sprint: candidate,
-      issues: await reader.sprintIssues(configuration.boardId, candidate.id, {
-        estimationFieldId: configuration.estimationFieldId,
-        includeChangelog: true,
-        extraFieldIds,
-      }),
+      issues: await measure(trace, "issues", () =>
+        reader.sprintIssues(configuration.boardId, candidate.id, {
+          estimationFieldId: configuration.estimationFieldId,
+          includeChangelog: true,
+          extraFieldIds,
+        }),
+      ),
     });
   }
   const withIssues = read.filter((entry) => entry.issues.length > 0);
@@ -234,7 +240,9 @@ export async function loadSnapshot(input: {
   let goalsReadOnly = false;
   let pinnedGoalIds: readonly string[] | null = null;
   try {
-    const value = await reader.sprintProperty(sprint.id, SPRINT_PROPERTY_KEYS.goals);
+    const value = await measure(trace, "goalSettings", () =>
+      reader.sprintProperty(sprint.id, SPRINT_PROPERTY_KEYS.goals),
+    );
     document = value === null ? null : decodeSprintGoalDocument(value);
     pinnedGoalIds = document?.atlassianGoalIds ?? [];
   } catch (error) {
@@ -255,12 +263,15 @@ export async function loadSnapshot(input: {
     (pinnedGoalIds ?? []).length === 0 && localPins.length > 0 ? [...localPins] : null;
 
   if (configuration.goalSource === "atlassianGoals" && input.goalsLoader) {
+    const goalsLoader = input.goalsLoader;
     try {
-      const resolved = await input.goalsLoader.load({
-        pinnedGoalIds: localPinnedGoalIds ?? document?.atlassianGoalIds ?? [],
-        issues: sprintIssues,
-        configuration,
-      });
+      const resolved = await measure(trace, "goals", () =>
+        goalsLoader.load({
+          pinnedGoalIds: localPinnedGoalIds ?? document?.atlassianGoalIds ?? [],
+          issues: sprintIssues,
+          configuration,
+        }),
+      );
       goals = resolved.goals;
       links = resolved.links;
       goalsWarnings = resolved.warnings ?? [];
@@ -268,51 +279,57 @@ export async function loadSnapshot(input: {
     } catch (error) {
       // Repli explicite sur le champ texte, sans masquer la cause.
       goalsIssue = describeGoalsFailure(error);
-      ({ goals, links } = reconcileSprintGoals(sprint.goal, document));
+      ({ goals, links } = measureSync(trace, "goals", () =>
+        reconcileSprintGoals(sprint.goal, document),
+      ));
     }
   } else {
     if (configuration.goalSource === "atlassianGoals") {
       goalsIssue = "Lecture des Goals Atlassian indisponible.";
     }
-    ({ goals, links } = reconcileSprintGoals(sprint.goal, document));
+    ({ goals, links } = measureSync(trace, "goals", () =>
+      reconcileSprintGoals(sprint.goal, document),
+    ));
   }
 
-  const { goalIssues, swimlaneIssues } = assembleSnapshotIssues({
-    configuration,
-    issuesBySprint,
-    links,
-    now,
+  return measureSync(trace, "assemble", () => {
+    const { goalIssues, swimlaneIssues } = assembleSnapshotIssues({
+      configuration,
+      issuesBySprint,
+      links,
+      now,
+    });
+
+    // Couleurs des objectifs : locales, stables d'un sprint à l'autre.
+    const goalColorIndex = assignGoalColors(
+      goals.map((goal) => goal.id),
+      configuration.goalColorIndex,
+    );
+    const coloredGoals = goals.map((goal) => ({
+      ...goal,
+      color: goalColorName(goalColorIndex[goal.id] ?? 0),
+    }));
+
+    return {
+      snapshot: {
+        sprint,
+        activeSprints,
+        goals: coloredGoals,
+        goalsOrigin,
+        goalIssues,
+        swimlaneIssues,
+        syncedAt: now,
+        currentUser: input.currentUser,
+        goalsReadOnly,
+        pinnedGoalIds,
+        localPinnedGoalIds: goalsOrigin === "atlassianGoals" ? localPinnedGoalIds : null,
+      },
+      document,
+      goalsIssue,
+      goalsWarnings,
+      goalColorIndex,
+    };
   });
-
-  // Couleurs des objectifs : locales, stables d'un sprint à l'autre.
-  const goalColorIndex = assignGoalColors(
-    goals.map((goal) => goal.id),
-    configuration.goalColorIndex,
-  );
-  const coloredGoals = goals.map((goal) => ({
-    ...goal,
-    color: goalColorName(goalColorIndex[goal.id] ?? 0),
-  }));
-
-  return {
-    snapshot: {
-      sprint,
-      activeSprints,
-      goals: coloredGoals,
-      goalsOrigin,
-      goalIssues,
-      swimlaneIssues,
-      syncedAt: now,
-      currentUser: input.currentUser,
-      goalsReadOnly,
-      pinnedGoalIds,
-      localPinnedGoalIds: goalsOrigin === "atlassianGoals" ? localPinnedGoalIds : null,
-    },
-    document,
-    goalsIssue,
-    goalsWarnings,
-    goalColorIndex,
-  };
 }
 
 /**
@@ -325,8 +342,9 @@ async function loadKanbanSnapshot(input: {
   currentUser: JiraUser | null;
   goalsLoader: AtlassianGoalsLoader | null;
   now: Date;
+  trace?: LoadTrace;
 }): Promise<SyncResult> {
-  const { reader, configuration, now } = input;
+  const { reader, configuration, now, trace } = input;
   const extraFieldIds = [
     configuration.goalsFieldId,
     configuration.flaggedFieldId,
@@ -334,60 +352,76 @@ async function loadKanbanSnapshot(input: {
   ].filter((id): id is string => id !== null);
   // Jira applique le périmètre natif et ses statuts mappés. La structure locale peut dater :
   // un nouveau statut reste conservé, avec columnId=null et l'alerte de colonne non reconnue.
-  const issues = await reader.boardIssues(configuration.boardId, configuration.kanbanSubQuery, {
-    estimationFieldId: configuration.estimationFieldId,
-    includeChangelog: true,
-    extraFieldIds,
-  });
+  const issues = await measure(trace, "issues", () =>
+    reader.boardIssues(configuration.boardId, configuration.kanbanSubQuery, {
+      estimationFieldId: configuration.estimationFieldId,
+      includeChangelog: true,
+      extraFieldIds,
+    }),
+  );
   if (!input.goalsLoader) {
     throw new Error(
       "Lecture des Goals Atlassian indisponible : le board Kanban ne peut pas déterminer ses objectifs.",
     );
   }
+  const goalsLoader = input.goalsLoader;
   let resolved: Awaited<ReturnType<AtlassianGoalsLoader["load"]>>;
   try {
-    resolved = await input.goalsLoader.load({
-      pinnedGoalIds: configuration.boardPinnedGoalIds,
-      issues,
-      configuration,
-    });
+    resolved = await measure(trace, "goals", () =>
+      goalsLoader.load({
+        pinnedGoalIds: configuration.boardPinnedGoalIds,
+        issues,
+        configuration,
+      }),
+    );
   } catch (error) {
     // Sans texte de sprint, un repli vide classerait à tort tous les tickets dans Build.
     if (error instanceof JiraError && error.isAuthenticationFailure) throw error;
     throw new Error(`Objectifs du board Kanban indisponibles : ${describeGoalsFailure(error)}`);
   }
-  const { goalIssues, swimlaneIssues } = assembleSnapshotIssues({
-    configuration,
-    issuesBySprint: [{ sprint: null, issues }],
-    links: resolved.links,
-    now,
+  return measureSync(trace, "assemble", () => {
+    const { goalIssues, swimlaneIssues } = assembleSnapshotIssues({
+      configuration,
+      issuesBySprint: [{ sprint: null, issues }],
+      links: resolved.links,
+      now,
+    });
+    const goalColorIndex = assignGoalColors(
+      resolved.goals.map((goal) => goal.id),
+      configuration.goalColorIndex,
+    );
+    return {
+      snapshot: {
+        sprint: null,
+        activeSprints: [],
+        goals: resolved.goals.map((goal) => ({
+          ...goal,
+          color: goalColorName(goalColorIndex[goal.id] ?? 0),
+        })),
+        goalsOrigin: "atlassianGoals",
+        goalIssues,
+        swimlaneIssues,
+        syncedAt: now,
+        currentUser: input.currentUser,
+        goalsReadOnly: false,
+        pinnedGoalIds: [...configuration.boardPinnedGoalIds],
+        localPinnedGoalIds: null,
+      },
+      document: null,
+      goalsIssue: null,
+      goalsWarnings: resolved.warnings ?? [],
+      goalColorIndex,
+    };
   });
-  const goalColorIndex = assignGoalColors(
-    resolved.goals.map((goal) => goal.id),
-    configuration.goalColorIndex,
-  );
-  return {
-    snapshot: {
-      sprint: null,
-      activeSprints: [],
-      goals: resolved.goals.map((goal) => ({
-        ...goal,
-        color: goalColorName(goalColorIndex[goal.id] ?? 0),
-      })),
-      goalsOrigin: "atlassianGoals",
-      goalIssues,
-      swimlaneIssues,
-      syncedAt: now,
-      currentUser: input.currentUser,
-      goalsReadOnly: false,
-      pinnedGoalIds: [...configuration.boardPinnedGoalIds],
-      localPinnedGoalIds: null,
-    },
-    document: null,
-    goalsIssue: null,
-    goalsWarnings: resolved.warnings ?? [],
-    goalColorIndex,
-  };
+}
+
+/** L'instrumentation reste facultative ; les lectures et leurs erreurs gardent leur ordre. */
+function measure<T>(trace: LoadTrace | undefined, phase: LoadPhase, work: () => Promise<T>) {
+  return trace ? trace.measure(phase, work) : work();
+}
+
+function measureSync<T>(trace: LoadTrace | undefined, phase: LoadPhase, work: () => T) {
+  return trace ? trace.measureSync(phase, work) : work();
 }
 
 /** Assemblage identique pour les deux modes ; seul Scrum date les entrées dans un sprint. */

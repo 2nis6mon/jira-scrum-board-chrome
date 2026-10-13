@@ -1,7 +1,7 @@
 # Sprint Goals Board pour Jira — manuel d'installation et d'utilisation
 
 > Extension Chrome pour boards Scrum et Kanban Jira Cloud : objectifs, Build et swimlanes par
-> type configurables. Version couverte par ce manuel : **0.28.1**, intégré uniquement dans Jira. Les captures illustrent la
+> type configurables. Version couverte par ce manuel : **0.29.0**, intégré uniquement dans Jira. Les captures illustrent la
 > version Scrum 0.22.7 ; certains libellés ont évolué.
 
 Ce document est prêt à coller dans une page Confluence (titres, listes et texte en gras se
@@ -214,6 +214,32 @@ normale.
 
 ## 8. Support
 
-En cas de problème, ouvrez la section **Diagnostic** de l'Administration et transmettez son
-contenu tel quel à la personne qui maintient l'extension, avec une description de ce qui a été
-tenté.
+### Comprendre un chargement lent
+
+Un indicateur en bas à gauche montre le temps écoulé et l'étape en cours. Cliquez sur
+**Voir les détails** pour ouvrir le diagnostic de chargement, même pendant l'attente.
+La fenêtre se ferme avec sa croix, Échap ou un clic sur le fond ; la mesure continue.
+Elle est masquée en Daily et en présentation.
+
+La chronologie distingue la configuration, les tickets, les objectifs, les filtres et les
+couleurs. Les trois temps affichés correspondent aux données prêtes, au board affiché et à la
+fin de la synchronisation. Le temps d'affichage est une estimation après deux frames du
+navigateur. La navigation de Jira avant le démarrage de l'extension n'est pas mesurée.
+Les étapes qui se déroulent en parallèle ne doivent pas être additionnées.
+
+Cliquez sur **Copier le rapport** et collez-le dans votre demande de support, en précisant
+« ouverture lente » ou « actualisation lente ». Le rapport contient version, type de board,
+comptages, durées et erreurs techniques, sans nom, URL, contenu des tickets ou identifiants
+Jira. Il reste copiable si le chargement échoue ou est encore en cours. Aucun envoi automatique.
+
+Les cinq derniers chargements restent dans ce navigateur pour les comparer. L'historique
+peut être effacé depuis la fenêtre et disparaît aussi à la déconnexion. Si plusieurs
+actions de relecture se chevauchent, elles peuvent prolonger une même mesure.
+Pour comparer plusieurs essais, effectuez-les dans le même onglet : des onglets ouverts
+simultanément peuvent remplacer leurs historiques respectifs.
+
+### Connexion ou droits Jira
+
+Ouvrez **Administration → Diagnostic**. Ce diagnostic distinct vérifie les capacités de
+connexion et propose un rapport ; relisez-le avant de le transmettre avec la description du
+problème.
