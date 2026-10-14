@@ -48,6 +48,8 @@ jobs:
         run: npm run verify:settings
       - name: Vérifier l'atelier Sprint Planning
         run: npm run verify:planning
+      - name: Vérifier la désactivation du planning dans le paquet
+        run: npm run verify:planning:package
       - name: Vérifier le diagnostic de chargement du banc
         run: npm run verify:loading
       - name: Vérifier les types, le style, les tests et la compilation

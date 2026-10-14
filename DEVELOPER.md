@@ -361,6 +361,13 @@ Node >= 22.12 ; dépendances exactes dans `package-lock.json`, scripts d'install
 `npm run watch` le reconstruit. `.run/` partagé, `.idea/` et préférences personnelles ignorées.
 `.gitattributes` impose les fins de ligne LF pour conserver le même format dans chaque clone.
 
+Feature flag `SPRINT_PLANNING_ENABLED` : Vite injecte `__SPRINT_PLANNING_ENABLED__` à la compilation.
+Il vaut `true` uniquement pour les modes `dist` (`npm run build`), `development` (`watch` et banc)
+et `test` ; `false` pour `package`, `production` et tout mode inconnu. `npm run package` reconstruit
+toujours dans un dossier temporaire avec `--mode package`, sans reprendre ni remplacer `dist/`.
+Le paquet masque l'entrée et bloque l'ouverture, les lectures et la publication du planning.
+Ce flag ne provient ni de `.env`, ni d'un paramètre d'URL, ni d'une préférence Chrome.
+
 | Commande | Contrôle / résultat |
 |---|---|
 | `npm run test` / `test:watch` | Tests Vitest |
@@ -371,6 +378,7 @@ Node >= 22.12 ; dépendances exactes dans `package-lock.json`, scripts d'install
 | `npm run verify:drag` / `verify:button` | Gestes ; bouton et stockage Chrome, zoom/redimensionnement/plein écran |
 | `npm run verify:settings` | Glissés des réglages : swimlanes, types, champs et règles de couleur |
 | `npm run verify:planning` | Atelier, glissés/affectations, brouillon, publication, RAF consultatif et petit écran |
+| `npm run verify:planning:package` | Passage du mode local au mode package : entrée/route désactivées, zéro requête Planning, brouillon conservé |
 | `npm run verify:loading` | Diagnostic de chargement du banc fictif |
 | `npm run package` | Archive `release/sprint-goals-board-<version>.zip` vérifiée |
 | `npm run store:screenshots` | Captures fictives du Store |
@@ -378,7 +386,7 @@ Node >= 22.12 ; dépendances exactes dans `package-lock.json`, scripts d'install
 Les vérifications navigateur interceptent Jira dans un profil temporaire vierge ; `CHROME_PATH`
 choisit l'exécutable. `verify:button` autorise deux hôtes fictifs dans une copie temporaire du paquet,
 sans changer manifest distribué ni profil utilisateur. Aucun accès à la session réelle sans autorisation.
-Pour préserver un `dist/` en essai : construire avec `npx vite build --outDir <dossier>`, puis lancer
+Pour préserver un `dist/` en essai : construire avec `npx vite build --mode dist --outDir <dossier>`, puis lancer
 `node scripts/verify-jira.mjs` ou `verify-load.mjs` avec `EXTENSION_DIR=<dossier>` dans l'environnement.
 Les anciens alias `*:jira-direct-test` et `JIRA_DIRECT_DIST` restent retirés.
 
@@ -431,7 +439,8 @@ Préparer une archive ne la publie pas sur le Store.
 - [ ] WIP en points et minimums de colonne ; présentation des sources Goals selon capacités du site.
 - [ ] Déploiement IT via `storage.managed` si besoin ; déplacement clavier si la décision d'abandon est réouverte.
 
-Sprint Planning livré en 0.32.0 : valider ensuite les droits et volumes sur une instance réelle.
+Sprint Planning introduit en 0.32.0, réservé au `dist/` local depuis 0.32.1 : valider ensuite les droits
+et volumes sur une instance réelle avant son activation dans le paquet.
 Le démarrage/création de sprint, le report automatique du RAF et la création de Goals restent hors périmètre.
 Contrats de publication et backlog vérifiés le 14/10/2026 dans les références officielles
 [Sprint](https://developer.atlassian.com/cloud/jira/software/rest/api-group-sprint/) et

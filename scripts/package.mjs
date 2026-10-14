@@ -1,6 +1,7 @@
 // Paquet Chrome Web Store de l'extension intégrée à Jira. La construction utilise un dossier
 // temporaire sous release/ : dist/ et les livraisons précédentes restent disponibles.
 // Le Store attribue son identifiant : seul le champ public `key` est retiré du manifest.
+// Le mode package désactive les fonctions expérimentales, notamment Sprint Planning.
 // Usage : npm run package → release/sprint-goals-board-<version>.zip
 
 import { execFileSync } from "node:child_process";
@@ -37,7 +38,7 @@ try {
   // L'exécutable Node évite les différences entre npx et npx.cmd sous Windows.
   execFileSync(
     process.execPath,
-    [join(root, "node_modules/vite/bin/vite.js"), "build", "--outDir", build],
+    [join(root, "node_modules/vite/bin/vite.js"), "build", "--mode", "package", "--outDir", build],
     {
       cwd: root,
       stdio: "inherit",

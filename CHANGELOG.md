@@ -3,6 +3,13 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.32.1 — Sprint Planning réservé aux essais locaux
+
+- Feature flag fixé à la compilation : Sprint Planning actif dans `dist/` via `build` ou `watch`,
+  désactivé dans le ZIP produit par `package`.
+- L'entrée, la navigation, les lectures et la publication du planning sont bloquées dans le paquet.
+  La création du ZIP conserve le `dist/` local et ses fonctionnalités expérimentales.
+
 ## 0.32.0 — Atelier Sprint Planning
 
 - Préparation des sprints futurs par objectifs texte : backlog filtrable, RAF consultatif, affectation

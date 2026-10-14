@@ -17,6 +17,7 @@ import { isRecord } from "../../jira/json";
 import { estimate, isDoneStatus, type JiraSprint } from "../../jira/models";
 import type { JiraTransport } from "../../jira/transport";
 import { isIssueKey } from "../../jira/writes";
+import { SPRINT_PLANNING_ENABLED } from "../featureFlags";
 import type { Platform } from "../platform/types";
 import type { AuditLog } from "./auditLog";
 import { toMessage, type UserMessage } from "./messages";
@@ -71,6 +72,7 @@ export class PlanningModel implements PlanningViewModel {
   }
 
   readonly issues = computed((): readonly PlanningIssue[] => {
+    if (!SPRINT_PLANNING_ENABLED) return [];
     const snapshot = this.snapshot.value;
     if (!snapshot) return [];
     const fieldId = this.context.configuration()?.estimationFieldId ?? null;
@@ -91,11 +93,13 @@ export class PlanningModel implements PlanningViewModel {
   });
 
   readonly dirty = computed(() => {
+    if (!SPRINT_PLANNING_ENABLED) return false;
     const current = this.draft.value;
     return current !== null && draftContent(current) !== this.#originalContent.value;
   });
 
   readonly validation = computed((): string | null => {
+    if (!SPRINT_PLANNING_ENABLED) return "Sprint Planning est désactivé dans cette version.";
     if (this.#reviewRequired.value) return this.#reviewRequired.value;
     const draft = this.draft.value;
     if (!draft) return "Choisissez un sprint futur à préparer.";
@@ -119,6 +123,7 @@ export class PlanningModel implements PlanningViewModel {
 
   readonly canPublish = computed(
     () =>
+      SPRINT_PLANNING_ENABLED &&
       this.dirty.value &&
       this.error.value === null &&
       !this.loading.value &&
@@ -128,6 +133,7 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Aucune lecture du backlog à l'ouverture ordinaire du board. */
   async load(): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return;
     const configuration = this.context.configuration();
     if (configuration?.boardType !== "scrum" || this.publishing.value || this.#disposed) return;
     if (this.#boardId === configuration.boardId && (this.loading.value || this.snapshot.value))
@@ -186,6 +192,7 @@ export class PlanningModel implements PlanningViewModel {
   }
 
   async selectSprint(id: number): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return;
     const configuration = this.context.configuration();
     if (
       !configuration ||
@@ -248,6 +255,7 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Relire conserve le brouillon ; un changement concurrent exige une décision explicite. */
   async refresh(): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return;
     if (this.publishing.value || this.loading.value || this.#disposed) return;
     await this.#saveQueue;
     await this.#loadSprintsAndSelection();
@@ -346,6 +354,7 @@ export class PlanningModel implements PlanningViewModel {
   }
 
   async publish(): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return;
     const snapshot = this.snapshot.value;
     const draft = this.draft.value;
     const configuration = this.context.configuration();
@@ -404,6 +413,7 @@ export class PlanningModel implements PlanningViewModel {
   }
 
   async discardDraft(): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return;
     const id = this.selectedSprintId.value;
     if (id === null || this.#boardId === null || this.publishing.value || this.loading.value)
       return;
@@ -416,6 +426,7 @@ export class PlanningModel implements PlanningViewModel {
   }
 
   openIssue(key: string): void {
+    if (!SPRINT_PLANNING_ENABLED) return;
     if (
       !this.publishing.value &&
       isIssueKey(key) &&
@@ -426,6 +437,7 @@ export class PlanningModel implements PlanningViewModel {
   }
 
   async copySummary(): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return;
     const draft = this.draft.value;
     if (!draft) return;
     this.notice.value = null;
@@ -571,6 +583,7 @@ export class PlanningModel implements PlanningViewModel {
   }
 
   #change(draft: PlanningDraft): void {
+    if (!SPRINT_PLANNING_ENABLED) return;
     if (this.loading.value || this.publishing.value || this.#disposed || this.#boardId === null)
       return;
     this.draft.value = draft;

@@ -1,6 +1,6 @@
 {
   "name": "jira-scrum-board-chrome",
-  "version": "0.32.0",
+  "version": "0.32.1",
   "private": true,
   "description": "Boards Scrum et Kanban Jira Cloud : swimlanes par objectif, Build et RUN configurables, glisser-déposer et Daily.",
   "type": "module",
@@ -8,7 +8,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build --mode dist",
     "watch": "vite build --watch --mode development",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
@@ -21,6 +21,7 @@
     "verify:settings": "node scripts/verify-settings.mjs",
     "verify:loading": "node scripts/verify-loading.mjs",
     "verify:planning": "node scripts/verify-planning.mjs",
+    "verify:planning:package": "node scripts/verify-planning.mjs --package",
     "verify:load": "npm run build && node scripts/verify-load.mjs",
     "verify:jira": "npm run build && node scripts/verify-jira.mjs",
     "harness": "vite --config vite.harness.config.ts",

@@ -93,6 +93,9 @@ La lecture est limitée à **5 000 tickets** : au-delà, elle est refusée ; ré
 
 ## Préparer le Sprint Planning
 
+Fonction expérimentale réservée à l'installation locale depuis `dist/` (`npm run build` ou
+`npm run watch`). Elle est désactivée dans la version packagée ; aucune option ne l'y active.
+
 Sur un board Scrum, ouvrez **Sprint Planning** dans la barre latérale et choisissez un sprint futur.
 S'il n'en existe pas, créez-le dans Jira puis cliquez sur **Actualiser**. Les objectifs viennent
 uniquement du texte de ce sprint : une ligne par objectif, sans création de Goal Atlassian.

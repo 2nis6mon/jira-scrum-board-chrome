@@ -11,6 +11,11 @@ export default defineConfig(({ mode }) => {
     root,
     base: "",
     publicDir: "public",
+    // Fonction expérimentale réservée aux builds locaux et aux tests. Aucun réglage
+    // utilisateur ni fichier .env ne peut l'activer dans le mode package.
+    define: {
+      __SPRINT_PLANNING_ENABLED__: ["dist", "development", "test"].includes(mode),
+    },
     build: {
       outDir: "dist",
       emptyOutDir: true,

@@ -490,9 +490,6 @@ if (scenario.startsWith("board")) {
         persist();
       },
     });
-    Object.assign(window, {
-      __planning: { inspect: planning.inspect, ready: () => planningReady },
-    });
   }
   // Épinglage et réglages : un board déjà réglé sur les Goals Atlassian, comme après un choix fait
   // dans les réglages ; sinon ses Goals, découverts après une première lecture, arriveraient masqués.
@@ -514,6 +511,32 @@ if (scenario.startsWith("board")) {
         }
       : platform,
   );
+  if (planning) {
+    // Garde-fous du paquet : appels réels du modèle avec un brouillon déjà dans le stockage.
+    Object.assign(window, {
+      __planning: {
+        inspect: planning.inspect,
+        ready: () => planningReady,
+        requestCount: () => jira.requests.length,
+        storedDrafts: () =>
+          [...platform.stored].filter(([key]) => key.startsWith("sprint-planning.")),
+        async exerciseEntrypoints() {
+          const current = model.connection.value;
+          if (current.state !== "connected") throw new Error("Board fictif non connecté");
+          model.showPlanning();
+          await current.board.planning.load();
+          await current.board.planning.refresh();
+          await current.board.planning.selectSprint(43);
+          await current.board.planning.publish();
+          model.view.value = "planning";
+          return {
+            draft: current.board.planning.draft.value,
+            canPublish: current.board.planning.canPublish.value,
+          };
+        },
+      },
+    });
+  }
   if (scenario === "board-chargement") {
     // Contrôles du seul banc fictif ; aucun de ces objets n'entre dans le paquet de production.
     Object.assign(window, {

@@ -25,7 +25,7 @@ pour garder l'identité de l'installation.
 ## Utiliser
 
 - Scrum : tickets de tous les sprints actifs ; objectifs du texte du sprint ou Goals Atlassian.
-- Sprint Planning : préparer un sprint futur par objectifs texte, répartir le backlog, consulter
+- Sprint Planning (expérimental, `dist/` local uniquement) : préparer un sprint futur par objectifs texte, répartir le backlog, consulter
   le reste à faire et publier le plan après revue. Brouillon personnel conservé dans Chrome.
 - Kanban : tickets du board et de son sous-filtre ; Goals Atlassian uniquement.
 - Déplacement des tickets, fiche et formulaires natifs Jira, filtres, sous-tâches, Daily et présentation.
@@ -48,3 +48,5 @@ automatiquement. Les limites et les réglages sont décrits dans le manuel.
 La [politique de confidentialité](docs/privacy/index.html) reste séparée pour sa publication.
 Pour développer : `npm run check` vérifie et compile ; `npm run watch` reconstruit en continu.
 Les configurations IntelliJ sont dans `.run/` ; les autres commandes sont dans le guide développeur.
+`npm run package` construit séparément le ZIP de distribution avec Sprint Planning désactivé,
+sans modifier votre `dist/` local. Ce choix est fixé à la compilation, sans option dans Chrome.

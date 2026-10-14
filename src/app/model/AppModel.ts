@@ -2,6 +2,7 @@ import { signal } from "@preact/signals";
 import { type DailySession, startDaily } from "../../core/daily";
 import { isRecord } from "../../jira/json";
 import { type JiraSite, normalizeSiteUrl, parseBoardUrl } from "../../jira/site";
+import { SPRINT_PLANNING_ENABLED } from "../featureFlags";
 import type { Platform } from "../platform/types";
 import { AuditLog } from "./auditLog";
 import { BoardModel } from "./BoardModel";
@@ -217,6 +218,7 @@ export class AppModel {
 
   /** Ouvre le planning sans charger son backlog pour les autres vues. */
   showPlanning(): void {
+    if (!SPRINT_PLANNING_ENABLED) return;
     const current = this.connection.value;
     if (
       current.state !== "connected" ||
@@ -233,7 +235,11 @@ export class AppModel {
 
   #planningPublishing(): boolean {
     const current = this.connection.value;
-    return current.state === "connected" && current.board.planning.publishing.value;
+    return (
+      SPRINT_PLANNING_ENABLED &&
+      current.state === "connected" &&
+      current.board.planning.publishing.value
+    );
   }
 
   /** Quitter le diagnostic replie le menu « Site Jira » qui le contient. */

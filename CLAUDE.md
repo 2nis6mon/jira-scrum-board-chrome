@@ -23,6 +23,8 @@ Le mode autonome et l'application macOS sont abandonnés.
   Seule sa confirmation de publication peut modifier le texte natif et ajouter des tickets du backlog
   à un sprint futur ; RAF actif consultatif. Aucun démarrage/création de sprint, retrait de ticket,
   ni création de Goal. Préparation locale, relecture avant écriture, conflit conservant le brouillon.
+- Sprint Planning est expérimental : actif dans les builds locaux `dist/` et les tests uniquement,
+  désactivé à la compilation dans le paquet de distribution (`npm run package`).
 - Réglages partagés relus à chaque chargement, écrits seulement sur modification explicite.
   Aucun calcul automatique ne publie dans Jira. Sans `canEdit`, ils restent en lecture seule ;
   les préférences personnelles restent locales.
