@@ -345,6 +345,7 @@ export async function loadSnapshot(input: {
         goalsOrigin,
         goalIssues,
         swimlaneIssues,
+        issueOrder: sprintIssues.map((issue) => issue.key),
         syncedAt: now,
         currentUser: input.currentUser,
         goalsReadOnly,
@@ -436,6 +437,7 @@ async function loadKanbanSnapshot(input: {
         goalsOrigin: "atlassianGoals",
         goalIssues,
         swimlaneIssues,
+        issueOrder: issues.map((issue) => issue.key),
         syncedAt: now,
         currentUser: input.currentUser,
         goalsReadOnly: false,
@@ -479,8 +481,8 @@ function assembleSnapshotIssues(input: {
   const categoryOf = (issue: JiraIssue) => types.get(issue.fields.issuetype.id) ?? "GOAL";
 
   // Sous-tâches : elles gardent leur carte, mais suivent leur story. Sans Goal propre, elles prennent
-  // celui de leur parent ; et quand leur parent est sur le board, elles vont dans le même bloc que
-  // lui (par objectif, ou sa swimlane par type). La famille reste ainsi dans la même swimlane.
+  // celui de leur parent ; quand le parent est sur le board, son type détermine aussi leur
+  // destination par défaut. Un rattachement propre reste prioritaire.
   const families = subtaskFamilies(sprintIssues, links);
   const goalLinks = { ...links, ...families.inheritedLinks };
   const ownerOf = (issue: JiraIssue) => families.parentOf.get(issue.key) ?? issue;
@@ -506,23 +508,29 @@ function assembleSnapshotIssues(input: {
       }),
     );
     for (const swimlane of configuration.ticketSwimlanes) {
-      swimlaneIssues.push(
-        ...assembleBoardIssues({
-          issues: entry.issues.filter(
-            (issue) => blockOf(issue) === "SWIMLANE" && swimlaneOf(issue) === swimlane.id,
-          ),
-          configuration,
-          columns: configuration.columns,
-          links: {},
-          sprint: entry.sprint,
-          subtaskIssues: families.subtaskIssues,
-          swimlaneId: swimlane.id,
-          now,
-        }),
-      );
+      const assembled = assembleBoardIssues({
+        issues: entry.issues.filter(
+          (issue) => blockOf(issue) === "SWIMLANE" && swimlaneOf(issue) === swimlane.id,
+        ),
+        configuration,
+        columns: configuration.columns,
+        links: goalLinks,
+        sprint: entry.sprint,
+        subtaskIssues: families.subtaskIssues,
+        swimlaneId: swimlane.id,
+        now,
+      });
+      // Le type garde sa destination par défaut pour un futur détachement ; seul le
+      // rattachement décide si le ticket participe actuellement aux objectifs.
+      goalIssues.push(...assembled.filter((issue) => issue.goalId !== null));
+      swimlaneIssues.push(...assembled.filter((issue) => issue.goalId === null));
     }
   }
 
+  // Plusieurs destinations par défaut peuvent alimenter un même objectif : leur regroupement
+  // conserve le rang fourni par Jira, sans placer artificiellement un type avant les autres.
+  const rank = new Map(sprintIssues.map((issue, index) => [issue.key, index]));
+  goalIssues.sort((a, b) => (rank.get(a.issue.key) ?? 0) - (rank.get(b.issue.key) ?? 0));
   return { goalIssues, swimlaneIssues };
 }
 

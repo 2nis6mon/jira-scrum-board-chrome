@@ -171,7 +171,7 @@ export class BoardLoadingService {
       );
       // À la toute première lecture, les Goals constituent le board initial et restent visibles.
       // Ensuite, un Goal inconnu introduit par un ticket arrive masqué : le ticket reste dans
-      // Build jusqu'à ce que l'utilisateur le réaffiche depuis « Goals masqués ».
+      // son bloc par défaut jusqu'à ce que l'utilisateur le réaffiche depuis « Goals masqués ».
       const newLinkedGoalIds =
         knownGoalIds.size === 0
           ? []

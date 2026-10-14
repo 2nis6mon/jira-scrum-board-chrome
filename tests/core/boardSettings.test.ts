@@ -68,7 +68,7 @@ describe("types de tickets et swimlanes par type", () => {
       swimlane.typeIds,
     ]);
 
-  it("par défaut, les types hors objectifs forment une swimlane nommée d'après eux", () => {
+  it("les types à swimlane dédiée la nomment par défaut d'après eux", () => {
     expect(names(base)).toEqual([["1", "Anomalie Prod / Anomalie de Recette", ["10004", "10005"]]]);
   });
 

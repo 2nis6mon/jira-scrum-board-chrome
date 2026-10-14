@@ -168,6 +168,32 @@ try {
   );
   console.log("✓ Board : « Anomalie de Recette » glissé dans la swimlane OPS");
 
+  // Le menu décrit le classement sans objectif ; changer ce défaut reste possible au clavier.
+  const chooseDefault = async (label) => {
+    await run(`${chip("10005")}.querySelector('summary').click()`);
+    const chosen = await run(`(() => {
+      const button = [...${chip("10005")}.querySelectorAll('button')]
+        .find((item) => item.textContent.trim() === ${JSON.stringify(label)});
+      if (!button || button.disabled) return false;
+      button.click();
+      return true;
+    })()`);
+    assert(chosen, `classement par défaut indisponible : ${label}`);
+  };
+  await chooseDefault("Build par défaut");
+  await waitFor(
+    sessionId,
+    'document.querySelector(\'[aria-label="Types build par défaut"] [data-type-id="10005"]\') !== null',
+    "le type n'a pas rejoint les types Build par défaut",
+  );
+  await chooseDefault("RUN par défaut");
+  await waitFor(
+    sessionId,
+    `${lane("RUN")}?.querySelector('[data-type-id="10005"]') != null`,
+    "le classement RUN par défaut n'a pas été rétabli",
+  );
+  console.log("✓ Board : menu de type vers Build par défaut puis RUN par défaut");
+
   // ─── Onglet Champs des cartes ──────────────────────────────────────────────
   const fields = `[...document.querySelectorAll('.settings-item .settings-grip')].map((g) => g.getAttribute('aria-label').replace('Déplacer ', ''))`;
   const field = (name) =>

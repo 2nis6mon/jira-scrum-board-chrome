@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BoardModel } from "../../src/app/model/BoardModel";
-import { BUILD_BLOCK, goalBlock } from "../../src/core/boardBlocks";
+import { BUILD_BLOCK, goalBlock, swimlaneBlock } from "../../src/core/boardBlocks";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { atlassianGoalsPlatform } from "../support/atlassianGoalsBoard";
 import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
@@ -34,13 +34,14 @@ const GOALS: FakeGoal[] = [
 
 async function goalsBoard(
   options: {
+    goals?: FakeGoal[];
     mutation?: (input: { goalId: string; workItemId: string }, field: string) => Reply;
   } = {},
 ) {
   const mutations: { field: string; goalId: string; workItemId: string }[] = [];
   const jira = boardSiteJira({
     graphql: goalsGateway({
-      goals: GOALS,
+      goals: options.goals ?? GOALS,
       mutation: (input, field) => {
         mutations.push({ field, ...input });
         return (
@@ -140,6 +141,46 @@ describe("BoardModel — Goals Atlassian", () => {
       beforeKey: null,
     });
     expect(mutations.map((m) => [m.field, m.goalId])).toEqual([["goals_linkWorkItem", PAIEMENT]]);
+  });
+
+  it("RUN rejoint un Goal natif puis retrouve sa swimlane après détachement", async () => {
+    const goals = GOALS.map((goal) => ({ ...goal, workItems: [...(goal.workItems ?? [])] }));
+    const { board, jira, mutations } = await goalsBoard({
+      goals,
+      mutation: (input, field) => {
+        const goal = goals.find((candidate) => candidate.id === input.goalId);
+        if (!goal) throw new Error("Goal fictif attendu");
+        const key = input.workItemId.split("/").at(-1);
+        if (!key) throw new Error("Ticket fictif attendu");
+        goal.workItems =
+          field === "goals_linkWorkItem"
+            ? [...goal.workItems, key]
+            : goal.workItems.filter((item) => item !== key);
+        return { status: 200, json: { data: { [field]: { success: true } } } };
+      },
+    });
+    const before = jira.requests.length;
+    const drop = { issueKey: "RUN-7", columnId: "col-1-En cours", beforeKey: null };
+    await board.dropIssue({ ...drop, block: goalBlock(STABILITE) });
+    expect(
+      board.snapshot.value?.goalIssues.find((issue) => issue.issue.key === "RUN-7"),
+    ).toMatchObject({ goalId: STABILITE, swimlaneId: "1" });
+    expect(board.layout.value?.lanes.some((lane) => lane.id === "swimlane:1")).toBe(false);
+    await board.dropIssue({ ...drop, block: swimlaneBlock("1") });
+    expect(
+      board.snapshot.value?.swimlaneIssues.find((issue) => issue.issue.key === "RUN-7")?.goalId,
+    ).toBeNull();
+    expect(mutations.map((mutation) => [mutation.field, mutation.goalId])).toEqual([
+      ["goals_linkWorkItem", STABILITE],
+      ["goals_unlinkWorkItem", STABILITE],
+    ]);
+    expect(
+      jira.requests
+        .slice(before)
+        .filter(isWriteRequest)
+        .map((request) => request.path),
+    ).toEqual(["/gateway/api/graphql", "/gateway/api/graphql"]);
+    board.dispose();
   });
 
   it("détachement refusé par Atlassian : on s'arrête, le ticket n'est pas lié à deux Goals", async () => {

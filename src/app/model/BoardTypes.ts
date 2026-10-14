@@ -47,7 +47,7 @@ export interface TransitionChoice {
 /** Carte en cours de glisser-déposer. */
 export interface DragState {
   readonly issueKey: string;
-  /** Swimlane par type de la carte ; `null` pour une carte par objectif. */
+  /** Destination sans objectif : swimlane par type, ou Build si `null`. */
   readonly lane: string | null;
 }
 

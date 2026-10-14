@@ -149,12 +149,13 @@ describe("photographie Kanban", () => {
     const jira = new FakeJira().on("GET", PATH, {
       status: 200,
       json: {
-        total: 7,
+        total: 8,
         issues: [
           issueJson("ABC-1"),
           issueJson("ABC-2"),
           issueJson("RUN-1", { typeId: SWIMLANE_TYPE.id }),
           subtask("RUN-2", "RUN-1"),
+          issueJson("RUN-3", { typeId: SWIMLANE_TYPE.id }),
           issueJson("OPS-1", { typeId: "ops" }),
           subtask("ABC-3", "ABC-1"),
           issueJson("ABC-4", { typeId: "excluded" }),
@@ -178,19 +179,26 @@ describe("photographie Kanban", () => {
     const result = await sync(jira, configuration, {
       load: async () => ({
         goals: [makeSprintGoal({ id: "g1", title: "Améliorer", position: 0 })],
-        links: { "ABC-1": "g1" },
+        links: { "ABC-1": "g1", "RUN-1": "g1", "ABC-4": "g1" },
       }),
     });
     expect(result.snapshot.goalIssues.map((i) => [i.issue.key, i.goalId])).toEqual([
       ["ABC-1", "g1"],
       ["ABC-2", null],
+      ["RUN-1", "g1"],
+      ["RUN-2", "g1"],
       ["ABC-3", "g1"],
     ]);
     expect(result.snapshot.swimlaneIssues.map((i) => [i.issue.key, i.swimlaneId])).toEqual([
-      ["RUN-1", "1"],
-      ["RUN-2", "1"],
+      ["RUN-3", "1"],
       ["OPS-1", "2"],
     ]);
+    expect(result.snapshot.issueOrder?.slice(2, 5)).toEqual(["RUN-1", "RUN-2", "RUN-3"]);
+    expect(
+      result.snapshot.goalIssues
+        .filter((issue) => issue.issue.key.startsWith("RUN-"))
+        .map((issue) => issue.swimlaneId),
+    ).toEqual(["1", "1"]);
   });
 
   it("Goals indisponibles : échec explicite, aucun classement inventé dans Build", async () => {

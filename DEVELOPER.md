@@ -77,16 +77,23 @@ copie, historique, fermeture et format étroit, avec captures dans `.vite/`.
   reste affichée avec l'erreur : aucun repli qui placerait à tort tous les tickets dans Build.
   `boardPinnedGoalIds` est partagé sur le board, sans propriété de sprint, et exige son droit d'édition.
 - Un ticket lié à plusieurs Goals suit le premier Goal résolu. Après la première lecture, un Goal
-  nouvellement découvert par un ticket arrive masqué ; ses tickets restent dans Build jusqu'à réaffichage.
+  nouvellement découvert par un ticket arrive masqué ; ses tickets restent dans leur destination
+  par défaut jusqu'à réaffichage, sans modifier le rattachement.
   Les objectifs épinglés peuvent rester vides. Un Goal vide n'est jamais atteint ; sinon tous ses
   tickets doivent être dans la dernière colonne visible. Le vert est réservé à cet état.
 - Une seule série de colonnes pour toutes les swimlanes. Un type est `GOAL`, `SWIMLANE` ou `IGNORED`.
   [`normalizeSwimlanes`](src/core/boardConfiguration.ts) garantit une seule swimlane par type :
   groupe créé avec son premier type, retiré avec le dernier ; nom vide = noms des types réunis.
-  Les lignes sans ticket affiché disparaissent, sauf les objectifs vides. Une carte d'une swimlane
-  par type ne se dépose que dans cette swimlane.
+  L'objectif est prioritaire pour tous les types visibles : `swimlaneId` conserve la destination
+  par défaut du ticket, utilisée sans objectif visible. `goalIssues` contient aussi les tickets
+  de types `SWIMLANE` rattachés ; `swimlaneIssues` contient ceux sans rattachement. Les types
+  `IGNORED` restent exclus. Les lignes sans ticket affiché disparaissent, sauf les objectifs vides.
+  Une carte peut rejoindre tout objectif ou revenir uniquement dans sa destination par défaut.
+  Pendant le glissé, sa destination vide réapparaît temporairement en fin de board pour préserver
+  la position de la carte source ; elle reprend l'ordre configuré après détachement.
 - Les sous-tâches gardent leur carte et leurs compteurs ; sans Goal propre, elles héritent de celui
-  du parent. Si celui-ci est présent, elles suivent son bloc, y compris une swimlane par type.
+  du parent. Si celui-ci est présent, elles héritent de sa destination par défaut ; leur propre
+  objectif reste prioritaire s'il existe.
   Filtres carte par carte, WIP en tickets, `columnLoad` sur toutes les swimlanes. Survol de famille
   seulement avec au moins deux cartes visibles et hors glissé ; jauge et alerte des sous-tâches
   utilisent ces données, sans lecture Jira supplémentaire.
@@ -240,7 +247,7 @@ avec conteneur résolu depuis le site ; `goals_byIds` reçoit `goalIds`. Les ré
 complètent épinglages et recherche. Liens Goal → tickets paginés si arguments et `pageInfo` exploitables.
 Une page de 100 liens sans pagination exploitable est incomplète ; recherche/liens bornés à 20 pages,
 curseur incohérent ou limite signalés. Kanban peut se rabattre sur le champ Goals présent dans **chaque
-ticket classé par objectif**, même `null` ; s'il manque et que les liens GraphQL sont incomplets,
+ticket d'un type non ignoré**, même `null` ; s'il manque et que les liens GraphQL sont incomplets,
 la lecture échoue. Les mutations admises sont E3/E4 ci-dessous (`goalId`, `workItemId`, résultat
 `success`/`errors`). Pas de création/modification de Goal. Les POST GraphQL de lecture et
 `/rest/api/3/jql/parse` ne sont pas des écritures métier ; le chemin lecture refuse `mutation`/`subscription`.
@@ -320,7 +327,7 @@ Données rendues en texte Preact, liens externes `noopener noreferrer`. Nouvelle
 | E1 | `POST /rest/api/3/issue/{clé}/transitions`, seul `transition.id`, sans formulaire | Dépôt autre colonne / choix explicite |
 | E2 | `PUT /rest/agile/1.0/issue/rank` | Dépôt avant/après un ticket |
 | E3 | `goals_linkWorkItem` | Dépôt vers un Goal |
-| E4 | `goals_unlinkWorkItem` | Dépôt vers Build / changement de Goal |
+| E4 | `goals_unlinkWorkItem` | Retour dans la destination par défaut / changement de Goal |
 | E5 | `PUT /rest/agile/1.0/sprint/{id}/properties/com.scrumboardmac.sprintgoals.v1` | Épinglage Scrum / lien en mode texte |
 | E6 | `PUT /rest/agile/1.0/board/{id}/properties/com.scrumboardmac.boardsettings.v1` | Réglage explicite, dont épinglage Kanban |
 | E7 | `PUT` puis `DELETE /rest/agile/1.0/sprint/{id}/properties/com.scrumboardmac.diagnostic` | Test demandé dans Diagnostic |

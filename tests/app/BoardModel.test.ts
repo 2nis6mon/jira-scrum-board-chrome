@@ -300,7 +300,7 @@ describe("BoardModel — filtres et mise en page", () => {
     ]);
     expect(options?.unassignedCount).toBe(2);
     expect(options?.goals.map((o) => o.count)).toEqual([2, 1]);
-    expect(options?.withoutGoalCount).toBe(2);
+    expect(options?.withoutGoalCount).toBe(3);
   });
 
   it("drapeau Jira repéré à la détection et lu sur les tickets", async () => {

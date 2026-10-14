@@ -137,6 +137,137 @@ describe("buildBoardLayout", () => {
     ).toEqual(["goal:g1", "goal:g2", "build"]);
   });
 
+  it("un objectif accueille un type dédié, même si sa swimlane par défaut est masquée", () => {
+    const linked = snapshot(
+      [makeIssue("RUN-1", { typeId: SWIMLANE_TYPE.id, points: 3, statusId: "6" })],
+      [],
+      { "RUN-1": "g1" },
+    );
+    const layout = buildBoardLayout(linked, withSwimlaneHidden(config, "1", true), NO_FILTERS);
+    expect(lanesOf(layout)).toEqual([
+      ["goal:g1", [[], [], ["RUN-1"]]],
+      ["goal:g2", [[], [], []]],
+    ]);
+    expect(layout.lanes[0]?.progress).toMatchObject({ total: 1, done: 1, totalPoints: 3 });
+    expect(filterOptions(linked).goals[0]?.count).toBe(1);
+  });
+
+  it("un objectif masqué rend le ticket à sa swimlane par défaut sans effacer le lien", () => {
+    const linked = snapshot([makeIssue("RUN-1", { typeId: SWIMLANE_TYPE.id, statusId: "1" })], [], {
+      "RUN-1": "g1",
+    });
+    const hidden = { ...config, hiddenGoalIds: ["g1"] };
+    expect(lanesOf(buildBoardLayout(linked, hidden, NO_FILTERS))).toEqual([
+      ["goal:g2", [[], [], []]],
+      ["swimlane:1", [["RUN-1"], [], []]],
+    ]);
+    expect(linked.goalIssues[0]?.goalId).toBe("g1");
+    expect(
+      buildBoardLayout(linked, withSwimlaneHidden(hidden, "1", true), NO_FILTERS).visibleCount,
+    ).toBe(0);
+  });
+
+  it("révèle la destination vide en bas pendant le déplacement, sans déplacer la source", () => {
+    const ordered = {
+      ...config,
+      blockOrder: ["swimlane:1", "build", "goal:g1", "goal:g2"],
+      collapsedBlockIds: ["swimlane:1", "build"],
+    };
+    const empty = snapshot([]);
+    expect(
+      buildBoardLayout(empty, ordered, NO_FILTERS, { showEmptySwimlaneId: "1" }).lanes.map(
+        (lane) => lane.id,
+      ),
+    ).toEqual(["goal:g1", "goal:g2", "swimlane:1"]);
+    expect(
+      buildBoardLayout(empty, ordered, NO_FILTERS, { showEmptyBuild: true }).lanes.map(
+        (lane) => lane.id,
+      ),
+    ).toEqual(["goal:g1", "goal:g2", "build"]);
+    expect(
+      buildBoardLayout(empty, ordered, NO_FILTERS, { showEmptyBuild: true }).lanes.at(-1)
+        ?.collapsed,
+    ).toBe(false);
+    expect(
+      buildBoardLayout(empty, ordered, NO_FILTERS, { showEmptySwimlaneId: "1" }).lanes.at(-1)
+        ?.collapsed,
+    ).toBe(false);
+    expect(
+      buildBoardLayout(empty, withSwimlaneHidden(ordered, "1", true), NO_FILTERS, {
+        showEmptySwimlaneId: "1",
+      }).lanes.map((lane) => lane.id),
+    ).toEqual(["goal:g1", "goal:g2"]);
+    // Une destination déjà peuplée garde son ordre normal pendant le déplacement.
+    expect(
+      buildBoardLayout(board, ordered, NO_FILTERS, { showEmptySwimlaneId: "1" }).lanes[0]?.id,
+    ).toBe("swimlane:1");
+    expect(buildBoardLayout(board, ordered, NO_FILTERS).lanes[0]?.collapsed).toBe(true);
+    expect(ordered.collapsedBlockIds).toEqual(["swimlane:1", "build"]);
+  });
+
+  it("l'objectif masqué retrouve le rang Jira entre tickets rattachés et sans objectif", () => {
+    const board: BoardSnapshot = {
+      ...snapshot(
+        [makeIssue("RUN-2", { typeId: SWIMLANE_TYPE.id })],
+        [
+          makeIssue("RUN-1", { typeId: SWIMLANE_TYPE.id }),
+          makeIssue("RUN-3", { typeId: SWIMLANE_TYPE.id }),
+        ],
+        { "RUN-2": "g1" },
+      ),
+      issueOrder: ["RUN-1", "RUN-2", "RUN-3"],
+    };
+    const hidden = { ...config, hiddenGoalIds: ["g1"] };
+    const lane = buildBoardLayout(board, hidden, NO_FILTERS).lanes.find(
+      (lane) => lane.id === "swimlane:1",
+    );
+    expect(lane?.cells.flatMap((cell) => cell.issues.map((issue) => issue.issue.key))).toEqual([
+      "RUN-1",
+      "RUN-2",
+      "RUN-3",
+    ]);
+    expect(board.goalIssues[0]?.goalId).toBe("g1");
+  });
+
+  it.each(["objectif", "recherche"] as const)(
+    "un filtre %s révèle la destination du déplacement sans révéler ses autres tickets",
+    (kind) => {
+      const filteredBoard = snapshot(
+        [makeIssue("RUN-1", { typeId: SWIMLANE_TYPE.id }), makeIssue("ABC-1"), makeIssue("ABC-2")],
+        [makeIssue("RUN-2", { typeId: SWIMLANE_TYPE.id })],
+        { "RUN-1": "g1", "ABC-1": "g1" },
+      );
+      const ordered = {
+        ...config,
+        blockOrder: ["swimlane:1", "build", "goal:g1", "goal:g2"],
+        collapsedBlockIds: ["swimlane:1", "build"],
+      };
+      const filters =
+        kind === "objectif" ? focusGoal(NO_FILTERS, "g1") : { ...NO_FILTERS, searchText: "-1" };
+      expect(
+        buildBoardLayout(filteredBoard, ordered, filters).lanes.map((lane) => lane.id),
+      ).toEqual(["goal:g1", "goal:g2"]);
+      for (const [id, options] of [
+        ["swimlane:1", { showEmptySwimlaneId: "1" }],
+        ["build", { showEmptyBuild: true }],
+      ] as const) {
+        const layout = buildBoardLayout(filteredBoard, ordered, filters, options);
+        expect(layout.lanes.map((lane) => lane.id)).toEqual(["goal:g1", "goal:g2", id]);
+        const target = layout.lanes.at(-1);
+        expect(target).toMatchObject({ totalCount: 1, visibleCount: 0, collapsed: false });
+        expect(target?.cells.every((cell) => cell.issues.length === 0)).toBe(true);
+        expect(layout).toMatchObject({ totalCount: 4, visibleCount: 2, filtersActive: true });
+      }
+      expect(
+        buildBoardLayout(filteredBoard, withSwimlaneHidden(ordered, "1", true), filters, {
+          showEmptySwimlaneId: "1",
+        }).lanes.map((lane) => lane.id),
+      ).toEqual(["goal:g1", "goal:g2"]);
+      expect(ordered.collapsedBlockIds).toEqual(["swimlane:1", "build"]);
+      expect(buildBoardLayout(filteredBoard, ordered, NO_FILTERS).lanes[0]?.collapsed).toBe(true);
+    },
+  );
+
   it("compte les tickets dont le statut n'est dans aucune colonne visible", () => {
     const withOrphan = snapshot([
       makeIssue("ABC-9", { statusId: "99" }),
@@ -197,6 +328,16 @@ describe("buildBoardLayout", () => {
 });
 
 describe("filterOptions", () => {
+  it("sans objectif compte aussi les tickets des swimlanes par défaut", () => {
+    const board = snapshot(
+      [makeIssue("ABC-1")],
+      [makeIssue("RUN-1", { typeId: SWIMLANE_TYPE.id })],
+    );
+    expect(filterOptions(board).withoutGoalCount).toBe(2);
+    expect(
+      buildBoardLayout(board, config, { ...NO_FILTERS, includeWithoutGoal: true }).visibleCount,
+    ).toBe(2);
+  });
   it("liste les valeurs présentes, triées, avec leur nombre de tickets", () => {
     const options = filterOptions(
       snapshot(

@@ -95,7 +95,10 @@ describe("loadAtlassianSprintGoals", () => {
       makeIssue("ABC-1", { extraFields: { [GOALS_FIELD]: [{ id: goalId }] } }),
       makeIssue("ABC-2", { extraFields: { [GOALS_FIELD]: null } }),
       makeIssue("ABC-3", { extraFields: { [GOALS_FIELD]: [] } }),
-      makeIssue("RUN-1", { typeId: SWIMLANE_TYPE.id }),
+      makeIssue("RUN-1", {
+        typeId: SWIMLANE_TYPE.id,
+        extraFields: { [GOALS_FIELD]: [{ id: goalId }] },
+      }),
     ];
     const r = reader({
       lastWorkItemsIssue: "le schéma Atlassian n'expose pas de lien Goal → tickets exploitable",
@@ -109,28 +112,31 @@ describe("loadAtlassianSprintGoals", () => {
       issues: boardIssues,
     });
     expect(result.goals.map((goal) => goal.title)).toEqual(["Objectif du board"]);
-    expect(result.links).toEqual({ "ABC-1": goalId });
+    expect(result.links).toEqual({ "ABC-1": goalId, "RUN-1": goalId });
     expect(result.warnings).toEqual([
       "Tickets rattachés aux objectifs : le schéma Atlassian n'expose pas de lien Goal → tickets exploitable",
     ]);
   });
 
-  it("Kanban : un champ Goals absent d'un ticket interdit le repli", async () => {
-    const boardIssues = [
-      makeIssue("ABC-1", {
-        extraFields: { [GOALS_FIELD]: ["ari:cloud:goal:c:goal/declare"] },
-      }),
-      makeIssue("ABC-2"),
-    ];
-    await expect(
-      loadAtlassianSprintGoals({
-        reader: reader({ lastWorkItemsIssue: "schéma incompatible" }),
-        configuration: { ...config, boardType: "kanban" },
-        pinnedGoalIds: [],
-        issues: boardIssues,
-      }),
-    ).rejects.toThrow("Tickets rattachés aux objectifs : schéma incompatible");
-  });
+  it.each(["10001", SWIMLANE_TYPE.id])(
+    "Kanban : un champ Goals absent d'un ticket de type %s interdit le repli",
+    async (typeId) => {
+      const boardIssues = [
+        makeIssue("ABC-1", {
+          extraFields: { [GOALS_FIELD]: ["ari:cloud:goal:c:goal/declare"] },
+        }),
+        makeIssue("ABC-2", { typeId }),
+      ];
+      await expect(
+        loadAtlassianSprintGoals({
+          reader: reader({ lastWorkItemsIssue: "schéma incompatible" }),
+          configuration: { ...config, boardType: "kanban" },
+          pinnedGoalIds: [],
+          issues: boardIssues,
+        }),
+      ).rejects.toThrow("Tickets rattachés aux objectifs : schéma incompatible");
+    },
+  );
 
   it("Kanban : une perte de session reste une erreur de connexion même avec le champ Goals", async () => {
     const sessionLost = new JiraError({ kind: "unauthorized" });

@@ -48,11 +48,11 @@ export async function loadAtlassianSprintGoals(input: {
   const sprintKeys = new Set(input.issues.map((issue) => issue.key));
   const categoryByType = new Map(configuration.issueTypes.map((type) => [type.id, type.category]));
   const goalIssues = input.issues.filter(
-    (issue) => (categoryByType.get(issue.fields.issuetype.id) ?? "GOAL") === "GOAL",
+    (issue) => (categoryByType.get(issue.fields.issuetype.id) ?? "GOAL") !== "IGNORED",
   );
   // Le champ natif Goals est fiable comme source de repli uniquement s'il figure dans chaque
-  // ticket classé par objectif. Les autres types ont leur propre swimlane et peuvent ne pas
-  // proposer ce champ. `null` signifie « aucun Goal » ; un champ absent peut cacher un lien.
+  // ticket affichable, y compris ceux d'une swimlane par défaut : tous peuvent être rattachés.
+  // `null` signifie « aucun Goal » ; un champ absent peut cacher un lien.
   const goalFieldId = configuration.goalsFieldId;
   const issueLinksComplete =
     goalIssues.length === 0 ||

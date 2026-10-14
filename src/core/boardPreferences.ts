@@ -71,8 +71,8 @@ export interface LaneSummary {
 }
 
 /**
- * Swimlanes de la barre latérale, dans l'ordre du board (`laneOrder`). Build compte aussi les
- * tickets d'un objectif masqué : c'est là que le board les affiche.
+ * Swimlanes de la barre latérale, dans l'ordre du board (`laneOrder`). Un objectif masqué rend
+ * ses tickets à leur destination par défaut, comme sur le board.
  */
 export function laneSummaries(
   snapshot: BoardSnapshot,

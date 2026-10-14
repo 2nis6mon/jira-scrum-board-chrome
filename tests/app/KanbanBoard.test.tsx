@@ -176,6 +176,48 @@ it("masque Build vide et la réaffiche provisoirement pour détacher un ticket",
   expect(lanes()).toEqual([goal.name]);
 });
 
+it("affiche RUN dans son Goal et propose le retour dans sa swimlane vide pendant le glissé", async () => {
+  const goal = KANBAN_GOALS[0];
+  if (!goal) throw new Error("Objectif fictif attendu");
+  const jira = kanbanSiteJira({
+    issues: [
+      issueJson("RUN-7", {
+        typeId: "10004",
+        typeName: "Anomalie Prod",
+        statusId: "1",
+        category: "new",
+      }),
+    ],
+    goals: [{ ...goal, workItems: ["RUN-7"] }],
+  }).on("GET", "/rest/api/3/issue/RUN-7/transitions", { status: 200, json: { transitions: [] } });
+  const { board } = await connectedBoard(jira);
+  const cardLane = () =>
+    document
+      .querySelector('[data-issue-key="RUN-7"]')
+      ?.closest(".lane")
+      ?.getAttribute("data-lane-id");
+  expect(cardLane()).toBe(`goal:${goal.id}`);
+  expect(lanes()).toEqual([goal.name]);
+  expect(document.querySelector(".lane-progress")?.textContent).toContain("0/1 terminés");
+  board.startDrag("RUN-7", "1");
+  await tick();
+  expect(lanes()).toEqual([goal.name, "Anomalie Prod"]);
+  expect(document.querySelector('[data-lane-id="build"]')).toBeNull();
+  expect(
+    document.querySelector('[data-lane-id="swimlane:1"] .lane-default-label')?.textContent,
+  ).toBe("Par défaut");
+  const destination = document.querySelector('[data-lane-id="swimlane:1"] .lane-cell');
+  expect(destination?.classList.contains("lane-cell-droppable")).toBe(true);
+  board.setDropTarget({ laneId: "swimlane:1", columnId: "col-0-À faire", beforeKey: null });
+  await tick();
+  expect(destination?.textContent).toContain("Retour dans la swimlane par défaut");
+  board.endDrag();
+  await tick();
+  expect(lanes()).toEqual([goal.name]);
+  expect(cardLane()).toBe(`goal:${goal.id}`);
+  expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+});
+
 it("affiche les Goals du champ Jira quand GraphQL ne fournit pas workItems", async () => {
   const goalId = KANBAN_GOALS[0]?.id;
   if (!goalId) throw new Error("Objectif fictif attendu");

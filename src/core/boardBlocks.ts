@@ -59,9 +59,10 @@ export function shiftBlock(id: string, offset: number, order: readonly string[])
  * Blocs réellement affichés selon l'état des filtres.
  *
  * Seuls les objectifs réellement vides restent visibles. Build et les swimlanes par type
- * disparaissent sans tickets ; Build peut réapparaître provisoirement pendant un déplacement
+ * disparaissent sans tickets ; la destination par défaut peut réapparaître pendant un déplacement
  * pour permettre de détacher un ticket de son objectif.
- * Un filtre actif masque aussi les blocs non vides dont aucun ticket n'est retenu.
+ * Un filtre actif masque aussi les blocs non vides dont aucun ticket n'est retenu, sauf la
+ * destination du déplacement : ses cases restent vides, les filtres continuent de s'appliquer.
  */
 export function displayedBlocks(input: {
   blocks: readonly BoardBlock[];
@@ -69,12 +70,26 @@ export function displayedBlocks(input: {
   filteredCount: (block: BoardBlock) => number;
   totalCount: (block: BoardBlock) => number;
   showEmptyBuild?: boolean;
+  showEmptySwimlaneId?: string;
 }): BoardBlock[] {
-  return input.blocks.filter((block) => {
-    if (input.totalCount(block) === 0)
-      return block.kind === "goal" || (block.kind === "build" && input.showEmptyBuild === true);
-    return input.filtersActive ? input.filteredCount(block) > 0 : true;
-  });
+  const shown: BoardBlock[] = [];
+  const revealed: BoardBlock[] = [];
+  for (const block of input.blocks) {
+    const normallyShown =
+      input.totalCount(block) === 0
+        ? block.kind === "goal"
+        : !input.filtersActive || input.filteredCount(block) > 0;
+    if (normallyShown) shown.push(block);
+    else if (
+      (block.kind === "build" && input.showEmptyBuild === true) ||
+      (block.kind === "swimlane" && block.swimlaneId === input.showEmptySwimlaneId)
+    ) {
+      revealed.push(block);
+    }
+  }
+  // Une destination révélée pendant le drag arrive en bas : l'insérer avant la carte
+  // source déplacerait celle-ci sous le pointeur et peut interrompre le drag natif du navigateur.
+  return [...shown, ...revealed];
 }
 
 /**

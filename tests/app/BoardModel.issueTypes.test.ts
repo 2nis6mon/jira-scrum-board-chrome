@@ -210,7 +210,7 @@ describe("BoardModel — types tirés des tickets affichés", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
-  it("classe les types Kanban avant les Goals, sans exiger un lien Goal pour les seuls tickets RUN", async () => {
+  it("classe les types Kanban avant les Goals mais exige aussi leurs liens pour les tickets RUN", async () => {
     const jira = boardSiteJira({
       sprintIssues: [SPRINT_ISSUES[5]],
       graphql: goalsGateway({
@@ -224,11 +224,13 @@ describe("BoardModel — types tirés des tickets affichés", () => {
     const board = model(fakePlatform(jira));
     await board.load(BOARD_URL);
 
-    // Le schéma Goals incomplet reste une information : ces tickets n'ont pas besoin de ce lien.
-    expect(board.syncProblem.value).toBeNull();
-    expect(board.snapshot.value?.goalIssues).toEqual([]);
-    expect(board.snapshot.value?.swimlaneIssues.map((item) => item.issue.key)).toEqual(["RUN-7"]);
-    expect(board.goalsWarnings.value.join(" ")).toContain("schéma Atlassian");
+    // RUN peut désormais porter un Goal : ne pas inventer un classement sans objectif.
+    expect(board.syncProblem.value?.text).toContain("Objectifs du board Kanban indisponibles");
+    expect(board.snapshot.value).toBeNull();
+    expect(board.syncProblem.value?.text).toContain("schéma Atlassian");
+    expect(board.configuration.value?.issueTypes).toContainEqual(
+      expect.objectContaining({ id: "10004", category: "SWIMLANE" }),
+    );
     expect(jira.sent("GET", BOARD_ISSUES)).toHaveLength(1);
   });
 

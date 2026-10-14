@@ -8,13 +8,13 @@ import { type CardField, MAX_CARD_FIELDS } from "./cardFields";
 import { foldText } from "./text";
 
 /**
- * Mode d'un type de ticket Jira : par objectif (swimlane de son Goal, ou Build sans Goal), dans une
- * swimlane par type (`TicketSwimlane`), ou ignoré.
+ * Destination par défaut d'un type Jira : Build (`GOAL`), swimlane par type (`SWIMLANE`), ou
+ * exclusion (`IGNORED`). Pour tout type affichable, un objectif rattaché est prioritaire.
  */
 export type IssueCategory = "GOAL" | "SWIMLANE" | "IGNORED";
 
 /**
- * Swimlane par type : un groupe de types de tickets traités hors objectifs (demande de Denis du
+ * Swimlane par type : destination sans objectif d'un groupe de types (demande de Denis du
  * 25/09/2026, remplace l'unique swimlane Kanban). Un type n'appartient qu'à une swimlane, et y est
  * si et seulement si son mode est `SWIMLANE` (`normalizeSwimlanes` tient cet invariant).
  */
@@ -154,7 +154,7 @@ export function categoryForIssueType(config: BoardConfiguration, typeId: string)
   return config.issueTypes.find((type) => type.id === typeId)?.category ?? "GOAL";
 }
 
-/** Swimlane par type d'un type de ticket, ou `null` s'il est par objectif ou ignoré. */
+/** Swimlane sans objectif d'un type de ticket ; `null` pour Build ou un type ignoré. */
 export function swimlaneOfType(config: BoardConfiguration, typeId: string): TicketSwimlane | null {
   return config.ticketSwimlanes.find((swimlane) => swimlane.typeIds.includes(typeId)) ?? null;
 }
@@ -244,7 +244,7 @@ export function isGoalHidden(config: BoardConfiguration, goalId: string): boolea
  * Objectif sous lequel afficher un ticket sur le board.
  *
  * `null` quand le ticket n'a pas d'objectif, OU que le sien est masqué : ses tickets rejoignent
- * alors le bloc Build au lieu de disparaître du board. Le rattachement dans Jira n'est pas touché.
+ * alors leur bloc par défaut au lieu de disparaître du board. Le rattachement Jira est conservé.
  */
 export function displayedGoalId(config: BoardConfiguration, goalId: string | null): string | null {
   return goalId !== null && !isGoalHidden(config, goalId) ? goalId : null;
@@ -271,7 +271,7 @@ export function visibleColumns(columns: readonly ColumnConfiguration[]): ColumnC
 // ─── Découverte : de ce que Jira déclare à la configuration ──────────────────
 
 /**
- * Motifs par défaut des types regroupés dans une première swimlane par type, hors objectifs.
+ * Motifs des types dont la destination sans objectif est une première swimlane par type.
  * Ajustables ensuite par board.
  */
 const SWIMLANE_TYPE_PATTERNS = [
@@ -385,7 +385,7 @@ export function mergeConfiguration(
     goalsFieldId: fresh.goalsFieldId ?? existing.goalsFieldId,
     flaggedFieldId: fresh.flaggedFieldId ?? existing.flaggedFieldId,
     issueTypes,
-    // Un type apparu depuis, classé hors objectifs, rejoint la première swimlane par type.
+    // Un nouveau type doté d'une swimlane par défaut rejoint la première swimlane par type.
     ticketSwimlanes: normalizeSwimlanes(issueTypes, existing.ticketSwimlanes),
     // Colonnes : telles que Jira les déclare (noms, affichage et limites WIP ne se règlent plus ici).
     columns: fresh.columns,

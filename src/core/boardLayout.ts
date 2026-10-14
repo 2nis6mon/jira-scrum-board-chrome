@@ -9,7 +9,13 @@ import {
   swimlaneName,
   visibleColumns,
 } from "./boardConfiguration";
-import { type BoardIssue, type BoardSnapshot, type GoalProgress, goalProgress } from "./boardIssue";
+import {
+  allIssues,
+  type BoardIssue,
+  type BoardSnapshot,
+  type GoalProgress,
+  goalProgress,
+} from "./boardIssue";
 import { applyFilters, areFiltersActive, type BoardFilters } from "./filters";
 import type { SprintGoal } from "./sprintGoals";
 
@@ -57,7 +63,7 @@ export function buildBoardLayout(
   snapshot: BoardSnapshot,
   configuration: BoardConfiguration,
   filters: BoardFilters,
-  options: { showEmptyBuild?: boolean } = {},
+  options: { showEmptyBuild?: boolean; showEmptySwimlaneId?: string } = {},
 ): BoardLayout {
   const columns = visibleColumns(configuration.columns);
   const filtersActive = areFiltersActive(filters);
@@ -70,7 +76,7 @@ export function buildBoardLayout(
     swimlaneIds: shownSwimlaneIds(configuration),
   });
 
-  const everything = [...snapshot.goalIssues, ...snapshot.swimlaneIssues];
+  const everything = allIssues(snapshot);
   const byLane = groupBy(everything, (issue) => laneKey(configuration, issue));
   const filteredByLane = groupBy(applyFilters(filters, everything), (issue) =>
     laneKey(configuration, issue),
@@ -87,11 +93,16 @@ export function buildBoardLayout(
     filteredCount: (block) => visibleIssuesOf(block).length,
     totalCount: (block) => allIssuesOf(block).length,
     showEmptyBuild: options.showEmptyBuild === true,
+    ...(options.showEmptySwimlaneId ? { showEmptySwimlaneId: options.showEmptySwimlaneId } : {}),
   });
 
   let unmappedCount = 0;
   const lanes = shown.map((block): Lane => {
     const visible = visibleIssuesOf(block);
+    const revealedDestination =
+      visible.length === 0 &&
+      ((block.kind === "build" && options.showEmptyBuild === true) ||
+        (block.kind === "swimlane" && block.swimlaneId === options.showEmptySwimlaneId));
     const cells = columns.map((column) => ({
       column,
       issues: visible.filter((issue) => issue.columnId === column.id),
@@ -109,14 +120,15 @@ export function buildBoardLayout(
       progress: goal
         ? goalProgress(
             goal,
-            snapshot.goalIssues.filter((issue) => issue.goalId === goal.id),
+            everything.filter((issue) => issue.goalId === goal.id),
             columns.at(-1)?.id ?? null,
           )
         : null,
       cells,
       visibleCount: placed,
       totalCount: allIssuesOf(block).length,
-      collapsed: isBlockCollapsed(configuration, block),
+      // Une destination révélée doit offrir ses cases de dépôt, sans modifier le repli mémorisé.
+      collapsed: !revealedDestination && isBlockCollapsed(configuration, block),
     };
   });
 
@@ -131,13 +143,13 @@ export function buildBoardLayout(
 }
 
 /**
- * Bloc d'un ticket : sa swimlane par type, ou l'objectif affiché (Build si le ticket n'en a pas, ou
- * que le sien est masqué — son rattachement Jira n'est pas touché).
+ * Bloc d'un ticket : son objectif affiché en priorité, sinon sa destination par défaut.
+ * Masquer l'objectif ne modifie jamais le rattachement Jira.
  */
 export function laneKey(configuration: BoardConfiguration, issue: BoardIssue): string {
-  if (issue.swimlaneId !== null) return `swimlane:${issue.swimlaneId}`;
   const goalId = displayedGoalId(configuration, issue.goalId);
-  return goalId === null ? "build" : `goal:${goalId}`;
+  if (goalId !== null) return `goal:${goalId}`;
+  return issue.swimlaneId === null ? "build" : `swimlane:${issue.swimlaneId}`;
 }
 
 /** Titre d'une swimlane : l'objectif, le nom de la swimlane par type, ou celui de Build. */
@@ -236,7 +248,7 @@ export function filterOptions(snapshot: BoardSnapshot): FilterOptions {
   }
 
   const goalCounts = new Map<string, number>();
-  for (const issue of snapshot.goalIssues) {
+  for (const issue of issues) {
     if (issue.goalId !== null)
       goalCounts.set(issue.goalId, (goalCounts.get(issue.goalId) ?? 0) + 1);
   }
@@ -254,7 +266,7 @@ export function filterOptions(snapshot: BoardSnapshot): FilterOptions {
     goals: [...snapshot.goals]
       .sort((a, b) => a.position - b.position)
       .map((goal) => ({ value: goal.id, label: goal.title, count: goalCounts.get(goal.id) ?? 0 })),
-    withoutGoalCount: snapshot.goalIssues.filter((issue) => issue.goalId === null).length,
+    withoutGoalCount: issues.filter((issue) => issue.goalId === null).length,
   };
 }
 

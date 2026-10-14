@@ -6,6 +6,7 @@ import {
   visibleColumns,
 } from "./boardConfiguration";
 import {
+  allIssues,
   type BoardIssue,
   type BoardSnapshot,
   type GoalProgress,
@@ -85,10 +86,14 @@ export function sprintHealth(
   configuration: BoardConfiguration,
   filters: BoardFilters,
 ): SprintHealth {
-  const scrum = applyFilters(filters, snapshot.goalIssues);
   const shownSwimlanes = new Set(shownSwimlaneIds(configuration));
-  const swimlanes = applyFilters(filters, snapshot.swimlaneIssues).filter(
-    (issue) => issue.swimlaneId !== null && shownSwimlanes.has(issue.swimlaneId),
+  const filtered = applyFilters(filters, allIssues(snapshot));
+  const inGoalOrBuild = (issue: BoardIssue) =>
+    displayedGoalId(configuration, issue.goalId) !== null || issue.swimlaneId === null;
+  const scrum = filtered.filter(inGoalOrBuild);
+  const swimlanes = filtered.filter(
+    (issue) =>
+      !inGoalOrBuild(issue) && issue.swimlaneId !== null && shownSwimlanes.has(issue.swimlaneId),
   );
   const all = [...scrum, ...swimlanes];
   const threshold = configuration.agingThresholdDays;
@@ -134,7 +139,7 @@ export function sprintHealth(
         Number(b.isBlocked) - Number(a.isBlocked) || (b.daysInColumn ?? 0) - (a.daysInColumn ?? 0),
     )
     .map((issue): WatchedIssue => {
-      // Objectif masqué : le ticket est affiché dans Build, on ne cite pas l'objectif.
+      // Objectif masqué : destination par défaut, on ne cite pas l'objectif.
       const goalId = displayedGoalId(configuration, issue.goalId);
       return {
         issue,

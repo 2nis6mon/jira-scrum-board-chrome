@@ -81,7 +81,7 @@ export type BlockerLocation =
 export interface BoardIssue {
   readonly issue: JiraIssue;
   readonly category: IssueCategory;
-  /** Swimlane par type du ticket ; `null` pour un ticket par objectif. */
+  /** Destination sans objectif (héritée du parent pour une sous-tâche) ; `null` signifie Build. */
   readonly swimlaneId: string | null;
   readonly columnId: string | null;
   readonly goalId: string | null;
@@ -236,9 +236,12 @@ export interface BoardSnapshot {
    * Un rattachement s'écrit là où l'objectif affiché existe.
    */
   readonly goalsOrigin: GoalSource;
+  /** Tickets destinés à Build et tickets rattachés à un objectif, quel que soit leur type. */
   readonly goalIssues: readonly BoardIssue[];
-  /** Tickets DU SPRINT rangés dans une swimlane par type (`swimlaneId`). */
+  /** Tickets sans objectif dont le type prévoit une swimlane par défaut (`swimlaneId`). */
   readonly swimlaneIssues: readonly BoardIssue[];
+  /** Ordre de lecture Jira avant répartition, conservé seulement en mémoire. */
+  readonly issueOrder?: readonly string[];
   readonly syncedAt: Date;
   readonly currentUser: JiraUser | null;
   /** Vrai si la lecture des objectifs a échoué faute de droits Jira. */
@@ -256,7 +259,14 @@ export interface BoardSnapshot {
 }
 
 export function allIssues(snapshot: BoardSnapshot): BoardIssue[] {
-  return [...snapshot.goalIssues, ...snapshot.swimlaneIssues];
+  const issues = [...snapshot.goalIssues, ...snapshot.swimlaneIssues];
+  if (!snapshot.issueOrder) return issues;
+  const rank = new Map(snapshot.issueOrder.map((key, index) => [key, index]));
+  return issues.sort(
+    (a, b) =>
+      (rank.get(a.issue.key) ?? Number.MAX_SAFE_INTEGER) -
+      (rank.get(b.issue.key) ?? Number.MAX_SAFE_INTEGER),
+  );
 }
 
 export function findIssue(snapshot: BoardSnapshot, key: string): BoardIssue | null {
@@ -342,7 +352,7 @@ export function assembleBoardIssues(input: {
   /** Sous-tâches présentes parmi les tickets du sprint, par clé : leur assigné en vient. */
   subtaskIssues?: ReadonlyMap<string, JiraIssue>;
   /**
-   * Swimlane par type où ranger ces tickets (une sous-tâche suit celle de son parent). Absent : celle
+   * Swimlane par défaut de ces tickets (une sous-tâche suit celle de son parent). Absent : celle
    * de leur type.
    */
   swimlaneId?: string | null;

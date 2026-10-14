@@ -220,6 +220,7 @@ export class BoardModel {
       ? withPendingMove(
           buildBoardLayout(snapshot, configuration, this.filters.value, {
             showEmptyBuild: this.dragging.value?.lane === null,
+            ...(this.dragging.value?.lane ? { showEmptySwimlaneId: this.dragging.value.lane } : {}),
           }),
           this.pendingMove.value,
         )
@@ -846,10 +847,11 @@ export class BoardModel {
   }
 
   /**
-   * Une carte peut-elle être déposée dans ce bloc ? Par objectif : dans un objectif ou Build. D'une
-   * swimlane par type : dans la sienne seulement, c'est son type qui la range.
+   * Tout ticket peut rejoindre un objectif. Sans objectif, seul son bloc par défaut est admis :
+   * Build ou la swimlane de son type. Un déplacement ne change jamais le type Jira.
    */
   accepts(block: BoardBlock, lane: string | null): boolean {
+    if (block.kind === "goal") return true;
     return block.kind === "swimlane" ? block.swimlaneId === lane : lane === null;
   }
 
@@ -893,9 +895,7 @@ export class BoardModel {
       goalTarget:
         input.block.kind === "goal"
           ? { kind: "goal", goalId: input.block.goalId }
-          : input.block.kind === "build"
-            ? { kind: "build" }
-            : { kind: "unchanged" },
+          : { kind: "build" },
     });
     // Une zone de statut sans position précise conserve le rang global.
     const rank =

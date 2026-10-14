@@ -131,6 +131,32 @@ describe("Sprint Health : comptages directs", () => {
     expect(health.composition).toEqual({ total: 6, linked: 2, build: 3, swimlanes: 1, added: 2 });
   });
 
+  it("un type dédié rattaché compte dans son objectif, même si sa destination par défaut est masquée", () => {
+    const linked = issue("RUN-2", { ...DONE, typeId: "10004", points: 8 }, { goalId: "g1" });
+    const board = snapshot({ goalIssues: [...SCRUM, linked] });
+    const health = sprintHealth(board, withSwimlaneHidden(config, "1", true), NO_FILTERS);
+    expect(health.composition).toMatchObject({ total: 6, linked: 4, build: 2, swimlanes: null });
+    expect(health.goals[0]).toMatchObject({ total: 3, done: 2, totalPoints: 16, donePoints: 13 });
+    expect(health.kpis).toMatchObject({ scrumCount: 6, allCount: 6, totalPoints: 19 });
+  });
+
+  it("un objectif masqué rend le type dédié à sa destination, qui peut aussi être masquée", () => {
+    const linked = issue("RUN-2", { ...TODO, typeId: "10004", points: 8 }, { goalId: "g1" });
+    const board = snapshot({ goalIssues: [...SCRUM, linked] });
+    const hiddenGoal = withGoalHidden(config, "g1", true);
+    const health = sprintHealth(board, hiddenGoal, NO_FILTERS);
+    expect(health.composition).toMatchObject({ total: 7, linked: 1, build: 4, swimlanes: 2 });
+    expect(health.kpis).toMatchObject({ scrumCount: 5, allCount: 7, totalPoints: 11 });
+    const hiddenBoth = sprintHealth(board, withSwimlaneHidden(hiddenGoal, "1", true), NO_FILTERS);
+    expect(hiddenBoth.composition).toMatchObject({
+      total: 5,
+      linked: 1,
+      build: 4,
+      swimlanes: null,
+    });
+    expect(board.goalIssues.at(-1)?.goalId).toBe("g1");
+  });
+
   it("périmètre : tickets entrés après le démarrage, les plus récents d'abord", () => {
     const scope = sprintHealth(snapshot(), config, NO_FILTERS).scope;
     expect(scope.added.map((item) => item.issue.key)).toEqual(["ABC-4", "ABC-5"]);

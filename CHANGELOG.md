@@ -3,6 +3,16 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.33.0 — Objectifs prioritaires sur les swimlanes par type
+
+- Les tickets des swimlanes RUN, OPS et autres types configurés peuvent rejoindre un objectif,
+  en Scrum comme en Kanban. Leur objectif détermine leur ligne ; après détachement, ils reviennent
+  dans la swimlane par défaut de leur type.
+- Glisser-déposer entre objectifs et destination par défaut, avec réapparition temporaire de la
+  ligne vide pour le retour. Les compteurs et les sous-tâches suivent ce classement.
+- Administration clarifiée : les types définissent une destination par défaut, les objectifs
+  restent prioritaires. Les types ignorés restent exclus et les réglages existants sont conservés.
+
 ## 0.32.3 — Retrait de l'heure de chargement
 
 - L'en-tête n'affiche plus « Jira · HH:mm » ; seule l'actualisation en cours est signalée.

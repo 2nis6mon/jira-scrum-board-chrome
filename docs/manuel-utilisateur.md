@@ -54,16 +54,22 @@ Sprint Goals ; sans lui, Jira garde son affichage habituel. La vue ne s'ouvre pa
 
 - **Objectifs** : une swimlane par objectif, sa progression et ses tickets. Elle devient verte
   quand tous ses tickets sont dans la dernière colonne visible. Un objectif épinglé peut rester vide.
-- **Build** : tickets classés par objectif qui n'en ont pas, ou dont l'objectif est masqué.
-- **Swimlanes par type** : groupes configurables, par exemple RUN ou OPS. Build et ces groupes
-  disparaissent sans tickets ; Build réapparaît pendant un glissement pour permettre un détachement.
+  L'objectif est prioritaire, y compris pour un ticket dont le type est configuré dans RUN ou OPS.
+- **Build** : tickets sans objectif visible dont le type n'a pas de swimlane dédiée.
+- **Swimlanes par type** : groupes configurables, par exemple RUN ou OPS, utilisés par défaut
+  lorsque le ticket n'a pas d'objectif visible. Si un objectif est masqué, son rattachement est
+  conservé et ses tickets retrouvent leur swimlane par défaut. Masquer une swimlane par type
+  ne masque pas ses tickets rattachés à un objectif visible.
+  Build et ces groupes disparaissent sans tickets ; la swimlane par défaut réapparaît pendant
+  le glissement d'un ticket rattaché à un objectif pour permettre son détachement.
 - **Filtres** : recherche, Personne / Type / Parent / Statut / Label, filtres rapides Jira et
   raccourcis pour tickets bloqués, mes tickets, priorité haute ou absence d'estimation.
 - **Cartes** : cliquez pour ouvrir la fiche native Jira. Sa fermeture revient au board et relit
   les données. Les sous-tâches restent avec leur story ; le survol souligne toute la famille.
 - **Déplacements** : glissez une carte pour changer statut, rang ou objectif. Jira ouvre son
-  formulaire de transition si nécessaire. Les cartes d'une swimlane par type restent dans leur
-  groupe ; leur colonne et leur rang peuvent changer.
+  formulaire de transition si nécessaire. Glissez un ticket de RUN, OPS ou Build vers un objectif
+  pour l'y rattacher ; ramenez-le dans sa swimlane par défaut pour le détacher. Son type reste
+  inchangé : un ticket RUN sans objectif retourne dans RUN, pas dans OPS ou Build.
 - **Informations flottantes** : la croix ferme l'information pour ce board, y compris après
   rechargement. Ce choix est personnel.
 
@@ -132,11 +138,14 @@ n'apparaissent pas. L'en-tête indique qui les a enregistrés en dernier, et qua
 
 - **Board** : Build et les swimlanes par type, dans leur ordre sur le board. Glissez une swimlane
   par sa poignée pour la déplacer ; les objectifs, eux, se rangent sur le board. Renommez Build
-  (« Nom du bloc des tickets rattachés à aucun objectif ») et chaque swimlane directement dans la
+  (« Nom de la swimlane par défaut ») et chaque swimlane directement dans la
   liste, ou masquez une swimlane par type avec son interrupteur.
-- **Types de tickets** : glissez un type vers une swimlane, vers **Par objectif** ou **Ignorés**,
-  ou utilisez son menu. **Nouvelle swimlane** crée un groupe : donnez-lui un nom puis glissez ou
-  choisissez son premier type ; déposer un type sur la zone **Nouvelle swimlane** le crée aussi.
+- **Types de tickets** : choisissez le classement sans objectif visible : **Build par défaut**
+  (ou le nom personnalisé de Build), une swimlane dédiée ou **Ignorés**. Glissez un type vers
+  son groupe ou utilisez son menu. Tous les types affichés peuvent rejoindre un objectif ;
+  **Ignorés** reste exclu du board, même avec un objectif. **Nouvelle swimlane** crée un groupe :
+  donnez-lui un nom puis glissez ou choisissez son premier type ; déposer un type sur la zone
+  **Nouvelle swimlane** le crée aussi.
   Retirer son dernier type supprime le groupe.
 - **Affichage et daily** : seuil « vieillissant », durée de la Daily et nombre de cartes visibles
   dans la première colonne, réglables au clavier ou par − et +. Le rafraîchissement automatique

@@ -960,6 +960,12 @@ button.lane-title[aria-pressed="true"] {
   font-variant-numeric: tabular-nums;
 }
 
+.lane-default-label {
+  color: var(--ink-3);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .lane-progress {
   margin-left: auto;
   display: inline-flex;
@@ -2957,6 +2963,19 @@ details.lane-menu:not([data-placed]) .menu-panel {
   padding: 8px;
   color: var(--text-muted, #5e6675);
   font-size: 12px;
+}
+.drop-goal-message {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  z-index: 3;
+  max-width: calc(100% - 10px);
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: var(--in-progress);
+  color: white;
+  font-size: 11px;
+  pointer-events: none;
 }
 .lane-cell-statuses > .lane-item {
   opacity: 0.25;

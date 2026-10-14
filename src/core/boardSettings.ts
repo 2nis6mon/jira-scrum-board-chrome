@@ -18,8 +18,8 @@ import { foldText } from "./text";
 // Transformations pures des réglages. Le modèle publie ensuite les changements partagés dans Jira.
 
 export const ISSUE_CATEGORY_LABEL: Record<IssueCategory, string> = {
-  GOAL: "Par objectif",
-  SWIMLANE: "Swimlane par type",
+  GOAL: "Build par défaut",
+  SWIMLANE: "Swimlane par défaut",
   IGNORED: "Ignoré",
 };
 
@@ -37,7 +37,8 @@ export type SettingResult =
   | { readonly ok: false; readonly error: string };
 
 /**
- * Où ranger un type de ticket : par objectif, ignoré, dans une swimlane par type ou une nouvelle.
+ * Classement par défaut d'un type sans objectif visible : Build, une swimlane par type ou une
+ * nouvelle. Un type ignoré reste exclu, avec ou sans objectif.
  * Une nouvelle swimlane peut recevoir son nom en même temps que son premier type (vide ou absent :
  * le nom suit ses types).
  */

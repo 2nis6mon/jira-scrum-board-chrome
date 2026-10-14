@@ -1205,6 +1205,14 @@ function LaneView(props: {
             ? `${lane.visibleCount} / ${lane.totalCount}`
             : plural(lane.totalCount, "ticket")}
         </span>
+        {lane.block.kind === "swimlane" && (
+          <span
+            class="lane-default-label"
+            title="Les tickets de ces types rejoignent leur objectif en priorité. Sans objectif visible, ils reviennent ici."
+          >
+            Par défaut
+          </span>
+        )}
         {progress && progress.total > 0 && (
           <span class="lane-progress">
             <span>
@@ -1293,7 +1301,16 @@ function LaneView(props: {
               >
                 {unavailable && (
                   <li class="drop-unavailable-message">
-                    {!compatible ? "Autre catégorie de ticket" : destination.message}
+                    {!compatible
+                      ? "Utilisez un objectif ou la swimlane par défaut de ce type"
+                      : destination.message}
+                  </li>
+                )}
+                {targeted && droppable && (
+                  <li class="drop-goal-message">
+                    {lane.block.kind === "goal"
+                      ? "Rattacher à cet objectif"
+                      : "Retour dans la swimlane par défaut"}
                   </li>
                 )}
                 {statusZones && (

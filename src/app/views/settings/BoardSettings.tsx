@@ -190,6 +190,11 @@ export function BoardSettings({
                 {buildLabel} et les swimlanes par type, dans leur ordre sur le board. Glissez une
                 swimlane pour la déplacer, glissez un type pour changer son groupe.
               </p>
+              <p class="settings-help">
+                L'objectif est prioritaire : un ticket rattaché apparaît dans son objectif. Sinon,
+                il rejoint la swimlane par défaut de son type. Un objectif masqué conserve le lien
+                mais affiche le ticket dans sa swimlane par défaut.
+              </p>
             </div>
             <button
               type="button"
@@ -235,7 +240,7 @@ export function BoardSettings({
                       </span>
                       <span class="settings-lane-field">
                         <label class="settings-caption" for="settings-build-label">
-                          Nom du bloc des tickets rattachés à aucun objectif
+                          Nom de la swimlane par défaut
                         </label>
                         <CommitInput
                           id="settings-build-label"
@@ -252,8 +257,8 @@ export function BoardSettings({
                       <span class="settings-badge">Sans objectif</span>
                     </div>
                     <p class="settings-lane-help">
-                      Reçoit les tickets des types « Par objectif » sans objectif, ou dont
-                      l'objectif est masqué.
+                      Reçoit les tickets sans objectif visible dont le type n'a pas de swimlane
+                      dédiée.
                     </p>
                   </li>
                 );
@@ -311,7 +316,7 @@ export function BoardSettings({
                       />
                     </span>
                     {count(id)}
-                    <span class="settings-badge">{swimlane.hidden ? "Masquée" : "Par type"}</span>
+                    <span class="settings-badge">{swimlane.hidden ? "Masquée" : "Par défaut"}</span>
                     <Switch
                       checked={!swimlane.hidden}
                       label={`Afficher la swimlane ${name}`}
@@ -321,6 +326,10 @@ export function BoardSettings({
                       }
                     />
                   </div>
+                  <p class="settings-lane-help">
+                    Sans objectif visible, les tickets de ces types vont dans {name}. Un ticket
+                    rattaché à un objectif visible y apparaît, même si cette swimlane est masquée.
+                  </p>
                   <ul class="settings-chips" aria-label={`Types de la swimlane ${name}`}>
                     {typesOf(swimlane).map(chip)}
                     {dropSlot(zoneId)}
@@ -402,8 +411,9 @@ export function BoardSettings({
             <div class="settings-card-title">
               <h2 id="settings-types">Types de tickets</h2>
               <p class="settings-help">
-                Glissez un type vers une swimlane, ou utilisez son menu. Le board est relu dans Jira
-                après chaque changement.
+                Choisissez où afficher chaque type sans objectif. Glissez-le vers une swimlane, ou
+                utilisez son menu. Le rattachement à un objectif reste possible dans tous les
+                groupes, sauf « Ignorés ».
               </p>
             </div>
             <button
@@ -422,9 +432,9 @@ export function BoardSettings({
           ) : (
             <>
               <TypeGroup
-                title="Par objectif"
-                icon="goal"
-                help={`Dans la swimlane de leur objectif, ou dans ${buildLabel}.`}
+                title={`${buildLabel} par défaut`}
+                icon="build"
+                help={`Sans objectif visible : ${buildLabel}. Avec un objectif : dans cet objectif.`}
                 types={byCategory("GOAL")}
                 target={zone === "goal"}
                 zone={typeZone("goal", { kind: "goal" })}
@@ -434,7 +444,7 @@ export function BoardSettings({
               <TypeGroup
                 title="Ignorés"
                 icon="eyeOff"
-                help="Jamais affichés sur le board."
+                help="Jamais affichés sur le board, même rattachés à un objectif."
                 types={byCategory("IGNORED")}
                 target={zone === "ignored"}
                 zone={typeZone("ignored", { kind: "ignored" })}
@@ -514,10 +524,10 @@ export function BoardSettings({
   );
 }
 
-/** Groupe de types du panneau de droite : par objectif, ou ignorés. Il reçoit les types glissés. */
+/** Groupe de types du panneau de droite : Build par défaut, ou ignorés. Il reçoit les types glissés. */
 function TypeGroup(props: {
   title: string;
-  icon: "goal" | "eyeOff";
+  icon: "build" | "eyeOff";
   help: string;
   types: readonly IssueTypeConfiguration[];
   target: boolean;
@@ -560,9 +570,12 @@ function TypeChip(props: {
 }) {
   const { type, configuration } = props;
   const destinations: { label: string; destination: TypeDestination }[] = [
-    { label: "Par objectif", destination: { kind: "goal" } },
+    {
+      label: `${configuration.buildSectionLabel || DEFAULT_BUILD_LABEL} par défaut`,
+      destination: { kind: "goal" },
+    },
     ...configuration.ticketSwimlanes.map((swimlane) => ({
-      label: `Swimlane « ${swimlaneName(configuration, swimlane)} »`,
+      label: `${swimlaneName(configuration, swimlane)} par défaut`,
       destination: { kind: "swimlane", swimlaneId: swimlane.id } as const,
     })),
     { label: "Nouvelle swimlane", destination: { kind: "newSwimlane" } },
@@ -573,7 +586,7 @@ function TypeChip(props: {
       class={`settings-chip${props.dragging ? " is-dragging" : ""}`}
       data-type-id={type.id}
       draggable
-      title="Glisser vers une swimlane ou un groupe"
+      title="Glisser pour choisir la swimlane par défaut de ce type"
       onDragStart={props.onDragStart}
       onDragEnd={props.onDragEnd}
     >
@@ -587,7 +600,7 @@ function TypeChip(props: {
           <Icon name="chevronDown" size={12} />
         </summary>
         <div class="menu-panel">
-          <p class="menu-section">Déplacer vers</p>
+          <p class="menu-section">Classement sans objectif</p>
           {destinations.map(({ label, destination }) => {
             const current = isTypeIn(configuration, type.id, destination);
             return (

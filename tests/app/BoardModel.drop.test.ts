@@ -373,8 +373,8 @@ describe("glisser-déposer — dépôts refusés sans requête", () => {
       { issueKey: "ABC-102", block: RUN_BLOCK, columnId: DOING },
     ],
     [
-      "carte d'une swimlane par type dans un objectif",
-      { issueKey: "RUN-7", block: goalBlock("g-paiement"), columnId: DONE },
+      "carte d'une swimlane par type dans Build",
+      { issueKey: "RUN-7", block: BUILD_BLOCK, columnId: DONE },
     ],
     [
       "carte d'une swimlane par type dans une autre",
@@ -402,6 +402,74 @@ describe("glisser-déposer — dépôts refusés sans requête", () => {
       beforeKey: null,
     });
     expect(writes().map((r) => r.path)).toEqual(["/rest/api/3/issue/RUN-7/transitions"]);
+  });
+});
+
+describe("glisser-déposer — objectif prioritaire sur la swimlane par type", () => {
+  it("rattache RUN à un objectif, change d'objectif puis retourne dans RUN après détachement", async () => {
+    let document = {
+      ...GOALS_DOCUMENT,
+      links: { ...GOALS_DOCUMENT.links } as Record<string, string>,
+    };
+    const jira = boardSiteJira()
+      .on("PUT", RANK, { status: 204 })
+      .on("GET", "/rest/api/3/issue/RUN-7/transitions", transitions())
+      .on("GET", PROPERTY, () => ({ status: 200, json: { value: document } }))
+      .on("PUT", PROPERTY, (request) => {
+        document = request.body as typeof document;
+        return { status: 200 };
+      });
+    const { board, writes } = await boardWith(jira);
+    const laneOfRun = () =>
+      board.layout.value?.lanes.find((lane) =>
+        lane.cells.some((cell) => cell.issues.some((issue) => issue.issue.key === "RUN-7")),
+      )?.id;
+    expect(laneOfRun()).toBe("swimlane:1");
+    expect(board.accepts(goalBlock("g-paiement"), "1")).toBe(true);
+    expect(board.accepts(BUILD_BLOCK, "1")).toBe(false);
+    expect(board.accepts(swimlaneBlock("2"), "1")).toBe(false);
+
+    await board.dropIssue({
+      issueKey: "RUN-7",
+      block: goalBlock("g-stabilite"),
+      columnId: DOING,
+      beforeKey: null,
+    });
+    expect(laneOfRun()).toBe("goal:g-stabilite");
+    expect(
+      board.snapshot.value?.goalIssues.find((issue) => issue.issue.key === "RUN-7"),
+    ).toMatchObject({ goalId: "g-stabilite", swimlaneId: "1" });
+    expect(board.layout.value?.lanes.some((lane) => lane.id === "swimlane:1")).toBe(false);
+
+    await board.dropIssue({
+      issueKey: "RUN-7",
+      block: goalBlock("g-paiement"),
+      columnId: DOING,
+      beforeKey: "ABC-101",
+    });
+    expect(laneOfRun()).toBe("goal:g-paiement");
+    expect(document.links["RUN-7"]).toBe("g-paiement");
+    board.startDrag("RUN-7", "1");
+    expect(board.layout.value?.lanes.at(-1)?.id).toBe("swimlane:1");
+    board.endDrag();
+    expect(board.layout.value?.lanes.some((lane) => lane.id === "swimlane:1")).toBe(false);
+
+    await board.dropIssue({
+      issueKey: "RUN-7",
+      block: RUN_BLOCK,
+      columnId: DOING,
+      beforeKey: null,
+    });
+    expect(document.links).not.toHaveProperty("RUN-7");
+    expect(laneOfRun()).toBe("swimlane:1");
+    expect(
+      board.snapshot.value?.swimlaneIssues.find((issue) => issue.issue.key === "RUN-7")?.goalId,
+    ).toBeNull();
+    expect(writes().filter((request) => request.path === PROPERTY)).toHaveLength(3);
+    expect(writes().every((request) => request.path === PROPERTY || request.path === RANK)).toBe(
+      true,
+    );
+    board.dispose();
   });
 });
 

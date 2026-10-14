@@ -681,7 +681,7 @@ describe("App", () => {
     // Le type « Anomalie Prod » va dans « Ignorés » : sa swimlane disparaît avec son dernier type.
     const chip = document.querySelector('.settings-lanes [data-type-id="10004"]');
     const current = [...(chip?.querySelectorAll(".settings-chip-menu button") ?? [])].find(
-      (b) => b.textContent?.trim() === "Swimlane « Anomalie Prod »",
+      (b) => b.textContent?.trim() === "Anomalie Prod par défaut",
     );
     expect((current as HTMLButtonElement | undefined)?.disabled).toBe(true);
     const ignore = [...(chip?.querySelectorAll(".settings-chip-menu button") ?? [])].find(

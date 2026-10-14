@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BoardConfiguration } from "../../src/core/boardConfiguration";
+import { snapshotGoalProgress, sprintMetrics } from "../../src/core/boardIssue";
 import {
   type AtlassianGoalsLoader,
   BoardSetupError,
@@ -355,6 +356,71 @@ describe("loadSnapshot", () => {
     expect(snapshot.swimlaneIssues[0]?.columnId).toBe("prog");
     expect(snapshot.swimlaneIssues[0]?.swimlaneId).toBe("1");
     expect(discoveredIssueTypes.map((type) => type.id)).toContain("10099");
+  });
+
+  it("texte : l'objectif prime sur le type, conserve le rang Jira et la destination des sous-tâches", async () => {
+    const subtask = (key: string, parent: string) =>
+      issueJson(key, {
+        parent,
+        extraFields: { issuetype: { id: "custom-sub", name: "Analyse", subtask: true } },
+      });
+    const jira = boardJira({
+      sprints: [sprintJson(42, { goal: "Paiement\nStabilité" })],
+      issues: {
+        42: [
+          issueJson("RUN-1", { typeId: "10004", category: "done", statusId: "6", points: 3 }),
+          subtask("RUN-2", "RUN-1"),
+          issueJson("ABC-1"),
+          subtask("RUN-3", "RUN-1"),
+          issueJson("RUN-4", { typeId: "10004" }),
+          issueJson("EPIC-1", { typeId: "10099" }),
+          subtask("EPIC-2", "EPIC-1"),
+        ],
+      },
+      property: {
+        status: 200,
+        json: {
+          value: {
+            version: 1,
+            goals: [
+              { id: "g1", title: "Paiement", color: "goal1", position: 0 },
+              { id: "g2", title: "Stabilité", color: "goal2", position: 1 },
+            ],
+            links: { "RUN-1": "g1", "ABC-1": "g1", "RUN-3": "g2", "EPIC-1": "g1" },
+          },
+        },
+      },
+    });
+    const configuration = makeConfiguration({
+      issueTypes: [
+        ...makeConfiguration().issueTypes,
+        { id: "10099", name: "Epic", iconUrl: null, category: "IGNORED" },
+      ],
+    });
+    const { snapshot } = await sync(jira, configuration);
+    expect(
+      snapshot.goalIssues.map((issue) => [issue.issue.key, issue.goalId, issue.swimlaneId]),
+    ).toEqual([
+      ["RUN-1", "g1", "1"],
+      ["RUN-2", "g1", "1"],
+      ["ABC-1", "g1", null],
+      ["RUN-3", "g2", "1"],
+    ]);
+    expect(snapshot.swimlaneIssues.map((issue) => [issue.issue.key, issue.goalId])).toEqual([
+      ["RUN-4", null],
+    ]);
+    expect(snapshot.issueOrder?.slice(0, 5)).toEqual(["RUN-1", "RUN-2", "ABC-1", "RUN-3", "RUN-4"]);
+    expect(snapshotGoalProgress(snapshot).map((goal) => [goal.total, goal.done])).toEqual([
+      [3, 1],
+      [1, 0],
+    ]);
+    expect(sprintMetrics(snapshot, 3)).toMatchObject({
+      totalIssues: 4,
+      totalPoints: 3,
+      donePoints: 3,
+      swimlaneCount: 1,
+      withoutGoalCount: 0,
+    });
   });
 
   it("complète les types avant les Goals et classe immédiatement un nouveau parent Incident", async () => {

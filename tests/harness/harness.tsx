@@ -19,6 +19,7 @@ import { preferAtlassianGoals } from "../support/atlassianGoalsBoard";
 import {
   BOARD_URL,
   boardSiteJira,
+  GOALS_DOCUMENT,
   SECOND_BOARD_URL,
   SPRINT_ISSUES,
   withSecondBoard,
@@ -86,6 +87,7 @@ if (scenario.startsWith("board")) {
   const pinning = scenario === "board-epingle" || scenario === "board-epingle-refus";
   const kanban = scenario.startsWith("board-kanban");
   const withSubtasks = scenario === "board-soustaches";
+  const goalPriorityDrag = scenario === "board-drag-goal-priority";
   // Réglages du board, sur l'onglet `onglet` : objectifs, swimlanes RUN et OPS, règles de couleur.
   const reglages = scenario === "board-reglages";
   const swimlanes = scenario === "board-swimlanes" || kanban || reglages;
@@ -149,6 +151,50 @@ if (scenario.startsWith("board")) {
   );
   // Tickets du sprint servis par le faux Jira (sous-tâches comprises pour `board-soustaches`).
   let sprintSource: Record<string, unknown>[] = SPRINT_ISSUES;
+  if (goalPriorityDrag) {
+    // RUN ne contient qu'une carte : sa destination disparaît dès le rattachement.
+    sprintSource = [
+      ...SPRINT_ISSUES,
+      issueJson("OPS-20", {
+        summary: "Ouvrir un compte de test prestataire",
+        typeId: "10007",
+        typeName: "Demande de service",
+        statusId: "3",
+        statusName: "En cours",
+      }),
+    ];
+    const goalsProperty = `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.goals}`;
+    let stored: unknown = GOALS_DOCUMENT;
+    jira
+      .on("GET", goalsProperty, () => ({ status: 200, json: { value: stored } }))
+      .on("PUT", goalsProperty, (request) => {
+        stored = request.body;
+        return { status: 200 };
+      })
+      .on("GET", "/rest/api/3/issue/RUN-7", {
+        status: 200,
+        json: { fields: { status: statusJson("3", "En cours") } },
+      })
+      .on("GET", "/rest/api/3/issue/RUN-7/transitions", {
+        status: 200,
+        json: { transitions: [] },
+      });
+    Object.assign(window, {
+      __goalPriority: {
+        ready: false,
+        document: () => stored,
+        writes: () => jira.sent("PUT", goalsProperty).length,
+        otherWrites: () =>
+          jira.requests.filter(
+            (request) =>
+              request.method !== "GET" &&
+              request.path !== "/gateway/api/graphql" &&
+              request.path !== goalsProperty &&
+              !request.path.endsWith(BOARD_PROPERTY_KEYS.teamSettings),
+          ).length,
+      },
+    });
+  }
   if (withSubtasks) {
     // Sous-tâches FICTIVES : ABC-101 en cours (1/3), ABC-102 à faire mais toutes terminées,
     // ABC-103 terminé avec une sous-tâche encore ouverte.
@@ -590,6 +636,22 @@ if (scenario.startsWith("board")) {
         },
         { resync: true },
       );
+    }
+    if (goalPriorityDrag) {
+      await connection.board.applySettings(
+        (current) => ({
+          ...withSwimlaneName(
+            withTypeDestination(current, "10007", { kind: "newSwimlane" }),
+            "2",
+            "OPS",
+          ),
+          // Le retour vers RUN vide doit laisser la carte source immobile malgré cet ordre.
+          blockOrder: ["swimlane:1", "goal:g-paiement", "goal:g-stabilite", "build", "swimlane:2"],
+        }),
+        { resync: true },
+      );
+      const hook = (window as unknown as { __goalPriority: { ready: boolean } }).__goalPriority;
+      hook.ready = true;
     }
     if (scenario === "board-statuts") {
       connection.board.startDrag("ABC-102", null);

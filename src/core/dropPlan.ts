@@ -2,7 +2,7 @@
 export type GoalDropTarget =
   /** La zone ne porte aucune notion d'objectif (bloc Kanban). */
   | { kind: "unchanged" }
-  /** Bloc des tickets sans objectif (« Build ») : le dépôt détache l'objectif. */
+  /** Bloc par défaut des tickets sans objectif (Build ou swimlane par type) : détache l'objectif. */
   | { kind: "build" }
   /** Bloc d'un objectif : le dépôt rattache le ticket à cet objectif. */
   | { kind: "goal"; goalId: string };
@@ -24,7 +24,7 @@ export function isNoOpDrop(plan: BoardDropPlan): boolean {
 
 /**
  * `currentGoalId` est l'objectif sous lequel le ticket est AFFICHÉ (voir `displayedGoalId`) :
- * le ticket d'un objectif masqué, affiché dans Build, n'est pas détaché quand on l'y redépose.
+ * le ticket d'un objectif masqué, affiché dans son bloc par défaut, n'est pas détaché sur place.
  */
 export function resolveDrop(input: {
   currentGoalId: string | null;
