@@ -79,6 +79,19 @@ export function withTypeDestination(
   destination: TypeDestination,
 ): BoardConfiguration {
   if (!configuration.issueTypes.some((type) => type.id === typeId)) return configuration;
+  // En JQL les types ne définissent plus une destination : seule leur inclusion reste réglable.
+  if (configuration.swimlaneMode === "jql") {
+    if (destination.kind !== "goal" && destination.kind !== "ignored") return configuration;
+    const category = destination.kind === "ignored" ? ("IGNORED" as const) : ("GOAL" as const);
+    if (configuration.issueTypes.find((type) => type.id === typeId)?.category === category)
+      return configuration;
+    return {
+      ...configuration,
+      issueTypes: configuration.issueTypes.map((type) =>
+        type.id === typeId ? { ...type, category } : type,
+      ),
+    };
+  }
   if (isTypeIn(configuration, typeId, destination)) return configuration;
   const swimlanes: TicketSwimlane[] = configuration.ticketSwimlanes.map((swimlane) => ({
     ...swimlane,
@@ -134,7 +147,11 @@ export function withSwimlaneName(
     const trimmed = name.trim();
     return {
       ...swimlane,
-      name: trimmed === computedSwimlaneName(configuration, swimlane) ? "" : trimmed,
+      name:
+        configuration.swimlaneMode !== "jql" &&
+        trimmed === computedSwimlaneName(configuration, swimlane)
+          ? ""
+          : trimmed,
     };
   });
 }

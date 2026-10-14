@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.32.0**, 14 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.34.0**, 14 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -81,19 +81,24 @@ copie, historique, fermeture et format étroit, avec captures dans `.vite/`.
   par défaut jusqu'à réaffichage, sans modifier le rattachement.
   Les objectifs épinglés peuvent rester vides. Un Goal vide n'est jamais atteint ; sinon tous ses
   tickets doivent être dans la dernière colonne visible. Le vert est réservé à cet état.
-- Une seule série de colonnes pour toutes les swimlanes. Un type est `GOAL`, `SWIMLANE` ou `IGNORED`.
-  [`normalizeSwimlanes`](src/core/boardConfiguration.ts) garantit une seule swimlane par type :
-  groupe créé avec son premier type, retiré avec le dernier ; nom vide = noms des types réunis.
-  L'objectif est prioritaire pour tous les types visibles : `swimlaneId` conserve la destination
-  par défaut du ticket, utilisée sans objectif visible. `goalIssues` contient aussi les tickets
-  de types `SWIMLANE` rattachés ; `swimlaneIssues` contient ceux sans rattachement. Les types
-  `IGNORED` restent exclus. Les lignes sans ticket affiché disparaissent, sauf les objectifs vides.
-  Une carte peut rejoindre tout objectif ou revenir uniquement dans sa destination par défaut.
-  Pendant le glissé, sa destination vide réapparaît temporairement en fin de board pour préserver
-  la position de la carte source ; elle reprend l'ordre configuré après détachement.
+- Une seule série de colonnes pour toutes les swimlanes. Depuis 0.34.0, une migration explicite
+  convertit les groupes par type en JQL après validation et aperçu, sans publication à l'ouverture.
+  En mode JQL : objectif visible → première règle active satisfaite → Default. `swimlaneId` garde
+  la destination sans objectif ; les types `IGNORED` restent exclus. Masquer conserve le classement,
+  désactiver retire la règle de l'évaluation. Seuls les objectifs restent affichés vides.
+  `JqlService` valide avec Jira et fournit les suggestions ; `BoardJqlService` mutualise couleurs
+  et classement sur les seuls identifiants du snapshot (lots 50 tickets/10 JQL, 3 appels simultanés).
+  Aucune règle métier JQL n'est interprétée localement. Les résultats périmés sont écartés, une règle
+  illisible bloque la priorité des suivantes et conserve l'ancienne destination visible ou Default,
+  avec notification refermable et marque sur les cartes. Les filtres rapides Jira restent distincts.
+  Les brouillons sont publiés après validation, avec contrôle des conflits de leur famille et des
+  droits juste avant écriture ; les règles actives changent après confirmation de Jira.
+  Une carte peut rejoindre un objectif ou revenir dans sa destination calculée ; « Retirer de
+  l'objectif » ne change aucun autre champ. Les anciennes configurations gardent leur classement
+  par type tant que la migration n'est pas appliquée.
 - Les sous-tâches gardent leur carte et leurs compteurs ; sans Goal propre, elles héritent de celui
-  du parent. Si celui-ci est présent, elles héritent de sa destination par défaut ; leur propre
-  objectif reste prioritaire s'il existe.
+  du parent. En mode JQL, chacune est évaluée individuellement ; avant migration, elle suit
+  la destination du parent présent. Un objectif hérité n'est pas détachable depuis la sous-tâche.
   Filtres carte par carte, WIP en tickets, `columnLoad` sur toutes les swimlanes. Survol de famille
   seulement avec au moins deux cartes visibles et hors glissé ; jauge et alerte des sous-tâches
   utilisent ces données, sans lecture Jira supplémentaire.
@@ -233,7 +238,10 @@ Ces contrats décrivent le code, sans certifier toutes les capacités Atlassian.
 | Sprints actifs/futurs | `GET /rest/agile/1.0/board/{id}/sprint`, filtre `state` ; `GET /rest/agile/1.0/sprint/{id}` pour relecture |
 | Backlog du planning | `GET /rest/software/1.0/board/{id}/backlog`, pagination `nextPageToken` et `isLast`, limite 5 000 |
 | Tickets Scrum | `GET /rest/agile/1.0/board/{board}/sprint/{sprint}/issue` ; jamais le sprint seul |
-| Tickets Kanban / filtres JQL | `GET /rest/agile/1.0/board/{id}/issue` |
+| Tickets Kanban / filtres rapides Jira | `GET /rest/agile/1.0/board/{id}/issue` |
+| Validation JQL | `POST /rest/api/3/jql/parse?validation=strict` (lecture) |
+| Suggestions JQL | `GET /rest/api/3/jql/autocompletedata` et `/jql/autocompletedata/suggestions` |
+| Couleurs et swimlanes JQL | `POST /rest/api/3/jql/match` (lecture, lots de 50 tickets / 10 requêtes) |
 | Transitions / statut courant | `GET /rest/api/3/issue/{key}/transitions?expand=transitions.fields` ; `GET /rest/api/3/issue/{key}?fields=status` |
 | Métadonnées et propriétés | Champs, statuts, types observés, filtres rapides et propriétés : [`client.ts`](src/jira/client.ts) |
 
@@ -254,12 +262,15 @@ curseur incohérent ou limite signalés. Kanban peut se rabattre sur le champ Go
 ticket d'un type non ignoré**, même `null` ; s'il manque et que les liens GraphQL sont incomplets,
 la lecture échoue. Les mutations admises sont E3/E4 ci-dessous (`goalId`, `workItemId`, résultat
 `success`/`errors`). Pas de création/modification de Goal. Les POST GraphQL de lecture et
-`/rest/api/3/jql/parse` ne sont pas des écritures métier ; le chemin lecture refuse `mutation`/`subscription`.
+`/rest/api/3/jql/parse` et `/rest/api/3/jql/match` ne sont pas des écritures métier ;
+le chemin lecture refuse `mutation`/`subscription`.
 
 Références : [boards](https://developer.atlassian.com/cloud/jira/software/rest/api-group-board/),
 [sprints](https://developer.atlassian.com/cloud/jira/software/rest/api-group-sprint/),
 [propriétés d'entité](https://developer.atlassian.com/cloud/jira/platform/jira-entity-properties/),
-[tickets/transitions](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/).
+[tickets/transitions](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/),
+[validation et suggestions JQL](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-jql/),
+[correspondance JQL](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-jql-match-post).
 
 <a id="donnees-persistantes"></a>
 ## Données persistantes
@@ -282,6 +293,10 @@ document reçoit celles de Jira. Localement, masquage et noms de colonnes enregi
 Depuis 0.31.1, le marquage `countsAsBug` des types est ignoré dans les anciens documents et caches,
 et absent des nouvelles configurations sérialisées. Les catégories et swimlanes sont conservées ;
 aucune migration n'écrit automatiquement dans Jira. Le signalement des bugs liés a été retiré.
+Depuis 0.34.0, `jqlSwimlanes: {version: 1, lanes: [...]}` est la représentation partagée faisant
+autorité. Cette clé autonome est conservée par les anciennes installations quand elles réécrivent
+les groupes par type. Les identifiants et l'ordre restent stables ; un format JQL futur/invalide
+refuse l'écriture du document partagé au lieu de supprimer ses règles.
 
 | Clé `chrome.storage.local` | Contenu |
 |---|---|
@@ -354,7 +369,7 @@ saisies sont hors du transport et du journal de l'extension, qui ne les remplit 
 |---|---|
 | S1 | URL de Goal insuffisamment bornée : corrigé, domaines Atlassian validés et tests de liens |
 | S2 | Réglages/JQL des collègues exécutés avec la session du lecteur : choix produit, `canEdit`, relecture/conflits ; filtre du board appliqué par l'API |
-| S3 | Restriction JQL syntaxique contournable par parenthèses déséquilibrées : lecture limitée au board et filtrage local, volume supplémentaire encore possible |
+| S3 | Filtres rapides natifs : restriction syntaxique et filtrage local du board. Depuis 0.34.0, couleurs/swimlanes évaluées par identifiants déjà chargés, sans élargissement possible du périmètre |
 | S4 | Session avec droits de l'utilisateur : risque structurel, inventaire borné côté extension ; fiche native conserve les droits Jira |
 | S5 | CSP de connexion plus large que le site connecté : site contrôlé dans transport et plateforme |
 | S6 | Auteur des réglages enregistré : choix assumé, visible aux lecteurs du board |

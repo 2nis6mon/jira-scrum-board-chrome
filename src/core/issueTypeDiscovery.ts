@@ -27,7 +27,7 @@ export function withObservedIssueTypes(
           id: type.id,
           name: type.name,
           iconUrl: type.iconUrl,
-          category: defaultCategory(type.name),
+          category: configuration.swimlaneMode === "jql" ? "GOAL" : defaultCategory(type.name),
         };
     types.set(type.id, next);
     changed = true;
@@ -39,6 +39,9 @@ export function withObservedIssueTypes(
   return {
     ...configuration,
     issueTypes,
-    ticketSwimlanes: normalizeSwimlanes(issueTypes, configuration.ticketSwimlanes),
+    ticketSwimlanes:
+      configuration.swimlaneMode === "jql"
+        ? configuration.ticketSwimlanes
+        : normalizeSwimlanes(issueTypes, configuration.ticketSwimlanes),
   };
 }

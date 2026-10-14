@@ -1,20 +1,21 @@
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { type BoardConfiguration, colorRules } from "../../../core/boardConfiguration";
 import { allIssues } from "../../../core/boardIssue";
 import {
   CARD_COLOR_LABEL,
   CARD_COLOR_PALETTE,
   type CardColorRule,
-  cleanedColorRules,
   moveColorRule,
   nextRuleColor,
 } from "../../../core/cardColors";
 import { shiftTarget } from "../../../core/reorder";
 import type { BoardModel } from "../../model/BoardModel";
+import type { JqlValidation } from "../../services/JqlService";
 import { plural } from "../format";
 import { Icon } from "../Icon";
 import { CardPreview } from "./CardPreview";
 import { ColorMenu, Grip, SaveBar, Switch, useReorder } from "./controls";
+import { JqlEditor } from "./JqlEditor";
 
 const RULE_DRAG = "application/x-sprint-goals-settings-rule";
 const CARD_COLORS = CARD_COLOR_PALETTE.map((id) => ({ id, name: CARD_COLOR_LABEL[id] ?? id }));
@@ -33,26 +34,68 @@ export function CardColorSettings({
 }) {
   const kanban = configuration.boardType === "kanban";
   const stored = colorRules(configuration);
+  const storedText = JSON.stringify(stored);
   const [rules, setRules] = useState<readonly CardColorRule[]>(stored);
+  const [baseline, setBaseline] = useState(storedText);
+  const [sourceBoard, setSourceBoard] = useState(configuration.boardId);
+  const generation = useRef(0);
   // En Kanban, la règle « ajouté en cours de sprint » n'a pas de sens : cachée, mais gardée.
   const shown = (rule: CardColorRule) => !kanban || rule.kind !== "addedAfterSprintStart";
   const visibleRules = rules.filter(shown);
   const ids = visibleRules.map((rule) => rule.id);
   const [applying, setApplying] = useState(false);
-  const changed = JSON.stringify(rules) !== JSON.stringify(stored);
+  const [validations, setValidations] = useState<Readonly<Record<string, JqlValidation>>>({});
+  const changed = JSON.stringify(rules) !== baseline;
+  const conflict = changed && baseline !== storedText;
+  const canEdit = board.canEditSettings.value;
+  const validationNeeded = rules.some((rule) => {
+    if (rule.kind !== null || !rule.enabled) return false;
+    const previous = stored.find((item) => item.id === rule.id);
+    if (previous?.enabled && previous.jql === rule.jql) return false;
+    const result = validations[rule.id];
+    return result?.text !== rule.jql || result.status !== "valid";
+  });
+
+  // Une actualisation remplace seulement un formulaire intact, jamais une saisie en cours.
+  useEffect(() => {
+    if (configuration.boardId === sourceBoard && (changed || baseline === storedText)) return;
+    generation.current += 1;
+    setSourceBoard(configuration.boardId);
+    setRules(stored);
+    setBaseline(storedText);
+    setValidations({});
+    setApplying(false);
+  }, [configuration.boardId, storedText]);
+  useEffect(
+    () => () => {
+      generation.current += 1;
+    },
+    [],
+  );
+
+  const change = (update: (current: readonly CardColorRule[]) => readonly CardColorRule[]) => {
+    if (!canEdit || applying) return;
+    setRules(update);
+  };
+  const reset = () => {
+    generation.current += 1;
+    setRules(stored);
+    setBaseline(storedText);
+    setValidations({});
+  };
 
   // Chaque modification repart de la liste COURANTE.
   const edit = (id: string, parts: Partial<CardColorRule>) =>
-    setRules((current) => current.map((rule) => (rule.id === id ? { ...rule, ...parts } : rule)));
+    change((current) => current.map((rule) => (rule.id === id ? { ...rule, ...parts } : rule)));
   const reorder = useReorder(RULE_DRAG, ids, (id, before) =>
-    setRules((current) => moveColorRule(current, id, before, shown)),
+    change((current) => moveColorRule(current, id, before, shown)),
   );
   const shift = (id: string, offset: -1 | 1) => {
     const before = shiftTarget(ids, id, offset);
-    if (before !== undefined) setRules((current) => moveColorRule(current, id, before, shown));
+    if (before !== undefined) change((current) => moveColorRule(current, id, before, shown));
   };
   const addRule = () => {
-    setRules((current) => [
+    change((current) => [
       {
         id: crypto.randomUUID(),
         name: "",
@@ -70,13 +113,22 @@ export function CardColorSettings({
   };
 
   const apply = async () => {
+    if (!canEdit || applying || !changed || conflict || validationNeeded) return;
+    const request = ++generation.current;
     setApplying(true);
     try {
-      await board.applyColorRules(cleanedColorRules(rules));
+      const applied = await board.applyColorRules(
+        rules.map((rule) => ({ ...rule, name: rule.name.trim(), jql: rule.jql.trim() })),
+      );
+      if (!applied || generation.current !== request) return;
       const saved = board.configuration.value;
-      if (saved) setRules(colorRules(saved));
+      if (saved?.boardId === sourceBoard) {
+        const next = colorRules(saved);
+        setRules(next);
+        setBaseline(JSON.stringify(next));
+      }
     } finally {
-      setApplying(false);
+      if (generation.current === request) setApplying(false);
     }
   };
 
@@ -199,9 +251,7 @@ export function CardColorSettings({
                             : "Supprimer cette règle"
                         }
                         disabled={builtIn}
-                        onClick={() =>
-                          setRules((current) => current.filter((r) => r.id !== rule.id))
-                        }
+                        onClick={() => change((current) => current.filter((r) => r.id !== rule.id))}
                       >
                         <Icon name="trash" size={15} />
                       </button>
@@ -212,17 +262,16 @@ export function CardColorSettings({
                         d'après l'historique Jira.
                       </p>
                     ) : (
-                      <textarea
-                        class="settings-rule-body color-rule-jql"
-                        aria-label={`JQL de la règle ${label}`}
-                        rows={2}
-                        spellcheck={false}
+                      <JqlEditor
+                        service={board.jql}
+                        label={`JQL de la règle ${label}`}
                         placeholder='JQL — ex. "Priorité incident" = P2'
                         value={rule.jql}
-                        onInput={(event) => {
-                          const jql = event.currentTarget.value;
-                          edit(rule.id, { jql });
-                        }}
+                        disabled={applying}
+                        onInput={(jql) => edit(rule.id, { jql })}
+                        onValidation={(result) =>
+                          setValidations((current) => ({ ...current, [rule.id]: result }))
+                        }
                       />
                     )}
                     <RuleStatus board={board} rule={rule} stored={stored} />
@@ -267,15 +316,19 @@ export function CardColorSettings({
       <SaveBar
         changed={changed}
         message={
-          changed
-            ? "Modifications non appliquées · une règle sans JQL n'est pas enregistrée"
-            : "Aucune modification en cours."
+          conflict
+            ? "Les couleurs ont changé dans Jira pendant votre saisie. Annuler recharge la version actuelle."
+            : changed
+              ? validationNeeded
+                ? "Vérifiez les JQL des règles activées avant d'appliquer."
+                : "Modifications non appliquées."
+              : "Aucune modification en cours."
         }
         busy={applying}
         cancelDisabled={!changed || applying}
-        onCancel={() => setRules(stored)}
+        onCancel={reset}
         confirm={applying ? "Évaluation par Jira…" : "Appliquer"}
-        confirmDisabled={!changed || applying}
+        confirmDisabled={!canEdit || !changed || applying || conflict || validationNeeded}
         onConfirm={() => void apply()}
       />
     </>
@@ -296,9 +349,6 @@ function RuleStatus(props: {
       {text}
     </p>
   );
-  if (!saved || JSON.stringify(saved) !== JSON.stringify(rule)) {
-    return status("pending", "Non appliquée : « Appliquer » la fait évaluer par Jira.");
-  }
   if (!rule.enabled) return status("off", "Suspendue.");
   const refusal = board.colorRuleIssues.value[rule.id];
   if (refusal) {
@@ -308,6 +358,9 @@ function RuleStatus(props: {
         Jira a refusé cette requête : {refusal}
       </p>
     );
+  }
+  if (!saved || JSON.stringify(saved) !== JSON.stringify(rule)) {
+    return status("pending", "Non appliquée : « Appliquer » la fait évaluer par Jira.");
   }
   const count = board.colorRuleCounts.value[rule.id];
   if (count === undefined) return null;

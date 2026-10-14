@@ -8,12 +8,11 @@ import { isWriteRequest, type RecordedRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 
 const SITE = normalizeSiteUrl("acme.atlassian.net");
-const ISSUES = "/rest/agile/1.0/board/7/issue";
 
 // Réponses FICTIVES de Jira, par JQL : seul Jira évalue les règles.
 const ANSWERS: Record<string, string[]> = {
-  "(priority = High) AND sprint in (42)": ["ABC-101"],
-  "(labels = perf) AND sprint in (42)": ["ABC-101", "ABC-103"],
+  "priority = High": ["ABC-101"],
+  "labels = perf": ["ABC-101", "ABC-103"],
 };
 
 const rule = (id: string, jql: string, color: string): CardColorRule => ({
@@ -26,20 +25,27 @@ const rule = (id: string, jql: string, color: string): CardColorRule => ({
 });
 
 async function colorBoard() {
-  const jira = boardSiteJira().on("GET", ISSUES, (request: RecordedRequest) => {
-    const jql = request.url.searchParams.get("jql");
-    if (jql === null) return { status: 200, json: { issues: SPRINT_ISSUES, total: 6 } };
-    const keys = ANSWERS[jql];
-    if (!keys) return { status: 400, json: { errorMessages: [`Champ inconnu dans « ${jql} »`] } };
-    const issues = SPRINT_ISSUES.filter((issue) => keys.includes(issue.key as string));
-    return { status: 200, json: { issues, total: issues.length } };
+  const jira = boardSiteJira().on("POST", "/rest/api/3/jql/match", (request: RecordedRequest) => {
+    const body = request.body as { jqls: string[]; issueIds: number[] };
+    return {
+      status: 200,
+      json: {
+        matches: body.jqls.map((jql) => ({
+          matchedIssues: SPRINT_ISSUES.filter(
+            (issue) =>
+              ANSWERS[jql]?.includes(issue.key as string) &&
+              body.issueIds.includes(Number(issue.id)),
+          ).map((issue) => Number(issue.id)),
+          errors: ANSWERS[jql] ? [] : [`Champ inconnu dans « ${jql} »`],
+        })),
+      },
+    };
   });
   const platform = fakePlatform(jira);
   const board = new BoardModel(SITE, platform);
   await board.load();
   await board.detect(BOARD_URL);
-  const jqlReads = () =>
-    jira.sent("GET", ISSUES).filter((r) => r.url.searchParams.get("jql") !== null).length;
+  const jqlReads = () => jira.sent("POST", "/rest/api/3/jql/match").length;
   return { board, jira, platform, jqlReads };
 }
 
@@ -79,14 +85,20 @@ describe("BoardModel — couleurs des cartes", () => {
     expect(board.cardColors.value).toEqual({ "ABC-101": "teal", "ABC-103": "teal" });
   });
 
-  it("JQL refusé : le refus est dit sous la règle, les autres colorent quand même", async () => {
-    const { board } = await colorBoard();
-    await board.applyColorRules([
-      rule("cassee", "champ ~~ x", "pink"),
-      rule("haute", "priority = High", "red"),
-    ]);
-    expect(board.colorRuleIssues.value.cassee).toContain("Champ inconnu");
+  it("JQL refusé avant publication : les règles précédentes restent actives sans écriture", async () => {
+    const { board, jira } = await colorBoard();
+    await board.applyColorRules([rule("haute", "priority = High", "red")]);
+    const before = jira.requests.filter(isWriteRequest).length;
+    expect(
+      await board.applyColorRules([
+        rule("cassee", "champ ~~ x", "pink"),
+        rule("haute", "priority = High", "red"),
+      ]),
+    ).toBe(false);
+    expect(board.colorRuleIssues.value.cassee).toContain("inconnu");
     expect(board.cardColors.value).toEqual({ "ABC-101": "red" });
+    expect(board.configuration.value?.cardColorRules.map((rule) => rule.id)).toEqual(["haute"]);
+    expect(jira.requests.filter(isWriteRequest)).toHaveLength(before);
   });
 
   it("chaque actualisation fait réévaluer les règles par Jira", async () => {
@@ -103,5 +115,14 @@ describe("BoardModel — couleurs des cartes", () => {
     await board.applyColorRules([{ ...rule("haute", "priority = High", "red"), enabled: false }]);
     expect(board.cardColors.value).toEqual({});
     expect(jqlReads()).toBe(0);
+  });
+
+  it("préserve un brouillon vide désactivé et refuse son activation sans JQL", async () => {
+    const { board } = await colorBoard();
+    const draft = { ...rule("brouillon", "", "teal"), enabled: false };
+    expect(await board.applyColorRules([draft])).toBe(true);
+    expect(board.configuration.value?.cardColorRules).toEqual([draft]);
+    expect(await board.applyColorRules([{ ...draft, enabled: true }])).toBe(false);
+    expect(board.configuration.value?.cardColorRules[0]?.enabled).toBe(false);
   });
 });

@@ -3066,3 +3066,28 @@ details.lane-menu:not([data-placed]) .menu-panel {
   gap: 6px;
   padding: 0 12px 0 10px;
 }
+
+.card-detach-goal {
+  display: block;
+  margin: 3px 4px 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 11px;
+  cursor: pointer;
+}
+.card-detach-goal:hover,
+.card-detach-goal:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.card-detach-goal:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.card-classification-pending {
+  display: block;
+  margin: 3px 4px;
+  color: #875b19;
+  font-size: 11px;
+}

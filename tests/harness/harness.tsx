@@ -28,6 +28,7 @@ import { FakeJira, type Reply, XSRF_REFUSAL } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 import { goalsGateway } from "../support/goalsGateway";
 import { issueJson, statusJson } from "../support/jiraFixtures";
+import { withJqlFixture } from "../support/jqlFixture";
 import { KANBAN_NAME, KANBAN_SUBQUERY } from "../support/kanbanFixture";
 import { planningFixture } from "../support/planningFixture";
 
@@ -90,6 +91,8 @@ if (scenario.startsWith("board")) {
   const goalPriorityDrag = scenario === "board-drag-goal-priority";
   // Réglages du board, sur l'onglet `onglet` : objectifs, swimlanes RUN et OPS, règles de couleur.
   const reglages = scenario === "board-reglages";
+  const persistSettings = reglages && new URLSearchParams(location.search).get("persist") === "1";
+  const settingsStorageKey = "harness-jql-team-settings";
   const swimlanes = scenario === "board-swimlanes" || kanban || reglages;
   const withGoals = scenario === "board-goals" || pinning || withSubtasks || kanban || reglages;
   // Filtres rapides FICTIFS du board ; le faux Jira « évalue » leur JQL par table.
@@ -303,17 +306,26 @@ if (scenario.startsWith("board")) {
   // Réglages d'équipe : propriété du board qui garde ce qu'on y publie, comme Jira. Pour simuler la
   // publication d'un collègue depuis la console : `__equipe.publier({ agingThresholdDays: 9 })`.
   const teamProperty = `/rest/agile/1.0/board/7/properties/${BOARD_PROPERTY_KEYS.teamSettings}`;
-  let teamStored: Record<string, unknown> | null = null;
+  let teamStored: Record<string, unknown> | null = persistSettings
+    ? (JSON.parse(localStorage.getItem(settingsStorageKey) ?? "null") as Record<
+        string,
+        unknown
+      > | null)
+    : null;
+  const restoredSettings = teamStored !== null;
   jira
     .on("GET", teamProperty, () =>
       teamStored === null ? { status: 404 } : { status: 200, json: { value: teamStored } },
     )
     .on("PUT", teamProperty, (request) => {
       teamStored = request.body as Record<string, unknown>;
+      if (persistSettings) localStorage.setItem(settingsStorageKey, JSON.stringify(teamStored));
       return { status: 201 };
     });
   Object.assign(window, {
     __equipe: {
+      document: () => teamStored,
+      writes: () => jira.sent("PUT", teamProperty).length,
       publier(settings: Record<string, unknown>) {
         const current = (teamStored?.settings ?? {}) as Record<string, unknown>;
         teamStored = {
@@ -365,7 +377,10 @@ if (scenario.startsWith("board")) {
   });
   const decorated = (issue: Record<string, unknown>): Record<string, unknown> => {
     const extras = cardExtras[issue.key as string];
-    const withHistory = { ...issue, changelog: changelog(issue.key as string) };
+    const withHistory = {
+      ...issue,
+      changelog: changelog(issue.key as string),
+    };
     return extras
       ? { ...withHistory, fields: { ...(issue.fields as Record<string, unknown>), ...extras } }
       : withHistory;
@@ -386,6 +401,7 @@ if (scenario.startsWith("board")) {
           : issue,
       )
       .map(decorated);
+  if (reglages) withJqlFixture(jira, issues());
   jira.on("GET", "/rest/agile/1.0/board/7/sprint/42/issue", () => ({
     status: 200,
     json: { issues: issues(), total: issues().length },
@@ -618,7 +634,7 @@ if (scenario.startsWith("board")) {
       await connection.board.detect(SECOND_BOARD_URL);
     }
     await connection.board.detect(BOARD_URL);
-    if (scenario !== "board-chargement" && scenario !== "board-planning")
+    if (scenario !== "board-chargement" && scenario !== "board-planning" && !restoredSettings)
       await connection.board.applySettings(
         (current) => ({
           ...current,
@@ -626,7 +642,7 @@ if (scenario.startsWith("board")) {
         }),
         { resync: true },
       );
-    if (swimlanes) {
+    if (swimlanes && !restoredSettings) {
       // RUN : les anomalies (classées d'office hors objectifs) ; OPS : les demandes, regroupées.
       await connection.board.applySettings(
         (current) => {
@@ -659,30 +675,31 @@ if (scenario.startsWith("board")) {
     if (scenario === "board-filtre") connection.board.toggleQuickFilter("blocked");
     if (pinning) model.showSettings("goals");
     if (reglages) {
-      await connection.board.applySettings(
-        (current) => ({
-          ...current,
-          cardColorRules: [
-            {
-              id: "incident",
-              name: "Bloquant",
-              jql: "priority in (High, Highest)",
-              color: "red",
-              enabled: true,
-              kind: null,
-            },
-            {
-              id: "support",
-              name: "Support N3",
-              jql: 'component = "Support N3"',
-              color: "gray",
-              enabled: false,
-              kind: null,
-            },
-          ],
-        }),
-        { resync: true },
-      );
+      if (!restoredSettings)
+        await connection.board.applySettings(
+          (current) => ({
+            ...current,
+            cardColorRules: [
+              {
+                id: "incident",
+                name: "Bloquant",
+                jql: "priority in (High, Highest)",
+                color: "red",
+                enabled: true,
+                kind: null,
+              },
+              {
+                id: "support",
+                name: "Support N3",
+                jql: 'component = "Support N3"',
+                color: "gray",
+                enabled: false,
+                kind: null,
+              },
+            ],
+          }),
+          { resync: true },
+        );
       const tab = new URLSearchParams(location.search).get("onglet");
       model.showSettings(
         tab === "goals" || tab === "cardFields" || tab === "cardColors" ? tab : "board",

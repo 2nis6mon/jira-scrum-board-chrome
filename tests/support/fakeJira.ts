@@ -92,6 +92,11 @@ export class FakeJira {
 /** Écriture émise : tout sauf GET et sauf les lectures GraphQL (POST d'un document « query »). */
 export function isWriteRequest(request: RecordedRequest): boolean {
   if (request.method === "GET") return false;
+  if (
+    request.method === "POST" &&
+    ["/rest/api/3/jql/parse", "/rest/api/3/jql/match"].includes(request.path)
+  )
+    return false;
   const query = (request.body as { query?: unknown } | null)?.query;
   return !(
     request.path === "/gateway/api/graphql" &&

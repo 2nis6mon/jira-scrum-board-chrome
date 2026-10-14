@@ -2,11 +2,9 @@ import { describe, expect, it } from "vitest";
 import { displayedCardFields } from "../../src/core/boardConfiguration";
 import {
   type CardColorRule,
-  colorRuleQueries,
   resolveCardColors,
   SCOPE_CHANGE_RULE,
   SCOPE_CHANGE_RULE_ID,
-  scopedJql,
   withBuiltInRules,
 } from "../../src/core/cardColors";
 import {
@@ -91,29 +89,8 @@ describe("champs des cartes", () => {
   });
 });
 
-// CardColorRuleTests + ActiveSprintScopeTests
+// Priorités des couleurs et règle intégrée, indépendantes des lectures Jira.
 describe("règles de couleur des cartes", () => {
-  it("ORDER BY est retiré avant de restreindre la requête", () => {
-    const p2 = rule("P2", '  "Priorité incident" = P2 ORDER BY created DESC ', "red");
-    expect(scopedJql(p2)).toBe('"Priorité incident" = P2');
-    expect(scopedJql(rule("x", "a = 1\norder   by rank", "red"))).toBe("a = 1");
-  });
-
-  it("la requête est restreinte aux sprints actifs, tous", () => {
-    const p2 = rule("P2", "priority = Highest OR labels = urgent", "red");
-    expect(colorRuleQueries(p2, [42])).toEqual([
-      "(priority = Highest OR labels = urgent) AND sprint in (42)",
-    ]);
-    expect(colorRuleQueries(p2, [42, 43])).toEqual([
-      "(priority = Highest OR labels = urgent) AND sprint in (42,43)",
-    ]);
-  });
-
-  it("JQL vide ou aucun sprint actif : aucune requête", () => {
-    expect(colorRuleQueries(rule("vide", "   ", "red"), [1])).toEqual([]);
-    expect(colorRuleQueries(rule("P2", "priority = High", "red"), [])).toEqual([]);
-  });
-
   it("la règle intégrée est dernière par défaut : les règles JQL l'emportent", () => {
     const p2 = rule("P2", "x", "red");
     const rules = withBuiltInRules([p2]);
@@ -133,10 +110,6 @@ describe("règles de couleur des cartes", () => {
   it("la règle intégrée suspendue ne colore rien", () => {
     const suspended = { ...SCOPE_CHANGE_RULE, enabled: false };
     expect(resolveCardColors([suspended], {}, new Set(["X-1"]))).toEqual({});
-  });
-
-  it("la règle intégrée ne produit jamais de requête Jira", () => {
-    expect(colorRuleQueries(SCOPE_CHANGE_RULE, [1])).toEqual([]);
   });
 
   it("la première règle active l'emporte", () => {

@@ -303,7 +303,10 @@ export class BoardSettingsService {
         });
       }
     });
-    this.#teamQueue = task.catch(() => {});
+    this.#teamQueue = task.then(
+      () => {},
+      () => {},
+    );
     try {
       await task;
     } finally {
@@ -329,7 +332,10 @@ export class BoardSettingsService {
     this.#teamWrites += 1;
     this.#state.teamSaving.value += 1;
     const task = this.#teamQueue.then(() => this.#saveShared(change));
-    this.#teamQueue = task.catch(() => {});
+    this.#teamQueue = task.then(
+      () => {},
+      () => {},
+    );
     try {
       await task;
     } finally {
@@ -337,12 +343,50 @@ export class BoardSettingsService {
     }
   }
 
-  /** Écrit une modification des réglages partagés sur la version relue dans Jira. */
-  async #saveShared(change: (configuration: BoardConfiguration) => BoardConfiguration) {
+  /** Les brouillons JQL ne remplacent les réglages actifs qu'après confirmation de Jira. */
+  async changeSharedConfirmed(
+    change: (configuration: BoardConfiguration) => BoardConfiguration,
+    sameFamily: (base: BoardConfiguration, latest: BoardConfiguration) => boolean,
+    base?: BoardConfiguration,
+  ): Promise<boolean> {
     const configuration = this.#state.configuration.value;
-    if (!configuration) return;
+    if (!configuration || !this.#state.canEditSettings.value) return false;
+    const generation = this.#effects.scope.generation();
+    this.#teamWrites += 1;
+    this.#state.teamSaving.value += 1;
+    const task = this.#teamQueue.then(async () => {
+      if (
+        generation !== this.#effects.scope.generation() ||
+        this.#state.configuration.value?.boardId !== configuration.boardId
+      )
+        return false;
+      return this.#saveShared(change, base ?? configuration, sameFamily);
+    });
+    this.#teamQueue = task.then(
+      () => {},
+      () => {},
+    );
+    try {
+      return (await task) === true;
+    } finally {
+      this.#state.teamSaving.value -= 1;
+    }
+  }
+
+  /** Écrit une modification des réglages partagés sur la version relue dans Jira. */
+  async #saveShared(
+    change: (configuration: BoardConfiguration) => BoardConfiguration,
+    confirmed?: BoardConfiguration,
+    sameFamily?: (base: BoardConfiguration, latest: BoardConfiguration) => boolean,
+  ): Promise<boolean> {
+    const configuration = this.#state.configuration.value;
+    if (!configuration) return false;
     const boardId = configuration.boardId;
-    const stale = () => this.#state.configuration.value?.boardId !== boardId;
+    const generation = this.#effects.scope.generation();
+    const stale = () =>
+      this.#effects.scope.disposed() ||
+      generation !== this.#effects.scope.generation() ||
+      this.#state.configuration.value?.boardId !== boardId;
     const user = this.#effects.currentUser();
     const entry = {
       action: "réglages d'équipe",
@@ -353,7 +397,7 @@ export class BoardSettingsService {
     this.#state.teamNotice.value = null;
     try {
       const raw = await this.#reader.boardProperty(boardId, BOARD_PROPERTY_KEYS.teamSettings);
-      if (stale()) return;
+      if (stale()) return false;
       const current = raw === null ? null : decodeTeamDocument(raw);
       if (raw !== null && !current) {
         this.#state.teamNotice.value = {
@@ -362,13 +406,40 @@ export class BoardSettingsService {
           suggestion:
             "Ils ne sont jamais écrasés. Une version plus récente de l'extension les a peut-être écrits.",
         };
-        return;
+        return false;
       }
-      // La modification est rejouée sur la version la plus récente : celles des autres sont gardées.
+      const latest = current ? withTeamSettings(configuration, current.settings) : configuration;
+      if (
+        confirmed &&
+        ((current === null && confirmed.teamBase !== null) ||
+          (sameFamily && !sameFamily(confirmed, latest)))
+      ) {
+        if (current) {
+          this.#state.team.value = { kind: "published", document: current };
+          await this.#applyTeamDocument(current);
+        }
+        this.#state.teamNotice.value = {
+          tone: "warning",
+          text: "Ces règles ont changé dans Jira pendant votre saisie. Rien n'a été écrasé.",
+          suggestion:
+            "Votre brouillon est conservé. Copiez-le si nécessaire, puis rechargez les règles avant de les modifier.",
+        };
+        return false;
+      }
+      // Les autres familles de réglages sont reprises de la version la plus récente.
       const next = current
         ? change(withTeamSettings(configuration, current.settings))
-        : configuration;
-      const outcome = await publishTeamSettings(this.#reader, this.#writer, {
+        : confirmed
+          ? change(configuration)
+          : configuration;
+      const writer: JiraWriter = {
+        write: async (operation) => {
+          if (stale() || !this.#state.canEditSettings.value)
+            throw new Error("Le board ou ses droits ont changé avant l'enregistrement.");
+          return this.#writer.write(operation);
+        },
+      };
+      const outcome = await publishTeamSettings(this.#reader, writer, {
         boardId,
         settings: teamSettingsOf(next),
         columns: next.columns,
@@ -379,7 +450,7 @@ export class BoardSettingsService {
         },
         now: this.#effects.now(),
       });
-      if (stale()) return;
+      if (stale()) return false;
       if (outcome.kind === "published") {
         this.#state.team.value = { kind: "published", document: outcome.document };
         await this.#applyTeamDocument(outcome.document);
@@ -389,6 +460,7 @@ export class BoardSettingsService {
           outcome: "réussi",
           detail: changes.length > 0 ? changes.join(" ; ") : "réglages du board",
         });
+        return true;
       } else {
         if (outcome.current) {
           this.#state.team.value = { kind: "published", document: outcome.current };
@@ -409,7 +481,7 @@ export class BoardSettingsService {
         });
       }
     } catch (error) {
-      if (stale()) return;
+      if (stale()) return false;
       const jiraError = error instanceof JiraError ? error : null;
       const uncertain = jiraError?.isOutcomeUnknown ?? false;
       const forbidden = jiraError?.info.kind === "forbidden";
@@ -441,6 +513,7 @@ export class BoardSettingsService {
       });
       if (forbidden || uncertain) await this.refresh({ force: true });
     }
+    return false;
   }
 
   /**

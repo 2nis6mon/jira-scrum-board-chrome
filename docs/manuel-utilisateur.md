@@ -1,7 +1,7 @@
 # Sprint Goals Board pour Jira — manuel utilisateur
 
 Extension Chrome pour les boards Scrum et Kanban de Jira Cloud (`*.atlassian.net`).
-Elle affiche objectifs, Build et swimlanes par type dans la page Jira, avec votre session habituelle.
+Elle affiche objectifs, Build et swimlanes JQL dans la page Jira, avec votre session habituelle.
 Les captures proviennent de la version Scrum 0.22.7, sauf celle des réglages (0.31.0) ; certains
 libellés ont évolué.
 
@@ -54,22 +54,25 @@ Sprint Goals ; sans lui, Jira garde son affichage habituel. La vue ne s'ouvre pa
 
 - **Objectifs** : une swimlane par objectif, sa progression et ses tickets. Elle devient verte
   quand tous ses tickets sont dans la dernière colonne visible. Un objectif épinglé peut rester vide.
-  L'objectif est prioritaire, y compris pour un ticket dont le type est configuré dans RUN ou OPS.
-- **Build** : tickets sans objectif visible dont le type n'a pas de swimlane dédiée.
-- **Swimlanes par type** : groupes configurables, par exemple RUN ou OPS, utilisés par défaut
-  lorsque le ticket n'a pas d'objectif visible. Si un objectif est masqué, son rattachement est
-  conservé et ses tickets retrouvent leur swimlane par défaut. Masquer une swimlane par type
-  ne masque pas ses tickets rattachés à un objectif visible.
+  L'objectif est prioritaire, y compris pour un ticket correspondant à une règle RUN ou OPS.
+- **Build / Default** : tickets sans objectif visible ne correspondant à aucune règle active.
+- **Swimlanes JQL** : groupes configurables, par exemple RUN ou OPS, évalués par Jira sur les
+  tickets du board. La première règle correspondante reçoit le ticket, sans doublon. Si un objectif
+  est masqué, son rattachement est conservé et les règles JQL déterminent la destination.
+  Masquer une swimlane ne masque pas ses tickets rattachés à un objectif visible.
   Build et ces groupes disparaissent sans tickets ; la swimlane par défaut réapparaît pendant
   le glissement d'un ticket rattaché à un objectif pour permettre son détachement.
 - **Filtres** : recherche, Personne / Type / Parent / Statut / Label, filtres rapides Jira et
   raccourcis pour tickets bloqués, mes tickets, priorité haute ou absence d'estimation.
 - **Cartes** : cliquez pour ouvrir la fiche native Jira. Sa fermeture revient au board et relit
-  les données. Les sous-tâches restent avec leur story ; le survol souligne toute la famille.
+  les données. Les sous-tâches héritent de l'objectif du parent si elles n'en ont pas ; hors objectif,
+  chacune suit son propre JQL et peut donc rejoindre une autre swimlane. Le survol souligne la famille.
 - **Déplacements** : glissez une carte pour changer statut, rang ou objectif. Jira ouvre son
   formulaire de transition si nécessaire. Glissez un ticket de RUN, OPS ou Build vers un objectif
-  pour l'y rattacher ; ramenez-le dans sa swimlane par défaut pour le détacher. Son type reste
-  inchangé : un ticket RUN sans objectif retourne dans RUN, pas dans OPS ou Build.
+  pour l'y rattacher ; ramenez-le dans sa swimlane par défaut ou utilisez **Retirer de l'objectif**
+  pour le détacher. Les règles JQL déterminent sa destination. Un glissé entre deux groupes JQL
+  ne modifie pas les données du ticket pour forcer une correspondance. Un changement de statut
+  peut changer le résultat d'une règle après confirmation de Jira.
 - **Informations flottantes** : la croix ferme l'information pour ce board, y compris après
   rechargement. Ce choix est personnel.
 
@@ -136,12 +139,17 @@ n'apparaissent pas. L'en-tête indique qui les a enregistrés en dernier, et qua
 
 ![Réglages des objectifs](store/captures/03-objectifs.png)
 
-- **Swimlanes** (onglet Board) : les types sans swimlane dédiée sont réunis dans **Default**,
-  la ligne Build dont le nom reste personnalisable. Glissez un type vers une swimlane, ou
-  ramenez-le dans Default ; son menu permet le même déplacement. Les objectifs sont prioritaires.
-  **Nouvelle swimlane** crée un groupe avec son premier type ; retirer le dernier supprime le groupe.
-  Réorganisez les lignes par leur poignée, renommez-les ou masquez-les directement dans la liste.
-  Le groupe **Ignorés** exclut ses types du board, même s'ils sont rattachés à un objectif.
+- **Swimlanes** (onglet Board) : **Nouvelle swimlane** ajoute un nom et un JQL, par exemple
+  `labels = "run"`. Les objectifs sont prioritaires, puis la première règle correspondante.
+  Réorganisez les règles par leur poignée ; **Default** reçoit les tickets restants et garde son
+  nom personnalisable. Une règle suspendue ne participe plus au classement ; une règle masquée
+  garde ses correspondances mais cache sa ligne. **Types ignorés** exclut toujours ses types du
+  board, même avec un objectif.
+  **Vérifier et prévisualiser** montre les correspondances, les tickets réellement affectés,
+  ceux déjà dans un objectif ou une règle précédente, et quelques clés. **Appliquer** publie
+  pour l'équipe seulement après validation et aperçu. Les groupes historiques par type sont
+  préparés en JQL équivalent : aucune conversion n'est enregistrée avant cette confirmation.
+  Un échec conserve le brouillon ; **Annuler** revient aux règles enregistrées.
 - **Affichage et daily** : seuil « vieillissant », durée de la Daily et nombre de cartes visibles
   dans la première colonne, réglables au clavier ou par − et +. Le rafraîchissement automatique
   reste personnel.
@@ -151,6 +159,13 @@ n'apparaissent pas. L'en-tête indique qui les a enregistrés en dernier, et qua
 - **Champs des cartes** et **Couleurs des cartes** : jusqu'à trois champs sous le titre, et des
   règles de couleur en JQL évaluées par Jira, rangées par glissé (la première règle satisfaite
   l'emporte). Un aperçu montre des cartes du board ; **Appliquer** enregistre.
+
+Les champs JQL des swimlanes et couleurs proposent des champs, opérateurs, fonctions et valeurs
+provenant de Jira. Utilisez les flèches et Entrée pour choisir une suggestion, Échap pour fermer
+la liste. Jira valide la requête après la saisie ou avec **Vérifier**. Un JQL invalide ou non vérifié
+ne peut pas être activé ; une requête valide sans résultat reste acceptée. Les erreurs et avertissements
+s'affichent sous le champ. Le classement est limité aux tickets déjà présents dans le board,
+sur les sprints actifs en Scrum et dans le périmètre Kanban.
 
 Au clavier, une poignée déplace sa ligne avec les flèches haut et bas ; les onglets se parcourent
 avec les flèches gauche et droite.

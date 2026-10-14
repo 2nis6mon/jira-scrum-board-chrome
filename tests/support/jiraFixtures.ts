@@ -67,7 +67,10 @@ export function issueJson(key: string, options: IssueOptions = {}): Record<strin
   }
   Object.assign(fields, options.extraFields);
 
-  const issue: Record<string, unknown> = { id: key, key, fields };
+  // Jira distingue la clé lisible de l'identifiant numérique utilisé par /jql/match.
+  const numericId =
+    [...key].reduce((hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0, 7) + 1;
+  const issue: Record<string, unknown> = { id: String(numericId), key, fields };
   if (options.changelog !== undefined) issue.changelog = options.changelog;
   return issue;
 }

@@ -1,0 +1,97 @@
+.jql-editor {
+  min-width: 0;
+  width: 100%;
+}
+.jql-editor-input-wrap {
+  position: relative;
+}
+.jql-editor .jql-editor-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+  min-height: 68px;
+  margin: 0;
+  font-family: ui-monospace, monospace;
+}
+.jql-editor-input[aria-invalid="true"] {
+  border-color: #c03c43;
+}
+.jql-editor-footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+.jql-validation {
+  color: var(--ink-3);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.jql-validation-valid {
+  color: #238154;
+}
+.jql-validation-invalid {
+  color: #b63840;
+}
+.jql-validation-unavailable,
+.jql-warning {
+  color: #91630a;
+}
+.jql-warning {
+  margin: 4px 0 0;
+}
+.jql-verify {
+  flex-shrink: 0;
+}
+.jql-suggestions {
+  position: absolute;
+  z-index: 40;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  max-height: 240px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  box-shadow: 0 8px 24px #0002;
+}
+.jql-suggestions button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+}
+.jql-suggestions button[aria-selected="true"] {
+  background: var(--accent-soft, #e8f0ff);
+}
+.jql-suggestions button span {
+  overflow-wrap: anywhere;
+}
+.jql-suggestions small {
+  color: var(--ink-3);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .jql-editor-footer {
+    flex-direction: column;
+    gap: 6px;
+  }
+}

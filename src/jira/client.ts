@@ -1,4 +1,14 @@
 import { JiraError } from "./errors";
+import {
+  decodeJqlMatches,
+  decodeJqlReference,
+  decodeJqlValidation,
+  decodeJqlValues,
+  type JiraJqlMatch,
+  type JiraJqlReference,
+  type JiraJqlValidation,
+  type JiraJqlValue,
+} from "./jql";
 import { isRecord, type JsonValue } from "./json";
 import {
   decodeIssue,
@@ -155,6 +165,53 @@ export class JiraClient {
 
   get site() {
     return this.#transport.site;
+  }
+
+  /** Analyse et validation sémantique dans les droits de la session Jira courante. */
+  async validateJql(jql: string): Promise<JiraJqlValidation> {
+    const { body } = await this.#transport.readByPost(
+      "/rest/api/3/jql/parse",
+      { queries: [jql] },
+      {
+        query: { validation: "strict" },
+        resource: "la validation JQL",
+      },
+    );
+    return decodeJqlValidation(body);
+  }
+
+  async jqlAutocompleteData(): Promise<JiraJqlReference> {
+    const { body } = await this.#transport.get("/rest/api/3/jql/autocompletedata", {
+      resource: "l'aide à la saisie JQL",
+    });
+    return decodeJqlReference(body);
+  }
+
+  async jqlValueSuggestions(field: string, value: string): Promise<JiraJqlValue[]> {
+    const { body } = await this.#transport.get("/rest/api/3/jql/autocompletedata/suggestions", {
+      query: { fieldName: field, fieldValue: value },
+      resource: "les suggestions JQL",
+    });
+    return decodeJqlValues(body);
+  }
+
+  /** Lecture seule : au plus 50 tickets et 10 requêtes par appel (contrat Atlassian). */
+  async matchJql(issueIds: readonly string[], jqls: readonly string[]): Promise<JiraJqlMatch[]> {
+    if (issueIds.length > 50 || jqls.length > 10 || issueIds.length === 0 || jqls.length === 0) {
+      throw new Error("Une correspondance JQL accepte de 1 à 50 tickets et de 1 à 10 requêtes.");
+    }
+    const ids = issueIds.map((id) => {
+      const number = Number(id);
+      if (!/^\d+$/.test(id) || !Number.isSafeInteger(number) || number <= 0)
+        throw new Error("Identifiant de ticket invalide.");
+      return number;
+    });
+    const { body } = await this.#transport.readByPost(
+      "/rest/api/3/jql/match",
+      { issueIds: ids, jqls: [...jqls] },
+      { resource: "les correspondances JQL" },
+    );
+    return decodeJqlMatches(body, jqls.length);
   }
 
   /** Compte Jira de la session du navigateur. Sert aussi de test de connexion. */

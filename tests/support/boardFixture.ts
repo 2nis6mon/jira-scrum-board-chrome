@@ -1,6 +1,7 @@
 import { BOARD_PROPERTY_KEYS, SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { FakeJira, type RecordedRequest, type Reply } from "./fakeJira";
 import { issueJson, statusJson } from "./jiraFixtures";
+import { withJqlFixture } from "./jqlFixture";
 
 // Faux Jira d'un board complet (board 7, sprint actif 42), pour les tests de l'interface et le
 // banc d'essai visuel. Données FICTIVES : jamais importé par src/.
@@ -111,7 +112,7 @@ export function boardSiteJira(
   let teamDocument: unknown = null;
   const canEdit = options.canEdit === undefined ? true : options.canEdit;
   return (
-    new FakeJira()
+    withJqlFixture(new FakeJira(), issues)
       .on("GET", "/rest/agile/1.0/board", (request) => ({
         status: 200,
         json: {

@@ -40,7 +40,7 @@ export interface TransportOptions {
 }
 
 /** POST qui ne sont que des lectures. Tout autre POST passe par `JiraWrite`. */
-const READ_POST_PATHS = ["/rest/api/3/jql/parse"] as const;
+const READ_POST_PATHS = ["/rest/api/3/jql/parse", "/rest/api/3/jql/match"] as const;
 export type ReadPostPath = (typeof READ_POST_PATHS)[number];
 
 export const GRAPHQL_PATH = "/gateway/api/graphql";

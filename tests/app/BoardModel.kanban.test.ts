@@ -378,6 +378,12 @@ describe("BoardModel — Kanban sans sprint", () => {
 
   it("filtres rapides et couleurs s'évaluent malgré l'absence de sprint", async () => {
     const { board, jira } = await kanbanBoard();
+    jira.on("POST", "/rest/api/3/jql/match", {
+      status: 200,
+      json: {
+        matches: [{ matchedIssues: [Number(SPRINT_ISSUES[0]?.id)], errors: [] }],
+      },
+    });
     board.toggleQuickFilter("addedAfterStart");
     expect(board.filters.value.quickFilters.has("addedAfterStart")).toBe(false);
     await board.toggleJiraQuickFilter(1);

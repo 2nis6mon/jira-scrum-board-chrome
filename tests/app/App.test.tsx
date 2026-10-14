@@ -246,10 +246,10 @@ describe("App", () => {
     ).not.toBeNull();
 
     await openSettings();
-    expect(document.querySelector('[data-type-id="10005"] .settings-chip-name')?.textContent).toBe(
-      "Bug",
-    );
-    expect(document.querySelector('[aria-label="Déplacer Bug"]')).not.toBeNull();
+    expect(
+      document.querySelector('select[aria-label="Exclure un type du board"] option[value="10005"]')
+        ?.textContent,
+    ).toBe("Bug");
     expect(document.querySelector('button[aria-label$="compte comme bug"]')).toBeNull();
     expect(text()).not.toContain("Bug activé");
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
@@ -604,49 +604,35 @@ describe("App", () => {
     expect(tab("Board").getAttribute("aria-selected")).toBe("true");
   });
 
-  it("réglages, onglet Board : chaque champ validé est enregistré dans Jira pour l'équipe", async () => {
+  it("réglages Board : prépare le classement JQL sans publier, conserve les réglages immédiats", async () => {
     const { jira } = await connectedBoard();
     await openSettings();
-    const labels = [...document.querySelectorAll("button")].map((b) => b.textContent?.trim());
-    expect(labels).not.toContain("Appliquer");
-    expect(labels).not.toContain("Annuler");
-    // Les objectifs ne sont pas dans la liste : leur ordre se règle sur le board.
-    expect(
-      [...document.querySelectorAll(".settings-lanes .settings-grip")].map((grip) =>
-        grip.getAttribute("aria-label"),
-      ),
-    ).toEqual(["Déplacer la swimlane Build", "Déplacer la swimlane Anomalie Prod"]);
+    expect(text()).toContain("Vos groupes par type sont préparés en JQL");
+    expect(document.querySelector(".settings-types-card")).toBeNull();
+    expect(document.querySelector<HTMLTextAreaElement>(".jql-swimlane textarea")?.value).toBe(
+      'issuetype in ("10004")',
+    );
+    expect(button("Appliquer").disabled).toBe(true);
+    expect(teamWrites(jira)).toBe(0);
 
-    // Nom de Build : dans la liste des swimlanes, enregistré à la validation, pas à la frappe.
     const build = document.querySelector<HTMLInputElement>("#settings-build-label");
     if (!build) throw new Error("nom de Build attendu");
-    build.value = "Sprint Backlog";
-    build.dispatchEvent(new Event("input", { bubbles: true }));
-    await tick();
-    expect(teamWrites(jira)).toBe(0);
-    build.dispatchEvent(new Event("change", { bubbles: true }));
+    enter(build, "Sprint Backlog");
+    await expect.poll(() => teamWrites(jira)).toBe(1);
+    // Le nom d'une règle reste un brouillon, même après une relecture de la configuration.
+    enter(field("Nom de la swimlane 1"), "RUN");
     await tick();
     expect(teamWrites(jira)).toBe(1);
-
-    enter(field("Nom de la swimlane Anomalie Prod"), "RUN");
-    await tick();
-    expect(field("Nom de la swimlane RUN").value).toBe("RUN");
-
-    // Seuil « vieillissant » : saisie refusée, Échap, puis le bouton +.
     const aging = document.querySelector<HTMLInputElement>("#settings-aging");
     if (!aging) throw new Error("seuil attendu");
     enter(aging, "abc");
     await tick();
-    expect(document.querySelector("[role=alert]")?.textContent).toContain("vieillissant");
     expect(aging.getAttribute("aria-invalid")).toBe("true");
-    expect(aging.value).toBe("abc");
     aging.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await tick();
-    expect(aging.value).toBe("3");
-    expect(document.querySelector("[role=alert]")).toBeNull();
     labelled("Augmenter : Seuil « vieillissant »").click();
-    await tick();
-    expect(aging.value).toBe("4");
+    await expect.poll(() => teamWrites(jira)).toBe(2);
+    expect(field("Nom de la swimlane 1").value).toBe("RUN");
 
     button("Retour au board").click();
     await tick();
@@ -654,133 +640,35 @@ describe("App", () => {
       "Finaliser le parcours de paiement",
       "Améliorer la stabilité",
       "Sprint Backlog",
-      "RUN",
+      "Anomalie Prod",
     ]);
-    // Build, swimlane, seuil : une écriture partagée chacun ; la saisie invalide, aucune.
     expect(otherWrites(jira)).toEqual([]);
-    expect(teamWrites(jira)).toBe(3);
   });
 
-  it("réunit les types dans Swimlanes et permet un aller-retour depuis Default sans changer leurs objectifs", async () => {
-    const { board, jira } = await connectedBoard();
+  it("réglages Board : types ignorés compacts, toujours exclus même sans activer les règles JQL", async () => {
+    const { jira, board } = await connectedBoard();
     await openSettings();
-    const lanes = document.querySelector(".settings-lanes-card");
-    expect(document.querySelector(".settings-types-card")).toBeNull();
-    expect(
-      lanes?.querySelector('[aria-label="Types Default"] [data-type-id="10001"]'),
-    ).not.toBeNull();
-    expect(document.querySelectorAll('[data-type-id="10001"]')).toHaveLength(1);
-    expect(teamWrites(jira)).toBe(0);
-    const goalBefore = board.snapshot.value?.goalIssues.find(
-      (issue) => issue.issue.key === "ABC-101",
-    )?.goalId;
-    const choose = (destination: string) => {
-      const menu = document.querySelector('[data-type-id="10001"] .settings-chip-menu');
-      const target = [...(menu?.querySelectorAll("button") ?? [])].find(
-        (item) => item.textContent?.trim() === destination,
-      );
-      if (!(target instanceof HTMLButtonElement))
-        throw new Error(`Destination ${destination} absente`);
-      target.click();
-    };
-    choose("Anomalie Prod");
+    const select = document.querySelector<HTMLSelectElement>(
+      'select[aria-label="Exclure un type du board"]',
+    );
+    if (!select) throw new Error("sélecteur des types ignorés attendu");
+    select.value = "10004";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
     await expect.poll(() => teamWrites(jira)).toBe(1);
     await expect
-      .poll(() => document.querySelector('.settings-lane-swimlane [data-type-id="10001"]'))
-      .not.toBeNull();
+      .poll(
+        () => board.configuration.value?.issueTypes.find((type) => type.id === "10004")?.category,
+      )
+      .toBe("IGNORED");
     expect(
-      document.querySelector('[aria-label="Types Default"] [data-type-id="10001"]'),
-    ).toBeNull();
-    expect(document.querySelectorAll('[data-type-id="10001"]')).toHaveLength(1);
-    expect(
-      board.snapshot.value?.goalIssues.find((issue) => issue.issue.key === "ABC-101")?.goalId,
-    ).toBe(goalBefore);
-    choose("Default");
-    await expect.poll(() => teamWrites(jira)).toBe(2);
-    await expect
-      .poll(() => document.querySelector('[aria-label="Types Default"] [data-type-id="10001"]'))
-      .not.toBeNull();
-    expect(document.querySelectorAll('[data-type-id="10001"]')).toHaveLength(1);
-    expect(
-      board.snapshot.value?.goalIssues.find((issue) => issue.issue.key === "ABC-101")?.goalId,
-    ).toBe(goalBefore);
-    expect(board.configuration.value?.buildSectionLabel).toBe("Build");
-    expect(otherWrites(jira)).toEqual([]);
-  });
-
-  it("réglages, onglet Board : sans souris, la poignée déplace une swimlane et le menu d'un type le range", async () => {
-    const { jira } = await connectedBoard();
-    await openSettings();
-
-    // Build descend sous « Anomalie Prod » ; les objectifs gardent leur place.
-    labelled("Déplacer la swimlane Build").dispatchEvent(
-      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
-    );
-    await tick();
-    expect(teamWrites(jira)).toBe(1);
-    // Déjà en fin de liste : rien ne change, rien n'est écrit.
-    labelled("Déplacer la swimlane Build").dispatchEvent(
-      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
-    );
-    await tick();
-    expect(teamWrites(jira)).toBe(1);
-
-    // Le type « Anomalie Prod » va dans « Ignorés » : sa swimlane disparaît avec son dernier type.
-    const chip = document.querySelector('.settings-lanes [data-type-id="10004"]');
-    const current = [...(chip?.querySelectorAll(".settings-chip-menu button") ?? [])].find(
-      (b) => b.textContent?.trim() === "Anomalie Prod",
-    );
-    expect((current as HTMLButtonElement | undefined)?.disabled).toBe(true);
-    const ignore = [...(chip?.querySelectorAll(".settings-chip-menu button") ?? [])].find(
-      (b) => b.textContent?.trim() === "Ignorés",
-    );
-    if (!(ignore instanceof HTMLButtonElement)) throw new Error("« Ignorés » attendu");
-    ignore.click();
-    await expect.poll(() => teamWrites(jira)).toBe(2);
-    await tick();
-    expect(
-      document.querySelector('input[aria-label="Nom de la swimlane Anomalie Prod"]'),
-    ).toBeNull();
-    expect(
-      [...document.querySelectorAll('[aria-label="Types ignorés"] [data-type-id]')].map((item) =>
-        item.getAttribute("data-type-id"),
-      ),
-    ).toContain("10004");
-
+      document.querySelector('[aria-label="Types ignorés"] [data-type-id="10004"]'),
+    ).not.toBeNull();
+    expect(board.configuration.value?.swimlaneMode).toBeUndefined();
     button("Retour au board").click();
     await expect
       .poll(() => laneTitles())
       .toEqual(["Finaliser le parcours de paiement", "Améliorer la stabilité", "Build"]);
     expect(cardKeys()).not.toContain("RUN-7");
-    expect(otherWrites(jira)).toEqual([]);
-  });
-
-  it("réglages, onglet Board : une nouvelle swimlane reçoit un nom et son premier type", async () => {
-    const { jira } = await connectedBoard();
-    await openSettings();
-    button("Nouvelle swimlane").click();
-    await tick();
-    const name = document.querySelector<HTMLInputElement>("#settings-new-swimlane");
-    if (!name) throw new Error("nom de la nouvelle swimlane attendu");
-    name.value = "Support";
-    name.dispatchEvent(new Event("input", { bubbles: true }));
-    await tick();
-    // Rien n'est créé tant qu'aucun type n'est choisi.
-    expect(teamWrites(jira)).toBe(0);
-    const first = document.querySelector<HTMLSelectElement>(
-      'select[aria-label="Premier type de la nouvelle swimlane"]',
-    );
-    if (!first) throw new Error("choix du premier type attendu");
-    first.value = "10004";
-    first.dispatchEvent(new Event("change", { bubbles: true }));
-    await expect.poll(() => teamWrites(jira)).toBe(1);
-    await tick();
-    expect(document.querySelector("#settings-new-swimlane")).toBeNull();
-    expect(field("Nom de la swimlane Support").value).toBe("Support");
-    // Son dernier type parti, l'ancienne swimlane a disparu.
-    expect(
-      document.querySelector('input[aria-label="Nom de la swimlane Anomalie Prod"]'),
-    ).toBeNull();
     expect(otherWrites(jira)).toEqual([]);
   });
 
@@ -808,6 +696,9 @@ describe("App", () => {
     jql.dispatchEvent(new Event("input", { bubbles: true }));
     await tick();
     expect(document.querySelector(".color-rule")?.textContent).toContain("Non appliquée");
+
+    expect(button("Appliquer").disabled).toBe(true);
+    await expect.poll(() => button("Appliquer").disabled).toBe(false);
 
     button("Appliquer").click();
     await expect

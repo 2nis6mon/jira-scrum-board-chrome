@@ -1,12 +1,10 @@
-import type { JiraClient } from "../jira/client";
-import { type BoardJqlScope, inBoardScope, withoutOrderBy } from "./jql";
 import { moveAmongShown } from "./reorder";
 
 /**
  * Couleur de fond appliquée aux cartes qui satisfont une requête JQL.
  *
  * Le JQL est évalué PAR JIRA à chaque synchronisation : l'application ne l'interprète pas. La
- * première règle active satisfaite, dans l'ordre de la liste, l'emporte. Réglage local.
+ * première règle active satisfaite, dans l'ordre de la liste, l'emporte. Réglage partagé.
  */
 export interface CardColorRule {
   readonly id: string;
@@ -70,21 +68,6 @@ export function withBuiltInRules(rules: readonly CardColorRule[]): CardColorRule
     : [...rules, SCOPE_CHANGE_RULE];
 }
 
-/** JQL prêt à être combiné : sans clause `ORDER BY`, que Jira refuserait entre parenthèses. */
-export function scopedJql(rule: CardColorRule): string {
-  return withoutOrderBy(rule.jql);
-}
-
-/** Requête à soumettre à Jira pour une règle, restreinte au périmètre Scrum ou Kanban. */
-export function colorRuleQueries(
-  rule: CardColorRule,
-  sprintIds: readonly number[],
-  scope: Omit<BoardJqlScope, "sprintIds"> = {},
-): string[] {
-  const query = rule.kind === null ? inBoardScope(rule.jql, { ...scope, sprintIds }) : null;
-  return query === null ? [] : [query];
-}
-
 /**
  * Couleur retenue par ticket : la première règle active satisfaite, DANS L'ORDRE DE LA LISTE,
  * l'emporte. La règle intégrée y participe au même titre que les règles JQL, à sa position.
@@ -103,60 +86,6 @@ export function resolveCardColors(
     for (const key of keys ?? []) colors[key] ??= rule.color;
   }
   return colors;
-}
-
-// ─── Évaluation par Jira ─────────────────────────────────────────────────────
-
-/** Lecture dont les règles ont besoin. `JiraClient` la fournit. */
-export type ColorRuleReader = Pick<JiraClient, "boardIssues">;
-
-export interface ColorRuleEvaluation {
-  /** Tickets AFFICHÉS retenus par Jira pour chaque règle JQL active, par identifiant de règle. */
-  readonly matches: Record<string, Set<string>>;
-  /** Refus de Jira, par règle : cette règle est ignorée, les autres restent appliquées. */
-  readonly issues: Record<string, string>;
-}
-
-/**
- * Demande à Jira quels tickets affichés satisfont chaque règle active. Lecture seule : chaque
- * JQL, restreint aux sprints actifs ou au sous-filtre Kanban, est évalué par Jira ; un JQL refusé
- * est signalé sous sa règle sans empêcher les autres.
- */
-export async function evaluateColorRules(
-  reader: ColorRuleReader,
-  input: BoardJqlScope & {
-    boardId: number;
-    rules: readonly CardColorRule[];
-    displayedKeys: ReadonlySet<string>;
-  },
-): Promise<ColorRuleEvaluation> {
-  const matches: Record<string, Set<string>> = {};
-  const issues: Record<string, string> = {};
-  for (const rule of input.rules) {
-    if (!rule.enabled || rule.kind !== null) continue;
-    try {
-      const keys = new Set<string>();
-      for (const jql of colorRuleQueries(rule, input.sprintIds, input)) {
-        const found = await reader.boardIssues(input.boardId, jql, {
-          estimationFieldId: null,
-          includeChangelog: false,
-          onlyFields: ["issuetype", "status"],
-        });
-        for (const issue of found) if (input.displayedKeys.has(issue.key)) keys.add(issue.key);
-      }
-      matches[rule.id] = keys;
-    } catch (error) {
-      issues[rule.id] = error instanceof Error ? error.message : String(error);
-    }
-  }
-  return { matches, issues };
-}
-
-/** Règles à enregistrer : noms et JQL nettoyés ; une règle JQL sans requête n'a pas de sens. */
-export function cleanedColorRules(rules: readonly CardColorRule[]): CardColorRule[] {
-  return rules
-    .map((rule) => ({ ...rule, name: rule.name.trim(), jql: rule.jql.trim() }))
-    .filter((rule) => rule.kind !== null || rule.jql !== "");
 }
 
 /**

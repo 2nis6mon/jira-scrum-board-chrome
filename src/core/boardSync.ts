@@ -485,7 +485,8 @@ function assembleSnapshotIssues(input: {
   // destination par défaut. Un rattachement propre reste prioritaire.
   const families = subtaskFamilies(sprintIssues, links);
   const goalLinks = { ...links, ...families.inheritedLinks };
-  const ownerOf = (issue: JiraIssue) => families.parentOf.get(issue.key) ?? issue;
+  const ownerOf = (issue: JiraIssue) =>
+    configuration.swimlaneMode === "jql" ? issue : (families.parentOf.get(issue.key) ?? issue);
   const blockOf = (issue: JiraIssue) => categoryOf(ownerOf(issue));
   const swimlaneOf = (issue: JiraIssue) =>
     swimlaneOfType(configuration, ownerOf(issue).fields.issuetype.id)?.id ?? null;
@@ -531,7 +532,9 @@ function assembleSnapshotIssues(input: {
   // conserve le rang fourni par Jira, sans placer artificiellement un type avant les autres.
   const rank = new Map(sprintIssues.map((issue, index) => [issue.key, index]));
   goalIssues.sort((a, b) => (rank.get(a.issue.key) ?? 0) - (rank.get(b.issue.key) ?? 0));
-  return { goalIssues, swimlaneIssues };
+  const inherited = (issue: BoardIssue): BoardIssue =>
+    families.inheritedLinks[issue.issue.key] ? { ...issue, inheritedGoal: true } : issue;
+  return { goalIssues: goalIssues.map(inherited), swimlaneIssues: swimlaneIssues.map(inherited) };
 }
 
 /**

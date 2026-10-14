@@ -3,6 +3,19 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.34.0 — Swimlanes JQL et saisie assistée
+
+- Swimlanes définies par JQL : objectif visible prioritaire, première règle active correspondante,
+  puis Default. Aperçu avant application, activation et masquage distincts, ordre modifiable.
+- Migration explicite des groupes de types existants, avec conservation des noms, identifiants,
+  ordre et visibilité. Sous-tâches classées individuellement, héritage de l'objectif conservé.
+- Éditeur JQL partagé avec les couleurs : suggestions fournies par Jira, clavier, validation avant
+  enregistrement et conservation du brouillon en cas d'erreur ou d'indisponibilité.
+- Évaluation des couleurs et swimlanes regroupée sur les tickets du board, sans doublons de lecture.
+  Classement incomplet signalé sans perdre les cartes ; notification refermable.
+- Action « Retirer de l'objectif » : le ticket retrouve ensuite la destination déterminée par JQL.
+  Tests métier, API, interface et parcours Chrome isolé ajoutés.
+
 ## 0.33.1 — Réglages des swimlanes réunis
 
 - Types de tickets intégrés aux swimlanes : le groupe Default accueille les types sans swimlane

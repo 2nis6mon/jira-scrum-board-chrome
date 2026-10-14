@@ -13,7 +13,7 @@ const TODO = "col-0-À faire";
 const PAIEMENT = "ari:cloud:townsquare:c:goal/paiement";
 const STABILITE = "ari:cloud:townsquare:c:goal/stabilite";
 
-// Les identifiants de ticket (champ `id`) valent la clé dans les fabriques de test.
+// Les liens de lecture fictifs utilisent les clés ; les mutations utilisent les IDs numériques.
 const GOALS: FakeGoal[] = [
   {
     id: PAIEMENT,
@@ -109,12 +109,12 @@ describe("BoardModel — Goals Atlassian", () => {
       {
         field: "goals_unlinkWorkItem",
         goalId: PAIEMENT,
-        workItemId: "ari:cloud:jira:cloud-test:issue/ABC-102",
+        workItemId: `ari:cloud:jira:cloud-test:issue/${SPRINT_ISSUES.find((issue) => issue.key === "ABC-102")?.id}`,
       },
       {
         field: "goals_linkWorkItem",
         goalId: STABILITE,
-        workItemId: "ari:cloud:jira:cloud-test:issue/ABC-102",
+        workItemId: `ari:cloud:jira:cloud-test:issue/${SPRINT_ISSUES.find((issue) => issue.key === "ABC-102")?.id}`,
       },
     ]);
     const [entry] = await board.audit.list(SITE.origin);
@@ -150,7 +150,8 @@ describe("BoardModel — Goals Atlassian", () => {
       mutation: (input, field) => {
         const goal = goals.find((candidate) => candidate.id === input.goalId);
         if (!goal) throw new Error("Goal fictif attendu");
-        const key = input.workItemId.split("/").at(-1);
+        const issueId = input.workItemId.split("/").at(-1);
+        const key = SPRINT_ISSUES.find((issue) => issue.id === issueId)?.key as string | undefined;
         if (!key) throw new Error("Ticket fictif attendu");
         goal.workItems =
           field === "goals_linkWorkItem"

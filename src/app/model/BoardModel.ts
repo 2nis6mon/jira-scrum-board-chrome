@@ -7,6 +7,7 @@ import {
   displayedGoalId,
   isBlockCollapsed,
   isGoalHidden,
+  type TicketSwimlane,
 } from "../../core/boardConfiguration";
 import { allIssues, type BoardSnapshot, findIssue } from "../../core/boardIssue";
 import { buildBoardLayout, filterOptions } from "../../core/boardLayout";
@@ -21,15 +22,15 @@ import {
 } from "../../core/boardPreferences";
 import { customFieldChoices } from "../../core/boardSettings";
 import { detectBoard, refreshBoardStructure } from "../../core/boardSync";
-import {
-  type CardColorRule,
-  evaluateColorRules,
-  resolveCardColors,
-  SCOPE_CHANGE_RULE_ID,
-} from "../../core/cardColors";
+import type { CardColorRule } from "../../core/cardColors";
 import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/dropPlan";
 import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../../core/filters";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
+import {
+  previewJqlSwimlanes,
+  type SwimlanePreview,
+  withJqlSwimlanes,
+} from "../../core/jqlSwimlanes";
 import { parentColors } from "../../core/parentColors";
 import { type PendingMove, withPendingMove } from "../../core/pendingMove";
 import { goalColorName, type SprintGoal } from "../../core/sprintGoals";
@@ -41,9 +42,11 @@ import { type AtlassianGoal, blockingRequiredFields, type JiraTransition } from 
 import { type JiraSite, parseBoardUrl } from "../../jira/site";
 import { JiraTransport } from "../../jira/transport";
 import type { Platform } from "../platform/types";
+import { evaluateBoardJql } from "../services/BoardJqlService";
 import { BoardLoadingService } from "../services/BoardLoadingService";
 import { BoardMovementService } from "../services/BoardMovementService";
 import { BoardSettingsService } from "../services/BoardSettingsService";
+import { JqlService } from "../services/JqlService";
 import { type AuditEntry, AuditLog } from "./auditLog";
 import type {
   BoardSummary,
@@ -100,6 +103,7 @@ export interface BoardModelOptions {
   readonly now?: () => Date;
   readonly audit?: AuditLog;
 }
+export type { SwimlanePreview } from "../../core/jqlSwimlanes";
 
 /** Board du site connecté : configuration, synchronisation et gestes de l’utilisateur. */
 export class BoardModel {
@@ -196,6 +200,8 @@ export class BoardModel {
   readonly colorRuleIssues = signal<Readonly<Record<string, string>>>({});
   /** Tickets affichés retenus par chaque règle, à la dernière évaluation. */
   readonly colorRuleCounts = signal<Readonly<Record<string, number>>>({});
+  readonly swimlaneRuleIssues = signal<Readonly<Record<string, string>>>({});
+  readonly unresolvedSwimlaneKeys = signal<ReadonlySet<string>>(new Set());
 
   /** L'épinglage exige des Goals Atlassian et une propriété Jira relue. */
   readonly canPinGoals = computed(() => {
@@ -266,6 +272,7 @@ export class BoardModel {
   readonly audit: AuditLog;
   readonly loadDiagnostics: LoadDiagnostics;
   readonly planning: PlanningModel;
+  readonly jql: JqlService;
 
   readonly #platform: Platform;
   readonly #client: JiraClient;
@@ -282,9 +289,6 @@ export class BoardModel {
   #quickFiltersBoardId: number | null = null;
   #quickFilterRun = 0;
   #autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
-  /** Derniers tickets retenus par règle, pour colorer sans attendre la réévaluation. */
-  #colorMatches: Record<string, ReadonlySet<string>> = {};
-  #colorRun = 0;
   constructor(site: JiraSite, platform: Platform, options: BoardModelOptions = {}) {
     this.site = site;
     this.#platform = platform;
@@ -298,6 +302,7 @@ export class BoardModel {
         this.#disposed ? undefined : this.loadDiagnostics.observeTransport(kind),
     });
     this.#client = new JiraClient(transport);
+    this.jql = new JqlService(this.#client);
     this.planning = new PlanningModel(this.#client, transport, platform, {
       configuration: () => this.configuration.value,
       canWrite: () =>
@@ -367,7 +372,9 @@ export class BoardModel {
           if (isStale()) return;
           if (this.filters.value.jiraQuickFilterIds.size > 0) await this.#applyJiraQuickFilters();
         },
-        refreshColors: () => this.#refreshCardColors(),
+        refreshColors: async () => {},
+        prepareSnapshot: (snapshot, configuration, isStale) =>
+          this.#prepareBoardJql(snapshot, configuration, isStale),
       },
     );
     this.#movements = new BoardMovementService(
@@ -733,9 +740,28 @@ export class BoardModel {
     return this.#reorderLanes(moveBlock(identifier, before, this.laneOrder.value));
   }
 
-  #reorderLanes(order: readonly string[]): Promise<void> {
+  async #reorderLanes(order: readonly string[]): Promise<void> {
     if (sameOrder(order, this.laneOrder.value)) return Promise.resolve();
-    return this.#settings.changeShared((current) => withBlockOrder(current, order));
+    await this.#settings.changeShared((current) => {
+      const next = withBlockOrder(current, order);
+      if (current.swimlaneMode !== "jql") return next;
+      const byBlock = new Map(next.ticketSwimlanes.map((lane) => [`swimlane:${lane.id}`, lane]));
+      const reordered = order.flatMap((id) => {
+        const lane = byBlock.get(id);
+        return lane ? [lane] : [];
+      });
+      const shown = new Set(reordered.map((lane) => lane.id));
+      let index = 0;
+      // Les règles masquées, suspendues ou vides ne participent pas au déplacement du board.
+      // Leurs positions restent intactes ; bouger Build ou un objectif ne change aucune priorité.
+      return {
+        ...next,
+        ticketSwimlanes: next.ticketSwimlanes.map((lane) =>
+          shown.has(lane.id) ? (reordered[index++] ?? lane) : lane,
+        ),
+      };
+    });
+    if (this.configuration.value?.swimlaneMode === "jql") await this.sync();
   }
 
   setGoalHidden(goalId: string, hidden: boolean): Promise<void> {
@@ -857,6 +883,44 @@ export class BoardModel {
 
   dismissWriteNotice(): void {
     this.writeNotice.value = null;
+  }
+
+  /** Détachement explicite : la destination sera recalculée par Jira, sans changer d'autre champ. */
+  async detachGoal(issueKey: string): Promise<void> {
+    const snapshot = this.snapshot.value;
+    const configuration = this.configuration.value;
+    const issue = snapshot ? findIssue(snapshot, issueKey) : null;
+    if (
+      !snapshot ||
+      !configuration ||
+      !issue?.goalId ||
+      issue.inheritedGoal ||
+      snapshot.goalsReadOnly ||
+      this.pendingKeys.value.size > 0 ||
+      this.transitionChoice.value ||
+      this.nativeTransitionPending.value
+    )
+      return;
+    const column = configuration.columns.find((candidate) => candidate.id === issue.columnId);
+    if (!column) return;
+    this.#setPending(issueKey, true);
+    this.writeNotice.value = null;
+    try {
+      await this.#movements.execute({
+        issue,
+        snapshot,
+        column,
+        drop: { issueKey, block: { kind: "build" }, columnId: column.id, beforeKey: null },
+        plan: { changesColumn: false, goalChange: { kind: "assign", goalId: null } },
+        rank: { kind: "none" },
+      });
+    } finally {
+      try {
+        await this.sync();
+      } finally {
+        this.#setPending(issueKey, false);
+      }
+    }
   }
 
   /** Résout toute l'intention avant d'écrire : transition, objectif, puis rang. */
@@ -1135,54 +1199,133 @@ export class BoardModel {
     if (options.resync) await this.sync();
   }
 
-  /** Enregistre les règles de couleur des cartes, puis les fait évaluer par Jira. */
-  async applyColorRules(rules: readonly CardColorRule[]): Promise<void> {
-    await this.applySettings((current) => ({ ...current, cardColorRules: [...rules] }), {
-      resync: false,
-    });
-    await this.#refreshCardColors();
+  /** Valide le texte courant avant toute publication ; un refus conserve les règles actives. */
+  async applyColorRules(rules: readonly CardColorRule[]): Promise<boolean> {
+    const configuration = this.configuration.value;
+    const generation = this.#generation;
+    if (!configuration || !this.canEditSettings.value) return false;
+    const errors = await this.#validateJqlRules(rules.filter((rule) => rule.kind === null));
+    if (this.#disposed || generation !== this.#generation) return false;
+    if (Object.keys(errors).length > 0) {
+      this.colorRuleIssues.value = errors;
+      return false;
+    }
+    const confirmed = await this.#settings.changeSharedConfirmed(
+      (current) => ({
+        ...current,
+        cardColorRules: rules.map((rule) => ({
+          ...rule,
+          name: rule.name.trim(),
+          jql: rule.jql.trim(),
+        })),
+      }),
+      (base, latest) =>
+        JSON.stringify(base.cardColorRules) === JSON.stringify(latest.cardColorRules),
+      configuration,
+    );
+    if (confirmed && generation === this.#generation) await this.sync();
+    return confirmed;
   }
 
-  /**
-   * Couleurs des cartes. La règle intégrée « ajouté en cours de sprint » s'applique tout de
-   * suite ; les règles JQL gardent leur dernier résultat le temps que Jira les réévalue.
-   */
-  async #refreshCardColors(): Promise<void> {
-    const snapshot = this.snapshot.value;
-    const configuration = this.configuration.value;
-    const run = ++this.#colorRun;
-    if (
-      !snapshot ||
-      !configuration ||
-      (configuration.boardType !== "kanban" && snapshot.activeSprints.length === 0)
-    ) {
-      this.cardColors.value = {};
-      return;
+  async #validateJqlRules(
+    rules: readonly { id: string; jql?: string; enabled?: boolean }[],
+  ): Promise<Record<string, string>> {
+    const errors: Record<string, string> = {};
+    const validated = new Map<string, Awaited<ReturnType<JqlService["validate"]>>>();
+    for (const rule of rules) {
+      if (rule.enabled === false) continue;
+      const text = rule.jql ?? "";
+      const result = validated.get(text) ?? (await this.jql.validate(text));
+      validated.set(text, result);
+      if (result.status !== "valid")
+        errors[rule.id] = result.errors.join(" ") || "JQL non vérifié par Jira.";
     }
-    const rules = colorRules(configuration);
-    const issues = allIssues(snapshot);
-    const added = new Set(
-      issues.filter((issue) => issue.addedAfterSprintStart === true).map((i) => i.issue.key),
-    );
-    this.cardColors.value = resolveCardColors(rules, this.#colorMatches, added);
+    return errors;
+  }
 
-    const evaluation = await evaluateColorRules(this.#client, {
-      boardId: configuration.boardId,
-      boardType: configuration.boardType,
-      kanbanSubQuery: configuration.kanbanSubQuery,
-      rules,
-      sprintIds: snapshot.activeSprints.map((sprint) => sprint.id),
-      displayedKeys: new Set(issues.map((issue) => issue.issue.key)),
-    });
-    if (run !== this.#colorRun || this.configuration.value?.boardId !== configuration.boardId) {
-      return;
+  /** L'aperçu travaille uniquement sur le brouillon et le périmètre déjà chargé. */
+  async previewSwimlanes(lanes: readonly TicketSwimlane[]): Promise<SwimlanePreview> {
+    const current = this.configuration.value;
+    const snapshot = this.snapshot.value;
+    const generation = this.#generation;
+    if (!current || !snapshot)
+      throw new Error("Chargez le board avant de prévisualiser les règles.");
+    const configuration = withJqlSwimlanes(current, lanes);
+    const validation = await this.#validateJqlRules(lanes);
+    const evaluation = await evaluateBoardJql(this.jql, configuration, snapshot);
+    if (this.#disposed || generation !== this.#generation || snapshot !== this.snapshot.value)
+      throw new Error("Le board a changé. Relancez la prévisualisation.");
+    const preview = previewJqlSwimlanes(configuration, snapshot, evaluation.laneMatches);
+    return {
+      ...preview,
+      lanes: preview.lanes.map((lane) => {
+        const error = validation[lane.id] ?? evaluation.laneErrors[lane.id];
+        return error ? { ...lane, error } : lane;
+      }),
+    };
+  }
+
+  async applyJqlSwimlanes(lanes: readonly TicketSwimlane[]): Promise<boolean> {
+    const generation = this.#generation;
+    const configuration = this.configuration.value;
+    if (!configuration || !this.canEditSettings.value) return false;
+    try {
+      const preview = await this.previewSwimlanes(lanes);
+      if (this.#disposed || generation !== this.#generation) return false;
+      if (preview.lanes.some((lane) => lane.error)) {
+        this.teamNotice.value = {
+          tone: "error",
+          text: "Les règles JQL doivent être valides avant leur enregistrement.",
+          suggestion: "Vérifiez les erreurs sous chaque règle ; le brouillon est conservé.",
+        };
+        return false;
+      }
+      const confirmed = await this.#settings.changeSharedConfirmed(
+        (current) => withJqlSwimlanes(current, lanes),
+        (base, latest) =>
+          JSON.stringify([base.swimlaneMode, base.ticketSwimlanes]) ===
+          JSON.stringify([latest.swimlaneMode, latest.ticketSwimlanes]),
+        configuration,
+      );
+      if (confirmed && generation === this.#generation) await this.sync();
+      return confirmed;
+    } catch (error) {
+      if (generation === this.#generation)
+        this.teamNotice.value = { tone: "error", ...toMessage(error) };
+      return false;
     }
-    this.#colorMatches = evaluation.matches;
-    this.cardColors.value = resolveCardColors(rules, evaluation.matches, added);
-    this.colorRuleIssues.value = evaluation.issues;
-    const counts: Record<string, number> = { [SCOPE_CHANGE_RULE_ID]: added.size };
-    for (const [id, keys] of Object.entries(evaluation.matches)) counts[id] = keys.size;
-    this.colorRuleCounts.value = counts;
+  }
+
+  /** Classement et couleurs sont prêts avant d'exposer la nouvelle photographie aux vues. */
+  async #prepareBoardJql(
+    snapshot: BoardSnapshot,
+    initial: BoardConfiguration,
+    isStale: () => boolean,
+  ): Promise<BoardSnapshot> {
+    let configuration = initial;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const evaluation = await evaluateBoardJql(
+        this.jql,
+        configuration,
+        snapshot,
+        this.snapshot.value ?? undefined,
+      );
+      if (isStale()) return snapshot;
+      const current = this.configuration.value;
+      if (current && jqlConfigurationKey(current) !== jqlConfigurationKey(configuration)) {
+        configuration = current;
+        continue;
+      }
+      batch(() => {
+        this.cardColors.value = evaluation.colors;
+        this.colorRuleCounts.value = evaluation.colorCounts;
+        this.colorRuleIssues.value = evaluation.colorErrors;
+        this.swimlaneRuleIssues.value = evaluation.laneErrors;
+        this.unresolvedSwimlaneKeys.value = evaluation.unresolvedIssueKeys;
+      });
+      return evaluation.snapshot;
+    }
+    throw new Error("Les règles du board ont changé pendant leur évaluation. Actualisez le board.");
   }
 
   /** Lit la liste des champs de l'instance, pour choisir un champ personnalisé de carte. */
@@ -1318,7 +1461,8 @@ export class BoardModel {
     });
     void this.#loadDismissedNotices(configuration);
     this.#settings.resetBoard();
-    this.#colorMatches = {};
+    this.swimlaneRuleIssues.value = {};
+    this.unresolvedSwimlaneKeys.value = new Set();
     this.#quickFiltersBoardId = null;
     this.#restartAutoRefresh();
   }
@@ -1366,4 +1510,13 @@ function sameOrder(a: readonly string[], b: readonly string[]): boolean {
 
 function sameIds(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
   return a.size === b.size && [...a].every((id) => b.has(id));
+}
+
+function jqlConfigurationKey(configuration: BoardConfiguration): string {
+  return JSON.stringify([
+    configuration.swimlaneMode,
+    configuration.ticketSwimlanes,
+    colorRules(configuration),
+    configuration.issueTypes.filter((type) => type.category === "IGNORED").map((type) => type.id),
+  ]);
 }
