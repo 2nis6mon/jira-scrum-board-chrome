@@ -251,7 +251,19 @@ try {
         && document.querySelector('.board-screen').getBoundingClientRect().bottom <= innerHeight + 1`),
       `${width}px : le retour réduit mal l'espace disponible du board`,
     );
-    await run("document.querySelector('.settings-open').click()");
+    // L'en-tête n'a plus de bouton Réglages. Le menu d'une swimlane reste accessible
+    // quand la barre latérale est repliée, ce que ce parcours doit conserver.
+    await run(`(() => {
+      const summary = document.querySelector('[data-lane-id="build"] .lane-menu > summary');
+      summary.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      summary.click();
+    })()`);
+    await waitFor(
+      sessionId,
+      "Boolean(document.querySelector('[data-lane-id=\"build\"] .lane-menu[open] .menu-settings'))",
+      "Le menu de réglages de la swimlane Build ne s'ouvre pas",
+    );
+    await run("document.querySelector('[data-lane-id=\"build\"] .menu-settings').click()");
     await waitFor(
       sessionId,
       "Boolean(document.querySelector('.settings-screen'))",
