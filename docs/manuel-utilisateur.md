@@ -65,7 +65,8 @@ Sprint Goals ; sans lui, Jira garde son affichage habituel. La vue ne s'ouvre pa
 - **Filtres** : recherche, Personne / Type / Parent / Statut / Label, filtres rapides Jira et
   raccourcis pour tickets bloqués, mes tickets, priorité haute ou absence d'estimation.
 - **Cartes** : cliquez pour ouvrir la fiche native Jira. Sa fermeture revient au board et relit
-  les données. Les sous-tâches restent avec leur story ; le survol souligne toute la famille.
+  les données. L'en-tête et le défilement des colonnes suivent la présentation native de Jira.
+  Les sous-tâches restent avec leur story ; le survol souligne toute la famille.
 - **Déplacements** : glissez une carte pour changer statut, rang ou objectif. Jira ouvre son
   formulaire de transition si nécessaire. Si plusieurs transitions mènent au même statut,
   l'extension choisit automatiquement la première disponible dans l'ordre Jira, sans réglage.

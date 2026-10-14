@@ -3,6 +3,15 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.34.3 — Défilement natif des fiches Jira
+
+- Fiche affichée avec le même espace disponible que dans Jira, sans réécriture de sa taille,
+  de sa position ni de son défilement : en-tête et colonnes conservent leur disposition native.
+- Menus hors de la fiche préservés, adaptation au redimensionnement et nouvelle détection
+  lorsque Jira remplace le panneau après une édition.
+- Régressions navigateur sur les deux colonnes longues, leur défilement indépendant et les
+  formulaires de transition ; aucun accès à la session Jira réelle pour ces contrôles.
+
 ## 0.34.2 — Transition automatique vers un même statut
 
 - Plusieurs transitions vers un même statut : première action disponible dans l'ordre Jira,

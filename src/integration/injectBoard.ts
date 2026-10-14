@@ -57,19 +57,24 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
   };
 
   /** Popin modale posée sur la page Jira ; Échap la referme et relit le board. */
-  const popin = (label: string, css: string) => {
+  const popin = (label: string) => {
     closeTicket();
     const dialog = document.createElement("dialog");
     const session = { dialog, stop: () => {} };
     ticketSession = session;
     dialog.setAttribute("aria-label", label);
-    dialog.style.cssText = `${css};box-sizing:border-box;margin:auto;padding:0;border:1px solid #dcdfe4;border-radius:10px;background:white;overflow:hidden;z-index:2147483647`;
+    // Le viewport encadré doit rester celui de l'onglet : Jira dimensionne lui-même sa fiche,
+    // son en-tête et ses colonnes. Un cadre déjà réduit soustrairait ses marges une seconde fois.
+    dialog.style.cssText =
+      "position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;box-sizing:border-box;margin:auto;padding:0;border:0;background:transparent;overflow:hidden;z-index:2147483647";
     const hint = document.createElement("p");
     hint.setAttribute("role", "status");
-    hint.style.cssText = "position:absolute;inset:20px auto auto 20px;margin:0;font:14px system-ui";
+    hint.style.cssText =
+      "position:absolute;inset:20px auto auto 20px;margin:0;padding:8px 12px;border-radius:6px;background:white;font:14px system-ui";
     const page = document.createElement("iframe");
     page.title = label;
-    page.style.cssText = "display:block;border:0;width:100%;height:100%;visibility:hidden";
+    page.style.cssText =
+      "display:block;border:0;width:100%;height:100%;background:transparent;visibility:hidden";
     dialog.append(hint, page);
     document.body.append(dialog);
     dialog.addEventListener("cancel", (event) => {
@@ -105,39 +110,47 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
 
   /** La fiche doit réunir bouton de fermeture, taille de panneau et lien du ticket demandé. */
   const findTicketPanel = (doc: Document, win: Window, key: string): HTMLElement | null => {
-    const close = [...doc.querySelectorAll<HTMLElement>('button,[role="button"]')].find(
+    const closes = [...doc.querySelectorAll<HTMLElement>('button,[role="button"]')].filter(
       (element) => /^(Close|Fermer)$/.test(label(element)) && visible(element),
     );
-    let panel: HTMLElement | null = null;
-    for (
-      let parent = close?.parentElement;
-      parent && parent !== doc.body;
-      parent = parent.parentElement
-    ) {
-      const box = parent.getBoundingClientRect();
-      if (
-        box.height > win.innerHeight * 0.45 &&
-        box.width > 250 &&
-        box.width < win.innerWidth * 0.95
-      )
-        panel = parent;
+    let fallback: HTMLElement | null = null;
+    for (const close of closes) {
+      let panel: HTMLElement | null = null;
+      for (
+        let parent = close.parentElement;
+        parent && parent !== doc.body;
+        parent = parent.parentElement
+      ) {
+        const box = parent.getBoundingClientRect();
+        if (
+          box.height <= win.innerHeight * 0.45 ||
+          box.width <= 250 ||
+          ![...parent.querySelectorAll<HTMLAnchorElement>("a[href]")].some(
+            (link) => new URL(link.href).pathname === `/browse/${key}`,
+          )
+        )
+          continue;
+        // Une modale native peut occuper toute la largeur sur un petit écran. La limite
+        // géométrique ne sert qu'au repli pour un panneau sans sémantique de dialogue.
+        if (parent.getAttribute("role") === "dialog" || parent.tagName === "DIALOG") return parent;
+        if (box.width < win.innerWidth * 0.95) panel = parent;
+      }
+      fallback ??= panel;
     }
-    return panel &&
-      [...panel.querySelectorAll<HTMLAnchorElement>("a[href]")].some(
-        (link) => new URL(link.href).pathname === `/browse/${key}`,
-      )
-      ? panel
-      : null;
+    return fallback;
   };
 
   const isolateTicketPanel = (doc: Document, panel: HTMLElement) => {
-    const css = doc.createElement("style");
-    css.textContent =
-      'body{visibility:hidden!important}[data-sprint-goals-ticket],[data-sprint-goals-ticket] *{visibility:visible!important}[role="dialog"],[role="dialog"] *,[role="menu"],[role="menu"] *,[role="listbox"],[role="listbox"] *{visibility:visible!important}';
-    doc.head.append(css);
+    if (!doc.querySelector("[data-sprint-goals-ticket-style]")) {
+      const css = doc.createElement("style");
+      css.setAttribute("data-sprint-goals-ticket-style", "");
+      // Masquer le board sans modifier sa géométrie ni celle de la fiche. Les portails Jira
+      // restent dans le viewport entier : menus et fenêtres secondaires ne sont pas rognés.
+      css.textContent =
+        'html,body{background:transparent!important}body{visibility:hidden!important}[data-sprint-goals-ticket],[data-sprint-goals-ticket] *{visibility:visible!important}[role="dialog"],[role="dialog"] *,[role="menu"],[role="menu"] *,[role="listbox"],[role="listbox"] *{visibility:visible!important}';
+      doc.head.append(css);
+    }
     panel.setAttribute("data-sprint-goals-ticket", "");
-    panel.style.cssText +=
-      ";position:fixed!important;inset:0!important;width:100%!important;height:100vh!important;max-width:none!important;max-height:none!important;margin:0!important;box-sizing:border-box!important;background:white;z-index:10;overflow:auto";
   };
 
   const statusButtons = (scope: HTMLElement) =>
@@ -259,6 +272,9 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
     dialog.style.height = `${Math.round(Math.max(240, Math.min(box.height, win.innerHeight - 32)))}px`;
     dialog.style.maxWidth = "calc(100vw - 32px)";
     dialog.style.maxHeight = "calc(100vh - 32px)";
+    dialog.style.background = "white";
+    dialog.style.border = "1px solid #dcdfe4";
+    dialog.style.borderRadius = "10px";
   };
 
   /**
@@ -269,17 +285,7 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
    * fenêtre à Jira Cloud : elle n'a pas d'adresse à laquelle la demander.
    */
   const openTicket = (key: string, transition: Transition | null = null) => {
-    // Dimensions mesurées sur la popin Jira : 1 280 px, avec 60 px de marge verticale.
-    const {
-      dialog,
-      hint,
-      page: ticket,
-      session,
-      reveal,
-    } = popin(
-      `Ticket Jira ${key}`,
-      "--ticket-margin-x:clamp(16px,4vw,60px);--ticket-margin-y:clamp(16px,5vh,60px);width:1280px;max-width:calc(100vw - var(--ticket-margin-x) - var(--ticket-margin-x));height:calc(100vh - var(--ticket-margin-y) - var(--ticket-margin-y));max-height:calc(100vh - 32px)",
-    );
+    const { dialog, hint, page: ticket, session, reveal } = popin(`Ticket Jira ${key}`);
     hint.textContent = `Chargement de ${key}…`;
     const address = new URL(location.href);
     address.searchParams.delete("sprintGoals");
@@ -288,7 +294,7 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
 
     type NativeStep =
       | { kind: "waiting-ticket" }
-      | { kind: "ticket-visible" }
+      | { kind: "ticket-visible"; panel: HTMLElement }
       | {
           kind: "choosing-transition";
           panel: HTMLElement;
@@ -316,7 +322,7 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
       if (!panel) return;
       isolateTicketPanel(doc, panel);
       if (!transition) {
-        step = { kind: "ticket-visible" };
+        step = { kind: "ticket-visible", panel };
         reveal();
         return;
       }
@@ -426,6 +432,9 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
           return;
         }
         if (step.kind === "waiting-ticket") recognizeTicket(doc, win);
+        // Jira peut remplacer la fiche après une édition : retrouver sa racine sans toucher
+        // aux styles ni perdre le défilement d'une fiche qui est toujours en place.
+        if (step.kind === "ticket-visible" && !step.panel.isConnected) recognizeTicket(doc, win);
         // Chaque étape peut débloquer la suivante dans le même passage, comme le fait Jira.
         if (step.kind === "choosing-transition") chooseTransition(step, doc);
         if (step.kind === "waiting-form") recognizeForm(step, doc, win);

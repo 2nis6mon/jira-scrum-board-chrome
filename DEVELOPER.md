@@ -219,7 +219,13 @@ et l'hôte vérifient origine et fenêtre source dans les deux sens ; l'hôte va
 | `sprint-goals:close` | Vue → hôte : retour à Jira |
 | `sprint-goals:refresh` | Hôte → vue : fermeture, déblocage et relecture |
 
-Un clic carte ouvre la fiche native complète : largeur 1 280 px bornée à la fenêtre, marges 16–60 px.
+Un clic carte ouvre la fiche native complète dans une enveloppe transparente occupant le viewport
+de l'onglet. Jira conserve ainsi ses propres dimensions, marges, en-tête et défilements des colonnes,
+y compris après redimensionnement. Ne pas imposer position, hauteur ou `overflow` au panneau :
+cela change le contexte de ses zones de défilement. Le board encadré est masqué par `visibility`,
+sans déplacer les éléments ; les portails de menus/dialogues restent visibles dans le viewport.
+Détection par Fermer et lien exact du ticket : dialogue natif prioritaire, repli géométrique pour
+les panneaux latéraux. Un panneau remplacé est reconnu à nouveau sans accumuler de styles.
 Pour une transition avec écran/champs requis, statut et transitions sont relus puis la fiche charge
 cachée. L'hôte ouvre son menu et clique seulement une correspondance **unique** du nom, ou du nom
 suivi du statut d'arrivée ; accents, espaces et ponctuation normalisés, aucun préfixe approximatif.
@@ -411,7 +417,7 @@ Ce flag ne provient ni de `.env`, ni d'un paramètre d'URL, ni d'une préférenc
 | `npm run typecheck` / `lint` / `format` | TypeScript / contrôles et formatage Biome |
 | `npm run harness` | Banc fictif, port 5199 |
 | `npm run verify:load` | Chargement, bienvenue, permissions, lanceur |
-| `npm run verify:jira` / `verify:transition` | Hébergement, messages forgés, navigation, fiche et formulaire seul, ambiguïté, absence de validation automatique, fermeture |
+| `npm run verify:jira` / `verify:transition` | Hébergement, messages forgés, navigation, fiche native (en-tête, colonnes, redimensionnement, menus, remplacement), formulaire seul, ambiguïté, absence de validation automatique, fermeture |
 | `npm run verify:drag` / `verify:button` | Gestes ; bouton et stockage Chrome, zoom/redimensionnement/plein écran |
 | `npm run verify:settings` | Glissés des réglages : swimlanes, types, champs et règles de couleur |
 | `npm run verify:planning` | Atelier, glissés/affectations, brouillon, publication, RAF consultatif et petit écran |

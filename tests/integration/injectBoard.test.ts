@@ -58,9 +58,11 @@ function mount() {
 }
 
 function bounds(element: HTMLElement, width: number, height: number) {
-  vi.spyOn(element, "getBoundingClientRect").mockImplementation(() =>
-    element.hidden ? new DOMRect() : new DOMRect(0, 0, width, height),
-  );
+  // Une méthode propre à l'instance : espionner celle du prototype partagerait le dernier rectangle.
+  Object.defineProperty(element, "getBoundingClientRect", {
+    configurable: true,
+    value: vi.fn(() => (element.hidden ? new DOMRect() : new DOMRect(0, 0, width, height))),
+  });
 }
 
 function ticketPanel(doc: Document, key = "ABC-102") {
@@ -70,6 +72,14 @@ function ticketPanel(doc: Document, key = "ABC-102") {
   doc.body.append(panel);
   const status = panel.querySelector('[aria-label="Changer le statut"]') as HTMLButtonElement;
   return { panel, status };
+}
+
+/** Dialogue natif récent : son conteneur peut occuper toute la fenêtre de Jira. */
+function nativeTicketDialog(doc: Document, key = "ABC-102") {
+  const result = ticketPanel(doc, key);
+  result.panel.setAttribute("role", "dialog");
+  bounds(result.panel, 1600, 900);
+  return result;
 }
 
 function menu(doc: Document, entries: { text: string; id?: string }[]) {
@@ -152,10 +162,107 @@ describe("hôte Jira — parcours natif autonome", () => {
     expect(current.ticket.style.visibility).toBe("hidden");
     await vi.advanceTimersByTimeAsync(300);
     expect(current.ticket.style.visibility).toBe("visible");
-    expect(current.dialog.style.width).toBe("1280px");
+    expect(current.dialog.style.width).toBe("100%");
+    expect(current.dialog.style.height).toBe("100%");
     expect(board.postMessage).not.toHaveBeenCalled();
 
     current.win.location.href = `${SITE}/jira/software/c/projects/ABC/boards/7`;
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(current.dialog.isConnected).toBe(false);
+    expect(board.postMessage).toHaveBeenCalledExactlyOnceWith(
+      { type: "sprint-goals:refresh" },
+      EXTENSION,
+    );
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("conserve les dimensions et le défilement natifs du panneau et de ses descendants", async () => {
+    const { open } = mount();
+    const current = open();
+    const { panel } = nativeTicketDialog(current.doc);
+    panel.style.cssText =
+      "position:relative;width:1280px;height:calc(100vh - 120px);max-height:900px;overflow:hidden;display:flex";
+    const content = current.doc.createElement("div");
+    content.style.cssText = "display:flex;flex:1;min-height:0;overflow:auto";
+    const description = current.doc.createElement("section");
+    description.style.cssText = "height:auto;min-height:1800px;overflow:visible";
+    description.textContent = "Description et activité du ticket";
+    content.append(description);
+    panel.append(content);
+    const before = [panel, content, description].map((element) => element.getAttribute("style"));
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(current.ticket.style.visibility).toBe("visible");
+    expect(panel.hasAttribute("data-sprint-goals-ticket")).toBe(true);
+    expect([panel, content, description].map((element) => element.getAttribute("style"))).toEqual(
+      before,
+    );
+    expect(current.dialog.style.width).toBe("100%");
+    expect(current.dialog.style.height).toBe("100%");
+    expect(current.dialog.style.maxWidth).toBe("none");
+    expect(current.dialog.style.maxHeight).toBe("none");
+    expect(current.doc.querySelectorAll("style[data-sprint-goals-ticket-style]")).toHaveLength(1);
+    expect(
+      current.doc.querySelector("style[data-sprint-goals-ticket-style]")?.textContent,
+    ).toContain("visibility:hidden");
+  });
+
+  it("préfère le dialogue natif pleine largeur à un panneau latéral de la même fiche", async () => {
+    const { open } = mount();
+    const current = open();
+    const { panel: sidebar } = ticketPanel(current.doc);
+    const { panel: native } = nativeTicketDialog(current.doc);
+    expect(sidebar.getBoundingClientRect().width).toBe(600);
+    expect(native.getBoundingClientRect().width).toBe(1600);
+    expect(sidebar.querySelector("button")?.getBoundingClientRect().width).toBe(100);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(current.ticket.style.visibility).toBe("visible");
+    expect(native.hasAttribute("data-sprint-goals-ticket")).toBe(true);
+    expect(sidebar.hasAttribute("data-sprint-goals-ticket")).toBe(false);
+    expect(current.doc.querySelectorAll("[data-sprint-goals-ticket]")).toHaveLength(1);
+  });
+
+  it("ignore les dialogues sans lien vers le bon ticket, même avec un bouton Fermer", async () => {
+    const { open } = mount();
+    const current = open();
+    const { panel: wrongIssue } = nativeTicketDialog(current.doc, "ABC-999");
+    const { panel: noLink } = nativeTicketDialog(current.doc);
+    noLink.querySelector("a")?.remove();
+    noLink.append("ABC-102");
+    await vi.advanceTimersByTimeAsync(900);
+    expect(current.ticket.style.visibility).toBe("hidden");
+    expect(current.doc.querySelector("[data-sprint-goals-ticket]")).toBeNull();
+    const { panel: rightIssue } = nativeTicketDialog(current.doc);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(current.ticket.style.visibility).toBe("visible");
+    expect(rightIssue.hasAttribute("data-sprint-goals-ticket")).toBe(true);
+    expect(wrongIssue.hasAttribute("data-sprint-goals-ticket")).toBe(false);
+    expect(noLink.hasAttribute("data-sprint-goals-ticket")).toBe(false);
+  });
+
+  it("reconnaît le panneau remplacé par Jira sans dupliquer le style et actualise une seule fois à la fermeture", async () => {
+    const { open, board } = mount();
+    const current = open();
+    let { panel } = nativeTicketDialog(current.doc);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(panel.hasAttribute("data-sprint-goals-ticket")).toBe(true);
+    const isolation = current.doc.querySelector("style[data-sprint-goals-ticket-style]");
+    expect(isolation).not.toBeNull();
+    for (let replacement = 0; replacement < 2; replacement += 1) {
+      panel.remove();
+      panel = nativeTicketDialog(current.doc).panel;
+      panel.style.cssText = "position:relative;overflow:hidden;height:80vh";
+      const nativeStyle = panel.getAttribute("style");
+      await vi.advanceTimersByTimeAsync(600);
+      expect(panel.hasAttribute("data-sprint-goals-ticket")).toBe(true);
+      expect(panel.getAttribute("style")).toBe(nativeStyle);
+      expect(current.ticket.style.visibility).toBe("visible");
+      expect(current.doc.querySelectorAll("style[data-sprint-goals-ticket-style]")).toHaveLength(1);
+      expect(current.doc.querySelector("style[data-sprint-goals-ticket-style]")).toBe(isolation);
+      expect(board.postMessage).not.toHaveBeenCalled();
+    }
+    current.win.location.href = `${SITE}/jira/software/c/projects/ABC/boards/7`;
+    await vi.advanceTimersByTimeAsync(900);
+    current.dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
     await vi.advanceTimersByTimeAsync(3000);
     expect(current.dialog.isConnected).toBe(false);
     expect(board.postMessage).toHaveBeenCalledExactlyOnceWith(

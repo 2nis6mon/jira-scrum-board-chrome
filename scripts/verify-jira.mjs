@@ -32,13 +32,35 @@ try {
   const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
   await send("Page.enable", {}, sessionId);
   await send("Fetch.enable", { patterns: [{ urlPattern: "https://*/*" }] }, sessionId);
-  const fixture = `<!doctype html><html><body><main id="jira">Board Jira normal</main>
-    <aside id="ticket" hidden style="position:fixed;right:0;top:0;width:600px;height:100vh;background:white">
-      <button aria-label="Fermer" onclick="history.pushState(null,'',location.pathname);this.parentElement.hidden=true">Fermer</button>
+  const fixture = `<!doctype html><html><head><style>
+    html,body{margin:0;padding:0;font:14px system-ui;background:#eef0f4;overflow:hidden}
+    [hidden]{display:none!important}
+    #ticket-layer{position:fixed;inset:0;pointer-events:none}
+    #ticket{position:fixed;left:50%;top:60px;transform:translateX(-50%);width:min(1280px,calc(100vw - 120px));max-width:1280px;height:calc(100vh - 120px);margin:0;display:grid;grid-template-rows:84px minmax(0,1fr);overflow:hidden;box-sizing:border-box;background:white;pointer-events:auto;border-radius:12px;box-shadow:0 12px 36px #0003}
+    #ticket-header{display:flex;align-items:center;gap:20px;padding:16px 24px;box-sizing:border-box;background:#fafbfc;border-bottom:1px solid #ccc}
+    #ticket-header h1{flex:1;margin:0;font-size:20px}
+    #ticket-body{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);min-height:0;overflow:hidden}
+    .native-column{min-height:0;overflow:auto;padding:20px;box-sizing:border-box}
+    #ticket-left{border-right:1px solid #ddd}
+    .native-column p{min-height:60px;margin:0 0 12px;padding:8px;box-sizing:border-box;background:#f5f7fa}
+    .native-bottom{height:48px;display:flex;align-items:center;background:#e4f2ed}
+  </style></head><body><main id="jira">Board Jira normal</main>
+    <div id="ticket-layer"><aside id="ticket" role="dialog" aria-label="Ticket ABC-102" hidden>
+      <header id="ticket-header"><button aria-label="Fermer" onclick="history.pushState(null,'',location.pathname);this.closest('#ticket').hidden=true">Fermer</button>
       <a href="/browse/ABC-102">ABC-102</a><h1>Ticket Jira réel</h1>
-      <button aria-label="Code Review - Changer le statut" onclick="openStatusMenu()">Code Review</button>
-    </aside>
-    <script>if(new URL(location.href).searchParams.has('selectedIssue'))document.querySelector('#ticket').hidden=false;
+      <button aria-label="Code Review - Changer le statut" onclick="openStatusMenu()">Code Review</button></header>
+      <div id="ticket-body"><section id="ticket-left" class="native-column" aria-label="Description native"><button onclick="openPortalMenu()">Menu natif</button><div id="native-description"></div><div class="native-bottom" id="left-bottom">Fin de la description</div></section>
+      <section id="ticket-right" class="native-column" aria-label="Détails natifs"><div id="native-details"></div><div class="native-bottom" id="right-bottom">Fin des détails</div></section></div>
+    </aside></div>
+    <script>
+    document.querySelector('#native-description').innerHTML=Array.from({length:28},function(_,index){return '<p>Description native, paragraphe '+index+'</p>'}).join('');
+    document.querySelector('#native-details').innerHTML=Array.from({length:34},function(_,index){return '<p>Détail Jira, ligne '+index+'</p>'}).join('');
+    if(new URL(location.href).searchParams.has('selectedIssue'))document.querySelector('#ticket').hidden=false;
+    function nativeIssueLayout(){return ['ticket','ticket-header','ticket-body','ticket-left','ticket-right'].map(function(id){var element=document.getElementById(id),style=getComputedStyle(element),rect=element.getBoundingClientRect();return {id:id,inline:element.getAttribute('style'),display:style.display,position:style.position,overflowX:style.overflowX,overflowY:style.overflowY,grid:style.gridTemplateColumns,rows:style.gridTemplateRows,margin:style.margin,padding:style.padding,left:rect.left,top:rect.top,width:rect.width,height:rect.height};});}
+    window.__nativeIssueInitialLayout=nativeIssueLayout();
+    window.__nativeIssueInitialMarkup=document.querySelector('#ticket').outerHTML;
+    function replaceNativeIssuePanel(){var container=document.createElement('div');container.innerHTML=window.__nativeIssueInitialMarkup;document.querySelector('#ticket').replaceWith(container.firstElementChild);}
+    function openPortalMenu(){var menu=document.createElement('div');menu.id='native-portal';menu.setAttribute('role','listbox');menu.style.cssText='position:fixed;left:8px;top:210px;width:140px;height:150px;background:white;z-index:10000;border:1px solid #ccc';menu.innerHTML='<button role=option style="width:100%;height:48px">Option native</button>';menu.querySelector('button').onclick=function(){document.body.dataset.nativeSelection='ok';menu.remove();};document.body.append(menu);}
     // Menu de statut du faux Jira, libellés « nom → statut d'arrivée » sans identifiant, comme
     // dans Jira Cloud. « TEST OK → Validé » ouvre la fenêtre moderne ; « TEST OK → Refusé », même
     // nom mais autre statut, s'exécuterait sans écran et ne doit jamais être cliqué.
@@ -130,12 +152,17 @@ try {
       "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102'},'https://acme.atlassian.net')",
     );
     await sleep(900);
+    const nativeViewport = `(()=>{const dialog=document.querySelector('dialog[open]'),frame=dialog?.querySelector('iframe'),win=frame?.contentWindow,doc=frame?.contentDocument,panel=doc?.querySelector('#ticket');if(!panel)return false;const r=dialog.getBoundingClientRect(),f=frame.getBoundingClientRect(),p=panel.getBoundingClientRect();return Math.abs(r.left)<1&&Math.abs(r.top)<1&&Math.abs(r.width-innerWidth)<1&&Math.abs(r.height-innerHeight)<1&&Math.abs(f.width-innerWidth)<1&&Math.abs(f.height-innerHeight)<1&&win.innerWidth===innerWidth&&win.innerHeight===innerHeight&&Math.abs(p.width-Math.min(1280,innerWidth-120))<1&&Math.abs(p.height-(innerHeight-120))<1&&Math.abs(p.left-(innerWidth-p.width)/2)<1&&Math.abs(p.top-60)<1})()`;
+    assert(
+      await evaluate(sessionId, nativeViewport),
+      "le cadre conserve le viewport Jira complet et la fiche garde sa taille native et ses marges uniques",
+    );
     assert(
       await evaluate(
         sessionId,
-        "(()=>{const d=document.querySelector('dialog[open]');if(!d)return false;const r=d.getBoundingClientRect();const margin=Math.min(60,Math.max(16,innerHeight*.05));return Math.abs(r.width-1280)<2&&Math.abs(r.height-(innerHeight-margin*2))<2})()",
+        "(()=>{const win=document.querySelector('dialog iframe').contentWindow;return JSON.stringify(win.nativeIssueLayout())===JSON.stringify(win.__nativeIssueInitialLayout)})()",
       ),
-      "la popin ticket reprend 1 280 px et les marges Jira mesurées",
+      "l'isolation ne modifie aucun style, dimension ou disposition du panneau natif et de ses colonnes",
     );
     assert(
       await evaluate(
@@ -143,6 +170,140 @@ try {
         "document.querySelector('dialog iframe').style.visibility==='visible'",
       ),
       "le panneau natif du ticket est visible dans la popin",
+    );
+    const originalViewport = await evaluate(sessionId, "({width:innerWidth,height:innerHeight})");
+    const wheelInColumn = async (id, deltaY) => {
+      const point = await evaluate(
+        sessionId,
+        `(()=>{const frame=document.querySelector('dialog iframe'),element=frame.contentDocument.getElementById(${JSON.stringify(id)}),rect=element.getBoundingClientRect(),outer=frame.getBoundingClientRect();return {x:outer.left+rect.left+rect.width/2,y:outer.top+rect.top+80}})()`,
+      );
+      await send(
+        "Input.dispatchMouseEvent",
+        { type: "mouseWheel", ...point, deltaX: 0, deltaY },
+        sessionId,
+      );
+    };
+    const headerTop = await evaluate(
+      sessionId,
+      "document.querySelector('dialog iframe').contentDocument.querySelector('#ticket-header').getBoundingClientRect().top",
+    );
+    await wheelInColumn("ticket-left", 450);
+    await waitFor(
+      sessionId,
+      "document.querySelector('dialog iframe').contentDocument.querySelector('#ticket-left').scrollTop > 0",
+      "la molette ne fait pas défiler la description native",
+    );
+    assert(
+      await evaluate(
+        sessionId,
+        `(()=>{const doc=document.querySelector('dialog iframe').contentDocument;return doc.querySelector('#ticket-right').scrollTop===0&&doc.querySelector('#ticket').scrollTop===0&&doc.querySelector('#ticket-header').getBoundingClientRect().top===${headerTop}})()`,
+      ),
+      "la description défile seule : en-tête et colonne des détails restent immobiles",
+    );
+    const leftScroll = await evaluate(
+      sessionId,
+      "document.querySelector('dialog iframe').contentDocument.querySelector('#ticket-left').scrollTop",
+    );
+    await wheelInColumn("ticket-right", 380);
+    await waitFor(
+      sessionId,
+      "document.querySelector('dialog iframe').contentDocument.querySelector('#ticket-right').scrollTop > 0",
+      "la molette ne fait pas défiler les détails natifs",
+    );
+    assert(
+      await evaluate(
+        sessionId,
+        `(()=>{const doc=document.querySelector('dialog iframe').contentDocument;return doc.querySelector('#ticket-left').scrollTop===${leftScroll}&&doc.querySelector('#ticket-header').getBoundingClientRect().top===${headerTop}})()`,
+      ),
+      "les détails défilent indépendamment de la description et de l'en-tête",
+    );
+    for (const id of ["ticket-left", "ticket-right"]) {
+      await wheelInColumn(id, 100000);
+      await waitFor(
+        sessionId,
+        `(()=>{const doc=document.querySelector('dialog iframe').contentDocument,column=doc.getElementById(${JSON.stringify(id)}),bottom=column.querySelector('.native-bottom').getBoundingClientRect(),rect=column.getBoundingClientRect();return column.scrollHeight-column.scrollTop-column.clientHeight<2&&bottom.top>=rect.top&&bottom.bottom<=rect.bottom+1})()`,
+        `le bas de ${id} est inaccessible`,
+      );
+    }
+    assert(
+      await evaluate(
+        sessionId,
+        `(()=>{const frame=document.querySelector('dialog iframe'),doc=frame.contentDocument;return frame.contentWindow.scrollY===0&&doc.querySelector('#ticket').scrollTop===0&&doc.querySelector('#ticket-header').getBoundingClientRect().top===${headerTop}})()`,
+      ),
+      "les deux bas de colonnes restent accessibles sans défilement global ni perte de l'en-tête",
+    );
+    await evaluate(
+      sessionId,
+      "document.querySelector('dialog iframe').contentWindow.openPortalMenu()",
+    );
+    const portal = await evaluate(
+      sessionId,
+      "(()=>{const frame=document.querySelector('dialog iframe'),doc=frame.contentDocument,menu=doc.querySelector('#native-portal'),button=menu.querySelector('button'),rect=button.getBoundingClientRect(),panel=doc.querySelector('#ticket').getBoundingClientRect(),outer=frame.getBoundingClientRect(),x=rect.left+12,y=rect.top+20;return {x:outer.left+x,y:outer.top+y,outside:x<panel.left,visible:menu.contains(doc.elementFromPoint(x,y))&&frame===document.elementFromPoint(outer.left+x,outer.top+y)}})()",
+    );
+    assert(
+      portal.outside && portal.visible,
+      "un menu Jira porté hors de la fiche reste visible et accessible dans le viewport complet",
+    );
+    for (const type of ["mousePressed", "mouseReleased"])
+      await send(
+        "Input.dispatchMouseEvent",
+        {
+          type,
+          x: portal.x,
+          y: portal.y,
+          button: "left",
+          buttons: type === "mousePressed" ? 1 : 0,
+          clickCount: 1,
+        },
+        sessionId,
+      );
+    await waitFor(
+      sessionId,
+      "document.querySelector('dialog iframe').contentDocument.body.dataset.nativeSelection==='ok'",
+      "le menu natif hors panneau n'est pas cliquable",
+    );
+    await send(
+      "Emulation.setDeviceMetricsOverride",
+      { width: 820, height: 740, deviceScaleFactor: 1, mobile: false },
+      sessionId,
+    );
+    await waitFor(
+      sessionId,
+      nativeViewport,
+      "la fiche ne conserve pas ses dimensions natives après rétrécissement du viewport",
+    );
+    assert(
+      await evaluate(
+        sessionId,
+        "(()=>{const doc=document.querySelector('dialog iframe').contentDocument;return getComputedStyle(doc.querySelector('#ticket')).overflow==='hidden'&&getComputedStyle(doc.querySelector('#ticket-body')).display==='grid'&&getComputedStyle(doc.querySelector('#ticket-left')).overflowY==='auto'&&getComputedStyle(doc.querySelector('#ticket-right')).overflowY==='auto'})()",
+      ),
+      "à largeur réduite, le panneau garde son overflow natif et ses deux défilements internes",
+    );
+    await send(
+      "Emulation.setDeviceMetricsOverride",
+      { ...originalViewport, deviceScaleFactor: 1, mobile: false },
+      sessionId,
+    );
+    await waitFor(
+      sessionId,
+      nativeViewport,
+      "la fiche native ne reprend pas sa taille après restauration du viewport",
+    );
+    await evaluate(
+      sessionId,
+      "document.querySelector('dialog iframe').contentWindow.replaceNativeIssuePanel()",
+    );
+    await waitFor(
+      sessionId,
+      "(()=>{const frame=document.querySelector('dialog iframe'),doc=frame.contentDocument,panel=doc.querySelector('#ticket');return panel.hasAttribute('data-sprint-goals-ticket')&&getComputedStyle(panel).visibility==='visible'&&JSON.stringify(frame.contentWindow.nativeIssueLayout())===JSON.stringify(frame.contentWindow.__nativeIssueInitialLayout)})()",
+      "le panneau natif remplacé par Jira n'est pas reconnu sans modification de sa disposition",
+    );
+    assert(
+      await evaluate(
+        sessionId,
+        "document.querySelector('dialog iframe').contentDocument.querySelectorAll('[data-sprint-goals-ticket-style]').length===1",
+      ),
+      "le remplacement natif conserve une seule feuille d'isolation et un panneau intact",
     );
     await evaluate(
       sessionId,
