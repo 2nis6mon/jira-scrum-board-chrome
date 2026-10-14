@@ -43,8 +43,8 @@
   };
 
   /**
-   * Bouton flottant, isolé des styles de Jira. La poignée déplace l'ensemble ; seul le bouton
-   * libellé ouvre le board. Par défaut, il reste à gauche de l'emplacement de Rovo.
+   * Bouton compact, isolé des styles de Jira. La poignée déplace l'ensemble ; seule l'icône
+   * ouvre le board. Il peut tenir dans l'en-tête ; le défaut reste à gauche de Rovo.
    */
   const showButton = () => {
     if (document.getElementById(buttonId)) return;
@@ -54,15 +54,15 @@
     const root = host.attachShadow({ mode: "open" });
     const style = document.createElement("style");
     style.textContent = `
-      :host{position:fixed;z-index:2147482000;display:flex;max-width:calc(100vw - 24px);box-sizing:border-box;border:1px solid #dcdfe4;border-radius:20px;background:white;box-shadow:0 2px 8px rgba(9,30,66,.25)}
-      button{display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 14px 8px 8px;border:0;border-radius:20px;background:transparent;color:#172b4d;font:600 14px system-ui,sans-serif;cursor:pointer;min-width:0}
+      :host{position:fixed;z-index:2147482000;display:flex;max-width:calc(100vw - 8px);box-sizing:border-box;border:1px solid #dcdfe4;border-radius:8px;background:white;box-shadow:0 1px 3px rgba(9,30,66,.14)}
+      button{display:flex;align-items:center;justify-content:center;box-sizing:border-box;height:32px;padding:0;border:0;border-radius:6px;background:transparent;color:#172b4d;font:600 14px/1 system-ui,sans-serif;cursor:pointer;min-width:0}
       button:hover{background:#f1f2f4}
       button:focus-visible{outline:2px solid #0c66e4;outline-offset:2px}
-      .grip{flex:none;width:28px;padding:8px 4px;cursor:grab;touch-action:none;user-select:none;color:#626f86}
+      .grip{flex:none;width:24px;cursor:grab;touch-action:none;user-select:none;color:#626f86}
       .grip:active{cursor:grabbing}
-      .label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .open{width:32px}
       img{display:block;width:20px;height:20px;flex:none}
-      .status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+      .label,.status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
     `;
     const grip = document.createElement("button");
     grip.type = "button";
@@ -75,6 +75,7 @@
     button.type = "button";
     button.className = "open";
     button.title = "Ouvrir ce board dans Sprint Goals";
+    button.setAttribute("aria-label", button.title);
     const icon = document.createElement("img");
     icon.alt = "";
     icon.src = chrome.runtime.getURL("icons/icon-32.png");
@@ -92,29 +93,31 @@
 
     const controller = new AbortController();
     const options = { signal: controller.signal };
+    // Laisser la place au contour de focus, tout en permettant un placement dans l'en-tête.
+    const edge = 4;
     const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
     const bounds = () => {
       const viewport = window.visualViewport;
       const width = viewport?.width ?? innerWidth;
       const height = viewport?.height ?? innerHeight;
-      host.style.maxWidth = `${Math.max(0, width - 24)}px`;
+      host.style.maxWidth = `${Math.max(0, width - 2 * edge)}px`;
       const rect = host.getBoundingClientRect();
       const left =
-        (viewport?.offsetLeft ?? 0) + Math.min(12, Math.max(0, (width - rect.width) / 2));
+        (viewport?.offsetLeft ?? 0) + Math.min(edge, Math.max(0, (width - rect.width) / 2));
       const top =
-        (viewport?.offsetTop ?? 0) + Math.min(12, Math.max(0, (height - rect.height) / 2));
+        (viewport?.offsetTop ?? 0) + Math.min(edge, Math.max(0, (height - rect.height) / 2));
       return {
         left,
         top,
-        travelX: Math.max(0, width - rect.width - 24),
-        travelY: Math.max(0, height - rect.height - 24),
+        travelX: Math.max(0, width - rect.width - 2 * edge),
+        travelY: Math.max(0, height - rect.height - 2 * edge),
       };
     };
     const place = (wanted = position) => {
       const b = bounds();
       // Les redimensionnements ne réécrivent jamais la préférence de l'utilisateur.
-      host.style.left = `${b.left + (wanted ? wanted.x * b.travelX : Math.max(0, b.travelX - 84))}px`;
-      host.style.top = `${b.top + (wanted ? wanted.y * b.travelY : Math.max(0, b.travelY - 16))}px`;
+      host.style.left = `${b.left + (wanted ? wanted.x * b.travelX : Math.max(0, b.travelX - (96 - edge)))}px`;
+      host.style.top = `${b.top + (wanted ? wanted.y * b.travelY : Math.max(0, b.travelY - (28 - edge)))}px`;
     };
     const at = (x: number, y: number): Position => {
       const b = bounds();

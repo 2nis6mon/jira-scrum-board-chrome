@@ -3,6 +3,12 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.34.6 — Bouton Jira plus discret
+
+- Bouton d'ouverture réduit à une icône avec une poignée séparée, pour tenir dans l'en-tête Jira.
+- Marge de déplacement réduite à 4 px ; position personnelle conservée par site, avec déplacement
+  au clavier et maintien dans la fenêtre lors du zoom ou du redimensionnement.
+
 ## 0.34.5 — Préparation de la publication Chrome Web Store
 
 - Fiche de publication, procédure de livraison et informations de confidentialité actualisées

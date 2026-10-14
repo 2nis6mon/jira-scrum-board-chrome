@@ -40,8 +40,10 @@ Vous pouvez aussi vous connecter à Jira, ouvrir un board et cliquer sur l'icôn
 elle reconnaît son adresse et propose **Ouvrir dans Jira** si une autorisation est nécessaire.
 Aucun mot de passe ni jeton n'est demandé par l'extension.
 
-Sur les boards autorisés, le bouton **Sprint Goals**, en bas à droite près de Rovo, ouvre la vue.
-Déplacez-le par sa poignée gauche ; sa position est conservée pour ce site dans ce profil Chrome.
+Sur les boards autorisés, la petite icône **Sprint Goals**, en bas à droite près de Rovo par défaut,
+ouvre la vue. Son infobulle indique son nom. Déplacez-la par sa poignée gauche, par exemple dans
+un espace libre de l'en-tête Jira : elle peut s'approcher à 4 px des bords. Sa position est conservée
+pour ce site dans ce profil Chrome.
 Au clavier, placez le focus sur la poignée puis utilisez les flèches, avec Maj pour affiner.
 Échap annule un glissement.
 

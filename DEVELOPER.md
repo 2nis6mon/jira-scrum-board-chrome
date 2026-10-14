@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.34.5**, 14 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.34.6**, 14 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -199,11 +199,13 @@ Jira reste chargé derrière la vue. Changement de board : identifiant et clé p
 qui construit une route moderne sur sa propre origine ; sans clé projet, affichage sur place avec
 avertissement. Après rechargement de l'extension, recharger aussi Jira pour remplacer le script injecté.
 
-Le bouton flotte dans une racine Shadow DOM et suit la navigation interne. Sa poignée accepte
+Le bouton compact (58 × 34 px, icône et poignée séparées) flotte dans une racine Shadow DOM et suit
+la navigation interne. Nom accessible et infobulle remplacent le libellé visible. Sa poignée accepte
 souris/toucher (seuil 5 px), flèches 10 px ou Maj+flèches 1 px. Échap, interruption du pointeur ou
 redimensionnement pendant le geste annulent sans sauvegarde. Stockage au relâchement ou à chaque pas
 clavier : ratios `{x,y}` bornés à 0–1 de la course du viewport visuel, dimensions du bouton et marges
-12 px déduites. Défaut : 96 px de la droite, 28 px du bas, bornés à la fenêtre. Zoom, plein écran
+4 px déduites, pour permettre le placement dans un espace libre de l'en-tête Jira. Défaut : 96 px
+de la droite, 28 px du bas, bornés à la fenêtre. Zoom, plein écran
 et redimensionnement adaptent l'affichage sans réécrire le choix ; synchronisation entre onglets,
 lecture initiale tardive sans écraser un geste. Valeur illisible = défaut. Aucun appel Jira ajouté.
 
