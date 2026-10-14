@@ -3,6 +3,10 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.32.3 — Retrait de l'heure de chargement
+
+- L'en-tête n'affiche plus « Jira · HH:mm » ; seule l'actualisation en cours est signalée.
+
 ## 0.32.2 — En-tête recentré
 
 - Retrait du bouton Réglages de l'en-tête ; accès conservé dans les menus du board et des swimlanes.

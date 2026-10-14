@@ -345,13 +345,11 @@ function SprintHeader(props: {
       )}
 
       <div class="sprint-actions">
-        <span class="sync-status" aria-live="polite">
-          {board.syncing.value
-            ? "Actualisation…"
-            : snapshot
-              ? `Jira · ${formatTime(snapshot.syncedAt)}`
-              : ""}
-        </span>
+        {board.syncing.value && (
+          <span class="sync-status" aria-live="polite">
+            Actualisation…
+          </span>
+        )}
         {SPRINT_HEALTH_ENABLED && sprint && (
           <button
             type="button"

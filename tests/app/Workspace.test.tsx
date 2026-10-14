@@ -387,13 +387,13 @@ describe("barre latérale", () => {
 });
 
 describe("en-tête du sprint", () => {
-  it("sprint actif, avancement en points, Goals atteints et heure de la dernière lecture", async () => {
+  it("sprint actif, avancement en points et Goals atteints, sans heure de dernière lecture", async () => {
     await connectedBoard();
     expect(document.querySelector(".sprint-name")?.textContent).toBe("Sprint 42actif");
     expect(document.querySelector(".sprint-progress strong")?.textContent).toBe("3/17 pts");
     expect(document.querySelector(".sprint-percent")?.textContent).toBe("18 %");
     expect(document.querySelector(".counter-goals strong")?.textContent).toBe("1/2");
-    expect(document.querySelector(".sync-status")?.textContent).toMatch(/^Jira · \d\d:\d\d$/);
+    expect(document.querySelector(".sync-status")).toBeNull();
   });
 
   it.each(["scrum", "kanban"] as const)(
