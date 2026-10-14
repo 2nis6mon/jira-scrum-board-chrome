@@ -3,6 +3,14 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.34.1 — Swimlanes par types et aide JQL pour les couleurs
+
+- Retour aux swimlanes par types de tickets, avec objectifs prioritaires et groupe Default.
+- Suppression des règles, aperçus et évaluations JQL des swimlanes ; récupération à la lecture
+  des affectations par types conservées dans les réglages 0.34.0, sans écriture automatique.
+- Validation stricte et autocomplétion Jira conservées pour les couleurs des cartes, avec blocage
+  des requêtes invalides et conservation des brouillons en cas d'échec ou de conflit.
+
 ## 0.34.0 — Swimlanes JQL et saisie assistée
 
 - Swimlanes définies par JQL : objectif visible prioritaire, première règle active correspondante,

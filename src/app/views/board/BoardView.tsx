@@ -896,26 +896,6 @@ function FloatingNotices(props: {
   const open = (id: NoticeId) => !dismissed.has(id);
 
   const notices: ComponentChildren[] = [];
-  if (open("jql-partial") && Object.keys(board.swimlaneRuleIssues.value).length > 0) {
-    notices.push(
-      <FloatingNotice key="jql-partial" board={board} id="jql-partial">
-        <p>
-          <strong>Classement JQL incomplet.</strong> {board.unresolvedSwimlaneKeys.value.size}{" "}
-          tickets gardent leur dernière destination connue ou restent dans Default en attendant
-          Jira. Les objectifs restent prioritaires.
-        </p>
-        <p>Le détail des règles est disponible dans les réglages des swimlanes.</p>
-        <button
-          type="button"
-          class="text-button"
-          disabled={board.syncing.value}
-          onClick={() => void board.sync()}
-        >
-          Réessayer
-        </button>
-      </FloatingNotice>,
-    );
-  }
   if (open("goals-partial") && board.goalsWarnings.value.length > 0) {
     notices.push(
       <FloatingNotice key="goals-partial" board={board} id="goals-partial">
@@ -1425,25 +1405,6 @@ function LaneView(props: {
                           }}
                           onDragEnd={() => board.endDrag()}
                         />
-                        {configuration.swimlaneMode === "jql" &&
-                          issue.goalId &&
-                          !issue.inheritedGoal && (
-                            <button
-                              type="button"
-                              class="card-detach-goal"
-                              disabled={
-                                board.pendingKeys.value.size > 0 ||
-                                board.snapshot.value?.goalsReadOnly
-                              }
-                              title="Retirer le lien à l’objectif ; les règles JQL déterminent ensuite la swimlane."
-                              onClick={() => void board.detachGoal(key)}
-                            >
-                              Retirer de l’objectif
-                            </button>
-                          )}
-                        {board.unresolvedSwimlaneKeys.value.has(key) && (
-                          <span class="card-classification-pending">Classement JQL à vérifier</span>
-                        )}
                       </li>
                     </Fragment>
                   );

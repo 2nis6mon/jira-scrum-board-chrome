@@ -29,11 +29,6 @@ export interface BoardLoadingEffects {
   updatePreferences(change: ConfigurationChange): Promise<void>;
   refreshFilters(boardId: number, isStale: () => boolean): Promise<void>;
   refreshColors(): Promise<void>;
-  prepareSnapshot?(
-    snapshot: BoardSnapshot,
-    configuration: BoardConfiguration,
-    isStale: () => boolean,
-  ): Promise<BoardSnapshot>;
 }
 export type BoardLoadingDiagnostics = Pick<
   LoadDiagnostics,
@@ -142,7 +137,7 @@ export class BoardLoadingService {
 
     try {
       this.#currentUser ??= await trace.measure("user", () => this.#reader.myself());
-      let result = await loadSnapshot({
+      const result = await loadSnapshot({
         reader: this.#reader,
         configuration,
         currentUser: this.#currentUser,
@@ -159,19 +154,6 @@ export class BoardLoadingService {
         },
       });
       if (isStale()) return;
-
-      const prepareSnapshot = this.#effects.prepareSnapshot;
-      if (prepareSnapshot) {
-        const snapshot = await trace.measure("colors", () =>
-          prepareSnapshot(
-            result.snapshot,
-            this.#state.configuration.value ?? configuration,
-            isStale,
-          ),
-        );
-        if (isStale()) return;
-        result = { ...result, snapshot };
-      }
 
       // Couleurs des objectifs : mémorisées localement pour rester stables d'un sprint à l'autre.
       // Une couleur choisie PENDANT la lecture l'emporte sur celle connue à son début.
@@ -240,8 +222,7 @@ export class BoardLoadingService {
       this.#effects.refreshFilters(configuration.boardId, isStale),
     );
     if (isStale()) return;
-    if (!this.#effects.prepareSnapshot)
-      await trace.measure("colors", () => this.#effects.refreshColors());
+    await trace.measure("colors", () => this.#effects.refreshColors());
   }
 
   /** Une lecture ancienne ne doit pas ajouter ses phases à celle d'un nouveau board. */

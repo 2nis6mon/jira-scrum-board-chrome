@@ -7,6 +7,7 @@ import {
 import {
   decodeTeamDocument,
   encodeTeamDocument,
+  encodeTeamSettings,
   publishTeamSettings,
   TEAM_FAMILIES,
   type TeamDocument,
@@ -165,6 +166,70 @@ describe("document JSON de la propriété du board", () => {
     ).toEqual([]);
     expect(decodeTeamDocument({ ...encoded, publishedAt: "" })).toBeNull();
     expect(decodeTeamDocument("texte")).toBeNull();
+  });
+});
+
+describe("réglages partagés de la 0.34 sans mode explicite", () => {
+  const previous = teamSettingsOf(sharedTypesConfiguration);
+  const oldRules = {
+    version: 1,
+    lanes: previous.ticketSwimlanes.map((lane) => ({
+      ...lane,
+      typeIds: [...lane.typeIds],
+      jql: "labels = run",
+      enabled: true,
+    })),
+  };
+  const oldDocument: JsonValue = {
+    ...encodeTeamDocument(DOCUMENT),
+    settings: {
+      ...encodeTeamSettings(previous),
+      issueTypes: previous.issueTypes.map((type) => ({
+        ...type,
+        category: type.category === "IGNORED" ? "IGNORED" : "SCRUM",
+      })),
+      jqlSwimlanes: oldRules,
+    },
+  };
+
+  it("relit les groupes historiques sans publication et garde les règles comme donnée inconnue", async () => {
+    const jira = fakeJira(oldDocument);
+    const document = decodeTeamDocument(await jira.reader.boardProperty());
+    if (!document) throw new Error("document attendu");
+    expect(document.settings).toEqual(previous);
+    const applied = withTeamSettings(makeConfiguration({ issueTypes: [] }), document.settings);
+    expect(applied.ticketSwimlanes).toEqual(sharedTypesConfiguration.ticketSwimlanes);
+    expect(applied.issueTypes).toEqual(sharedTypesConfiguration.issueTypes);
+    expect(jira.writes).toEqual([]);
+    expect("jqlSwimlanes" in document.settings).toBe(false);
+  });
+
+  it("une publication explicite préserve le JSON JQL retiré sans rétablir ses affectations", async () => {
+    const jira = fakeJira(oldDocument);
+    const document = decodeTeamDocument(oldDocument);
+    if (!document) throw new Error("document attendu");
+    let configuration = withTeamSettings(makeConfiguration(), document.settings);
+    configuration = withTypeDestination(configuration, "10004", { kind: "goal" });
+    configuration = withTypeDestination(configuration, "10006", { kind: "goal" });
+    await publishTeamSettings(jira.reader, jira.writer, {
+      boardId: configuration.boardId,
+      settings: teamSettingsOf(configuration),
+      columns: configuration.columns,
+      basePublishedAt: document.publishedAt,
+      publishedBy: document.publishedBy,
+      now: new Date("2026-10-14T09:00:00Z"),
+    });
+    expect(jira.writes).toHaveLength(1);
+    const write = jira.writes[0];
+    if (write?.kind !== "boardProperty.put") throw new Error("publication attendue");
+    expect(write.value.settings).toMatchObject({ jqlSwimlanes: oldRules });
+    const reread = decodeTeamDocument(write.value);
+    expect(reread?.settings.ticketSwimlanes).toEqual([]);
+    expect(reread?.settings.issueTypes.find((type) => type.id === "10004")?.category).toBe("SCRUM");
+    expect(reread?.settings.issueTypes.find((type) => type.id === "10006")?.category).toBe("SCRUM");
+    expect(reread?.settings.issueTypes.find((type) => type.id === "10007")?.category).toBe(
+      "IGNORED",
+    );
   });
 });
 

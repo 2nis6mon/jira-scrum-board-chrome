@@ -8,8 +8,6 @@ import {
   decodeStoredConfiguration,
   type GoalSource,
   type IssueCategory,
-  type JqlSwimlaneSettings,
-  normalizeJqlSwimlanes,
   normalizeSwimlanes,
   swimlaneName,
   type TicketSwimlane,
@@ -77,8 +75,6 @@ export interface TeamIssueType {
 export interface TeamSettings {
   readonly issueTypes: readonly TeamIssueType[];
   readonly ticketSwimlanes: readonly TicketSwimlane[];
-  /** Autorité JQL, séparée du format par type que les anciennes versions peuvent réécrire. */
-  readonly jqlSwimlanes?: JqlSwimlaneSettings;
   /** 0.22.7 : au moins une swimlane par type affichée. */
   readonly showKanbanSection: boolean;
   readonly buildSectionLabel: string;
@@ -103,7 +99,6 @@ export interface TeamSettings {
 const SETTINGS_KEYS = [
   "issueTypes",
   "ticketSwimlanes",
-  "jqlSwimlanes",
   "showKanbanSection",
   "buildSectionLabel",
   "kanbanSectionLabel",
@@ -157,9 +152,6 @@ export function teamSettingsOf(configuration: BoardConfiguration): TeamSettings 
       typeIds: [...typeIds],
       hidden,
     })),
-    ...(configuration.swimlaneMode === "jql"
-      ? { jqlSwimlanes: { version: 1 as const, lanes: normalizeJqlSwimlanes(swimlanes) } }
-      : {}),
     showKanbanSection: swimlanes.some((swimlane) => !swimlane.hidden),
     buildSectionLabel: configuration.buildSectionLabel,
     kanbanSectionLabel:
@@ -200,18 +192,11 @@ export function withTeamSettings(
       category: readCategory(shared.category),
     });
   }
-  const jqlMode = settings.jqlSwimlanes !== undefined;
-  const issueTypes = [...typesById.values()].map((type) =>
-    jqlMode && type.category !== "IGNORED" ? { ...type, category: "GOAL" as const } : type,
-  );
-  const { swimlaneMode: _previousMode, ...withoutMode } = configuration;
+  const issueTypes = [...typesById.values()];
   return {
-    ...withoutMode,
+    ...configuration,
     issueTypes,
-    ticketSwimlanes: settings.jqlSwimlanes
-      ? normalizeJqlSwimlanes(settings.jqlSwimlanes.lanes)
-      : normalizeSwimlanes(issueTypes, settings.ticketSwimlanes),
-    ...(jqlMode ? { swimlaneMode: "jql" as const } : {}),
+    ticketSwimlanes: normalizeSwimlanes(issueTypes, settings.ticketSwimlanes),
     buildSectionLabel: settings.buildSectionLabel,
     dailyMinutes: settings.dailyMinutes,
     dailyStockLimit: settings.dailyStockLimit,
@@ -235,7 +220,7 @@ function readCategory(category: TeamCategory): IssueCategory {
  * déduits pour la 0.22.7 n'y sont pas : ils suivent les autres.
  */
 const FAMILIES: readonly (readonly [string, (settings: TeamSettings) => unknown])[] = [
-  ["Types de tickets et swimlanes", (s) => [s.issueTypes, s.ticketSwimlanes, s.jqlSwimlanes]],
+  ["Types de tickets et swimlanes par type", (s) => [s.issueTypes, s.ticketSwimlanes]],
   ["Nom de Build, seuil de vieillissement", (s) => [s.buildSectionLabel, s.agingThresholdDays]],
   ["Daily : durée et stock", (s) => [s.dailyMinutes, s.dailyStockLimit]],
   ["Source des objectifs", (s) => s.goalSource],

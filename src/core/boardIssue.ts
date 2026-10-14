@@ -85,8 +85,6 @@ export interface BoardIssue {
   readonly swimlaneId: string | null;
   readonly columnId: string | null;
   readonly goalId: string | null;
-  /** Le lien vient du parent : le détacher ici ne pourrait pas supprimer cet héritage. */
-  readonly inheritedGoal?: boolean;
   readonly estimate: number | null;
   /** Bloqué par un lien Jira natif « est bloqué par » (seule source depuis 0.31.0). */
   readonly isBlocked: boolean;

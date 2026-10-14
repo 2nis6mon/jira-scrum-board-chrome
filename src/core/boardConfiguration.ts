@@ -8,16 +8,15 @@ import { type CardField, MAX_CARD_FIELDS } from "./cardFields";
 import { foldText } from "./text";
 
 /**
- * Destination historique d'un type Jira : Build (`GOAL`), swimlane par type (`SWIMLANE`), ou
- * exclusion (`IGNORED`). En mode JQL, seuls GOAL et IGNORED restent des réglages de type ; le
- * classement du ticket est ensuite évalué par Jira. Un objectif rattaché reste prioritaire.
+ * Destination par défaut d'un type Jira : Build (`GOAL`), swimlane par type (`SWIMLANE`), ou
+ * exclusion (`IGNORED`). Pour tout type affichable, un objectif rattaché est prioritaire.
  */
 export type IssueCategory = "GOAL" | "SWIMLANE" | "IGNORED";
 
 /**
- * Destination sans objectif : règle JQL, ou groupe de types dans l'ancien mode. Dans ce dernier,
- * un type appartient à une seule swimlane s'il est en mode SWIMLANE (`normalizeSwimlanes`).
- * Les règles JQL n'ont pas de contrainte de type et sont prioritaires dans leur ordre de liste.
+ * Swimlane par type : destination sans objectif d'un groupe de types (demande de Denis du
+ * 25/09/2026, remplace l'unique swimlane Kanban). Un type n'appartient qu'à une swimlane, et y est
+ * si et seulement si son mode est `SWIMLANE` (`normalizeSwimlanes` tient cet invariant).
  */
 export interface TicketSwimlane {
   /** Identifiant stable (« 1 », « 2 »…), repris dans l'ordre et le repli des blocs. */
@@ -28,16 +27,6 @@ export interface TicketSwimlane {
   readonly typeIds: readonly string[];
   /** Masquée : ses tickets ne sont pas affichés. */
   readonly hidden: boolean;
-  /** Règle évaluée par Jira lorsque le board utilise les swimlanes JQL. */
-  readonly jql?: string;
-  /** Une règle désactivée ne classe aucun ticket ; une règle masquée reste prioritaire. */
-  readonly enabled?: boolean;
-}
-
-/** Clé autonome conservée par les anciennes versions qui ne connaissent pas le classement JQL. */
-export interface JqlSwimlaneSettings {
-  readonly version: 1;
-  readonly lanes: readonly TicketSwimlane[];
 }
 
 /**
@@ -100,10 +89,8 @@ export interface BoardConfiguration {
   /** Colonnes du board, les mêmes pour toutes les swimlanes. */
   readonly columns: readonly ColumnConfiguration[];
   readonly issueTypes: readonly IssueTypeConfiguration[];
-  /** Swimlanes dans l'ordre de priorité en mode JQL, de création dans l'ancien mode. */
+  /** Swimlanes par type, dans l'ordre de leur création. */
   readonly ticketSwimlanes: readonly TicketSwimlane[];
-  /** Absent : classement historique par types. Activé uniquement par application explicite. */
-  readonly swimlaneMode?: "jql";
 
   /** Seuil d'ancienneté dans une colonne, en jours. */
   readonly agingThresholdDays: number;
@@ -169,7 +156,6 @@ export function categoryForIssueType(config: BoardConfiguration, typeId: string)
 
 /** Swimlane sans objectif d'un type de ticket ; `null` pour Build ou un type ignoré. */
 export function swimlaneOfType(config: BoardConfiguration, typeId: string): TicketSwimlane | null {
-  if (config.swimlaneMode === "jql") return null;
   return config.ticketSwimlanes.find((swimlane) => swimlane.typeIds.includes(typeId)) ?? null;
 }
 
@@ -177,14 +163,9 @@ export function findSwimlane(config: BoardConfiguration, id: string): TicketSwim
   return config.ticketSwimlanes.find((swimlane) => swimlane.id === id) ?? null;
 }
 
-/** Swimlanes affichables, dans l'ordre de configuration ; les règles JQL suspendues sont exclues. */
+/** Swimlanes par type affichées (non masquées), dans leur ordre de création. */
 export function shownSwimlaneIds(config: BoardConfiguration): string[] {
-  return config.ticketSwimlanes
-    .filter(
-      (swimlane) =>
-        !swimlane.hidden && (config.swimlaneMode !== "jql" || swimlane.enabled !== false),
-    )
-    .map((s) => s.id);
+  return config.ticketSwimlanes.filter((swimlane) => !swimlane.hidden).map((s) => s.id);
 }
 
 /** Nom calculé : les noms de ses types, dans l'ordre du groupe. */
@@ -253,23 +234,6 @@ export function normalizeSwimlanes(
     }
   }
   return result.filter((swimlane) => swimlane.typeIds.length > 0);
-}
-
-/** Les règles JQL sont indépendantes des types et survivent même sans ticket correspondant. */
-export function normalizeJqlSwimlanes(swimlanes: readonly TicketSwimlane[]): TicketSwimlane[] {
-  const seen = new Set<string>();
-  return swimlanes.flatMap((swimlane) => {
-    if (!swimlane.id || seen.has(swimlane.id)) return [];
-    seen.add(swimlane.id);
-    return [
-      {
-        ...swimlane,
-        typeIds: [...new Set(swimlane.typeIds)],
-        jql: swimlane.jql?.trim() ?? "",
-        enabled: swimlane.enabled !== false,
-      },
-    ];
-  });
 }
 
 export function isGoalHidden(config: BoardConfiguration, goalId: string): boolean {
@@ -413,12 +377,7 @@ export function mergeConfiguration(
   const previousTypes = new Map(existing.issueTypes.map((type) => [type.id, type]));
   const issueTypes = fresh.issueTypes.map((type) => {
     const previous = previousTypes.get(type.id);
-    const category = previous?.category ?? type.category;
-    return existing.swimlaneMode === "jql"
-      ? { ...type, category: category === "IGNORED" ? ("IGNORED" as const) : ("GOAL" as const) }
-      : previous
-        ? { ...type, category }
-        : type;
+    return previous ? { ...type, category: previous.category } : type;
   });
 
   return {
@@ -426,12 +385,8 @@ export function mergeConfiguration(
     goalsFieldId: fresh.goalsFieldId ?? existing.goalsFieldId,
     flaggedFieldId: fresh.flaggedFieldId ?? existing.flaggedFieldId,
     issueTypes,
-    // L'ancien mode rattache les nouveaux types à leur groupe ; le mode JQL garde ses règles.
-    ticketSwimlanes:
-      existing.swimlaneMode === "jql"
-        ? normalizeJqlSwimlanes(existing.ticketSwimlanes)
-        : normalizeSwimlanes(issueTypes, existing.ticketSwimlanes),
-    ...(existing.swimlaneMode === "jql" ? { swimlaneMode: "jql" as const } : {}),
+    // Un nouveau type doté d'une swimlane par défaut rejoint la première swimlane par type.
+    ticketSwimlanes: normalizeSwimlanes(issueTypes, existing.ticketSwimlanes),
     // Colonnes : telles que Jira les déclare (noms, affichage et limites WIP ne se règlent plus ici).
     columns: fresh.columns,
     agingThresholdDays: existing.agingThresholdDays,
@@ -474,32 +429,7 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
   const columns = decodeColumns(value.columns ?? value.scrumColumns);
   const decodedTypes = decodeList(value.issueTypes, decodeIssueTypeConfiguration);
   if (columns === null || decodedTypes === null) return null;
-  // La clé partagée autonome fait foi : les anciennes versions peuvent avoir réécrit les types
-  // et `ticketSwimlanes`, mais elles préservent cette clé inconnue. Une version illisible ne doit
-  // jamais être écrasée en croyant lire un ancien board.
-  const sharedJql = value.jqlSwimlanes;
-  if (
-    sharedJql !== undefined &&
-    (!isObject(sharedJql) || sharedJql.version !== 1 || !Array.isArray(sharedJql.lanes))
-  )
-    return null;
-  const jqlMode = sharedJql !== undefined || value.swimlaneMode === "jql";
-  const jqlLanes =
-    sharedJql !== undefined ? (sharedJql as Record<string, unknown>).lanes : value.ticketSwimlanes;
-  if (
-    jqlMode &&
-    (!Array.isArray(jqlLanes) ||
-      jqlLanes.some(
-        (lane) => decodeSwimlane(lane) === null || !isObject(lane) || typeof lane.jql !== "string",
-      ))
-  )
-    return null;
-  const issueTypes = jqlMode
-    ? decodedTypes.map((type) => ({
-        ...type,
-        category: type.category === "IGNORED" ? ("IGNORED" as const) : ("GOAL" as const),
-      }))
-    : decodedTypes;
+  const issueTypes = restoreTypeGroups(value, decodedTypes);
 
   return {
     boardId: value.boardId,
@@ -514,10 +444,7 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
     flaggedFieldId: textOrNull(value.flaggedFieldId),
     columns,
     issueTypes,
-    ticketSwimlanes: jqlMode
-      ? normalizeJqlSwimlanes(decodeList(jqlLanes, decodeSwimlane) ?? [])
-      : decodeSwimlanes(value, issueTypes),
-    ...(jqlMode ? { swimlaneMode: "jql" as const } : {}),
+    ticketSwimlanes: decodeSwimlanes(value, issueTypes),
     agingThresholdDays: isPositiveInteger(value.agingThresholdDays) ? value.agingThresholdDays : 3,
     autoRefreshSeconds: isPositiveInteger(value.autoRefreshSeconds)
       ? value.autoRefreshSeconds
@@ -544,6 +471,27 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
     localPinnedGoalIds: decodeLocalPins(value.localPinnedGoalIds),
     teamBase: decodeTeamBase(value.teamBase),
   };
+}
+
+/**
+ * La 0.34 a conservé les groupes historiques dans `ticketSwimlanes.typeIds`, mais changé leurs
+ * catégories en GOAL. Les rétablit à la lecture sans interpréter les anciennes règles JQL ni
+ * rien publier. La clé partagée reste une donnée inconnue, préservée par `teamSettings`.
+ * Seuls les groupes encore présents font foi : une modification ultérieure des types ne doit
+ * jamais ressusciter un groupe depuis une ancienne règle. Un type ignoré reste exclu.
+ */
+function restoreTypeGroups(
+  value: Record<string, unknown>,
+  issueTypes: readonly IssueTypeConfiguration[],
+): readonly IssueTypeConfiguration[] {
+  if (value.swimlaneMode !== "jql" && !Object.hasOwn(value, "jqlSwimlanes")) return issueTypes;
+  const lanes = decodeList(value.ticketSwimlanes, decodeSwimlane) ?? [];
+  const grouped = new Set(lanes.flatMap((lane) => lane.typeIds));
+  return issueTypes.map((type) =>
+    type.category !== "IGNORED" && grouped.has(type.id)
+      ? { ...type, category: "SWIMLANE" as const }
+      : type,
+  );
 }
 
 function decodeStockLimit(value: unknown): number {
@@ -576,8 +524,6 @@ function decodeSwimlane(item: unknown): TicketSwimlane | null {
     name: textOr(item.name, ""),
     typeIds: strings(item.typeIds),
     hidden: item.hidden === true,
-    ...(typeof item.jql === "string" ? { jql: item.jql } : {}),
-    ...(typeof item.enabled === "boolean" ? { enabled: item.enabled } : {}),
   };
 }
 

@@ -17,7 +17,6 @@ export const DISMISSABLE_NOTICES = [
   "unmapped-statuses",
   "goals-read-only",
   "goals-partial",
-  "jql-partial",
 ] as const;
 export type NoticeId = (typeof DISMISSABLE_NOTICES)[number];
 

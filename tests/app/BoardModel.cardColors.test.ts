@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BoardModel } from "../../src/app/model/BoardModel";
 import { loadActiveBoard } from "../../src/app/model/boardStore";
+import { allIssues } from "../../src/core/boardIssue";
 import { type CardColorRule, SCOPE_CHANGE_RULE } from "../../src/core/cardColors";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
@@ -115,6 +116,32 @@ describe("BoardModel — couleurs des cartes", () => {
     await board.applyColorRules([{ ...rule("haute", "priority = High", "red"), enabled: false }]);
     expect(board.cardColors.value).toEqual({});
     expect(jqlReads()).toBe(0);
+  });
+
+  it("un refus d'évaluation des couleurs conserve les tickets dans leurs objectifs et swimlanes", async () => {
+    const { board, jira } = await colorBoard();
+    await board.applyColorRules([rule("haute", "priority = High", "red")]);
+    const locations = () => {
+      const snapshot = board.snapshot.value;
+      if (!snapshot) throw new Error("Board attendu");
+      return allIssues(snapshot).map((issue) => [
+        issue.issue.key,
+        issue.goalId,
+        issue.swimlaneId,
+        issue.columnId,
+      ]);
+    };
+    const before = locations();
+    jira.on("POST", "/rest/api/3/jql/match", {
+      status: 200,
+      json: { matches: [{ matchedIssues: [], errors: ["Champ indisponible"] }] },
+    });
+    await board.sync();
+    expect(board.colorRuleIssues.value.haute).toBe("Champ indisponible");
+    expect(board.cardColors.value).toEqual({});
+    expect(locations()).toEqual(before);
+    expect(board.syncProblem.value).toBeNull();
+    board.dispose();
   });
 
   it("préserve un brouillon vide désactivé et refuse son activation sans JQL", async () => {

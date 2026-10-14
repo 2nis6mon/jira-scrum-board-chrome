@@ -106,7 +106,6 @@ try {
     return seen;
   };
 
-  // ─── Swimlanes JQL : migration explicite, validation et priorité ────────────
   const input = async (selector, value) => {
     await run(`(() => {
       const field = ${selector};
@@ -130,179 +129,165 @@ try {
         sessionId,
       );
   };
-  const save = "document.querySelector('.settings-lanes-card .settings-savebar .primary')";
-  const preview = "document.querySelector('.jql-preview-actions button')";
-  const grips = `[...document.querySelectorAll('.jql-swimlane .settings-grip')].map((g) => g.getAttribute('aria-label').replace('Déplacer la swimlane ', ''))`;
+  // ─── Onglet Board : swimlanes et types ─────────────────────────────────────
+  const grips = `[...document.querySelectorAll('.settings-lanes .settings-grip')].map((g) => g.getAttribute('aria-label').replace('Déplacer la swimlane ', ''))`;
   const lane = (name) =>
-    `[...document.querySelectorAll('.jql-swimlane')].find((li) => li.querySelector('.jql-swimlane-name')?.value === ${JSON.stringify(name)})`;
-  await open("board", "document.querySelectorAll('.jql-swimlane').length === 2");
+    `[...document.querySelectorAll('.settings-lanes > li')].find((li) => li.querySelector('.settings-grip')?.getAttribute('aria-label') === 'Déplacer la swimlane ${name}')`;
+  await open("board", "document.querySelectorAll('.settings-lanes .settings-grip').length === 3");
+  let order = await run(grips);
+  assert(same(order, ["Build", "RUN", "OPS"]), `swimlanes au départ : ${order}`);
   assert(
-    same(await run(grips), ["RUN", "OPS"]),
-    "les deux anciennes swimlanes doivent être proposées en JQL",
-  );
-  assert(
-    await run(
-      "document.querySelector('.jql-migration-note') !== null && !window.__equipe.document().settings.jqlSwimlanes",
-    ),
-    "ouvrir les réglages ne doit pas publier la migration",
+    await run(`!document.querySelector('.settings-types-card')
+      && document.querySelector('.settings-lane-build [data-type-id="10001"]') !== null
+      && document.querySelector('.settings-lanes-card [aria-label="Types ignorés"]') !== null`),
+    "les types Default et Ignorés ne sont pas intégrés à la section Swimlanes",
   );
   assert(
-    await run(
-      "document.querySelector('.settings-lanes-card > header .settings-help').textContent.trim() === 'Les objectifs sont prioritaires, puis la première règle correspondante.'",
-    ),
-    "introduction des priorités absente",
+    await run(`document.querySelector('.settings-lanes-card > header .settings-help')
+      .textContent.trim() === 'Les objectifs sont prioritaires sur les swimlanes.'`),
+    "l'introduction des swimlanes doit rappeler simplement la priorité des objectifs",
   );
-  const runEditor = `${lane("RUN")}.querySelector('.jql-editor-input')`;
-  const original = await run(`${runEditor}.value`);
-  const initialWrites = await run("window.__equipe.writes()");
-  await input(runEditor, "invalid =");
-  await waitFor(
-    sessionId,
-    `${runEditor}.getAttribute('aria-invalid') === 'true'`,
-    "le JQL invalide n'est pas signalé avant application",
-  );
-  assert(
-    await run(
-      `${save}.disabled && ${preview}.disabled && window.__equipe.writes() === ${initialWrites}`,
-    ),
-    "une règle invalide peut être publiée ou prévisualisée",
-  );
-  console.log("✓ Swimlanes : erreur JQL avant enregistrement, aucune écriture du brouillon");
-
-  await input(runEditor, "lab");
-  await waitFor(
-    sessionId,
-    `${lane("RUN")}.querySelector('[role=option]')?.textContent.includes('labels')`,
-    "l'autocomplétion Jira ne propose pas labels",
-  );
-  await press("ArrowDown", "ArrowDown", 40);
-  await press("Enter");
-  await waitFor(
-    sessionId,
-    `${runEditor}.value.trim() === 'labels'`,
-    "Entrée n'insère pas la suggestion JQL",
-  );
-  assert(
-    !(await run(`${runEditor}.value.includes(String.fromCharCode(10))`)),
-    "Entrée a inséré un saut de ligne à la place du champ",
-  );
-  console.log("✓ JQL : suggestion de champ Jira insérée au clavier");
-  await input(runEditor, original);
-  await run(`${runEditor}.blur()`);
-  await waitFor(
-    sessionId,
-    "document.querySelectorAll('.jql-swimlane .jql-validation-valid').length === 2",
-    "les règles converties ne sont pas validées",
-  );
+  const typeIds = `[...document.querySelectorAll('.settings-chip')].map((chip) => chip.dataset.typeId).sort()`;
+  const initialTypeIds = await run(typeIds);
+  const assertTypes = async () => {
+    const ids = await run(typeIds);
+    assert(
+      same(ids, initialTypeIds) && ids.length === new Set(ids).size,
+      `chaque type doit apparaître une seule fois après son déplacement : ${ids}`,
+    );
+  };
 
   const marker = await drag(
-    `${lane("OPS")}.querySelector('.settings-grip')`,
-    lane("RUN"),
-    "top",
-    `${lane("RUN")}.dataset.drop ?? null`,
+    `${lane("Build")}.querySelector('.settings-grip')`,
+    lane("OPS"),
+    "bottom",
+    `${lane("OPS")}.dataset.drop ?? null`,
   );
-  assert(marker === "before", `repère avant RUN attendu : ${marker}`);
-  assert(same(await run(grips), ["OPS", "RUN"]), "l'ordre JQL n'a pas changé au glisser-déposer");
-  // Cette règle correspond aux deux cartes de paiement déjà rattachées à un objectif.
-  const opsEditor = `${lane("OPS")}.querySelector('.jql-editor-input')`;
-  await input(opsEditor, "priority = High");
-  await run(`${opsEditor}.blur()`);
-  await waitFor(
-    sessionId,
-    `${lane("OPS")}.querySelector('.jql-validation-valid') !== null`,
-    "le JQL OPS n'est pas validé",
-  );
-  assert(await run(`${save}.disabled`), "l'aperçu doit précéder l'application de la migration");
-  await run(`${preview}.click()`);
-  await waitFor(
-    sessionId,
-    "document.querySelectorAll('.jql-swimlane-preview').length === 2",
-    "l'aperçu Jira n'a pas été affiché",
-  );
-  assert(
-    await run("!document.querySelector('.jql-swimlane-preview .settings-error')"),
-    "l'aperçu contient une erreur",
-  );
-  assert(
-    await run(
-      `${lane("OPS")}.querySelector('.jql-swimlane-preview').textContent.includes('2 dans un objectif')`,
-    ),
-    "l'aperçu ne distingue pas les objectifs prioritaires",
-  );
-  await waitFor(sessionId, `!${save}.disabled`, "la migration vérifiée ne peut pas être appliquée");
-  await run(`${save}.click()`);
-  await waitFor(
-    sessionId,
-    "window.__equipe.document()?.settings.jqlSwimlanes?.version === 1 && !document.querySelector('.jql-migration-note')",
-    "la migration JQL n'a pas été confirmée",
-  );
-  const persisted = await run("window.__equipe.document().settings.jqlSwimlanes");
-  assert(
-    same(
-      persisted.lanes.map((item) => item.name),
-      ["OPS", "RUN"],
-    ),
-    "l'ordre des règles publiées est incorrect",
-  );
-  console.log("✓ Swimlanes : priorité réordonnée, aperçu puis migration publiée explicitement");
+  assert(marker === "after", `repère de dépôt sous OPS attendu, vu : ${marker}`);
+  order = await run(grips);
+  assert(same(order, ["RUN", "OPS", "Build"]), `Build glissée en fin de liste : ${order}`);
+  console.log("✓ Board : Build glissée sous OPS, repère affiché pendant le survol");
 
-  await open(
-    "board",
-    "document.querySelectorAll('.jql-swimlane').length === 2 && !document.querySelector('.jql-migration-note')",
-  );
-  assert(
-    same(await run("window.__equipe.document().settings.jqlSwimlanes"), persisted),
-    "la migration n'a pas survécu au rechargement",
-  );
-  assert(
-    same(await run(grips), ["OPS", "RUN"]),
-    "la priorité n'a pas été relue après rechargement",
-  );
-  assert(await run("window.__equipe.writes() === 0"), "le rechargement doit relire sans republier");
-  console.log("✓ Persistance : règles et priorité relues après rechargement, aucune republication");
+  await drag(`${lane("OPS")}.querySelector('.settings-grip')`, lane("RUN"), "top");
+  order = await run(grips);
+  assert(same(order, ["OPS", "RUN", "Build"]), `OPS glissée en tête : ${order}`);
+  console.log("✓ Board : OPS glissée au-dessus de RUN");
 
-  mkdirSync(resolve(".vite"), { recursive: true });
-  for (const width of [1280, 640]) {
-    await send(
-      "Emulation.setDeviceMetricsOverride",
-      { width, height: 1000, deviceScaleFactor: 1, mobile: false },
+  const chip = (typeId) => `document.querySelector('[data-type-id="${typeId}"]')`;
+  const orderBeforeType = await run(grips);
+  for (const destination of [lane("OPS"), "document.querySelector('.settings-lane-build')"]) {
+    const hovered = await drag(
+      chip("10001"),
+      destination,
+      "center",
+      `({ target: ${destination}.classList.contains('is-type-target'),
+        reorder: Boolean(document.querySelector('.settings-lanes > li[data-drop]')) })`,
+    );
+    assert(hovered.target, "la swimlane destinataire ne se signale pas au survol du type");
+    assert(!hovered.reorder, "glisser un type ne doit pas préparer un déplacement de swimlane");
+    await waitFor(
       sessionId,
+      `${destination}?.querySelector('[data-type-id="10001"]') != null`,
+      "le type Story n'a pas rejoint sa destination",
     );
-    await run("document.activeElement?.blur(); window.scrollTo(0, 0)");
-    await sleep(300);
-    assert(
-      await run("document.documentElement.scrollWidth <= innerWidth + 1"),
-      `${width}px : les réglages débordent horizontalement`,
-    );
-    const shot = await send(
-      "Page.captureScreenshot",
-      { format: "png", captureBeyondViewport: true },
-      sessionId,
-    );
-    writeFileSync(resolve(`.vite/jql-settings-${width}.png`), Buffer.from(shot.data, "base64"));
+    assert(same(await run(grips), orderBeforeType), "déplacer un type a réordonné les swimlanes");
+    await assertTypes();
   }
-  await send(
-    "Emulation.setDeviceMetricsOverride",
-    { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false },
-    sessionId,
+  console.log(
+    "✓ Board : Story glissée de Default à OPS puis de retour, sans doublon ni réordonnancement",
   );
-  await run("document.querySelector('.settings-back').click()");
+
+  const hover = await drag(
+    chip("10007"),
+    "document.querySelector('.settings-new-lane')",
+    "center",
+    "document.querySelector('.settings-new-lane').classList.contains('is-type-target')",
+  );
+  assert(hover === true, "la zone « Nouvelle swimlane » ne s'est pas signalée au survol");
   await waitFor(
     sessionId,
-    "document.querySelectorAll('.board-screen [data-issue-key]').length > 0",
-    "le board n'est pas affiché après migration",
+    "document.querySelectorAll('.settings-lanes .settings-grip').length === 4",
+    "aucune swimlane créée par le dépôt d'un type",
   );
+  order = await run(grips);
   assert(
-    await run(`(() => {
-    const cards = [...document.querySelectorAll('.board-screen [data-issue-key]')];
-    const keys = cards.map((card) => card.dataset.issueKey);
-    const payment = cards.find((card) => card.dataset.issueKey === 'ABC-101');
-    return keys.length === new Set(keys).size && payment?.closest('[data-lane-id]')?.dataset.laneId.startsWith('goal:')
-      && !document.querySelector('[data-lane-id="swimlane:2"]');
-  })()`),
-    "un objectif a perdu sa priorité, un ticket est dupliqué ou OPS vide reste visible",
+    same(order, ["OPS", "RUN", "Build", "Demande de service"]),
+    `nouvelle swimlane en fin de liste : ${order}`,
   );
-  console.log("✓ Board JQL : objectifs prioritaires, cartes uniques et swimlane vide masquée");
+  console.log("✓ Board : « Demande de service » déposé sur « Nouvelle swimlane » crée sa swimlane");
+
+  await drag(
+    chip("10007"),
+    "document.querySelector('[aria-label=\"Types ignorés\"]').closest('.settings-type-group')",
+  );
+  await waitFor(
+    sessionId,
+    'document.querySelector(\'[aria-label="Types ignorés"] [data-type-id="10007"]\') !== null',
+    "le type déposé dans « Ignorés » n'y est pas",
+  );
+  order = await run(grips);
+  assert(same(order, ["OPS", "RUN", "Build"]), `la swimlane vide a disparu : ${order}`);
+  await assertTypes();
+  console.log("✓ Board : le type déposé dans « Ignorés » emporte sa swimlane devenue vide");
+
+  await drag(chip("10005"), `${lane("OPS")}`);
+  await waitFor(
+    sessionId,
+    `${lane("OPS")}?.querySelector('[data-type-id="10005"]') != null`,
+    "le type n'a pas rejoint la swimlane OPS",
+  );
+  console.log("✓ Board : « Anomalie de Recette » glissé dans la swimlane OPS");
+
+  // Le menu décrit le classement sans objectif ; changer ce défaut reste possible au clavier.
+  const pressEnter = async () => {
+    for (const type of ["keyDown", "keyUp"]) {
+      await send(
+        "Input.dispatchKeyEvent",
+        {
+          type,
+          key: "Enter",
+          code: "Enter",
+          windowsVirtualKeyCode: 13,
+          ...(type === "keyDown" ? { text: "\r", unmodifiedText: "\r" } : {}),
+        },
+        sessionId,
+      );
+    }
+  };
+  const chooseDefault = async (label) => {
+    await run(`${chip("10005")}.querySelector('summary').focus()`);
+    await pressEnter();
+    await waitFor(
+      sessionId,
+      `${chip("10005")}.querySelector('details').open`,
+      "le menu de déplacement du type ne s'ouvre pas au clavier",
+    );
+    const chosen = await run(`(() => {
+      const button = [...${chip("10005")}.querySelectorAll('button')]
+        .find((item) => item.textContent.trim() === ${JSON.stringify(label)});
+      if (!button || button.disabled) return false;
+      button.focus();
+      return true;
+    })()`);
+    assert(chosen, `classement par défaut indisponible : ${label}`);
+    await pressEnter();
+  };
+  await chooseDefault("Default");
+  await waitFor(
+    sessionId,
+    "document.querySelector('.settings-lane-build [data-type-id=\"10005\"]') !== null",
+    "le type n'a pas rejoint Default",
+  );
+  await assertTypes();
+  await chooseDefault("RUN");
+  await waitFor(
+    sessionId,
+    `${lane("RUN")}?.querySelector('[data-type-id="10005"]') != null`,
+    "le classement RUN par défaut n'a pas été rétabli",
+  );
+  await assertTypes();
+  assert(same(await run(grips), orderBeforeType), "le menu de type a réordonné les swimlanes");
+  console.log("✓ Board : menu de type au clavier vers Default puis RUN");
 
   // ─── Onglet Champs des cartes ──────────────────────────────────────────────
   const fields = `[...document.querySelectorAll('.settings-item .settings-grip')].map((g) => g.getAttribute('aria-label').replace('Déplacer ', ''))`;
@@ -350,6 +335,24 @@ try {
     await run(`${colorSave}.disabled && window.__equipe.writes() === ${colorWrites}`),
     "une couleur invalide a été acceptée",
   );
+  await input(colorInput, "pri");
+  await waitFor(
+    sessionId,
+    `${rule("Bloquant")}.querySelector('[role=option]')?.textContent.includes('priority')`,
+    "l'autocomplétion Jira ne propose pas priority pour une couleur",
+  );
+  await press("ArrowDown", "ArrowDown", 40);
+  await press("Enter");
+  await waitFor(
+    sessionId,
+    `${colorInput}.value.trim() === 'priority'`,
+    "Entrée n'insère pas la suggestion JQL dans la couleur",
+  );
+  assert(
+    !(await run(`${colorInput}.value.includes(String.fromCharCode(10))`)),
+    "Entrée a inséré un saut de ligne à la place du champ",
+  );
+  console.log("✓ Couleurs : suggestion JQL Jira insérée au clavier");
   await input(colorInput, "priority = High");
   await run(`${colorInput}.blur()`);
   await waitFor(
@@ -364,8 +367,41 @@ try {
     "la couleur valide n'a pas été enregistrée",
   );
   console.log(
-    "✓ Couleurs : même validation JQL avant application, brouillon invalide conservé puis corrigé",
+    "✓ Couleurs : validation JQL avant application, brouillon invalide conservé puis corrigé",
   );
+
+  const persistedColors = await run("window.__equipe.document().settings.cardColorRules");
+  await open("cardColors", "document.querySelectorAll('.color-rule').length >= 2");
+  assert(
+    same(await run("window.__equipe.document().settings.cardColorRules"), persistedColors),
+    "les couleurs JQL n'ont pas survécu au rechargement",
+  );
+  assert(
+    await run(`${colorInput}.value === 'priority = High' && window.__equipe.writes() === 0`),
+    "le rechargement doit relire le JQL sans le republier",
+  );
+  console.log("✓ Couleurs : règles et priorité relues après rechargement, aucune republication");
+
+  mkdirSync(resolve(".vite"), { recursive: true });
+  for (const width of [1280, 640]) {
+    await send(
+      "Emulation.setDeviceMetricsOverride",
+      { width, height: 1000, deviceScaleFactor: 1, mobile: false },
+      sessionId,
+    );
+    await run("document.activeElement?.blur(); window.scrollTo(0, 0)");
+    await sleep(300);
+    assert(
+      await run("document.documentElement.scrollWidth <= innerWidth + 1"),
+      `${width}px : les réglages de couleur débordent horizontalement`,
+    );
+    const shot = await send(
+      "Page.captureScreenshot",
+      { format: "png", captureBeyondViewport: true },
+      sessionId,
+    );
+    writeFileSync(resolve(`.vite/jql-colors-${width}.png`), Buffer.from(shot.data, "base64"));
+  }
 
   // Retour à Jira ancré : aucune carte ni information n'est recouverte, barre ouverte ou repliée.
   for (const width of [1440, 640]) {

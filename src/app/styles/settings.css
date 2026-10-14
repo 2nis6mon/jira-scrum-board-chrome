@@ -1547,8 +1547,8 @@ textarea.color-rule-jql:focus {
   }
 
   .settings-savebar {
-    margin-left: -16px;
-    margin-right: -16px;
+    position: static;
+    margin: 0;
     padding-left: 16px;
     padding-right: 16px;
   }
@@ -1564,124 +1564,5 @@ textarea.color-rule-jql:focus {
 
   textarea.color-rule-jql {
     width: 100%;
-  }
-}
-
-/* Classement JQL : priorité explicite, brouillon et aperçu avant toute publication. */
-.settings-lanes-card > .settings-savebar {
-  position: static;
-  margin: 0;
-  padding: 12px 0;
-  box-shadow: none;
-}
-
-.jql-swimlane-fields {
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.jql-swimlanes {
-  margin: 0;
-}
-.jql-swimlane {
-  min-width: 0;
-}
-.jql-swimlane-name {
-  flex: 1 1 160px;
-  min-width: 100px;
-  font-weight: 600;
-}
-
-.jql-swimlane > .jql-editor {
-  margin: 0 18px 12px;
-}
-.jql-swimlane-status {
-  margin: 10px 18px;
-}
-.jql-swimlane-preview {
-  margin: 10px 18px 16px;
-  padding: 10px 12px;
-  border-radius: 6px;
-  background: var(--column);
-  color: var(--ink-2);
-  font-size: 12px;
-}
-.jql-swimlane-preview p {
-  margin: 0;
-}
-.jql-swimlane-preview .jql-preview-keys {
-  margin-top: 5px;
-  font-family: ui-monospace, monospace;
-}
-.jql-migration-note {
-  margin: 0 18px 16px;
-  padding: 10px 12px;
-  border-left: 3px solid #4c78d4;
-  border-radius: 4px;
-  background: #edf3ff;
-  color: #29466e;
-  font-size: 12px;
-}
-.jql-default-lane {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin: 14px 18px;
-  padding: 14px;
-  background: var(--column);
-  border: 1px dashed var(--line);
-  border-radius: 8px;
-}
-.jql-default-lane .settings-lane-field {
-  flex: 1 1 160px;
-}
-.jql-default-lane .settings-help {
-  flex-basis: 100%;
-  margin: 0;
-}
-.jql-preview-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin: 16px 18px;
-}
-.jql-ignored-types {
-  margin: 18px;
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
-}
-.jql-ignored-title {
-  cursor: pointer;
-  font-weight: 600;
-}
-.jql-ignored-types .settings-help {
-  margin: 10px 0;
-}
-.jql-ignored-types .settings-chips {
-  margin-bottom: 10px;
-  padding: 0;
-}
-.jql-ignored-types .settings-chip {
-  cursor: default;
-}
-.jql-ignored-types .settings-chip .icon-button {
-  width: 22px;
-  height: 22px;
-  font-size: 16px;
-}
-.jql-ignored-types select {
-  max-width: 100%;
-}
-
-@media (max-width: 700px) {
-  .jql-swimlane .settings-rule-head {
-    flex-wrap: wrap;
-  }
-  .jql-swimlane-name {
-    flex-basis: calc(100% - 100px);
   }
 }

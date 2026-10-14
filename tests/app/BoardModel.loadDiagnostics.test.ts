@@ -113,8 +113,8 @@ describe("BoardModel — diagnostic du chargement", () => {
       "goalSettings",
       "goals",
       "assemble",
-      "colors",
       "filters",
+      "colors",
     ]);
     expect(completed?.spans.every((span) => span.status !== "running")).toBe(true);
     expect(diagnostics.history.value).toHaveLength(1);

@@ -92,7 +92,7 @@ if (scenario.startsWith("board")) {
   // Réglages du board, sur l'onglet `onglet` : objectifs, swimlanes RUN et OPS, règles de couleur.
   const reglages = scenario === "board-reglages";
   const persistSettings = reglages && new URLSearchParams(location.search).get("persist") === "1";
-  const settingsStorageKey = "harness-jql-team-settings";
+  const settingsStorageKey = "harness-team-settings";
   const swimlanes = scenario === "board-swimlanes" || kanban || reglages;
   const withGoals = scenario === "board-goals" || pinning || withSubtasks || kanban || reglages;
   // Filtres rapides FICTIFS du board ; le faux Jira « évalue » leur JQL par table.

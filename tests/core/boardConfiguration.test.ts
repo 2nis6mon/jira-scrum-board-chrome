@@ -9,7 +9,7 @@ import {
   swimlaneName,
   visibleColumns,
 } from "../../src/core/boardConfiguration";
-import { withSwimlaneName } from "../../src/core/boardSettings";
+import { withSwimlaneName, withTypeDestination } from "../../src/core/boardSettings";
 import {
   decodeIssueType,
   decodeStatus,
@@ -272,5 +272,75 @@ describe("configuration enregistrée avant 0.31.0", () => {
       ["Sans statut", true, null],
     ]);
     expect(stored && "blockedLabels" in stored).toBe(false);
+  });
+});
+
+describe("relecture des groupes par type après la 0.34", () => {
+  it("rétablit les types conservés, les noms, les identifiants et le masquage sans conserver de JQL", () => {
+    const original = makeConfiguration();
+    const old = {
+      ...original,
+      swimlaneMode: "jql",
+      issueTypes: original.issueTypes.map((type) => ({ ...type, category: "GOAL" })),
+      ticketSwimlanes: original.ticketSwimlanes.map((lane) => ({
+        ...lane,
+        name: "RUN",
+        hidden: true,
+        jql: "labels = run",
+        enabled: false,
+      })),
+      blockOrder: ["swimlane:1", "build"],
+      collapsedBlockIds: ["swimlane:1"],
+    };
+    const decoded = decodeStoredConfiguration(old);
+    expect(decoded?.issueTypes).toEqual(original.issueTypes);
+    expect(decoded?.ticketSwimlanes).toEqual([
+      { id: "1", name: "RUN", hidden: true, typeIds: ["10004"] },
+    ]);
+    expect(decoded?.blockOrder).toEqual(old.blockOrder);
+    expect(decoded?.collapsedBlockIds).toEqual(old.collapsedBlockIds);
+    expect(decoded && "swimlaneMode" in decoded).toBe(false);
+    expect(decodeStoredConfiguration(decoded)).toEqual(decoded);
+  });
+
+  it("conserve les types ignorés et ne crée pas de groupe depuis une règle JQL sans types", () => {
+    const original = makeConfiguration();
+    const decoded = decodeStoredConfiguration({
+      ...original,
+      swimlaneMode: "jql",
+      issueTypes: original.issueTypes.map((type) => ({
+        ...type,
+        category: type.id === "10004" ? "IGNORED" : "GOAL",
+      })),
+      ticketSwimlanes: [
+        ...original.ticketSwimlanes,
+        {
+          id: "jql-only",
+          name: "Prioritaires",
+          typeIds: [],
+          hidden: false,
+          jql: "priority = High",
+        },
+      ],
+    });
+    expect(decoded?.issueTypes.find((type) => type.id === "10004")?.category).toBe("IGNORED");
+    expect(decoded?.ticketSwimlanes).toEqual([]);
+  });
+
+  it("la clé partagée n'est pas interprétée et ne ressuscite pas un type replacé dans Default", () => {
+    const original = makeConfiguration();
+    const shared = {
+      ...original,
+      issueTypes: original.issueTypes.map((type) => ({ ...type, category: "GOAL" })),
+      jqlSwimlanes: { version: 999, lanes: [{ id: "inconnue", jql: "texte non lu" }] },
+    };
+    const decoded = decodeStoredConfiguration(shared);
+    if (!decoded) throw new Error("configuration attendue");
+    expect(decoded.issueTypes).toEqual(original.issueTypes);
+    const changed = withTypeDestination(decoded, "10004", { kind: "goal" });
+    const reread = decodeStoredConfiguration({ ...changed, jqlSwimlanes: shared.jqlSwimlanes });
+    expect(reread?.issueTypes.find((type) => type.id === "10004")?.category).toBe("GOAL");
+    expect(reread?.ticketSwimlanes).toEqual([]);
+    expect(reread && "jqlSwimlanes" in reread).toBe(false);
   });
 });
