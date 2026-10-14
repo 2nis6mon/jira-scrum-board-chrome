@@ -496,10 +496,32 @@ describe("choix du statut et de la transition avant toute écriture", () => {
     return setup;
   }
 
-  it("choix limité au statut ciblé, annulation sans changer le Goal", async () => {
+  it("plusieurs transitions vers le statut ciblé : la première est appliquée sans fenêtre", async () => {
     const { board, writes } = await prepare();
     await board.dropIssue(drop);
-    expect(board.transitionChoice.value?.available.map((t) => t.id)).toEqual(["21", "22"]);
+    expect(board.transitionChoice.value).toBeNull();
+    expect(writes().map((request) => request.path)).toEqual([path, PROPERTY]);
+    expect(writes()[0]?.body).toEqual({ transition: { id: "21" } });
+    expect(board.canSwitchBoard.value).toBe(true);
+  });
+
+  it("différents statuts d'une même colonne : un choix par statut, annulation sans changer le Goal", async () => {
+    const { board, writes } = await prepare();
+    await board.dropIssue({
+      issueKey: drop.issueKey,
+      block: drop.block,
+      columnId: drop.columnId,
+      beforeKey: null,
+    });
+    expect(
+      board.transitionChoice.value?.available.map((transition) => [
+        transition.id,
+        transition.to.id,
+      ]),
+    ).toEqual([
+      ["21", "3"],
+      ["23", "4"],
+    ]);
     expect(writes()).toEqual([]);
     expect(board.canSwitchBoard.value).toBe(false);
     board.cancelTransitionChoice();
@@ -510,12 +532,17 @@ describe("choix du statut et de la transition avant toute écriture", () => {
   it("reprend tout le déplacement après choix : transition, Goal, rang", async () => {
     const { board, jira, writes } = await prepare();
     jira.on("PUT", RANK, { status: 204 });
-    await board.dropIssue({ ...drop, block: BUILD_BLOCK, beforeKey: "ABC-104" });
+    await board.dropIssue({
+      issueKey: drop.issueKey,
+      columnId: drop.columnId,
+      block: BUILD_BLOCK,
+      beforeKey: "ABC-104",
+    });
     const chosen = board.transitionChoice.value?.available[1];
     if (!chosen) throw new Error("choix attendu");
     await board.chooseTransition(chosen);
     expect(writes().map((r) => r.path)).toEqual([path, PROPERTY, RANK]);
-    expect(writes()[0]?.body).toEqual({ transition: { id: "22" } });
+    expect(writes()[0]?.body).toEqual({ transition: { id: "23" } });
     expect(jira.sent("GET", path)).toHaveLength(2);
   });
 
@@ -523,7 +550,12 @@ describe("choix du statut et de la transition avant toute écriture", () => {
     "revalide le %s après l'ouverture de la fenêtre",
     async (change) => {
       const { board, jira, writes } = await prepare();
-      await board.dropIssue(drop);
+      await board.dropIssue({
+        issueKey: drop.issueKey,
+        columnId: drop.columnId,
+        block: drop.block,
+        beforeKey: null,
+      });
       const chosen = board.transitionChoice.value?.available[0];
       if (!chosen) throw new Error("choix attendu");
       if (change === "statut")
@@ -542,7 +574,7 @@ describe("choix du statut et de la transition avant toute écriture", () => {
     expect(board.transitionChoice.value).toBeNull();
   });
 
-  it("écran de transition sans champ obligatoire : délégation à Jira avant toute écriture", async () => {
+  it("première transition avec formulaire : délégation à Jira même si la suivante est directe", async () => {
     const { board, jira, writes } = await prepare();
     jira.on("GET", path, {
       status: 200,
@@ -555,6 +587,13 @@ describe("choix du statut et de la transition avant toute écriture", () => {
             hasScreen: true,
             fields: {},
           },
+          {
+            id: "22",
+            name: "Démarrer directement",
+            to: statusJson("3", "En cours"),
+            hasScreen: false,
+            fields: {},
+          },
         ],
       },
     });
@@ -564,6 +603,68 @@ describe("choix du statut et de la transition avant toute écriture", () => {
     expect(writes()).toEqual([]);
     expect(open).toHaveBeenCalledWith("ABC-102", expect.objectContaining({ id: "21" }));
     expect(board.nativeTransitionPending.value).toBe(true);
+  });
+
+  it("verrouille la première transition au glissé même si Jira réordonne les alternatives au dépôt", async () => {
+    const { board, jira, writes } = await prepare();
+    board.startDrag("ABC-102", null);
+    await expect.poll(() => board.dragTransitions.value.kind).toBe("ready");
+    jira.on(
+      "GET",
+      path,
+      transitions(["22", "3", "En cours"], ["21", "3", "En cours"], ["23", "4", "Revue"]),
+    );
+    await board.dropIssue(drop);
+    expect(writes()[0]?.body).toEqual({ transition: { id: "21" } });
+    expect(board.transitionChoice.value).toBeNull();
+    expect(writes().map((request) => request.path)).toEqual([path, PROPERTY]);
+  });
+
+  it.each(["disparaît", "change de destination"])(
+    "la transition montrée au glissé %s : aucune alternative, aucun objectif ni rang écrit",
+    async (change) => {
+      const { board, jira, writes } = await prepare();
+      board.startDrag("ABC-102", null);
+      await expect.poll(() => board.dragTransitions.value.kind).toBe("ready");
+      jira.on(
+        "GET",
+        path,
+        change === "disparaît"
+          ? transitions(["22", "3", "En cours"])
+          : transitions(["21", "4", "Revue"], ["22", "3", "En cours"]),
+      );
+      await board.dropIssue({ ...drop, block: BUILD_BLOCK, beforeKey: "ABC-104" });
+      expect(writes()).toEqual([]);
+      expect(board.transitionChoice.value).toBeNull();
+      expect(board.writeNotice.value).not.toBeNull();
+    },
+  );
+
+  it("un statut actualisé pendant le glissé interdit aussi le dépôt devenu dans la même colonne", async () => {
+    const { board, jira, writes } = await prepare();
+    board.startDrag("ABC-102", null);
+    await expect.poll(() => board.dragTransitions.value.kind).toBe("ready");
+    const issues = SPRINT_ISSUES.map((issue) =>
+      issue.key === "ABC-102"
+        ? issueJson("ABC-102", { statusId: "4", statusName: "Revue" })
+        : issue,
+    );
+    jira.on("GET", "/rest/agile/1.0/board/7/sprint/42/issue", {
+      status: 200,
+      json: { issues, total: issues.length },
+    });
+    await board.sync();
+    const doing = board.configuration.value?.columns.find((column) => column.id === DOING);
+    if (!doing) throw new Error("Colonne En cours attendue");
+    expect(
+      board.snapshot.value?.goalIssues.find((issue) => issue.issue.key === "ABC-102")?.issue.fields
+        .status.id,
+    ).toBe("4");
+    expect(board.columnDrop(doing).kind).toBe("error");
+    await board.dropIssue({ ...drop, block: BUILD_BLOCK, beforeKey: "ABC-104" });
+    expect(writes()).toEqual([]);
+    expect(board.writeNotice.value?.text).toContain("statut");
+    expect(board.transitionChoice.value).toBeNull();
   });
 
   it("même colonne à plusieurs statuts : aucune lecture ni écriture de transition", async () => {
@@ -690,7 +791,7 @@ describe("retour visuel du déplacement", () => {
       .on(
         "GET",
         "/rest/api/3/issue/ABC-102/transitions",
-        transitions(["21", "3", "En cours"], ["22", "3", "En cours"]),
+        transitions(["21", "3", "En cours"], ["22", "4", "Revue"]),
       );
     await board.dropIssue({
       issueKey: "ABC-102",

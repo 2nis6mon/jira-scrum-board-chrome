@@ -34,6 +34,7 @@ import { JiraError } from "../../jira/errors";
 import { GoalsClient } from "../../jira/goals";
 import { type AtlassianGoal, blockingRequiredFields, type JiraTransition } from "../../jira/models";
 import { type JiraSite, parseBoardUrl } from "../../jira/site";
+import { defaultTransitions } from "../../jira/transitionPlanner";
 import { JiraTransport } from "../../jira/transport";
 import type { Platform } from "../platform/types";
 import { evaluateBoardCardColors } from "../services/BoardCardColorService";
@@ -768,14 +769,16 @@ export class BoardModel {
     )
       return;
     const snapshot = this.snapshot.value;
-    if (!snapshot || !findIssue(snapshot, issueKey)) return;
-    const drag = { issueKey, lane };
+    const issue = snapshot ? findIssue(snapshot, issueKey) : null;
+    if (!issue) return;
+    const knownStatusId = issue.issue.fields.status.id;
+    const drag = { issueKey, lane, knownStatusId };
     this.dragging.value = drag;
     this.dragTransitions.value = { kind: "loading" };
     void this.#client.transitions(issueKey).then(
       (transitions) => {
         if (this.dragging.value === drag) {
-          this.dragTransitions.value = { kind: "ready", transitions };
+          this.dragTransitions.value = { kind: "ready", issueKey, knownStatusId, transitions };
         }
       },
       (error: unknown) => {
@@ -796,24 +799,33 @@ export class BoardModel {
     const snapshot = this.snapshot.value;
     const issue = drag && snapshot ? findIssue(snapshot, drag.issueKey) : null;
     const empty = { message: "", statuses: [] };
-    if (!issue) return { ...empty, kind: "idle" };
+    if (!issue || !drag) return { ...empty, kind: "idle" };
+    if (drag.knownStatusId !== issue.issue.fields.status.id)
+      return {
+        ...empty,
+        kind: "error",
+        message: "Le statut a changé. Recommencez le déplacement.",
+      };
     if (issue.columnId === column.id) return { ...empty, kind: "same" };
     const state = this.dragTransitions.value;
     if (state.kind === "loading")
       return { ...empty, kind: "loading", message: "Lecture des transitions…" };
     if (state.kind === "error") return { ...empty, kind: "error", message: state.message };
-    const transitions = state.transitions.filter(
-      (t) => t.isAvailable !== false && column.statusIds.includes(t.to.id),
-    );
+    if (state.issueKey !== issue.issue.key || state.knownStatusId !== issue.issue.fields.status.id)
+      return {
+        ...empty,
+        kind: "error",
+        message: "Le statut a changé. Recommencez le déplacement.",
+      };
+    const transitions = defaultTransitions(state.transitions);
     const statuses = column.statusIds.flatMap((id) => {
-      const candidates = transitions.filter((t) => t.to.id === id);
-      const first = candidates[0];
+      const first = transitions.find((transition) => transition.to.id === id);
       return first
         ? [
             {
               id,
               name: first.to.name,
-              inJira: candidates.every((t) => t.hasScreen || blockingRequiredFields(t).length > 0),
+              inJira: first.hasScreen === true || blockingRequiredFields(first).length > 0,
             },
           ]
         : [];
@@ -842,6 +854,7 @@ export class BoardModel {
     batch(() => {
       this.dragging.value = null;
       this.dropTarget.value = null;
+      this.dragTransitions.value = { kind: "loading" };
     });
   }
 
@@ -872,7 +885,13 @@ export class BoardModel {
       return;
     const issue = findIssue(snapshot, input.issueKey);
     if (!issue) return;
-    if (selection && issue.issue.fields.status.id !== selection.knownStatusId) {
+    const drag = this.dragging.value;
+    const knownStatusId =
+      selection?.knownStatusId ??
+      (drag?.issueKey === input.issueKey ? drag.knownStatusId : undefined);
+    // Une lecture déjà en vol peut modifier le snapshot pendant le geste, même vers la colonne
+    // visée : ne pas transformer ce déplacement en simple changement d'objectif ou de rang.
+    if (knownStatusId !== undefined && issue.issue.fields.status.id !== knownStatusId) {
       this.writeNotice.value = {
         tone: "warning",
         text: "Le statut du ticket a changé. Recommencez le déplacement.",
@@ -896,6 +915,22 @@ export class BoardModel {
           ? { kind: "goal", goalId: input.block.goalId }
           : { kind: "build" },
     });
+    if (plan.changesColumn && !selection && this.dragging.value?.issueKey === input.issueKey) {
+      const state = this.dragTransitions.value;
+      if (state.kind !== "ready" || state.issueKey !== input.issueKey) return;
+      const targets = input.targetStatusId ? [input.targetStatusId] : column.statusIds;
+      const candidates = defaultTransitions(state.transitions).filter((transition) =>
+        targets.includes(transition.to.id),
+      );
+      if (candidates.length === 0) return;
+      const chosen = candidates.length === 1 ? candidates[0] : undefined;
+      if (chosen) {
+        // Garder l'action annoncée au survol, même si Jira réordonne la liste avant le dépôt.
+        // La relecture d'écriture vérifiera cet ID et ce statut, sans essayer une autre action.
+        selection = { id: chosen.id, knownStatusId: state.knownStatusId };
+        input = { ...input, targetStatusId: chosen.to.id };
+      }
+    }
     // Une zone de statut sans position précise conserve le rang global.
     const rank =
       plan.changesColumn && input.beforeKey === null
@@ -954,12 +989,13 @@ export class BoardModel {
   /** Revalide le choix dans Jira avant de reprendre le déplacement entier. */
   async chooseTransition(transition: JiraTransition): Promise<void> {
     const choice = this.transitionChoice.value;
-    if (!choice?.available.some((candidate) => candidate.id === transition.id)) return;
+    const chosen = choice?.available.find((candidate) => candidate.id === transition.id);
+    if (!choice || !chosen) return;
     this.transitionChoice.value = null;
     await this.dropIssue(
-      { ...choice.drop, targetStatusId: transition.to.id },
+      { ...choice.drop, targetStatusId: chosen.to.id },
       {
-        id: transition.id,
+        id: chosen.id,
         knownStatusId: choice.knownStatusId,
       },
     );

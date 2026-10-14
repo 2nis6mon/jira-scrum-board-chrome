@@ -73,6 +73,40 @@ describe("moveToColumn", () => {
     expect(jira.requests.map((r) => r.method)).toEqual(["GET"]);
   });
 
+  it("plusieurs actions vers le même statut : écrit seulement la première dans l'ordre Jira", async () => {
+    const jira = new FakeJira()
+      .on("GET", ISSUE, status("3", "En cours"))
+      .on("GET", TRANSITIONS, {
+        status: 200,
+        json: {
+          transitions: [
+            { ...transition("91", "5"), name: "Z terminer" },
+            { ...transition("11", "5"), name: "A terminer" },
+          ],
+        },
+      })
+      .on("POST", TRANSITIONS, { status: 204 });
+    expect(await move(jira)).toMatchObject({ kind: "moved", transition: { id: "91" } });
+    expect(jira.sent("POST").map((request) => request.body)).toEqual([
+      { transition: { id: "91" } },
+    ]);
+  });
+
+  it("plusieurs statuts dans une colonne : garde un choix par statut et n'écrit rien", async () => {
+    const jira = new FakeJira().on("GET", ISSUE, status("3", "En cours")).on("GET", TRANSITIONS, {
+      status: 200,
+      json: {
+        transitions: [transition("91", "4"), transition("71", "5"), transition("11", "4")],
+      },
+    });
+    const outcome = await move(jira, ["4", "5"]);
+    expect(outcome.kind === "choose" && outcome.available.map((item) => item.id)).toEqual([
+      "91",
+      "71",
+    ]);
+    expect(jira.sent("POST")).toEqual([]);
+  });
+
   it("déjà dans la colonne : rien n'est écrit", async () => {
     const jira = new FakeJira()
       .on("GET", ISSUE, status("3", "En cours"))
@@ -91,6 +125,17 @@ describe("moveToColumn", () => {
       },
     });
     expect(await move(jira)).toMatchObject({ kind: "requiresFields", fields: ["Résolution"] });
+    expect(jira.sent("POST")).toEqual([]);
+  });
+
+  it("l'action par défaut a un formulaire : demande Jira sans utiliser l'autre action", async () => {
+    const jira = new FakeJira().on("GET", ISSUE, status("3", "En cours")).on("GET", TRANSITIONS, {
+      status: 200,
+      json: {
+        transitions: [{ ...transition("91", "5"), hasScreen: true }, transition("11", "5")],
+      },
+    });
+    expect(await move(jira)).toMatchObject({ kind: "requiresFields", transition: { id: "91" } });
     expect(jira.sent("POST")).toEqual([]);
   });
 
@@ -114,22 +159,33 @@ describe("moveToColumn", () => {
     for (const reply of [{ status: 503 }, { networkError: "Failed to fetch" }] as const) {
       const jira = new FakeJira()
         .on("GET", ISSUE, status("3", "En cours"))
-        .on("GET", TRANSITIONS, { status: 200, json: { transitions: [transition("21", "5")] } })
+        .on("GET", TRANSITIONS, {
+          status: 200,
+          json: { transitions: [transition("21", "5"), transition("22", "5")] },
+        })
         .on("POST", TRANSITIONS, reply);
       await expect(move(jira)).rejects.toMatchObject({ isOutcomeUnknown: true });
-      expect(jira.sent("POST")).toHaveLength(1);
+      expect(jira.sent("POST").map((request) => request.body)).toEqual([
+        { transition: { id: "21" } },
+      ]);
     }
   });
 
   it("refus de Jira (400) : l'erreur remonte avec son message", async () => {
     const jira = new FakeJira()
       .on("GET", ISSUE, status("3", "En cours"))
-      .on("GET", TRANSITIONS, { status: 200, json: { transitions: [transition("21", "5")] } })
+      .on("GET", TRANSITIONS, {
+        status: 200,
+        json: { transitions: [transition("21", "5"), transition("22", "5")] },
+      })
       .on("POST", TRANSITIONS, {
         status: 400,
         json: { errorMessages: ["Validation du workflow refusée"] },
       });
     await expect(move(jira)).rejects.toThrowError("Validation du workflow refusée");
+    expect(jira.sent("POST").map((request) => request.body)).toEqual([
+      { transition: { id: "21" } },
+    ]);
   });
 
   it("transition choisie : relecture puis une seule écriture avec cet identifiant", async () => {
@@ -137,7 +193,7 @@ describe("moveToColumn", () => {
       .on("GET", ISSUE, status("3", "En cours"))
       .on("GET", TRANSITIONS, {
         status: 200,
-        json: { transitions: [transition("11", "4"), transition("12", "4")] },
+        json: { transitions: [transition("12", "4"), transition("11", "4")] },
       })
       .on("POST", TRANSITIONS, { status: 204 });
     const { reader, writer } = setup(jira);
@@ -149,6 +205,35 @@ describe("moveToColumn", () => {
     });
     expect(jira.sent("POST").map((r) => r.body)).toEqual([{ transition: { id: "11" } }]);
   });
+
+  it.each([
+    { name: "disparue", selected: null, transitionId: "11" },
+    {
+      name: "indisponible",
+      selected: { ...transition("11", "4"), isAvailable: false },
+      transitionId: "11",
+    },
+    { name: "destination changée", selected: transition("11", "5"), transitionId: "11" },
+    { name: "identifiant vide", selected: null, transitionId: "" },
+  ])(
+    "action retenue $name : refuse sans choisir une autre transition",
+    async ({ selected, transitionId }) => {
+      const jira = new FakeJira().on("GET", ISSUE, status("3", "En cours")).on("GET", TRANSITIONS, {
+        status: 200,
+        json: { transitions: [...(selected ? [selected] : []), transition("12", "4")] },
+      });
+      const { reader, writer } = setup(jira);
+      expect(
+        await moveToColumn(reader, writer, {
+          issueKey: "ABC-1",
+          knownStatusId: "3",
+          targetStatusIds: ["4"],
+          transitionId,
+        }),
+      ).toMatchObject({ kind: "noTransition" });
+      expect(jira.sent("POST")).toEqual([]);
+    },
+  );
 });
 
 describe("rankIssue", () => {

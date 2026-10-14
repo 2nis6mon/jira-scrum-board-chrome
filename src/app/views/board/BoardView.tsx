@@ -165,9 +165,9 @@ export function BoardView({
   );
 }
 
-// ─── Choix d'une transition ──────────────────────────────────────────────────
+// ─── Choix d'un statut ───────────────────────────────────────────────────────
 
-/** Plusieurs actions vers la destination : choisir avant toute écriture. */
+/** Plusieurs statuts dans une colonne : choisir la destination avant toute écriture. */
 function TransitionChoiceDialog({ board }: { board: BoardModel }) {
   const choice = board.transitionChoice.value;
   useEffect(() => {
@@ -188,12 +188,10 @@ function TransitionChoiceDialog({ board }: { board: BoardModel }) {
         aria-modal="true"
         aria-labelledby="transition-choice-title"
       >
-        <h2 id="transition-choice-title">
-          Choisir la transition vers « {choice.available[0]?.to.name ?? choice.columnName} »
-        </h2>
+        <h2 id="transition-choice-title">Choisir le statut dans « {choice.columnName} »</h2>
         <p class="hint">
-          Plusieurs actions sont possibles pour {choice.issueKey}. Aucun changement de statut,
-          d’objectif ou de rang ne sera effectué avant votre choix.
+          Plusieurs statuts sont accessibles pour {choice.issueKey}. Choisissez la destination du
+          ticket.
         </p>
         <ul class="transition-list">
           {choice.available.map((transition) => (
@@ -203,7 +201,7 @@ function TransitionChoiceDialog({ board }: { board: BoardModel }) {
                 class="transition-option"
                 onClick={() => void board.chooseTransition(transition)}
               >
-                <strong>{transition.name}</strong> → {transition.to.name}
+                <strong>{transition.to.name}</strong>
                 {(transition.hasScreen || blockingRequiredFields(transition).length > 0) && (
                   <span class="hint"> · Formulaire à compléter</span>
                 )}
@@ -1288,15 +1286,16 @@ function LaneView(props: {
                   const current = board.dragging.value;
                   const key = event.dataTransfer?.getData(DRAG_TYPE) ?? "";
                   const beforeKey = board.dropTarget.value?.beforeKey ?? null;
-                  board.endDrag();
                   // Seule la carte dont le glissement a commencé sur ce board est acceptée.
-                  if (!current || key !== current.issueKey || !droppable) return;
-                  void board.dropIssue({
-                    issueKey: key,
-                    block: lane.block,
-                    columnId: cell.column.id,
-                    beforeKey,
-                  });
+                  if (current && key === current.issueKey && droppable) {
+                    void board.dropIssue({
+                      issueKey: key,
+                      block: lane.block,
+                      columnId: cell.column.id,
+                      beforeKey,
+                    });
+                  }
+                  board.endDrag();
                 }}
               >
                 {unavailable && (
@@ -1342,15 +1341,16 @@ function LaneView(props: {
                           const current = board.dragging.value;
                           const key = event.dataTransfer?.getData(DRAG_TYPE);
                           const beforeKey = board.dropTarget.value?.beforeKey ?? null;
+                          if (current && key === current.issueKey) {
+                            void board.dropIssue({
+                              issueKey: key,
+                              block: lane.block,
+                              columnId: cell.column.id,
+                              beforeKey,
+                              targetStatusId: status.id,
+                            });
+                          }
                           board.endDrag();
-                          if (!current || key !== current.issueKey) return;
-                          void board.dropIssue({
-                            issueKey: key,
-                            block: lane.block,
-                            columnId: cell.column.id,
-                            beforeKey,
-                            targetStatusId: status.id,
-                          });
                         }}
                       >
                         <strong>{status.name}</strong>

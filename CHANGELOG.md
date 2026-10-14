@@ -3,6 +3,14 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.34.2 — Transition automatique vers un même statut
+
+- Plusieurs transitions vers un même statut : première action disponible dans l'ordre Jira,
+  sans configuration ni choix supplémentaire. Les statuts distincts gardent leurs zones de dépôt.
+- Action annoncée au survol conservée au dépôt, puis revérifiée. Aucun remplacement ni nouvelle
+  tentative si elle disparaît, change de destination ou échoue ; le board est actualisé.
+- Formulaire Jira conservé si l'action retenue l'exige ; il reste à remplir et valider par l'utilisateur.
+
 ## 0.34.1 — Swimlanes par types et aide JQL pour les couleurs
 
 - Retour aux swimlanes par types de tickets, avec objectifs prioritaires et groupe Default.

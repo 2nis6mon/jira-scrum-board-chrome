@@ -67,7 +67,11 @@ Sprint Goals ; sans lui, Jira garde son affichage habituel. La vue ne s'ouvre pa
 - **Cartes** : cliquez pour ouvrir la fiche native Jira. Sa fermeture revient au board et relit
   les données. Les sous-tâches restent avec leur story ; le survol souligne toute la famille.
 - **Déplacements** : glissez une carte pour changer statut, rang ou objectif. Jira ouvre son
-  formulaire de transition si nécessaire. Glissez un ticket de RUN, OPS ou Build vers un objectif
+  formulaire de transition si nécessaire. Si plusieurs transitions mènent au même statut,
+  l'extension choisit automatiquement la première disponible dans l'ordre Jira, sans réglage.
+  Une colonne contenant plusieurs statuts conserve une zone de dépôt par statut. Si l'action
+  prévue n'est plus disponible, le board est actualisé et vous pouvez recommencer le déplacement.
+  Glissez un ticket de RUN, OPS ou Build vers un objectif
   pour l'y rattacher ; ramenez-le dans sa swimlane par défaut pour le détacher. Son type reste
   inchangé : un ticket RUN sans objectif retourne dans RUN, pas dans OPS ou Build.
 - **Informations flottantes** : la croix ferme l'information pour ce board, y compris après

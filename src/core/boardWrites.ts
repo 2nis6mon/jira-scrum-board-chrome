@@ -36,7 +36,7 @@ export type MoveOutcome =
   | { kind: "conflict"; currentStatus: JiraStatus }
   /** La transition exige des champs que l'extension ne remplit pas : rien n'a été écrit. */
   | { kind: "requiresFields"; transition: JiraTransition; fields: string[] }
-  /** Plusieurs transitions vers la destination : rien n'a été écrit avant le choix. */
+  /** Plusieurs statuts de destination possibles : rien n'a été écrit avant le choix. */
   | { kind: "choose"; available: JiraTransition[] }
   /** Jira ne propose aucune transition vers la destination. Rien n'a été écrit. */
   | { kind: "noTransition"; currentStatus: JiraStatus };
@@ -62,11 +62,21 @@ export async function moveToColumn(
   if (currentStatus.id !== input.knownStatusId) return { kind: "conflict", currentStatus };
 
   const transitions = await reader.transitions(input.issueKey);
-  const resolution = resolveTransition(
-    currentStatus.id,
-    input.targetStatusIds,
-    input.transitionId ? transitions.filter((t) => t.id === input.transitionId) : transitions,
-  );
+  // Une action retenue pendant le geste reste la seule autorisée, même si l'ordre Jira change.
+  // Si elle disparaît ou change de destination, aucune autre transition ne prend sa place.
+  const selected =
+    input.transitionId === undefined
+      ? transitions
+      : transitions.filter(
+          (transition) =>
+            transition.id === input.transitionId &&
+            transition.isAvailable !== false &&
+            input.targetStatusIds.includes(transition.to.id),
+        );
+  if (input.transitionId !== undefined && selected.length === 0) {
+    return { kind: "noTransition", currentStatus };
+  }
+  const resolution = resolveTransition(currentStatus.id, input.targetStatusIds, selected);
   switch (resolution.kind) {
     case "alreadyInTargetColumn":
       return { kind: "alreadyThere" };

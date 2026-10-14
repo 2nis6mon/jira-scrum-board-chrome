@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { decodeTransition, type JiraTransition } from "../../src/jira/models";
-import { resolveTransition } from "../../src/jira/transitionPlanner";
+import { defaultTransitions, resolveTransition } from "../../src/jira/transitionPlanner";
 import { statusJson } from "../support/jiraFixtures";
 
 // TransitionPlannerTests.swift
@@ -9,13 +9,13 @@ function transition(
   id: string,
   name: string,
   to: { id: string; name: string },
-  options: { requiredField?: string; available?: boolean } = {},
+  options: { requiredField?: string; available?: boolean; hasScreen?: boolean } = {},
 ): JiraTransition {
   return decodeTransition({
     id,
     name,
     isAvailable: options.available ?? true,
-    hasScreen: false,
+    hasScreen: options.hasScreen ?? false,
     to: statusJson(to.id, to.name),
     fields: options.requiredField
       ? {
@@ -32,6 +32,33 @@ function transition(
 const REVIEW = { id: "4", name: "Review" };
 const TEST = { id: "5", name: "Test" };
 const DONE = { id: "6", name: "Done" };
+
+describe("defaultTransitions", () => {
+  it("garde la première action par statut dans l'ordre Jira, sans tri par identifiant ou nom", () => {
+    const first = transition("91", "Z terminer", DONE);
+    const second = transition("71", "Z tester", TEST);
+    const transitions = [
+      first,
+      second,
+      transition("11", "A terminer", DONE),
+      transition("21", "A tester", TEST),
+    ];
+    expect(defaultTransitions(transitions)).toEqual([first, second]);
+    expect(transitions.map((item) => item.id)).toEqual(["91", "71", "11", "21"]);
+  });
+
+  it("écarte une action indisponible avant de retenir la première disponible du statut", () => {
+    const available = transition("32", "Terminer", DONE);
+    expect(
+      defaultTransitions([
+        transition("31", "Terminer bloqué", DONE, { available: false }),
+        available,
+        transition("33", "Autre terminaison", DONE),
+        transition("21", "Tester bloqué", TEST, { available: false }),
+      ]),
+    ).toEqual([available]);
+  });
+});
 
 describe("resolveTransition", () => {
   it("retient la transition directe", () => {
@@ -50,9 +77,17 @@ describe("resolveTransition", () => {
     const result = resolveTransition(
       "3",
       ["5", "4"],
-      [transition("11", "Review", REVIEW), transition("21", "Test", TEST)],
+      [
+        transition("91", "Review", REVIEW),
+        transition("71", "Test", TEST),
+        transition("11", "Autre revue", REVIEW),
+        transition("21", "Autre test", TEST),
+      ],
     );
-    expect(result.kind === "choose" && result.available.map((t) => t.to.id)).toEqual(["4", "5"]);
+    expect(result.kind === "choose" && result.available.map((t) => [t.id, t.to.id])).toEqual([
+      ["91", "4"],
+      ["71", "5"],
+    ]);
   });
 
   it("signale les champs obligatoires au lieu de les inventer", () => {
@@ -65,17 +100,26 @@ describe("resolveTransition", () => {
     expect(result.kind === "requiresFields" && result.fields).toEqual(["resolution"]);
   });
 
-  it("plusieurs transitions vers le même statut : demander même si une seule est sans formulaire", () => {
+  it("plusieurs actions vers un seul statut atteignable : retient la première sans demander", () => {
     const result = resolveTransition(
       "3",
-      ["6"],
-      [
-        transition("31", "Terminer (écran)", DONE, { requiredField: "resolution" }),
-        transition("32", "Terminer", DONE),
-      ],
+      ["5", "6"],
+      [transition("91", "Z terminer", DONE), transition("11", "A terminer", DONE)],
     );
-    expect(result.kind === "choose" && result.available.map((t) => t.id)).toEqual(["31", "32"]);
+    expect(result).toMatchObject({ kind: "ready", transition: { id: "91" } });
   });
+
+  it.each([{ hasScreen: true }, { requiredField: "resolution" }])(
+    "la première action exige Jira (%j) : ne privilégie pas la suivante sans formulaire",
+    (options) => {
+      const result = resolveTransition(
+        "3",
+        ["6"],
+        [transition("31", "Terminer (écran)", DONE, options), transition("32", "Terminer", DONE)],
+      );
+      expect(result).toMatchObject({ kind: "requiresFields", transition: { id: "31" } });
+    },
+  );
 
   it("déplacement impossible : ne propose pas une autre destination", () => {
     const result = resolveTransition("3", ["9"], [transition("11", "Review", REVIEW)]);

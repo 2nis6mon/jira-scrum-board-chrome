@@ -491,7 +491,7 @@ export class JiraClient {
   async transitions(issueKey: string): Promise<JiraTransition[]> {
     assertIssueKey(issueKey);
     const { body } = await this.#transport.get(`/rest/api/3/issue/${issueKey}/transitions`, {
-      query: { expand: "transitions.fields" },
+      query: { expand: "transitions.fields", sortByOpsBarAndStatus: "true" },
       resource: `les transitions de ${issueKey}`,
     });
     if (!isRecord(body) || !Array.isArray(body.transitions)) {

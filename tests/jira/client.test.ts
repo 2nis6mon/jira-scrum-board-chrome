@@ -10,7 +10,7 @@ import { JiraError } from "../../src/jira/errors";
 import { JiraTransport } from "../../src/jira/transport";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { ACME, FakeJira } from "../support/fakeJira";
-import { issueJson } from "../support/jiraFixtures";
+import { issueJson, statusJson } from "../support/jiraFixtures";
 
 function clientFor(jira: FakeJira) {
   return new JiraClient(new JiraTransport({ site: ACME, fetch: jira.fetch, maxGetAttempts: 1 }));
@@ -74,6 +74,35 @@ describe("repérage des champs", () => {
 });
 
 describe("JiraClient", () => {
+  it("demande les transitions triées par Jira et garde leur ordre avec les champs de formulaire", async () => {
+    const path = "/rest/api/3/issue/ABC-1/transitions";
+    const jira = new FakeJira().on("GET", path, {
+      status: 200,
+      json: {
+        transitions: [
+          {
+            id: "91",
+            name: "Z terminer",
+            to: statusJson("6", "Terminé", "done"),
+            hasScreen: true,
+            fields: { resolution: { required: true, name: "Résolution" } },
+          },
+          { id: "11", name: "A terminer", to: statusJson("6", "Terminé", "done") },
+        ],
+      },
+    });
+    const transitions = await clientFor(jira).transitions("ABC-1");
+    expect(transitions.map((transition) => transition.id)).toEqual(["91", "11"]);
+    expect(transitions[0]).toMatchObject({
+      hasScreen: true,
+      fields: { resolution: { required: true, name: "Résolution" } },
+    });
+    expect(Object.fromEntries(jira.requests[0]?.url.searchParams ?? [])).toEqual({
+      expand: "transitions.fields",
+      sortByOpsBarAndStatus: "true",
+    });
+  });
+
   it("lit la structure du board en deux requêtes", async () => {
     const jira = new FakeJira()
       .on("GET", "/rest/agile/1.0/board/7", {

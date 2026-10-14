@@ -32,7 +32,12 @@ export interface TransitionSelection {
 }
 export type DragTransitions =
   | { kind: "loading" }
-  | { kind: "ready"; transitions: readonly JiraTransition[] }
+  | {
+      kind: "ready";
+      issueKey: string;
+      knownStatusId: string;
+      transitions: readonly JiraTransition[];
+    }
   | { kind: "error"; message: string };
 
 /** Choix en attente : aucune écriture du déplacement n'a encore eu lieu. */
@@ -47,6 +52,8 @@ export interface TransitionChoice {
 /** Carte en cours de glisser-déposer. */
 export interface DragState {
   readonly issueKey: string;
+  /** Statut au début du geste, même tant que les transitions sont en cours de lecture. */
+  readonly knownStatusId: string;
   /** Destination sans objectif : swimlane par type, ou Build si `null`. */
   readonly lane: string | null;
 }

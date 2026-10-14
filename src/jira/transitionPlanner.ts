@@ -14,6 +14,16 @@ export type TransitionResolution =
    */
   | { kind: "unreachable"; available: JiraTransition[] };
 
+/** Première transition disponible par statut, dans l'ordre fourni par Jira. */
+export function defaultTransitions(transitions: readonly JiraTransition[]): JiraTransition[] {
+  const destinations = new Set<string>();
+  return transitions.filter((transition) => {
+    if (transition.isAvailable === false || destinations.has(transition.to.id)) return false;
+    destinations.add(transition.to.id);
+    return true;
+  });
+}
+
 /**
  * Détermine la transition Jira correspondant à un déplacement de carte.
  *
@@ -23,7 +33,8 @@ export type TransitionResolution =
  * reviendrait à provoquer de vraies écritures sans savoir où le ticket s'arrêterait — et
  * pourrait le laisser bloqué dans un statut intermédiaire.
  *
- * Une seule action possible est exécutée ; plusieurs demandent un choix explicite.
+ * Pour un même statut, la première transition disponible dans l'ordre Jira est retenue,
+ * même si elle exige un formulaire. Plusieurs statuts de destination demandent un choix explicite.
  */
 export function resolveTransition(
   currentStatusId: string,
@@ -32,9 +43,9 @@ export function resolveTransition(
 ): TransitionResolution {
   if (targetStatusIds.includes(currentStatusId)) return { kind: "alreadyInTargetColumn" };
 
-  const usable = transitions.filter((transition) => transition.isAvailable !== false);
-
-  const candidates = usable.filter((transition) => targetStatusIds.includes(transition.to.id));
+  const candidates = defaultTransitions(transitions).filter((transition) =>
+    targetStatusIds.includes(transition.to.id),
+  );
   if (candidates.length > 1) return { kind: "choose", available: candidates };
   const transition = candidates[0];
   if (!transition) return { kind: "unreachable", available: [] };

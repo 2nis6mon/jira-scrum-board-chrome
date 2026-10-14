@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.34.1**, 14 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.34.2**, 14 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -129,7 +129,13 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   Durant la publication, retour Jira, changement de board, déconnexion et sorties de vue sont protégés.
 
 - Même colonne : aucun changement de statut. Autre colonne : seuls les statuts accessibles
-  acceptent le dépôt ; transition ambiguë = choix demandé. Ordre : **transition → Goal → rang**.
+  acceptent le dépôt. Depuis 0.34.2, `defaultTransitions` retient la première transition disponible
+  par identifiant de statut, dans l'ordre Jira (`sortByOpsBarAndStatus=true`), sans préférer les
+  actions sans formulaire. Le survol décrit cette action et le dépôt verrouille son ID et sa
+  destination ; la relecture refuse une action disparue ou modifiée, sans repli. Plusieurs statuts
+  dans une colonne conservent leurs zones de dépôt et, si nécessaire, un choix par statut.
+  Cet ordre de présentation est documenté ; l'API ne garantit pas le défaut interne du board natif.
+  Aucun réglage administratif supplémentaire. Ordre : **transition → Goal → rang**.
   Arrêt au premier échec, réussite partielle indiquée, aucun rollback automatique.
   La carte projetée est visuelle ; les compteurs restent ceux confirmés par Jira. Repère rouge
   pour les erreurs, aucune confirmation verte. Les formulaires suivent le parcours natif ci-dessous.
@@ -246,7 +252,7 @@ Ces contrats décrivent le code, sans certifier toutes les capacités Atlassian.
 | Validation JQL | `POST /rest/api/3/jql/parse?validation=strict` (lecture) |
 | Suggestions JQL | `GET /rest/api/3/jql/autocompletedata` et `/jql/autocompletedata/suggestions` |
 | Couleurs des cartes | `POST /rest/api/3/jql/match` (lecture, lots de 50 tickets / 10 requêtes) |
-| Transitions / statut courant | `GET /rest/api/3/issue/{key}/transitions?expand=transitions.fields` ; `GET /rest/api/3/issue/{key}?fields=status` |
+| Transitions / statut courant | `GET /rest/api/3/issue/{key}/transitions?expand=transitions.fields&sortByOpsBarAndStatus=true` ; `GET /rest/api/3/issue/{key}?fields=status` |
 | Métadonnées et propriétés | Champs, statuts, types observés, filtres rapides et propriétés : [`client.ts`](src/jira/client.ts) |
 
 Pagination des tickets complète jusqu'à 5 000, erreur explicite au-delà ; aucune troncature silencieuse.

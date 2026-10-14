@@ -789,6 +789,93 @@ describe("réglages du board et menu « Site Jira »", () => {
 });
 
 describe("zones de dépôt par statut", () => {
+  it("le dépôt DOM garde l'action annoncée avant de terminer le glissé", async () => {
+    // Happy DOM omet cette propriété native ; Preact reconnaît ainsi le nom normal « drop ».
+    const originalDrop = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "ondrop");
+    Object.defineProperty(HTMLElement.prototype, "ondrop", {
+      configurable: true,
+      writable: true,
+      value: null,
+    });
+    try {
+      const path = "/rest/api/3/issue/ABC-102/transitions";
+      const first = { id: "21", name: "Démarrer", to: statusJson("3", "En cours") };
+      const other = { id: "22", name: "Autre démarrage", to: statusJson("3", "En cours") };
+      const jira = boardSiteJira()
+        .on("GET", "/rest/api/3/issue/ABC-102", {
+          status: 200,
+          json: { fields: { status: statusJson("1", "À faire") } },
+        })
+        .on("GET", path, { status: 200, json: { transitions: [first, other] } })
+        .on("POST", path, { status: 204 });
+      const { board } = await connectedBoard(jira);
+      board.startDrag("ABC-102", null);
+      await expect.poll(() => board.dragTransitions.value.kind).toBe("ready");
+      await tick();
+      jira.on("GET", path, { status: 200, json: { transitions: [other, first] } });
+      const zone = document.querySelector(
+        'ul[aria-label="Finaliser le parcours de paiement — En cours"] [data-status-id="3"]',
+      );
+      if (!zone) throw new Error("Zone de dépôt vers En cours attendue");
+      const event = new Event("drop", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "dataTransfer", {
+        value: {
+          getData: (type: string) => (type === "application/x-scrum-board-issue" ? "ABC-102" : ""),
+        },
+      });
+      zone.dispatchEvent(event);
+      await expect.poll(() => jira.sent("POST", path).length).toBe(1);
+      expect(jira.sent("POST", path)[0]?.body).toEqual({ transition: { id: "21" } });
+      expect(board.dragging.value).toBeNull();
+      expect(board.transitionChoice.value).toBeNull();
+      await expect.poll(() => board.pendingKeys.value.size).toBe(0);
+      board.dispose();
+    } finally {
+      if (originalDrop) Object.defineProperty(HTMLElement.prototype, "ondrop", originalDrop);
+      else Reflect.deleteProperty(HTMLElement.prototype, "ondrop");
+    }
+  });
+
+  it.each([true, false])(
+    "le survol indique le formulaire uniquement pour la première transition (formulaire : %s)",
+    async (firstHasScreen) => {
+      const jira = boardSiteJira().on("GET", "/rest/api/3/issue/ABC-102/transitions", {
+        status: 200,
+        json: {
+          transitions: [
+            {
+              id: "21",
+              name: "Démarrer",
+              to: statusJson("3", "En cours"),
+              hasScreen: firstHasScreen,
+            },
+            {
+              id: "22",
+              name: "Autre démarrage",
+              to: statusJson("3", "En cours"),
+              hasScreen: !firstHasScreen,
+            },
+          ],
+        },
+      });
+      const { board } = await connectedBoard(jira);
+      board.startDrag("ABC-102", null);
+      await expect.poll(() => board.dragTransitions.value.kind).toBe("ready");
+      await tick();
+      const cell = document.querySelector(
+        'ul[aria-label="Finaliser le parcours de paiement — En cours"]',
+      );
+      const zones = cell?.querySelectorAll(".status-drop-zone");
+      expect(zones).toHaveLength(1);
+      expect(zones?.[0]?.getAttribute("data-status-id")).toBe("3");
+      expect(zones?.[0]?.textContent?.includes("Formulaire à compléter")).toBe(firstHasScreen);
+      expect(board.transitionChoice.value).toBeNull();
+      expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+      board.endDrag();
+      board.dispose();
+    },
+  );
+
   it("affiche les statuts, grise les destinations impossibles et nettoie la fin du geste", async () => {
     const jira = boardSiteJira().on("GET", "/rest/api/3/issue/ABC-102/transitions", {
       status: 200,

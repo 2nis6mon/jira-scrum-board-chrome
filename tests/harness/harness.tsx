@@ -24,7 +24,7 @@ import {
   SPRINT_ISSUES,
   withSecondBoard,
 } from "../support/boardFixture";
-import { FakeJira, type Reply, XSRF_REFUSAL } from "../support/fakeJira";
+import { FakeJira, isWriteRequest, type Reply, XSRF_REFUSAL } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 import { goalsGateway } from "../support/goalsGateway";
 import { issueJson, statusJson } from "../support/jiraFixtures";
@@ -89,6 +89,11 @@ if (scenario.startsWith("board")) {
   const kanban = scenario.startsWith("board-kanban");
   const withSubtasks = scenario === "board-soustaches";
   const goalPriorityDrag = scenario === "board-drag-goal-priority";
+  const automaticTransitionDrag =
+    scenario === "board-drag-transition-auto" || scenario === "board-drag-transition-screen";
+  const automaticTransitionScreen = scenario === "board-drag-transition-screen";
+  let automaticTransitionReady = false;
+  const nativeTransitions: { issueKey: string; transitionId: string }[] = [];
   // Réglages du board, sur l'onglet `onglet` : objectifs, swimlanes RUN et OPS, règles de couleur.
   const reglages = scenario === "board-reglages";
   const persistSettings = reglages && new URLSearchParams(location.search).get("persist") === "1";
@@ -482,6 +487,52 @@ if (scenario.startsWith("board")) {
     moved = id === "23" ? { id: "4", name: "Revue" } : { id: "3", name: "En cours" };
     return { status: 204 };
   });
+  if (automaticTransitionDrag) {
+    const path = "/rest/api/3/issue/ABC-102/transitions";
+    jira.on("GET", path, {
+      status: 200,
+      json: {
+        transitions: [
+          {
+            id: "90",
+            name: "Premier chemin Jira",
+            to: statusJson("3", "En cours"),
+            isAvailable: true,
+            hasScreen: automaticTransitionScreen,
+          },
+          {
+            id: "21",
+            name: "Autre chemin vers En cours",
+            to: statusJson("3", "En cours"),
+            isAvailable: true,
+            hasScreen: false,
+          },
+          {
+            id: "23",
+            name: "Envoyer en revue",
+            to: statusJson("4", "Revue"),
+            isAvailable: true,
+            hasScreen: false,
+          },
+        ],
+      },
+    });
+    Object.assign(window, {
+      __transitionAuto: {
+        ready: () => automaticTransitionReady,
+        transitionIds: () =>
+          jira
+            .sent("POST", path)
+            .map((request) => (request.body as { transition: { id: string } }).transition.id),
+        nativeCalls: () => nativeTransitions,
+        otherWrites: () =>
+          jira.requests.filter(
+            (request) =>
+              isWriteRequest(request) && request.path !== path && request.path !== teamProperty,
+          ).length,
+      },
+    });
+  }
   if (scenario === "board-vide") {
     jira.on("GET", "/rest/agile/1.0/board/7/sprint", {
       status: 200,
@@ -746,6 +797,13 @@ if (scenario.startsWith("board")) {
         };
         connection.board.snapshot.value = { ...snapshot, goals: [...snapshot.goals, ...hidden] };
       }
+    }
+    if (automaticTransitionDrag) {
+      connection.board.nativeTransitionHandler = (issueKey, transition) => {
+        nativeTransitions.push({ issueKey, transitionId: transition.id });
+        return true;
+      };
+      automaticTransitionReady = true;
     }
     planningReady = true;
   }

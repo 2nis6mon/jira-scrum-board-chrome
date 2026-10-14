@@ -253,6 +253,140 @@ try {
       `✓ RUN ↔ objectif (hauteur ${height}px) : source stable, retour dans RUN vide, refus de Build et OPS sans écriture`,
     );
   }
+  // Plusieurs chemins Jira vers un même statut : une zone, premier chemin disponible dans
+  // l'ordre de l'API. Un formulaire sur ce premier chemin n'est jamais contourné.
+  for (const test of [
+    { scenario: "board-drag-transition-auto", status: "3", transition: "90", native: false },
+    { scenario: "board-drag-transition-auto", status: "4", transition: "23", native: false },
+    { scenario: "board-drag-transition-screen", status: "3", transition: "90", native: true },
+  ]) {
+    await send(
+      "Emulation.setDeviceMetricsOverride",
+      { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false },
+      sessionId,
+    );
+    await navigateToHarness(sessionId, `http://127.0.0.1:5201/?scenario=${test.scenario}`);
+    await waitFor(
+      sessionId,
+      "window.__transitionAuto?.ready() && document.querySelector('[data-issue-key=\"ABC-102\"]')",
+      "Le scénario des transitions automatiques n'est pas prêt",
+    );
+    const source = await evaluate(
+      sessionId,
+      `(() => {
+      const card = document.querySelector('[data-issue-key="ABC-102"]');
+      card.scrollIntoView({block: 'center'});
+      const rect = card.getBoundingClientRect();
+      return { x: rect.x + 35, y: rect.y + 35, lane: card.closest('.lane').dataset.laneId };
+    })()`,
+    );
+    const since = events.length;
+    await send(
+      "Input.dispatchMouseEvent",
+      { type: "mouseMoved", x: source.x, y: source.y },
+      sessionId,
+    );
+    await send(
+      "Input.dispatchMouseEvent",
+      { type: "mousePressed", x: source.x, y: source.y, button: "left", buttons: 1, clickCount: 1 },
+      sessionId,
+    );
+    await send(
+      "Input.dispatchMouseEvent",
+      { type: "mouseMoved", x: source.x + 20, y: source.y + 5, button: "left", buttons: 1 },
+      sessionId,
+    );
+    await sleep(300);
+    const intercepted = events
+      .slice(since)
+      .find((event) => event.method === "Input.dragIntercepted");
+    assert(intercepted, `${test.scenario} : le navigateur n'a pas démarré le glissement`);
+    const lane = `document.querySelector('[data-lane-id="${source.lane}"]')`;
+    await waitFor(
+      sessionId,
+      `${lane}.querySelectorAll('.status-drop-zone').length === 2`,
+      "Les transitions ne sont pas regroupées en deux statuts de destination",
+    );
+    const zones = await evaluate(
+      sessionId,
+      `[...${lane}.querySelectorAll('.status-drop-zone')].map((zone) => ({ id: zone.dataset.statusId, text: zone.textContent }))`,
+    );
+    assert(
+      JSON.stringify(zones.map((zone) => zone.id)) === '["3","4"]',
+      `Une zone unique par statut était attendue : ${JSON.stringify(zones)}`,
+    );
+    if (test.native)
+      assert(
+        zones[0].text.includes("Formulaire à compléter"),
+        "La zone ne prévient pas du formulaire du premier chemin Jira",
+      );
+    const target = await evaluate(
+      sessionId,
+      `(() => {
+      const zone = ${lane}.querySelector('[data-status-id="${test.status}"]');
+      zone.scrollIntoView({block: 'nearest'});
+      const rect = zone.getBoundingClientRect();
+      const x = rect.left + rect.width / 2, y = rect.top + 25;
+      return { x, y, reachable: zone.contains(document.elementFromPoint(x, y)) };
+    })()`,
+    );
+    assert(target.reachable, `Statut ${test.status} : zone masquée ou inaccessible`);
+    for (const type of ["dragEnter", "dragOver", "drop"]) {
+      await send(
+        "Input.dispatchDragEvent",
+        { type, x: target.x, y: target.y, data: intercepted.params.data },
+        sessionId,
+      );
+      await sleep(100);
+    }
+    await send(
+      "Input.dispatchMouseEvent",
+      {
+        type: "mouseReleased",
+        x: target.x,
+        y: target.y,
+        button: "left",
+        buttons: 0,
+        clickCount: 1,
+      },
+      sessionId,
+    );
+    await waitFor(
+      sessionId,
+      test.native
+        ? "window.__transitionAuto.nativeCalls().length === 1"
+        : "window.__transitionAuto.transitionIds().length === 1 && document.querySelector('[data-issue-key=\"ABC-102\"]').getAttribute('aria-busy') !== 'true'",
+      "Le dépôt n'a pas choisi automatiquement le premier chemin Jira",
+    );
+    const result = await evaluate(
+      sessionId,
+      `({ ids: window.__transitionAuto.transitionIds(), native: window.__transitionAuto.nativeCalls(), otherWrites: window.__transitionAuto.otherWrites(), dialog: Boolean(document.querySelector('[role="dialog"]')), cell: document.querySelector('[data-issue-key="ABC-102"]').closest('.lane-cell').getAttribute('aria-label') })`,
+    );
+    assert(!result.dialog, "Un dialogue de choix de transition est encore affiché");
+    assert(
+      result.otherWrites === 0,
+      `Le dépôt a déclenché d'autres écritures : ${JSON.stringify(result)}`,
+    );
+    if (test.native) {
+      assert(
+        result.ids.length === 0 &&
+          result.native[0]?.transitionId === test.transition &&
+          result.native[0]?.issueKey === "ABC-102" &&
+          result.cell.endsWith("— À faire"),
+        `Le formulaire du premier chemin a été contourné : ${JSON.stringify(result)}`,
+      );
+    } else {
+      assert(
+        JSON.stringify(result.ids) === JSON.stringify([test.transition]) &&
+          result.native.length === 0 &&
+          result.cell.endsWith("— En cours"),
+        `La première transition de la destination n'a pas été confirmée seule : ${JSON.stringify(result)}`,
+      );
+    }
+    console.log(
+      `✓ Statut ${test.status} : zone unique, ${test.native ? "premier chemin avec formulaire conservé dans Jira, aucune écriture" : `transition ${test.transition} choisie automatiquement, une seule écriture`}`,
+    );
+  }
 } finally {
   await browser.close();
   await server.close();

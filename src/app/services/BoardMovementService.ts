@@ -290,8 +290,12 @@ export class BoardMovementService {
       case "noTransition":
         this.#state.writeNotice.value = {
           tone: "error",
-          text: `Aucune transition disponible vers « ${column.name} » pour ${issueKey} depuis « ${outcome.currentStatus.name} ».`,
-          suggestion: "Rien n'a été modifié.",
+          text: selection
+            ? `La transition prévue vers « ${column.name} » n'est plus disponible pour ${issueKey}.`
+            : `Aucune transition disponible vers « ${column.name} » pour ${issueKey} depuis « ${outcome.currentStatus.name} ».`,
+          suggestion: selection
+            ? "Rien n'a été modifié. Le board est actualisé ; recommencez le déplacement si besoin."
+            : "Rien n'a été modifié.",
           sessionLost: false,
           issueKey,
         };
@@ -305,7 +309,7 @@ export class BoardMovementService {
         });
         return false;
       case "choose":
-        // Le choix porte uniquement sur les transitions vers la destination demandée.
+        // Une action par statut : seul le choix de la destination reste manuel.
         this.#state.transitionChoice.value = {
           drop,
           knownStatusId: selection?.knownStatusId ?? issue.issue.fields.status.id,
