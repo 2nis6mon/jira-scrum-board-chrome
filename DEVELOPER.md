@@ -229,8 +229,11 @@ les panneaux latéraux. Un panneau remplacé est reconnu à nouveau sans accumul
 Pour une transition avec écran/champs requis, statut et transitions sont relus puis la fiche charge
 cachée. L'hôte ouvre son menu et clique seulement une correspondance **unique** du nom, ou du nom
 suivi du statut d'arrivée ; accents, espaces et ponctuation normalisés, aucun préfixe approximatif.
-Le formulaire moderne ou classique dans son iframe est isolé, dimensionné avec marge 16 px ;
-l'utilisateur seul remplit, valide ou annule. L'extension ne réalise aucune écriture du déplacement,
+Le formulaire moderne ou classique dans son iframe est isolé par visibilité, dans le même viewport
+que Jira. Ses dimensions, son en-tête, son pied et ses défilements restent natifs : aucune réécriture
+de position, hauteur ou `overflow`, ni redimensionnement de l'iframe classique. L'attente d'une taille
+stable et du chargement des iframes sert seulement à reconnaître la fenêtre avant de l'afficher.
+L'utilisateur seul remplit, valide ou annule. L'extension ne réalise aucune écriture du déplacement,
 ne saisit aucun champ et ne reprend pas automatiquement Goal/rang après fermeture.
 Pendant l'ouverture, nouveaux déplacements et changement de board sont bloqués jusqu'au message
 vérifié de fermeture. Choix ambigu : fiche montrée sans clic ; non reconnue à 12 s : Jira visible
@@ -417,7 +420,7 @@ Ce flag ne provient ni de `.env`, ni d'un paramètre d'URL, ni d'une préférenc
 | `npm run typecheck` / `lint` / `format` | TypeScript / contrôles et formatage Biome |
 | `npm run harness` | Banc fictif, port 5199 |
 | `npm run verify:load` | Chargement, bienvenue, permissions, lanceur |
-| `npm run verify:jira` / `verify:transition` | Hébergement, messages forgés, navigation, fiche native (en-tête, colonnes, redimensionnement, menus, remplacement), formulaire seul, ambiguïté, absence de validation automatique, fermeture |
+| `npm run verify:jira` / `verify:transition` | Hébergement, messages forgés, navigation, fiche native (en-tête, colonnes, redimensionnement, menus, remplacement), formulaires longs modernes/classiques (défilement, en-tête, boutons, menus), ambiguïté, absence de validation automatique, fermeture |
 | `npm run verify:drag` / `verify:button` | Gestes ; bouton et stockage Chrome, zoom/redimensionnement/plein écran |
 | `npm run verify:settings` | Glissés des réglages : swimlanes, types, champs et règles de couleur |
 | `npm run verify:planning` | Atelier, glissés/affectations, brouillon, publication, RAF consultatif et petit écran |

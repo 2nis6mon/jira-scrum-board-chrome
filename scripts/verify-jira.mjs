@@ -32,6 +32,17 @@ try {
   const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
   await send("Page.enable", {}, sessionId);
   await send("Fetch.enable", { patterns: [{ urlPattern: "https://*/*" }] }, sessionId);
+  const classicFixture = `<!doctype html><html><head><style>
+    html,body{margin:0;height:100%;overflow:hidden;font:14px system-ui;background:white}
+    #classic-form{margin:0;height:100%;display:grid;grid-template-rows:68px minmax(0,1fr) 64px;overflow:hidden}
+    #classic-header,#classic-footer{display:flex;align-items:center;gap:16px;padding:16px;box-sizing:border-box;background:#f0f3f8}
+    #classic-header h2{margin:0}#classic-body{min-height:0;overflow:auto;padding:16px;box-sizing:border-box}
+    #classic-body label{display:block;min-height:72px}#classic-bottom{height:40px;background:#e4f2ed}
+  </style></head><body><form id="classic-form" onsubmit="event.preventDefault();parent.document.body.dataset.classicSubmitted='yes'">
+    <header id="classic-header"><h2>TEST CLASSIQUE</h2></header><section id="classic-body"><label>Version requise <input required></label>
+    ${Array.from({ length: 30 }, (_, index) => `<label>Détail classique ${index} <input></label>`).join("")}<div id="classic-bottom">Fin du formulaire classique</div></section>
+    <footer id="classic-footer"><button type="submit">Update</button><button type="button" onclick="parent.document.querySelector('#jira-classic').remove()">Annuler</button></footer>
+  </form></body></html>`;
   const fixture = `<!doctype html><html><head><style>
     html,body{margin:0;padding:0;font:14px system-ui;background:#eef0f4;overflow:hidden}
     [hidden]{display:none!important}
@@ -44,6 +55,13 @@ try {
     #ticket-left{border-right:1px solid #ddd}
     .native-column p{min-height:60px;margin:0 0 12px;padding:8px;box-sizing:border-box;background:#f5f7fa}
     .native-bottom{height:48px;display:flex;align-items:center;background:#e4f2ed}
+    #jira-modal{position:fixed;left:50%;top:32px;transform:translateX(-50%);width:min(640px,calc(100vw - 64px));height:min(600px,calc(100vh - 64px));max-width:640px;background:white;overflow:hidden;border-radius:10px}
+    #jira-modal-form{margin:0;display:grid;grid-template-rows:72px minmax(0,1fr) 64px;height:100%;overflow:hidden}
+    #jira-modal-header,#jira-modal-footer{display:flex;align-items:center;gap:20px;padding:16px;box-sizing:border-box;background:#f0f3f8}
+    #jira-modal-header h2{margin:0}#jira-modal-body{min-height:0;overflow:auto;padding:20px;box-sizing:border-box}
+    #jira-modal-body label{display:block;min-height:76px}#jira-modal-bottom{height:48px;background:#e4f2ed}
+    #jira-classic{position:fixed;left:50%;top:48px;transform:translateX(-50%);width:min(720px,calc(100vw - 96px));height:min(660px,calc(100vh - 96px));overflow:hidden;background:white;border-radius:10px}
+    #jira-classic iframe{display:block;width:100%;height:100%;border:0}
   </style></head><body><main id="jira">Board Jira normal</main>
     <div id="ticket-layer"><aside id="ticket" role="dialog" aria-label="Ticket ABC-102" hidden>
       <header id="ticket-header"><button aria-label="Fermer" onclick="history.pushState(null,'',location.pathname);this.closest('#ticket').hidden=true">Fermer</button>
@@ -61,20 +79,27 @@ try {
     window.__nativeIssueInitialMarkup=document.querySelector('#ticket').outerHTML;
     function replaceNativeIssuePanel(){var container=document.createElement('div');container.innerHTML=window.__nativeIssueInitialMarkup;document.querySelector('#ticket').replaceWith(container.firstElementChild);}
     function openPortalMenu(){var menu=document.createElement('div');menu.id='native-portal';menu.setAttribute('role','listbox');menu.style.cssText='position:fixed;left:8px;top:210px;width:140px;height:150px;background:white;z-index:10000;border:1px solid #ccc';menu.innerHTML='<button role=option style="width:100%;height:48px">Option native</button>';menu.querySelector('button').onclick=function(){document.body.dataset.nativeSelection='ok';menu.remove();};document.body.append(menu);}
+    function nativeLayout(doc,ids){return ids.map(function(id){var element=doc.getElementById(id),style=doc.defaultView.getComputedStyle(element),rect=element.getBoundingClientRect();return {id:id,inline:element.getAttribute('style'),display:style.display,position:style.position,overflowX:style.overflowX,overflowY:style.overflowY,grid:style.gridTemplateColumns,rows:style.gridTemplateRows,margin:style.margin,padding:style.padding,left:rect.left,top:rect.top,width:rect.width,height:rect.height};});}
+    function nativeTransitionLayout(){return nativeLayout(document,['jira-modal','jira-modal-form','jira-modal-header','jira-modal-body','jira-modal-footer']);}
+    function classicTransitionLayout(){return nativeLayout(document,['jira-classic','jira-classic-frame']).concat(nativeLayout(document.querySelector('#jira-classic-frame').contentDocument,['classic-form','classic-header','classic-body','classic-footer']));}
     // Menu de statut du faux Jira, libellés « nom → statut d'arrivée » sans identifiant, comme
     // dans Jira Cloud. « TEST OK → Validé » ouvre la fenêtre moderne ; « TEST OK → Refusé », même
     // nom mais autre statut, s'exécuterait sans écran et ne doit jamais être cliqué.
     function openStatusMenu(){setTimeout(function(){
       var menu=document.createElement('div');menu.setAttribute('role','menu');
-      menu.innerHTML='<button role=menuitem>TEST OK<span aria-hidden=true> → </span><span>Validé</span></button><button role=menuitem>TEST OK<span>Refusé</span></button>';
+      menu.innerHTML='<button role=menuitem>TEST OK<span aria-hidden=true> → </span><span>Validé</span></button><button role=menuitem>TEST OK<span>Refusé</span></button><button role=menuitem>TEST CLASSIQUE<span>Validé</span></button>';
       var items=menu.querySelectorAll('button');
       items[0].onclick=function(){
+        menu.remove();
         var modal=document.createElement('div');modal.setAttribute('role','dialog');modal.id='jira-modal';
-        modal.style.cssText='position:fixed;left:120px;top:60px;width:640px;height:480px;background:white';
-        modal.innerHTML='<h2>TEST OK</h2><form id=jira-modal-form><label>Requested Version/s <input required></label><button type=submit>Update</button></form>';
+        modal.innerHTML='<form id=jira-modal-form><header id=jira-modal-header><h2>TEST OK</h2></header><section id=jira-modal-body><label>Requested Version/s <input required></label><button type=button onclick="openPortalMenu()">Versions disponibles</button>'+Array.from({length:30},function(_,index){return '<label>Champ du workflow '+index+' <input></label>'}).join('')+'<div id=jira-modal-bottom>Fin du formulaire moderne</div></section><footer id=jira-modal-footer><button type=submit>Update</button><button type=button id=cancel-modern>Annuler</button></footer></form>';
+        modal.querySelector('form').onsubmit=function(event){event.preventDefault();document.body.dataset.transitionSubmitted='yes';};
+        modal.querySelector('#cancel-modern').onclick=function(){modal.remove();};
         document.body.append(modal);
+        window.__nativeTransitionInitialLayout=nativeTransitionLayout();
       };
       items[1].onclick=function(){document.body.dataset.executed='refuse';};
+      items[2].onclick=function(){menu.remove();var modal=document.createElement('div');modal.id='jira-classic';modal.setAttribute('role','dialog');var frame=document.createElement('iframe');frame.id='jira-classic-frame';frame.title='TEST CLASSIQUE';frame.srcdoc=${JSON.stringify(classicFixture)};frame.onload=function(){if(frame.contentDocument.querySelector('#classic-form'))window.__classicTransitionInitialLayout=classicTransitionLayout();};modal.append(frame);document.body.append(modal);};
       document.body.append(menu);
     },100);}
     </script>
@@ -331,29 +356,224 @@ try {
       "pendant l'ouverture de la transition, ni la fiche ni le menu ne s'affichent",
     );
     await sleep(2400);
+    const fullFrameViewport =
+      "(()=>{const dialog=document.querySelector('dialog[open]'),frame=dialog?.querySelector('iframe');if(!frame)return false;const d=dialog.getBoundingClientRect(),f=frame.getBoundingClientRect();return d.left===0&&d.top===0&&Math.abs(d.width-innerWidth)<1&&Math.abs(d.height-innerHeight)<1&&f.left===0&&f.top===0&&Math.abs(f.width-innerWidth)<1&&Math.abs(f.height-innerHeight)<1&&frame.contentWindow.innerWidth===innerWidth&&frame.contentWindow.innerHeight===innerHeight})()";
+    const modernGeometry =
+      "(()=>{const doc=document.querySelector('dialog iframe')?.contentDocument,modal=doc?.querySelector('#jira-modal');if(!modal)return false;const r=modal.getBoundingClientRect();return Math.abs(r.width-Math.min(640,innerWidth-64))<1&&Math.abs(r.height-Math.min(600,innerHeight-64))<1&&Math.abs(r.left-(innerWidth-r.width)/2)<1&&r.top===32})()";
     assert(
       await evaluate(
         sessionId,
-        "(()=>{const d=document.querySelector('dialog[open]');const doc=d&&d.querySelector('iframe').contentDocument;const modal=doc&&doc.querySelector('#jira-modal');if(!modal)return false;const r=d.getBoundingClientRect();return !doc.body.dataset.executed&&modal.hasAttribute('data-sprint-goals-transition')&&getComputedStyle(doc.querySelector('#ticket')).visibility==='hidden'&&getComputedStyle(modal).visibility==='visible'&&Math.abs(r.width-640)<4&&Math.abs(r.height-480)<4})()",
+        "(()=>{const d=document.querySelector('dialog[open]');const doc=d&&d.querySelector('iframe').contentDocument;const modal=doc&&doc.querySelector('#jira-modal');if(!modal)return false;return !doc.body.dataset.executed&&modal.hasAttribute('data-sprint-goals-transition')&&getComputedStyle(doc.querySelector('#ticket')).visibility==='hidden'&&getComputedStyle(modal).visibility==='visible'})()",
       ),
-      "la fenêtre de Jira s'ouvre seule, à sa taille, sans la fiche autour",
+      "la fenêtre moderne Jira s'ouvre seule, sans la fiche autour",
+    );
+    assert(
+      (await evaluate(sessionId, fullFrameViewport)) && (await evaluate(sessionId, modernGeometry)),
+      "la transition garde le viewport Jira complet et sa taille native responsive, sans double marge",
     );
     assert(
       await evaluate(
         sessionId,
-        "!document.querySelector('dialog[open] iframe').contentDocument.querySelector('#jira-modal-form').matches(':valid')",
+        "(()=>{const win=document.querySelector('dialog iframe').contentWindow;return JSON.stringify(win.nativeTransitionLayout())===JSON.stringify(win.__nativeTransitionInitialLayout)})()",
       ),
-      "le formulaire de Jira reste à remplir et n'est jamais validé automatiquement",
+      "aucun style, position, overflow ou dimension de la transition moderne n'est réécrit",
+    );
+    const fixedModern = await evaluate(
+      sessionId,
+      "(()=>{const doc=document.querySelector('dialog iframe').contentDocument;return {header:doc.querySelector('#jira-modal-header').getBoundingClientRect().top,footer:doc.querySelector('#jira-modal-footer').getBoundingClientRect().top}})()",
+    );
+    await wheelInColumn("jira-modal-body", 100000);
+    await waitFor(
+      sessionId,
+      "(()=>{const doc=document.querySelector('dialog iframe').contentDocument,body=doc.querySelector('#jira-modal-body'),bottom=doc.querySelector('#jira-modal-bottom').getBoundingClientRect(),r=body.getBoundingClientRect();return body.scrollTop>0&&body.scrollHeight-body.scrollTop-body.clientHeight<2&&bottom.top>=r.top&&bottom.bottom<=r.bottom+1})()",
+      "le bas du formulaire moderne n'est pas accessible par la molette",
+    );
+    assert(
+      await evaluate(
+        sessionId,
+        `(()=>{const frame=document.querySelector('dialog iframe'),doc=frame.contentDocument;return doc.querySelector('#jira-modal-header').getBoundingClientRect().top===${fixedModern.header}&&doc.querySelector('#jira-modal-footer').getBoundingClientRect().top===${fixedModern.footer}&&doc.querySelector('#jira-modal').scrollTop===0&&frame.contentWindow.scrollY===0})()`,
+      ),
+      "le corps du formulaire moderne défile sans déplacer son en-tête ni ses boutons",
     );
     await evaluate(
       sessionId,
-      "document.querySelector('dialog[open] iframe').contentDocument.querySelector('#jira-modal').remove()",
+      "document.querySelector('dialog iframe').contentWindow.openPortalMenu()",
     );
+    const transitionPortal = await evaluate(
+      sessionId,
+      "(()=>{const frame=document.querySelector('dialog iframe'),doc=frame.contentDocument,menu=doc.querySelector('#native-portal'),button=menu.querySelector('button'),r=button.getBoundingClientRect(),p=doc.querySelector('#jira-modal').getBoundingClientRect(),x=r.left+12,y=r.top+20;return {x,y,outside:x<p.left,visible:menu.contains(doc.elementFromPoint(x,y))&&frame===document.elementFromPoint(x,y)}})()",
+    );
+    assert(
+      transitionPortal.outside && transitionPortal.visible,
+      "la liste déroulante portée hors du formulaire moderne n'est pas coupée",
+    );
+    for (const type of ["mousePressed", "mouseReleased"])
+      await send(
+        "Input.dispatchMouseEvent",
+        {
+          type,
+          x: transitionPortal.x,
+          y: transitionPortal.y,
+          button: "left",
+          buttons: type === "mousePressed" ? 1 : 0,
+          clickCount: 1,
+        },
+        sessionId,
+      );
+    await waitFor(
+      sessionId,
+      "document.querySelector('dialog iframe').contentDocument.body.dataset.nativeSelection==='ok'",
+      "la liste déroulante du formulaire moderne n'est pas cliquable",
+    );
+    await send(
+      "Emulation.setDeviceMetricsOverride",
+      { width: 620, height: 480, deviceScaleFactor: 1, mobile: false },
+      sessionId,
+    );
+    await waitFor(
+      sessionId,
+      `(${fullFrameViewport})&&(${modernGeometry})`,
+      "le formulaire moderne n'adapte pas sa taille native au viewport étroit",
+    );
+    assert(
+      await evaluate(
+        sessionId,
+        "(()=>{const doc=document.querySelector('dialog iframe').contentDocument,body=doc.querySelector('#jira-modal-body'),footer=doc.querySelector('#jira-modal-footer').getBoundingClientRect(),modal=doc.querySelector('#jira-modal').getBoundingClientRect();return getComputedStyle(body).overflowY==='auto'&&body.clientHeight>0&&footer.bottom<=modal.bottom+1})()",
+      ),
+      "en fenêtre étroite, le défilement moderne et son pied de formulaire restent accessibles",
+    );
+    await send(
+      "Emulation.setDeviceMetricsOverride",
+      { ...originalViewport, deviceScaleFactor: 1, mobile: false },
+      sessionId,
+    );
+    await waitFor(
+      sessionId,
+      "(()=>{const win=document.querySelector('dialog iframe').contentWindow;return JSON.stringify(win.nativeTransitionLayout())===JSON.stringify(win.__nativeTransitionInitialLayout)})()",
+      "la transition moderne ne retrouve pas sa disposition native après redimensionnement",
+    );
+    assert(
+      await evaluate(
+        sessionId,
+        "(()=>{const doc=document.querySelector('dialog[open] iframe').contentDocument;return !doc.querySelector('#jira-modal-form').matches(':valid')&&[...doc.querySelectorAll('#jira-modal input')].every(input=>input.value==='')&&!doc.body.dataset.transitionSubmitted})()",
+      ),
+      "le formulaire de Jira reste à remplir et n'est jamais validé automatiquement",
+    );
+    const modernCancel = await evaluate(
+      sessionId,
+      "(()=>{const r=document.querySelector('dialog iframe').contentDocument.querySelector('#cancel-modern').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()",
+    );
+    for (const type of ["mousePressed", "mouseReleased"])
+      await send(
+        "Input.dispatchMouseEvent",
+        {
+          type,
+          ...modernCancel,
+          button: "left",
+          buttons: type === "mousePressed" ? 1 : 0,
+          clickCount: 1,
+        },
+        sessionId,
+      );
     await sleep(1200);
     assert(
       await evaluate(sessionId, "!document.querySelector('dialog[open]')"),
-      "quitter la fenêtre de Jira referme la popin et garde le board",
+      "annuler dans le pied natif du formulaire moderne referme la popin et garde le board",
     );
+    // Workflow classique : le formulaire vit dans sa propre iframe, avec son défilement interne.
+    await evaluate(
+      child.sessionId,
+      "window.parent.postMessage({type:'sprint-goals:open-issue',key:'ABC-102',transition:{id:'52',name:'TEST CLASSIQUE',to:'Validé'}},'https://acme.atlassian.net')",
+    );
+    await waitFor(
+      sessionId,
+      "(()=>{const frame=document.querySelector('dialog iframe'),doc=frame?.contentDocument,modal=doc?.querySelector('#jira-classic');return modal?.hasAttribute('data-sprint-goals-transition')&&frame.style.visibility==='visible'&&Boolean(frame.contentWindow.__classicTransitionInitialLayout)})()",
+      "le formulaire classique dans son iframe ne s'ouvre pas",
+    );
+    const classicGeometry =
+      "(()=>{const doc=document.querySelector('dialog iframe')?.contentDocument,modal=doc?.querySelector('#jira-classic'),frame=doc?.querySelector('#jira-classic-frame');if(!modal||!frame)return false;const m=modal.getBoundingClientRect(),f=frame.getBoundingClientRect();return Math.abs(m.width-Math.min(720,innerWidth-96))<1&&Math.abs(m.height-Math.min(660,innerHeight-96))<1&&Math.abs(m.left-(innerWidth-m.width)/2)<1&&m.top===48&&f.width===m.width&&f.height===m.height&&frame.contentWindow.innerWidth===f.width&&frame.contentWindow.innerHeight===f.height})()";
+    assert(
+      (await evaluate(sessionId, fullFrameViewport)) &&
+        (await evaluate(sessionId, classicGeometry)),
+      "la fenêtre classique et son iframe gardent leurs tailles natives dans le viewport Jira complet",
+    );
+    assert(
+      await evaluate(
+        sessionId,
+        "(()=>{const win=document.querySelector('dialog iframe').contentWindow;return JSON.stringify(win.classicTransitionLayout())===JSON.stringify(win.__classicTransitionInitialLayout)})()",
+      ),
+      "l'isolation conserve exactement la disposition native du formulaire classique et de son iframe",
+    );
+    const classicScroll = await evaluate(
+      sessionId,
+      "(()=>{const frame=document.querySelector('dialog iframe').contentDocument.querySelector('#jira-classic-frame'),doc=frame.contentDocument,body=doc.querySelector('#classic-body'),r=body.getBoundingClientRect(),f=frame.getBoundingClientRect();return {x:f.left+r.left+r.width/2,y:f.top+r.top+80,header:doc.querySelector('#classic-header').getBoundingClientRect().top,footer:doc.querySelector('#classic-footer').getBoundingClientRect().top}})()",
+    );
+    await send(
+      "Input.dispatchMouseEvent",
+      { type: "mouseWheel", x: classicScroll.x, y: classicScroll.y, deltaX: 0, deltaY: 100000 },
+      sessionId,
+    );
+    await waitFor(
+      sessionId,
+      "(()=>{const frame=document.querySelector('dialog iframe').contentDocument.querySelector('#jira-classic-frame'),doc=frame.contentDocument,body=doc.querySelector('#classic-body'),bottom=doc.querySelector('#classic-bottom').getBoundingClientRect(),r=body.getBoundingClientRect();return body.scrollTop>0&&body.scrollHeight-body.scrollTop-body.clientHeight<2&&bottom.top>=r.top&&bottom.bottom<=r.bottom+1})()",
+      "le formulaire classique ne défile pas jusqu'en bas dans son iframe",
+    );
+    assert(
+      await evaluate(
+        sessionId,
+        `(()=>{const frame=document.querySelector('dialog iframe').contentDocument.querySelector('#jira-classic-frame'),doc=frame.contentDocument;return doc.querySelector('#classic-header').getBoundingClientRect().top===${classicScroll.header}&&doc.querySelector('#classic-footer').getBoundingClientRect().top===${classicScroll.footer}&&frame.contentWindow.scrollY===0})()`,
+      ),
+      "le défilement classique garde l'en-tête et les actions de l'iframe immobiles",
+    );
+    await send(
+      "Emulation.setDeviceMetricsOverride",
+      { width: 680, height: 560, deviceScaleFactor: 1, mobile: false },
+      sessionId,
+    );
+    await waitFor(
+      sessionId,
+      `(${fullFrameViewport})&&(${classicGeometry})`,
+      "la taille native du formulaire classique ne suit pas le viewport étroit",
+    );
+    await send(
+      "Emulation.setDeviceMetricsOverride",
+      { ...originalViewport, deviceScaleFactor: 1, mobile: false },
+      sessionId,
+    );
+    await waitFor(
+      sessionId,
+      "(()=>{const win=document.querySelector('dialog iframe').contentWindow;return JSON.stringify(win.classicTransitionLayout())===JSON.stringify(win.__classicTransitionInitialLayout)})()",
+      "le formulaire classique ne retrouve pas sa disposition native",
+    );
+    assert(
+      await evaluate(
+        sessionId,
+        "(()=>{const outer=document.querySelector('dialog iframe').contentDocument,doc=outer.querySelector('#jira-classic-frame').contentDocument;return !doc.querySelector('#classic-form').matches(':valid')&&[...doc.querySelectorAll('input')].every(input=>input.value==='')&&!outer.body.dataset.classicSubmitted})()",
+      ),
+      "le formulaire classique n'est ni rempli ni soumis automatiquement",
+    );
+    const classicCancel = await evaluate(
+      sessionId,
+      "(()=>{const frame=document.querySelector('dialog iframe').contentDocument.querySelector('#jira-classic-frame'),f=frame.getBoundingClientRect(),r=frame.contentDocument.querySelector('#classic-footer button[type=button]').getBoundingClientRect();return {x:f.left+r.left+r.width/2,y:f.top+r.top+r.height/2}})()",
+    );
+    for (const type of ["mousePressed", "mouseReleased"])
+      await send(
+        "Input.dispatchMouseEvent",
+        {
+          type,
+          ...classicCancel,
+          button: "left",
+          buttons: type === "mousePressed" ? 1 : 0,
+          clickCount: 1,
+        },
+        sessionId,
+      );
+    await waitFor(
+      sessionId,
+      "!document.querySelector('dialog[open]')&&Boolean(document.querySelector('#sprint-goals-direct'))",
+      "l'annulation native classique ne referme pas la popin en conservant le board",
+    );
+    assert(true, "annuler depuis le formulaire classique conserve le board et referme la popin");
     // Même transition annoncée sans son statut d'arrivée : deux éléments du menu portent ce nom,
     // aucun n'est cliqué, la fiche est montrée pour que l'utilisateur choisisse lui-même.
     await evaluate(

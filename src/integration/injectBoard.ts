@@ -253,28 +253,15 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
       }
     });
 
-  const isolateTransitionForm = (
-    doc: Document,
-    win: Window,
-    form: HTMLElement,
-    dialog: HTMLDialogElement,
-    box: DOMRect,
-  ) => {
-    const crop = doc.createElement("style");
-    crop.setAttribute("data-sprint-goals-transition-style", "");
-    crop.textContent =
+  const isolateTransitionForm = (doc: Document, form: HTMLElement) => {
+    const css = doc.createElement("style");
+    css.setAttribute("data-sprint-goals-transition-style", "");
+    // Comme la fiche, le formulaire garde son viewport, ses dimensions et ses zones de
+    // défilement natifs. Ne pas déplacer ses en-tête/pied ni redimensionner une iframe classique.
+    css.textContent =
       'body *,[data-sprint-goals-ticket],[data-sprint-goals-ticket] *{visibility:hidden!important}[data-sprint-goals-transition],[data-sprint-goals-transition] *{visibility:visible!important}[role="menu"],[role="menu"] *,[role="listbox"],[role="listbox"] *{visibility:visible!important}';
-    doc.head.append(crop);
+    doc.head.append(css);
     form.setAttribute("data-sprint-goals-transition", "");
-    form.style.cssText +=
-      ";position:fixed!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;margin:0!important;box-sizing:border-box!important;overflow:auto!important";
-    dialog.style.width = `${Math.round(Math.max(320, Math.min(box.width, win.innerWidth - 32)))}px`;
-    dialog.style.height = `${Math.round(Math.max(240, Math.min(box.height, win.innerHeight - 32)))}px`;
-    dialog.style.maxWidth = "calc(100vw - 32px)";
-    dialog.style.maxHeight = "calc(100vh - 32px)";
-    dialog.style.background = "white";
-    dialog.style.border = "1px solid #dcdfe4";
-    dialog.style.borderRadius = "10px";
   };
 
   /**
@@ -285,7 +272,7 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
    * fenêtre à Jira Cloud : elle n'a pas d'adresse à laquelle la demander.
    */
   const openTicket = (key: string, transition: Transition | null = null) => {
-    const { dialog, hint, page: ticket, session, reveal } = popin(`Ticket Jira ${key}`);
+    const { hint, page: ticket, session, reveal } = popin(`Ticket Jira ${key}`);
     hint.textContent = `Chargement de ${key}…`;
     const address = new URL(location.href);
     address.searchParams.delete("sprintGoals");
@@ -386,7 +373,6 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
     const recognizeForm = (
       current: Extract<NativeStep, { kind: "waiting-form" }>,
       doc: Document,
-      win: Window,
     ) => {
       if (!transition) return;
       const candidate = findTransitionForm(doc, current.panel, current.dialogsBefore, transition);
@@ -400,7 +386,7 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
       trace("fenêtre de Jira isolée", size);
       step = { kind: "form-visible", form: candidate, missingSince: null };
       reveal();
-      isolateTransitionForm(doc, win, candidate, dialog, box);
+      isolateTransitionForm(doc, candidate);
     };
 
     const monitorFormClosure = (current: Extract<NativeStep, { kind: "form-visible" }>) => {
@@ -437,7 +423,7 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
         if (step.kind === "ticket-visible" && !step.panel.isConnected) recognizeTicket(doc, win);
         // Chaque étape peut débloquer la suivante dans le même passage, comme le fait Jira.
         if (step.kind === "choosing-transition") chooseTransition(step, doc);
-        if (step.kind === "waiting-form") recognizeForm(step, doc, win);
+        if (step.kind === "waiting-form") recognizeForm(step, doc);
         if (step.kind === "form-visible") monitorFormClosure(step);
         // Repli sans clic supplémentaire imposé : afficher Jira pour une action manuelle.
         if (

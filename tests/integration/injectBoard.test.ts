@@ -301,8 +301,8 @@ describe("hôte Jira — parcours natif autonome", () => {
     expect(current.ticket.style.visibility).toBe("hidden");
     await vi.advanceTimersByTimeAsync(300);
     expect(current.ticket.style.visibility).toBe("visible");
-    expect(current.dialog.style.width).toBe("640px");
-    expect(current.dialog.style.height).toBe("480px");
+    expect(current.dialog.style.width).toBe("100%");
+    expect(current.dialog.style.height).toBe("100%");
     expect(current.doc.querySelector("[data-sprint-goals-transition]")).not.toBeNull();
     expect(current.doc.querySelector("input")?.value).toBe("");
     const [valid, wrong] = menuOpened.mock.results[0]?.value.choices ?? [];
@@ -312,6 +312,63 @@ describe("hôte Jira — parcours natif autonome", () => {
     expect(valid?.clicked).toHaveBeenCalledTimes(1);
     expect(menuOpened).toHaveBeenCalledTimes(1);
     expect(submitted).not.toHaveBeenCalled();
+  });
+
+  it("préserve le formulaire natif, son contenu et les dimensions que Jira modifie après affichage", async () => {
+    const { open } = mount();
+    const current = open(TRANSITION);
+    ticketPanel(current.doc);
+    const native: HTMLElement[] = [];
+    const initialStyles: (string | null)[] = [];
+    const choice = menu(current.doc, [{ text: "TEST OK" }]).choices[0];
+    choice?.element.addEventListener("click", () => {
+      const modal = form(current.doc);
+      modal.style.cssText =
+        "position:fixed;inset:40px auto auto 25%;width:640px;height:auto;max-height:calc(100vh - 80px);display:flex;flex-direction:column;overflow:hidden";
+      const header = current.doc.createElement("header");
+      header.style.cssText = "flex:0 0 auto;height:64px;overflow:visible";
+      header.append(modal.querySelector("h2") as HTMLElement);
+      const body = current.doc.createElement("main");
+      body.style.cssText = "flex:1;min-height:0;overflow:auto";
+      body.append(modal.querySelector("form") as HTMLFormElement);
+      const footer = current.doc.createElement("footer");
+      footer.style.cssText = "flex:0 0 auto;height:56px;position:relative";
+      footer.append(body.querySelector("button") as HTMLButtonElement);
+      modal.append(header, body, footer);
+      native.push(modal, header, body, footer);
+      initialStyles.push(...native.map((element) => element.getAttribute("style")));
+    });
+    await vi.advanceTimersByTimeAsync(1500);
+    const [modal, , body] = native;
+    if (!modal || !body) throw new Error("Formulaire Jira attendu");
+    expect(current.ticket.style.visibility).toBe("visible");
+    expect(modal.hasAttribute("data-sprint-goals-transition")).toBe(true);
+    expect(native.map((element) => element.getAttribute("style"))).toEqual(initialStyles);
+    expect(current.dialog.style.width).toBe("100%");
+    expect(current.dialog.style.height).toBe("100%");
+    expect(current.dialog.style.maxWidth).toBe("none");
+    expect(current.dialog.style.maxHeight).toBe("none");
+    const isolation = current.doc.querySelector("style[data-sprint-goals-transition-style]");
+    expect(isolation).not.toBeNull();
+    expect(isolation?.textContent).not.toMatch(/(?:position|height|width|overflow)\s*:/);
+
+    // Jira agrandit le formulaire après validation d'un champ : sa nouvelle mise en page reste libre.
+    modal.style.width = "720px";
+    modal.style.maxHeight = "calc(100vh - 40px)";
+    body.style.minHeight = "120px";
+    bounds(modal, 720, 620);
+    const updatedStyles = native.map((element) => element.getAttribute("style"));
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(native.map((element) => element.getAttribute("style"))).toEqual(updatedStyles);
+    expect(modal.getBoundingClientRect().height).toBe(620);
+    expect(current.dialog.style.width).toBe("100%");
+    expect(current.dialog.style.height).toBe("100%");
+    expect(current.doc.querySelectorAll("style[data-sprint-goals-transition-style]")).toHaveLength(
+      1,
+    );
+    expect(current.doc.querySelector("style[data-sprint-goals-transition-style]")).toBe(isolation);
+    expect(choice?.clicked).toHaveBeenCalledTimes(1);
+    expect(current.doc.querySelector("input")?.value).toBe("");
   });
 
   it("rend la main devant deux transitions ambiguës, sans réessayer même si une disparaît", async () => {
@@ -381,11 +438,20 @@ describe("hôte Jira — parcours natif autonome", () => {
     ticketPanel(current.doc);
     const choice = menu(current.doc, [{ text: "TEST OK" }]).choices[0];
     let nested: Document | null = null;
+    const native: HTMLElement[] = [];
+    const initialStyles: (string | null)[] = [];
     choice?.element.addEventListener("click", () => {
       const modal = form(current.doc, "");
-      modal.replaceChildren(current.doc.createElement("iframe"));
-      nested = page(modal.querySelector("iframe") as HTMLIFrameElement).doc;
-      nested.body.textContent = "TEST OK — Temps passé";
+      modal.style.cssText =
+        "position:absolute;top:80px;left:400px;width:640px;height:auto;max-height:80vh;overflow:hidden";
+      const classic = current.doc.createElement("iframe");
+      classic.style.cssText = "width:100%;height:480px;border:0;display:block";
+      modal.replaceChildren(classic);
+      nested = page(classic).doc;
+      nested.body.style.cssText = "margin:0;height:auto;overflow:auto";
+      nested.body.innerHTML = "<h2>TEST OK — Temps passé</h2><form><input required></form>";
+      native.push(modal, classic, nested.body);
+      initialStyles.push(...native.map((element) => element.getAttribute("style")));
       Object.defineProperty(nested, "readyState", { configurable: true, value: "loading" });
     });
     await vi.advanceTimersByTimeAsync(1500);
@@ -394,7 +460,12 @@ describe("hôte Jira — parcours natif autonome", () => {
     Object.defineProperty(nested, "readyState", { configurable: true, value: "complete" });
     await vi.advanceTimersByTimeAsync(1200);
     expect(current.ticket.style.visibility).toBe("visible");
-    expect(current.dialog.style.height).toBe("480px");
+    expect(current.dialog.style.width).toBe("100%");
+    expect(current.dialog.style.height).toBe("100%");
+    expect(native.map((element) => element.getAttribute("style"))).toEqual(initialStyles);
+    expect(native[0]?.hasAttribute("data-sprint-goals-transition")).toBe(true);
+    expect(native[2]?.querySelector("input")?.value).toBe("");
+    expect(choice?.clicked).toHaveBeenCalledTimes(1);
   });
 
   it("tolère une disparition brève du formulaire puis ferme et actualise une seule fois", async () => {

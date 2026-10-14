@@ -3,6 +3,14 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.34.4 — Défilement natif des formulaires de transition
+
+- Fenêtres de transition conservées dans leur disposition Jira : dimensions, en-tête,
+  boutons et défilement du formulaire ne sont plus réécrits par l'extension.
+- Même comportement pour les formulaires classiques dans une iframe ; les menus disposent
+  de tout l'espace natif et les fenêtres s'adaptent au redimensionnement via Jira.
+- Contrôles sur formulaires longs modernes et classiques, sans saisie ni validation automatiques.
+
 ## 0.34.3 — Défilement natif des fiches Jira
 
 - Fiche affichée avec le même espace disponible que dans Jira, sans réécriture de sa taille,

@@ -68,7 +68,8 @@ Sprint Goals ; sans lui, Jira garde son affichage habituel. La vue ne s'ouvre pa
   les données. L'en-tête et le défilement des colonnes suivent la présentation native de Jira.
   Les sous-tâches restent avec leur story ; le survol souligne toute la famille.
 - **Déplacements** : glissez une carte pour changer statut, rang ou objectif. Jira ouvre son
-  formulaire de transition si nécessaire. Si plusieurs transitions mènent au même statut,
+  formulaire de transition si nécessaire, avec sa présentation et ses défilements natifs.
+  Si plusieurs transitions mènent au même statut,
   l'extension choisit automatiquement la première disponible dans l'ordre Jira, sans réglage.
   Une colonne contenant plusieurs statuts conserve une zone de dépôt par statut. Si l'action
   prévue n'est plus disponible, le board est actualisé et vous pouvez recommencer le déplacement.
