@@ -146,6 +146,10 @@ copie, historique, fermeture et format étroit, avec captures dans `.vite/`.
   swimlanes est la sous-suite hors objectifs de `blockOrder` (`settingsLaneOrder`,
   [`reorder`](src/core/reorder.ts)) : y déplacer Build ou une swimlane par type ne change jamais
   l'ordre relatif des objectifs, réglé sur le board. Un dépôt sans effet n'écrit rien.
+- Depuis 0.33.1, les types sont intégrés à la carte Swimlanes : Default est la destination `GOAL`
+  (Build), les groupes dédiés restent `SWIMLANE`, et Ignorés figure dans la même carte.
+  Le dépôt d'un type sur Default est distinct de la réorganisation des lignes ; les réglages
+  existants et le nom personnalisé de Build restent conservés.
 - Depuis 0.31.2, l'entrée Réglages sous Sprint et les compteurs bloqués/ajoutés/Build de l'en-tête
   sont retirés ; filtres et navigation vers les swimlanes restent disponibles. Retour à Jira est
   ancré au pied de la barre latérale, ou dans une ligne réservée au-dessus du contenu si elle est

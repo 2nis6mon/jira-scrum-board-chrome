@@ -110,6 +110,26 @@ try {
   await open("board", "document.querySelectorAll('.settings-lanes .settings-grip').length === 3");
   let order = await run(grips);
   assert(same(order, ["Build", "RUN", "OPS"]), `swimlanes au départ : ${order}`);
+  assert(
+    await run(`!document.querySelector('.settings-types-card')
+      && document.querySelector('.settings-lane-build [data-type-id="10001"]') !== null
+      && document.querySelector('.settings-lanes-card [aria-label="Types ignorés"]') !== null`),
+    "les types Default et Ignorés ne sont pas intégrés à la section Swimlanes",
+  );
+  assert(
+    await run(`document.querySelector('.settings-lanes-card > header .settings-help')
+      .textContent.trim() === 'Les objectifs sont prioritaires sur les swimlanes.'`),
+    "l'introduction des swimlanes doit rappeler simplement la priorité des objectifs",
+  );
+  const typeIds = `[...document.querySelectorAll('.settings-chip')].map((chip) => chip.dataset.typeId).sort()`;
+  const initialTypeIds = await run(typeIds);
+  const assertTypes = async () => {
+    const ids = await run(typeIds);
+    assert(
+      same(ids, initialTypeIds) && ids.length === new Set(ids).size,
+      `chaque type doit apparaître une seule fois après son déplacement : ${ids}`,
+    );
+  };
 
   const marker = await drag(
     `${lane("Build")}.querySelector('.settings-grip')`,
@@ -128,6 +148,29 @@ try {
   console.log("✓ Board : OPS glissée au-dessus de RUN");
 
   const chip = (typeId) => `document.querySelector('[data-type-id="${typeId}"]')`;
+  const orderBeforeType = await run(grips);
+  for (const destination of [lane("OPS"), "document.querySelector('.settings-lane-build')"]) {
+    const hovered = await drag(
+      chip("10001"),
+      destination,
+      "center",
+      `({ target: ${destination}.classList.contains('is-type-target'),
+        reorder: Boolean(document.querySelector('.settings-lanes > li[data-drop]')) })`,
+    );
+    assert(hovered.target, "la swimlane destinataire ne se signale pas au survol du type");
+    assert(!hovered.reorder, "glisser un type ne doit pas préparer un déplacement de swimlane");
+    await waitFor(
+      sessionId,
+      `${destination}?.querySelector('[data-type-id="10001"]') != null`,
+      "le type Story n'a pas rejoint sa destination",
+    );
+    assert(same(await run(grips), orderBeforeType), "déplacer un type a réordonné les swimlanes");
+    await assertTypes();
+  }
+  console.log(
+    "✓ Board : Story glissée de Default à OPS puis de retour, sans doublon ni réordonnancement",
+  );
+
   const hover = await drag(
     chip("10007"),
     "document.querySelector('.settings-new-lane')",
@@ -158,6 +201,7 @@ try {
   );
   order = await run(grips);
   assert(same(order, ["OPS", "RUN", "Build"]), `la swimlane vide a disparu : ${order}`);
+  await assertTypes();
   console.log("✓ Board : le type déposé dans « Ignorés » emporte sa swimlane devenue vide");
 
   await drag(chip("10005"), `${lane("OPS")}`);
@@ -169,30 +213,55 @@ try {
   console.log("✓ Board : « Anomalie de Recette » glissé dans la swimlane OPS");
 
   // Le menu décrit le classement sans objectif ; changer ce défaut reste possible au clavier.
+  const pressEnter = async () => {
+    for (const type of ["keyDown", "keyUp"]) {
+      await send(
+        "Input.dispatchKeyEvent",
+        {
+          type,
+          key: "Enter",
+          code: "Enter",
+          windowsVirtualKeyCode: 13,
+          ...(type === "keyDown" ? { text: "\r", unmodifiedText: "\r" } : {}),
+        },
+        sessionId,
+      );
+    }
+  };
   const chooseDefault = async (label) => {
-    await run(`${chip("10005")}.querySelector('summary').click()`);
+    await run(`${chip("10005")}.querySelector('summary').focus()`);
+    await pressEnter();
+    await waitFor(
+      sessionId,
+      `${chip("10005")}.querySelector('details').open`,
+      "le menu de déplacement du type ne s'ouvre pas au clavier",
+    );
     const chosen = await run(`(() => {
       const button = [...${chip("10005")}.querySelectorAll('button')]
         .find((item) => item.textContent.trim() === ${JSON.stringify(label)});
       if (!button || button.disabled) return false;
-      button.click();
+      button.focus();
       return true;
     })()`);
     assert(chosen, `classement par défaut indisponible : ${label}`);
+    await pressEnter();
   };
-  await chooseDefault("Build par défaut");
+  await chooseDefault("Default");
   await waitFor(
     sessionId,
-    'document.querySelector(\'[aria-label="Types build par défaut"] [data-type-id="10005"]\') !== null',
-    "le type n'a pas rejoint les types Build par défaut",
+    "document.querySelector('.settings-lane-build [data-type-id=\"10005\"]') !== null",
+    "le type n'a pas rejoint Default",
   );
-  await chooseDefault("RUN par défaut");
+  await assertTypes();
+  await chooseDefault("RUN");
   await waitFor(
     sessionId,
     `${lane("RUN")}?.querySelector('[data-type-id="10005"]') != null`,
     "le classement RUN par défaut n'a pas été rétabli",
   );
-  console.log("✓ Board : menu de type vers Build par défaut puis RUN par défaut");
+  await assertTypes();
+  assert(same(await run(grips), orderBeforeType), "le menu de type a réordonné les swimlanes");
+  console.log("✓ Board : menu de type au clavier vers Default puis RUN");
 
   // ─── Onglet Champs des cartes ──────────────────────────────────────────────
   const fields = `[...document.querySelectorAll('.settings-item .settings-grip')].map((g) => g.getAttribute('aria-label').replace('Déplacer ', ''))`;

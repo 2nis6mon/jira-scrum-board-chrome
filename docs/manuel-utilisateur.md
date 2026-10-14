@@ -136,17 +136,12 @@ n'apparaissent pas. L'en-tête indique qui les a enregistrés en dernier, et qua
 
 ![Réglages des objectifs](store/captures/03-objectifs.png)
 
-- **Board** : Build et les swimlanes par type, dans leur ordre sur le board. Glissez une swimlane
-  par sa poignée pour la déplacer ; les objectifs, eux, se rangent sur le board. Renommez Build
-  (« Nom de la swimlane par défaut ») et chaque swimlane directement dans la
-  liste, ou masquez une swimlane par type avec son interrupteur.
-- **Types de tickets** : choisissez le classement sans objectif visible : **Build par défaut**
-  (ou le nom personnalisé de Build), une swimlane dédiée ou **Ignorés**. Glissez un type vers
-  son groupe ou utilisez son menu. Tous les types affichés peuvent rejoindre un objectif ;
-  **Ignorés** reste exclu du board, même avec un objectif. **Nouvelle swimlane** crée un groupe :
-  donnez-lui un nom puis glissez ou choisissez son premier type ; déposer un type sur la zone
-  **Nouvelle swimlane** le crée aussi.
-  Retirer son dernier type supprime le groupe.
+- **Swimlanes** (onglet Board) : les types sans swimlane dédiée sont réunis dans **Default**,
+  la ligne Build dont le nom reste personnalisable. Glissez un type vers une swimlane, ou
+  ramenez-le dans Default ; son menu permet le même déplacement. Les objectifs sont prioritaires.
+  **Nouvelle swimlane** crée un groupe avec son premier type ; retirer le dernier supprime le groupe.
+  Réorganisez les lignes par leur poignée, renommez-les ou masquez-les directement dans la liste.
+  Le groupe **Ignorés** exclut ses types du board, même s'ils sont rattachés à un objectif.
 - **Affichage et daily** : seuil « vieillissant », durée de la Daily et nombre de cartes visibles
   dans la première colonne, réglables au clavier ou par − et +. Le rafraîchissement automatique
   reste personnel.

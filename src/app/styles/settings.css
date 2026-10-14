@@ -357,6 +357,12 @@
   font-weight: 600;
 }
 
+.settings-badge-default {
+  border-color: transparent;
+  background: #e8effd;
+  color: #1d4ed8;
+}
+
 .settings-count {
   padding: 1px 8px;
   border-radius: 999px;
@@ -652,6 +658,10 @@
 .settings-lane-help,
 .settings-lane > .settings-chips {
   margin: 0 0 0 70px;
+}
+
+.settings-lane > .settings-chips {
+  min-height: 32px;
 }
 
 .settings-lane-help {

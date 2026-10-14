@@ -661,6 +661,53 @@ describe("App", () => {
     expect(teamWrites(jira)).toBe(3);
   });
 
+  it("réunit les types dans Swimlanes et permet un aller-retour depuis Default sans changer leurs objectifs", async () => {
+    const { board, jira } = await connectedBoard();
+    await openSettings();
+    const lanes = document.querySelector(".settings-lanes-card");
+    expect(document.querySelector(".settings-types-card")).toBeNull();
+    expect(
+      lanes?.querySelector('[aria-label="Types Default"] [data-type-id="10001"]'),
+    ).not.toBeNull();
+    expect(document.querySelectorAll('[data-type-id="10001"]')).toHaveLength(1);
+    expect(teamWrites(jira)).toBe(0);
+    const goalBefore = board.snapshot.value?.goalIssues.find(
+      (issue) => issue.issue.key === "ABC-101",
+    )?.goalId;
+    const choose = (destination: string) => {
+      const menu = document.querySelector('[data-type-id="10001"] .settings-chip-menu');
+      const target = [...(menu?.querySelectorAll("button") ?? [])].find(
+        (item) => item.textContent?.trim() === destination,
+      );
+      if (!(target instanceof HTMLButtonElement))
+        throw new Error(`Destination ${destination} absente`);
+      target.click();
+    };
+    choose("Anomalie Prod");
+    await expect.poll(() => teamWrites(jira)).toBe(1);
+    await expect
+      .poll(() => document.querySelector('.settings-lane-swimlane [data-type-id="10001"]'))
+      .not.toBeNull();
+    expect(
+      document.querySelector('[aria-label="Types Default"] [data-type-id="10001"]'),
+    ).toBeNull();
+    expect(document.querySelectorAll('[data-type-id="10001"]')).toHaveLength(1);
+    expect(
+      board.snapshot.value?.goalIssues.find((issue) => issue.issue.key === "ABC-101")?.goalId,
+    ).toBe(goalBefore);
+    choose("Default");
+    await expect.poll(() => teamWrites(jira)).toBe(2);
+    await expect
+      .poll(() => document.querySelector('[aria-label="Types Default"] [data-type-id="10001"]'))
+      .not.toBeNull();
+    expect(document.querySelectorAll('[data-type-id="10001"]')).toHaveLength(1);
+    expect(
+      board.snapshot.value?.goalIssues.find((issue) => issue.issue.key === "ABC-101")?.goalId,
+    ).toBe(goalBefore);
+    expect(board.configuration.value?.buildSectionLabel).toBe("Build");
+    expect(otherWrites(jira)).toEqual([]);
+  });
+
   it("réglages, onglet Board : sans souris, la poignée déplace une swimlane et le menu d'un type le range", async () => {
     const { jira } = await connectedBoard();
     await openSettings();
@@ -681,7 +728,7 @@ describe("App", () => {
     // Le type « Anomalie Prod » va dans « Ignorés » : sa swimlane disparaît avec son dernier type.
     const chip = document.querySelector('.settings-lanes [data-type-id="10004"]');
     const current = [...(chip?.querySelectorAll(".settings-chip-menu button") ?? [])].find(
-      (b) => b.textContent?.trim() === "Anomalie Prod par défaut",
+      (b) => b.textContent?.trim() === "Anomalie Prod",
     );
     expect((current as HTMLButtonElement | undefined)?.disabled).toBe(true);
     const ignore = [...(chip?.querySelectorAll(".settings-chip-menu button") ?? [])].find(

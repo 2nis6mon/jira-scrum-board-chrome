@@ -3,6 +3,13 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.33.1 — Réglages des swimlanes réunis
+
+- Types de tickets intégrés aux swimlanes : le groupe Default accueille les types sans swimlane
+  dédiée et permet de les déplacer vers une autre ligne, par glissé ou par leur menu.
+- Suppression du panneau séparé « Types de tickets » et introduction réduite à une phrase sur
+  la priorité des objectifs.
+
 ## 0.33.0 — Objectifs prioritaires sur les swimlanes par type
 
 - Les tickets des swimlanes RUN, OPS et autres types configurés peuvent rejoindre un objectif,

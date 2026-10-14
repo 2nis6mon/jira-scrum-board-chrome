@@ -50,8 +50,8 @@ type Apply = (
 ) => void;
 
 /**
- * Onglet Board : Build et les swimlanes par type, dans leur ordre sur le board (les objectifs se
- * rangent sur le board lui-même), les types de tickets, puis l'affichage et la daily.
+ * Onglet Board : swimlanes et leurs types, dans leur ordre sur le board (les objectifs se
+ * rangent sur le board lui-même), puis l'affichage et la daily.
  *
  * Tout s'enregistre aussitôt : un glissé dès qu'il est déposé, une case dès qu'elle change, un
  * champ texte quand on le valide (Entrée, ou sortie du champ). Ranger un type change la lecture
@@ -181,104 +181,55 @@ export function BoardSettings({
 
   return (
     <>
-      <div class="settings-columns">
-        <section class="settings-card settings-lanes-card" aria-labelledby="settings-lanes">
-          <header class="settings-card-header">
-            <div class="settings-card-title">
-              <h2 id="settings-lanes">Swimlanes</h2>
-              <p class="settings-help">
-                {buildLabel} et les swimlanes par type, dans leur ordre sur le board. Glissez une
-                swimlane pour la déplacer, glissez un type pour changer son groupe.
-              </p>
-              <p class="settings-help">
-                L'objectif est prioritaire : un ticket rattaché apparaît dans son objectif. Sinon,
-                il rejoint la swimlane par défaut de son type. Un objectif masqué conserve le lien
-                mais affiche le ticket dans sa swimlane par défaut.
-              </p>
-            </div>
-            <button
-              type="button"
-              class="settings-button"
-              disabled={configuration.blockOrder.length === 0}
-              title={`Objectifs dans leur ordre d'arrivée, puis ${buildLabel} et les swimlanes par type`}
-              onClick={() => set(withDefaultBlockOrder)}
-            >
-              <Icon name="reset" size={14} />
-              Réinitialiser l'ordre
-            </button>
-            <button type="button" class="settings-button primary" onClick={openDraft}>
-              <Icon name="plus" size={14} />
-              Nouvelle swimlane
-            </button>
-          </header>
+      <section class="settings-card settings-lanes-card" aria-labelledby="settings-lanes">
+        <header class="settings-card-header">
+          <div class="settings-card-title">
+            <h2 id="settings-lanes">Swimlanes</h2>
+            <p class="settings-help">Les objectifs sont prioritaires sur les swimlanes.</p>
+          </div>
+          <button
+            type="button"
+            class="icon-button settings-icon-button"
+            aria-label="Relire colonnes et types depuis Jira"
+            title="Relire colonnes et types depuis Jira"
+            disabled={board.setupBusy.value}
+            onClick={() => void board.refreshStructure()}
+          >
+            <Icon name="refresh" size={16} />
+          </button>
+          <button
+            type="button"
+            class="settings-button"
+            disabled={configuration.blockOrder.length === 0}
+            title={`Objectifs dans leur ordre d'arrivée, puis ${buildLabel} et les swimlanes par type`}
+            onClick={() => set(withDefaultBlockOrder)}
+          >
+            <Icon name="reset" size={14} />
+            Réinitialiser l'ordre
+          </button>
+          <button type="button" class="settings-button primary" onClick={openDraft}>
+            <Icon name="plus" size={14} />
+            Nouvelle swimlane
+          </button>
+        </header>
 
-          <ol class="settings-lanes">
-            {lanes.map((id) => {
-              const block = parseBlockIdentifier(id);
-              const rowProps = {
-                "data-reorder-row": true,
-                "data-drop": reorder.marker(id),
-              };
-              if (block?.kind === "build") {
-                return (
-                  <li
-                    key={id}
-                    class={`settings-lane settings-lane-build${reorder.dragged === id ? " is-dragging" : ""}`}
-                    {...rowProps}
-                    onDragOver={reorder.over(id)}
-                    onDrop={reorder.drop}
-                  >
-                    <div class="settings-lane-head">
-                      <Grip
-                        label={`Déplacer la swimlane ${buildLabel}`}
-                        onMove={(offset) => shiftLane(id, offset)}
-                        onDragStart={reorder.start(id)}
-                        onDragEnd={reorder.end}
-                      />
-                      <span class="settings-lane-icon settings-lane-icon-build" aria-hidden="true">
-                        <Icon name="build" size={15} />
-                      </span>
-                      <span class="settings-lane-field">
-                        <label class="settings-caption" for="settings-build-label">
-                          Nom de la swimlane par défaut
-                        </label>
-                        <CommitInput
-                          id="settings-build-label"
-                          class="settings-lane-name"
-                          value={configuration.buildSectionLabel}
-                          placeholder={DEFAULT_BUILD_LABEL}
-                          onCommit={(raw) => {
-                            set((current) => withBuildLabel(current, raw));
-                            return null;
-                          }}
-                        />
-                      </span>
-                      {count(id)}
-                      <span class="settings-badge">Sans objectif</span>
-                    </div>
-                    <p class="settings-lane-help">
-                      Reçoit les tickets sans objectif visible dont le type n'a pas de swimlane
-                      dédiée.
-                    </p>
-                  </li>
-                );
-              }
-              const swimlane =
-                block?.kind === "swimlane"
-                  ? configuration.ticketSwimlanes.find((item) => item.id === block.swimlaneId)
-                  : undefined;
-              if (!swimlane) return null;
-              const name = swimlaneName(configuration, swimlane);
-              const zoneId = `swimlane:${swimlane.id}`;
-              const types = typeZone(zoneId, { kind: "swimlane", swimlaneId: swimlane.id });
+        <ol class="settings-lanes">
+          {lanes.map((id) => {
+            const block = parseBlockIdentifier(id);
+            const rowProps = {
+              "data-reorder-row": true,
+              "data-drop": reorder.marker(id),
+            };
+            if (block?.kind === "build") {
+              const types = typeZone("goal", { kind: "goal" });
+              const defaultTypes = byCategory("GOAL");
               return (
                 <li
                   key={id}
                   class={[
-                    "settings-lane settings-lane-swimlane",
-                    swimlane.hidden ? "is-hidden" : "",
+                    "settings-lane settings-lane-build",
                     reorder.dragged === id ? "is-dragging" : "",
-                    zone === zoneId ? "is-type-target" : "",
+                    zone === "goal" ? "is-type-target" : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}
@@ -295,166 +246,190 @@ export function BoardSettings({
                 >
                   <div class="settings-lane-head">
                     <Grip
-                      label={`Déplacer la swimlane ${name}`}
+                      label={`Déplacer la swimlane ${buildLabel}`}
                       onMove={(offset) => shiftLane(id, offset)}
                       onDragStart={reorder.start(id)}
                       onDragEnd={reorder.end}
                     />
-                    <span class="settings-lane-icon" aria-hidden="true">
-                      <Icon name="kanban" size={15} />
+                    <span class="settings-lane-icon settings-lane-icon-build" aria-hidden="true">
+                      <Icon name="build" size={15} />
                     </span>
                     <span class="settings-lane-field">
+                      <label class="settings-caption" for="settings-build-label">
+                        Nom de la swimlane par défaut
+                      </label>
                       <CommitInput
+                        id="settings-build-label"
                         class="settings-lane-name"
-                        label={`Nom de la swimlane ${name}`}
-                        value={swimlane.name}
-                        placeholder={computedSwimlaneName(configuration, swimlane)}
+                        value={configuration.buildSectionLabel}
+                        placeholder={DEFAULT_BUILD_LABEL}
                         onCommit={(raw) => {
-                          set((current) => withSwimlaneName(current, swimlane.id, raw));
+                          set((current) => withBuildLabel(current, raw));
                           return null;
                         }}
                       />
                     </span>
                     {count(id)}
-                    <span class="settings-badge">{swimlane.hidden ? "Masquée" : "Par défaut"}</span>
-                    <Switch
-                      checked={!swimlane.hidden}
-                      label={`Afficher la swimlane ${name}`}
-                      text="Affichée"
-                      onChange={(checked) =>
-                        set((current) => withSwimlaneHidden(current, swimlane.id, !checked))
-                      }
-                    />
+                    <span class="settings-badge settings-badge-default">Default</span>
                   </div>
-                  <p class="settings-lane-help">
-                    Sans objectif visible, les tickets de ces types vont dans {name}. Un ticket
-                    rattaché à un objectif visible y apparaît, même si cette swimlane est masquée.
-                  </p>
-                  <ul class="settings-chips" aria-label={`Types de la swimlane ${name}`}>
-                    {typesOf(swimlane).map(chip)}
-                    {dropSlot(zoneId)}
+                  <ul class="settings-chips" aria-label="Types Default">
+                    {defaultTypes.map(chip)}
+                    {defaultTypes.length === 0 && zone !== "goal" && (
+                      <li class="settings-chips-empty">Aucun type.</li>
+                    )}
+                    {dropSlot("goal")}
                   </ul>
                 </li>
               );
-            })}
-            {draft !== null && (
+            }
+            const swimlane =
+              block?.kind === "swimlane"
+                ? configuration.ticketSwimlanes.find((item) => item.id === block.swimlaneId)
+                : undefined;
+            if (!swimlane) return null;
+            const name = swimlaneName(configuration, swimlane);
+            const zoneId = `swimlane:${swimlane.id}`;
+            const types = typeZone(zoneId, { kind: "swimlane", swimlaneId: swimlane.id });
+            return (
               <li
-                class={`settings-lane settings-lane-draft${zone === "draft" ? " is-type-target" : ""}`}
-                {...typeZone("draft", { kind: "newSwimlane", name: draft })}
+                key={id}
+                class={[
+                  "settings-lane settings-lane-swimlane",
+                  swimlane.hidden ? "is-hidden" : "",
+                  reorder.dragged === id ? "is-dragging" : "",
+                  zone === zoneId ? "is-type-target" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                {...rowProps}
+                onDragOver={(event) => {
+                  reorder.over(id)(event);
+                  types.onDragOver(event);
+                }}
+                onDragLeave={types.onDragLeave}
+                onDrop={(event) => {
+                  reorder.drop(event);
+                  types.onDrop(event);
+                }}
               >
                 <div class="settings-lane-head">
+                  <Grip
+                    label={`Déplacer la swimlane ${name}`}
+                    onMove={(offset) => shiftLane(id, offset)}
+                    onDragStart={reorder.start(id)}
+                    onDragEnd={reorder.end}
+                  />
                   <span class="settings-lane-icon" aria-hidden="true">
                     <Icon name="kanban" size={15} />
                   </span>
                   <span class="settings-lane-field">
-                    <label class="settings-caption" for="settings-new-swimlane">
-                      Nom de la nouvelle swimlane
-                    </label>
-                    <input
-                      id="settings-new-swimlane"
-                      type="text"
+                    <CommitInput
                       class="settings-lane-name"
-                      placeholder="ex. Support"
-                      value={draft}
-                      onInput={(event) => setDraft(event.currentTarget.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") setDraft(null);
+                      label={`Nom de la swimlane ${name}`}
+                      value={swimlane.name}
+                      placeholder={computedSwimlaneName(configuration, swimlane)}
+                      onCommit={(raw) => {
+                        set((current) => withSwimlaneName(current, swimlane.id, raw));
+                        return null;
                       }}
                     />
                   </span>
-                  <button type="button" class="settings-button" onClick={() => setDraft(null)}>
-                    Annuler
-                  </button>
+                  {count(id)}
+                  {swimlane.hidden && <span class="settings-badge">Masquée</span>}
+                  <Switch
+                    checked={!swimlane.hidden}
+                    label={`Afficher la swimlane ${name}`}
+                    text="Affichée"
+                    onChange={(checked) =>
+                      set((current) => withSwimlaneHidden(current, swimlane.id, !checked))
+                    }
+                  />
                 </div>
-                <div class="settings-draft-drop">
-                  <span>Glissez un premier type ici, ou choisissez-le :</span>
-                  <select
-                    aria-label="Premier type de la nouvelle swimlane"
-                    value=""
-                    onChange={(event) => {
-                      const typeId = event.currentTarget.value;
-                      if (!typeId) return;
-                      moveType(typeId, { kind: "newSwimlane", name: draft });
-                      setDraft(null);
-                    }}
-                  >
-                    <option value="">Choisir un type…</option>
-                    {configuration.issueTypes.map((type) => (
-                      <option key={type.id} value={type.id}>
-                        {type.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <p class="settings-lane-help">
-                  La swimlane est créée avec son premier type ; elle disparaît avec son dernier.
-                </p>
+                <ul class="settings-chips" aria-label={`Types de la swimlane ${name}`}>
+                  {typesOf(swimlane).map(chip)}
+                  {dropSlot(zoneId)}
+                </ul>
               </li>
-            )}
-          </ol>
-
-          <div
-            class={`settings-new-lane${zone === "new" ? " is-type-target" : ""}`}
-            {...typeZone("new", { kind: "newSwimlane" })}
-          >
-            <button type="button" class="settings-new-lane-button" onClick={openDraft}>
-              <Icon name="plus" size={15} />
-              <span>
-                <strong>Nouvelle swimlane</strong> : cliquez, ou déposez un type ici
-              </span>
-            </button>
-          </div>
-        </section>
-
-        <section class="settings-card settings-types-card" aria-labelledby="settings-types">
-          <header class="settings-card-header">
-            <div class="settings-card-title">
-              <h2 id="settings-types">Types de tickets</h2>
-              <p class="settings-help">
-                Choisissez où afficher chaque type sans objectif. Glissez-le vers une swimlane, ou
-                utilisez son menu. Le rattachement à un objectif reste possible dans tous les
-                groupes, sauf « Ignorés ».
-              </p>
-            </div>
-            <button
-              type="button"
-              class="icon-button settings-icon-button"
-              aria-label="Relire colonnes et types depuis Jira"
-              title="Relire colonnes et types depuis Jira : recense aussi les types du backlog et des anciens tickets"
-              disabled={board.setupBusy.value}
-              onClick={() => void board.refreshStructure()}
+            );
+          })}
+          {draft !== null && (
+            <li
+              class={`settings-lane settings-lane-draft${zone === "draft" ? " is-type-target" : ""}`}
+              {...typeZone("draft", { kind: "newSwimlane", name: draft })}
             >
-              <Icon name="refresh" size={16} />
-            </button>
-          </header>
-          {configuration.issueTypes.length === 0 ? (
-            <p class="settings-help">Aucun type de ticket trouvé sur ce board.</p>
-          ) : (
-            <>
-              <TypeGroup
-                title={`${buildLabel} par défaut`}
-                icon="build"
-                help={`Sans objectif visible : ${buildLabel}. Avec un objectif : dans cet objectif.`}
-                types={byCategory("GOAL")}
-                target={zone === "goal"}
-                zone={typeZone("goal", { kind: "goal" })}
-                chip={chip}
-                slot={dropSlot("goal")}
-              />
-              <TypeGroup
-                title="Ignorés"
-                icon="eyeOff"
-                help="Jamais affichés sur le board, même rattachés à un objectif."
-                types={byCategory("IGNORED")}
-                target={zone === "ignored"}
-                zone={typeZone("ignored", { kind: "ignored" })}
-                chip={chip}
-                slot={dropSlot("ignored")}
-              />
-            </>
+              <div class="settings-lane-head">
+                <span class="settings-lane-icon" aria-hidden="true">
+                  <Icon name="kanban" size={15} />
+                </span>
+                <span class="settings-lane-field">
+                  <label class="settings-caption" for="settings-new-swimlane">
+                    Nom de la nouvelle swimlane
+                  </label>
+                  <input
+                    id="settings-new-swimlane"
+                    type="text"
+                    class="settings-lane-name"
+                    placeholder="ex. Support"
+                    value={draft}
+                    onInput={(event) => setDraft(event.currentTarget.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") setDraft(null);
+                    }}
+                  />
+                </span>
+                <button type="button" class="settings-button" onClick={() => setDraft(null)}>
+                  Annuler
+                </button>
+              </div>
+              <div class="settings-draft-drop">
+                <span>Glissez un premier type ici, ou choisissez-le :</span>
+                <select
+                  aria-label="Premier type de la nouvelle swimlane"
+                  value=""
+                  onChange={(event) => {
+                    const typeId = event.currentTarget.value;
+                    if (!typeId) return;
+                    moveType(typeId, { kind: "newSwimlane", name: draft });
+                    setDraft(null);
+                  }}
+                >
+                  <option value="">Choisir un type…</option>
+                  {configuration.issueTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p class="settings-lane-help">
+                La swimlane est créée avec son premier type ; elle disparaît avec son dernier.
+              </p>
+            </li>
           )}
-        </section>
-      </div>
+        </ol>
+
+        <div
+          class={`settings-new-lane${zone === "new" ? " is-type-target" : ""}`}
+          {...typeZone("new", { kind: "newSwimlane" })}
+        >
+          <button type="button" class="settings-new-lane-button" onClick={openDraft}>
+            <Icon name="plus" size={15} />
+            <span>
+              <strong>Nouvelle swimlane</strong> : cliquez, ou déposez un type ici
+            </span>
+          </button>
+        </div>
+        <TypeGroup
+          title="Ignorés"
+          icon="eyeOff"
+          help="Toujours exclus du board."
+          types={byCategory("IGNORED")}
+          target={zone === "ignored"}
+          zone={typeZone("ignored", { kind: "ignored" })}
+          chip={chip}
+          slot={dropSlot("ignored")}
+        />
+      </section>
 
       <section class="settings-card" aria-labelledby="settings-display">
         <header class="settings-card-header">
@@ -524,7 +499,7 @@ export function BoardSettings({
   );
 }
 
-/** Groupe de types du panneau de droite : Build par défaut, ou ignorés. Il reçoit les types glissés. */
+/** Types exclus du board ; la zone reçoit aussi les types glissés. */
 function TypeGroup(props: {
   title: string;
   icon: "build" | "eyeOff";
@@ -571,11 +546,11 @@ function TypeChip(props: {
   const { type, configuration } = props;
   const destinations: { label: string; destination: TypeDestination }[] = [
     {
-      label: `${configuration.buildSectionLabel || DEFAULT_BUILD_LABEL} par défaut`,
+      label: "Default",
       destination: { kind: "goal" },
     },
     ...configuration.ticketSwimlanes.map((swimlane) => ({
-      label: `${swimlaneName(configuration, swimlane)} par défaut`,
+      label: swimlaneName(configuration, swimlane),
       destination: { kind: "swimlane", swimlaneId: swimlane.id } as const,
     })),
     { label: "Nouvelle swimlane", destination: { kind: "newSwimlane" } },
@@ -605,7 +580,11 @@ function TypeChip(props: {
             const current = isTypeIn(configuration, type.id, destination);
             return (
               <button
-                key={label}
+                key={
+                  destination.kind === "swimlane"
+                    ? `swimlane:${destination.swimlaneId}`
+                    : destination.kind
+                }
                 type="button"
                 aria-current={current ? "true" : undefined}
                 disabled={current}
