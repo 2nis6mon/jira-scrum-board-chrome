@@ -142,12 +142,12 @@ describe("barre latérale", () => {
     const nav = [...(sidebar?.querySelectorAll(".sidebar-nav .sidebar-nav-item") ?? [])].map(
       (item) => [item.textContent, item.getAttribute("aria-current")],
     );
-    // Les réglages restent accessibles dans l'en-tête et le menu du board.
+    // Les réglages restent accessibles dans le menu du board.
     expect(nav).toEqual([
       ["Sprint", "page"],
       ["Sprint Planning", null],
     ]);
-    expect(document.querySelector("button.settings-open")).not.toBeNull();
+    expect(document.querySelector("button.settings-open")).toBeNull();
     expect(document.querySelector(".menu-settings")).not.toBeNull();
     const site = sidebar?.querySelector(".sidebar-site-toggle");
     expect(site?.textContent).toBe("Site Jiraacme.atlassian.net");

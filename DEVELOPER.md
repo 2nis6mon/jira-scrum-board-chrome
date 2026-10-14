@@ -132,7 +132,7 @@ copie, historique, fermeture et format étroit, avec captures dans `.vite/`.
   retire l'entrée Diagnostic du menu « Site Jira » (site et déconnexion restent).
 - Réglages du board ([`settings/`](src/app/views/settings/SettingsView.tsx), 0.31.0) : vue
   `settings` à onglets Board, Objectifs, Champs et Couleurs des cartes, ouverte depuis le board
-  (en-tête, menu du board, menu ⋯ d'une swimlane) ; le pied de barre « Site Jira »
+  (menu du board, menu ⋯ d'une swimlane) ; le pied de barre « Site Jira »
   garde diagnostic et déconnexion. Glisser-déposer HTML5 à types de données propres
   (`application/x-sprint-goals-settings-*`), sans effet sur les glissés du board, avec un équivalent
   clavier ou menu pour chaque geste ; `verify:settings` les rejoue dans Chromium. La liste des

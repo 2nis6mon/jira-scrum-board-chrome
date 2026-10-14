@@ -425,7 +425,7 @@ progress::-webkit-progress-value {
   flex-direction: column;
   gap: 2px;
   min-width: 180px;
-  margin-right: auto;
+  max-width: 100%;
 }
 
 .sprint-name {
@@ -437,6 +437,7 @@ progress::-webkit-progress-value {
 .sprint-title h2 {
   font-size: 19px;
   font-weight: 650;
+  overflow-wrap: anywhere;
 }
 
 .sprint-active {
@@ -458,8 +459,10 @@ progress::-webkit-progress-value {
 }
 
 .sprint-metrics {
+  flex: 1;
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-wrap: wrap;
   gap: 10px 22px;
 }
@@ -520,6 +523,7 @@ progress::-webkit-progress-value {
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-left: auto;
 }
 
 .sync-status {
@@ -2385,26 +2389,7 @@ details.board-switcher .menu-panel {
   gap: 6px;
 }
 
-/* Réglages du board : bouton de l'en-tête, entrées des menus du board et des swimlanes. */
-.settings-open {
-  height: 30px;
-  margin-left: 6px;
-  padding: 0 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border-radius: 7px;
-  color: var(--ink-2);
-  font-weight: 500;
-  --icon-color: var(--in-progress);
-}
-
-.settings-open:hover:not(:disabled) {
-  border-color: var(--in-progress);
-  background: #f5f8ff;
-  color: var(--ink);
-}
-
+/* Réglages du board : entrées des menus du board et des swimlanes. */
 .menu-panel > .menu-settings {
   display: flex;
   align-items: center;
@@ -3053,10 +3038,10 @@ details.lane-menu:not([data-placed]) .menu-panel {
   color: #326348;
 }
 
-/* Lancement de la daily : bouton plein, icône et texte, en tête des actions de l'en-tête. */
+/* Lancement de la daily : bouton plein, icône et texte, à droite des actions de l'en-tête. */
 .daily-start {
   height: 30px;
-  margin-right: 8px;
+  margin-left: 6px;
   display: inline-flex;
   align-items: center;
   gap: 6px;

@@ -3,6 +3,12 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.32.2 — En-tête recentré
+
+- Retrait du bouton Réglages de l'en-tête ; accès conservé dans les menus du board et des swimlanes.
+- Bouton Daily déplacé à droite des actions ; progression et objectifs atteints centrés entre
+  le titre du sprint et les boutons.
+
 ## 0.32.1 — Sprint Planning réservé aux essais locaux
 
 - Feature flag fixé à la compilation : Sprint Planning actif dans `dist/` via `build` ou `watch`,

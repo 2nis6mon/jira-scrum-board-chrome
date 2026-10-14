@@ -88,10 +88,12 @@ function navButton(label: string): HTMLButtonElement {
   return found;
 }
 
-/** Ouvre les réglages du board par le bouton de l'en-tête du board. */
+/** Ouvre les réglages depuis le menu du nom du board. */
 async function openSettings() {
-  const open = document.querySelector<HTMLButtonElement>("button.settings-open");
-  if (!open) throw new Error("bouton « Réglages » de l'en-tête attendu");
+  document.querySelector<HTMLElement>(".board-switcher-summary")?.click();
+  await tick();
+  const open = document.querySelector<HTMLButtonElement>(".board-switcher .menu-settings");
+  if (!open) throw new Error("entrée « Réglages de ce board » attendue");
   open.click();
   await tick();
 }
@@ -155,7 +157,7 @@ describe("App", () => {
     expect(document.querySelector("h2")?.textContent).toBe("Quel board afficher ?");
     expect(document.querySelector(".board-switcher-button")?.textContent).toBe("Choisir un board");
     // Sans board, pas de réglages de board.
-    expect(document.querySelector("button.settings-open")).toBeNull();
+    expect(document.querySelector(".menu-settings")).toBeNull();
     expect(text()).not.toContain("Réglages");
 
     button("Site Jira").click();

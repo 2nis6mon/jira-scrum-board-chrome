@@ -345,25 +345,6 @@ function SprintHeader(props: {
       )}
 
       <div class="sprint-actions">
-        {hasScope && (
-          <button
-            type="button"
-            class="primary daily-start"
-            aria-label="Lancer la daily"
-            title={`Daily : plein écran, une swimlane à la fois, minuteur de ${configuration.dailyMinutes} min`}
-            onClick={() => {
-              // Le plein écran exige le geste de l'utilisateur : demandé avant tout le reste. Refusé
-              // (cadre sans droit, navigateur), la daily se déroule simplement dans la fenêtre.
-              requestFullscreen();
-              const layout = board.layout.value;
-              const first = layout ? (dailySteps(layout.lanes)[0]?.id ?? null) : null;
-              controls.onStartDaily(configuration.dailyMinutes, first);
-            }}
-          >
-            <Icon name="play" size={15} />
-            Daily
-          </button>
-        )}
         <span class="sync-status" aria-live="polite">
           {board.syncing.value
             ? "Actualisation…"
@@ -408,15 +389,23 @@ function SprintHeader(props: {
         >
           <Icon name="present" size={17} />
         </button>
-        {controls.onShowSettings && (
+        {hasScope && (
           <button
             type="button"
-            class="settings-open"
-            title="Réglages de ce board : swimlanes, objectifs, champs et couleurs des cartes, partagés avec l'équipe"
-            onClick={() => controls.onShowSettings?.()}
+            class="primary daily-start"
+            aria-label="Lancer la daily"
+            title={`Daily : plein écran, une swimlane à la fois, minuteur de ${configuration.dailyMinutes} min`}
+            onClick={() => {
+              // Le plein écran exige le geste de l'utilisateur : demandé avant tout le reste. Refusé
+              // (cadre sans droit, navigateur), la daily se déroule simplement dans la fenêtre.
+              requestFullscreen();
+              const layout = board.layout.value;
+              const first = layout ? (dailySteps(layout.lanes)[0]?.id ?? null) : null;
+              controls.onStartDaily(configuration.dailyMinutes, first);
+            }}
           >
-            <Icon name="sliders" size={16} />
-            Réglages
+            <Icon name="play" size={15} />
+            Daily
           </button>
         )}
       </div>

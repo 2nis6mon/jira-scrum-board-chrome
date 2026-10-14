@@ -122,8 +122,7 @@ Jira contrôle les droits de modification du sprint et d'ajout des tickets.
 
 ## Réglages du board et partage
 
-Chaque board a ses réglages, ouverts depuis le board lui-même : bouton **Réglages** de l'en-tête,
-**Réglages de ce board** dans le menu du nom du board,
+Chaque board a ses réglages, ouverts depuis **Réglages de ce board** dans le menu du nom du board,
 ou **Configurer les swimlanes…** / **Gérer les objectifs…** dans le menu ⋯ d'une swimlane.
 Ils remplacent le board dans la page ; **Retour au board** y ramène. Ils sont enregistrés dans
 Jira pour toute l'équipe et exigent le droit de modifier le board : sans ce droit, ils
@@ -162,7 +161,7 @@ restent locales. Un calcul automatique ne publie pas de réglage dans Jira.
 
 ![Mode Daily](store/captures/04-daily.png)
 
-**▶ Daily** lance le plein écran, une swimlane à la fois, avec minuteur. Il devient orange dans
+**▶ Daily**, à droite de l'en-tête, lance le plein écran, une swimlane à la fois, avec minuteur. Il devient orange dans
 les deux dernières minutes, puis rouge en dépassement. **Précédent / Suivant** ou les flèches
 ← → changent de swimlane ; Espace met en pause, **Terminer** quitte la Daily.
 Échap sort d'abord du plein écran sans arrêter la Daily ; hors plein écran, il la termine.
