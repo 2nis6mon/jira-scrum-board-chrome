@@ -9,7 +9,9 @@
 //                            board-chargement|board-planning|connexion|recherche-board|
 //                            board-reglages[&onglet=board|goals|cardFields|cardColors]
 import { render } from "preact";
+import packageDocument from "../../package.json?raw";
 import { App } from "../../src/app/App";
+import { SPRINT_PLANNING_ENABLED } from "../../src/app/featureFlags";
 import { AppModel } from "../../src/app/model/AppModel";
 import "../../src/app/styles/app.css";
 import { LoadDiagnosticsView } from "../../src/app/views/LoadDiagnosticsView";
@@ -586,7 +588,11 @@ if (scenario.startsWith("board")) {
   }
   const planning = scenario === "board-planning" ? planningFixture(jira) : null;
   let planningReady = false;
-  const platform = fakePlatform(jira);
+  const platform = {
+    ...fakePlatform(jira),
+    // Le banc affiche la version réellement construite, sans modifier ensuite son rendu.
+    extensionVersion: (JSON.parse(packageDocument) as { version: string }).version,
+  };
   if (planning) {
     // Simule le stockage Chrome après un rechargement, uniquement dans le profil de test vierge.
     const storageKey = "harness-planning-store";
@@ -624,6 +630,22 @@ if (scenario.startsWith("board")) {
         }
       : platform,
   );
+  // Preuves de la capture : état compilé et véritable point d'entrée du modèle, en lecture seule
+  // dans le mode package. Cette sonde reste dans le banc fictif, absent de la distribution.
+  Object.assign(window, {
+    __storeCapture: {
+      ready: () => planningReady,
+      inspect: () => ({
+        version: model.extensionVersion,
+        planningEnabled: SPRINT_PLANNING_ENABLED,
+        view: model.view.value,
+      }),
+      canOpenPlanning() {
+        model.showPlanning();
+        return model.view.value === "planning";
+      },
+    },
+  });
   if (planning) {
     // Garde-fous du paquet : appels réels du modèle avec un brouillon déjà dans le stockage.
     Object.assign(window, {

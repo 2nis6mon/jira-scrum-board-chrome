@@ -50,3 +50,7 @@ Pour développer : `npm run check` vérifie et compile ; `npm run watch` reconst
 Les configurations IntelliJ sont dans `.run/` ; les autres commandes sont dans le guide développeur.
 `npm run package` construit séparément le ZIP de distribution avec Sprint Planning désactivé,
 sans modifier votre `dist/` local. Ce choix est fixé à la compilation, sans option dans Chrome.
+Pour préparer une publication Chrome Web Store, suivre la [fiche de publication](docs/store/fiche.md) :
+elle réunit les textes, permissions, captures et étapes de soumission. `npm run store:screenshots`
+renouvelle les cinq captures avec les fonctions du mode `package`, sur des données fictives.
+Le ZIP et les captures préparés ici ne sont pas envoyés automatiquement au Store.

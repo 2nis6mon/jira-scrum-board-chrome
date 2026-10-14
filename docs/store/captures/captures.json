@@ -1,0 +1,153 @@
+{
+  "version": "0.34.5",
+  "generatedAt": "2026-10-14T12:51:04.874Z",
+  "source": "Interface réelle sur données fictives dans le banc d'essai local, contexte Jira simulé",
+  "build": {
+    "mode": "package",
+    "production": true,
+    "sprintPlanningEnabled": false,
+    "distributionZipLoaded": false
+  },
+  "browser": "Chrome/154.0.8037.98",
+  "captures": [
+    {
+      "file": "01-board.png",
+      "width": 1280,
+      "height": 800,
+      "format": "PNG RGB 24 bits, opaque",
+      "bytes": 97469,
+      "sha256": "d355fab9d55812749458e2923bfc75b78cf2134138b18b7f2801f85984325f15",
+      "scenario": "Board Scrum avec objectifs et sous-tâches",
+      "proof": {
+        "version": "0.34.5",
+        "planningEnabled": false,
+        "view": "board",
+        "canOpenPlanning": false,
+        "viewUnchanged": true,
+        "planningNavigationAbsent": true,
+        "planningViewAbsent": true,
+        "versionDisplayed": "0.34.5",
+        "dailyImmersive": false,
+        "finishDailyVisible": false,
+        "returnJiraVisible": true,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    },
+    {
+      "file": "02-kanban.png",
+      "width": 1280,
+      "height": 800,
+      "format": "PNG RGB 24 bits, opaque",
+      "bytes": 84512,
+      "sha256": "ded37133b22299c804accf9ca9de1aa3d0e3811e6b9262ae1427dbcf7ee68bba",
+      "scenario": "Board Kanban avec objectifs, Build, RUN et OPS",
+      "proof": {
+        "version": "0.34.5",
+        "planningEnabled": false,
+        "view": "board",
+        "canOpenPlanning": false,
+        "viewUnchanged": true,
+        "planningNavigationAbsent": true,
+        "planningViewAbsent": true,
+        "versionDisplayed": "0.34.5",
+        "dailyImmersive": false,
+        "finishDailyVisible": false,
+        "returnJiraVisible": true,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    },
+    {
+      "file": "03-swimlanes.png",
+      "width": 1280,
+      "height": 800,
+      "format": "PNG RGB 24 bits, opaque",
+      "bytes": 74645,
+      "sha256": "44dfdaf98720aa96584b0e15584d24e06b2b1709f57e7b3697ab6ea0bbb556e5",
+      "scenario": "Réglages des swimlanes par types de tickets",
+      "proof": {
+        "version": "0.34.5",
+        "planningEnabled": false,
+        "view": "settings",
+        "canOpenPlanning": false,
+        "viewUnchanged": true,
+        "planningNavigationAbsent": true,
+        "planningViewAbsent": true,
+        "versionDisplayed": "0.34.5",
+        "dailyImmersive": false,
+        "finishDailyVisible": false,
+        "returnJiraVisible": true,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    },
+    {
+      "file": "04-couleurs.png",
+      "width": 1280,
+      "height": 800,
+      "format": "PNG RGB 24 bits, opaque",
+      "bytes": 109998,
+      "sha256": "d600a5bbd7fcd1138c43f0296dc9d4feb1e75d04972050569c89afba8af78fe2",
+      "scenario": "Couleurs des cartes : règles JQL et aperçu",
+      "proof": {
+        "version": "0.34.5",
+        "planningEnabled": false,
+        "view": "settings",
+        "canOpenPlanning": false,
+        "viewUnchanged": true,
+        "planningNavigationAbsent": true,
+        "planningViewAbsent": true,
+        "versionDisplayed": "0.34.5",
+        "dailyImmersive": false,
+        "finishDailyVisible": false,
+        "returnJiraVisible": true,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    },
+    {
+      "file": "05-daily.png",
+      "width": 1280,
+      "height": 800,
+      "format": "PNG RGB 24 bits, opaque",
+      "bytes": 84458,
+      "sha256": "4fcca5c771d7af1c44c34918adb41af4ed27653921e32e336692196757f37e82",
+      "scenario": "Daily guidée par objectifs, minuteur en pause",
+      "proof": {
+        "version": "0.34.5",
+        "planningEnabled": false,
+        "view": "board",
+        "canOpenPlanning": false,
+        "viewUnchanged": true,
+        "planningNavigationAbsent": true,
+        "planningViewAbsent": true,
+        "versionDisplayed": null,
+        "dailyImmersive": true,
+        "finishDailyVisible": true,
+        "returnJiraVisible": false,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    }
+  ],
+  "promotion": {
+    "file": "../promo-440x280.png",
+    "width": 440,
+    "height": 280,
+    "format": "PNG RGB 24 bits, opaque",
+    "bytes": 48744,
+    "sha256": "b3384c421eab7f187baa767882a2a9c003059d5358a1feea2daadf46cdc9f5c6",
+    "source": "Composition HTML/CSS : icône du produit et aperçu de 01-board.png"
+  }
+}

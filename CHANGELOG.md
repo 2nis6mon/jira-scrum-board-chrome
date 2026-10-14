@@ -3,6 +3,16 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.34.5 — Préparation de la publication Chrome Web Store
+
+- Fiche de publication, procédure de livraison et informations de confidentialité actualisées
+  pour les fonctions réellement disponibles dans le paquet distribué.
+- Captures Scrum, Kanban, swimlanes, couleurs et Daily renouvelées sur des données fictives,
+  avec Sprint Planning désactivé à la compilation et son absence contrôlée avant chaque capture.
+- Vignette promotionnelle 440 × 280 ajoutée pour la fiche Store.
+- Génération des captures adaptée à Windows, macOS et Linux ; version affichée fournie au
+  démarrage du banc et métadonnées des images conservées pour la préparation de la soumission.
+
 ## 0.34.4 — Défilement natif des formulaires de transition
 
 - Fenêtres de transition conservées dans leur disposition Jira : dimensions, en-tête,

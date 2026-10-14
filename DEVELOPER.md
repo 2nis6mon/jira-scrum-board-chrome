@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.34.2**, 14 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.34.5**, 14 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -427,7 +427,7 @@ Ce flag ne provient ni de `.env`, ni d'un paramètre d'URL, ni d'une préférenc
 | `npm run verify:planning:package` | Passage du mode local au mode package : entrée/route désactivées, zéro requête Planning, brouillon conservé |
 | `npm run verify:loading` | Diagnostic de chargement du banc fictif |
 | `npm run package` | Archive `release/sprint-goals-board-<version>.zip` vérifiée |
-| `npm run store:screenshots` | Captures fictives du Store |
+| `npm run store:screenshots` | Cinq captures Store 1280 × 800 du banc en mode `package`, sans Sprint Planning |
 
 Les vérifications navigateur interceptent Jira dans un profil temporaire vierge ; `CHROME_PATH`
 choisit l'exécutable. `verify:button` autorise deux hôtes fictifs dans une copie temporaire du paquet,
@@ -459,9 +459,30 @@ et des non-suivis ; versions `package.json`, `package-lock.json`, `public/manife
 documentation et changelog à jour. `dist/`, `release/`, profils, cookies, captures Jira et clé privée
 `.secrets/extension-key.pem` hors Git. Le paquet Store retire la clé publique de développement
 (identifiant potentiellement différent) et refuse secrets, sources de tests et source maps.
-Fiche : [docs/store/fiche.md](docs/store/fiche.md). Politique : [docs/privacy/index.html](docs/privacy/index.html),
+
+### Préparer la publication Chrome Web Store
+
+La [fiche de publication](docs/store/fiche.md) rassemble les textes du Store, les justificatifs
+de permissions, les étapes de soumission et les cinq images à utiliser. Livrer exclusivement
+`release/sprint-goals-board-<version>.zip`, produit par `npm run package` : ne jamais zipper `dist/`,
+qui conserve le Sprint Planning expérimental. `npm run verify:planning:package` contrôle le mode
+désactivé : entrée absente, ouverture forcée neutralisée, aucune lecture ni publication Planning.
+
+`npm run store:screenshots` utilise l'interface réelle du banc avec des données fictives et le mode
+`package`, dans un navigateur temporaire vierge (`CHROME_PATH` facultatif). Les PNG sont générés
+dans `docs/store/captures/`, à 1280 × 800 ; leur version, les contrôles et leurs empreintes sont consignés
+dans [captures.json](docs/store/captures/captures.json). Le script vérifie l'absence du planning avant de capturer ; aucun masquage graphique
+ne remplace le feature flag. Vérifier visuellement chaque image après génération, puis joindre au
+Store uniquement les cinq PNG référencés dans la fiche. Ces images illustrent les composants du
+produit sur le banc, sans utiliser de session Jira réelle ; elles ne constituent pas un essai sur
+un workflow client.
+Le même script prépare `docs/store/promo-440x280.png`, l'image promotionnelle distincte des captures.
+L'icône 128 × 128 provient de `public/icons/icon-128.png`.
+
+Politique : [docs/privacy/index.html](docs/privacy/index.html),
 à recopier si modifiée dans `2nis6mon/sprint-goals-privacy` publié via GitHub Pages.
-Préparer une archive ne la publie pas sur le Store.
+Vérifier que l'URL publique présente bien la version relue avant la soumission. Préparer une archive,
+des textes ou des captures ne les publie pas sur le Store ; la soumission reste une action distincte.
 
 <a id="travaux-restants"></a>
 ## Travaux restants
@@ -476,7 +497,7 @@ Préparer une archive ne la publie pas sur le Store.
 - [ ] Routes des boards gérés par l'équipe, changement de board et placement du bouton sur les dispositions Jira.
 - [ ] Étudier les lectures Software « enhanced » avant de remplacer les endpoints Agile ; préserver filtre, sprints et pagination.
 - [ ] Confirmer publication et canal de mise à jour ; fiche, empaquetage et politique existent.
-- [ ] Actualiser captures Store/manuel à la prochaine évolution visuelle ; revue de sécurité indépendante avant diffusion large.
+- [ ] Renouveler les captures Store après chaque évolution visuelle ; revue de sécurité indépendante avant diffusion large.
 
 ### Pistes produit à décider
 

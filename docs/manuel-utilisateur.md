@@ -2,10 +2,13 @@
 
 Extension Chrome pour les boards Scrum et Kanban de Jira Cloud (`*.atlassian.net`).
 Elle affiche objectifs, Build et swimlanes par type dans la page Jira, avec votre session habituelle.
-Les captures proviennent de la version Scrum 0.22.7, sauf celle des réglages (0.31.0) ; certains
-libellés ont évolué.
+Les captures montrent la version 0.34.5 avec des données fictives et les fonctions du paquet
+distribué. **Sprint Planning est réservé au `dist/` local et absent de la version Chrome Web Store.**
 
 ## Installer et mettre à jour
+
+Si vous installez l'extension depuis sa fiche Chrome Web Store, Chrome gère ses mises à jour.
+Les étapes ci-dessous concernent une installation manuelle depuis un dossier ou une archive.
 
 ### Installation depuis un dossier ou une archive
 
@@ -79,8 +82,6 @@ Sprint Goals ; sans lui, Jira garde son affichage habituel. La vue ne s'ouvre pa
 - **Informations flottantes** : la croix ferme l'information pour ce board, y compris après
   rechargement. Ce choix est personnel.
 
-![Story et sous-tâches au survol](store/captures/02-famille.png)
-
 ### Scrum
 
 Les tickets de tous les sprints actifs sont réunis sans doublon. Le premier sprint par date de
@@ -98,15 +99,18 @@ Le périmètre suit le filtre et le sous-filtre du board, dans les statuts de se
 Il n'y a ni sprint, ni dates de sprint, ni filtre « ajouté en cours de sprint ».
 Les objectifs viennent des **Goals Atlassian** liés aux tickets et de ceux épinglés au board.
 
+![Board Kanban organisé par objectifs](store/captures/02-kanban.png)
+
 Un échec de lecture des Goals signale une synchronisation impossible ; les tickets ne sont pas
 reclassés automatiquement dans Build. Si le lien Goal → tickets n'est pas disponible, le champ
 Goals des tickets peut servir de repli. S'il n'est pas identifié, relisez la structure (voir Support).
 La lecture est limitée à **5 000 tickets** : au-delà, elle est refusée ; réduisez le filtre du board.
 
-## Préparer le Sprint Planning
+## Préparer le Sprint Planning — version locale uniquement
 
 Fonction expérimentale réservée à l'installation locale depuis `dist/` (`npm run build` ou
-`npm run watch`). Elle est désactivée dans la version packagée ; aucune option ne l'y active.
+`npm run watch`). Elle est désactivée dans le ZIP de distribution et sur le Chrome Web Store ;
+aucune option ne l'y active.
 
 Sur un board Scrum, ouvrez **Sprint Planning** dans la barre latérale et choisissez un sprint futur.
 S'il n'en existe pas, créez-le dans Jira puis cliquez sur **Actualiser**. Les objectifs viennent
@@ -140,7 +144,7 @@ Ils remplacent le board dans la page ; **Retour au board** y ramène. Ils sont e
 Jira pour toute l'équipe et exigent le droit de modifier le board : sans ce droit, ils
 n'apparaissent pas. L'en-tête indique qui les a enregistrés en dernier, et quand.
 
-![Réglages des objectifs](store/captures/03-objectifs.png)
+![Réglages des swimlanes et affectation des types](store/captures/03-swimlanes.png)
 
 - **Swimlanes** (onglet Board) : les types sans swimlane dédiée sont réunis dans **Default**,
   la ligne Build dont le nom reste personnalisable. Glissez un type vers une swimlane, ou
@@ -166,6 +170,8 @@ Une requête valide sans résultat reste acceptée. Si Jira ne répond pas ou re
 le brouillon est conservé. Un changement concurrent des règles bloque l'application : copiez votre
 brouillon puis choisissez **Annuler** pour recharger les réglages de Jira.
 
+![Couleurs des cartes et validation JQL](store/captures/04-couleurs.png)
+
 Au clavier, une poignée déplace sa ligne avec les flèches haut et bas ; les onglets se parcourent
 avec les flèches gauche et droite.
 
@@ -177,7 +183,7 @@ restent locales. Un calcul automatique ne publie pas de réglage dans Jira.
 
 ## Daily et présentation
 
-![Mode Daily](store/captures/04-daily.png)
+![Mode Daily](store/captures/05-daily.png)
 
 **▶ Daily**, à droite de l'en-tête, lance le plein écran, une swimlane à la fois, avec minuteur. Il devient orange dans
 les deux dernières minutes, puis rouge en dépassement. **Précédent / Suivant** ou les flèches
@@ -185,8 +191,6 @@ les deux dernières minutes, puis rouge en dépassement. **Précédent / Suivant
 Échap sort d'abord du plein écran sans arrêter la Daily ; hors plein écran, il la termine.
 La première colonne montre trois cartes par défaut ; **+ N autres** déplie ce groupe seul.
 Les cartes restent déplaçables pendant la réunion.
-
-![Mode présentation](store/captures/05-presentation.png)
 
 Le bouton chevalet de l'en-tête ouvre le **mode présentation** : board agrandi en plein écran,
 sans barre latérale, en-tête ni panneau de santé. **Quitter** ou Échap retrouve la vue normale.
