@@ -3,6 +3,16 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.34.6 — Manuel utilisateur complet
+
+- Manuel réécrit à partir des fonctions de `main` 0.34.5 : installation Store ou locale,
+  autorisation du site, ajout d'un board depuis Jira ou l'extension, utilisation et administration.
+- Parcours détaillés pour les quatre onglets de réglages, avec les modalités d'enregistrement,
+  les droits et la distinction entre préférences personnelles et réglages partagés.
+- Précisions sur les sous-tâches, filtres, objectifs, aperçu JQL, Daily et diagnostic ; cinq
+  captures conservées et Sprint Planning isolé dans une annexe réservée à la version locale.
+- Aucun changement du comportement de l'extension.
+
 ## 0.34.5 — Préparation de la publication Chrome Web Store
 
 - Fiche de publication, procédure de livraison et informations de confidentialité actualisées

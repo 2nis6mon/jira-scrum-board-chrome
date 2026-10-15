@@ -39,7 +39,7 @@ automatiquement. Les limites et les réglages sont décrits dans le manuel.
 
 | Document | Pour quoi faire |
 |---|---|
-| [Manuel utilisateur](docs/manuel-utilisateur.md) | Installer, utiliser et régler le board |
+| [Manuel utilisateur](docs/manuel-utilisateur.md) | Installer, autoriser Jira, ajouter un board depuis Jira ou l'extension, utiliser et administrer le board |
 | [Guide développeur](DEVELOPER.md) | Architecture, intégration Jira, API, sécurité, tests et travaux restants |
 | [Consignes de contribution](CLAUDE.md) | Règles à respecter pour modifier le dépôt |
 | [Historique](CHANGELOG.md) | Évolutions par version |
