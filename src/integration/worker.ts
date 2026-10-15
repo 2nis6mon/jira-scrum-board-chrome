@@ -1,3 +1,5 @@
+import { integrationMessages } from "../i18n/integration";
+import { LANGUAGE_PREFERENCE_KEY, languagePreference } from "../i18n/language";
 import { sprintGoalsBoardRoute } from "./boardRoute";
 import { injectBoard } from "./injectBoard";
 
@@ -7,10 +9,18 @@ async function launch(tabId: number, address: string): Promise<void> {
   const route = sprintGoalsBoardRoute(address);
   if (!route || !(await chrome.permissions.contains({ origins: [route.site.permissionPattern] })))
     return;
+  const stored = await chrome.storage.local.get(LANGUAGE_PREFERENCE_KEY).catch(() => ({}));
+  const preference = languagePreference(
+    (stored as Record<string, unknown>)[LANGUAGE_PREFERENCE_KEY],
+  );
   await chrome.scripting.executeScript({
     target: { tabId },
     func: injectBoard,
-    args: [chrome.runtime.getURL("board.html"), route.address],
+    args: [
+      chrome.runtime.getURL("board.html"),
+      route.address,
+      { preference, messages: integrationMessages },
+    ],
   });
 }
 

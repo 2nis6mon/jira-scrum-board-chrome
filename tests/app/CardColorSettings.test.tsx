@@ -6,6 +6,7 @@ import type { BoardModel } from "../../src/app/model/BoardModel";
 import type { JqlValidation } from "../../src/app/services/JqlService";
 import { CardColorSettings } from "../../src/app/views/settings/CardColorSettings";
 import type { BoardConfiguration } from "../../src/core/boardConfiguration";
+import { setLanguage } from "../../src/i18n/language";
 import { makeConfiguration } from "../support/jiraFixtures";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -126,4 +127,33 @@ it("actualise un formulaire intact quand les couleurs sont relues", async () => 
   await expect.poll(() => document.querySelector("textarea")?.value).toBe("labels = run");
   expect(button("Appliquer").disabled).toBe(true);
   expect(document.body.textContent).not.toContain("Les couleurs ont changé dans Jira");
+});
+
+it("change la langue sans perdre le brouillon JQL ni traduire un nom de règle personnalisé", async () => {
+  const { applyColorRules } = setup();
+  button("Nouvelle règle").click();
+  await tick();
+  const name = document.querySelector<HTMLInputElement>(".color-rule-name");
+  if (!name) throw new Error("nom absent");
+  name.value = "Objectifs";
+  name.dispatchEvent(new Event("input", { bubbles: true }));
+  type('labels = "urgence"');
+  await tick();
+  button("Vérifier").click();
+  await expect.poll(() => button("Appliquer").disabled).toBe(false);
+  const textarea = document.querySelector("textarea");
+
+  setLanguage("en");
+  await expect.poll(() => document.body.textContent).toContain("Card background colours");
+  expect(button("Apply").disabled).toBe(false);
+  expect(document.querySelector("textarea")).toBe(textarea);
+  expect(textarea?.value).toBe('labels = "urgence"');
+  expect(document.querySelector<HTMLInputElement>(".color-rule-name")?.value).toBe("Objectifs");
+  expect(document.querySelector('[aria-label="Move rule Objectifs"]')).not.toBeNull();
+  expect(applyColorRules).not.toHaveBeenCalled();
+
+  setLanguage("fr");
+  await expect.poll(() => document.body.textContent).toContain("Couleur de fond des cartes");
+  expect(button("Appliquer").disabled).toBe(false);
+  expect(textarea?.value).toBe('labels = "urgence"');
 });

@@ -59,6 +59,7 @@ beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, "setPointerCapture").mockImplementation(() => {});
   vi.spyOn(HTMLElement.prototype, "hasPointerCapture").mockReturnValue(false);
   document.documentElement.removeAttribute("sprint-goals-direct-bootstrap");
+  document.documentElement.lang = "fr";
   document.body.replaceChildren();
   vi.stubGlobal("chrome", {
     runtime: { sendMessage, getURL: (path: string) => `chrome-extension://fictif/${path}` },
@@ -85,6 +86,30 @@ afterEach(async () => {
 });
 
 describe("bouton Sprint Goals sur les boards Jira", () => {
+  it.each([
+    ["fr_FR", "auto", "Ouvrir ce board"],
+    ["fr-CA", "auto", "Ouvrir ce board"],
+    ["de", "auto", "Open this board"],
+    ["fr", "en", "Open this board"],
+    ["en", "fr", "Ouvrir ce board"],
+  ])("choisit la langue Jira %s avec préférence %s", async (locale, preference, expected) => {
+    document.documentElement.lang = locale;
+    stored.set("language.v1", preference);
+    await load(BOARD);
+    expect(button()?.getAttribute("aria-label")).toContain(expected);
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it("traduit le bouton existant après changement de préférence et respecte la suppression du choix", async () => {
+    await load(BOARD);
+    const original = button();
+    for (const listener of listeners) listener({ "language.v1": { newValue: "en" } }, "local");
+    expect(button()).toBe(original);
+    expect(button()?.title).toContain("Open this board");
+    for (const listener of listeners) listener({ "language.v1": {} }, "local");
+    expect(button()?.title).toContain("Ouvrir ce board");
+  });
+
   it.each([
     BOARD,
     `${BOARD}/backlog`,
@@ -290,17 +315,19 @@ describe("bouton Sprint Goals sur les boards Jira", () => {
 
   it("une lecture tardive du stockage ne remplace pas un déplacement plus récent", async () => {
     let resolve: (value: Record<string, unknown>) => void = () => {};
-    get.mockImplementationOnce(
-      () =>
-        new Promise((done) => {
-          resolve = done;
-        }),
+    get.mockImplementation(async (key) =>
+      key === POSITION_KEY
+        ? new Promise((done) => {
+            resolve = done;
+          })
+        : { [key]: stored.get(key) },
     );
     await load(BOARD);
     grip().dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }));
     resolve({ [POSITION_KEY]: { x: 0, y: 0 } });
     await vi.advanceTimersByTimeAsync(0);
     expect(point().x).toBeCloseTo(1036);
+    get.mockImplementation(async (key) => ({ [key]: stored.get(key) }));
   });
 
   it("le bouton reste utilisable lorsque le stockage échoue", async () => {

@@ -2,6 +2,7 @@ import type { ComponentChildren } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { SprintGoal } from "../../../core/sprintGoals";
 import { isDoneStatus } from "../../../jira/models";
+import { language, localize, t } from "../../i18n";
 import type { PlanningIssue, PlanningViewModel } from "../../model/PlanningTypes";
 import { formatDay, formatPoints, plural } from "../format";
 import { Icon } from "../Icon";
@@ -42,10 +43,10 @@ export function PlanningView({
     (item) => item.source === "backlog" && !selected.has(item.issue.key),
   );
   const remaining = issues.filter((item) => item.source === "remaining");
-  const query = search.trim().toLocaleLowerCase("fr");
+  const query = search.trim().toLocaleLowerCase(language.value);
   const candidates = (source === "backlog" ? backlog : remaining).filter((item) =>
     `${item.issue.key} ${item.issue.fields.summary} ${item.issue.fields.issuetype.name} ${item.issue.fields.parent?.summary ?? ""}`
-      .toLocaleLowerCase("fr")
+      .toLocaleLowerCase(language.value)
       .includes(query),
   );
   const sprint = planning.sprints.value.find((item) => item.id === planning.selectedSprintId.value);
@@ -81,27 +82,27 @@ export function PlanningView({
             type="button"
             class="icon-button"
             aria-label={
-              sidebarCollapsed ? "Afficher la barre latérale" : "Masquer la barre latérale"
+              sidebarCollapsed ? t("Afficher la barre latérale") : t("Masquer la barre latérale")
             }
             onClick={onToggleSidebar}
           >
             <Icon name="sidebar" size={18} />
           </button>
           <div>
-            <span class="planning-eyebrow">ATELIER PRODUIT</span>
+            <span class="planning-eyebrow">{t("ATELIER PRODUIT")}</span>
             <h1>Sprint Planning</h1>
           </div>
         </div>
         <div class="planning-header-actions">
           <button type="button" disabled={busy} onClick={onBack}>
-            <Icon name="arrowLeft" /> Retour au board
+            <Icon name="arrowLeft" /> {t("Retour au board")}
           </button>
           <button
             type="button"
             disabled={!draft || busy}
             onClick={() => void planning.copySummary()}
           >
-            Copier la synthèse
+            {t("Copier la synthèse")}
           </button>
           <button
             type="button"
@@ -109,25 +110,27 @@ export function PlanningView({
             disabled={!planning.canPublish.value || busy}
             onClick={() => setDialog("publish")}
           >
-            Publier dans Jira <Icon name="chevronRight" />
+            {t("Publier dans Jira")} <Icon name="chevronRight" />
           </button>
         </div>
       </header>
 
       <div class="planning-context">
         <label class="planning-sprint-picker">
-          <span>Sprint à préparer</span>
+          <span>{t("Sprint à préparer")}</span>
           <select
-            aria-label="Sprint à préparer"
+            aria-label={t("Sprint à préparer")}
             value={planning.selectedSprintId.value ?? ""}
             disabled={busy || planning.sprints.value.length === 0}
             onChange={(event) => void planning.selectSprint(Number(event.currentTarget.value))}
           >
-            {planning.sprints.value.length === 0 && <option value="">Aucun sprint futur</option>}
+            {planning.sprints.value.length === 0 && (
+              <option value="">{t("Aucun sprint futur")}</option>
+            )}
             {planning.sprints.value.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
-                {item.state !== "future" && " — brouillon à réexaminer"}
+                {item.state !== "future" && t(" — brouillon à réexaminer")}
               </option>
             ))}
           </select>
@@ -144,25 +147,25 @@ export function PlanningView({
         >
           <span aria-hidden="true" />
           {planning.publishing.value
-            ? "Publication en cours…"
+            ? t("Publication en cours…")
             : planning.loading.value
-              ? "Lecture de Jira…"
+              ? t("Lecture de Jira…")
               : planning.dirty.value
-                ? "Brouillon local"
-                : "Version Jira"}
+                ? t("Brouillon local")
+                : t("Version Jira")}
         </span>
         <div class="planning-context-actions">
           <button
             type="button"
             disabled={busy}
             onClick={() => void planning.refresh()}
-            title="Relire les tickets depuis Jira"
+            title={t("Relire les tickets depuis Jira")}
           >
-            <Icon name="refresh" /> Actualiser
+            <Icon name="refresh" /> {t("Actualiser")}
           </button>
           {draft && (planning.dirty.value || planning.validation.value) && (
             <button type="button" disabled={busy} onClick={() => setDialog("discard")}>
-              Repartir de Jira
+              {t("Repartir de Jira")}
             </button>
           )}
         </div>
@@ -171,9 +174,9 @@ export function PlanningView({
       {(planning.error.value || planning.notice.value || planning.validation.value) && (
         <div class="planning-messages" aria-live="polite">
           <ErrorMessage message={planning.error.value} />
-          {planning.notice.value && <p>{planning.notice.value}</p>}
+          {planning.notice.value && <p>{localize(planning.notice.value)}</p>}
           {planning.validation.value && (
-            <p class="planning-validation">{planning.validation.value}</p>
+            <p class="planning-validation">{localize(planning.validation.value)}</p>
           )}
         </div>
       )}
@@ -185,52 +188,64 @@ export function PlanningView({
           </span>
           <h2>
             {planning.loading.value
-              ? "Préparons votre prochain sprint"
-              : "Un sprint à construire ensemble"}
+              ? t("Préparons votre prochain sprint")
+              : t("Un sprint à construire ensemble")}
           </h2>
           <p>
             {planning.loading.value
-              ? "Lecture du backlog, du sprint futur et du reste à faire."
-              : "Créez un sprint futur dans le backlog Jira, puis actualisez pour préparer ses objectifs et ses stories ici."}
+              ? t("Lecture du backlog, du sprint futur et du reste à faire.")
+              : t(
+                  "Créez un sprint futur dans le backlog Jira, puis actualisez pour préparer ses objectifs et ses stories ici.",
+                )}
           </p>
         </div>
       ) : (
         <>
-          <section class="planning-summary" aria-label="Synthèse du sprint proposé">
+          <section class="planning-summary" aria-label={t("Synthèse du sprint proposé")}>
             <div class="planning-metric">
               <strong>{goals.length}</strong>
-              <span>objectif{goals.length > 1 ? "s" : ""}</span>
+              <span>
+                {t(
+                  new Intl.PluralRules(language.value).select(goals.length) === "one"
+                    ? "objectif"
+                    : "objectifs",
+                )}
+              </span>
             </div>
             <div class="planning-metric">
               <strong>{planned.length}</strong>
               <span>
-                ticket{planned.length > 1 ? "s" : ""} prévu{planned.length > 1 ? "s" : ""}
+                {t(
+                  new Intl.PluralRules(language.value).select(planned.length) === "one"
+                    ? "ticket prévu"
+                    : "tickets prévus",
+                )}
               </span>
             </div>
             <div class="planning-metric">
               <strong>{formatPoints(points)}</strong>
-              <span>{planning.estimationLabel}</span>
+              <span>{localize(planning.estimationLabel)}</span>
             </div>
             <div
               class={`planning-estimate-note${missingEstimates > 0 ? " planning-attention" : ""}`}
             >
               <Icon name={missingEstimates > 0 ? "points" : "check"} size={16} />
               {planned.length === 0
-                ? "Ajoutez des tickets pour composer le sprint"
+                ? t("Ajoutez des tickets pour composer le sprint")
                 : missingEstimates > 0
-                  ? `${plural(missingEstimates, "ticket")} sans estimation`
-                  : "Tous les tickets prévus sont estimés"}
+                  ? t("{p0} sans estimation", { p0: plural(missingEstimates, "ticket") })
+                  : t("Tous les tickets prévus sont estimés")}
             </div>
             <label class="planning-capacity">
               <span>
-                Capacité cible <small>facultative</small>
+                {t("Capacité cible")} <small>{t("facultative")}</small>
               </span>
               <input
                 type="number"
                 min="0"
                 step="any"
                 placeholder="—"
-                aria-label={`Capacité cible en ${planning.estimationLabel}`}
+                aria-label={t("Capacité cible en {p0}", { p0: localize(planning.estimationLabel) })}
                 value={capacity ?? ""}
                 disabled={busy}
                 onInput={(event) =>
@@ -245,30 +260,30 @@ export function PlanningView({
                 class={`planning-capacity-progress${overCapacity ? " planning-capacity-over" : ""}`}
               >
                 <progress
-                  aria-label="Capacité utilisée"
+                  aria-label={t("Capacité utilisée")}
                   value={Math.min(points, capacity)}
                   max={capacity || 1}
                 />
                 <span>
                   {overCapacity
-                    ? `${formatPoints(points - capacity)} au-dessus de la cible`
-                    : `${formatPoints(Math.max(0, capacity - points))} disponibles`}
-                  {missingEstimates > 0 ? " · estimation partielle" : ""}
+                    ? t("{p0} au-dessus de la cible", { p0: formatPoints(points - capacity) })
+                    : t("{p0} disponibles", { p0: formatPoints(Math.max(0, capacity - points)) })}
+                  {missingEstimates > 0 ? t(" · estimation partielle") : ""}
                 </span>
               </div>
             )}
           </section>
 
           <div class="planning-stage">
-            <aside class="planning-pool" aria-label="Tickets à examiner">
+            <aside class="planning-pool" aria-label={t("Tickets à examiner")}>
               <div class="planning-pool-heading">
                 <span class="planning-step">01</span>
                 <div>
-                  <h2>Explorer</h2>
-                  <p>Choisir ce qui sert vos objectifs.</p>
+                  <h2>{t("Explorer")}</h2>
+                  <p>{t("Choisir ce qui sert vos objectifs.")}</p>
                 </div>
               </div>
-              <fieldset class="planning-source-tabs" aria-label="Source des tickets">
+              <fieldset class="planning-source-tabs" aria-label={t("Source des tickets")}>
                 <button
                   type="button"
                   aria-pressed={source === "backlog"}
@@ -281,23 +296,24 @@ export function PlanningView({
                   aria-pressed={source === "remaining"}
                   onClick={() => setSource("remaining")}
                 >
-                  Reste à faire <span>{remaining.length}</span>
+                  {t("Reste à faire")} <span>{remaining.length}</span>
                 </button>
               </fieldset>
               <label class="planning-search">
                 <Icon name="search" size={16} />
                 <input
                   type="search"
-                  aria-label="Rechercher un ticket à planifier"
-                  placeholder="Rechercher une story, un epic…"
+                  aria-label={t("Rechercher un ticket à planifier")}
+                  placeholder={t("Rechercher une story, un epic…")}
                   value={search}
                   onInput={(event) => setSearch(event.currentTarget.value)}
                 />
               </label>
               {source === "remaining" && (
                 <p class="planning-pool-note">
-                  Tickets non terminés du sprint actif, à réexaminer avant la clôture. Leur présence
-                  ici ne les déplace pas.
+                  {t(
+                    "Tickets non terminés du sprint actif, à réexaminer avant la clôture. Leur présence ici ne les déplace pas.",
+                  )}
                 </p>
               )}
               <div class="planning-pool-list" aria-live="polite">
@@ -317,40 +333,42 @@ export function PlanningView({
                 {candidates.length === 0 && (
                   <p class="planning-empty">
                     {query
-                      ? "Aucun ticket ne correspond à cette recherche."
+                      ? t("Aucun ticket ne correspond à cette recherche.")
                       : source === "remaining"
-                        ? "Aucun reste à faire dans le sprint actif."
-                        : "Tous les tickets disponibles sont déjà dans votre proposition."}
+                        ? t("Aucun reste à faire dans le sprint actif.")
+                        : t("Tous les tickets disponibles sont déjà dans votre proposition.")}
                   </p>
                 )}
               </div>
               <p class="planning-pool-footer">
-                Glissez un ticket vers un objectif ou utilisez « Affecter à ».
+                {t("Glissez un ticket vers un objectif ou utilisez « Affecter à ».")}
               </p>
             </aside>
 
-            <section class="planning-canvas" aria-label="Proposition de sprint">
+            <section class="planning-canvas" aria-label={t("Proposition de sprint")}>
               <div class="planning-canvas-heading">
                 <span class="planning-step">02</span>
                 <div>
-                  <h2>Construire par objectifs</h2>
+                  <h2>{t("Construire par objectifs")}</h2>
                   <p>
-                    Décrivez le résultat attendu, puis réunissez les stories qui le rendent
-                    possible.
+                    {t(
+                      "Décrivez le résultat attendu, puis réunissez les stories qui le rendent possible.",
+                    )}
                   </p>
                 </div>
                 {activeFocusedGoal && (
                   <button type="button" onClick={() => setFocusedGoal(null)}>
-                    Tous les objectifs
+                    {t("Tous les objectifs")}
                   </button>
                 )}
               </div>
               {unavailableKeys.length > 0 && (
                 <div class="planning-unavailable">
-                  <h3>Tickets à vérifier</h3>
+                  <h3>{t("Tickets à vérifier")}</h3>
                   <p>
-                    Ces tickets ne sont plus disponibles dans le backlog ou le sprint choisi.
-                    Retirez-les de la proposition pour pouvoir publier.
+                    {t(
+                      "Ces tickets ne sont plus disponibles dans le backlog ou le sprint choisi. Retirez-les de la proposition pour pouvoir publier.",
+                    )}
                   </p>
                   {unavailableKeys.map((key) => (
                     <div key={key}>
@@ -361,9 +379,9 @@ export function PlanningView({
                         type="button"
                         disabled={busy}
                         onClick={() => planning.removeIssue(key)}
-                        aria-label={`Retirer ${key} de la proposition`}
+                        aria-label={t("Retirer {p0} de la proposition", { p0: key })}
                       >
-                        Retirer de la proposition
+                        {t("Retirer de la proposition")}
                       </button>
                     </div>
                   ))}
@@ -372,8 +390,8 @@ export function PlanningView({
               {goals.length === 0 && (
                 <div class="planning-first-goal">
                   <Icon name="goal" size={26} />
-                  <h3>Quel résultat voulez-vous obtenir ?</h3>
-                  <p>Commencez par un objectif concret. Les tickets viennent ensuite.</p>
+                  <h3>{t("Quel résultat voulez-vous obtenir ?")}</h3>
+                  <p>{t("Commencez par un objectif concret. Les tickets viennent ensuite.")}</p>
                 </div>
               )}
               <div class="planning-goal-grid">
@@ -387,25 +405,25 @@ export function PlanningView({
                       disabled={busy}
                       onAssign={assign}
                       className="planning-goal"
-                      label={`Objectif ${index + 1} : ${goal.title}`}
+                      label={t("Objectif {p0} : {p1}", { p0: index + 1, p1: goal.title })}
                       color={goal.color}
                     >
                       <div class="planning-goal-top">
                         <span class="planning-goal-label">
-                          OBJECTIF {String(index + 1).padStart(2, "0")}
+                          {t("OBJECTIF")} {String(index + 1).padStart(2, "0")}
                         </span>
                         <span>
                           {plural(items.length, "ticket")} ·{" "}
                           {formatPoints(items.reduce((sum, item) => sum + (item.estimate ?? 0), 0))}{" "}
-                          {planning.estimationLabel}
+                          {localize(planning.estimationLabel)}
                         </span>
                       </div>
                       <input
                         class="planning-goal-title"
                         type="text"
-                        aria-label={`Titre de l’objectif ${index + 1}`}
+                        aria-label={t("Titre de l’objectif {p0}", { p0: index + 1 })}
                         title={goal.title}
-                        placeholder="Un résultat concret pour vos utilisateurs"
+                        placeholder={t("Un résultat concret pour vos utilisateurs")}
                         value={goal.title}
                         disabled={busy}
                         maxLength={500}
@@ -414,8 +432,8 @@ export function PlanningView({
                       <div class="planning-goal-actions">
                         <button
                           type="button"
-                          title="Se concentrer sur cet objectif"
-                          aria-label={`Isoler l’objectif ${index + 1}`}
+                          title={t("Se concentrer sur cet objectif")}
+                          aria-label={t("Isoler l’objectif {p0}", { p0: index + 1 })}
                           aria-pressed={activeFocusedGoal === goal.id}
                           onClick={() =>
                             setFocusedGoal(activeFocusedGoal === goal.id ? null : goal.id)
@@ -426,7 +444,7 @@ export function PlanningView({
                         <span />
                         <button
                           type="button"
-                          aria-label={`Monter l’objectif ${index + 1}`}
+                          aria-label={t("Monter l’objectif {p0}", { p0: index + 1 })}
                           disabled={busy || index === 0}
                           onClick={() => planning.moveGoal(goal.id, -1)}
                         >
@@ -434,7 +452,7 @@ export function PlanningView({
                         </button>
                         <button
                           type="button"
-                          aria-label={`Descendre l’objectif ${index + 1}`}
+                          aria-label={t("Descendre l’objectif {p0}", { p0: index + 1 })}
                           disabled={busy || index === goals.length - 1}
                           onClick={() => planning.moveGoal(goal.id, 1)}
                         >
@@ -442,8 +460,8 @@ export function PlanningView({
                         </button>
                         <button
                           type="button"
-                          aria-label={`Supprimer l’objectif ${index + 1}`}
-                          title="Retirer cet objectif ; ses tickets restent à organiser"
+                          aria-label={t("Supprimer l’objectif {p0}", { p0: index + 1 })}
+                          title={t("Retirer cet objectif ; ses tickets restent à organiser")}
                           disabled={busy}
                           onClick={() => {
                             planning.removeGoal(goal.id);
@@ -469,7 +487,7 @@ export function PlanningView({
                         ))}
                         {items.length === 0 && (
                           <p class="planning-drop-hint">
-                            Déposez ici les stories qui contribuent à cet objectif.
+                            {t("Déposez ici les stories qui contribuent à cet objectif.")}
                           </p>
                         )}
                       </div>
@@ -494,15 +512,15 @@ export function PlanningView({
                   <input
                     ref={goalInput}
                     type="text"
-                    aria-label="Nouvel objectif du sprint"
-                    placeholder="Ajouter un résultat attendu pour ce sprint…"
+                    aria-label={t("Nouvel objectif du sprint")}
+                    placeholder={t("Ajouter un résultat attendu pour ce sprint…")}
                     value={newGoal}
                     maxLength={500}
                     disabled={busy}
                     onInput={(event) => setNewGoal(event.currentTarget.value)}
                   />
                   <button type="submit" disabled={busy || !newGoal.trim()}>
-                    Ajouter l’objectif
+                    {t("Ajouter l’objectif")}
                   </button>
                 </form>
               )}
@@ -513,13 +531,13 @@ export function PlanningView({
                   disabled={busy}
                   onAssign={assign}
                   className="planning-unassigned"
-                  label="Tickets à organiser"
+                  label={t("Tickets à organiser")}
                 >
                   <div class="planning-unassigned-heading">
                     <h3>
-                      À organiser <span>{unassigned.length}</span>
+                      {t("À organiser")} <span>{unassigned.length}</span>
                     </h3>
-                    <p>Dans le sprint proposé, encore sans objectif.</p>
+                    <p>{t("Dans le sprint proposé, encore sans objectif.")}</p>
                   </div>
                   <div class="planning-unassigned-list">
                     {unassigned.map((item) => (
@@ -538,14 +556,16 @@ export function PlanningView({
                   </div>
                   {unassigned.length === 0 && (
                     <p class="planning-drop-hint">
-                      Un ticket à discuter ? Gardez-le ici avant de choisir son objectif.
+                      {t("Un ticket à discuter ? Gardez-le ici avant de choisir son objectif.")}
                     </p>
                   )}
                 </DropZone>
               )}
               <p class="planning-local-note">
-                <Icon name="lock" /> Votre proposition reste un brouillon dans ce navigateur.
-                Publiez quand l’équipe est prête.
+                <Icon name="lock" />{" "}
+                {t(
+                  "Votre proposition reste un brouillon dans ce navigateur. Publiez quand l’équipe est prête.",
+                )}
               </p>
             </section>
           </div>
@@ -556,18 +576,20 @@ export function PlanningView({
         <PlanningDialog
           busy={planning.publishing.value}
           title={
-            dialog === "publish" ? "Publier la proposition de sprint" : "Abandonner le brouillon ?"
+            dialog === "publish"
+              ? t("Publier la proposition de sprint")
+              : t("Abandonner le brouillon ?")
           }
           onClose={() => setDialog(null)}
         >
           {dialog === "publish" ? (
             <>
               <p>
-                Le sprint <strong>{sprint?.name}</strong> recevra les objectifs ci-dessous et les
-                rattachements de vos tickets.
+                {t("Le sprint")} <strong>{sprint?.name}</strong>{" "}
+                {t("recevra les objectifs ci-dessous et les rattachements de vos tickets.")}
               </p>
               <label class="planning-publication-label" htmlFor="planning-goal-preview">
-                Texte du sprint dans Jira · un objectif par ligne
+                {t("Texte du sprint dans Jira · un objectif par ligne")}
               </label>
               <textarea
                 id="planning-goal-preview"
@@ -579,12 +601,18 @@ export function PlanningView({
               <PublicationTickets planned={planned} />
               {unassigned.length > 0 && (
                 <p class="planning-publication-note">
-                  {plural(unassigned.length, "ticket")}{" "}
-                  {unassigned.length > 1 ? "resteront" : "restera"} sans objectif.
+                  {t(
+                    unassigned.length > 1
+                      ? "{p0} resteront sans objectif."
+                      : "{p0} restera sans objectif.",
+                    { p0: plural(unassigned.length, "ticket") },
+                  )}
                 </p>
               )}
               <p class="planning-publication-note">
-                Le sprint restera futur. Le reste à faire du sprint actif ne sera pas déplacé.
+                {t(
+                  "Le sprint restera futur. Le reste à faire du sprint actif ne sera pas déplacé.",
+                )}
               </p>
               <ErrorMessage message={planning.error.value} />
               <div class="planning-dialog-actions">
@@ -593,7 +621,7 @@ export function PlanningView({
                   disabled={planning.publishing.value}
                   onClick={() => setDialog(null)}
                 >
-                  Continuer la préparation
+                  {t("Continuer la préparation")}
                 </button>
                 <button
                   type="button"
@@ -604,19 +632,22 @@ export function PlanningView({
                     if (!planning.error.value) setDialog(null);
                   }}
                 >
-                  {planning.publishing.value ? "Publication en cours…" : "Confirmer la publication"}
+                  {planning.publishing.value
+                    ? t("Publication en cours…")
+                    : t("Confirmer la publication")}
                 </button>
               </div>
             </>
           ) : (
             <>
               <p>
-                Les objectifs et choix de tickets non publiés seront remplacés par la version
-                actuelle de Jira. La capacité cible sera également réinitialisée.
+                {t(
+                  "Les objectifs et choix de tickets non publiés seront remplacés par la version actuelle de Jira. La capacité cible sera également réinitialisée.",
+                )}
               </p>
               <div class="planning-dialog-actions">
                 <button type="button" onClick={() => setDialog(null)}>
-                  Garder le brouillon
+                  {t("Garder le brouillon")}
                 </button>
                 <button
                   type="button"
@@ -626,7 +657,7 @@ export function PlanningView({
                     await planning.discardDraft();
                   }}
                 >
-                  Reprendre depuis Jira
+                  {t("Reprendre depuis Jira")}
                 </button>
               </div>
             </>
@@ -641,7 +672,7 @@ function PublicationTickets({ planned }: { planned: readonly PlanningIssue[] }) 
   const additions = planned.filter((item) => item.source === "backlog");
   return (
     <div class="planning-publication-tickets">
-      <h3>{plural(additions.length, "ticket")} à ajouter au sprint</h3>
+      <h3>{t("{p0} à ajouter au sprint", { p0: plural(additions.length, "ticket") })}</h3>
       {additions.length > 0 ? (
         <ul>
           {additions.map((item) => (
@@ -651,7 +682,7 @@ function PublicationTickets({ planned }: { planned: readonly PlanningIssue[] }) 
           ))}
         </ul>
       ) : (
-        <p>Les tickets de la proposition sont déjà dans ce sprint.</p>
+        <p>{t("Les tickets de la proposition sont déjà dans ce sprint.")}</p>
       )}
     </div>
   );
@@ -698,14 +729,14 @@ function PlanningCard({
           type="button"
           class="planning-issue-link"
           onClick={() => onOpen(issue.key)}
-          aria-label={`Ouvrir ${issue.key} dans Jira`}
+          aria-label={t("Ouvrir {p0} dans Jira", { p0: issue.key })}
         >
           {issue.key}
         </button>
         <span>{issue.fields.issuetype.name}</span>
         <span
           class={`planning-card-estimate${item.estimate === null ? " planning-card-unestimated" : ""}`}
-          title={item.estimate === null ? "Sans estimation" : "Estimation Jira"}
+          title={item.estimate === null ? t("Sans estimation") : t("Estimation Jira")}
         >
           {item.estimate === null ? "?" : formatPoints(item.estimate)}
         </span>
@@ -719,12 +750,14 @@ function PlanningCard({
       )}
       <div class="planning-card-details">
         <span>{issue.fields.status.name}</span>
-        {item.source === "sprint" && <span class="planning-already-in">Déjà dans le sprint</span>}
-        {remaining && <span>{item.sprintName ?? "Sprint actif"}</span>}
+        {item.source === "sprint" && (
+          <span class="planning-already-in">{t("Déjà dans le sprint")}</span>
+        )}
+        {remaining && <span>{item.sprintName ?? t("Sprint actif")}</span>}
         {!remaining && !assignable && (
           <span>
-            Consultation uniquement
-            {issue.fields.issuetype.subtask === true ? " · sous-tâche" : " · terminé"}
+            {t("Consultation uniquement")}
+            {issue.fields.issuetype.subtask === true ? t(" · sous-tâche") : t(" · terminé")}
           </span>
         )}
       </div>
@@ -732,7 +765,7 @@ function PlanningCard({
         <div class="planning-card-actions">
           {assignable && (
             <select
-              aria-label={`Affecter ${issue.key} à un objectif`}
+              aria-label={t("Affecter {p0} à un objectif", { p0: issue.key })}
               value={selected ? (goalId ?? "") : "__pool"}
               disabled={disabled}
               onChange={(event) => {
@@ -742,13 +775,13 @@ function PlanningCard({
             >
               {!selected && (
                 <option value="__pool" disabled>
-                  Affecter à…
+                  {t("Affecter à…")}
                 </option>
               )}
-              <option value="">À organiser</option>
+              <option value="">{t("À organiser")}</option>
               {goals.map((goal, index) => (
                 <option key={goal.id} value={goal.id}>
-                  {index + 1}. {goal.title || "Objectif à nommer"}
+                  {index + 1}. {goal.title || t("Objectif à nommer")}
                 </option>
               ))}
             </select>
@@ -756,8 +789,8 @@ function PlanningCard({
           {selected && item.source === "backlog" && (
             <button
               type="button"
-              aria-label={`Retirer ${issue.key} de la proposition`}
-              title="Remettre dans le backlog"
+              aria-label={t("Retirer {p0} de la proposition", { p0: issue.key })}
+              title={t("Remettre dans le backlog")}
               disabled={disabled}
               onClick={() => onRemove(issue.key)}
             >
@@ -912,7 +945,7 @@ function PlanningDialog({
           <button
             ref={close}
             type="button"
-            aria-label="Fermer la confirmation"
+            aria-label={t("Fermer la confirmation")}
             disabled={busy}
             onClick={onClose}
           >

@@ -1,5 +1,6 @@
 // Script isolé et sans import. Sur un board Jira, il propose un bouton d'ouverture ; sur les
 // autres pages Jira, il reste inerte.
+declare const __INTEGRATION_MESSAGES__: Readonly<Record<string, string>>;
 (() => {
   if (window.top !== window) return;
   const marker = "sprint-goals-direct-bootstrap";
@@ -9,12 +10,27 @@
   const buttonId = "sprint-goals-open";
   // Même clé dans AppModel.disconnect ; une entrée par site, jamais partagée avec Jira.
   const positionKey = `jira-button-position.v1:${location.origin}`;
+  // Même clé que LANGUAGE_PREFERENCE_KEY ; ce script n'importe aucun module.
+  const languageKey = "language.v1";
   type Position = { x: number; y: number };
   let position: Position | null = null;
   let revision = 0;
   let stopped = false;
   let disposeButton = () => {};
   let reposition = () => {};
+  let preference: "auto" | "fr" | "en" = "auto";
+  let preferenceRevision = 0;
+  let refreshLanguage = () => {};
+  const t = (source: string) => {
+    const locale = document.documentElement.lang.trim().replaceAll("_", "-").toLowerCase();
+    const french =
+      preference === "fr" || (preference === "auto" && /^fr(?:-[a-z0-9]{2,8})*$/.test(locale));
+    return french ? source : (__INTEGRATION_MESSAGES__[source] ?? source);
+  };
+  const readPreference = (value: unknown) => {
+    preference = value === "fr" || value === "en" ? value : "auto";
+    refreshLanguage();
+  };
   const decodePosition = (value: unknown): Position | null => {
     if (!value || typeof value !== "object") return null;
     const { x, y } = value as Position;
@@ -67,15 +83,19 @@
     const grip = document.createElement("button");
     grip.type = "button";
     grip.className = "grip";
-    grip.setAttribute("aria-label", "Déplacer le bouton Sprint Goals");
-    grip.title =
-      "Glisser pour déplacer ; flèches du clavier : 10 px, Maj : 1 px ; Échap : annuler le glissement";
     grip.textContent = "⠿";
     const button = document.createElement("button");
     button.type = "button";
     button.className = "open";
-    button.title = "Ouvrir ce board dans Sprint Goals";
-    button.setAttribute("aria-label", button.title);
+    refreshLanguage = () => {
+      grip.setAttribute("aria-label", t("Déplacer le bouton Sprint Goals"));
+      grip.title = t(
+        "Glisser pour déplacer ; flèches du clavier : 10 px, Maj : 1 px ; Échap : annuler le glissement",
+      );
+      button.title = t("Ouvrir ce board dans Sprint Goals");
+      button.setAttribute("aria-label", button.title);
+    };
+    refreshLanguage();
     const icon = document.createElement("img");
     icon.alt = "";
     icon.src = chrome.runtime.getURL("icons/icon-32.png");
@@ -130,14 +150,15 @@
       position = next;
       revision++;
       place();
-      status.textContent = "Position du bouton déplacée.";
+      status.textContent = t("Position du bouton déplacée.");
       // Un stockage indisponible ne bloque pas le bouton pour cette page.
       void (async () => {
         try {
           await chrome.storage.local.set({ [positionKey]: next });
         } catch {
-          status.textContent =
-            "Position déplacée, mais impossible de l'enregistrer pour la prochaine visite.";
+          status.textContent = t(
+            "Position déplacée, mais impossible de l'enregistrer pour la prochaine visite.",
+          );
         }
       })();
     };
@@ -253,6 +274,7 @@
       drag = null;
       host.remove();
       reposition = () => {};
+      refreshLanguage = () => {};
     };
     place();
   };
@@ -262,12 +284,25 @@
   };
 
   const storageChanged = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
-    if (area !== "local" || !Object.hasOwn(changes, positionKey)) return;
+    if (area !== "local") return;
+    if (Object.hasOwn(changes, languageKey)) {
+      preferenceRevision++;
+      readPreference(changes[languageKey]?.newValue);
+    }
+    if (!Object.hasOwn(changes, positionKey)) return;
     revision++;
     position = decodePosition(changes[positionKey]?.newValue);
     reposition();
   };
   chrome.storage.onChanged.addListener(storageChanged);
+  const initialPreferenceRevision = preferenceRevision;
+  const preferencesReady = chrome.storage.local
+    .get(languageKey)
+    .then((saved) => {
+      if (!stopped && preferenceRevision === initialPreferenceRevision)
+        readPreference(saved[languageKey]);
+    })
+    .catch(() => {});
   const initialRevision = revision;
   void (async () => {
     try {
@@ -293,7 +328,9 @@
   let previous = "";
   let busy = false;
   const check = async () => {
+    await preferencesReady;
     if (stopped) return;
+    refreshLanguage();
     const address = location.href;
     const url = new URL(address);
     const marked = url.searchParams.get("sprintGoals") === "1";
@@ -325,5 +362,5 @@
   const timer = setInterval(() => void check(), 500);
   const onPopState = () => void check();
   window.addEventListener("popstate", onPopState);
-  void check();
+  void preferencesReady.then(check);
 })();

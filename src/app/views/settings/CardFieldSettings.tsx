@@ -15,6 +15,7 @@ import {
   MAX_CARD_FIELDS,
 } from "../../../core/cardFields";
 import { shiftTarget } from "../../../core/reorder";
+import { localize, t } from "../../i18n";
 import type { BoardModel } from "../../model/BoardModel";
 import { Icon } from "../Icon";
 import { CardPreview } from "./CardPreview";
@@ -101,14 +102,15 @@ export function CardFieldSettings({
           <header class="settings-card-header">
             <div class="settings-card-title">
               <h2 id="settings-card-fields">
-                Champs sous le titre des cartes
+                {t("Champs sous le titre des cartes")}
                 <span class="settings-count">
                   {fields.length} / {MAX_CARD_FIELDS}
                 </span>
               </h2>
               <p class="settings-help">
-                Dans l'ordre de la liste : glissez pour réordonner. Un champ vide n'affiche rien. Le
-                parent (epic ou ticket parent) est toujours affiché et n'occupe pas de place ici.
+                {t(
+                  "Dans l'ordre de la liste : glissez pour réordonner. Un champ vide n'affiche rien. Le parent (epic ou ticket parent) est toujours affiché et n'occupe pas de place ici.",
+                )}
               </p>
             </div>
           </header>
@@ -116,7 +118,8 @@ export function CardFieldSettings({
           <ol class="settings-list">
             {fields.map((field, index) => {
               const id = cardFieldId(field);
-              const label = cardFieldLabel(field);
+              const label =
+                field.kind === "custom" ? cardFieldLabel(field) : localize(cardFieldLabel(field));
               return (
                 <li
                   key={id}
@@ -127,7 +130,7 @@ export function CardFieldSettings({
                   onDrop={reorder.drop}
                 >
                   <Grip
-                    label={`Déplacer ${label}`}
+                    label={t("Déplacer {v0}", { v0: label })}
                     onMove={(offset) => shift(id, offset)}
                     onDragStart={reorder.start(id)}
                     onDragEnd={reorder.end}
@@ -142,13 +145,13 @@ export function CardFieldSettings({
                   <span
                     class={`settings-badge${field.kind === "custom" ? " settings-badge-custom" : ""}`}
                   >
-                    {field.kind === "custom" ? "Personnalisé" : "Standard"}
+                    {field.kind === "custom" ? t("Personnalisé") : t("Standard")}
                   </span>
                   <button
                     type="button"
                     class="icon-button settings-icon-button"
-                    aria-label={`Retirer ${label}`}
-                    title="Retirer ce champ des cartes"
+                    aria-label={t("Retirer {v0}", { v0: label })}
+                    title={t("Retirer ce champ des cartes")}
                     onClick={() => setFields(fields.filter((_, at) => at !== index))}
                   >
                     <Icon name="close" size={15} />
@@ -160,20 +163,20 @@ export function CardFieldSettings({
             {Array.from({ length: MAX_CARD_FIELDS - fields.length }, (_, slot) => (
               <li key={`slot-${slot}`} class="settings-slot">
                 {fields.length === 0 && slot === 0
-                  ? "Aucun champ : les cartes restent telles quelles. Ajoutez-en ci-dessous."
-                  : "Emplacement libre"}
+                  ? t("Aucun champ : les cartes restent telles quelles. Ajoutez-en ci-dessous.")
+                  : t("Emplacement libre")}
               </li>
             ))}
           </ol>
 
           <div class="settings-subsection">
-            <h3>Ajouter un champ</h3>
+            <h3>{t("Ajouter un champ")}</h3>
             {full && (
               <p class="settings-help">
-                Maximum atteint : retirez un champ pour en ajouter un autre.
+                {t("Maximum atteint : retirez un champ pour en ajouter un autre.")}
               </p>
             )}
-            <span class="settings-caption">Champs standard</span>
+            <span class="settings-caption">{t("Champs standard")}</span>
             <div class="settings-chips">
               {STANDARD_FIELDS.map((field) => {
                 const added = chosen.has(cardFieldId(field));
@@ -186,13 +189,13 @@ export function CardFieldSettings({
                     onClick={() => setFields(withCardField(fields, field))}
                   >
                     <Icon name={added ? "check" : "plus"} size={13} />
-                    {cardFieldLabel(field)}
+                    {localize(cardFieldLabel(field))}
                   </button>
                 );
               })}
             </div>
             <label class="settings-caption" for="settings-field-search">
-              Champ personnalisé
+              {t("Champ personnalisé")}
             </label>
             <span class="settings-search">
               <Icon name="search" size={15} />
@@ -200,26 +203,27 @@ export function CardFieldSettings({
                 id="settings-field-search"
                 type="search"
                 value={search}
-                placeholder="Rechercher un champ par son nom ou son identifiant"
+                placeholder={t("Rechercher un champ par son nom ou son identifiant")}
                 onInput={(event) => setSearch(event.currentTarget.value)}
               />
             </span>
             <p class="settings-help">
-              Texte, nombre, liste de choix, date ou utilisateur. Un champ plus complexe (texte
-              riche, objet) n'affiche rien.
+              {t(
+                "Texte, nombre, liste de choix, date ou utilisateur. Un champ plus complexe (texte riche, objet) n'affiche rien.",
+              )}
             </p>
             {board.customFieldsLoading.value && (
-              <p class="settings-help">Lecture des champs de Jira…</p>
+              <p class="settings-help">{t("Lecture des champs de Jira…")}</p>
             )}
             {board.customFieldsError.value && (
               <p class="notice notice-error" role="alert">
-                Champs de Jira illisibles : {board.customFieldsError.value.text}
+                {t("Champs de Jira illisibles :")} {localize(board.customFieldsError.value.text)}
               </p>
             )}
             {search.trim() !== "" && board.customFields.value !== null && (
               <>
                 {matches.length === 0 ? (
-                  <p class="settings-help">Aucun champ personnalisé ne correspond.</p>
+                  <p class="settings-help">{t("Aucun champ personnalisé ne correspond.")}</p>
                 ) : (
                   <ul class="settings-results">
                     {matches.slice(0, MAX_RESULTS).map((choice) => {
@@ -244,7 +248,7 @@ export function CardFieldSettings({
                               setSearch("");
                             }}
                           >
-                            {added ? "Ajouté" : "Ajouter"}
+                            {added ? t("Ajouté") : t("Ajouter")}
                           </button>
                         </li>
                       );
@@ -253,7 +257,7 @@ export function CardFieldSettings({
                 )}
                 {matches.length > MAX_RESULTS && (
                   <p class="settings-help">
-                    {matches.length - MAX_RESULTS} autres résultats : précisez la recherche.
+                    {matches.length - MAX_RESULTS} {t("autres résultats : précisez la recherche.")}
                   </p>
                 )}
               </>
@@ -267,8 +271,8 @@ export function CardFieldSettings({
         >
           <header class="settings-card-header">
             <div class="settings-card-title">
-              <h2 id="settings-fields-preview">Aperçu</h2>
-              <p class="settings-help">Des tickets du board, avec les champs de la liste.</p>
+              <h2 id="settings-fields-preview">{t("Aperçu")}</h2>
+              <p class="settings-help">{t("Des tickets du board, avec les champs de la liste.")}</p>
             </div>
           </header>
           {sample.length > 0 ? (
@@ -279,12 +283,19 @@ export function CardFieldSettings({
               cardFields={fields}
             />
           ) : (
-            <p class="settings-empty">L'aperçu apparaît quand le board a été lu dans Jira.</p>
+            <p class="settings-empty">
+              {t("L'aperçu apparaît quand le board a été lu dans Jira.")}
+            </p>
           )}
           {notRead.length > 0 && (
             <p class="settings-help">
-              Valeurs lues dans Jira après « Appliquer » :{" "}
-              {notRead.map((field) => cardFieldLabel(field)).join(", ")}.
+              {t("Valeurs lues dans Jira après « Appliquer » :")}{" "}
+              {notRead
+                .map((field) =>
+                  field.kind === "custom" ? cardFieldLabel(field) : localize(cardFieldLabel(field)),
+                )
+                .join(", ")}
+              .
             </p>
           )}
         </aside>
@@ -294,13 +305,13 @@ export function CardFieldSettings({
         changed={changed}
         message={
           changed
-            ? "Modifications non appliquées · le board sera relu dans Jira"
-            : "Aucune modification en cours."
+            ? t("Modifications non appliquées · le board sera relu dans Jira")
+            : t("Aucune modification en cours.")
         }
         busy={applying}
         cancelDisabled={!changed || applying}
         onCancel={() => setFields(stored)}
-        confirm={applying ? "Application…" : "Appliquer"}
+        confirm={applying ? t("Application…") : t("Appliquer")}
         confirmDisabled={!changed || applying}
         onConfirm={() => void apply()}
       />

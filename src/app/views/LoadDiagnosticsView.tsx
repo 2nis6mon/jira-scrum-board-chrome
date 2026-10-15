@@ -1,13 +1,15 @@
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { LOAD_SPAN_LABELS } from "../../core/loadTrace";
+import { language, localize, t } from "../i18n";
 import type { LoadDiagnostics, LoadRun, LoadSpan } from "../model/LoadDiagnostics";
 import "../styles/loadDiagnostics.css";
 
 const seconds = (ms: number) =>
-  `${(Math.max(0, ms) / 1_000).toLocaleString("fr-FR", { maximumFractionDigits: 1, minimumFractionDigits: 1 })} s`;
+  `${(Math.max(0, ms) / 1_000).toLocaleString(language.value === "fr" ? "fr-FR" : "en-GB", { maximumFractionDigits: 1, minimumFractionDigits: 1 })} s`;
 const elapsed = (run: LoadRun, activeElapsed: number) => run.durationMs ?? activeElapsed;
-const runKind = (run: LoadRun) => (run.kind === "opening" ? "Ouverture" : "Actualisation");
-const dateLabel = (run: LoadRun) => new Date(run.startedAt).toLocaleString("fr-FR");
+const runKind = (run: LoadRun) => (run.kind === "opening" ? t("Ouverture") : t("Actualisation"));
+const dateLabel = (run: LoadRun) =>
+  new Date(run.startedAt).toLocaleString(language.value === "fr" ? "fr-FR" : "en-GB");
 const STATUS_LABEL = {
   loading: "En cours",
   ok: "Terminé",
@@ -23,10 +25,12 @@ const SPAN_STATUS_LABEL = {
 
 function summary(run: LoadRun, now: number): string {
   if (run.status === "loading") return `${runKind(run)} · ${seconds(elapsed(run, now))}`;
-  if (run.status === "error") return `Chargement en erreur · ${seconds(elapsed(run, now))}`;
-  if (run.status === "cancelled") return `Chargement interrompu · ${seconds(elapsed(run, now))}`;
-  if (run.visibleMs !== null) return `Chargé en ${seconds(run.visibleMs)}`;
-  return `Lecture terminée en ${seconds(elapsed(run, now))}`;
+  if (run.status === "error")
+    return t("Chargement en erreur · {v0}", { v0: seconds(elapsed(run, now)) });
+  if (run.status === "cancelled")
+    return t("Chargement interrompu · {v0}", { v0: seconds(elapsed(run, now)) });
+  if (run.visibleMs !== null) return t("Chargé en {v0}", { v0: seconds(run.visibleMs) });
+  return t("Lecture terminée en {v0}", { v0: seconds(elapsed(run, now)) });
 }
 
 /** Diagnostic local, ouvert uniquement par un geste explicite. */
@@ -159,9 +163,9 @@ export function LoadDiagnosticsView({
         {latest.status === "loading" && active.length > 0 && (
           <span
             class="load-diagnostics-active"
-            title={active.map((span) => LOAD_SPAN_LABELS[span.label]).join(" · ")}
+            title={active.map((span) => localize(LOAD_SPAN_LABELS[span.label])).join(" · ")}
           >
-            {LOAD_SPAN_LABELS[active.at(-1)?.label ?? "startup"]}
+            {localize(LOAD_SPAN_LABELS[active.at(-1)?.label ?? "startup"])}
           </span>
         )}
         <button
@@ -172,7 +176,7 @@ export function LoadDiagnosticsView({
             setOpen(true);
           }}
         >
-          Voir les détails
+          {t("Voir les détails")}
         </button>
       </div>
       {shown && selected && (
@@ -181,7 +185,7 @@ export function LoadDiagnosticsView({
             class="load-diagnostics-dismiss"
             type="button"
             tabIndex={-1}
-            aria-label="Fermer en dehors du diagnostic"
+            aria-label={t("Fermer en dehors du diagnostic")}
             onClick={() => setOpen(false)}
           />
           <div
@@ -194,16 +198,16 @@ export function LoadDiagnosticsView({
           >
             <header class="load-diagnostics-header">
               <div>
-                <h2 id="load-diagnostics-title">Diagnostic du chargement</h2>
+                <h2 id="load-diagnostics-title">{t("Diagnostic du chargement")}</h2>
                 <p>
                   {summary(selected, now)}
-                  {selectedPhase && ` · ${LOAD_SPAN_LABELS[selectedPhase.label]}`}
+                  {selectedPhase && ` · ${localize(LOAD_SPAN_LABELS[selectedPhase.label])}`}
                 </p>
               </div>
               <button
                 ref={closeButton}
                 type="button"
-                aria-label="Fermer le diagnostic du chargement"
+                aria-label={t("Fermer le diagnostic du chargement")}
                 onClick={() => setOpen(false)}
               >
                 ×
@@ -211,11 +215,12 @@ export function LoadDiagnosticsView({
             </header>
             <div class="load-diagnostics-body">
               <p id="load-diagnostics-scope" class="load-diagnostics-muted">
-                Mesure depuis le démarrage de l’extension. Le chargement préalable de la page Jira
-                est hors mesure.
+                {t(
+                  "Mesure depuis le démarrage de l’extension. Le chargement préalable de la page Jira est hors mesure.",
+                )}
               </p>
               <div class="load-diagnostics-history">
-                <label htmlFor="load-diagnostics-run">Chargement analysé</label>
+                <label htmlFor="load-diagnostics-run">{t("Chargement analysé")}</label>
                 <select
                   id="load-diagnostics-run"
                   value={selected.id}
@@ -226,7 +231,7 @@ export function LoadDiagnosticsView({
                 >
                   {runs.map((run) => (
                     <option key={run.id} value={run.id}>
-                      {dateLabel(run)} · {runKind(run)} · {STATUS_LABEL[run.status]}
+                      {dateLabel(run)} · {runKind(run)} · {localize(STATUS_LABEL[run.status])}
                     </option>
                   ))}
                 </select>
@@ -235,65 +240,69 @@ export function LoadDiagnosticsView({
                   disabled={history.length === 0}
                   onClick={() => void clearHistory()}
                 >
-                  Effacer l’historique
+                  {t("Effacer l’historique")}
                 </button>
               </div>
               <p class="load-diagnostics-muted">
-                Les cinq derniers chargements terminés restent dans ce navigateur. Le diagnostic
-                courant reste consultable après effacement.
+                {t(
+                  "Les cinq derniers chargements terminés restent dans ce navigateur. Le diagnostic courant reste consultable après effacement.",
+                )}
               </p>
               {clearError && (
                 <p class="load-diagnostics-error" role="alert">
-                  L’historique n’a pas pu être effacé. Réessayez.
+                  {t("L’historique n’a pas pu être effacé. Réessayez.")}
                 </p>
               )}
               <dl class="load-diagnostics-metrics">
                 <div>
-                  <dt>Données prêtes</dt>
+                  <dt>{t("Données prêtes")}</dt>
                   <dd>
-                    {selected.dataReadyMs === null ? "Non mesuré" : seconds(selected.dataReadyMs)}
+                    {selected.dataReadyMs === null
+                      ? t("Non mesuré")
+                      : seconds(selected.dataReadyMs)}
                   </dd>
                 </div>
                 <div>
-                  <dt>Board affiché</dt>
+                  <dt>{t("Board affiché")}</dt>
                   <dd>
-                    {selected.visibleMs === null ? "Non mesuré" : seconds(selected.visibleMs)}
+                    {selected.visibleMs === null ? t("Non mesuré") : seconds(selected.visibleMs)}
                   </dd>
                 </div>
                 <div>
-                  <dt>Fin de synchronisation</dt>
+                  <dt>{t("Fin de synchronisation")}</dt>
                   <dd>
-                    {selected.durationMs === null ? "En cours…" : seconds(selected.durationMs)}
+                    {selected.durationMs === null ? t("En cours…") : seconds(selected.durationMs)}
                   </dd>
                 </div>
               </dl>
               <p class="load-diagnostics-muted">
-                Version {selected.version} ·{" "}
-                {selected.boardType?.toUpperCase() ?? "Type de board non déterminé"}
-                {selected.issues !== null && ` · ${selected.issues} tickets`}
-                {selected.goals !== null && ` · ${selected.goals} objectifs`}
+                {t("Version")} {selected.version} ·{" "}
+                {selected.boardType?.toUpperCase() ?? t("Type de board non déterminé")}
+                {selected.issues !== null && t(" · {v0} tickets", { v0: selected.issues })}
+                {selected.goals !== null && t(" · {count} objectifs", { count: selected.goals })}
                 {" · "}
-                {STATUS_LABEL[selected.status]}
+                {localize(STATUS_LABEL[selected.status])}
               </p>
               {selected.status === "loading" && (
                 <p class="load-diagnostics-live">
-                  Mesure en cours : le rapport copié sera un état provisoire.
+                  {t("Mesure en cours : le rapport copié sera un état provisoire.")}
                 </p>
               )}
               {(selected.status === "error" || selected.status === "cancelled") && (
                 <p class="load-diagnostics-error">
-                  Mesure incomplète :{" "}
+                  {t("Mesure incomplète :")}{" "}
                   {selected.status === "error"
-                    ? "le chargement a rencontré une erreur"
-                    : "le chargement a été interrompu"}
+                    ? t("le chargement a rencontré une erreur")
+                    : t("le chargement a été interrompu")}
                   .
                 </p>
               )}
               <section class="load-diagnostics-section" aria-labelledby="load-diagnostics-phases">
-                <h3 id="load-diagnostics-phases">Chronologie des phases</h3>
+                <h3 id="load-diagnostics-phases">{t("Chronologie des phases")}</h3>
                 <p class="load-diagnostics-muted">
-                  Chaque ligne commence au moment indiqué depuis le démarrage. Des étapes
-                  s’exécutent en parallèle : leurs durées ne s’additionnent pas.
+                  {t(
+                    "Chaque ligne commence au moment indiqué depuis le démarrage. Des étapes s’exécutent en parallèle : leurs durées ne s’additionnent pas.",
+                  )}
                 </p>
                 <Timeline
                   spans={selected.spans.filter((span) => span.kind === "phase")}
@@ -306,12 +315,13 @@ export function LoadDiagnosticsView({
                 onToggle={(event) => setRequestsOpen(event.currentTarget.open)}
               >
                 <summary>
-                  Requêtes et attentes (
+                  {t("Requêtes et attentes (")}
                   {selected.spans.filter((span) => span.kind !== "phase").length})
                 </summary>
                 <p class="load-diagnostics-muted">
-                  Lectures Jira, tentatives et attentes observées, sans adresse ni contenu des
-                  tickets.
+                  {t(
+                    "Lectures Jira, tentatives et attentes observées, sans adresse ni contenu des tickets.",
+                  )}
                 </p>
                 {requestsOpen && (
                   <Timeline
@@ -322,8 +332,10 @@ export function LoadDiagnosticsView({
               </details>
               {selected.truncated > 0 && (
                 <p class="load-diagnostics-muted">
-                  {selected.truncated} événements supplémentaires ne sont pas détaillés pour limiter
-                  la taille du rapport.
+                  {selected.truncated}{" "}
+                  {t(
+                    "événements supplémentaires ne sont pas détaillés pour limiter la taille du rapport.",
+                  )}
                 </p>
               )}
               <details
@@ -331,15 +343,16 @@ export function LoadDiagnosticsView({
                 open={reportOpen}
                 onToggle={(event) => setReportOpen(event.currentTarget.open)}
               >
-                <summary>Rapport à partager</summary>
+                <summary>{t("Rapport à partager")}</summary>
                 <p class="load-diagnostics-muted">
-                  Copiez ce rapport et collez-le dans votre retour, en précisant ce qui vous a
-                  semblé lent. Aucun envoi automatique.
+                  {t(
+                    "Copiez ce rapport et collez-le dans votre retour, en précisant ce qui vous a semblé lent. Aucun envoi automatique.",
+                  )}
                 </p>
                 {reportOpen && (
                   <textarea
                     class="load-diagnostics-report"
-                    aria-label="Rapport du diagnostic à partager"
+                    aria-label={t("Rapport du diagnostic à partager")}
                     readOnly
                     value={diagnostics.report(selected)}
                   />
@@ -348,16 +361,16 @@ export function LoadDiagnosticsView({
             </div>
             <footer class="load-diagnostics-footer">
               <p class="load-diagnostics-muted">
-                Sans contenu des tickets ni informations de connexion.
+                {t("Sans contenu des tickets ni informations de connexion.")}
               </p>
               <span
                 role="status"
                 aria-live="polite"
                 class={copyState === "error" ? "load-diagnostics-error" : "load-diagnostics-muted"}
               >
-                {copyState === "ok" && "Rapport copié."}
+                {copyState === "ok" && t("Rapport copié.")}
                 {copyState === "error" &&
-                  "Copie impossible. Sélectionnez le texte dans « Rapport à partager »."}
+                  t("Copie impossible. Sélectionnez le texte dans « Rapport à partager ».")}
               </span>
               <button
                 class="primary"
@@ -365,7 +378,7 @@ export function LoadDiagnosticsView({
                 disabled={copyState === "pending"}
                 onClick={() => void copy()}
               >
-                {copyState === "pending" ? "Copie…" : "Copier le rapport"}
+                {copyState === "pending" ? t("Copie…") : t("Copier le rapport")}
               </button>
             </footer>
           </div>
@@ -376,7 +389,8 @@ export function LoadDiagnosticsView({
 }
 
 function Timeline({ spans, total }: { spans: readonly LoadSpan[]; total: number }) {
-  if (spans.length === 0) return <p class="load-diagnostics-muted">Aucune étape enregistrée.</p>;
+  if (spans.length === 0)
+    return <p class="load-diagnostics-muted">{t("Aucune étape enregistrée.")}</p>;
   const scale = Math.max(total, 1);
   return (
     <ol class="load-diagnostics-timeline">
@@ -386,9 +400,9 @@ function Timeline({ spans, total }: { spans: readonly LoadSpan[]; total: number 
           <li key={span.id} class={`load-diagnostics-span load-diagnostics-span-${span.status}`}>
             <div class="load-diagnostics-span-heading">
               <span>
-                {LOAD_SPAN_LABELS[span.label]}
-                {span.request !== null && ` n° ${span.request}`}
-                {span.attempt !== null && ` · tentative ${span.attempt}`}
+                {localize(LOAD_SPAN_LABELS[span.label])}
+                {span.request !== null && t(" n° {number}", { number: span.request })}
+                {span.attempt !== null && t(" · tentative {attempt}", { attempt: span.attempt })}
               </span>
               <strong>{seconds(duration)}</strong>
             </div>
@@ -402,11 +416,19 @@ function Timeline({ spans, total }: { spans: readonly LoadSpan[]; total: number 
             </div>
             <div class="load-diagnostics-span-meta">
               <span>
-                Début + {seconds(span.startMs)} · {SPAN_STATUS_LABEL[span.status]}
+                {t("Début +")} {seconds(span.startMs)} · {localize(SPAN_STATUS_LABEL[span.status])}
               </span>
               {span.httpStatus !== null && <span>HTTP {span.httpStatus}</span>}
-              {span.error !== null && <span>Erreur : {span.error}</span>}
-              {span.delayMs !== null && <span>Attente prévue : {seconds(span.delayMs)}</span>}
+              {span.error !== null && (
+                <span>
+                  {t("Erreur :")} {span.error}
+                </span>
+              )}
+              {span.delayMs !== null && (
+                <span>
+                  {t("Attente prévue :")} {seconds(span.delayMs)}
+                </span>
+              )}
             </div>
           </li>
         );

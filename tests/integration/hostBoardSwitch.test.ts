@@ -13,6 +13,7 @@ import { fakePlatform } from "../support/fakePlatform";
 // Données FICTIVES : la vue encadrée dans la page Jira du board 7, plus un second board (12, XYZ).
 const SITE = "https://acme.atlassian.net";
 const postMessage = vi.fn();
+const cleanups: (() => void)[] = [];
 let originalParent: PropertyDescriptor | undefined;
 
 beforeEach(() => {
@@ -22,21 +23,40 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  for (const cleanup of cleanups.splice(0)) cleanup();
   if (originalParent) Object.defineProperty(window, "parent", originalParent);
 });
 
 async function hosted() {
   const platform = fakePlatform(withSecondBoard(boardSiteJira()));
   platform.granted.add(`${SITE}/*`);
-  const model = new AppModel(platform, BOARD_URL);
-  installEmbeddedLinks(model, SITE, BOARD_URL);
+  const model = new AppModel(platform, BOARD_URL, "fr");
+  await model.prepareLanguage();
+  cleanups.push(installEmbeddedLinks(model, SITE, BOARD_URL));
   await model.start(BOARD_URL);
   const connection = model.connection.value;
   if (connection.state !== "connected") throw new Error("connexion attendue");
+  expect(postMessage).toHaveBeenCalledExactlyOnceWith(
+    { type: "sprint-goals:language", language: "fr" },
+    SITE,
+  );
+  postMessage.mockClear();
   return Object.assign(connection.board, { app: model });
 }
 
 describe("changement de board demandé à la page Jira hôte", () => {
+  it("transmet le choix de langue uniquement à l'hôte sans relire le board", async () => {
+    const board = await hosted();
+    const sync = vi.spyOn(board, "sync");
+    await board.app.setLanguagePreference("en");
+    expect(postMessage).toHaveBeenCalledExactlyOnceWith(
+      { type: "sprint-goals:language", language: "en" },
+      SITE,
+    );
+    expect(sync).not.toHaveBeenCalled();
+    board.dispose();
+  });
+
   it("seule la fermeture reçue de l'hôte libère une transition native et relit le board", async () => {
     const board = await hosted();
     const sync = vi.spyOn(board, "sync").mockResolvedValue();

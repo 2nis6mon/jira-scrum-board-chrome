@@ -3,6 +3,7 @@ import { useEffect, useState } from "preact/hooks";
 import type { BoardConfiguration } from "../../core/boardConfiguration";
 import { type LaneSummary, laneSummaries } from "../../core/boardPreferences";
 import { SPRINT_PLANNING_ENABLED } from "../featureFlags";
+import { t } from "../i18n";
 import { type AppModel, clampSidebarWidth, SIDEBAR_WIDTH } from "../model/AppModel";
 import type { BoardModel, BoardSummary } from "../model/BoardModel";
 import { LANE_DRAG_TYPE, revealLane } from "./board/lanes";
@@ -38,7 +39,7 @@ export function Sidebar({
   return (
     <aside
       class="sidebar"
-      aria-label="Barre latérale"
+      aria-label={t("Barre latérale")}
       style={{ "--sidebar-width": `${model.sidebarWidth.value}px` }}
     >
       <SidebarResizer model={model} />
@@ -48,7 +49,7 @@ export function Sidebar({
         <span class="app-version">{model.extensionVersion}</span>
       </div>
       <BoardSwitcher model={model} board={board} configuration={configuration} />
-      <nav class="sidebar-nav" aria-label="Vues">
+      <nav class="sidebar-nav" aria-label={t("Vues")}>
         <NavButton
           icon="board"
           label={kanban ? "Kanban" : "Sprint"}
@@ -99,12 +100,14 @@ function SidebarResizer({ model }: { model: AppModel }) {
     <hr
       class="sidebar-resizer"
       aria-orientation="vertical"
-      aria-label="Largeur de la barre latérale"
+      aria-label={t("Largeur de la barre latérale")}
       aria-valuemin={SIDEBAR_WIDTH.min}
       aria-valuemax={max}
       aria-valuenow={shown}
       tabIndex={0}
-      title="Tirer pour élargir ou rétrécir la barre latérale ; double-clic : largeur par défaut"
+      title={t(
+        "Tirer pour élargir ou rétrécir la barre latérale ; double-clic : largeur par défaut",
+      )}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         event.preventDefault();
@@ -173,13 +176,22 @@ function SiteMenu({ model, host }: { model: AppModel; host: string }) {
       >
         <Icon name="globe" size={16} />
         <span class="sidebar-site-text">
-          <span class="sidebar-site-name">Site Jira</span>
+          <span class="sidebar-site-name">{t("Site Jira")}</span>
           <span class="sidebar-site-host">{host}</span>
         </span>
         <Icon name={open ? "chevronDown" : "chevronUp"} size={12} />
       </button>
       {open && (
-        <nav id="sidebar-site-menu" class="sidebar-site-menu" aria-label="Site Jira">
+        <nav id="sidebar-site-menu" class="sidebar-site-menu" aria-label={t("Site Jira")}>
+          <button
+            type="button"
+            class="sidebar-nav-item sidebar-site-entry"
+            aria-current={view === "preferences" ? "page" : undefined}
+            onClick={() => model.showPreferences()}
+          >
+            <Icon name="sliders" size={16} />
+            {t("Préférences personnelles")}
+          </button>
           {DIAGNOSTIC_ENABLED && (
             <button
               type="button"
@@ -187,7 +199,7 @@ function SiteMenu({ model, host }: { model: AppModel; host: string }) {
               aria-current={view === "diagnostic" ? "page" : undefined}
               onClick={() => model.showDiagnostic()}
             >
-              Diagnostic
+              {t("Diagnostic")}
             </button>
           )}
           <SiteAccount model={model} host={host} />
@@ -208,14 +220,17 @@ function SiteAccount({ model, host }: { model: AppModel; host: string }) {
         onClick={() => {
           if (
             window.confirm(
-              `Se déconnecter de ${host} ?\n\nLes boards et leurs réglages enregistrés dans ce navigateur seront effacés et l’autorisation d’accès au site sera retirée. Rien ne sera modifié dans Jira.`,
+              t(
+                "Se déconnecter de {host} ?\n\nLes boards et leurs réglages enregistrés dans ce navigateur seront effacés et l’autorisation d’accès au site sera retirée. Rien ne sera modifié dans Jira.",
+                { host },
+              ),
             )
           )
             void model.disconnect();
         }}
       >
         <Icon name="signOut" />
-        Se déconnecter
+        {t("Se déconnecter")}
       </button>
     </div>
   );
@@ -265,7 +280,7 @@ function BoardSwitcher(props: {
         }}
       >
         <Icon name="boards" size={16} />
-        <span class="board-switcher-name">Choisir un board</span>
+        <span class="board-switcher-name">{t("Choisir un board")}</span>
       </button>
     );
   }
@@ -286,7 +301,7 @@ function BoardSwitcher(props: {
       <details class="board-switcher" name="filter-menu">
         <summary
           class="board-switcher-summary"
-          title="Changer de board, en ajouter ou en retirer un"
+          title={t("Changer de board, en ajouter ou en retirer un")}
         >
           <Icon name="boards" size={16} />
           <span class="board-switcher-name">{configuration.boardName}</span>
@@ -294,7 +309,7 @@ function BoardSwitcher(props: {
           <Icon name="chevrons" size={12} />
         </summary>
         <div class="menu-panel board-switcher-panel">
-          <p class="menu-section">Boards enregistrés</p>
+          <p class="menu-section">{t("Boards enregistrés")}</p>
           {boards.map((item) => {
             const shown = item.boardId === configuration.boardId;
             return (
@@ -306,7 +321,7 @@ function BoardSwitcher(props: {
                 disabled={!shown && !canSwitch}
                 title={
                   !shown && !canSwitch
-                    ? "Possible dès que l'écriture en cours dans Jira est terminée"
+                    ? t("Possible dès que l'écriture en cours dans Jira est terminée")
                     : undefined
                 }
                 onClick={(event) =>
@@ -333,7 +348,7 @@ function BoardSwitcher(props: {
               })
             }
           >
-            Ajouter un board…
+            {t("Ajouter un board…")}
           </button>
           <hr class="menu-separator" />
           {board.canEditSettings.value && (
@@ -343,7 +358,7 @@ function BoardSwitcher(props: {
               onClick={(event) => act(event, () => model.showSettings())}
             >
               <Icon name="sliders" size={14} />
-              Réglages de ce board
+              {t("Réglages de ce board")}
             </button>
           )}
           <a
@@ -351,21 +366,23 @@ function BoardSwitcher(props: {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Ouvrir ce board dans Jira
+            {t("Ouvrir ce board dans Jira")}
           </a>
           <button
             type="button"
             disabled={board.setupBusy.value}
             onClick={(event) => act(event, () => void board.refreshStructure())}
           >
-            Relire colonnes et types depuis Jira
+            {t("Relire colonnes et types depuis Jira")}
           </button>
           {board.canPinGoals.value && board.canEditSettings.value && (
             <button
               type="button"
               onClick={(event) => act(event, () => model.showSettings("goals"))}
             >
-              Épingler des Goals au {configuration.boardType === "kanban" ? "board" : "sprint"}…
+              {t("Épingler des Goals au {scope}…", {
+                scope: configuration.boardType === "kanban" ? "board" : "sprint",
+              })}
             </button>
           )}
           <hr class="menu-separator" />
@@ -375,7 +392,7 @@ function BoardSwitcher(props: {
             disabled={!canSwitch}
             onClick={(event) => act(event, () => setRemoval(current))}
           >
-            Retirer « {configuration.boardName} » de l'extension…
+            {t("Retirer « {name} » de l'extension…", { name: configuration.boardName })}
           </button>
         </div>
       </details>
@@ -421,18 +438,20 @@ function RemoveBoardDialog(props: {
         aria-modal="true"
         aria-labelledby="remove-board-title"
       >
-        <h2 id="remove-board-title">Retirer « {props.target.boardName} » de l'extension ?</h2>
+        <h2 id="remove-board-title">
+          {t("Retirer « {name} » de l'extension ?", { name: props.target.boardName })}
+        </h2>
         <p class="hint">
-          Les réglages de ce board dans ce navigateur seront effacés : types et swimlanes, objectifs
-          du board, couleurs, ordre et repli des swimlanes, champs et règles de couleur des cartes.
-          Rien n'est supprimé dans Jira ; vous pourrez l'ajouter de nouveau par son nom.
+          {t(
+            "Les réglages de ce board dans ce navigateur seront effacés : types et swimlanes, objectifs du board, couleurs, ordre et repli des swimlanes, champs et règles de couleur des cartes. Rien n'est supprimé dans Jira ; vous pourrez l'ajouter de nouveau par son nom.",
+          )}
         </p>
         <div class="row">
           <button type="button" class="danger grow" onClick={props.onConfirm}>
-            Retirer de l'extension
+            {t("Retirer de l'extension")}
           </button>
           <button type="button" onClick={onCancel}>
-            Annuler
+            {t("Annuler")}
           </button>
         </div>
       </div>
@@ -476,14 +495,17 @@ function LaneList(props: { model: AppModel; board: BoardModel; lanes: readonly L
     <section class="sidebar-lanes" aria-labelledby="sidebar-lanes-title">
       <h2 class="sidebar-section-title" id="sidebar-lanes-title">
         <span>
-          Objectifs du {board.configuration.value?.boardType === "kanban" ? "board" : "sprint"}
+          {t("Objectifs du {scope}", {
+            scope: board.configuration.value?.boardType === "kanban" ? "board" : "sprint",
+          })}
         </span>
         <span>{goalCount}</span>
       </h2>
       {goalCount === 0 && (
         <p class="sidebar-empty">
-          Aucun objectif sur ce{" "}
-          {board.configuration.value?.boardType === "kanban" ? "board" : "sprint"}.
+          {t("Aucun objectif sur ce {scope}.", {
+            scope: board.configuration.value?.boardType === "kanban" ? "board" : "sprint",
+          })}
         </p>
       )}
       <ul class="sidebar-lane-list">
@@ -532,7 +554,7 @@ function LaneRow(props: {
         type="button"
         class="sidebar-lane-main"
         draggable={editable}
-        title={goal ? lane.title : `Aller à ${lane.title}`}
+        title={goal ? lane.title : t("Aller à {name}", { name: lane.title })}
         onClick={() => {
           model.showBoard();
           void revealLane(board, lane.id);
@@ -573,7 +595,7 @@ function LaneRow(props: {
       {goal && editable && (
         <EyeToggle
           hidden={false}
-          label={`Masquer « ${lane.title} » du board`}
+          label={t("Masquer « {name} » du board", { name: lane.title })}
           onClick={() => void board.setGoalHidden(goal.id, true)}
         />
       )}
@@ -633,11 +655,14 @@ function HiddenGoals({ board }: { board: BoardModel }) {
         type="button"
         class="sidebar-section-title sidebar-section-toggle"
         aria-expanded={open}
-        title={`Leurs tickets sont affichés dans ${build}. Réglage du board, partagé avec l'équipe.`}
+        title={t(
+          "Leurs tickets sont affichés dans {name}. Réglage du board, partagé avec l'équipe.",
+          { name: build },
+        )}
         onClick={() => setOpen(!open)}
       >
         <span class="chevron" aria-hidden="true" />
-        <span>Masqués du board</span>
+        <span>{t("Masqués du board")}</span>
         <span>{hidden.length}</span>
       </button>
       {open && (
@@ -649,7 +674,7 @@ function HiddenGoals({ board }: { board: BoardModel }) {
               {board.canEditSettings.value && (
                 <EyeToggle
                   hidden
-                  label={`Réafficher « ${goal.title} » sur le board`}
+                  label={t("Réafficher « {name} » sur le board", { name: goal.title })}
                   onClick={() => void board.setGoalHidden(goal.id, false)}
                 />
               )}

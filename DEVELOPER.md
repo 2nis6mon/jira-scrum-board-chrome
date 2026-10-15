@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.34.12**, 15 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.35.0**, 15 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -18,6 +18,7 @@ Accès direct : [intégration Jira](#integration-jira), [API](#contrats-api),
 | `src/app/`, `src/app/platform/` | Modèles/vues/styles ; adaptateurs Chrome injectés |
 | `src/core/`, `src/jira/` | Métier sans DOM ni Chrome ; transport et contrats Jira |
 | `src/integration/` | Lanceur, worker, script de contenu, iframe et popins natives |
+| `src/i18n/`, `src/app/i18n.ts` | Catalogues FR/EN et sélection pure de langue ; adaptateur réactif des vues |
 | `tests/support/`, `tests/harness/` | Faux services et banc visuel, absents de la distribution |
 | `scripts/`, `.run/` | Contrôles navigateur, distribution et configurations IntelliJ partagées |
 
@@ -56,6 +57,31 @@ après deux frames. Les durées parallèles ne s'additionnent pas ; une relectur
 la synchronisation prolonge la mesure. **Depuis 0.29.2, aucun indicateur ni accès à la popin dans Jira.**
 La vue subsiste uniquement sur le banc `?scenario=board-chargement` ; `verify:loading` contrôle
 copie, historique, fermeture et format étroit, avec captures dans `.vite/`.
+
+### Langue de l'interface
+
+Le français constitue la source des catalogues ; l'anglais est la langue de repli. Le mode
+`auto` suit la langue de la page Jira transmise par l'intégration : toute variante `fr` reste en
+français, les autres langues passent en anglais. Si la page ne fournit pas de langue exploitable,
+`GET /rest/api/3/mypreferences/locale` sert de repli non bloquant ; sans résultat, l'anglais reste
+actif. Le contrat de cette lecture est [documenté par Atlassian](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-myself/#api-rest-api-3-mypreferences-locale-get).
+
+`AppModel.prepareLanguage()` restaure `language.v1` (`auto`, `fr`, `en`)
+avant le premier rendu. La préférence est personnelle à ce profil Chrome et commune aux boards ;
+elle n'entre jamais dans `TeamSettings` ni dans une écriture Jira. Elle se modifie dans
+**Site Jira → Préférences personnelles**, même sans `canEdit`, ou dans la carte personnelle des
+réglages. La bascule réactive conserve les composants et leurs brouillons ; les nombres, dates,
+textes visibles et noms accessibles suivent la langue choisie.
+
+`t` traduit une clé du catalogue ; `localize` présente les messages historiques déjà construits
+par les modèles. Ne jamais passer à `localize` les titres de tickets, noms des Goals, statuts ou
+noms personnalisés : ce sont des contenus Jira. Les fiches et formulaires de transition natifs
+gardent la langue de Jira, indépendamment de la préférence du plugin.
+
+`npm run verify:i18n` contrôle le rendu FR/EN, les variantes Jira françaises, le repli anglais,
+la préférence sans droits d'administration et la conservation du JQL dans un Chrome isolé.
+Les métadonnées Chrome (`public/_locales/`) suivent la langue de Chrome ; la vue du board suit
+la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de traduction distant.
 
 ## Invariants fonctionnels
 
@@ -155,7 +181,7 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
 - Réglages du board ([`settings/`](src/app/views/settings/SettingsView.tsx), 0.31.0) : vue
   `settings` à onglets Board, Objectifs, Champs et Couleurs des cartes, ouverte depuis le board
   (menu du board, menu ⋯ d'une swimlane) ; le pied de barre « Site Jira »
-  garde diagnostic et déconnexion. Glisser-déposer HTML5 à types de données propres
+  garde préférences personnelles, diagnostic et déconnexion. Glisser-déposer HTML5 à types de données propres
   (`application/x-sprint-goals-settings-*`), sans effet sur les glissés du board, avec un équivalent
   clavier ou menu pour chaque geste ; `verify:settings` les rejoue dans Chromium. La liste des
   swimlanes est la sous-suite hors objectifs de `blockOrder` (`settingsLaneOrder`,
@@ -324,6 +350,7 @@ comme donnée inconnue, sans effet sur le classement.
 |---|---|
 | `connection.v1`, `launcher.v1` | Site connecté ; dernière adresse de board |
 | `boards.v1`, `interface.v1` | Boards/configuration/sélection par site ; préférences de présentation |
+| `language.v1` | Langue personnelle (`auto`, `fr`, `en`), commune aux boards de ce navigateur |
 | `sprint-planning.v1:<origine Jira>` | Brouillons par board/sprint : objectifs texte, clés/rattachements, capacité, révision de base ; oubli du board/site les efface |
 | `jira-button-position.v1:<origine Jira>` | Position personnelle commune aux boards d'un site |
 | `dismissedNotices.v1`, `graphqlOrigin.v1` | Avis fermés par site/board ; variante Origin du site |

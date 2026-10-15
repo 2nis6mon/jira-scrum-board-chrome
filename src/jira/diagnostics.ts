@@ -1,3 +1,4 @@
+import { getLanguage, localize, t } from "../i18n";
 import { JiraError } from "./errors";
 import { isRecord } from "./json";
 import type { AtlassianTokenHeader, JiraResponse, JiraTransport } from "./transport";
@@ -398,11 +399,14 @@ export function formatReport(input: ReportInput): string {
     "",
   ];
   const mark: Record<ProbeStatus, string> = { ok: "✓", failed: "✗", skipped: "–" };
+  const separator = getLanguage() === "fr" ? " : " : ": ";
   const section = (title: string, probes: readonly ProbeResult[]) => {
     lines.push(title);
     for (const probe of probes) {
       const code = probe.httpStatus === null ? "" : ` [${probe.httpStatus}]`;
-      lines.push(`${mark[probe.status]} ${probe.label}${code} : ${probe.detail}`);
+      lines.push(
+        `${mark[probe.status]} ${localize(probe.label)}${code}${separator}${localize(probe.detail)}`,
+      );
     }
     lines.push("");
   };
@@ -411,11 +415,13 @@ export function formatReport(input: ReportInput): string {
     section("Lectures", input.read.probes);
     if (input.read.probes.some((probe) => probe.id === "post-graphql-remove")) {
       lines.push(
-        `GraphQL : ${
-          input.read.graphqlOrigin === null
-            ? "refusé dans toutes les variantes de l'en-tête Origin."
-            : `accepté, ${ORIGIN_LABEL[input.read.graphqlOrigin]} (variante retenue).`
-        }`,
+        t("GraphQL : {detail}", {
+          detail: localize(
+            input.read.graphqlOrigin === null
+              ? "refusé dans toutes les variantes de l'en-tête Origin."
+              : `accepté, ${ORIGIN_LABEL[input.read.graphqlOrigin]} (variante retenue).`,
+          ),
+        }),
         "",
       );
     }
@@ -428,7 +434,7 @@ export function formatReport(input: ReportInput): string {
   } else {
     lines.push("Écriture : test non lancé");
   }
-  return lines.join("\n");
+  return lines.map((line) => localize(line)).join("\n");
 }
 
 // ─── Utilitaires ─────────────────────────────────────────────────────────────

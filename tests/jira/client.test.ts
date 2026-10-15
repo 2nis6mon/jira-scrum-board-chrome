@@ -16,6 +16,34 @@ function clientFor(jira: FakeJira) {
   return new JiraClient(new JiraTransport({ site: ACME, fetch: jira.fetch, maxGetAttempts: 1 }));
 }
 
+describe("langue Atlassian du compte", () => {
+  it.each(["fr_FR", "fr-CA", "en_US", "de", "zh-Hans-CN"])(
+    "lit et valide %s sans écrire une préférence",
+    async (locale) => {
+      const jira = new FakeJira().on("GET", "/rest/api/3/mypreferences/locale", {
+        status: 200,
+        json: { locale },
+      });
+      await expect(clientFor(jira).locale()).resolves.toBe(locale);
+      expect(jira.requests).toHaveLength(1);
+      expect(jira.requests[0]?.method).toBe("GET");
+    },
+  );
+
+  it.each([null, {}, { locale: "" }, { locale: 42 }, { locale: "../../fr" }, { locale: "fr FR" }])(
+    "refuse une réponse de langue inattendue %j",
+    async (json) => {
+      const jira = new FakeJira().on("GET", "/rest/api/3/mypreferences/locale", {
+        status: 200,
+        json,
+      });
+      await expect(clientFor(jira).locale()).rejects.toMatchObject({
+        info: { kind: "decoding", context: "locale" },
+      });
+    },
+  );
+});
+
 const field = (id: string, name: string, schemaCustom: string | null = null): JiraField => ({
   id,
   name,

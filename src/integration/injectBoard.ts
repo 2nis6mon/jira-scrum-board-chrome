@@ -1,5 +1,12 @@
 /** Fonction autonome copiée par Chrome dans le monde isolé de l'onglet Jira. */
-export function injectBoard(boardUrl: string, expectedAddress: string): void {
+export function injectBoard(
+  boardUrl: string,
+  expectedAddress: string,
+  localization?: {
+    preference: "auto" | "fr" | "en";
+    messages: Readonly<Record<string, string>>;
+  },
+): void {
   if (!/^https:\/\/[^/]+\.atlassian\.net$/.test(location.origin)) return;
   const current = new URL(location.href);
   const expected = new URL(expectedAddress);
@@ -9,6 +16,21 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
     current.searchParams.get("sprintGoals") !== "1"
   )
     return;
+
+  // Tout reste autonome : Chrome copie cette fonction sans ses imports ni son module.
+  const rawLocale = document.documentElement.lang.trim().replaceAll("_", "-").toLowerCase();
+  const jiraLocale = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/.test(rawLocale) ? rawLocale : "";
+  let language =
+    localization?.preference === "fr" || localization?.preference === "en"
+      ? localization.preference
+      : jiraLocale.split("-")[0] === "fr"
+        ? "fr"
+        : "en";
+  const t = (source: string, params: Readonly<Record<string, string>> = {}) =>
+    (language === "fr" ? source : (localization?.messages[source] ?? source)).replace(
+      /\{([a-zA-Z]\w*)\}/g,
+      (token, name: string) => params[name] ?? token,
+    );
 
   const id = "sprint-goals-direct";
   document.getElementById(id)?.remove();
@@ -36,6 +58,7 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
   const url = new URL(boardUrl);
   url.searchParams.set("jiraHost", location.origin);
   url.searchParams.set("jiraBoard", location.href);
+  if (jiraLocale) url.searchParams.set("jiraLocale", jiraLocale);
   frame.src = url.href;
 
   const refresh = () =>
@@ -272,8 +295,8 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
    * fenêtre à Jira Cloud : elle n'a pas d'adresse à laquelle la demander.
    */
   const openTicket = (key: string, transition: Transition | null = null) => {
-    const { hint, page: ticket, session, reveal } = popin(`Ticket Jira ${key}`);
-    hint.textContent = `Chargement de ${key}…`;
+    const { hint, page: ticket, session, reveal } = popin(t("Ticket Jira {key}", { key }));
+    hint.textContent = t("Chargement de {key}…", { key });
     const address = new URL(location.href);
     address.searchParams.delete("sprintGoals");
     address.searchParams.set("selectedIssue", key);
@@ -313,7 +336,7 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
         reveal();
         return;
       }
-      hint.textContent = `Ouverture de « ${transition.name} »…`;
+      hint.textContent = t("Ouverture de « {name} »…", { name: transition.name });
       step = {
         kind: "choosing-transition",
         panel,
@@ -439,8 +462,9 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
         trace("page du ticket inaccessible dans un cadre");
         closeTicket();
         host.setAttribute("data-error", "");
-        status.textContent =
-          "Jira n'a pas permis d'afficher ce ticket ici. Rechargez la vue puis réessayez.";
+        status.textContent = t(
+          "Jira n'a pas permis d'afficher ce ticket ici. Rechargez la vue puis réessayez.",
+        );
       }
     };
     const timer = setInterval(tick, 300);
@@ -453,13 +477,17 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
   const onMessage = (event: MessageEvent) => {
     if (event.source !== frame.contentWindow || event.origin !== url.origin) return;
     const data = event.data;
+    if (data?.type === "sprint-goals:language") {
+      if (data.language === "fr" || data.language === "en") language = data.language;
+      return;
+    }
     if (data?.type === "sprint-goals:close") {
       // Retour à Jira : la même adresse sans le marqueur, rechargée (voir bootstrap.ts, 0.26.2).
       const plain = new URL(location.href);
       plain.searchParams.delete("sprintGoals");
       closeTicket();
       host.setAttribute("data-leaving", "");
-      status.textContent = "Retour à Jira…";
+      status.textContent = t("Retour à Jira…");
       location.assign(plain.href);
       return;
     }
@@ -479,7 +507,7 @@ export function injectBoard(boardUrl: string, expectedAddress: string): void {
       board.searchParams.set("sprintGoals", "1");
       closeTicket();
       host.setAttribute("data-leaving", "");
-      status.textContent = "Ouverture du board dans Jira…";
+      status.textContent = t("Ouverture du board dans Jira…");
       location.assign(board.href);
       return;
     }

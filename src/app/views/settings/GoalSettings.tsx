@@ -1,4 +1,5 @@
 import type { BoardConfiguration, GoalSource } from "../../../core/boardConfiguration";
+import { localize, t } from "../../i18n";
 import type { BoardModel } from "../../model/BoardModel";
 import { SprintGoalsPanel } from "./SprintGoalsPanel";
 
@@ -31,16 +32,20 @@ export function GoalSettings({
       <section class="settings-card" aria-labelledby="settings-source">
         <header class="settings-card-header">
           <div class="settings-card-title">
-            <h2 id="settings-source">Source des objectifs</h2>
+            <h2 id="settings-source">{t("Source des objectifs")}</h2>
             <p class="settings-help">
               {kanban
-                ? "Les Goals Atlassian liés aux tickets deviennent les objectifs du board. Épinglez un Goal pour garder sa ligne visible même sans ticket."
-                : "Jira n'a aucune relation native entre un sprint et un Goal : les Goals sont au niveau de l'organisation."}
+                ? t(
+                    "Les Goals Atlassian liés aux tickets deviennent les objectifs du board. Épinglez un Goal pour garder sa ligne visible même sans ticket.",
+                  )
+                : t(
+                    "Jira n'a aucune relation native entre un sprint et un Goal : les Goals sont au niveau de l'organisation.",
+                  )}
             </p>
           </div>
         </header>
         <fieldset class="settings-choices">
-          <legend class="visually-hidden">Source des objectifs</legend>
+          <legend class="visually-hidden">{t("Source des objectifs")}</legend>
           {SOURCES.filter((option) => !kanban || option.id === "atlassianGoals").map((option) => (
             <label
               key={option.id}
@@ -58,13 +63,15 @@ export function GoalSettings({
                 }
               />
               <span class="settings-choice-text">
-                <strong>{option.label}</strong>
-                <span class="settings-help">{option.help}</span>
+                <strong>{localize(option.label)}</strong>
+                <span class="settings-help">{localize(option.help)}</span>
               </span>
             </label>
           ))}
         </fieldset>
-        {board.goalsNotice.value && <p class="notice notice-info">{board.goalsNotice.value}</p>}
+        {board.goalsNotice.value && (
+          <p class="notice notice-info">{localize(board.goalsNotice.value)}</p>
+        )}
       </section>
 
       <SprintGoalsPanel board={board} pinning={source === "atlassianGoals"} />

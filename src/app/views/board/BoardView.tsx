@@ -42,10 +42,11 @@ import {
 } from "../../../core/filters";
 import { goalColorName } from "../../../core/sprintGoals";
 import { blockingRequiredFields } from "../../../jira/models";
+import { localize, t } from "../../i18n";
 import type { SettingsSection } from "../../model/AppModel";
 import type { BoardModel } from "../../model/BoardModel";
 import type { NoticeId } from "../../model/noticeStore";
-import { formatDay, formatPoints, formatTime, plural, toggled } from "../format";
+import { formatDay, formatPoints, formatTime, plural, pluralWord, toggled } from "../format";
 import { FullscreenButton, requestFullscreen, useFullscreen } from "../fullscreen";
 import { GoalMarker } from "../GoalMarker";
 import { HealthPanel } from "../health/HealthPanel";
@@ -130,16 +131,18 @@ export function BoardView({
       )}
       <TransitionChoiceDialog board={board} />
       {snapshot === null ? (
-        !board.syncProblem.value && <p class="board-empty">Lecture du board dans Jira…</p>
+        !board.syncProblem.value && <p class="board-empty">{t("Lecture du board dans Jira…")}</p>
       ) : snapshot.sprint === null && !kanban ? (
         <p class="board-empty">
-          Aucun sprint actif sur ce board. Le board affiche les tickets des sprints actifs.
+          {t("Aucun sprint actif sur ce board. Le board affiche les tickets des sprints actifs.")}
         </p>
       ) : (
         shownLayout &&
         (daily && steps.length === 0 && !shownLayout.filtersActive ? (
           <p class="board-empty">
-            Aucune swimlane à présenter : le {kanban ? "board" : "sprint"} n'a aucun ticket affiché.
+            {t("Aucune swimlane à présenter : le {scope} n'a aucun ticket affiché.", {
+              scope: kanban ? "board" : "sprint",
+            })}
           </p>
         ) : (
           <BoardGrid
@@ -188,10 +191,14 @@ function TransitionChoiceDialog({ board }: { board: BoardModel }) {
         aria-modal="true"
         aria-labelledby="transition-choice-title"
       >
-        <h2 id="transition-choice-title">Choisir le statut dans « {choice.columnName} »</h2>
+        <h2 id="transition-choice-title">
+          {t("Choisir le statut dans « {column} »", { column: choice.columnName })}
+        </h2>
         <p class="hint">
-          Plusieurs statuts sont accessibles pour {choice.issueKey}. Choisissez la destination du
-          ticket.
+          {t(
+            "Plusieurs statuts sont accessibles pour {issue}. Choisissez la destination du ticket.",
+            { issue: choice.issueKey },
+          )}
         </p>
         <ul class="transition-list">
           {choice.available.map((transition) => (
@@ -203,7 +210,7 @@ function TransitionChoiceDialog({ board }: { board: BoardModel }) {
               >
                 <strong>{transition.to.name}</strong>
                 {(transition.hasScreen || blockingRequiredFields(transition).length > 0) && (
-                  <span class="hint"> · Formulaire à compléter</span>
+                  <span class="hint"> · {t("Formulaire à compléter")}</span>
                 )}
               </button>
             </li>
@@ -211,7 +218,7 @@ function TransitionChoiceDialog({ board }: { board: BoardModel }) {
         </ul>
         <div class="row">
           <button type="button" class="grow" onClick={() => board.cancelTransitionChoice()}>
-            Annuler le déplacement
+            {t("Annuler le déplacement")}
           </button>
         </div>
       </div>
@@ -279,10 +286,14 @@ function SprintHeader(props: {
         type="button"
         class="icon-button sidebar-toggle"
         aria-label={
-          controls.sidebarCollapsed ? "Afficher la barre latérale" : "Masquer la barre latérale"
+          controls.sidebarCollapsed
+            ? t("Afficher la barre latérale")
+            : t("Masquer la barre latérale")
         }
         title={
-          controls.sidebarCollapsed ? "Afficher la barre latérale" : "Masquer la barre latérale"
+          controls.sidebarCollapsed
+            ? t("Afficher la barre latérale")
+            : t("Masquer la barre latérale")
         }
         onClick={controls.onToggleSidebar}
       >
@@ -294,11 +305,11 @@ function SprintHeader(props: {
             {kanban
               ? configuration.boardName
               : snapshot
-                ? snapshot.activeSprints.map((s) => s.name).join(" + ") || "Aucun sprint actif"
+                ? snapshot.activeSprints.map((s) => s.name).join(" + ") || t("Aucun sprint actif")
                 : "…"}
           </h2>
           {kanban && <span class="sprint-active">Kanban</span>}
-          {sprint?.state === "active" && <span class="sprint-active">actif</span>}
+          {sprint?.state === "active" && <span class="sprint-active">{t("actif")}</span>}
         </div>
         {sprint && (
           <span class="sprint-dates">
@@ -316,11 +327,10 @@ function SprintHeader(props: {
       {metrics && hasScope && (
         <div class="sprint-metrics">
           {kanban ? (
-            <span class="counter" title="Tickets dans le périmètre actuel du board">
-              <strong>{kanbanIssues.length}</strong>{" "}
-              {kanbanIssues.length > 1 ? "tickets" : "ticket"}
+            <span class="counter" title={t("Tickets dans le périmètre actuel du board")}>
+              <strong>{kanbanIssues.length}</strong> {pluralWord(kanbanIssues.length, "ticket")}
               {" · "}
-              {kanbanDone} {kanbanDone > 1 ? "terminés" : "terminé"}
+              {plural(kanbanDone, "terminé")}
             </span>
           ) : (
             <SprintProgress metrics={metrics} />
@@ -329,13 +339,13 @@ function SprintHeader(props: {
             <div class="sprint-counters">
               <span
                 class="counter counter-goals"
-                title="Goals dont tous les tickets sont dans la dernière colonne"
+                title={t("Goals dont tous les tickets sont dans la dernière colonne")}
               >
                 <Icon name="check" />
                 <strong>
                   {completedGoals}/{goals.length}
                 </strong>
-                Goals atteints
+                {t("Goals atteints")}
               </span>
             </div>
           )}
@@ -345,17 +355,19 @@ function SprintHeader(props: {
       <div class="sprint-actions">
         {board.syncing.value && (
           <span class="sync-status" aria-live="polite">
-            Actualisation…
+            {t("Actualisation…")}
           </span>
         )}
         {SPRINT_HEALTH_ENABLED && sprint && (
           <button
             type="button"
             class="icon-button health-toggle"
-            aria-label="Santé du sprint"
+            aria-label={t("Santé du sprint")}
             aria-pressed={controls.healthOpen}
             title={
-              controls.healthOpen ? "Masquer la santé du sprint" : "Afficher la santé du sprint"
+              controls.healthOpen
+                ? t("Masquer la santé du sprint")
+                : t("Afficher la santé du sprint")
             }
             onClick={controls.onToggleHealth}
           >
@@ -365,8 +377,8 @@ function SprintHeader(props: {
         <button
           type="button"
           class={`icon-button${board.syncing.value ? " icon-button-busy" : ""}`}
-          aria-label="Actualiser"
-          title="Actualiser depuis Jira"
+          aria-label={t("Actualiser")}
+          title={t("Actualiser depuis Jira")}
           onClick={() => void board.sync()}
           disabled={board.syncing.value}
         >
@@ -375,8 +387,10 @@ function SprintHeader(props: {
         <button
           type="button"
           class="icon-button"
-          aria-label="Mode présentation"
-          title="Mode présentation : plein écran, sans barre latérale ni en-tête (Échap pour revenir)"
+          aria-label={t("Mode présentation")}
+          title={t(
+            "Mode présentation : plein écran, sans barre latérale ni en-tête (Échap pour revenir)",
+          )}
           onClick={() => {
             // Le plein écran exige le geste de l'utilisateur : demandé avant tout le reste.
             requestFullscreen();
@@ -389,8 +403,10 @@ function SprintHeader(props: {
           <button
             type="button"
             class="primary daily-start"
-            aria-label="Lancer la daily"
-            title={`Daily : plein écran, une swimlane à la fois, minuteur de ${configuration.dailyMinutes} min`}
+            aria-label={t("Lancer la daily")}
+            title={t("Daily : plein écran, une swimlane à la fois, minuteur de {minutes} min", {
+              minutes: configuration.dailyMinutes,
+            })}
             onClick={() => {
               // Le plein écran exige le geste de l'utilisateur : demandé avant tout le reste. Refusé
               // (cadre sans droit, navigateur), la daily se déroule simplement dans la fenêtre.
@@ -419,12 +435,12 @@ function PresentationExit({ onExit }: { onExit: () => void }) {
       <button
         type="button"
         class="presentation-exit-button"
-        aria-label="Quitter le mode présentation"
-        title="Quitter le mode présentation (Échap)"
+        aria-label={t("Quitter le mode présentation")}
+        title={t("Quitter le mode présentation (Échap)")}
         onClick={onExit}
       >
         <Icon name="exitPresent" />
-        Quitter
+        {t("Quitter")}
       </button>
     </span>
   );
@@ -512,15 +528,15 @@ function DailyBar(props: {
       <span
         class="daily-clock"
         role="timer"
-        title={phase === "overtime" ? "Durée de la daily dépassée" : "Temps restant"}
+        title={phase === "overtime" ? t("Durée de la daily dépassée") : t("Temps restant")}
       >
         {clock}
       </span>
       <button
         type="button"
         class="daily-nav"
-        aria-label="Swimlane précédente"
-        title="Swimlane précédente (←)"
+        aria-label={t("Swimlane précédente")}
+        title={t("Swimlane précédente (←)")}
         disabled={index <= 0}
         onClick={() => move(-1)}
       >
@@ -529,8 +545,8 @@ function DailyBar(props: {
       <button
         type="button"
         class="daily-nav"
-        aria-label="Swimlane suivante"
-        title="Swimlane suivante (→)"
+        aria-label={t("Swimlane suivante")}
+        title={t("Swimlane suivante (→)")}
         disabled={index < 0 || index >= steps.length - 1}
         onClick={() => move(1)}
       >
@@ -543,22 +559,22 @@ function DailyBar(props: {
               {index + 1}/{steps.length}
             </span>
             <strong class="daily-step-title">{step.title}</strong>
-            <span class="daily-step-time" title="Temps passé sur cette swimlane">
+            <span class="daily-step-time" title={t("Temps passé sur cette swimlane")}>
               {formatDailyElapsed(stepElapsed(session, now))}
             </span>
           </>
         ) : (
-          <span class="daily-step-title">Aucune swimlane</span>
+          <span class="daily-step-title">{t("Aucune swimlane")}</span>
         )}
       </span>
-      {paused && <span class="daily-paused-label">En pause</span>}
+      {paused && <span class="daily-paused-label">{t("En pause")}</span>}
       <span class="daily-actions">
         <button
           type="button"
           class="icon-button"
-          aria-label={paused ? "Reprendre le minuteur" : "Mettre le minuteur en pause"}
+          aria-label={paused ? t("Reprendre le minuteur") : t("Mettre le minuteur en pause")}
           aria-pressed={paused}
-          title={paused ? "Reprendre (Espace)" : "Pause (Espace)"}
+          title={paused ? t("Reprendre (Espace)") : t("Pause (Espace)")}
           onClick={togglePause}
         >
           <Icon name={paused ? "play" : "pause"} size={17} />
@@ -567,11 +583,11 @@ function DailyBar(props: {
         <button
           type="button"
           class="daily-stop"
-          title={fullscreen ? "Terminer la daily" : "Terminer la daily (Échap)"}
+          title={fullscreen ? t("Terminer la daily") : t("Terminer la daily (Échap)")}
           onClick={controls.onStopDaily}
         >
           <Icon name="stop" />
-          Terminer
+          {t("Terminer")}
         </button>
       </span>
     </div>
@@ -580,7 +596,10 @@ function DailyBar(props: {
 
 /** Avancement du sprint : en story points si le board en a, sinon en tickets. */
 function SprintProgress({ metrics }: { metrics: SprintMetrics }) {
-  const tickets = `${metrics.done} / ${plural(metrics.totalIssues, "ticket")} terminés`;
+  const tickets = t("{done} / {issues} terminés", {
+    done: metrics.done,
+    issues: plural(metrics.totalIssues, "ticket"),
+  });
   const points = metrics.totalPoints;
   const ratio =
     points === null
@@ -592,25 +611,27 @@ function SprintProgress({ metrics }: { metrics: SprintMetrics }) {
     <div
       class="sprint-progress"
       title={
-        points === null ? tickets : `Story points terminés sur le total du sprint · ${tickets}`
+        points === null
+          ? tickets
+          : t("Story points terminés sur le total du sprint · {issues}", { issues: tickets })
       }
     >
       <strong>
         {points === null
-          ? `${metrics.done}/${plural(metrics.totalIssues, "ticket")}`
+          ? `${metrics.done}/${plural(metrics.totalIssues, t("ticket"))}`
           : `${formatPoints(metrics.donePoints ?? 0)}/${formatPoints(points)} pts`}
       </strong>
-      <progress max={1} value={ratio} aria-label="Avancement du sprint" />
+      <progress max={1} value={ratio} aria-label={t("Avancement du sprint")} />
       <span class="sprint-percent">{Math.round(ratio * 100)} %</span>
     </div>
   );
 }
 
 function remainingLabel(days: number): string {
-  if (days >= 1) return `${days} j restant${days > 1 ? "s" : ""}`;
-  if (days === 0) return "se termine aujourd'hui";
+  if (days >= 1) return t(days === 1 ? "{days} j restant" : "{days} j restants", { days });
+  if (days === 0) return t("se termine aujourd'hui");
   // Le sprint est encore actif dans Jira : seule sa date de fin prévue est dépassée.
-  return `fin prévue dépassée de ${plural(-days, "jour")}`;
+  return t("fin prévue dépassée de {duration}", { duration: plural(-days, "jour") });
 }
 
 // ─── Filtres ─────────────────────────────────────────────────────────────────
@@ -629,8 +650,8 @@ function FilterBar({ board, trailing }: { board: BoardModel; trailing?: Componen
         <Icon name="search" />
         <input
           type="search"
-          aria-label="Rechercher"
-          placeholder="Clé, résumé, personne, type, label…"
+          aria-label={t("Rechercher")}
+          placeholder={t("Clé, résumé, personne, type, label…")}
           value={filters.searchText}
           onInput={(event) => board.setSearch(event.currentTarget.value)}
         />
@@ -644,23 +665,23 @@ function FilterBar({ board, trailing }: { board: BoardModel; trailing?: Componen
           type="button"
           class={`chip chip-${quick}`}
           aria-pressed={filters.quickFilters.has(quick)}
-          title={QUICK_FILTER_HELP[quick]}
+          title={localize(QUICK_FILTER_HELP[quick])}
           onClick={() => board.toggleQuickFilter(quick)}
         >
           <Icon name={quick === "blocked" ? "blocked" : "added"} />
-          {QUICK_FILTER_LABEL[quick]}
+          {localize(QUICK_FILTER_LABEL[quick])}
         </button>
       ))}
       <JiraQuickFilters board={board} />
       <span class="filter-separator" aria-hidden="true" />
       <FilterMenu
-        label="Personne"
+        label={t("Personne")}
         icon="person"
         options={options.assignees}
         selected={filters.assigneeIds}
         onToggle={(value) => set({ ...filters, assigneeIds: toggled(filters.assigneeIds, value) })}
         extra={{
-          label: "Non assigné",
+          label: t("Non assigné"),
           count: options.unassignedCount,
           checked: filters.includeUnassigned,
           onToggle: () => set({ ...filters, includeUnassigned: !filters.includeUnassigned }),
@@ -682,14 +703,14 @@ function FilterBar({ board, trailing }: { board: BoardModel; trailing?: Componen
         selected={filters.parentKeys}
         onToggle={(value) => set({ ...filters, parentKeys: toggled(filters.parentKeys, value) })}
         extra={{
-          label: "Sans parent",
+          label: t("Sans parent"),
           count: options.withoutParentCount,
           checked: filters.includeWithoutParent,
           onToggle: () => set({ ...filters, includeWithoutParent: !filters.includeWithoutParent }),
         }}
       />
       <FilterMenu
-        label="Statut"
+        label={t("Statut")}
         icon="status"
         options={options.statuses}
         selected={filters.statusIds}
@@ -705,11 +726,11 @@ function FilterBar({ board, trailing }: { board: BoardModel; trailing?: Componen
       {count > 0 && (
         <>
           <span class="filter-result">
-            {layout && `${layout.visibleCount} / ${plural(layout.totalCount, "ticket")}`}
+            {layout && `${layout.visibleCount} / ${plural(layout.totalCount, t("ticket"))}`}
           </span>
           <button type="button" class="filter-reset" onClick={() => board.resetFilters()}>
             <Icon name="reset" />
-            Réinitialiser ({count})
+            {t("Réinitialiser ({count})", { count })}
           </button>
         </>
       )}
@@ -731,8 +752,8 @@ function JiraQuickFilters({ board }: { board: BoardModel }) {
     <>
       <span class="filter-separator" aria-hidden="true" />
       <fieldset class="jira-quick-filters" aria-busy={applying}>
-        <legend class="visually-hidden">Filtres rapides Jira</legend>
-        <span class="jira-quick-filters-icon" title="Filtres rapides du board Jira">
+        <legend class="visually-hidden">{t("Filtres rapides Jira")}</legend>
+        <span class="jira-quick-filters-icon" title={t("Filtres rapides du board Jira")}>
           <Icon name="jiraFilters" />
         </span>
         {quickFilters.map((quick) => (
@@ -741,7 +762,7 @@ function JiraQuickFilters({ board }: { board: BoardModel }) {
             type="button"
             class="chip chip-jira"
             aria-pressed={active.has(quick.id)}
-            title={[quick.description, `JQL évalué par Jira : ${quick.jql}`]
+            title={[quick.description, t("JQL évalué par Jira : {jql}", { jql: quick.jql })]
               .filter((line) => line !== null && line !== "")
               .join("\n")}
             disabled={applying}
@@ -752,7 +773,7 @@ function JiraQuickFilters({ board }: { board: BoardModel }) {
         ))}
         {applying && (
           <span class="jira-quick-filters-busy" aria-live="polite">
-            Jira filtre…
+            {t("Jira filtre…")}
           </span>
         )}
       </fieldset>
@@ -781,10 +802,10 @@ function Notices(props: {
       {teamNotice && (
         <div class={`notice notice-${teamNotice.tone} notice-inline`} role="alert">
           <p>
-            <strong>{teamNotice.text}</strong>
-            {teamNotice.suggestion && ` ${teamNotice.suggestion}`}
+            <strong>{localize(teamNotice.text)}</strong>
+            {teamNotice.suggestion && ` ${localize(teamNotice.suggestion)}`}
           </p>
-          <button type="button" aria-label="Fermer" onClick={() => board.dismissTeamNotice()}>
+          <button type="button" aria-label={t("Fermer")} onClick={() => board.dismissTeamNotice()}>
             ×
           </button>
         </div>
@@ -792,13 +813,13 @@ function Notices(props: {
       {writeNotice && (
         <div class={`notice notice-${writeNotice.tone}`} role="alert">
           <p>
-            <strong>{writeNotice.text}</strong>
-            {writeNotice.suggestion && ` ${writeNotice.suggestion}`}
+            <strong>{localize(writeNotice.text)}</strong>
+            {writeNotice.suggestion && ` ${localize(writeNotice.suggestion)}`}
           </p>
           <div class="row">
             {writeNotice.sessionLost && (
               <a href={board.site.origin} target="_blank" rel="noopener noreferrer">
-                Ouvrir {board.site.host}
+                {t("Ouvrir {name}", { name: board.site.host })}
               </a>
             )}
             {writeNotice.issueKey && !writeNotice.sessionLost && (
@@ -807,10 +828,14 @@ function Notices(props: {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Ouvrir {writeNotice.issueKey}
+                {t("Ouvrir {name}", { name: writeNotice.issueKey })}
               </a>
             )}
-            <button type="button" aria-label="Fermer" onClick={() => board.dismissWriteNotice()}>
+            <button
+              type="button"
+              aria-label={t("Fermer")}
+              onClick={() => board.dismissWriteNotice()}
+            >
               ×
             </button>
           </div>
@@ -819,57 +844,66 @@ function Notices(props: {
       {problem && (
         <div class="notice notice-error" role="alert">
           <p>
-            <strong>{problem.text}</strong>
-            {problem.suggestion && ` ${problem.suggestion}`}
-            {snapshot && ` Dernière synchronisation réussie : ${formatTime(snapshot.syncedAt)}.`}
+            <strong>{localize(problem.text)}</strong>
+            {problem.suggestion && ` ${localize(problem.suggestion)}`}
+            {snapshot &&
+              ` ${t("Dernière synchronisation réussie : {time}.", { time: formatTime(snapshot.syncedAt) })}`}
           </p>
           <div class="row">
             {problem.sessionLost && (
               <a href={board.site.origin} target="_blank" rel="noopener noreferrer">
-                Ouvrir {board.site.host}
+                {t("Ouvrir {name}", { name: board.site.host })}
               </a>
             )}
             <button type="button" onClick={() => void board.sync()} disabled={board.syncing.value}>
-              Réessayer
+              {t("Réessayer")}
             </button>
           </div>
         </div>
       )}
-      {board.goalsNotice.value && <p class="notice notice-info">{board.goalsNotice.value}</p>}
+      {board.goalsNotice.value && (
+        <p class="notice notice-info">{localize(board.goalsNotice.value)}</p>
+      )}
       {snapshot?.localPinnedGoalIds && (
         <div class="notice notice-info">
           <p>
             {snapshot.localPinnedGoalIds.length > 1 ? (
               <>
                 <strong>
-                  {snapshot.localPinnedGoalIds.length} Goals épinglés dans ce navigateur seulement.
+                  {t("{count} Goals épinglés dans ce navigateur seulement.", {
+                    count: snapshot.localPinnedGoalIds.length,
+                  })}
                 </strong>{" "}
-                Jira a refusé de les enregistrer sur le sprint : ils ne sont pas partagés avec votre
-                équipe.
+                {t(
+                  "Jira a refusé de les enregistrer sur le sprint : ils ne sont pas partagés avec votre équipe.",
+                )}
               </>
             ) : (
               <>
-                <strong>1 Goal épinglé dans ce navigateur seulement.</strong> Jira a refusé de
-                l'enregistrer sur le sprint : il n'est pas partagé avec votre équipe.
+                <strong>{t("1 Goal épinglé dans ce navigateur seulement.")}</strong>{" "}
+                {t(
+                  "Jira a refusé de l'enregistrer sur le sprint : il n'est pas partagé avec votre équipe.",
+                )}
               </>
             )}
           </p>
           <div class="row">
             {board.canPinGoals.value && board.canEditSettings.value && (
               <button type="button" onClick={props.onShowPinning}>
-                Réessayer dans Jira…
+                {t("Réessayer dans Jira…")}
               </button>
             )}
             <button type="button" onClick={() => void board.forgetLocalPins()}>
-              Oublier cette sélection
+              {t("Oublier cette sélection")}
             </button>
           </div>
         </div>
       )}
       {snapshot?.sprint && snapshot.pinnedGoalIds === null && !snapshot.goalsReadOnly && (
         <p class="notice notice-info">
-          La propriété du sprint qui porte les objectifs épinglés et les rattachements n'a pas pu
-          être lue : le board s'affiche sans elle. Actualisez pour la relire.
+          {t(
+            "La propriété du sprint qui porte les objectifs épinglés et les rattachements n'a pas pu être lue : le board s'affiche sans elle. Actualisez pour la relire.",
+          )}
         </p>
       )}
     </>
@@ -898,11 +932,12 @@ function FloatingNotices(props: {
     notices.push(
       <FloatingNotice key="goals-partial" board={board} id="goals-partial">
         <p>
-          <strong>Lecture partielle des Goals Atlassian.</strong> Le board s'affiche, mais :
+          <strong>{t("Lecture partielle des Goals Atlassian.")}</strong>{" "}
+          {t("Le board s'affiche, mais :")}
         </p>
         <ul>
           {board.goalsWarnings.value.map((warning) => (
-            <li key={warning}>{warning}</li>
+            <li key={warning}>{localize(warning)}</li>
           ))}
         </ul>
       </FloatingNotice>,
@@ -918,14 +953,15 @@ function FloatingNotices(props: {
     notices.push(
       <FloatingNotice key="no-goals" board={board} id="no-goals">
         <p>
-          Aucun Goal Atlassian n'est rattaché aux tickets de ce {scope}. Rattachez un ticket à un
-          Goal dans Jira, ou épinglez un Goal au {scope} : l'objectif apparaîtra ici avec sa
-          swimlane.
+          {t(
+            "Aucun Goal Atlassian n'est rattaché aux tickets de ce {scope}. Rattachez un ticket à un Goal dans Jira, ou épinglez un Goal au {scope} : l'objectif apparaîtra ici avec sa swimlane.",
+            { scope },
+          )}
         </p>
         {board.canPinGoals.value && board.canEditSettings.value && (
           <div class="row">
             <button type="button" onClick={props.onShowPinning}>
-              Épingler des Goals…
+              {t("Épingler des Goals…")}
             </button>
           </div>
         )}
@@ -936,8 +972,9 @@ function FloatingNotices(props: {
     notices.push(
       <FloatingNotice key="goals-read-only" board={board} id="goals-read-only">
         <p>
-          Votre compte ne peut pas lire la propriété du sprint qui porte les objectifs épinglés et
-          les rattachements : les objectifs sont affichés sans eux.
+          {t(
+            "Votre compte ne peut pas lire la propriété du sprint qui porte les objectifs épinglés et les rattachements : les objectifs sont affichés sans eux.",
+          )}
         </p>
       </FloatingNotice>,
     );
@@ -946,16 +983,19 @@ function FloatingNotices(props: {
     notices.push(
       <FloatingNotice key="unmapped-statuses" board={board} id="unmapped-statuses">
         <p>
-          {plural(layout.unmappedCount, "ticket")} du {scope}{" "}
-          {layout.unmappedCount > 1 ? "ont" : "a"} un statut qui n'appartient à aucune colonne
-          visible du board : non affichés, comme dans Jira.
+          {t(
+            layout.unmappedCount === 1
+              ? "{issues} du {scope} a un statut qui n'appartient à aucune colonne visible du board : non affiché, comme dans Jira."
+              : "{issues} du {scope} ont un statut qui n'appartient à aucune colonne visible du board : non affichés, comme dans Jira.",
+            { issues: plural(layout.unmappedCount, "ticket"), scope },
+          )}
         </p>
       </FloatingNotice>,
     );
   }
   if (notices.length === 0) return null;
   return (
-    <aside class="floating-notices" aria-label="Informations sur le board">
+    <aside class="floating-notices" aria-label={t("Informations sur le board")}>
       {notices}
     </aside>
   );
@@ -968,8 +1008,8 @@ function FloatingNotice(props: { board: BoardModel; id: NoticeId; children: Comp
       <button
         type="button"
         class="floating-notice-close"
-        aria-label="Fermer ce message, il ne reviendra plus"
-        title="Fermer — ce message ne reviendra plus sur ce board"
+        aria-label={t("Fermer ce message, il ne reviendra plus")}
+        title={t("Fermer — ce message ne reviendra plus sur ce board")}
         onClick={() => void props.board.dismissNotice(props.id)}
       >
         ×
@@ -1006,12 +1046,12 @@ function BoardGrid(props: {
       <div class="board-empty">
         <p>
           {layout.filtersActive
-            ? "Aucun ticket ne correspond aux filtres."
-            : "Aucun ticket à afficher dans le périmètre de ce board."}
+            ? t("Aucun ticket ne correspond aux filtres.")
+            : t("Aucun ticket à afficher dans le périmètre de ce board.")}
         </p>
         {layout.filtersActive && (
           <button type="button" onClick={() => board.resetFilters()}>
-            Réinitialiser les filtres
+            {t("Réinitialiser les filtres")}
           </button>
         )}
       </div>
@@ -1039,7 +1079,7 @@ function BoardGrid(props: {
   return (
     <div class="board" style={{ "--column-count": String(layout.columns.length) }}>
       {layout.totalCount === 0 && !layout.filtersActive && configuration.boardType === "kanban" && (
-        <p class="board-empty">Aucun ticket à afficher dans le périmètre de ce board.</p>
+        <p class="board-empty">{t("Aucun ticket à afficher dans le périmètre de ce board.")}</p>
       )}
       <div class="board-row column-band">
         {layout.columns.map((column) => {
@@ -1050,7 +1090,7 @@ function BoardGrid(props: {
               <span class="column-name">{column.name}</span>
               <span
                 class="column-count"
-                title={column.wipLimit === null ? undefined : "Limite WIP du board Jira"}
+                title={column.wipLimit === null ? undefined : t("Limite WIP du board Jira")}
               >
                 {count}
                 {column.wipLimit !== null && ` / ${column.wipLimit}`}
@@ -1156,7 +1196,7 @@ function LaneView(props: {
                 class="lane-grip"
                 draggable
                 aria-hidden="true"
-                title="Glisser pour déplacer la swimlane (ou menu ⋯ : Monter, Descendre)"
+                title={t("Glisser pour déplacer la swimlane (ou menu ⋯ : Monter, Descendre)")}
                 onDragStart={(event) => {
                   if (!event.dataTransfer) return;
                   event.dataTransfer.setData(LANE_DRAG_TYPE, lane.id);
@@ -1173,8 +1213,10 @@ function LaneView(props: {
               type="button"
               class="lane-toggle"
               aria-expanded={!lane.collapsed}
-              aria-label={`${lane.collapsed ? "Déplier" : "Replier"} ${lane.title}`}
-              title={lane.collapsed ? "Déplier" : "Replier"}
+              aria-label={t(lane.collapsed ? "Déplier {name}" : "Replier {name}", {
+                name: lane.title,
+              })}
+              title={lane.collapsed ? t("Déplier") : t("Replier")}
               onClick={() => void board.toggleLaneCollapsed(lane.block)}
             >
               <span class="chevron" aria-hidden="true" />
@@ -1186,7 +1228,7 @@ function LaneView(props: {
             type="button"
             class="lane-title"
             aria-pressed={focused}
-            title={focused ? "Afficher tous les objectifs" : "N'afficher que cet objectif"}
+            title={focused ? t("Afficher tous les objectifs") : t("N'afficher que cet objectif")}
             onClick={() => board.focusGoal(goal.id)}
           >
             <GoalMarker completed={progress?.state === "completed"} />
@@ -1201,31 +1243,35 @@ function LaneView(props: {
         <span class="lane-count">
           {layout.filtersActive
             ? `${lane.visibleCount} / ${lane.totalCount}`
-            : plural(lane.totalCount, "ticket")}
+            : plural(lane.totalCount, t("ticket"))}
         </span>
         {lane.block.kind === "swimlane" && (
           <span
             class="lane-default-label"
-            title="Les tickets de ces types rejoignent leur objectif en priorité. Sans objectif visible, ils reviennent ici."
+            title={t(
+              "Les tickets de ces types rejoignent leur objectif en priorité. Sans objectif visible, ils reviennent ici.",
+            )}
           >
-            Par défaut
+            {t("Par défaut")}
           </span>
         )}
         {progress && progress.total > 0 && (
           <span class="lane-progress">
             <span>
-              {progress.done}/{progress.total} terminés
+              {t("{done}/{total} terminés", { done: progress.done, total: progress.total })}
               {progress.totalPoints !== null &&
                 ` · ${formatPoints(progress.donePoints ?? 0)}/${formatPoints(progress.totalPoints)} pts`}
             </span>
             <progress
               max={1}
               value={progress.completionRatio}
-              aria-label={`Avancement de ${lane.title}`}
+              aria-label={t("Avancement de {name}", { name: lane.title })}
             />
           </span>
         )}
-        {progress?.state === "empty" && <span class="lane-progress">Aucun ticket rattaché</span>}
+        {progress?.state === "empty" && (
+          <span class="lane-progress">{t("Aucun ticket rattaché")}</span>
+        )}
         {!daily && <LaneMenu board={board} lane={lane} onShowSettings={props.onShowSettings} />}
       </header>
       {!lane.collapsed && (
@@ -1301,15 +1347,15 @@ function LaneView(props: {
                 {unavailable && (
                   <li class="drop-unavailable-message">
                     {!compatible
-                      ? "Utilisez un objectif ou la swimlane par défaut de ce type"
-                      : destination.message}
+                      ? t("Utilisez un objectif ou la swimlane par défaut de ce type")
+                      : localize(destination.message)}
                   </li>
                 )}
                 {targeted && droppable && (
                   <li class="drop-goal-message">
                     {lane.block.kind === "goal"
-                      ? "Rattacher à cet objectif"
-                      : "Retour dans la swimlane par défaut"}
+                      ? t("Rattacher à cet objectif")
+                      : t("Retour dans la swimlane par défaut")}
                   </li>
                 )}
                 {statusZones && (
@@ -1356,8 +1402,8 @@ function LaneView(props: {
                         <strong>{status.name}</strong>
                         <span>
                           {status.inJira
-                            ? "Formulaire à compléter"
-                            : "Déposer pour choisir ce statut"}
+                            ? t("Formulaire à compléter")
+                            : t("Déposer pour choisir ce statut")}
                         </span>
                       </div>
                     ))}
@@ -1421,14 +1467,18 @@ function LaneView(props: {
                         aria-expanded={stockExpanded}
                         title={
                           stockExpanded
-                            ? `N'afficher que les ${dailyStock.limit} premiers dans l'ordre de Jira`
-                            : "Afficher tout le stock de cette colonne"
+                            ? t("N'afficher que les {count} premiers dans l'ordre de Jira", {
+                                count: dailyStock.limit,
+                              })
+                            : t("Afficher tout le stock de cette colonne")
                         }
                         onClick={() => dailyStock.onToggle(lane.id)}
                       >
                         {stockExpanded
-                          ? "Afficher moins"
-                          : `+ ${stock.hidden.length} autre${stock.hidden.length > 1 ? "s" : ""}`}
+                          ? t("Afficher moins")
+                          : t(stock.hidden.length === 1 ? "+ {count} autre" : "+ {count} autres", {
+                              count: stock.hidden.length,
+                            })}
                       </button>
                     </li>
                   )}
@@ -1471,7 +1521,10 @@ function LaneMenu({
       name="lane-menu"
       onToggle={(event) => placeFloatingMenu(event.currentTarget)}
     >
-      <summary aria-label={`Affichage de la swimlane ${lane.title}`} title="Affichage">
+      <summary
+        aria-label={t("Affichage de la swimlane {name}", { name: lane.title })}
+        title={t("Affichage")}
+      >
         ⋯
       </summary>
       <div class="menu-panel">
@@ -1482,14 +1535,14 @@ function LaneMenu({
               disabled={position <= 0}
               onClick={(event) => act(event, () => board.moveLane(lane.id, -1))}
             >
-              Monter
+              {t("Monter")}
             </button>
             <button
               type="button"
               disabled={position < 0 || position >= order.length - 1}
               onClick={(event) => act(event, () => board.moveLane(lane.id, 1))}
             >
-              Descendre
+              {t("Descendre")}
             </button>
           </>
         )}
@@ -1497,32 +1550,32 @@ function LaneMenu({
           type="button"
           onClick={(event) => act(event, () => board.toggleLaneCollapsed(lane.block))}
         >
-          {lane.collapsed ? "Déplier" : "Replier"}
+          {lane.collapsed ? t("Déplier") : t("Replier")}
         </button>
         <button
           type="button"
           onClick={(event) => act(event, () => board.setAllLanesCollapsed(true))}
         >
-          Tout replier
+          {t("Tout replier")}
         </button>
         <button
           type="button"
           onClick={(event) => act(event, () => board.setAllLanesCollapsed(false))}
         >
-          Tout déplier
+          {t("Tout déplier")}
         </button>
         {goal && editable && (
           <>
             <fieldset class="menu-colors">
-              <legend>Couleur de l'objectif</legend>
+              <legend>{t("Couleur de l'objectif")}</legend>
               {GOAL_COLOR_NAMES.map((name, index) => (
                 <button
                   key={name}
                   type="button"
                   class="swatch"
                   data-goal-color={goalColorName(index)}
-                  aria-label={name}
-                  title={name}
+                  aria-label={localize(name)}
+                  title={localize(name)}
                   aria-pressed={goal.color === goalColorName(index)}
                   onClick={(event) => act(event, () => board.setGoalColor(goal.id, index))}
                 />
@@ -1532,7 +1585,7 @@ function LaneMenu({
               type="button"
               onClick={(event) => act(event, () => board.setGoalHidden(goal.id, true))}
             >
-              Masquer cet objectif du board
+              {t("Masquer cet objectif du board")}
             </button>
           </>
         )}
@@ -1546,7 +1599,7 @@ function LaneMenu({
                 onClick={(event) => act(event, async () => onShowSettings("goals"))}
               >
                 <Icon name="goal" size={14} />
-                Gérer les objectifs…
+                {t("Gérer les objectifs…")}
               </button>
             ) : (
               <button
@@ -1555,15 +1608,19 @@ function LaneMenu({
                 onClick={(event) => act(event, async () => onShowSettings("board"))}
               >
                 <Icon name="sliders" size={14} />
-                Configurer les swimlanes…
+                {t("Configurer les swimlanes…")}
               </button>
             )}
           </>
         )}
         <p class="menu-note">
           {editable
-            ? "Ordre, couleur et masquage sont partagés avec l'équipe (enregistrés dans Jira) ; le repli reste à vous."
-            : "Seul le repli se change ici : le reste est réservé à qui peut modifier le board dans Jira."}
+            ? t(
+                "Ordre, couleur et masquage sont partagés avec l'équipe (enregistrés dans Jira) ; le repli reste à vous.",
+              )
+            : t(
+                "Seul le repli se change ici : le reste est réservé à qui peut modifier le board dans Jira.",
+              )}
         </p>
       </div>
     </details>

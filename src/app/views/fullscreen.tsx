@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { t } from "../i18n";
 import { Icon } from "./Icon";
 
 // Plein écran du navigateur, pour la daily et le mode présentation (demandes de Denis du
@@ -33,8 +34,8 @@ export function FullscreenButton({ fullscreen }: { fullscreen: boolean }) {
     <button
       type="button"
       class="icon-button"
-      aria-label="Plein écran"
-      title="Plein écran"
+      aria-label={t("Plein écran")}
+      title={t("Plein écran")}
       onClick={requestFullscreen}
     >
       <Icon name="fullscreen" size={17} />

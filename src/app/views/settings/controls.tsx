@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
+import { localize, t } from "../../i18n";
 import { Icon } from "../Icon";
 
 // Contrôles communs aux onglets des réglages : champ validé, compteur, interrupteur, choix exclusif,
@@ -74,7 +75,7 @@ export function CommitInput(props: {
       />
       {field.error && (
         <span class="settings-error" role="alert">
-          {field.error}
+          {localize(field.error)}
         </span>
       )}
     </>
@@ -110,7 +111,7 @@ export function Stepper(props: {
           <button
             type="button"
             class="settings-step"
-            aria-label={`Diminuer : ${props.label}`}
+            aria-label={t("Diminuer : {v0}", { v0: props.label })}
             disabled={props.value <= props.min}
             onClick={() => step(-1)}
           >
@@ -120,7 +121,7 @@ export function Stepper(props: {
           <button
             type="button"
             class="settings-step"
-            aria-label={`Augmenter : ${props.label}`}
+            aria-label={t("Augmenter : {v0}", { v0: props.label })}
             disabled={props.value >= props.max}
             onClick={() => step(1)}
           >
@@ -131,7 +132,7 @@ export function Stepper(props: {
       </span>
       {field.error ? (
         <span class="settings-error" role="alert">
-          {field.error}
+          {localize(field.error)}
         </span>
       ) : (
         <span class="settings-help">{props.help}</span>
@@ -215,9 +216,9 @@ export function ColorMenu(props: {
   const current = props.choices.find((choice) => choice.id === props.selected);
   return (
     <details class="menu settings-color-menu" name="settings-color">
-      <summary aria-label={`${props.label} : ${current?.name ?? props.selected}`}>
+      <summary aria-label={`${props.label} : ${localize(current?.name ?? props.selected)}`}>
         {props.swatch(props.selected)}
-        <span class="settings-color-name">{current?.name ?? props.selected}</span>
+        <span class="settings-color-name">{localize(current?.name ?? props.selected)}</span>
         <Icon name="chevronDown" size={12} />
       </summary>
       <div class="menu-panel settings-color-panel">
@@ -235,7 +236,7 @@ export function ColorMenu(props: {
               }}
             >
               {props.swatch(choice.id)}
-              {choice.name}
+              {localize(choice.name)}
             </button>
           ))}
         </div>
@@ -259,7 +260,7 @@ export function Grip(props: {
       type="button"
       class="settings-grip"
       aria-label={props.label}
-      title="Glisser pour déplacer, ou flèches haut et bas"
+      title={t("Glisser pour déplacer, ou flèches haut et bas")}
       draggable
       onDragStart={props.onDragStart}
       onDragEnd={props.onDragEnd}
@@ -363,7 +364,7 @@ export function SaveBar(props: {
         disabled={props.cancelDisabled}
         onClick={props.onCancel}
       >
-        Annuler
+        {t("Annuler")}
       </button>
       <button
         type="button"

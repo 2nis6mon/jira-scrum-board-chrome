@@ -9,6 +9,7 @@ import {
   nextRuleColor,
 } from "../../../core/cardColors";
 import { shiftTarget } from "../../../core/reorder";
+import { localize, t } from "../../i18n";
 import type { BoardModel } from "../../model/BoardModel";
 import type { JqlValidation } from "../../services/JqlService";
 import { plural } from "../format";
@@ -141,12 +142,12 @@ export function CardColorSettings({
   const sample = plain && colored.length < 3 ? [...colored, plain] : colored;
   const why = (key: string) => {
     const color = tints[key];
-    if (color === undefined) return "Aucune règle : carte inchangée.";
+    if (color === undefined) return t("Aucune règle : carte inchangée.");
     const owners = stored.filter((rule) => rule.enabled && rule.color === color && shown(rule));
     const [owner] = owners;
     return owners.length === 1 && owner
-      ? `Règle « ${owner.name || "sans nom"} »`
-      : `Couleur ${(CARD_COLOR_LABEL[color] ?? color).toLowerCase()}`;
+      ? t("Règle « {v0} »", { v0: owner.kind ? localize(owner.name) : owner.name || t("sans nom") })
+      : t("Couleur {v0}", { v0: localize(CARD_COLOR_LABEL[color] ?? color).toLowerCase() });
   };
 
   return (
@@ -155,33 +156,37 @@ export function CardColorSettings({
         <section class="settings-card" aria-labelledby="settings-card-colors">
           <header class="settings-card-header">
             <div class="settings-card-title">
-              <h2 id="settings-card-colors">Couleur de fond des cartes</h2>
+              <h2 id="settings-card-colors">{t("Couleur de fond des cartes")}</h2>
               <p class="settings-help">
-                Chaque règle colore les cartes des tickets qui satisfont son JQL, par exemple{" "}
-                <code>priority = Highest</code> ou <code>"Priorité incident" = P2</code>. Jira
-                évalue la requête à chaque actualisation,{" "}
-                {kanban ? "dans le périmètre du board Kanban" : "sur les sprints actifs"} ;
-                l'extension ne l'interprète pas.
+                {t("Chaque règle colore les cartes des tickets qui satisfont son JQL, par exemple")}{" "}
+                <code>priority = Highest</code> {t("ou")}{" "}
+                <code>{t('"Priorité incident" = P2')}</code>
+                {t(". Jira évalue la requête à chaque actualisation,")}{" "}
+                {kanban ? t("dans le périmètre du board Kanban") : t("sur les sprints actifs")}{" "}
+                {t("; l'extension ne l'interprète pas.")}
               </p>
               <p class="settings-help">
-                L'ordre de la liste est l'ordre de priorité : quand plusieurs règles s'appliquent au
-                même ticket, la plus haute l'emporte. Glissez pour réordonner.
-                {!kanban && " La règle « Ajouté en cours de sprint » se place comme les autres."}
+                {t(
+                  "L'ordre de la liste est l'ordre de priorité : quand plusieurs règles s'appliquent au même ticket, la plus haute l'emporte. Glissez pour réordonner.",
+                )}
+                {!kanban && t(" La règle « Ajouté en cours de sprint » se place comme les autres.")}
               </p>
             </div>
             <button type="button" class="settings-button primary" onClick={addRule}>
               <Icon name="plus" size={14} />
-              Nouvelle règle
+              {t("Nouvelle règle")}
             </button>
           </header>
 
           {visibleRules.length === 0 ? (
-            <p class="settings-empty">Aucune règle : les cartes gardent leur fond.</p>
+            <p class="settings-empty">{t("Aucune règle : les cartes gardent leur fond.")}</p>
           ) : (
             <ol class="settings-list color-rules">
               {visibleRules.map((rule, index) => {
                 const builtIn = rule.kind !== null;
-                const label = rule.name.trim() || (builtIn ? rule.name : `Règle ${index + 1}`);
+                const label =
+                  (builtIn ? localize(rule.name) : rule.name.trim()) ||
+                  (builtIn ? localize(rule.name) : t("Règle {v0}", { v0: index + 1 }));
                 return (
                   <li
                     key={rule.id}
@@ -194,36 +199,36 @@ export function CardColorSettings({
                   >
                     <div class="settings-rule-head">
                       <Grip
-                        label={`Déplacer la règle ${label}`}
+                        label={t("Déplacer la règle {v0}", { v0: label })}
                         onMove={(offset) => shift(rule.id, offset)}
                         onDragStart={reorder.start(rule.id)}
                         onDragEnd={reorder.end}
                       />
                       <span
                         class="settings-rank"
-                        title="Rang de priorité : 1 = la plus prioritaire"
+                        title={t("Rang de priorité : 1 = la plus prioritaire")}
                       >
                         {index + 1}
                       </span>
                       <Switch
                         checked={rule.enabled}
-                        label={`Activer la règle ${label}`}
+                        label={t("Activer la règle {v0}", { v0: label })}
                         onChange={(enabled) => edit(rule.id, { enabled })}
                       />
                       {builtIn ? (
                         <span class="settings-rule-title">
-                          <strong>{rule.name}</strong>
+                          <strong>{localize(rule.name)}</strong>
                           <span class="settings-badge">
                             <Icon name="lock" size={11} />
-                            Règle intégrée
+                            {t("Règle intégrée")}
                           </span>
                         </span>
                       ) : (
                         <input
                           type="text"
                           class="color-rule-name"
-                          aria-label={`Nom de la règle ${index + 1}`}
-                          placeholder="Nom (ex. Incident P2)"
+                          aria-label={t("Nom de la règle {v0}", { v0: index + 1 })}
+                          placeholder={t("Nom (ex. Incident P2)")}
                           value={rule.name}
                           onInput={(event) => {
                             const name = event.currentTarget.value;
@@ -232,8 +237,8 @@ export function CardColorSettings({
                         />
                       )}
                       <ColorMenu
-                        label={`Couleur de la règle ${label}`}
-                        title="Couleur de fond"
+                        label={t("Couleur de la règle {v0}", { v0: label })}
+                        title={t("Couleur de fond")}
                         choices={CARD_COLORS}
                         selected={rule.color}
                         swatch={(id) => (
@@ -244,11 +249,11 @@ export function CardColorSettings({
                       <button
                         type="button"
                         class="icon-button settings-icon-button"
-                        aria-label={`Supprimer la règle ${label}`}
+                        aria-label={t("Supprimer la règle {v0}", { v0: label })}
                         title={
                           builtIn
-                            ? "Règle intégrée : décochez-la pour la suspendre"
-                            : "Supprimer cette règle"
+                            ? t("Règle intégrée : décochez-la pour la suspendre")
+                            : t("Supprimer cette règle")
                         }
                         disabled={builtIn}
                         onClick={() => change((current) => current.filter((r) => r.id !== rule.id))}
@@ -258,14 +263,15 @@ export function CardColorSettings({
                     </div>
                     {builtIn ? (
                       <p class="settings-rule-body settings-help">
-                        Règle intégrée, sans JQL : ticket entré dans le sprint après son démarrage,
-                        d'après l'historique Jira.
+                        {t(
+                          "Règle intégrée, sans JQL : ticket entré dans le sprint après son démarrage, d'après l'historique Jira.",
+                        )}
                       </p>
                     ) : (
                       <JqlEditor
                         service={board.jql}
-                        label={`JQL de la règle ${label}`}
-                        placeholder='JQL — ex. "Priorité incident" = P2'
+                        label={t("JQL de la règle {v0}", { v0: label })}
+                        placeholder={t('JQL — ex. "Priorité incident" = P2')}
                         value={rule.jql}
                         disabled={applying}
                         onInput={(jql) => edit(rule.id, { jql })}
@@ -288,8 +294,10 @@ export function CardColorSettings({
         >
           <header class="settings-card-header">
             <div class="settings-card-title">
-              <h2 id="settings-colors-preview">Aperçu</h2>
-              <p class="settings-help">D'après la dernière évaluation des règles par Jira.</p>
+              <h2 id="settings-colors-preview">{t("Aperçu")}</h2>
+              <p class="settings-help">
+                {t("D'après la dernière évaluation des règles par Jira.")}
+              </p>
             </div>
           </header>
           {sample.length > 0 ? (
@@ -308,7 +316,9 @@ export function CardColorSettings({
               ))}
             </ul>
           ) : (
-            <p class="settings-empty">L'aperçu apparaît quand le board a été lu dans Jira.</p>
+            <p class="settings-empty">
+              {t("L'aperçu apparaît quand le board a été lu dans Jira.")}
+            </p>
           )}
         </aside>
       </div>
@@ -317,17 +327,19 @@ export function CardColorSettings({
         changed={changed}
         message={
           conflict
-            ? "Les couleurs ont changé dans Jira pendant votre saisie. Annuler recharge la version actuelle."
+            ? t(
+                "Les couleurs ont changé dans Jira pendant votre saisie. Annuler recharge la version actuelle.",
+              )
             : changed
               ? validationNeeded
-                ? "Vérifiez les JQL des règles activées avant d'appliquer."
-                : "Modifications non appliquées."
-              : "Aucune modification en cours."
+                ? t("Vérifiez les JQL des règles activées avant d'appliquer.")
+                : t("Modifications non appliquées.")
+              : t("Aucune modification en cours.")
         }
         busy={applying}
         cancelDisabled={!changed || applying}
         onCancel={reset}
-        confirm={applying ? "Évaluation par Jira…" : "Appliquer"}
+        confirm={applying ? t("Évaluation par Jira…") : t("Appliquer")}
         confirmDisabled={!canEdit || !changed || applying || conflict || validationNeeded}
         onConfirm={() => void apply()}
       />
@@ -349,18 +361,18 @@ function RuleStatus(props: {
       {text}
     </p>
   );
-  if (!rule.enabled) return status("off", "Suspendue.");
+  if (!rule.enabled) return status("off", t("Suspendue."));
   const refusal = board.colorRuleIssues.value[rule.id];
   if (refusal) {
     return (
       <p class="settings-rule-status settings-rule-status-error color-rule-error" role="status">
         <span class="settings-status-dot" aria-hidden="true" />
-        Jira a refusé cette requête : {refusal}
+        {t("Jira a refusé cette requête :")} {localize(refusal)}
       </p>
     );
   }
   if (!saved || JSON.stringify(saved) !== JSON.stringify(rule)) {
-    return status("pending", "Non appliquée : « Appliquer » la fait évaluer par Jira.");
+    return status("pending", t("Non appliquée : « Appliquer » la fait évaluer par Jira."));
   }
   const count = board.colorRuleCounts.value[rule.id];
   if (count === undefined) return null;
@@ -369,7 +381,8 @@ function RuleStatus(props: {
       class={`settings-rule-status ${count > 0 ? "settings-rule-status-ok color-rule-ok" : "settings-rule-status-off"}`}
     >
       <span class="settings-status-dot" aria-hidden="true" />
-      {plural(count, "ticket affiché satisfait", "tickets affichés satisfont")} cette règle.
+      {plural(count, t("ticket affiché satisfait"), t("tickets affichés satisfont"))}{" "}
+      {t("cette règle.")}
     </p>
   );
 }

@@ -2,6 +2,7 @@
 
 Huit fiches pour prendre en main votre board, organiser le travail par objectifs et retrouver
 les bons réglages. Les captures montrent l'interface avec des données fictives.
+Les instructions utilisent les libellés français ; l'interface est aussi disponible en anglais.
 
 ## Installer l'extension
 
@@ -156,6 +157,26 @@ La rubrique **Masqués du board** permet de le réafficher.
 
 Ouvrez **nom du board → Réglages de ce board**. Les réglages partagés demandent les droits Jira
 correspondants. **Retour au board** vous ramène aux tickets.
+
+### Choisir la langue de l'interface
+
+Dans la barre latérale, ouvrez **Site Jira → Préférences personnelles**, puis **Langue de
+l'interface**. Le même choix figure dans les réglages du board, dans un encart **Personnel**.
+Il est accessible sans droit d'administration Jira.
+
+- **Automatique — suivre Jira**, le choix initial : français si votre Jira est en français,
+  anglais pour toutes les autres langues. Si aucune langue Jira ne peut être déterminée,
+  l'extension utilise l'anglais.
+- **Français** : conserve l'interface en français, quelle que soit la langue Jira.
+- **English** : conserve l'interface en anglais, quelle que soit la langue Jira.
+
+Le changement s'applique immédiatement, sans recharger le board ni effacer les champs en cours
+de saisie. Le choix reste dans ce navigateur pour tous vos boards ; il n'est ni partagé avec
+l'équipe ni enregistré dans Jira. Sélectionnez **Automatique — suivre Jira** pour revenir au
+comportement initial.
+
+Les titres de tickets, Goals, statuts et noms de swimlanes personnalisés ne sont pas traduits.
+Les fiches de tickets et formulaires de transition natifs gardent la langue de Jira.
 
 ### Organiser les swimlanes
 

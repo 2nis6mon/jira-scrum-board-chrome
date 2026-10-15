@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   target: vi.fn(),
   construct: vi.fn(),
   start: vi.fn(async () => {}),
+  language: vi.fn(async () => {}),
   render: vi.fn(),
   links: vi.fn(),
 }));
@@ -16,6 +17,7 @@ vi.mock("../../src/app/platform/chrome", () => ({ chromePlatform: mocks.platform
 vi.mock("../../src/app/model/AppModel", () => ({
   AppModel: class {
     start = mocks.start;
+    prepareLanguage = mocks.language;
     constructor(...args: unknown[]) {
       mocks.construct(...args);
     }
@@ -48,7 +50,7 @@ describe("point d'entrée réservé à une page Jira vérifiée", () => {
   it("refuse board.html ouvert seul avant tout accès Chrome, modèle ou affichage de l'app", async () => {
     Object.defineProperty(window, "parent", { configurable: true, value: window });
     await import("../../src/app/main");
-    expect(document.body.textContent).toContain("Sprint Goals s'utilise dans Jira");
+    expect(document.body.textContent).toContain("Use Sprint Goals inside Jira");
     expect(mocks.platform).not.toHaveBeenCalled();
     expect(mocks.target).not.toHaveBeenCalled();
     expect(mocks.construct).not.toHaveBeenCalled();
@@ -60,7 +62,9 @@ describe("point d'entrée réservé à une page Jira vérifiée", () => {
     Object.defineProperty(window, "parent", { configurable: true, value: {} });
     mocks.target.mockResolvedValue(null);
     await import("../../src/app/main");
-    await vi.waitFor(() => expect(document.body.textContent).toContain("s'utilise dans Jira"));
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("Use Sprint Goals inside Jira"),
+    );
     expect(mocks.construct).not.toHaveBeenCalled();
     expect(mocks.start).not.toHaveBeenCalled();
     expect(mocks.render).not.toHaveBeenCalled();
@@ -70,7 +74,9 @@ describe("point d'entrée réservé à une page Jira vérifiée", () => {
     Object.defineProperty(window, "parent", { configurable: true, value: {} });
     mocks.target.mockRejectedValue(new Error("Chrome indisponible"));
     await import("../../src/app/main");
-    await vi.waitFor(() => expect(document.body.textContent).toContain("s'utilise dans Jira"));
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("Use Sprint Goals inside Jira"),
+    );
     expect(mocks.construct).not.toHaveBeenCalled();
     expect(mocks.render).not.toHaveBeenCalled();
   });
@@ -89,7 +95,8 @@ describe("point d'entrée réservé à une page Jira vérifiée", () => {
     expect(mocks.start).not.toHaveBeenCalled();
     verified?.({ origin: SITE, permissionPattern: `${SITE}/*`, address: BOARD });
     await vi.waitFor(() => expect(mocks.start).toHaveBeenCalledWith(BOARD, expect.any(Number)));
-    expect(mocks.construct).toHaveBeenCalledWith({}, BOARD);
+    expect(mocks.construct).toHaveBeenCalledWith({}, BOARD, null);
+    expect(mocks.language).toHaveBeenCalledOnce();
     expect(mocks.render).toHaveBeenCalledOnce();
     expect(mocks.links).toHaveBeenCalledWith(expect.anything(), SITE, BOARD);
   });

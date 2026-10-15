@@ -2,6 +2,7 @@ import { signal } from "@preact/signals";
 import { describe, expect, it, vi } from "vitest";
 import { AuditLog } from "../../src/app/model/auditLog";
 import { PlanningModel } from "../../src/app/model/PlanningModel";
+import { setLanguage } from "../../src/i18n";
 import { JiraClient } from "../../src/jira/client";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { JiraTransport } from "../../src/jira/transport";
@@ -35,6 +36,26 @@ function context() {
 }
 
 describe("atelier Sprint Planning", () => {
+  it("copie la synthèse dans la langue courante tout en préservant le contenu du brouillon", async () => {
+    const { planning, platform, jira } = context();
+    await planning.load();
+    planning.assignIssue("ABC-201", null);
+    planning.setCapacity(12.5);
+    const before = JSON.stringify(planning.draft.value);
+    setLanguage("en");
+    await planning.copySummary();
+    expect(platform.copied.at(-1)).toContain("Planning proposal");
+    expect(platform.copied.at(-1)).toContain("Proposed capacity: 12.5 pts");
+    expect(platform.copied.at(-1)).toContain("To organise");
+    expect(platform.copied.at(-1)).toContain("Simplifier le paiement");
+    expect(JSON.stringify(planning.draft.value)).toBe(before);
+    setLanguage("fr");
+    await planning.copySummary();
+    expect(platform.copied.at(-1)).toContain("Proposition de préparation");
+    expect(platform.copied.at(-1)).toContain("Capacité envisagée : 12,5 pts");
+    expect(jira.requests.filter(isWriteRequest)).toHaveLength(0);
+  });
+
   it("charge seulement à la demande, depuis le backlog paginé et les sprints, sans écrire ni lire les Goals", async () => {
     const { planning, jira } = context();
     expect(jira.requests).toHaveLength(0);

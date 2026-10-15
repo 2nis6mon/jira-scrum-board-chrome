@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "preact/hooks";
+import { localize, t } from "../../i18n";
 import type { JqlService, JqlSuggestion, JqlValidation } from "../../services/JqlService";
 import "../../styles/jql.css";
 
@@ -117,7 +118,7 @@ export function JqlEditor(props: JqlEditorProps) {
           aria-activedescendant={open ? `${id}-suggestion-${selected}` : undefined}
           spellcheck={false}
           autoComplete="off"
-          placeholder={props.placeholder ?? 'JQL — ex. labels = "run"'}
+          placeholder={props.placeholder ?? t('JQL — ex. labels = "run"')}
           disabled={props.disabled}
           onFocus={(event) => {
             setFocused(true);
@@ -172,7 +173,7 @@ export function JqlEditor(props: JqlEditorProps) {
             class="jql-suggestions"
             id={`${id}-suggestions`}
             role="listbox"
-            aria-label="Suggestions JQL"
+            aria-label={t("Suggestions JQL")}
           >
             {suggestions.map((suggestion, index) => (
               <div key={`${suggestion.kind}:${suggestion.value}`} role="presentation">
@@ -202,21 +203,23 @@ export function JqlEditor(props: JqlEditorProps) {
           aria-live="polite"
         >
           {checking
-            ? "Vérification auprès de Jira…"
+            ? t("Vérification auprès de Jira…")
             : validResult?.status === "valid"
-              ? "JQL valide"
+              ? t("JQL valide")
               : validResult?.status === "invalid"
-                ? validResult.errors.join(" ")
+                ? validResult.errors.map(localize).join(" ")
                 : validResult?.status === "unavailable"
-                  ? `Non vérifié : ${validResult.errors.join(" ")}`
-                  : "À vérifier auprès de Jira."}
+                  ? t("Non vérifié : {v0}", { v0: validResult.errors.map(localize).join(" ") })
+                  : t("À vérifier auprès de Jira.")}
           {validResult?.warnings.map((warning) => (
-            <p key={warning} class="jql-warning">
-              {warning}
+            <p key={localize(warning)} class="jql-warning">
+              {localize(warning)}
             </p>
           ))}
           {suggestionError && focused && (
-            <p class="jql-warning">Suggestions indisponibles ; la validation reste accessible.</p>
+            <p class="jql-warning">
+              {t("Suggestions indisponibles ; la validation reste accessible.")}
+            </p>
           )}
         </div>
         <button
@@ -225,7 +228,7 @@ export function JqlEditor(props: JqlEditorProps) {
           disabled={props.disabled || checking}
           onClick={() => void verify(true)}
         >
-          {props.onPreview ? "Vérifier et prévisualiser" : "Vérifier"}
+          {props.onPreview ? t("Vérifier et prévisualiser") : t("Vérifier")}
         </button>
       </div>
     </div>
@@ -234,10 +237,10 @@ export function JqlEditor(props: JqlEditorProps) {
 
 function kindLabel(kind: JqlSuggestion["kind"]): string {
   return {
-    field: "Champ",
-    operator: "Opérateur",
-    value: "Valeur",
-    function: "Fonction",
-    keyword: "Mot-clé",
+    field: t("Champ"),
+    operator: t("Opérateur"),
+    value: t("Valeur"),
+    function: t("Fonction"),
+    keyword: t("Mot-clé"),
   }[kind];
 }

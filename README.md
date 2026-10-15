@@ -30,6 +30,9 @@ pour garder l'identité de l'installation.
 - Kanban : tickets du board et de son sous-filtre ; Goals Atlassian uniquement.
 - Déplacement des tickets, fiche et formulaires natifs Jira, filtres, sous-tâches, Daily et présentation.
 - Réglages du board partagés dans Jira ; préférences d'interface personnelles dans Chrome.
+- Interface en français lorsque Jira est en français, en anglais pour les autres langues.
+  **Site Jira → Préférences personnelles** permet de choisir **Automatique — suivre Jira**,
+  **Français** ou **English** ; le choix reste local à ce navigateur, pour tous les boards.
 
 Le texte natif « Sprint Goal » n'est modifié que lors d'une publication du Sprint Planning.
 Les écritures ne sont jamais rejouées

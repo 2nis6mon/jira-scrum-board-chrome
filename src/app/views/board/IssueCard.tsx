@@ -13,6 +13,7 @@ import {
   cardFieldValues,
 } from "../../../core/cardFields";
 import type { ParentColor } from "../../../core/parentColors";
+import { localize, t } from "../../i18n";
 import type { ImageCache } from "../../model/ImageCache";
 import { formatPoints, initials, plural } from "../format";
 import { Icon } from "../Icon";
@@ -57,7 +58,7 @@ export function IssueCard(props: Props) {
   const tags = props.cardFields.flatMap((field) =>
     cardFieldValues(field, fields).map((value, index) => ({
       id: `${cardFieldId(field)}:${index}`,
-      label: cardFieldLabel(field),
+      label: field.kind === "custom" ? cardFieldLabel(field) : localize(cardFieldLabel(field)),
       value,
     })),
   );
@@ -78,10 +79,10 @@ export function IssueCard(props: Props) {
       onMouseLeave={() => props.onHoverChange?.(false)}
       aria-busy={props.pending ? true : undefined}
     >
-      {props.pending && <span class="card-pending-label">Déplacement en cours…</span>}
+      {props.pending && <span class="card-pending-label">{t("Déplacement en cours…")}</span>}
       {props.feedback && (
         <span class="card-move-label" role="status">
-          Déplacement à vérifier
+          {t("Déplacement à vérifier")}
         </span>
       )}
       <div class="card-top">
@@ -112,8 +113,8 @@ export function IssueCard(props: Props) {
       </p>
 
       {props.goalTitle && (
-        <p class="card-meta" title="Objectif">
-          Objectif · {props.goalTitle}
+        <p class="card-meta" title={t("Objectif")}>
+          {t("Objectif · {name}", { name: props.goalTitle })}
         </p>
       )}
 
@@ -145,9 +146,21 @@ export function IssueCard(props: Props) {
             <span
               class="badge badge-subtasks-open"
               role="img"
-              aria-label={`Terminé sur le board, ${plural(openInLastColumn.length, "sous-tâche encore ouverte", "sous-tâches encore ouvertes")}`}
+              aria-label={t("Terminé sur le board, {subtasks}", {
+                subtasks: plural(
+                  openInLastColumn.length,
+                  "sous-tâche encore ouverte",
+                  "sous-tâches encore ouvertes",
+                ),
+              })}
               title={[
-                `Ticket dans la dernière colonne, mais ${plural(openInLastColumn.length, "sous-tâche encore ouverte", "sous-tâches encore ouvertes")} :`,
+                t("Ticket dans la dernière colonne, mais {subtasks} :", {
+                  subtasks: plural(
+                    openInLastColumn.length,
+                    "sous-tâche encore ouverte",
+                    "sous-tâches encore ouvertes",
+                  ),
+                }),
                 ...openInLastColumn.map(subtaskLine),
               ].join("\n")}
             >
@@ -159,7 +172,7 @@ export function IssueCard(props: Props) {
             <span
               class="badge badge-blocked"
               role="img"
-              aria-label="Bloqué"
+              aria-label={t("Bloqué")}
               title={blockedTitle(issue)}
             >
               <Icon name="blocked" size={13} />
@@ -169,8 +182,8 @@ export function IssueCard(props: Props) {
             <span
               class="badge badge-added"
               role="img"
-              aria-label="Ajouté en cours de sprint"
-              title="Ajouté au sprint après son démarrage"
+              aria-label={t("Ajouté en cours de sprint")}
+              title={t("Ajouté au sprint après son démarrage")}
             >
               <Icon name="added" size={13} />
             </span>
@@ -178,10 +191,12 @@ export function IssueCard(props: Props) {
           {aging && (
             <span
               class="badge badge-aging"
-              title={`${plural(issue.daysInColumn ?? 0, "jour")} sans changement de statut`}
+              title={t("{duration} sans changement de statut", {
+                duration: plural(issue.daysInColumn ?? 0, "jour"),
+              })}
             >
               <Icon name="clock" size={12} />
-              {issue.daysInColumn} j
+              {t("{count} j", { count: issue.daysInColumn ?? 0 })}
             </span>
           )}
         </div>
@@ -205,8 +220,8 @@ export function IssueCard(props: Props) {
             <span
               class="avatar avatar-empty"
               role="img"
-              title="Non assigné"
-              aria-label="Non assigné"
+              title={t("Non assigné")}
+              aria-label={t("Non assigné")}
             />
           )}
         </div>
@@ -230,8 +245,11 @@ function SubtaskBar(props: { subtasks: readonly Subtask[]; progress: SubtaskProg
       (SEGMENT_ORDER[b.statusCategoryKey ?? ""] ?? 3),
   );
   const headline = progress.allDoneBeforeLastColumn
-    ? "Toutes les sous-tâches sont terminées : le ticket peut avancer."
-    : `Sous-tâches : ${progress.done} sur ${progress.total} terminées.`;
+    ? t("Toutes les sous-tâches sont terminées : le ticket peut avancer.")
+    : t("Sous-tâches : {done} sur {total} terminées.", {
+        done: progress.done,
+        total: progress.total,
+      });
   return (
     <div
       class={`card-subtasks${progress.allDoneBeforeLastColumn ? " card-subtasks-ready" : ""}`}
@@ -267,8 +285,8 @@ const PARENT_FALLBACK_HUE = 212;
 /** Drapeau Jira (« Flagged »), à côté de la priorité. Dessiné ici : pas de ressource externe. */
 function FlagIcon() {
   return (
-    <svg class="card-flag" viewBox="0 0 16 16" role="img" aria-label="Drapeau Jira">
-      <title>Drapeau Jira</title>
+    <svg class="card-flag" viewBox="0 0 16 16" role="img" aria-label={t("Drapeau Jira")}>
+      <title>{t("Drapeau Jira")}</title>
       <path d="M3.5 1.5v13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
       <path d="M4.2 2h9.3l-2.4 3.6 2.4 3.6H4.2z" fill="currentColor" />
     </svg>
@@ -277,7 +295,7 @@ function FlagIcon() {
 
 /** Info-bulle de la pastille « bloqué » : ce qui bloque, lien par lien. */
 function blockedTitle(issue: BoardIssue): string {
-  return ["Bloqué", blockedDetail(issue)].filter((line) => line !== "").join("\n");
+  return [t("Bloqué"), blockedDetail(issue)].filter((line) => line !== "").join("\n");
 }
 
 function blockedDetail(issue: BoardIssue): string {
@@ -285,7 +303,7 @@ function blockedDetail(issue: BoardIssue): string {
     const parts = [blocker.key];
     if (blocker.summary) parts.push(blocker.summary);
     if (blocker.statusName) parts.push(`(${blocker.statusName})`);
-    return `Bloqué par ${parts.join(" ")}`;
+    return t("Bloqué par {issue}", { issue: parts.join(" ") });
   });
   return lines.join("\n");
 }

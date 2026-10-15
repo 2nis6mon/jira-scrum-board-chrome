@@ -1,4 +1,5 @@
 import { effect } from "@preact/signals";
+import { language } from "../app/i18n";
 import type { AppModel } from "../app/model/AppModel";
 import type { Platform } from "../app/platform/types";
 import { parseBoardUrl } from "../jira/site";
@@ -28,8 +29,11 @@ export async function embeddedBoardTarget(
 const PROJECT_KEY = /^[A-Z][A-Z0-9_]*$/;
 
 /** Relie les cartes de l'application embarquée à la page Jira qui l'héberge, déjà vérifiée. */
-export function installEmbeddedLinks(model: AppModel, origin: string, address: string): void {
-  if (window.parent === window) return;
+export function installEmbeddedLinks(model: AppModel, origin: string, address: string): () => void {
+  if (window.parent === window) return () => {};
+  const stopLanguage = effect(() => {
+    window.parent.postMessage({ type: "sprint-goals:language", language: language.value }, origin);
+  });
   const hostBoardId = parseBoardUrl(address)?.boardId ?? null;
   // « Retour à Jira » : la page hôte retire elle-même le marqueur de sa propre adresse.
   model.hostReturn.value = async () => {
@@ -41,7 +45,7 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
     window.parent.postMessage({ type: "sprint-goals:close" }, origin);
   };
 
-  effect(() => {
+  const stopConnection = effect(() => {
     const connection = model.connection.value;
     if (connection.state !== "connected") return;
     const board = connection.board;
@@ -85,7 +89,7 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
     };
   });
 
-  window.addEventListener("message", (event) => {
+  const onMessage = (event: MessageEvent) => {
     if (
       event.source !== window.parent ||
       event.origin !== origin ||
@@ -98,9 +102,10 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
     connection.board.writeNotice.value = null;
     void connection.board.sync();
     if (model.view.peek() === "planning") void connection.board.planning.refresh();
-  });
+  };
+  window.addEventListener("message", onMessage);
 
-  document.addEventListener("click", (event) => {
+  const onClick = (event: MouseEvent) => {
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
       return;
     const target = event.target;
@@ -117,5 +122,13 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
       { type: "sprint-goals:open-issue", key: link.dataset.issueKey },
       origin,
     );
-  });
+  };
+  document.addEventListener("click", onClick);
+  return () => {
+    stopLanguage();
+    stopConnection();
+    window.removeEventListener("message", onMessage);
+    document.removeEventListener("click", onClick);
+    model.hostReturn.value = null;
+  };
 }

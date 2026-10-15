@@ -1,4 +1,5 @@
 import type { BoardConfiguration } from "../../../core/boardConfiguration";
+import { localize, t } from "../../i18n";
 import type { AppModel, SettingsSection } from "../../model/AppModel";
 import type { BoardModel } from "../../model/BoardModel";
 import "../../styles/settings.css";
@@ -8,6 +9,7 @@ import { BoardSettings } from "./BoardSettings";
 import { CardColorSettings } from "./CardColorSettings";
 import { CardFieldSettings } from "./CardFieldSettings";
 import { GoalSettings } from "./GoalSettings";
+import { LanguagePreferenceCard } from "./PersonalPreferences";
 
 /** Onglets des réglages du board, dans l'ordre de la barre d'onglets. */
 export const SETTINGS_SECTIONS: readonly { id: SettingsSection; label: string }[] = [
@@ -64,21 +66,21 @@ export function SettingsView({
         <div class="settings-header-bar">
           <button type="button" class="settings-back" onClick={() => model.showBoard()}>
             <Icon name="arrowLeft" size={15} />
-            Retour au board
+            {t("Retour au board")}
           </button>
           <TeamStatus board={board} />
         </div>
         <div class="settings-heading">
-          <h1 id="settings-title">Réglages du board</h1>
+          <h1 id="settings-title">{t("Réglages du board")}</h1>
           <span class="settings-board">
             {configuration.boardName} · {kanban ? "Kanban" : "Scrum"} ·{" "}
             <span class="settings-board-id">#{configuration.boardId}</span>
           </span>
         </div>
         <p class="settings-intro">
-          Partagés avec toute l'équipe et enregistrés dans Jira, avec le board.
+          {t("Partagés avec toute l'équipe et enregistrés dans Jira, avec le board.")}
         </p>
-        <div class="settings-tabs" role="tablist" aria-label="Réglages du board">
+        <div class="settings-tabs" role="tablist" aria-label={t("Réglages du board")}>
           {SETTINGS_SECTIONS.map((item) => {
             const selected = item.id === section;
             return (
@@ -93,7 +95,7 @@ export function SettingsView({
                 onClick={() => model.showSettings(item.id)}
                 onKeyDown={onTabKey}
               >
-                {item.label}
+                {localize(item.label)}
               </button>
             );
           })}
@@ -105,20 +107,27 @@ export function SettingsView({
         role="tabpanel"
         aria-labelledby={`settings-tab-${section}`}
       >
+        <LanguagePreferenceCard model={model} />
         {teamNotice && (
           <div class={`notice notice-${teamNotice.tone} notice-inline`} role="alert">
             <p>
-              <strong>{teamNotice.text}</strong>
-              {teamNotice.suggestion && ` ${teamNotice.suggestion}`}
+              <strong>{localize(teamNotice.text)}</strong>
+              {teamNotice.suggestion && ` ${localize(teamNotice.suggestion)}`}
             </p>
-            <button type="button" aria-label="Fermer" onClick={() => board.dismissTeamNotice()}>
+            <button
+              type="button"
+              aria-label={t("Fermer")}
+              onClick={() => board.dismissTeamNotice()}
+            >
               ×
             </button>
           </div>
         )}
         {team.kind === "unreadable" && (
           <div class="notice notice-warning" role="status">
-            <p>Réglages du board non relus dans Jira : {team.message}</p>
+            <p>
+              {t("Réglages du board non relus dans Jira :")} {localize(team.message)}
+            </p>
           </div>
         )}
         {/* Un autre board : les brouillons repartent de sa configuration. */}
@@ -144,18 +153,21 @@ function TeamStatus({ board }: { board: BoardModel }) {
     return (
       <span class="settings-status settings-status-busy" role="status">
         <span class="settings-status-dot" aria-hidden="true" />
-        Enregistrement dans Jira…
+        {t("Enregistrement dans Jira…")}
       </span>
     );
   }
   if (team.kind === "published") {
     const { publishedAt, publishedBy } = team.document;
     const at = new Date(publishedAt);
-    const when = Number.isNaN(at.getTime()) ? "" : `, ${formatDay(at)} à ${formatTime(at)}`;
+    const when = Number.isNaN(at.getTime())
+      ? ""
+      : t(", {v0} à {v1}", { v0: formatDay(at), v1: formatTime(at) });
     return (
       <span class="settings-status settings-status-saved" role="status">
         <Icon name="check" size={13} />
-        Enregistrés dans Jira{publishedBy.displayName ? ` par ${publishedBy.displayName}` : ""}
+        {t("Enregistrés dans Jira")}
+        {publishedBy.displayName ? t(" par {v0}", { v0: publishedBy.displayName }) : ""}
         {when}
       </span>
     );
@@ -163,7 +175,7 @@ function TeamStatus({ board }: { board: BoardModel }) {
   if (team.kind === "none") {
     return (
       <span class="settings-status" role="status">
-        Aucun réglage enregistré dans Jira pour l'instant
+        {t("Aucun réglage enregistré dans Jira pour l'instant")}
       </span>
     );
   }

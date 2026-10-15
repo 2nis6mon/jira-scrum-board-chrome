@@ -51,6 +51,8 @@ jobs:
         run: npm run verify:drag
       - name: Vérifier les glissés des réglages du board
         run: npm run verify:settings
+      - name: Vérifier les langues et les préférences personnelles
+        run: npm run verify:i18n
       - name: Vérifier l'atelier Sprint Planning
         run: npm run verify:planning
       - name: Vérifier la désactivation du planning dans le paquet

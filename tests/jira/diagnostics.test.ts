@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { setLanguage } from "../../src/i18n";
 import {
   findActiveSprint,
   formatReport,
@@ -343,6 +344,33 @@ describe("probeSprintPropertyWrite", () => {
 });
 
 describe("formatReport", () => {
+  it("présente les sondes historiques dans la langue choisie au moment de la copie", () => {
+    setLanguage("en");
+    const report = formatReport({
+      extensionVersion: "1.2.3",
+      userAgent: "Browser test",
+      write: null,
+      read: {
+        displayName: "Ne pas exporter",
+        sessionRecognized: true,
+        graphqlOrigin: null,
+        probes: [
+          {
+            id: "myself",
+            label: "Session Jira du navigateur (GET)",
+            status: "ok",
+            httpStatus: 200,
+            detail: "réponse reçue",
+          },
+        ],
+      },
+    });
+    expect(report).toContain("connection diagnostics");
+    expect(report).toContain("✓ Browser Jira session (GET) [200]: response received");
+    expect(report).toContain("Write: test not started");
+    expect(report).not.toContain("Ne pas exporter");
+  });
+
   it("ne contient ni le site, ni le nom du compte", async () => {
     const jira = new FakeJira()
       .on("GET", MYSELF, { status: 200, json: { displayName: "Personne Test" } })

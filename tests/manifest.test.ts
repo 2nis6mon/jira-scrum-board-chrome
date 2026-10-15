@@ -70,12 +70,25 @@ describe("manifest", () => {
     });
   });
 
-  it("nom et description dans les limites de Chrome, et le nom suit la forme « … pour Jira »", () => {
+  it("métadonnées bilingues dans les limites de Chrome, avec le nom « … pour/for Jira »", () => {
     // Limites du Chrome Web Store : nom 75, nom court 12, description 132 caractères.
-    expect([...(manifest.name as string)].length).toBeLessThanOrEqual(75);
     expect([...(manifest.short_name as string)].length).toBeLessThanOrEqual(12);
-    expect([...(manifest.description as string)].length).toBeLessThanOrEqual(132);
-    expect(manifest.name).toMatch(/ pour Jira$/);
+    expect(manifest.default_locale).toBe("en");
+    expect(manifest.name).toBe("__MSG_extensionName__");
+    expect(manifest.description).toBe("__MSG_extensionDescription__");
+    expect(manifest.action).toMatchObject({ default_title: "__MSG_extensionAction__" });
+    for (const language of ["fr", "en"]) {
+      const messages = JSON.parse(
+        readFileSync(
+          new URL(`../public/_locales/${language}/messages.json`, import.meta.url),
+          "utf8",
+        ),
+      );
+      expect([...messages.extensionName.message].length).toBeLessThanOrEqual(75);
+      expect([...messages.extensionDescription.message].length).toBeLessThanOrEqual(132);
+      expect(messages.extensionName.message).toMatch(/ (pour|for) Jira$/);
+      expect(messages.extensionAction.message).toBeTruthy();
+    }
   });
 
   it("icônes : des fichiers PNG de l'extension elle-même, présents dans public/", () => {

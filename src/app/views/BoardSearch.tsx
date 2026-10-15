@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { JiraBoardChoice } from "../../jira/client";
+import { t } from "../i18n";
 import type { BoardModel } from "../model/BoardModel";
 import { toMessage, type UserMessage } from "../model/messages";
 import { ErrorMessage } from "./Message";
@@ -49,7 +50,7 @@ export function BoardSearch({ board }: { board: BoardModel }) {
   }, [board, query]);
   return (
     <div class="board-search">
-      <label for="board-name">Nom du board</label>
+      <label for="board-name">{t("Nom du board")}</label>
       <div class="board-autocomplete">
         <input
           id="board-name"
@@ -62,7 +63,7 @@ export function BoardSearch({ board }: { board: BoardModel }) {
           onFocus={() => setOpen(true)}
           onBlur={() => setOpen(false)}
           autocomplete="off"
-          placeholder="Rechercher un board…"
+          placeholder={t("Rechercher un board…")}
           value={query}
           disabled={busy}
           onInput={(event) => {
@@ -103,7 +104,7 @@ export function BoardSearch({ board }: { board: BoardModel }) {
             id="board-results"
             class="board-suggestions"
             role="listbox"
-            aria-label="Boards correspondants"
+            aria-label={t("Boards correspondants")}
           >
             {results.map((item, index) => (
               <button
@@ -131,14 +132,14 @@ export function BoardSearch({ board }: { board: BoardModel }) {
       </div>
       <p class="hint" role="status">
         {loading
-          ? "Recherche…"
+          ? t("Recherche…")
           : complete && results.length === 0
-            ? "Aucun board Scrum ou Kanban accessible ne correspond à ce nom."
+            ? t("Aucun board Scrum ou Kanban accessible ne correspond à ce nom.")
             : results.length
-              ? "Sélectionnez un board (5 résultats maximum)."
-              : "Saisissez tout ou partie du nom du board."}
+              ? t("Sélectionnez un board (5 résultats maximum).")
+              : t("Saisissez tout ou partie du nom du board.")}
       </p>
-      {busy && <p role="status">Lecture du board…</p>}
+      {busy && <p role="status">{t("Lecture du board…")}</p>}
       <ErrorMessage message={error} />
     </div>
   );

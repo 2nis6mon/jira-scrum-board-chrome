@@ -167,6 +167,20 @@ export class JiraClient {
     return this.#transport.site;
   }
 
+  /** Préférence de langue Atlassian du compte courant ; aucun réglage Jira n'est modifié. */
+  async locale(): Promise<string> {
+    const { body } = await this.#transport.get("/rest/api/3/mypreferences/locale", {
+      resource: "la langue Jira",
+    });
+    if (
+      !isRecord(body) ||
+      typeof body.locale !== "string" ||
+      !/^[a-z]{2,3}(?:[-_][a-zA-Z0-9]{2,8})*$/.test(body.locale)
+    )
+      return decodingFailure("locale", "locale absente ou invalide");
+    return body.locale;
+  }
+
   /** Analyse et validation sémantique dans les droits de la session Jira courante. */
   async validateJql(jql: string): Promise<JiraJqlValidation> {
     const { body } = await this.#transport.readByPost(

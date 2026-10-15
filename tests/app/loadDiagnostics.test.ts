@@ -5,6 +5,7 @@ import {
   MAX_LOAD_SPANS,
 } from "../../src/app/model/LoadDiagnostics";
 import type { Platform } from "../../src/app/platform/types";
+import { setLanguage } from "../../src/i18n";
 import { JiraError } from "../../src/jira/errors";
 import { JiraTransport } from "../../src/jira/transport";
 import { ACME, FakeJira } from "../support/fakeJira";
@@ -32,6 +33,27 @@ function deferred() {
 }
 
 describe("diagnostic local du chargement", () => {
+  it("traduit un rapport déjà collecté au moment de sa copie sans changer les mesures", async () => {
+    const { diagnostics, advance, platform } = setup();
+    diagnostics.begin("opening", 12);
+    await diagnostics.measure("issues", async () => advance(30));
+    diagnostics.setContext({ boardType: "scrum", issues: 8, goals: 2 });
+    diagnostics.finish();
+    const before = JSON.stringify(diagnostics.current.value);
+    setLanguage("en");
+    await diagnostics.copyReport();
+    const english = platform.copied.at(-1) ?? "";
+    expect(english).toContain("loading diagnostics v1");
+    expect(english).toContain("Action: opening");
+    expect(english).toContain("issues: 8; goals: 2");
+    expect(english).toContain("| Startup in Jira | 12 ms");
+    expect(english).toContain("| Issues | 30 ms");
+    expect(english).toContain("Data ready: not measured; board displayed: not measured");
+    expect(JSON.stringify(diagnostics.current.value)).toBe(before);
+    setLanguage("fr");
+    expect(diagnostics.report()).toContain("Action : ouverture");
+  });
+
   it("garde les départs parallèles, les jalons et la durée réelle sans additionner les appels", async () => {
     const { diagnostics, advance } = setup();
     const id = diagnostics.begin("opening", 15);

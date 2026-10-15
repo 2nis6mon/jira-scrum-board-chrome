@@ -1,4 +1,5 @@
 import type { LauncherPlatform } from "../../integration/LauncherModel";
+import { normalizeSiteUrl } from "../../jira/site";
 
 /** Le lanceur ouvert en pleine page par le service worker, à l'installation. */
 export function isWelcomeTab(search: string): boolean {
@@ -21,10 +22,22 @@ export function chromeLauncherPlatform(): LauncherPlatform {
     },
     hasPermission: (pattern) => chrome.permissions.contains({ origins: [pattern] }),
     requestPermission: (pattern) => chrome.permissions.request({ origins: [pattern] }),
-    currentTab: async () =>
-      welcome
-        ? null
-        : ((await chrome.tabs.query({ active: true, currentWindow: true }))[0] ?? null),
+    currentTab: async () => {
+      if (welcome) return null;
+      const tab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+      if (!tab || tab.id === undefined || !tab.url) return tab ?? null;
+      try {
+        normalizeSiteUrl(tab.url);
+        // Lecture du seul attribut lang, dans l'onglet autorisé par activeTab au clic.
+        const result = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => document.documentElement.lang,
+        });
+        return { ...tab, locale: result[0]?.result ?? null };
+      } catch {
+        return tab;
+      }
+    },
     prepareLaunch: async () => {
       const response: unknown = await chrome.runtime.sendMessage({
         type: "sprint-goals:prepare-launch",

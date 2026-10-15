@@ -10,6 +10,7 @@ import type {
 } from "../../src/app/model/PlanningTypes";
 import { PLANNING_DRAG_TYPE, PlanningView } from "../../src/app/views/planning/PlanningView";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
+import { setLanguage } from "../../src/i18n";
 import { decodeSprint, type JiraSprint } from "../../src/jira/models";
 import { makeIssue } from "../support/jiraFixtures";
 
@@ -167,6 +168,31 @@ function setup() {
 afterEach(() => render(null, document.body));
 
 describe("atelier Sprint Planning", () => {
+  it("change de langue sans perdre les saisies ni traduire les données Jira", async () => {
+    const { planning } = setup();
+    await tick();
+    await enter("Nouvel objectif du sprint", "Objectif encore à discuter");
+    await enter("Titre de l’objectif 1", "Notre titre français");
+    planning.notice.value = "Synthèse copiée.";
+    planning.validation.value = "Donnez un titre différent à chaque objectif.";
+    setLanguage("en");
+    await tick();
+    expect(field<HTMLInputElement>("New sprint goal").value).toBe("Objectif encore à discuter");
+    expect(field<HTMLInputElement>("Title of goal 1").value).toBe("Notre titre français");
+    expect(text()).toContain("Build around goals");
+    expect(text()).toContain("Summary copied.");
+    expect(text()).toContain("Give each goal a different title.");
+    expect(text()).toContain("Panier existant");
+    expect(document.querySelector('[aria-label="Assign ABC-11 to a goal"]')).not.toBeNull();
+    expect(planning.publish).not.toHaveBeenCalled();
+    setLanguage("fr");
+    await tick();
+    expect(field<HTMLInputElement>("Nouvel objectif du sprint").value).toBe(
+      "Objectif encore à discuter",
+    );
+    expect(text()).toContain("Construire par objectifs");
+  });
+
   it("sépare backlog, proposition et RAF, et conserve les accès au board et à Jira", async () => {
     const { planning, onBack, onToggleSidebar } = setup();
     await tick();

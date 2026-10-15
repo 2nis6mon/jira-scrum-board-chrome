@@ -1,0 +1,7 @@
+{
+  "extensionName": { "message": "Sprint Goals Board for Jira" },
+  "extensionDescription": {
+    "message": "Jira Cloud Scrum and Kanban boards: goal swimlanes, configurable Build and RUN lanes, drag and drop, and Daily mode."
+  },
+  "extensionAction": { "message": "Open Sprint Goals Board" }
+}

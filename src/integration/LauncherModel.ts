@@ -1,5 +1,11 @@
 import { signal } from "@preact/signals";
 import type { Platform } from "../app/platform/types";
+import {
+  LANGUAGE_PREFERENCE_KEY,
+  languagePreference,
+  resolveLanguage,
+  setLanguage,
+} from "../i18n/language";
 import { normalizeSiteUrl } from "../jira/site";
 import { configuredBoardAddress, launchBoardAddress } from "./launchAddress";
 
@@ -7,6 +13,7 @@ export interface LauncherTab {
   readonly id?: number | undefined;
   /** Fournie par `activeTab` au clic sur l'icône, ou parce que le site est déjà autorisé. */
   readonly url?: string | undefined;
+  readonly locale?: string | null;
 }
 
 export interface LauncherPlatform {
@@ -48,12 +55,14 @@ export class LauncherModel {
 
   async start(): Promise<void> {
     try {
-      const [tab, connection, boards, lastAddress] = await Promise.all([
+      const [tab, connection, boards, lastAddress, preferences] = await Promise.all([
         this.#platform.currentTab(),
         this.#platform.store.get("connection.v1"),
         this.#platform.store.get("boards.v1"),
         this.#platform.store.get("launcher.v1"),
+        this.#platform.store.get(LANGUAGE_PREFERENCE_KEY).catch(() => null),
       ]);
+      setLanguage(resolveLanguage(languagePreference(preferences), tab?.locale));
       this.#tab = tab;
       const tabAddress = tab?.url ? launchBoardAddress(tab.url) : null;
       this.detected.value = tabAddress !== null;

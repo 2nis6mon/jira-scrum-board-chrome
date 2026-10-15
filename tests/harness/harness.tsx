@@ -13,6 +13,7 @@ import packageDocument from "../../package.json?raw";
 import { App } from "../../src/app/App";
 import { SPRINT_PLANNING_ENABLED } from "../../src/app/featureFlags";
 import { AppModel } from "../../src/app/model/AppModel";
+import { resolveLanguage, setLanguage } from "../../src/i18n/language";
 import "../../src/app/styles/app.css";
 import { LoadDiagnosticsView } from "../../src/app/views/LoadDiagnosticsView";
 import { withSwimlaneName, withTypeDestination } from "../../src/core/boardSettings";
@@ -48,6 +49,8 @@ const CORS: Reply = {
 };
 
 const scenario = new URLSearchParams(location.search).get("scenario") ?? "board";
+const jiraLocale = new URLSearchParams(location.search).get("jiraLocale") ?? "fr-FR";
+setLanguage(resolveLanguage("auto", jiraLocale));
 const container = document.getElementById("app");
 
 /**
@@ -629,6 +632,8 @@ if (scenario.startsWith("board")) {
           },
         }
       : platform,
+    undefined,
+    jiraLocale,
   );
   // Preuves de la capture : état compilé et véritable point d'entrée du modèle, en lecture seule
   // dans le mode package. Cette sonde reste dans le banc fictif, absent de la distribution.
@@ -831,7 +836,7 @@ if (scenario.startsWith("board")) {
   }
 } else if (scenario === "connexion") {
   // Premier lancement : aucun site enregistré, aucune requête vers un faux Jira.
-  const model = new AppModel(fakePlatform(new FakeJira()));
+  const model = new AppModel(fakePlatform(new FakeJira()), undefined, jiraLocale);
   if (container) render(<App model={model} />, container);
   await model.start();
 } else if (scenario === "recherche-board") {
@@ -845,7 +850,7 @@ if (scenario.startsWith("board")) {
     ].filter((board) => board.name.toLowerCase().includes(name));
     return { status: 200, json: { values: boards, isLast: true } };
   });
-  const model = new AppModel(fakePlatform(jira));
+  const model = new AppModel(fakePlatform(jira), undefined, jiraLocale);
   if (container) render(<App model={model} />, container);
   await model.connect("acme.atlassian.net");
 } else {
@@ -882,7 +887,7 @@ if (scenario.startsWith("board")) {
         .on("PUT", PROPERTY, { status: 201 });
   }
 
-  const model = new AppModel(fakePlatform(jira));
+  const model = new AppModel(fakePlatform(jira), undefined, jiraLocale);
   if (container) render(<App model={model} />, container);
   if (scenario === "deconnecte") {
     await model.start();

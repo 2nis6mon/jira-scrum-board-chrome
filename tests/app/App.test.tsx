@@ -130,7 +130,7 @@ describe("App", () => {
     render(<App model={model} />, document.body);
 
     expect(document.querySelector(".app-version")?.textContent).toBe("9.9.9");
-    expect(document.querySelector("h2")?.textContent).toBe("Connexion à Jira");
+    expect(document.querySelector("h2")?.textContent).toBe("Connect to Jira");
     expect(document.querySelector<HTMLButtonElement>("button.primary")?.disabled).toBe(true);
     expect(cardKeys()).toEqual([]);
   });

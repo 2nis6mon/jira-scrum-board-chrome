@@ -12,6 +12,7 @@ import {
   planningRevision,
   publishSprintPlanning,
 } from "../../core/sprintPlanning";
+import { getLanguage, localize, t } from "../../i18n";
 import type { JiraClient } from "../../jira/client";
 import { isRecord } from "../../jira/json";
 import { estimate, isDoneStatus, type JiraSprint } from "../../jira/models";
@@ -443,13 +444,15 @@ export class PlanningModel implements PlanningViewModel {
     this.notice.value = null;
     const selected = new Set(draft.selectedIssueKeys);
     const issues = this.issues.value.filter((item) => selected.has(item.issue.key));
+    const numbers = new Intl.NumberFormat(getLanguage() === "fr" ? "fr-FR" : "en-GB");
+    const units = localize(this.estimationLabel);
     const blocks = [
       ...draft.goals.map((goal) => ({ id: goal.id, title: goal.title })),
-      { id: null, title: "À organiser" },
+      { id: null, title: t("À organiser") },
     ];
     const lines = [
       `Sprint Planning — ${this.snapshot.value?.sprint.name ?? draft.sprintId}`,
-      "Proposition de préparation",
+      t("Proposition de préparation"),
       "",
     ];
     for (const block of blocks) {
@@ -459,21 +462,23 @@ export class PlanningModel implements PlanningViewModel {
         block.title,
         ...matching.map(
           (item) =>
-            `- ${item.issue.key} — ${item.issue.fields.summary} (${item.estimate ?? "?"} ${this.estimationLabel})`,
+            `- ${item.issue.key} — ${item.issue.fields.summary} (${item.estimate === null ? "?" : numbers.format(item.estimate)} ${units})`,
         ),
         "",
       );
     }
     if (draft.capacity !== null)
-      lines.push(`Capacité envisagée : ${draft.capacity} ${this.estimationLabel}`);
+      lines.push(
+        t("Capacité envisagée : {p0} {p1}", { p0: numbers.format(draft.capacity), p1: units }),
+      );
     const known = new Set(issues.map((item) => item.issue.key));
     const unavailable = draft.selectedIssueKeys.filter((key) => !known.has(key));
     if (unavailable.length)
       lines.push(
-        "Tickets à réexaminer :",
+        t("Tickets à réexaminer :"),
         ...unavailable.map(
           (key) =>
-            `- ${key} — ${draft.goals.find((goal) => goal.id === draft.links[key])?.title ?? "À organiser"}`,
+            `- ${key} — ${draft.goals.find((goal) => goal.id === draft.links[key])?.title ?? t("À organiser")}`,
         ),
       );
     try {

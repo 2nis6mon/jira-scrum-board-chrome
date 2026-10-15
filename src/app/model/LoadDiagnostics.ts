@@ -11,6 +11,7 @@ import {
   loadError,
   type ObserveRead,
 } from "../../core/loadTrace";
+import { localize } from "../../i18n";
 import type { Platform } from "../platform/types";
 
 export type { LoadError, LoadPhase, LoadRun, LoadSpan } from "../../core/loadTrace";
@@ -204,7 +205,7 @@ export class LoadDiagnostics implements LoadTrace {
   }
 
   report(run: LoadRun | undefined = this.current.peek() ?? undefined): string {
-    if (!run) return "Diagnostic de chargement : aucune mesure disponible.";
+    if (!run) return localize("Diagnostic de chargement : aucune mesure disponible.");
     const elapsed = this.elapsedMs(run);
     const requests = run.spans.filter((span) => span.kind === "request");
     const lines = [
@@ -241,11 +242,11 @@ export class LoadDiagnostics implements LoadTrace {
           ...(span.httpStatus === null ? [] : [`HTTP ${span.httpStatus}`]),
           ...(span.error === null ? [] : [`erreur ${span.error}`]),
         ];
-        return details.join(" | ");
+        return details.map((detail) => localize(detail)).join(" | ");
       }),
       "Rapport local : aucun nom, URL, JQL, contenu de ticket, identifiant Jira ou message d'erreur brut.",
     ];
-    return lines.join("\n");
+    return lines.map((line) => localize(line)).join("\n");
   }
 
   copyReport(run?: LoadRun): Promise<void> {

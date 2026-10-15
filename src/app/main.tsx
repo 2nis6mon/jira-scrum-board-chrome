@@ -1,4 +1,5 @@
 import { render } from "preact";
+import { t } from "../i18n";
 import { embeddedBoardTarget, installEmbeddedLinks } from "../integration/embedded";
 import { App } from "./App";
 import { AppModel } from "./model/AppModel";
@@ -11,8 +12,9 @@ if (!container) {
 }
 
 async function startInJira(container: HTMLElement): Promise<void> {
-  const refused =
-    "Sprint Goals s'utilise dans Jira. Ouvrez votre board Jira, puis cliquez sur l'icône de l'extension.";
+  const refused = t(
+    "Sprint Goals s'utilise dans Jira. Ouvrez votre board Jira, puis cliquez sur l'icône de l'extension.",
+  );
   // Aucun modèle, accès au stockage ni appel réseau depuis une page ouverte seule.
   if (window.parent === window) {
     container.textContent = refused;
@@ -24,7 +26,12 @@ async function startInJira(container: HTMLElement): Promise<void> {
     container.textContent = refused;
     return;
   }
-  const model = new AppModel(platform, target.address);
+  const model = new AppModel(
+    platform,
+    target.address,
+    new URLSearchParams(location.search).get("jiraLocale"),
+  );
+  await model.prepareLanguage();
   render(<App model={model} />, container);
   installEmbeddedLinks(model, target.origin, target.address);
   // Origine de la mesure : navigation du document de l'extension, pas celle de la page Jira.

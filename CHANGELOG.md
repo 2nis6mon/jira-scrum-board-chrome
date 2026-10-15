@@ -3,6 +3,19 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.35.0 — Interface en français et en anglais
+
+- Détection de la langue Jira : français pour les variantes françaises, anglais pour les autres
+  langues et lorsqu'aucune langue n'est connue.
+- Choix personnel **Automatique — suivre Jira**, **Français** ou **English**, accessible dans
+  **Site Jira → Préférences personnelles** et dans l'administration du board. Le choix est
+  conservé dans ce navigateur, commun aux boards, sans modifier Jira ni les réglages de l'équipe.
+- Traduction de l'interface, des aides, notifications et contrôles accessibles ; dates et nombres
+  suivent la langue choisie. Les contenus Jira et les noms personnalisés restent intacts.
+- Bascule immédiate conservant les saisies et brouillons en cours ; vérifications des deux langues,
+  de la préférence locale et de la conservation du JQL. Sprint Planning garde son activation
+  limitée aux builds locaux.
+
 ## 0.34.12 — Validation GitHub fiabilisée
 
 - Chrome for Testing reçoit les droits de lecture et d'exécution nécessaires à ses processus

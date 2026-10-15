@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { integrationMessages } from "../../src/i18n/integration";
 import { injectBoard } from "../../src/integration/injectBoard";
 
 // Pages Jira et fenêtres fictives : aucun accès réseau ni session utilisateur.
@@ -38,10 +39,10 @@ function page(frame: HTMLIFrameElement): Page {
   return value;
 }
 
-function mount() {
+function mount(preference: "auto" | "fr" | "en" = "fr") {
   // Chrome sérialise la fonction : cette copie n'a accès à aucun import ni fermeture du module.
   const copied = new Function(`return (${injectBoard.toString()});`)() as typeof injectBoard;
-  copied(`${EXTENSION}/board.html`, BOARD);
+  copied(`${EXTENSION}/board.html`, BOARD, { preference, messages: integrationMessages });
   const host = document.getElementById("sprint-goals-direct") as HTMLElement;
   const frame = host.shadowRoot?.querySelector("iframe") as HTMLIFrameElement;
   const board = page(frame);
@@ -152,6 +153,24 @@ afterEach(async () => {
 });
 
 describe("hôte Jira — parcours natif autonome", () => {
+  it("transmet la langue Jira normalisée et traduit seulement l'habillage de la fiche", () => {
+    document.documentElement.lang = "de-DE";
+    const { board, open, send } = mount("auto");
+    expect(new URL(board.win.location.href).searchParams.get("jiraLocale")).toBe("de-de");
+    let current = open();
+    expect(current.dialog.getAttribute("aria-label")).toBe("Jira issue ABC-102");
+    expect(current.dialog.querySelector('[role="status"]')?.textContent).toBe("Loading ABC-102…");
+    send({ type: "sprint-goals:language", language: "fr" }, "https://evil.example");
+    current = open();
+    expect(current.dialog.getAttribute("aria-label")).toBe("Jira issue ABC-102");
+    send({ type: "sprint-goals:language", language: "fr" });
+    current = open();
+    expect(current.dialog.getAttribute("aria-label")).toBe("Ticket Jira ABC-102");
+    send({ type: "sprint-goals:language", language: "xx" });
+    current = open();
+    expect(current.dialog.getAttribute("aria-label")).toBe("Ticket Jira ABC-102");
+  });
+
   it("exécute la copie sérialisée, montre la fiche et actualise une fois à sa fermeture", async () => {
     const { frame, board, open } = mount();
     expect(new URL(board.win.location.href).searchParams.get("jiraHost")).toBe(SITE);

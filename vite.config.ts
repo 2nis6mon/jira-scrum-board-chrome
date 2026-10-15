@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
+import { integrationMessages } from "./src/i18n/integration";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 
@@ -15,6 +16,7 @@ export default defineConfig(({ mode }) => {
     // utilisateur ni fichier .env ne peut l'activer dans le mode package.
     define: {
       __SPRINT_PLANNING_ENABLED__: ["dist", "development", "test"].includes(mode),
+      __INTEGRATION_MESSAGES__: JSON.stringify(integrationMessages),
     },
     build: {
       outDir: "dist",
@@ -41,6 +43,7 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       include: ["tests/**/*.test.{ts,tsx}"],
+      setupFiles: ["tests/support/language.ts"],
       environment: "node",
       restoreMocks: true,
     },

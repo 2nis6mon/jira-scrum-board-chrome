@@ -1,4 +1,5 @@
 import type { FilterOption } from "../../../core/boardLayout";
+import { t } from "../../i18n";
 import { Icon, type IconName } from "../Icon";
 
 interface Extra {
@@ -46,7 +47,7 @@ export function FilterMenu(props: {
           </label>
         ))}
         {props.options.length === 0 && !(props.extra && props.extra.count > 0) && (
-          <p class="filter-empty">Aucune valeur dans les tickets affichés.</p>
+          <p class="filter-empty">{t("Aucune valeur dans les tickets affichés.")}</p>
         )}
       </fieldset>
     </details>

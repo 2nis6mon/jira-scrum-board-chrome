@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { getLanguage } from "../../src/i18n/language";
 import {
   LauncherModel,
   type LauncherPlatform,
@@ -35,6 +36,21 @@ function setup(tab: LauncherTab | null = null, saved: Record<string, unknown> = 
 }
 
 describe("lanceur de Sprint Goals dans Jira", () => {
+  it.each([
+    ["fr_FR", "auto", "fr"],
+    ["de", "auto", "en"],
+    ["fr", "en", "en"],
+    [undefined, "fr", "fr"],
+  ] as const)("langue %s, choix %s, résultat %s", async (locale, preference, expected) => {
+    const { model, platform } = setup(
+      { url: BOARD, locale: locale ?? null },
+      { "language.v1": preference },
+    );
+    await model.start();
+    expect(getLanguage()).toBe(expected);
+    expect(platform.requestPermission).not.toHaveBeenCalled();
+  });
+
   it("attend une adresse et un clic à la première installation", async () => {
     const { model, platform } = setup();
     await model.start();

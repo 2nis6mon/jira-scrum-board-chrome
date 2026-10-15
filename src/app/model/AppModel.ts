@@ -1,7 +1,17 @@
 import { signal } from "@preact/signals";
 import { type DailySession, startDaily } from "../../core/daily";
+import {
+  LANGUAGE_PREFERENCE_KEY,
+  type LanguagePreference,
+  languagePreference,
+  normalizeLocale,
+  resolveLanguage,
+  setLanguage,
+} from "../../i18n/language";
+import { JiraClient } from "../../jira/client";
 import { isRecord } from "../../jira/json";
 import { type JiraSite, normalizeSiteUrl, parseBoardUrl } from "../../jira/site";
+import { JiraTransport } from "../../jira/transport";
 import { SPRINT_PLANNING_ENABLED } from "../featureFlags";
 import type { Platform } from "../platform/types";
 import { AuditLog } from "./auditLog";
@@ -35,7 +45,7 @@ export type Connection =
  * Vues de l'espace de travail : le sprint (swimlanes, et la santé du sprint dans un panneau
  * repliable), les réglages du board affiché et le diagnostic du site.
  */
-export type View = "board" | "planning" | "settings" | "diagnostic";
+export type View = "board" | "planning" | "settings" | "diagnostic" | "preferences";
 
 /**
  * Onglets des réglages du board affiché. Depuis 0.31.0, ils s'ouvrent depuis le board (en-tête,
@@ -58,6 +68,8 @@ export class AppModel {
   readonly sidebarWidth = signal<number>(SIDEBAR_WIDTH.default);
   /** Panneau « Santé du sprint » déplié au-dessus des swimlanes ; gardé dans ce navigateur. */
   readonly healthOpen = signal(false);
+  readonly languagePreference = signal<LanguagePreference>("auto");
+  readonly languagePreferenceError = signal<string | null>(null);
   /**
    * Mode présentation : barre latérale et en-tête masqués, restent les filtres et le board. Le temps
    * de la page seulement : une réouverture repart en mode normal.
@@ -78,13 +90,58 @@ export class AppModel {
   /** Site de la page Jira hôte : la connexion ne peut pas en sortir dans ce cadre. */
   readonly hostSite: JiraSite | null;
   readonly #hostBoardAddress: string | undefined;
+  #jiraLocale: string | null;
+  #interfaceReady: Promise<void> | null = null;
+  #interfaceWrite: Promise<void> = Promise.resolve();
+  #languageWrite: Promise<void> = Promise.resolve();
+  #languageRevision = 0;
+  #localeGeneration = 0;
 
-  constructor(platform: Platform, hostBoardAddress?: string) {
+  constructor(platform: Platform, hostBoardAddress?: string, hostLocale?: string | null) {
     this.#platform = platform;
     this.loadDiagnostics = new LoadDiagnostics(platform);
     this.#audit = new AuditLog(platform.store);
     this.#hostBoardAddress = hostBoardAddress;
     this.hostSite = hostBoardAddress ? (parseBoardUrl(hostBoardAddress)?.site ?? null) : null;
+    this.#jiraLocale = normalizeLocale(hostLocale);
+  }
+
+  /** Préférence restaurée avant le premier texte affiché, sans requête Jira. */
+  prepareLanguage(): Promise<void> {
+    this.#interfaceReady ??= this.#restoreInterface();
+    return this.#interfaceReady;
+  }
+
+  async setLanguagePreference(value: LanguagePreference): Promise<void> {
+    await this.prepareLanguage();
+    const revision = ++this.#languageRevision;
+    this.languagePreference.value = languagePreference(value);
+    this.languagePreferenceError.value = null;
+    this.#applyLanguage();
+    const preference = this.languagePreference.value;
+    const write = this.#languageWrite
+      .catch(() => {})
+      .then(() => this.#platform.store.set(LANGUAGE_PREFERENCE_KEY, preference));
+    this.#languageWrite = write;
+    try {
+      await write;
+    } catch {
+      if (revision === this.#languageRevision)
+        this.languagePreferenceError.value =
+          "La langue est appliquée, mais n'a pas pu être enregistrée dans ce navigateur.";
+    }
+  }
+
+  #applyLanguage(): void {
+    setLanguage(resolveLanguage(this.languagePreference.value, this.#jiraLocale));
+  }
+
+  /** Les préférences personnelles n'exigent aucun droit d'administration Jira. */
+  showPreferences(): void {
+    if (this.#planningPublishing()) return;
+    this.#leaveDiagnostic();
+    this.presenting.value = false;
+    this.view.value = "preferences";
   }
 
   get extensionVersion(): string {
@@ -111,7 +168,7 @@ export class AppModel {
   async #restoreConnection(
     boardAddress?: string,
   ): Promise<{ site: JiraSite; address: string | undefined } | null> {
-    await this.#restoreInterface();
+    await this.prepareLanguage();
     const saved = await this.#platform.store.get(CONNECTION_KEY);
     const target = boardAddress ? parseBoardUrl(boardAddress) : null;
     const origin =
@@ -183,6 +240,7 @@ export class AppModel {
     const current = this.connection.value;
     if (current.state !== "connected") return;
     if (current.board.planning.publishing.value) return;
+    this.#localeGeneration++;
     await current.board.planning.flushDraft();
     current.board.dispose();
     await current.board.planning.forgetSite();
@@ -337,7 +395,12 @@ export class AppModel {
   }
 
   async #restoreInterface(): Promise<void> {
-    const saved = await this.#platform.store.get(INTERFACE_KEY).catch(() => null);
+    const [saved, preference] = await Promise.all([
+      this.#platform.store.get(INTERFACE_KEY).catch(() => null),
+      this.#platform.store.get(LANGUAGE_PREFERENCE_KEY).catch(() => null),
+    ]);
+    this.languagePreference.value = languagePreference(preference);
+    this.#applyLanguage();
     if (!isRecord(saved)) return;
     const width = saved.sidebarWidth;
     // Le maximum dépend de la fenêtre : il est appliqué à l'affichage, pas ici.
@@ -348,13 +411,45 @@ export class AppModel {
   }
 
   async #saveInterface(): Promise<void> {
-    await this.#platform.store.set(INTERFACE_KEY, {
+    // Les écritures rapides sont ordonnées ; les autres préférences restent intactes.
+    const values = {
       sidebarWidth: this.sidebarWidth.value,
       healthOpen: this.healthOpen.value,
-    });
+    };
+    const write = this.#interfaceWrite
+      .catch(() => {})
+      .then(async () => {
+        const saved = await this.#platform.store.get(INTERFACE_KEY);
+        await this.#platform.store.set(INTERFACE_KEY, {
+          ...(isRecord(saved) ? saved : {}),
+          ...values,
+        });
+      });
+    this.#interfaceWrite = write;
+    await write;
   }
 
   async #enter(site: JiraSite, boardAddress?: string): Promise<void> {
+    const generation = ++this.#localeGeneration;
+    // Le DOM de Jira suffit normalement. Le repli API est facultatif et ne retarde pas le board.
+    if (!this.#jiraLocale && boardAddress) {
+      const client = new JiraClient(
+        new JiraTransport({
+          site,
+          fetch: this.#platform.fetch,
+          timeoutMs: 2500,
+          maxGetAttempts: 1,
+        }),
+      );
+      void client
+        .locale()
+        .then((locale) => {
+          if (generation !== this.#localeGeneration) return;
+          this.#jiraLocale = normalizeLocale(locale);
+          this.#applyLanguage();
+        })
+        .catch(() => {});
+    }
     // Règle `Origin` du site (passerelle GraphQL). Un échec (permission absente, par exemple
     // si l'extension n'a pas été rechargée) n'empêche pas le board : le diagnostic le montrera.
     const origin = new GraphqlOrigin(this.#platform, site);

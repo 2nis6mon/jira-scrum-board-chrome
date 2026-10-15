@@ -31,6 +31,7 @@ import {
   withSwimlaneName,
   withTypeDestination,
 } from "../../../core/boardSettings";
+import { t } from "../../i18n";
 import type { BoardModel } from "../../model/BoardModel";
 import type { ImageCache } from "../../model/ImageCache";
 import { JiraIcon } from "../board/JiraIcon";
@@ -175,7 +176,7 @@ export function BoardSettings({
   const dropSlot = (zoneId: string) =>
     zone === zoneId && (
       <li class="settings-drop-slot" aria-hidden="true">
-        Déposer ici
+        {t("Déposer ici")}
       </li>
     );
 
@@ -184,14 +185,14 @@ export function BoardSettings({
       <section class="settings-card settings-lanes-card" aria-labelledby="settings-lanes">
         <header class="settings-card-header">
           <div class="settings-card-title">
-            <h2 id="settings-lanes">Swimlanes</h2>
-            <p class="settings-help">Les objectifs sont prioritaires sur les swimlanes.</p>
+            <h2 id="settings-lanes">{t("Swimlanes")}</h2>
+            <p class="settings-help">{t("Les objectifs sont prioritaires sur les swimlanes.")}</p>
           </div>
           <button
             type="button"
             class="icon-button settings-icon-button"
-            aria-label="Relire colonnes et types depuis Jira"
-            title="Relire colonnes et types depuis Jira"
+            aria-label={t("Relire colonnes et types depuis Jira")}
+            title={t("Relire colonnes et types depuis Jira")}
             disabled={board.setupBusy.value}
             onClick={() => void board.refreshStructure()}
           >
@@ -201,15 +202,17 @@ export function BoardSettings({
             type="button"
             class="settings-button"
             disabled={configuration.blockOrder.length === 0}
-            title={`Objectifs dans leur ordre d'arrivée, puis ${buildLabel} et les swimlanes par type`}
+            title={t("Objectifs dans leur ordre d'arrivée, puis {v0} et les swimlanes par type", {
+              v0: buildLabel,
+            })}
             onClick={() => set(withDefaultBlockOrder)}
           >
             <Icon name="reset" size={14} />
-            Réinitialiser l'ordre
+            {t("Réinitialiser l'ordre")}
           </button>
           <button type="button" class="settings-button primary" onClick={openDraft}>
             <Icon name="plus" size={14} />
-            Nouvelle swimlane
+            {t("Nouvelle swimlane")}
           </button>
         </header>
 
@@ -246,7 +249,7 @@ export function BoardSettings({
                 >
                   <div class="settings-lane-head">
                     <Grip
-                      label={`Déplacer la swimlane ${buildLabel}`}
+                      label={t("Déplacer la swimlane {v0}", { v0: buildLabel })}
                       onMove={(offset) => shiftLane(id, offset)}
                       onDragStart={reorder.start(id)}
                       onDragEnd={reorder.end}
@@ -256,7 +259,7 @@ export function BoardSettings({
                     </span>
                     <span class="settings-lane-field">
                       <label class="settings-caption" for="settings-build-label">
-                        Nom de la swimlane par défaut
+                        {t("Nom de la swimlane par défaut")}
                       </label>
                       <CommitInput
                         id="settings-build-label"
@@ -270,12 +273,12 @@ export function BoardSettings({
                       />
                     </span>
                     {count(id)}
-                    <span class="settings-badge settings-badge-default">Default</span>
+                    <span class="settings-badge settings-badge-default">{t("Default")}</span>
                   </div>
-                  <ul class="settings-chips" aria-label="Types Default">
+                  <ul class="settings-chips" aria-label={t("Types Default")}>
                     {defaultTypes.map(chip)}
                     {defaultTypes.length === 0 && zone !== "goal" && (
-                      <li class="settings-chips-empty">Aucun type.</li>
+                      <li class="settings-chips-empty">{t("Aucun type.")}</li>
                     )}
                     {dropSlot("goal")}
                   </ul>
@@ -314,7 +317,7 @@ export function BoardSettings({
               >
                 <div class="settings-lane-head">
                   <Grip
-                    label={`Déplacer la swimlane ${name}`}
+                    label={t("Déplacer la swimlane {v0}", { v0: name })}
                     onMove={(offset) => shiftLane(id, offset)}
                     onDragStart={reorder.start(id)}
                     onDragEnd={reorder.end}
@@ -325,7 +328,7 @@ export function BoardSettings({
                   <span class="settings-lane-field">
                     <CommitInput
                       class="settings-lane-name"
-                      label={`Nom de la swimlane ${name}`}
+                      label={t("Nom de la swimlane {v0}", { v0: name })}
                       value={swimlane.name}
                       placeholder={computedSwimlaneName(configuration, swimlane)}
                       onCommit={(raw) => {
@@ -335,17 +338,20 @@ export function BoardSettings({
                     />
                   </span>
                   {count(id)}
-                  {swimlane.hidden && <span class="settings-badge">Masquée</span>}
+                  {swimlane.hidden && <span class="settings-badge">{t("Masquée")}</span>}
                   <Switch
                     checked={!swimlane.hidden}
-                    label={`Afficher la swimlane ${name}`}
-                    text="Affichée"
+                    label={t("Afficher la swimlane {v0}", { v0: name })}
+                    text={t("Affichée")}
                     onChange={(checked) =>
                       set((current) => withSwimlaneHidden(current, swimlane.id, !checked))
                     }
                   />
                 </div>
-                <ul class="settings-chips" aria-label={`Types de la swimlane ${name}`}>
+                <ul
+                  class="settings-chips"
+                  aria-label={t("Types de la swimlane {v0}", { v0: name })}
+                >
                   {typesOf(swimlane).map(chip)}
                   {dropSlot(zoneId)}
                 </ul>
@@ -363,13 +369,13 @@ export function BoardSettings({
                 </span>
                 <span class="settings-lane-field">
                   <label class="settings-caption" for="settings-new-swimlane">
-                    Nom de la nouvelle swimlane
+                    {t("Nom de la nouvelle swimlane")}
                   </label>
                   <input
                     id="settings-new-swimlane"
                     type="text"
                     class="settings-lane-name"
-                    placeholder="ex. Support"
+                    placeholder={t("ex. Support")}
                     value={draft}
                     onInput={(event) => setDraft(event.currentTarget.value)}
                     onKeyDown={(event) => {
@@ -378,13 +384,13 @@ export function BoardSettings({
                   />
                 </span>
                 <button type="button" class="settings-button" onClick={() => setDraft(null)}>
-                  Annuler
+                  {t("Annuler")}
                 </button>
               </div>
               <div class="settings-draft-drop">
-                <span>Glissez un premier type ici, ou choisissez-le :</span>
+                <span>{t("Glissez un premier type ici, ou choisissez-le :")}</span>
                 <select
-                  aria-label="Premier type de la nouvelle swimlane"
+                  aria-label={t("Premier type de la nouvelle swimlane")}
                   value=""
                   onChange={(event) => {
                     const typeId = event.currentTarget.value;
@@ -393,7 +399,7 @@ export function BoardSettings({
                     setDraft(null);
                   }}
                 >
-                  <option value="">Choisir un type…</option>
+                  <option value="">{t("Choisir un type…")}</option>
                   {configuration.issueTypes.map((type) => (
                     <option key={type.id} value={type.id}>
                       {type.name}
@@ -402,7 +408,9 @@ export function BoardSettings({
                 </select>
               </div>
               <p class="settings-lane-help">
-                La swimlane est créée avec son premier type ; elle disparaît avec son dernier.
+                {t(
+                  "La swimlane est créée avec son premier type ; elle disparaît avec son dernier.",
+                )}
               </p>
             </li>
           )}
@@ -415,14 +423,14 @@ export function BoardSettings({
           <button type="button" class="settings-new-lane-button" onClick={openDraft}>
             <Icon name="plus" size={15} />
             <span>
-              <strong>Nouvelle swimlane</strong> : cliquez, ou déposez un type ici
+              <strong>{t("Nouvelle swimlane")}</strong> {t(": cliquez, ou déposez un type ici")}
             </span>
           </button>
         </div>
         <TypeGroup
-          title="Ignorés"
+          title={t("Ignorés")}
           icon="eyeOff"
-          help="Toujours exclus du board."
+          help={t("Toujours exclus du board.")}
           types={byCategory("IGNORED")}
           target={zone === "ignored"}
           zone={typeZone("ignored", { kind: "ignored" })}
@@ -434,53 +442,53 @@ export function BoardSettings({
       <section class="settings-card" aria-labelledby="settings-display">
         <header class="settings-card-header">
           <div class="settings-card-title">
-            <h2 id="settings-display">Affichage et daily</h2>
-            <p class="settings-help">Enregistrés dès qu'ils sont modifiés.</p>
+            <h2 id="settings-display">{t("Affichage et daily")}</h2>
+            <p class="settings-help">{t("Enregistrés dès qu'ils sont modifiés.")}</p>
           </div>
         </header>
         <div class="settings-tiles">
           <Stepper
             id="settings-aging"
-            label="Seuil « vieillissant »"
+            label={t("Seuil « vieillissant »")}
             value={configuration.agingThresholdDays}
             min={1}
             max={365}
-            unit="jours"
-            help="Sans changement de statut : la carte le signale."
+            unit={t("jours")}
+            help={t("Sans changement de statut : la carte le signale.")}
             onCommit={(raw) => commit((current) => withAgingThreshold(current, raw))}
           />
           <Stepper
             id="settings-daily"
-            label="Durée de la daily"
+            label={t("Durée de la daily")}
             value={configuration.dailyMinutes}
             min={1}
             max={MAX_DAILY_MINUTES}
-            unit="minutes"
-            help="Minuteur du mode Daily."
+            unit={t("minutes")}
+            help={t("Minuteur du mode Daily.")}
             onCommit={(raw) => commit((current) => withDailyMinutes(current, raw))}
           />
           <Stepper
             id="settings-daily-stock"
-            label="Stock en daily"
+            label={t("Stock en daily")}
             value={configuration.dailyStockLimit}
             min={1}
             max={MAX_DAILY_STOCK}
-            unit="cartes"
-            help="Dans la première colonne de chaque swimlane, avant « + N autres »."
+            unit={t("cartes")}
+            help={t("Dans la première colonne de chaque swimlane, avant « + N autres ».")}
             onCommit={(raw) => commit((current) => withDailyStockLimit(current, raw))}
           />
           <div class="settings-tile">
             <span class="settings-tile-label">
-              Rafraîchissement automatique
-              <span class="settings-badge settings-badge-personal">Personnel</span>
+              {t("Rafraîchissement automatique")}
+              <span class="settings-badge settings-badge-personal">{t("Personnel")}</span>
             </span>
             <Segmented
-              label="Rafraîchissement automatique"
+              label={t("Rafraîchissement automatique")}
               name="settings-auto-refresh"
               value={String(configuration.autoRefreshSeconds ?? "")}
               choices={AUTO_REFRESH_CHOICES.map((seconds) => ({
                 id: seconds === null ? "" : String(seconds),
-                label: seconds === null ? "Désactivé" : `${seconds / 60} min`,
+                label: seconds === null ? t("Désactivé") : `${seconds / 60} min`,
               }))}
               onChange={(value) =>
                 set((current) => ({
@@ -490,7 +498,7 @@ export function BoardSettings({
               }
             />
             <span class="settings-help">
-              Gardé dans ce navigateur. Lecture seule : relit Jira, n'écrit rien.
+              {t("Gardé dans ce navigateur. Lecture seule : relit Jira, n'écrit rien.")}
             </span>
           </div>
         </div>
@@ -522,10 +530,10 @@ function TypeGroup(props: {
         <span class="settings-type-count">{plural(props.types.length, "type")}</span>
       </h3>
       <p class="settings-help">{props.help}</p>
-      <ul class="settings-chips" aria-label={`Types ${props.title.toLowerCase()}`}>
+      <ul class="settings-chips" aria-label={t("Types {v0}", { v0: props.title.toLowerCase() })}>
         {props.types.map(props.chip)}
         {props.types.length === 0 && !props.target && (
-          <li class="settings-chips-empty">Aucun type.</li>
+          <li class="settings-chips-empty">{t("Aucun type.")}</li>
         )}
         {props.slot}
       </ul>
@@ -546,22 +554,22 @@ function TypeChip(props: {
   const { type, configuration } = props;
   const destinations: { label: string; destination: TypeDestination }[] = [
     {
-      label: "Default",
+      label: t("Default"),
       destination: { kind: "goal" },
     },
     ...configuration.ticketSwimlanes.map((swimlane) => ({
       label: swimlaneName(configuration, swimlane),
       destination: { kind: "swimlane", swimlaneId: swimlane.id } as const,
     })),
-    { label: "Nouvelle swimlane", destination: { kind: "newSwimlane" } },
-    { label: "Ignorés", destination: { kind: "ignored" } },
+    { label: t("Nouvelle swimlane"), destination: { kind: "newSwimlane" } },
+    { label: t("Ignorés"), destination: { kind: "ignored" } },
   ];
   return (
     <li
       class={`settings-chip${props.dragging ? " is-dragging" : ""}`}
       data-type-id={type.id}
       draggable
-      title="Glisser pour choisir la swimlane par défaut de ce type"
+      title={t("Glisser pour choisir la swimlane par défaut de ce type")}
       onDragStart={props.onDragStart}
       onDragEnd={props.onDragEnd}
     >
@@ -571,11 +579,11 @@ function TypeChip(props: {
       </span>
       <span class="settings-chip-name">{type.name}</span>
       <details class="menu settings-chip-menu" name="settings-chip-menu">
-        <summary aria-label={`Déplacer ${type.name}`} title="Déplacer vers…">
+        <summary aria-label={t("Déplacer {v0}", { v0: type.name })} title={t("Déplacer vers…")}>
           <Icon name="chevronDown" size={12} />
         </summary>
         <div class="menu-panel">
-          <p class="menu-section">Classement sans objectif</p>
+          <p class="menu-section">{t("Classement sans objectif")}</p>
           {destinations.map(({ label, destination }) => {
             const current = isTypeIn(configuration, type.id, destination);
             return (

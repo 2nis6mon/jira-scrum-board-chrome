@@ -7,6 +7,7 @@ import {
 import type { BoardIssue } from "../../../core/boardIssue";
 import { browseUrl } from "../../../core/boardIssue";
 import { percent, type SprintHealth, type WatchedIssue } from "../../../core/sprintHealth";
+import { t } from "../../i18n";
 import type { BoardModel } from "../../model/BoardModel";
 import { formatDay, formatPoints, plural } from "../format";
 import { Icon, type IconName } from "../Icon";
@@ -32,13 +33,13 @@ export function HealthPanel(props: {
       <header class="health-panel-head">
         <h2 id="health-title">
           <Icon name="health" size={16} />
-          Santé du sprint
+          {t("Santé du sprint")}
         </h2>
         <button
           type="button"
           class="icon-button"
-          aria-label="Masquer la santé du sprint"
-          title="Masquer la santé du sprint"
+          aria-label={t("Masquer la santé du sprint")}
+          title={t("Masquer la santé du sprint")}
           onClick={props.onClose}
         >
           <Icon name="chevronUp" size={16} />
@@ -65,49 +66,54 @@ function HealthBody(props: {
 
   return (
     <div class="health">
-      <section class="health-kpis" aria-label="Indicateurs clés">
+      <section class="health-kpis" aria-label={t("Indicateurs clés")}>
         {kpis.totalPoints !== null && (
           <Kpi
-            title="Story points livrés"
+            title={t("Story points livrés")}
             icon="points"
             tone="done"
             value={formatPoints(kpis.donePoints)}
             of={formatPoints(kpis.totalPoints)}
-            detail={`${percent(kpis.donePoints, kpis.totalPoints)} % du sprint`}
+            detail={t("{percent} % du sprint", {
+              percent: percent(kpis.donePoints, kpis.totalPoints),
+            })}
           />
         )}
         <Kpi
-          title="Tickets terminés"
+          title={t("Tickets terminés")}
           icon="done"
           tone="done"
           value={String(kpis.done)}
           of={String(kpis.scrumCount)}
-          detail={`${kpis.inProgress} en cours · ${kpis.toDo} à faire`}
+          detail={t("{inProgress} en cours · {toDo} à faire", {
+            inProgress: kpis.inProgress,
+            toDo: kpis.toDo,
+          })}
         />
         <Kpi
-          title="Bloqués"
+          title={t("Bloqués")}
           icon="blocked"
           tone="blocked"
           value={String(kpis.blocked)}
           of={String(kpis.allCount)}
-          detail="lien Jira « est bloqué par »"
+          detail={t("lien Jira « est bloqué par »")}
         />
         {kpis.added !== null && (
           <Kpi
-            title="Périmètre ajouté"
+            title={t("Périmètre ajouté")}
             icon="added"
             tone="added"
             value={String(kpis.added)}
             of={String(kpis.allCount)}
-            detail="entrés après le démarrage"
+            detail={t("entrés après le démarrage")}
           />
         )}
       </section>
 
       <div class="health-grid">
-        <Card title="Avancement par objectif">
+        <Card title={t("Avancement par objectif")}>
           {health.goals.length === 0 ? (
-            <p class="health-empty">Aucun objectif affiché sur ce sprint.</p>
+            <p class="health-empty">{t("Aucun objectif affiché sur ce sprint.")}</p>
           ) : (
             <ul class="health-goals">
               {health.goals.map((progress) => (
@@ -121,7 +127,7 @@ function HealthBody(props: {
                       {progress.goal.title}
                     </span>
                     <span class="health-muted">
-                      {progress.done}/{progress.total} terminés
+                      {t("{done}/{total} terminés", { done: progress.done, total: progress.total })}
                       {progress.totalPoints !== null &&
                         ` · ${formatPoints(progress.donePoints ?? 0)}/${formatPoints(progress.totalPoints)} pts`}
                     </span>
@@ -130,7 +136,7 @@ function HealthBody(props: {
                     <progress
                       max={1}
                       value={progress.completionRatio}
-                      aria-label={`Avancement de ${progress.goal.title}`}
+                      aria-label={t("Avancement de {name}", { name: progress.goal.title })}
                     />
                     <span class="health-percent">
                       {Math.round(progress.completionRatio * 100)} %
@@ -143,24 +149,25 @@ function HealthBody(props: {
         </Card>
 
         <Card
-          title="Changement de périmètre"
-          subtitle="Tickets entrés après le démarrage, d'après l'historique Jira"
+          title={t("Changement de périmètre")}
+          subtitle={t("Tickets entrés après le démarrage, d'après l'historique Jira")}
         >
           {!health.scope.known ? (
             <p class="health-empty">
-              Jira n'a pas fourni l'historique du sprint : on ne sait pas quels tickets y sont
-              entrés après son démarrage.
+              {t(
+                "Jira n'a pas fourni l'historique du sprint : on ne sait pas quels tickets y sont entrés après son démarrage.",
+              )}
             </p>
           ) : (
             <>
               <p class="health-scope">
-                <strong>+{health.scope.added.length}</strong> tickets · {health.scope.before} →{" "}
-                {health.scope.after}
+                <strong>+{health.scope.added.length}</strong> {t("tickets")} · {health.scope.before}{" "}
+                → {health.scope.after}
                 {health.scope.before > 0 &&
                   ` (+${percent(health.scope.added.length, health.scope.before)} %)`}
               </p>
               {health.scope.added.length === 0 ? (
-                <p class="health-empty">Aucun ticket entré après le démarrage.</p>
+                <p class="health-empty">{t("Aucun ticket entré après le démarrage.")}</p>
               ) : (
                 <ul class="health-issues">
                   {health.scope.added.slice(0, SCOPE_LIMIT).map((issue) => (
@@ -169,34 +176,42 @@ function HealthBody(props: {
                       issue={issue}
                       origin={origin}
                       trailing={
-                        issue.addedToSprintAt ? `le ${formatDay(issue.addedToSprintAt)}` : null
+                        issue.addedToSprintAt
+                          ? t("le {date}", { date: formatDay(issue.addedToSprintAt) })
+                          : null
                       }
                     />
                   ))}
                   {health.scope.added.length > SCOPE_LIMIT && (
-                    <li class="health-muted">+ {health.scope.added.length - SCOPE_LIMIT} autres</li>
+                    <li class="health-muted">
+                      {t("+ {count} autres", { count: health.scope.added.length - SCOPE_LIMIT })}
+                    </li>
                   )}
                 </ul>
               )}
               <p class="health-note">
-                Les tickets retirés du sprint n'apparaissent pas : Jira ne renvoie que ceux qui y
-                sont encore.
+                {t(
+                  "Les tickets retirés du sprint n'apparaissent pas : Jira ne renvoie que ceux qui y sont encore.",
+                )}
               </p>
             </>
           )}
         </Card>
 
         <Card
-          title="Charge par colonne"
-          subtitle="Charge réelle, filtres ignorés, et limites WIP du board"
+          title={t("Charge par colonne")}
+          subtitle={t("Charge réelle, filtres ignorés, et limites WIP du board")}
         >
           <ColumnLoad health={health} />
         </Card>
 
-        <Card title="Composition du sprint" subtitle={plural(health.composition.total, "ticket")}>
+        <Card
+          title={t("Composition du sprint")}
+          subtitle={plural(health.composition.total, t("ticket"))}
+        >
           <ul class="health-composition">
             <CompositionRow
-              label="Rattachés à un objectif"
+              label={t("Rattachés à un objectif")}
               icon="goal"
               tone="progress"
               count={health.composition.linked}
@@ -211,7 +226,7 @@ function HealthBody(props: {
             />
             {health.composition.swimlanes !== null && (
               <CompositionRow
-                label="Swimlanes par type"
+                label={t("Swimlanes par type")}
                 icon="kanban"
                 tone="kanban"
                 count={health.composition.swimlanes}
@@ -220,7 +235,7 @@ function HealthBody(props: {
             )}
             {health.composition.added !== null && (
               <CompositionRow
-                label="Entrés après le démarrage"
+                label={t("Entrés après le démarrage")}
                 icon="added"
                 tone="added"
                 count={health.composition.added}
@@ -232,8 +247,10 @@ function HealthBody(props: {
       </div>
 
       <Card
-        title="Tickets à surveiller"
-        subtitle={`Bloqués, ou sans changement de statut depuis ${plural(health.agingThresholdDays, "jour")} ou plus`}
+        title={t("Tickets à surveiller")}
+        subtitle={t("Bloqués, ou sans changement de statut depuis {duration} ou plus", {
+          duration: plural(health.agingThresholdDays, "jour"),
+        })}
       >
         <WatchTable
           watched={health.watched}
@@ -244,9 +261,9 @@ function HealthBody(props: {
       </Card>
 
       <p class="health-note">
-        Comptages directs sur les tickets lus dans Jira, filtres de la barre appliqués. Aucun score
-        n'est calculé ; l'ancienneté et l'entrée en cours de sprint ne s'affichent que si Jira a
-        fourni l'historique correspondant. Lecture seule : rien n'est écrit dans Jira.
+        {t(
+          "Comptages directs sur les tickets lus dans Jira, filtres de la barre appliqués. Aucun score n'est calculé ; l'ancienneté et l'entrée en cours de sprint ne s'affichent que si Jira a fourni l'historique correspondant. Lecture seule : rien n'est écrit dans Jira.",
+        )}
       </p>
     </div>
   );
@@ -321,13 +338,17 @@ function ColumnLoad({ health }: { health: SprintHealth }) {
             class={over ? "health-tone-blocked" : "health-tone-progress"}
             max={1}
             value={count / max}
-            aria-label={`Charge de ${column.name}`}
+            aria-label={t("Charge de {name}", { name: column.name })}
           />
           <strong class="health-count">{count}</strong>
           <span
             class="health-wip"
             title={
-              column.wipLimit === null ? undefined : over ? "Limite WIP dépassée" : "Limite WIP"
+              column.wipLimit === null
+                ? undefined
+                : over
+                  ? t("Limite WIP dépassée")
+                  : t("Limite WIP")
             }
           >
             {column.wipLimit !== null && (
@@ -377,17 +398,17 @@ function WatchTable(props: {
   buildLabel: string;
   swimlaneLabel: (id: string) => string;
 }) {
-  if (props.watched.length === 0) return <p class="health-empty">Rien à signaler.</p>;
+  if (props.watched.length === 0) return <p class="health-empty">{t("Rien à signaler.")}</p>;
   return (
     <>
       <table class="health-watch">
         <thead>
           <tr>
-            <th>Clé</th>
-            <th>Résumé</th>
-            <th>Motif</th>
-            <th>Depuis</th>
-            <th>Objectif</th>
+            <th>{t("Clé")}</th>
+            <th>{t("Résumé")}</th>
+            <th>{t("Motif")}</th>
+            <th>{t("Depuis")}</th>
+            <th>{t("Objectif")}</th>
           </tr>
         </thead>
         <tbody>
@@ -409,11 +430,11 @@ function WatchTable(props: {
               <td class={reason === "blocked" ? "health-tone-blocked" : "health-tone-muted"}>
                 <span class="health-kpi-title">
                   <Icon name={reason === "blocked" ? "blocked" : "clock"} size={13} />
-                  {reason === "blocked" ? "Bloqué" : "Sans changement"}
+                  {reason === "blocked" ? t("Bloqué") : t("Sans changement")}
                 </span>
               </td>
               <td class="health-muted">
-                {issue.daysInColumn === null ? "—" : `${issue.daysInColumn} j`}
+                {issue.daysInColumn === null ? "—" : t("{count} j", { count: issue.daysInColumn })}
               </td>
               <td data-goal-color={goal?.color}>
                 {goal ? (
@@ -434,7 +455,9 @@ function WatchTable(props: {
         </tbody>
       </table>
       {props.watched.length > WATCH_LIMIT && (
-        <p class="health-muted">+ {props.watched.length - WATCH_LIMIT} autres</p>
+        <p class="health-muted">
+          {t("+ {count} autres", { count: props.watched.length - WATCH_LIMIT })}
+        </p>
       )}
     </>
   );

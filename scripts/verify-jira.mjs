@@ -163,7 +163,7 @@ try {
       targetId: boardFrame.targetId,
       flatten: true,
     });
-    const REFUSAL = "Sprint Goals s'utilise dans Jira.";
+    const REFUSAL = "Use Sprint Goals inside Jira.";
     // Profil vierge : le site n'est pas autorisé dans Chrome, la page encadrée ne lit rien.
     assert(
       await evaluate(

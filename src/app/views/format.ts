@@ -1,22 +1,34 @@
-const DATE = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" });
-const TIME = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" });
-const POINTS = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
+import { language, localize } from "../i18n";
+
+const formats = (locale: string) => ({
+  day: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }),
+  time: new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }),
+  points: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }),
+  plural: new Intl.PluralRules(locale),
+});
+const FORMATS = { fr: formats("fr-FR"), en: formats("en-GB") };
 
 export function formatDay(date: Date): string {
-  return DATE.format(date);
+  return FORMATS[language.value].day.format(date);
 }
 
 export function formatTime(date: Date): string {
-  return TIME.format(date);
+  return FORMATS[language.value].time.format(date);
 }
 
 export function formatPoints(points: number): string {
-  return POINTS.format(points);
+  return FORMATS[language.value].points.format(points);
 }
 
 /** « 1 ticket », « 3 tickets ». */
 export function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
-  return `${count} ${count > 1 ? pluralForm : singular}`;
+  return `${count} ${pluralWord(count, singular, pluralForm)}`;
+}
+
+/** Libellé seul, lorsque le nombre est mis en valeur séparément dans le rendu. */
+export function pluralWord(count: number, singular: string, pluralForm = `${singular}s`): string {
+  const word = FORMATS[language.value].plural.select(count) === "one" ? singular : pluralForm;
+  return localize(word);
 }
 
 export function initials(name: string): string {
@@ -51,5 +63,6 @@ const GOAL_STATUS_LABELS: Record<string, string> = {
 };
 
 export function goalStatusLabel(value: string): string {
-  return GOAL_STATUS_LABELS[value.toLowerCase().replace(/[\s-]+/g, "_")] ?? value;
+  const label = GOAL_STATUS_LABELS[value.toLowerCase().replace(/[\s-]+/g, "_")];
+  return label === undefined ? value : localize(label);
 }

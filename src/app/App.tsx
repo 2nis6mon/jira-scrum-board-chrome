@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { SPRINT_PLANNING_ENABLED } from "./featureFlags";
+import { language, t } from "./i18n";
 import type { AppModel, Connection } from "./model/AppModel";
 import { BoardSetupView } from "./views/BoardSetupView";
 import { BoardView, type ScreenControls } from "./views/board/BoardView";
@@ -9,10 +10,15 @@ import { exitFullscreen } from "./views/fullscreen";
 import { Icon } from "./views/Icon";
 import { PlanningView } from "./views/planning/PlanningView";
 import { Sidebar } from "./views/Sidebar";
+import { PersonalPreferences } from "./views/settings/PersonalPreferences";
 import { SettingsView } from "./views/settings/SettingsView";
 
 /** Racine de l'interface. Sans site Jira connecté, elle n'affiche aucune donnée. */
 export function App({ model }: { model: AppModel }) {
+  const locale = language.value;
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
   const connection = model.connection.value;
   if (connection.state === "connected") {
     return <Workspace model={model} connection={connection} />;
@@ -133,13 +139,13 @@ function Workspace({
       disabled={!board.canSwitchBoard.value}
       title={
         board.canSwitchBoard.value
-          ? "Fermer Sprint Goals et revenir au board Jira"
-          : "Possible dès que l'écriture en cours dans Jira est terminée"
+          ? t("Fermer Sprint Goals et revenir au board Jira")
+          : t("Possible dès que l'écriture en cours dans Jira est terminée")
       }
       onClick={hostReturn}
     >
       <Icon name="chevronLeft" size={16} />
-      Retour à Jira
+      {t("Retour à Jira")}
     </button>
   );
 
@@ -179,10 +185,11 @@ function Workspace({
           <SettingsView model={model} board={board} configuration={configuration} />
         )}
         {view === "diagnostic" && (
-          <main class="diagnostic-screen" aria-label="Diagnostic du site">
+          <main class="diagnostic-screen" aria-label={t("Diagnostic du site")}>
             <DiagnosticView diagnostic={connection.diagnostic} />
           </main>
         )}
+        {view === "preferences" && <PersonalPreferences model={model} />}
       </div>
     </div>
   );
@@ -204,7 +211,7 @@ function PresentationHint() {
   if (!visible) return null;
   return (
     <div class="presentation-hint" role="status">
-      Mode présentation · <kbd>Échap</kbd> pour revenir
+      {t("Mode présentation")} · <kbd>{t("Échap")}</kbd> {t("pour revenir")}
     </div>
   );
 }

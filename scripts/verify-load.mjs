@@ -65,8 +65,8 @@ try {
     const { text, field, width } = JSON.parse(page);
     check(
       "l'onglet de bienvenue demande l'adresse du Jira, sans accès demandé d'office",
-      text.includes("Sprint Goals est installé") &&
-        text.includes("Autoriser et ouvrir Jira") &&
+      text.includes("Sprint Goals is installed") &&
+        text.includes("Allow access and open Jira") &&
         field &&
         width <= 460 &&
         JSON.parse(
@@ -93,7 +93,7 @@ try {
   const isolated = await evaluate(sessionId, "document.body.innerText");
   check(
     "le board ouvert hors de Jira affiche seulement le refus",
-    isolated.includes("Sprint Goals s'utilise dans Jira.") &&
+    isolated.includes("Use Sprint Goals inside Jira.") &&
       (await evaluate(sessionId, "!document.querySelector('.workspace, .connection, form')")),
     JSON.stringify(isolated.slice(0, 120)),
   );
@@ -114,7 +114,7 @@ try {
     "des paramètres Jira ne permettent pas d'ouvrir le board seul",
     await evaluate(
       sessionId,
-      "document.body.innerText.includes(\"Sprint Goals s'utilise dans Jira.\") && !document.querySelector('.workspace, .connection, form')",
+      "document.body.innerText.includes(\"Use Sprint Goals inside Jira.\") && !document.querySelector('.workspace, .connection, form')",
     ),
   );
 
@@ -123,7 +123,7 @@ try {
   const text = await evaluate(sessionId, "document.body.innerText");
   check(
     "le lanceur propose d'ouvrir un board dans Jira",
-    text.includes("Ouvrir dans Jira") &&
+    text.includes("Open in Jira") &&
       (await evaluate(sessionId, "Boolean(document.querySelector('form #board-address'))")),
   );
   check(
