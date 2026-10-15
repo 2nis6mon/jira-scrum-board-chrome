@@ -44,6 +44,7 @@ automatiquement. Les limites et les réglages sont décrits dans le manuel.
 | [Consignes de contribution](CLAUDE.md) | Règles à respecter pour modifier le dépôt |
 | [Historique](CHANGELOG.md) | Évolutions par version |
 | [Fiche Chrome Web Store](docs/store/fiche.md) | Textes et éléments de publication |
+| [Site public et GitHub Pages](docs/site-web.md) | Construire, prévisualiser et publier le site de présentation |
 
 La [politique de confidentialité](docs/privacy/index.html) reste séparée pour sa publication.
 Pour développer : `npm run check` vérifie et compile ; `npm run watch` reconstruit en continu.
@@ -54,3 +55,8 @@ Pour préparer une publication Chrome Web Store, suivre la [fiche de publication
 elle réunit les textes, permissions, captures et étapes de soumission. `npm run store:screenshots`
 renouvelle les cinq captures avec les fonctions du mode `package`, sur des données fictives.
 Le ZIP et les captures préparés ici ne sont pas envoyés automatiquement au Store.
+
+Le site de présentation est dans `site/`. `npm run site:build` prépare le site autonome et son
+archive ; `npm run site:preview` le rend accessible à l'adresse indiquée dans le terminal. Son guide est
+généré depuis le manuel et sa page de confidentialité depuis le texte juridique du dépôt.
+La publication GitHub Pages reste manuelle, après fusion dans `main` ; voir le guide du site.

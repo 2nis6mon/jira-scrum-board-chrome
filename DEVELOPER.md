@@ -402,6 +402,12 @@ saisies sont hors du transport et du journal de l'extension, qui ne les remplit 
 
 ## Développement, contrôles et livraison
 
+Le site de présentation possède son propre dossier `site/` et ses commandes `site:build`,
+`site:check`, `site:preview` et `site:verify`. Sa sortie `.vite/site-dist/` et son archive
+`release/sprint-goals-site.zip` sont indépendantes du paquet Chrome. Le manuel HTML est généré
+avec Marked, dépendance de développement uniquement ; aucune bibliothèque n'est embarquée dans
+le site. La publication GitHub Pages est manuelle : voir [le guide du site](docs/site-web.md).
+
 Node >= 22.12 ; dépendances exactes dans `package-lock.json`, scripts d'installation désactivés par
 `.npmrc`. `npm ci`, puis `npm run check` (typage, lint, tests, build). Un seul paquet intégré `dist/` ;
 `npm run watch` le reconstruit. `.run/` partagé, `.idea/` et préférences personnelles ignorées.

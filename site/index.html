@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0b1026">
+    <meta name="description" content="Donnez un cap à votre Jira. Sprint Goals Board organise vos boards Scrum et Kanban par objectifs, directement dans Jira. Découvrez l’extension Chrome.">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="fr_FR">
+    <meta property="og:title" content="Sprint Goals — Donnez un cap à votre Jira.">
+    <meta property="og:description" content="Vos objectifs au premier plan. Vos tickets à la bonne place. Une autre façon de vivre vos boards Scrum et Kanban dans Jira.">
+    <meta property="og:image" content="https://2nis6mon.github.io/jira-scrum-board-chrome/assets/social-card.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>Sprint Goals — Donnez un cap à votre Jira.</title>
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+    <script src="main.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#contenu">Aller au contenu</a>
+    <div class="reading-progress" aria-hidden="true"><span></span></div>
+    <header class="site-header">
+      <a class="brand" href="#accueil" aria-label="Sprint Goals, accueil">
+        <img src="assets/brand-mark.svg" alt="" width="36" height="36">
+        <span>Sprint<span class="brand-light">Goals</span></span>
+      </a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-navigation" aria-label="Ouvrir le menu">
+        <span></span><span></span>
+      </button>
+      <nav id="site-navigation" class="site-navigation" aria-label="Navigation principale">
+        <a href="#experience">L’expérience</a>
+        <a href="#apercu">Le plugin</a>
+        <a href="guide.html">Le guide <span aria-hidden="true">↗</span></a>
+        <a class="button button-small button-dark" href="#installation">Commencer <span aria-hidden="true">↗</span></a>
+      </nav>
+    </header>
+
+    <main id="contenu">
+      <section class="hero section-shell" id="accueil" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> UNE NOUVELLE VUE. VOTRE JIRA.</p>
+          <h1 id="hero-title">Donnez un cap<br>à votre <span class="hero-word">Jira<svg viewBox="0 0 180 15" aria-hidden="true"><path d="M3 10C54 0 119 1 176 8"/></svg></span><span class="accent-dot">.</span></h1>
+          <p class="hero-description">Vos objectifs au premier plan. Vos tickets à la bonne place. Retrouvez le sens du travail dans vos boards Scrum et Kanban.</p>
+          <div class="hero-actions">
+            <a class="button button-blue" href="#experience"><span class="play-icon" aria-hidden="true">▶</span> Voir le plugin en action</a>
+            <a class="text-link" href="guide.html#installation">Guide d’installation <span aria-hidden="true">↗</span></a>
+          </div>
+          <div class="hero-compatibility"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M12 8.5h8M9 13.7 5 7M14 15l-4 6"/></svg><span>Extension Chrome</span><span class="separator-dot">·</span><span>Jira Cloud</span></div>
+        </div>
+        <div class="hero-visual">
+          <div class="orbit orbit-one" aria-hidden="true"></div><div class="orbit orbit-two" aria-hidden="true"></div>
+          <div class="hero-window">
+            <div class="window-bar"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span><span aria-hidden="true">▧</span> Votre espace Jira</span><span class="window-live">Sprint Goals</span></div>
+            <img class="hero-capture" src="assets/screenshots/01-board.png" alt="Board Scrum organisé en objectifs, avec ses tickets et ses colonnes Jira" width="1280" height="800" fetchpriority="high">
+          </div>
+          <div class="floating-note note-goal"><span class="note-icon" aria-hidden="true">↗</span><div><small>LA BONNE QUESTION</small><strong>Quel objectif fait-on avancer ?</strong></div></div>
+          <div class="floating-note note-context"><span class="avatar-stack" aria-hidden="true"><i>A</i><i>M</i><i>L</i></span><span>Un cap partagé.<br><strong>Une équipe alignée.</strong></span></div>
+          <span class="visual-caption">Interface réelle · données fictives</span>
+        </div>
+        <a class="scroll-cue" href="#experience"><span aria-hidden="true">↓</span> Laissez défiler. Le cap se dessine.</a>
+      </section>
+
+      <div class="promise-strip">
+        <span><i aria-hidden="true">◎</i> Objectifs prioritaires</span><span><i aria-hidden="true">▤</i> Scrum & Kanban</span><span><i aria-hidden="true">↗</i> Directement dans Jira</span><span><i aria-hidden="true">◇</i> Votre session. Vos droits.</span>
+      </div>
+
+      <section class="experience" id="experience" aria-labelledby="experience-title">
+        <div class="section-shell experience-inner">
+          <div class="experience-heading reveal">
+            <p class="eyebrow eyebrow-mint">01 / LE TRAVAIL PREND DU SENS</p>
+            <h2 id="experience-title">Passez de la liste<br>à la <span class="serif-accent">trajectoire.</span></h2>
+            <p>Un objectif donne une direction.<br>Le board rend le chemin visible.</p>
+          </div>
+          <div class="demo-layout">
+            <div class="demo-story">
+              <div class="scene-tabs" role="tablist" aria-label="Étapes de la démonstration" aria-orientation="vertical">
+                <button type="button" class="scene-tab is-active" id="scene-goals" role="tab" aria-selected="true" aria-controls="demo-panel" data-scene="goals"><span class="scene-number">01</span><span><strong>Rendez le cap visible.</strong><small>Un objectif. Une ligne. Une lecture commune.</small></span><span class="scene-arrow" aria-hidden="true">↗</span></button>
+                <button type="button" class="scene-tab" id="scene-focus" role="tab" aria-selected="false" aria-controls="demo-panel" tabindex="-1" data-scene="focus"><span class="scene-number">02</span><span><strong>Faites primer le résultat.</strong><small>Les tickets rejoignent l’objectif, quel que soit leur type.</small></span><span class="scene-arrow" aria-hidden="true">↗</span></button>
+                <button type="button" class="scene-tab" id="scene-daily" role="tab" aria-selected="false" aria-controls="demo-panel" tabindex="-1" data-scene="daily"><span class="scene-number">03</span><span><strong>Faites avancer la discussion.</strong><small>En Daily, un objectif à la fois.</small></span><span class="scene-arrow" aria-hidden="true">↗</span></button>
+              </div>
+              <div class="demo-playback"><button type="button" data-demo-play aria-pressed="false"><span data-play-symbol aria-hidden="true">▶</span><span data-play-label>Lancer l’animation</span></button><span class="demo-progress" aria-hidden="true"><i></i></span></div>
+              <p class="demo-disclaimer">Démonstration animée simplifiée.<br>Données fictives, aucune connexion à Jira.</p>
+            </div>
+            <div class="demo-panel" id="demo-panel" role="tabpanel" aria-labelledby="scene-goals" data-demo-scene="goals">
+              <div class="demo-toolbar"><span class="demo-logo"><img src="assets/brand-mark.svg" width="24" height="24" alt=""> Sprint 24</span><span class="demo-toolbar-label" data-demo-mode>Vue par objectifs</span><span class="demo-toolbar-dots" aria-hidden="true">•••</span></div>
+              <div class="demo-columns"><span>À faire <i>2</i></span><span>En cours <i>2</i></span><span>Terminé <i>1</i></span></div>
+              <div class="demo-lane demo-lane-primary">
+                <div class="demo-lane-title"><span class="goal-marker" aria-hidden="true">◎</span><strong>Fiabiliser les paiements</strong><span class="lane-tag">Objectif 01</span></div>
+                <div class="demo-cells">
+                  <div class="demo-slot" data-slot="goal-todo"><article class="demo-card"><span class="demo-card-type"><i class="type-story" aria-hidden="true">✓</i> SG-21</span><strong>Tester les parcours de paiement</strong><footer><span class="card-estimate">3 pts</span><span class="mini-avatar mini-avatar-blue">A</span></footer></article></div>
+                  <div class="demo-slot" data-slot="goal-progress"><article class="demo-card"><span class="demo-card-type"><i class="type-story" aria-hidden="true">✓</i> SG-22</span><strong>Clarifier les messages d’erreur</strong><footer><span class="card-estimate">2 pts</span><span class="mini-avatar mini-avatar-lilac">M</span></footer></article></div>
+                  <div class="demo-slot"><article class="demo-card demo-card-done"><span class="demo-card-type"><i class="type-story" aria-hidden="true">✓</i> SG-23</span><strong>Confirmer chaque commande</strong><footer><span class="card-complete">✓ Terminé</span><span class="mini-avatar mini-avatar-mint">L</span></footer></article></div>
+                </div>
+              </div>
+              <div class="demo-lane demo-lane-secondary">
+                <div class="demo-lane-title"><span class="goal-marker goal-marker-purple" aria-hidden="true">◎</span><strong>Simplifier le premier achat</strong><span class="lane-tag">Objectif 02</span></div>
+                <div class="demo-cells"><div class="demo-slot"></div><div class="demo-slot"><article class="demo-card"><span class="demo-card-type"><i class="type-story" aria-hidden="true">✓</i> SG-28</span><strong>Guider les nouveaux clients</strong><footer><span class="card-estimate">5 pts</span><span class="mini-avatar mini-avatar-blue">A</span></footer></article></div><div class="demo-slot"></div></div>
+              </div>
+              <div class="demo-lane demo-lane-run">
+                <div class="demo-lane-title"><span class="goal-marker goal-marker-orange" aria-hidden="true">↗</span><strong>RUN</strong><span class="lane-tag">Sans objectif</span></div>
+                <div class="demo-cells"><div class="demo-slot" data-slot="run"><article class="demo-card demo-card-mover" data-moving-card><span class="demo-card-type"><i class="type-support" aria-hidden="true">↗</i> SG-24 <span class="type-label">Support</span></span><strong>Sécuriser les retours de paiement</strong><footer><span class="card-estimate">2 pts</span><span class="mini-avatar mini-avatar-mint">L</span></footer></article></div><div class="demo-slot"></div><div class="demo-slot"></div></div>
+              </div>
+              <div class="demo-daily-controls" aria-hidden="true"><span>←</span><span>OBJECTIF <strong>01 / 02</strong></span><span>→</span></div>
+              <div class="demo-caption"><span class="caption-pulse" aria-hidden="true"></span><p data-demo-description>Les objectifs structurent le board. Le travail sans objectif garde sa place dans Build ou RUN.</p></div>
+            </div>
+          </div>
+          <div class="experience-bottom reveal"><span class="line-star" aria-hidden="true">✳</span><p>Le quotidien reste dans Jira.<br><strong>La perspective change.</strong></p><a class="text-link light-link" href="guide.html#utiliser-le-board">Explorer le fonctionnement <span aria-hidden="true">↗</span></a></div>
+        </div>
+      </section>
+
+      <section class="product section-shell" id="apercu" aria-labelledby="product-title">
+        <div class="section-heading reveal"><div><p class="eyebrow">02 / VOTRE BOARD, SOUS UN AUTRE ANGLE</p><h2 id="product-title">C’est votre Jira.<br><span class="muted-heading">Vous allez le reconnaître.</span></h2></div><p>Les mêmes tickets, les mêmes workflows.<br>Une vue pensée pour voir l’essentiel.</p></div>
+        <div class="product-tabs" role="tablist" aria-label="Aperçus du plugin">
+          <button class="is-active" type="button" role="tab" id="view-scrum" aria-selected="true" aria-controls="product-panel" data-view="scrum">Scrum <span aria-hidden="true">↗</span></button>
+          <button type="button" role="tab" id="view-kanban" aria-selected="false" aria-controls="product-panel" tabindex="-1" data-view="kanban">Kanban <span aria-hidden="true">↗</span></button>
+          <button type="button" role="tab" id="view-settings" aria-selected="false" aria-controls="product-panel" tabindex="-1" data-view="settings">À votre mesure <span aria-hidden="true">↗</span></button>
+        </div>
+        <div class="product-panel reveal" id="product-panel" role="tabpanel" aria-labelledby="view-scrum">
+          <div class="product-capture-wrap"><button class="capture-button" data-open-capture type="button" aria-label="Agrandir la capture du board Scrum"><img data-product-image src="assets/screenshots/01-board.png" alt="Board Scrum organisé par objectifs avec progression et filtres" width="1280" height="800" loading="lazy"><span class="capture-expand" aria-hidden="true">↗</span></button></div>
+          <div class="product-caption"><div><span class="product-caption-kicker" data-product-kicker>UN SPRINT, UN CAP</span><h3 data-product-title>Les objectifs donnent le rythme.</h3></div><p data-product-description>Visualisez la progression du sprint, retrouvez les tickets bloqués et passez d’un objectif à l’autre sans perdre le contexte.</p><span class="capture-note">Captures du plugin<br>Données fictives</span></div>
+        </div>
+        <div class="feature-list">
+          <article class="feature-item reveal"><span class="feature-symbol" aria-hidden="true">⇄</span><h3>Vos gestes habituels.</h3><p>Déplacez vos cartes. Retrouvez les fiches et les formulaires de transition natifs de Jira.</p></article>
+          <article class="feature-item reveal"><span class="feature-symbol" aria-hidden="true">◈</span><h3>Vos règles de lecture.</h3><p>Configurez Build et les lignes par type. Personnalisez les champs et les couleurs avec des JQL validés.</p></article>
+          <article class="feature-item reveal"><span class="feature-symbol" aria-hidden="true">⊙</span><h3>Vos rituels d’équipe.</h3><p>Animez la Daily objectif par objectif. Passez en présentation pour partager le board avec l’équipe.</p></article>
+        </div>
+      </section>
+
+      <section class="privacy section-shell" aria-labelledby="privacy-title">
+        <div class="privacy-surface reveal">
+          <div class="privacy-copy"><p class="eyebrow">03 / SIMPLE PAR CONCEPTION</p><h2 id="privacy-title">Votre Jira reste<br><span class="serif-accent">votre Jira.</span></h2><p>L’extension s’appuie sur votre session Jira et respecte vos droits d’accès. Vous gardez la main.</p><a class="text-link" href="confidentialite.html">Lire la politique de confidentialité <span aria-hidden="true">↗</span></a></div>
+          <div class="privacy-facts"><div><span aria-hidden="true">01</span><p><strong>Aucun compte supplémentaire.</strong>Vous utilisez votre connexion Jira habituelle.</p></div><div><span aria-hidden="true">02</span><p><strong>Aucun serveur de collecte de l’éditeur.</strong>Vos données métier sont lues directement dans Jira.</p></div><div><span aria-hidden="true">03</span><p><strong>Une configuration partagée.</strong>Les réglages du board sont enregistrés dans Jira ; vos préférences personnelles restent dans Chrome.</p></div></div>
+        </div>
+      </section>
+
+      <section class="installation section-shell" id="installation" aria-labelledby="installation-title">
+        <div class="section-heading reveal"><div><p class="eyebrow">04 / À VOUS DE JOUER</p><h2 id="installation-title">Un autre regard.<br>En trois gestes.</h2></div><a class="button button-blue" href="guide.html#installation">Installer l’extension <span aria-hidden="true">↗</span></a></div>
+        <ol class="install-steps"><li class="reveal"><span class="install-number">01<span>↗</span></span><h3>Installez.</h3><p>Ajoutez Sprint Goals Board à Chrome. Le guide détaille l’installation et les mises à jour.</p><a class="text-link" href="guide.html#installation">Ouvrir le guide <span aria-hidden="true">↗</span></a></li><li class="reveal"><span class="install-number">02<span>↗</span></span><h3>Autorisez.</h3><p>Indiquez l’adresse de votre Jira Cloud et autorisez l’accès à ce site dans Chrome.</p><span class="step-detail">Votre session Jira habituelle suffit.</span></li><li class="reveal"><span class="install-number">03<span>◎</span></span><h3>Changez de perspective.</h3><p>Ouvrez votre board, puis cliquez sur Sprint Goals. Vos objectifs prennent leur place.</p><span class="step-detail">Scrum ou Kanban. À vous de choisir.</span></li></ol>
+      </section>
+
+      <section class="faq section-shell" aria-labelledby="faq-title">
+        <div><p class="eyebrow">BON À SAVOIR</p><h2 id="faq-title">Les questions<br>qui restent.</h2><a class="text-link" href="guide.html">Tout est dans le manuel <span aria-hidden="true">↗</span></a></div>
+        <div class="faq-list"><details><summary>Est-ce compatible avec mon board Kanban ?<span aria-hidden="true">+</span></summary><p>Oui. L’extension reprend le filtre et les colonnes de votre board Kanban. Ses objectifs viennent des Goals Atlassian. En Scrum, vous pouvez aussi utiliser les lignes du texte de l’objectif du sprint.</p></details><details><summary>Faut-il reconfigurer tout le board ?<span aria-hidden="true">+</span></summary><p>Non. Les colonnes, les statuts et les types sont lus depuis Jira. Vous pouvez ensuite personnaliser les swimlanes et les cartes. Les réglages déjà partagés par votre équipe sont repris automatiquement.</p></details><details><summary>Est-ce que mes droits Jira changent ?<span aria-hidden="true">+</span></summary><p>Non. Les actions restent soumises à vos permissions Jira. Les réglages partagés demandent le droit de modifier le board et les transitions suivent votre workflow.</p></details><details><summary>Et le Sprint Planning ?<span aria-hidden="true">+</span></summary><p>Le Sprint Planning est une fonction expérimentale réservée aux compilations locales. Il n’est pas actif dans le paquet distribué sur le Chrome Web Store. Le manuel lui consacre une annexe.</p></details></div>
+      </section>
+
+      <section class="closing" aria-labelledby="closing-title"><div class="section-shell closing-inner reveal"><span class="closing-orbit" aria-hidden="true">◎</span><p class="eyebrow eyebrow-mint">LE PROCHAIN SPRINT COMMENCE AVEC UN CAP.</p><h2 id="closing-title">Faites place<br>aux objectifs.</h2><a class="button button-mint" href="guide.html#installation">Découvrir l’installation <span aria-hidden="true">↗</span></a></div></section>
+    </main>
+
+    <footer class="site-footer section-shell"><div class="footer-main"><a class="brand" href="#accueil"><img src="assets/brand-mark.svg" width="32" height="32" alt=""><span>Sprint<span class="brand-light">Goals</span></span></a><nav aria-label="Liens utiles"><a href="guide.html">Manuel</a><a href="confidentialite.html">Confidentialité</a><a href="https://github.com/2nis6mon/jira-scrum-board-chrome" target="_blank" rel="noopener noreferrer">GitHub ↗</a><a href="mailto:denis.simon.consulting@gmail.com">Contact ↗</a></nav><a class="back-top" href="#accueil" aria-label="Revenir en haut">↑</a></div><div class="footer-meta"><span>© 2026 Denis Simon Consulting</span><span>Projet indépendant, non affilié à Atlassian.</span><span>Conçu pour les équipes qui avancent ensemble.</span></div></footer>
+
+    <dialog id="capture-dialog" aria-label="Capture du plugin agrandie"><div class="dialog-toolbar"><span data-dialog-title>Board Scrum</span><button type="button" data-close-capture aria-label="Fermer la capture">Fermer <span aria-hidden="true">×</span></button></div><img data-dialog-image src="assets/screenshots/01-board.png" width="1280" height="800" alt="Capture du board Scrum agrandie"></dialog>
+  </body>
+</html>

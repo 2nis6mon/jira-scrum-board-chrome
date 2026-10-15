@@ -54,5 +54,9 @@ jobs:
         run: npm run verify:loading
       - name: Vérifier les types, le style, les tests et la compilation
         run: npm run check
+      - name: Construire et vérifier le site de présentation
+        run: npm run site:check
+      - name: Vérifier le site sur ordinateur et mobile
+        run: npm run site:verify
       - name: Vérifier le paquet de distribution
         run: npm run package

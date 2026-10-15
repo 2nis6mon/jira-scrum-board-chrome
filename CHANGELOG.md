@@ -3,6 +3,16 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.34.7 — Site de présentation prêt pour GitHub Pages
+
+- Site public avec nouvelle identité visuelle, police locale, animations au défilement,
+  démonstration interactive des objectifs et de la Daily, et aperçus du plugin agrandissables.
+- Parcours responsive, navigation clavier, pause des animations et respect de la réduction
+  des mouvements ; démonstration fictive sans accès aux données Jira.
+- Manuel complet généré en HTML, politique bilingue intégrée et archive statique autonome.
+- Construction et contrôles dédiés ; workflow GitHub Pages déclenché manuellement depuis `main`.
+  Aucune modification du fonctionnement de l'extension et aucun déploiement automatique.
+
 ## 0.34.6 — Manuel utilisateur complet
 
 - Manuel réécrit à partir des fonctions de `main` 0.34.5 : installation Store ou locale,
