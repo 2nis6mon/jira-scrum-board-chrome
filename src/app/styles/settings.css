@@ -14,7 +14,7 @@
 /* Collé en haut pendant le défilement : les onglets restent sous la main. */
 .settings-header {
   position: sticky;
-  top: var(--workspace-navigation-height, 0px);
+  top: 0;
   z-index: 10;
   display: flex;
   flex-direction: column;

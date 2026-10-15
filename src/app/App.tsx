@@ -126,7 +126,7 @@ function Workspace({
   }, [model, presenting]);
 
   const hostReturn = model.hostReturn.value;
-  const returnToJira = hostReturn && !immersive && (
+  const returnToJira = hostReturn && !sidebarCollapsed && !immersive && (
     <button
       type="button"
       class="host-return"
@@ -142,7 +142,6 @@ function Workspace({
       Retour à Jira
     </button>
   );
-  const showReturnBar = Boolean(returnToJira) && sidebarCollapsed;
 
   const controls: ScreenControls = {
     sidebarCollapsed,
@@ -166,8 +165,7 @@ function Workspace({
         <Sidebar model={model} board={board} returnToJira={returnToJira} />
       )}
       {presenting && <PresentationHint />}
-      <div class={`workspace-main${showReturnBar ? " workspace-main-with-return" : ""}`}>
-        {showReturnBar && <div class="workspace-return">{returnToJira}</div>}
+      <div class="workspace-main">
         {view === "board" && <BoardScreen connection={connection} controls={controls} />}
         {SPRINT_PLANNING_ENABLED && view === "planning" && configuration?.boardType === "scrum" && (
           <PlanningView

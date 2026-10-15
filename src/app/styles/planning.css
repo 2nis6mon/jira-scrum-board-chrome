@@ -1,5 +1,5 @@
 .planning-screen {
-  height: calc(100vh - var(--workspace-navigation-height, 0px));
+  height: 100vh;
   min-width: 0;
   display: flex;
   flex-direction: column;

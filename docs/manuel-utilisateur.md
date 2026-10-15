@@ -115,8 +115,9 @@ lisez le résultat et vérifiez le board actualisé avant de recommencer.
 
 ### Retrouver Jira
 
-**Retour à Jira** est en bas de la barre latérale, ou au-dessus du contenu lorsque celle-ci est
-repliée. Le bouton **Sprint Goals** dans Jira se déplace par sa poignée ; sa position est mémorisée.
+**Retour à Jira** est en bas de la barre latérale. Il disparaît lorsqu'elle est repliée ;
+réaffichez-la avec **Afficher la barre latérale** pour le retrouver.
+Le bouton **Sprint Goals** dans Jira se déplace par sa poignée ; sa position est mémorisée.
 
 Les sous-tâches s'affichent selon le périmètre et les statuts du board ; certaines peuvent manquer.
 

@@ -403,7 +403,7 @@ try {
     writeFileSync(resolve(`.vite/jql-colors-${width}.png`), Buffer.from(shot.data, "base64"));
   }
 
-  // Retour à Jira ancré : aucune carte ni information n'est recouverte, barre ouverte ou repliée.
+  // Retour à Jira ancré dans la barre ; replier celle-ci retire aussi le bouton et son bandeau.
   for (const width of [1440, 640]) {
     await send(
       "Emulation.setDeviceMetricsOverride",
@@ -443,15 +443,14 @@ try {
     await run(`document.querySelector('[aria-label="Masquer la barre latérale"]').click()`);
     await waitFor(
       sessionId,
-      "Boolean(document.querySelector('.workspace-return .host-return')) && !document.querySelector('.sidebar')",
-      "Le retour à Jira n'est pas conservé lorsque la barre est repliée",
+      "!document.querySelector('.host-return, .workspace-return, .sidebar') && Boolean(document.querySelector('[aria-label=\"Afficher la barre latérale\"]'))",
+      "Le retour à Jira ou son bandeau reste affiché lorsque la barre est repliée",
     );
-    assert(await run(visibleReturn), `${width}px : retour masqué ou flottant après repli`);
     assert(
-      await run(`document.querySelector('.host-return').getBoundingClientRect().bottom
-        <= document.querySelector('.sprint-header').getBoundingClientRect().top
+      await run(`document.querySelector('.sprint-header').getBoundingClientRect().top <= 1
+        && document.querySelector('.board-screen').getBoundingClientRect().top <= 1
         && document.querySelector('.board-screen').getBoundingClientRect().bottom <= innerHeight + 1`),
-      `${width}px : le retour réduit mal l'espace disponible du board`,
+      `${width}px : le bandeau retiré laisse encore un espace au-dessus du board`,
     );
     // L'en-tête n'a plus de bouton Réglages. Le menu d'une swimlane reste accessible
     // quand la barre latérale est repliée, ce que ce parcours doit conserver.
@@ -474,16 +473,29 @@ try {
     await run("window.scrollTo(0, document.body.scrollHeight)");
     await sleep(100);
     assert(
-      await run(visibleReturn),
-      `${width}px : retour inaccessible après défilement des réglages`,
+      await run("!document.querySelector('.host-return, .workspace-return')"),
+      `${width}px : le retour réapparaît dans les réglages malgré la barre repliée`,
     );
     assert(
-      await run(`document.querySelector('.settings-header').getBoundingClientRect().top
-        >= document.querySelector('.workspace-return').getBoundingClientRect().bottom - 1`),
-      `${width}px : les onglets passent sous le retour à Jira`,
+      await run(
+        `Math.abs(document.querySelector('.settings-header').getBoundingClientRect().top) <= 1`,
+      ),
+      `${width}px : les onglets gardent un espace au-dessus après suppression du bandeau`,
+    );
+    await run("document.querySelector('.settings-back').click()");
+    await waitFor(sessionId, "Boolean(document.querySelector('.board-screen'))", "Board absent");
+    await run(`document.querySelector('[aria-label="Afficher la barre latérale"]').click()`);
+    await waitFor(
+      sessionId,
+      "Boolean(document.querySelector('.sidebar-return .host-return'))",
+      "Le retour à Jira n'est pas restauré avec la barre latérale",
+    );
+    assert(
+      await run(visibleReturn),
+      `${width}px : retour inaccessible après réouverture de la barre`,
     );
     console.log(
-      `✓ Navigation ${width}px : retour visible avec 30 objectifs masqués, après repli et sans recouvrement`,
+      `✓ Navigation ${width}px : retour masqué avec la barre, aucun bandeau résiduel, bouton restauré à la réouverture`,
     );
   }
 } finally {

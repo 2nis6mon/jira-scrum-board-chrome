@@ -3,6 +3,13 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.34.11 — Retour Jira lié à la barre latérale
+
+- Barre latérale repliée : le bouton Retour à Jira et son bandeau de remplacement disparaissent.
+  Réafficher la barre restaure le bouton en bas de la navigation.
+- Suppression de l'espace réservé au bandeau dans le board, le planning et les réglages ; manuel
+  et contrôles de navigation actualisés.
+
 ## 0.34.10 — Bouton Jira plus discret
 
 - Intégration du bouton compact, avec la nouvelle icône et une poignée séparée, pour tenir dans

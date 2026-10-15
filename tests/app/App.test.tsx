@@ -255,7 +255,7 @@ describe("App", () => {
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
-  it("« Retour à Jira » : ancré dans la navigation, protégé pendant une écriture et masqué en présentation", async () => {
+  it("« Retour à Jira » : ancré dans la navigation, protégé pendant une écriture et masqué avec la barre latérale", async () => {
     const { model, board } = await connectedBoard();
     const back = () => document.querySelector<HTMLButtonElement>("button.host-return");
     expect(back()).toBeNull();
@@ -273,25 +273,28 @@ describe("App", () => {
     back()?.click();
     expect(leave).toHaveBeenCalledOnce();
 
-    // Replier la barre latérale conserve un seul retour, dans une ligne réservée du contenu.
+    // Replier la barre latérale masque aussi le retour, sans bandeau de remplacement.
     model.toggleSidebar();
     await tick();
-    expect(document.querySelectorAll("button.host-return")).toHaveLength(1);
-    expect(back()?.closest(".workspace-return")).not.toBeNull();
+    expect(back()).toBeNull();
+    expect(document.querySelector(".workspace-return")).toBeNull();
+    expect(document.querySelector(".workspace-main-with-return")).toBeNull();
     expect(document.querySelector(".sidebar")).toBeNull();
-    back()?.click();
-    expect(leave).toHaveBeenCalledTimes(2);
+    labelled("Afficher la barre latérale");
+    expect(leave).toHaveBeenCalledOnce();
 
-    // Présent aussi dans les réglages, absent quand l'écran est réservé au board.
+    // Les réglages et le diagnostic suivent également la visibilité de la barre latérale.
     model.showSettings("board");
     await tick();
-    expect(back()?.closest(".workspace-return")).not.toBeNull();
+    expect(back()).toBeNull();
     model.view.value = "diagnostic";
     await tick();
-    expect(back()?.closest(".workspace-return")).not.toBeNull();
+    expect(back()).toBeNull();
     model.toggleSidebar();
     await tick();
     expect(back()?.closest(".sidebar-return")).not.toBeNull();
+    back()?.click();
+    expect(leave).toHaveBeenCalledTimes(2);
     model.showBoard();
     model.presenting.value = true;
     await tick();

@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.34.10**, 15 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.34.11**, 15 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -167,8 +167,8 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   existants et le nom personnalisé de Build restent conservés.
 - Depuis 0.31.2, l'entrée Réglages sous Sprint et les compteurs bloqués/ajoutés/Build de l'en-tête
   sont retirés ; filtres et navigation vers les swimlanes restent disponibles. Retour à Jira est
-  ancré au pied de la barre latérale, ou dans une ligne réservée au-dessus du contenu si elle est
-  repliée. Il reste désactivé pendant une écriture et masqué en présentation/Daily.
+  ancré au pied de la barre latérale ; depuis 0.34.11, il disparaît avec elle lorsqu'elle est repliée,
+  sans ligne de remplacement. Il reste désactivé pendant une écriture et masqué en présentation/Daily.
 - Colonnes telles que Jira les déclare (noms, limites WIP) ; seules celles sans statut sont
   écartées. Bloqué = lien Jira « est bloqué par » uniquement. Les personnalisations de colonnes et
   labels de blocage d'avant 0.31.0 ne sont plus lues (voir Données persistantes).

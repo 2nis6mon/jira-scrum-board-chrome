@@ -384,8 +384,8 @@ progress::-webkit-progress-value {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  height: calc(100vh - var(--workspace-navigation-height, 0px));
-  max-height: calc(100vh - var(--workspace-navigation-height, 0px));
+  height: 100vh;
+  max-height: 100vh;
   min-height: 0;
   overflow: hidden;
 }
@@ -1482,24 +1482,6 @@ ul.lane-cell {
 
 .sidebar-return .host-return {
   width: 100%;
-}
-
-/* Barre latérale repliée : le retour conserve sa place dans une ligne réservée. */
-.workspace-main-with-return {
-  --workspace-navigation-height: 48px;
-}
-
-.workspace-return {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  flex: none;
-  height: var(--workspace-navigation-height);
-  padding: 6px 20px;
-  display: flex;
-  align-items: center;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
 }
 
 .floating-notice {
