@@ -39,6 +39,11 @@ jobs:
           Expand-Archive -LiteralPath $archive -DestinationPath $browserDirectory
           $browserExecutable = Join-Path $browserDirectory "chrome-win64/chrome.exe"
           if (-not (Test-Path -LiteralPath $browserExecutable)) { throw "Chrome for Testing absent" }
+          # Le ZIP Google ne passe pas par l'installateur : les processus sandboxés doivent
+          # pouvoir lire et exécuter ce seul dossier de navigateur sur le runner Windows.
+          # https://pptr.dev/troubleshooting#chrome-reports-sandbox-errors-on-windows
+          & icacls $browserDirectory /grant "*S-1-15-2-1:(OI)(CI)(RX)" "*S-1-15-2-2:(OI)(CI)(RX)" /T | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "Permissions du sandbox Chrome non configurées" }
           "CHROME_PATH=$browserExecutable" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Vérifier les fenêtres natives Jira dans Chrome isolé
         run: npm run verify:jira

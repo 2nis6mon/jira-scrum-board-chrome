@@ -3,6 +3,13 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.34.12 — Validation GitHub fiabilisée
+
+- Chrome for Testing reçoit les droits de lecture et d'exécution nécessaires à ses processus
+  sandboxés sur le runner Windows, pour éviter l'échec de navigation du contrôle du site.
+- Le contrôle des réglages attend la fin du défilement avant d'ouvrir le menu d'une swimlane,
+  puis utilise de vrais clics ; le défilement ne referme plus le menu juste après son ouverture.
+
 ## 0.34.11 — Retour Jira lié à la barre latérale
 
 - Barre latérale repliée : le bouton Retour à Jira et son bandeau de remplacement disparaissent.

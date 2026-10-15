@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.34.11**, 15 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.34.12**, 15 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -450,6 +450,9 @@ Les anciens alias `*:jira-direct-test` et `JIRA_DIRECT_DIST` restent retirés.
 `main` ou `codex/**` et sur les demandes de fusion vers `main` : typage, style, tests, compilation,
 intégration Jira, glisser-déposer (board et réglages), Sprint Planning, diagnostic du banc et paquet. Il utilise une machine Windows,
 Node 24 et Chrome for Testing 155.0.8059.39 téléchargé depuis la distribution officielle Google.
+Après extraction, le workflow accorde aux processus AppContainer/LPAC les droits de lecture et
+d'exécution sur le seul dossier de ce navigateur temporaire (`icacls`, SID `S-1-15-2-1` et
+`S-1-15-2-2`), conformément aux [préconisations Chrome](https://pptr.dev/troubleshooting#chrome-reports-sandbox-errors-on-windows).
 Profil temporaire et uniquement Jira fictif : aucune session ou donnée Jira réelle n'est nécessaire.
 
 Garde-fous : [`sources.test.ts`](tests/guards/sources.test.ts) (réseau/couches/mutations/fixtures),

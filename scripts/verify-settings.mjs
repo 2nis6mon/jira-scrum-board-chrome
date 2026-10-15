@@ -129,6 +129,40 @@ try {
         sessionId,
       );
   };
+  const click = async (selector) => {
+    await run(`(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!element) throw new Error('Cible de clic introuvable');
+      element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+    })()`);
+    // Un scroll du board referme normalement son menu flottant. Laisser le navigateur
+    // traiter ce défilement avant le clic, comme lorsqu'une personne rejoint le bouton.
+    await run(
+      "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+    );
+    const target = await run(`(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!element) return null;
+      const r = element.getBoundingClientRect();
+      const x = r.x + r.width / 2, y = r.y + r.height / 2;
+      return r.width > 0 && r.height > 0 && x >= 0 && x < innerWidth && y >= 0 && y < innerHeight
+        && element.contains(document.elementFromPoint(x, y)) ? { x, y } : null;
+    })()`);
+    assert(target, `cible de clic masquée ou recouverte : ${selector}`);
+    await send("Input.dispatchMouseEvent", { type: "mouseMoved", ...target }, sessionId);
+    for (const type of ["mousePressed", "mouseReleased"])
+      await send(
+        "Input.dispatchMouseEvent",
+        {
+          type,
+          ...target,
+          button: "left",
+          buttons: type === "mousePressed" ? 1 : 0,
+          clickCount: 1,
+        },
+        sessionId,
+      );
+  };
   // ─── Onglet Board : swimlanes et types ─────────────────────────────────────
   const grips = `[...document.querySelectorAll('.settings-lanes .settings-grip')].map((g) => g.getAttribute('aria-label').replace('Déplacer la swimlane ', ''))`;
   const lane = (name) =>
@@ -454,17 +488,13 @@ try {
     );
     // L'en-tête n'a plus de bouton Réglages. Le menu d'une swimlane reste accessible
     // quand la barre latérale est repliée, ce que ce parcours doit conserver.
-    await run(`(() => {
-      const summary = document.querySelector('[data-lane-id="build"] .lane-menu > summary');
-      summary.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      summary.click();
-    })()`);
+    await click('[data-lane-id="build"] .lane-menu > summary');
     await waitFor(
       sessionId,
-      "Boolean(document.querySelector('[data-lane-id=\"build\"] .lane-menu[open] .menu-settings'))",
+      "Boolean(document.querySelector('[data-lane-id=\"build\"] .lane-menu[open][data-placed] .menu-settings'))",
       "Le menu de réglages de la swimlane Build ne s'ouvre pas",
     );
-    await run("document.querySelector('[data-lane-id=\"build\"] .menu-settings').click()");
+    await click('[data-lane-id="build"] .menu-settings');
     await waitFor(
       sessionId,
       "Boolean(document.querySelector('.settings-screen'))",
