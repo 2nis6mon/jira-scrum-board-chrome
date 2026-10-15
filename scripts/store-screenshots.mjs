@@ -8,9 +8,12 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build, preview } from "vite";
 import { launchIsolatedBrowser, sleep } from "./browser-check.mjs";
+import { storePromoHtml } from "./store-promotional.mjs";
 
 const WIDTH = 1280;
 const HEIGHT = 800;
+// Date cohérente avec le sprint du jeu de démonstration, indépendante du jour de génération.
+const referenceDate = "2026-09-18T10:00:00.000Z";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
 const output = join(root, "docs/store/captures");
@@ -58,6 +61,21 @@ try {
   const { targetId } = await send("Target.createTarget", { url: "about:blank" });
   const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
   await send("Page.enable", {}, sessionId);
+  await send("Emulation.setTimezoneOverride", { timezoneId: "Europe/Paris" }, sessionId);
+  await send(
+    "Page.addScriptToEvaluateOnNewDocument",
+    {
+      source: `(() => {
+        const NativeDate = Date;
+        const reference = NativeDate.parse(${JSON.stringify(referenceDate)});
+        window.Date = class extends NativeDate {
+          constructor(...args) { super(...(args.length ? args : [reference])); }
+          static now() { return reference; }
+        };
+      })();`,
+    },
+    sessionId,
+  );
   await send(
     "Emulation.setDeviceMetricsOverride",
     { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false },
@@ -109,6 +127,7 @@ try {
         const rect = back?.getBoundingClientRect();
         return {
           ...state, canOpenPlanning, viewUnchanged: state.view === after.view,
+          referenceDate: new Date().toISOString(),
           planningNavigationAbsent: ![...document.querySelectorAll('button, a')]
             .some(element => /sprint planning/i.test(element.textContent)),
           planningViewAbsent: !document.querySelector('.planning-screen'),
@@ -122,6 +141,7 @@ try {
       })()`,
     );
     assert.equal(proof.version, version);
+    assert.equal(proof.referenceDate, referenceDate);
     assert.equal(proof.versionDisplayed, proof.dailyImmersive ? null : version);
     assert.equal(proof.planningEnabled, false, "Sprint Planning doit être compilé désactivé");
     assert.equal(proof.canOpenPlanning, false, "Le modèle ne doit pas ouvrir Sprint Planning");
@@ -198,47 +218,45 @@ try {
     "document.querySelector('.daily-paused')",
   );
 
-  // Composition promotionnelle distincte des captures : icône existante et véritable aperçu.
-  const icon = readFileSync(join(root, "public/icons/icon-128.png")).toString("base64");
-  const board = captures[0].png.toString("base64");
-  const promoHtml = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
-    *{box-sizing:border-box}html,body{margin:0;width:440px;height:280px;overflow:hidden}
-    body{font-family:Arial,sans-serif;background:#f2f6fc;color:#172b4d}
-    main{height:280px;padding:22px 24px;background:linear-gradient(135deg,#fff,#edf3ff)}
-    header{display:flex;align-items:center;gap:12px}header img{width:44px;height:44px}
-    h1{font-size:23px;letter-spacing:-.6px;line-height:1.15;margin:0;font-weight:700}
-    p{margin:15px 0 10px;font-size:22px;letter-spacing:-.4px;font-weight:500}
-    .modes{font-size:12px;letter-spacing:.3px;color:#355fb4;font-weight:700}
-    .preview{position:absolute;top:151px;left:24px;width:520px;height:325px;border:1px solid #d2ddef;
-      border-radius:9px;overflow:hidden;box-shadow:0 10px 28px #19376924;background:#fff}
-    .preview img{display:block;width:520px;height:325px}
-  </style></head><body><main><header><img alt="" src="data:image/png;base64,${icon}"><h1>Sprint Goals Board</h1></header>
-    <p>Vos objectifs, dans Jira</p><span class="modes">Scrum · Kanban</span>
-    <div class="preview"><img alt="Aperçu réel du board avec données fictives" src="data:image/png;base64,${board}"></div>
-  </main></body></html>`;
-  const { frameTree } = await send("Page.getFrameTree", {}, sessionId);
-  await send(
-    "Page.setDocumentContent",
-    { frameId: frameTree.frame.id, html: promoHtml },
-    sessionId,
-  );
-  await send(
-    "Emulation.setDeviceMetricsOverride",
-    { width: 440, height: 280, deviceScaleFactor: 1, mobile: false },
-    sessionId,
-  );
-  await waitFor(
-    sessionId,
-    "[...document.images].length === 2 && [...document.images].every(image => image.complete && image.naturalWidth > 0)",
-    "Les images promotionnelles ne sont pas chargées",
-  );
-  await evaluate(sessionId, "document.fonts.ready");
-  const { data: promoData } = await send(
-    "Page.captureScreenshot",
-    { format: "png", fromSurface: true, captureBeyondViewport: false },
-    sessionId,
-  );
-  const promoPng = opaquePng(Buffer.from(promoData, "base64"), 440, 280);
+  // Visuels de marque distincts des captures, rendus aux dimensions natives du Store.
+  const logoDataUrl =
+    "data:image/svg+xml;base64," +
+    readFileSync(join(root, "site/assets/brand-mark.svg")).toString("base64");
+  const fontDataUrl =
+    "data:font/ttf;base64," +
+    readFileSync(join(root, "site/assets/fonts/manrope-variable.ttf")).toString("base64");
+  const boardDataUrl = `data:image/png;base64,${captures[0].png.toString("base64")}`;
+  const promotions = [];
+  for (const [width, height] of [
+    [440, 280],
+    [1400, 560],
+  ]) {
+    const html = storePromoHtml({ width, height, logoDataUrl, boardDataUrl, fontDataUrl });
+    const { frameTree } = await send("Page.getFrameTree", {}, sessionId);
+    await send("Page.setDocumentContent", { frameId: frameTree.frame.id, html }, sessionId);
+    await send(
+      "Emulation.setDeviceMetricsOverride",
+      { width, height, deviceScaleFactor: 1, mobile: false },
+      sessionId,
+    );
+    await waitFor(
+      sessionId,
+      "[...document.images].length === 2 && [...document.images].every(image => image.complete && image.naturalWidth > 0)",
+      "Les images promotionnelles ne sont pas chargées",
+    );
+    await evaluate(sessionId, "document.fonts.ready");
+    const { data } = await send(
+      "Page.captureScreenshot",
+      { format: "png", fromSurface: true, captureBeyondViewport: false },
+      sessionId,
+    );
+    promotions.push({
+      file: `promo-${width}x${height}.png`,
+      width,
+      height,
+      png: opaquePng(Buffer.from(data, "base64"), width, height),
+    });
+  }
 
   // Publier les fichiers seulement après le succès de tous les contrôles.
   mkdirSync(output, { recursive: true });
@@ -251,10 +269,11 @@ try {
     sha256: createHash("sha256").update(png).digest("hex"),
   });
   for (const capture of captures) writeFileSync(join(output, capture.file), capture.png);
-  writeFileSync(join(root, "docs/store/promo-440x280.png"), promoPng);
+  for (const promo of promotions) writeFileSync(join(root, "docs/store", promo.file), promo.png);
   const manifest = {
     version,
     generatedAt: new Date().toISOString(),
+    referenceDate,
     source:
       "Interface réelle sur données fictives dans le banc d'essai local, contexte Jira simulé",
     build: {
@@ -270,8 +289,12 @@ try {
       proof,
     })),
     promotion: {
-      ...metadata("../promo-440x280.png", promoPng, 440, 280),
-      source: "Composition HTML/CSS : icône du produit et aperçu de 01-board.png",
+      ...metadata(`../${promotions[0].file}`, promotions[0].png, 440, 280),
+      source: "Composition HTML/CSS : marque SVG, police Manrope et aperçu de 01-board.png",
+    },
+    marquee: {
+      ...metadata(`../${promotions[1].file}`, promotions[1].png, 1400, 560),
+      source: "Composition HTML/CSS : marque SVG, police Manrope et aperçu de 01-board.png",
     },
   };
   writeFileSync(join(output, "captures.json"), `${JSON.stringify(manifest, null, 2)}\n`);
@@ -289,7 +312,7 @@ try {
     rmSync(target, { force: true });
   }
   console.log(
-    `✓ Version ${version} : 5 captures, promotion 440 × 280 et preuves dans captures.json`,
+    `✓ Version ${version} : 5 captures, promotions 440 × 280 et 1400 × 560, preuves dans captures.json`,
   );
 } finally {
   await browser.close();

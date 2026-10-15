@@ -1,6 +1,6 @@
 # Fiche Chrome Web Store — Sprint Goals Board pour Jira
 
-Dossier de publication actualisé le **15 octobre 2026**, pour la version **0.34.8**.
+Dossier de publication actualisé le **15 octobre 2026**, pour la version **0.34.9**.
 Les textes ci-dessous décrivent le paquet de distribution. Ils ne confirment ni une soumission,
 ni une approbation de Google. Mettre à jour l’article existant
 [`pepbknjnielcbfcoefcdmadmomapicgp`](https://chromewebstore.google.com/detail/sprint-goals-board-pour-j/pepbknjnielcbfcoefcdmadmomapicgp?hl=fr)
@@ -50,10 +50,15 @@ la saisie JQL assistée concerne les **couleurs des cartes**.
 
 ## Images à téléverser
 
+Dans l'article existant, ouvrir **Store listing → Graphic assets**. Remplacer l'icône et les
+anciennes images avec les fichiers ci-dessous ; chaque image se téléverse dans son champ dédié.
+
 Les cinq captures montrent l'interface compilée en mode `package`, dans un banc de démonstration
-Jira avec des données fictives, en **1280 × 800**. Sprint Planning y est désactivé à la compilation.
+Jira avec des données fictives, en **1280 × 800, PNG RGB 24 bits opaque**. Elles sont produites
+directement par Chrome, sans transparence ni marge ajoutée. Sprint Planning y est désactivé
+à la compilation.
 Le [manifeste des captures](captures/captures.json) consigne la version, les contrôles et les empreintes des images.
-Téléverser dans cet ordre, en remplaçant les anciennes captures :
+Dans **Screenshots**, téléverser les cinq captures dans cet ordre :
 
 | Fichier dans `docs/store/captures/` | Sujet et légende proposée |
 | --- | --- |
@@ -63,12 +68,23 @@ Téléverser dans cet ordre, en remplaçant les anciennes captures :
 | [04-couleurs.png](captures/04-couleurs.png) | Couleurs des cartes : écrire et vérifier une règle JQL avec l'aide de Jira. |
 | [05-daily.png](captures/05-daily.png) | Daily : parcourir les objectifs en plein écran avec l'équipe. |
 
-Utiliser [icon-128.png](../../public/icons/icon-128.png) pour l'icône du Store et
-[promo-440x280.png](promo-440x280.png) pour l'image promotionnelle **440 × 280**, obligatoire et distincte
-des captures. Une grande image promotionnelle 1400 × 560 est facultative. Le Store accepte une
-à cinq captures, sans bordure ni marge ajoutée, en 1280 × 800 ou 640 × 400 ; ce dossier utilise
-le format recommandé 1280 × 800.
-[Exigences officielles des images, consultées le 14 octobre 2026](https://developer.chrome.com/docs/webstore/images).
+| Fichier dans `docs/store/` | Champ du tableau de bord | Format |
+| --- | --- | --- |
+| [icon-128.png](icon-128.png) | **Store icon**, obligatoire | PNG transparent de **128 × 128** ; dessin de **96 × 96**, centré avec **16 px transparents** de chaque côté. |
+| [promo-440x280.png](promo-440x280.png) | **Small promo tile**, obligatoire | PNG opaque de **440 × 280**. |
+| [promo-1400x560.png](promo-1400x560.png) | **Marquee promo tile**, facultatif | PNG opaque de **1400 × 560**. |
+
+L'icône Store est identique à `public/icons/icon-128.png`, incluse dans le paquet de l'extension.
+Le Store accepte une à cinq captures, en 1280 × 800 ou 640 × 400 ; ce dossier fournit les cinq
+au format recommandé 1280 × 800. Les promotions sont des compositions dédiées à la marque.
+[Formats officiels](https://developer.chrome.com/docs/webstore/images) et
+[champs de la fiche](https://developer.chrome.com/docs/webstore/cws-dashboard-listing),
+consultés le 15 octobre 2026.
+
+Pour cette livraison, `release/chrome-store-rebranding-0.34.9/` regroupe les huit PNG et
+`LIRE-MOI.txt`. L'archive `release/chrome-store-rebranding-0.34.9.zip` facilite leur transfert :
+l'extraire pour sélectionner les images dans les champs ci-dessus. Le paquet de l'extension
+à téléverser dans **Package** est indiqué dans la procédure ci-dessous.
 
 ## Confidentialité et permissions à renseigner
 
@@ -148,7 +164,7 @@ Texte de parcours à copier, après avoir renseigné l'environnement dans cet on
 ## Première publication ou mise à jour
 
 1. Préparer et vérifier la livraison avec le [guide développeur](../../DEVELOPER.md), puis
-   `npm run package`. Téléverser **`release/sprint-goals-board-0.34.5.zip`** ; ne jamais zipper
+   `npm run package`. Téléverser **`release/sprint-goals-board-0.34.9.zip`** ; ne jamais zipper
    `dist/`, qui active Sprint Planning. Le script construit en mode `package` et retire le champ
    public `key`. Le ZIP doit contenir `manifest.json` à sa racine.
 2. Vérifier que la politique publique correspond à [la version locale](../privacy/index.html).

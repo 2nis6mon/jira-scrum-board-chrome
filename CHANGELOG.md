@@ -3,6 +3,15 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.34.9 — Kit de publication du rebranding
+
+- Cinq captures du mode de distribution régénérées sur le jeu de démonstration, avec une date
+  de référence stable pour le sprint fictif et sans Sprint Planning.
+- Icône Store 128 px avec dessin centré de 96 px et marges transparentes de 16 px, également
+  incluse dans le paquet Chrome ; petites tailles conservées.
+- Visuels promotionnels 440 × 280 et 1400 × 560 alignés sur la nouvelle marque, avec police locale
+  et aperçu réel du board. Kit de fichiers regroupé pour la mise à jour de la fiche Store.
+
 ## 0.34.8 — Marque commune et guide par fiches
 
 - Nouvelle icône du plugin alignée sur le site, dans toutes les tailles Chrome ; captures et

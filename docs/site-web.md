@@ -42,10 +42,14 @@ sur cette sortie déjà construite. Aucun compte ni session Jira n'est utilisé.
   `guide.css` et `guide.js` portent la présentation et la recherche. L’installation est exclusivement
   décrite depuis le Chrome Web Store ; aucun lien vers le dépôt privé n’est publié.
 - Les cinq captures de `docs/store/captures/` sont copiées dans `assets/screenshots/`. Elles montrent
-  des données fictives ; leur version et leur provenance figurent dans `captures.json`, non publié.
+  des données fictives en PNG RGB opaque, 1280 × 800 ; leur version et leur provenance figurent
+  dans `captures.json`, non publié. Après un changement de marque ou d'interface, régénérer les
+  captures avec `npm run store:screenshots`, puis reconstruire et vérifier le site.
 - Les icônes publiques de `public/icons/` sont copiées dans `assets/icons/`.
   Elles sont dérivées de `site/assets/brand-mark.svg` avec `node scripts/generate-icons.mjs`.
   La même marque est ainsi utilisée dans le site, l’extension et les captures du Store.
+  Le générateur produit aussi `docs/store/icon-128.png` : dessin de 96 × 96 centré avec une marge
+  transparente de 16 px, identique à l'icône 128 px du paquet.
 - `confidentialite.html` reprend [la politique bilingue](privacy/index.html) sans changer son texte
   juridique ; un lien de retour au site et une icône d’onglet sont ajoutés.
 
@@ -53,6 +57,11 @@ Le site ne contient ni `dist/`, ni code source de l'extension, ni paquet ZIP, ni
 développement. La copie suit une liste de sources explicite ; les liens symboliques/physiques,
 les types de fichiers inattendus, les clés privées et les liens Confluence privés sont refusés.
 Les sorties n'incluent aucune dépendance Node : Marked sert uniquement à la génération.
+
+La [fiche de publication Store](store/fiche.md#images-à-téléverser) décrit les huit visuels du
+dossier `release/chrome-store-rebranding-0.34.9/` : cinq captures, l'icône et les promotions
+440 × 280 et 1400 × 560. Ces promotions sont destinées aux champs du Chrome Web Store ;
+la construction du site conserve son image de partage `site/assets/social-card.png`.
 
 ## Première publication sur GitHub Pages
 

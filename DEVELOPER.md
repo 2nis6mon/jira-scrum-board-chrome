@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.34.5**, 14 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.34.9**, 15 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -471,21 +471,30 @@ documentation et changelog à jour. `dist/`, `release/`, profils, cookies, captu
 ### Préparer la publication Chrome Web Store
 
 La [fiche de publication](docs/store/fiche.md) rassemble les textes du Store, les justificatifs
-de permissions, les étapes de soumission et les cinq images à utiliser. Livrer exclusivement
+de permissions, les étapes de soumission et les huit visuels à utiliser. Livrer exclusivement
 `release/sprint-goals-board-<version>.zip`, produit par `npm run package` : ne jamais zipper `dist/`,
 qui conserve le Sprint Planning expérimental. `npm run verify:planning:package` contrôle le mode
 désactivé : entrée absente, ouverture forcée neutralisée, aucune lecture ni publication Planning.
 
 `npm run store:screenshots` utilise l'interface réelle du banc avec des données fictives et le mode
-`package`, dans un navigateur temporaire vierge (`CHROME_PATH` facultatif). Les PNG sont générés
-dans `docs/store/captures/`, à 1280 × 800 ; leur version, les contrôles et leurs empreintes sont consignés
+`package`, dans un navigateur temporaire vierge (`CHROME_PATH` facultatif). Les cinq PNG RGB opaques
+sont générés directement par Chrome dans `docs/store/captures/`, à 1280 × 800 ; leur version,
+les contrôles et leurs empreintes sont consignés
 dans [captures.json](docs/store/captures/captures.json). Le script vérifie l'absence du planning avant de capturer ; aucun masquage graphique
-ne remplace le feature flag. Vérifier visuellement chaque image après génération, puis joindre au
-Store uniquement les cinq PNG référencés dans la fiche. Ces images illustrent les composants du
+ne remplace le feature flag. Vérifier visuellement chaque image après génération, puis joindre les
+cinq PNG au champ des captures du Store. Ces images illustrent les composants du
 produit sur le banc, sans utiliser de session Jira réelle ; elles ne constituent pas un essai sur
 un workflow client.
-Le même script prépare `docs/store/promo-440x280.png`, l'image promotionnelle distincte des captures.
-L'icône 128 × 128 provient de `public/icons/icon-128.png`.
+Les promotions `docs/store/promo-440x280.png` et `docs/store/promo-1400x560.png` sont des PNG opaques
+destinés respectivement à la petite vignette obligatoire et au grand visuel facultatif.
+`node scripts/generate-icons.mjs` dérive les icônes de la marque et copie l'icône 128 px dans
+`docs/store/icon-128.png`. Son dessin occupe 96 × 96 px, avec 16 px transparents de chaque côté ;
+la même image figure dans `public/icons/icon-128.png` et le paquet.
+
+La livraison 0.34.9 regroupe les huit PNG et `LIRE-MOI.txt` dans
+`release/chrome-store-rebranding-0.34.9/`, également disponible en ZIP. Utiliser ce dossier pour
+mettre à jour les images de la fiche ; le paquet `sprint-goals-board-0.34.9.zip` reste celui
+à téléverser dans l'onglet **Package**.
 
 Politique : [docs/privacy/index.html](docs/privacy/index.html),
 à recopier si modifiée dans `2nis6mon/sprint-goals-privacy` publié via GitHub Pages.
