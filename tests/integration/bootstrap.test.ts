@@ -52,8 +52,8 @@ beforeEach(() => {
     return new DOMRect(
       Number.parseFloat(this.style.left) || 0,
       Number.parseFloat(this.style.top) || 0,
-      180,
-      40,
+      58,
+      34,
     );
   });
   vi.spyOn(HTMLElement.prototype, "setPointerCapture").mockImplementation(() => {});
@@ -93,6 +93,30 @@ describe("bouton Sprint Goals sur les boards Jira", () => {
     await load(address);
     expect(button()?.textContent).toBe("Sprint Goals");
     expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("garde un nom accessible et deux boutons distincts pour ouvrir ou déplacer", async () => {
+    await load(BOARD);
+    const openButton = button();
+    expect(openButton?.getAttribute("aria-label")).toBe("Ouvrir ce board dans Sprint Goals");
+    expect(openButton?.title).toBe("Ouvrir ce board dans Sprint Goals");
+    expect(openButton?.querySelector(".label")?.textContent).toBe("Sprint Goals");
+    expect(openButton?.querySelector("img")?.alt).toBe("");
+    expect(openButton?.querySelector("img")?.draggable).toBe(false);
+    expect(openButton?.type).toBe("button");
+    expect(grip().getAttribute("aria-label")).toBe("Déplacer le bouton Sprint Goals");
+    expect(grip().type).toBe("button");
+    openButton?.focus();
+    expect(host().shadowRoot?.activeElement).toBe(openButton);
+    grip().focus();
+    expect(host().shadowRoot?.activeElement).toBe(grip());
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("conserve l'emplacement par défaut à 96 px du bord droit et 28 px du bas", async () => {
+    await load(BOARD);
+    expect(point()).toEqual({ x: 1046, y: 738 });
+    expect(set).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -156,7 +180,7 @@ describe("bouton Sprint Goals sur les boards Jira", () => {
     const start = point();
     pointer("pointerdown", start.x + 10, start.y + 10);
     pointer("pointermove", -100, -100);
-    expect(point()).toEqual({ x: 12, y: 12 });
+    expect(point()).toEqual({ x: 4, y: 4 });
     expect(set).not.toHaveBeenCalled();
     pointer("pointerup", -100, -100);
     grip().click();
@@ -164,6 +188,30 @@ describe("bouton Sprint Goals sur les boards Jira", () => {
     expect(sendMessage).not.toHaveBeenCalled();
     expect(location.search).toBe("");
   });
+
+  it.each([
+    { name: "haut gauche", x: -1000, y: -1000, left: 4, top: 4, ratio: { x: 0, y: 0 } },
+    { name: "haut droit", x: 3000, y: -1000, left: 1138, top: 4, ratio: { x: 1, y: 0 } },
+    { name: "bas gauche", x: -1000, y: 3000, left: 4, top: 762, ratio: { x: 0, y: 1 } },
+    { name: "bas droit", x: 3000, y: 3000, left: 1138, top: 762, ratio: { x: 1, y: 1 } },
+  ])(
+    "atteint le coin $name, y compris près de l'en-tête, sans sortir de l'écran",
+    async ({ x, y, left, top, ratio }) => {
+      await load(BOARD);
+      const start = point();
+      const assign = vi.spyOn(location, "assign").mockImplementation(() => {});
+      pointer("pointerdown", start.x + 10, start.y + 10);
+      pointer("pointermove", x, y);
+      expect(point()).toEqual({ x: left, y: top });
+      expect(set).not.toHaveBeenCalled();
+      pointer("pointerup", x, y);
+      expect(set).toHaveBeenCalledExactlyOnceWith({ [POSITION_KEY]: ratio });
+      expect(point().x + 58).toBeLessThanOrEqual(innerWidth - 4);
+      expect(point().y + 34).toBeLessThanOrEqual(innerHeight - 4);
+      grip().click();
+      expect(assign).not.toHaveBeenCalled();
+    },
+  );
 
   it("un petit mouvement ou un geste annulé ne change pas la préférence", async () => {
     await load(BOARD);
@@ -186,18 +234,28 @@ describe("bouton Sprint Goals sur les boards Jira", () => {
   it("restaure la position par site et adapte la fenêtre sans modifier le stockage", async () => {
     stored.set(POSITION_KEY, { x: 1, y: 1 });
     await load(BOARD);
-    expect(point()).toEqual({ x: 1008, y: 748 });
+    expect(point()).toEqual({ x: 1138, y: 762 });
     vi.stubGlobal("innerWidth", 500);
     vi.stubGlobal("innerHeight", 300);
     window.dispatchEvent(new Event("resize"));
-    expect(point()).toEqual({ x: 308, y: 248 });
+    expect(point()).toEqual({ x: 438, y: 262 });
     vi.stubGlobal("innerWidth", 1200);
     vi.stubGlobal("innerHeight", 800);
     window.dispatchEvent(new Event("resize"));
-    expect(point()).toEqual({ x: 1008, y: 748 });
+    expect(point()).toEqual({ x: 1138, y: 762 });
     document.body.replaceChildren();
     await vi.advanceTimersByTimeAsync(500);
-    expect(point()).toEqual({ x: 1008, y: 748 });
+    expect(point()).toEqual({ x: 1138, y: 762 });
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it("relit les anciens ratios v1 sans migration ni réécriture de la préférence", async () => {
+    const saved = { x: 0.25, y: 0.75 };
+    stored.set(POSITION_KEY, saved);
+    await load(BOARD);
+    expect(point()).toEqual({ x: 287.5, y: 572.5 });
+    expect(get).toHaveBeenCalledWith(POSITION_KEY);
+    expect(stored.get(POSITION_KEY)).toEqual(saved);
     expect(set).not.toHaveBeenCalled();
   });
 
@@ -206,7 +264,7 @@ describe("bouton Sprint Goals sur les boards Jira", () => {
     async (value) => {
       stored.set(POSITION_KEY, value);
       await load(BOARD);
-      expect(point()).toEqual({ x: 924, y: 732 });
+      expect(point()).toEqual({ x: 1046, y: 738 });
       expect(set).not.toHaveBeenCalled();
     },
   );
@@ -214,20 +272,20 @@ describe("bouton Sprint Goals sur les boards Jira", () => {
   it("ramène une ancienne position hors écran dans les bornes", async () => {
     stored.set(POSITION_KEY, { x: 20, y: -5 });
     await load(BOARD);
-    expect(point()).toEqual({ x: 1008, y: 12 });
+    expect(point()).toEqual({ x: 1138, y: 4 });
   });
 
   it("le clavier déplace le bouton et une remise à zéro est répercutée seulement pour ce site", async () => {
     await load(BOARD);
     grip().dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }));
-    expect(point().x).toBeCloseTo(914);
+    expect(point().x).toBeCloseTo(1036);
     grip().dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", shiftKey: true }));
-    expect(point().y).toBeCloseTo(731);
+    expect(point().y).toBeCloseTo(737);
     for (const listener of listeners)
       listener({ "jira-button-position.v1:https://other.atlassian.net": {} }, "local");
-    expect(point().y).toBeCloseTo(731);
+    expect(point().y).toBeCloseTo(737);
     for (const listener of listeners) listener({ [POSITION_KEY]: {} }, "local");
-    expect(point()).toEqual({ x: 924, y: 732 });
+    expect(point()).toEqual({ x: 1046, y: 738 });
   });
 
   it("une lecture tardive du stockage ne remplace pas un déplacement plus récent", async () => {
@@ -242,7 +300,7 @@ describe("bouton Sprint Goals sur les boards Jira", () => {
     grip().dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }));
     resolve({ [POSITION_KEY]: { x: 0, y: 0 } });
     await vi.advanceTimersByTimeAsync(0);
-    expect(point().x).toBeCloseTo(914);
+    expect(point().x).toBeCloseTo(1036);
   });
 
   it("le bouton reste utilisable lorsque le stockage échoue", async () => {
@@ -251,7 +309,7 @@ describe("bouton Sprint Goals sur les boards Jira", () => {
     await load(BOARD);
     grip().dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }));
     await vi.advanceTimersByTimeAsync(0);
-    expect(point().x).toBeCloseTo(914);
+    expect(point().x).toBeCloseTo(1036);
     expect(host().shadowRoot?.querySelector('[role="status"]')?.textContent).toContain(
       "impossible de l'enregistrer",
     );

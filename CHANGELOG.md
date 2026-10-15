@@ -3,6 +3,14 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.34.10 — Bouton Jira plus discret
+
+- Intégration du bouton compact, avec la nouvelle icône et une poignée séparée, pour tenir dans
+  un espace libre de l'en-tête Jira.
+- Placement jusqu'à 4 px des bords, déplacement au clavier et conservation de la position par site,
+  y compris après redimensionnement ou zoom.
+- Manuel actuel conservé et complété avec le placement du bouton ; rebranding et site préservés.
+
 ## 0.34.9 — Kit de publication du rebranding
 
 - Cinq captures du mode de distribution régénérées sur le jeu de démonstration, avec une date

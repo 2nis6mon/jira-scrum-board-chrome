@@ -66,6 +66,12 @@ pas de board et ne change pas sa configuration dans Jira.
 Le clic sur l'icône Chrome ouvre directement la vue lorsque le board est reconnu et le site
 déjà autorisé.
 
+Dans Jira, le bouton compact affiche l'icône Sprint Goals ; son infobulle indique son nom.
+Déplacez-le avec sa poignée gauche, par exemple dans un espace libre de l'en-tête : il peut
+s'approcher à 4 px des bords. Sa position est conservée pour ce site dans ce profil Chrome.
+Au clavier, placez le focus sur la poignée puis utilisez les flèches, avec **Maj** pour affiner.
+**Échap** annule un glissement.
+
 ### Depuis Sprint Goals
 
 1. Cliquez sur le **nom du board**, en haut à gauche, puis **Ajouter un board…**.
