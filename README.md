@@ -30,9 +30,10 @@ pour garder l'identité de l'installation.
 - Kanban : tickets du board et de son sous-filtre ; Goals Atlassian uniquement.
 - Déplacement des tickets, fiche et formulaires natifs Jira, filtres, sous-tâches, Daily et présentation.
 - Réglages du board partagés dans Jira ; préférences d'interface personnelles dans Chrome.
-- Interface en français lorsque Jira est en français, en anglais pour les autres langues.
+- Interface en français lorsque Jira est en français, en espagnol lorsque Jira est en espagnol,
+  en anglais pour les autres langues.
   **Site Jira → Préférences personnelles** permet de choisir **Automatique — suivre Jira**,
-  **Français** ou **English** ; le choix reste local à ce navigateur, pour tous les boards.
+  **Français**, **English** ou **Español** ; le choix reste local à ce navigateur, pour tous les boards.
 
 Le texte natif « Sprint Goal » n'est modifié que lors d'une publication du Sprint Planning.
 Les écritures ne sont jamais rejouées
@@ -44,6 +45,7 @@ automatiquement. Les limites et les réglages sont décrits dans le manuel.
 |---|---|
 | [Manuel utilisateur](docs/manuel-utilisateur.md) | Installer, autoriser Jira, ajouter un board depuis Jira ou l'extension, utiliser et administrer le board |
 | [User guide in English](docs/user-guide.en.md) | Install, connect Jira, add boards, use and configure the extension |
+| [Manual de usuario en español](docs/user-guide.es.md) | Instalar, conectar Jira, añadir tableros, utilizar y configurar la extensión |
 | [Guide développeur](DEVELOPER.md) | Architecture, intégration Jira, API, sécurité, tests et travaux restants |
 | [Consignes de contribution](CLAUDE.md) | Règles à respecter pour modifier le dépôt |
 | [Historique](CHANGELOG.md) | Évolutions par version |
@@ -60,13 +62,13 @@ elle réunit les textes, permissions, captures et étapes de soumission. `npm ru
 renouvelle les cinq captures avec les fonctions du mode `package`, sur des données fictives.
 Le ZIP et les captures préparés ici ne sont pas envoyés automatiquement au Store.
 `npm run store:promotions` renouvelle les deux promotions communes sans slogan localisé.
-Après `npm run package`, `npm run store:kit` réunit le ZIP, les textes français/anglais et les
-visuels dans `release/chrome-store-bilingual-<version>/`, avec leur manifeste SHA-256.
+Après `npm run package`, `npm run store:kit` réunit le ZIP, les textes français/anglais/espagnol et les
+visuels dans `release/chrome-store-multilingual-<version>/`, avec leur manifeste SHA-256.
 
 Le site de présentation est dans `site/`. `npm run site:build` prépare le site autonome et son
 archive ; `npm run site:preview` le rend accessible à l'adresse indiquée dans le terminal. Son guide est
-organisé en huit fiches avec recherche dans chaque langue, générées depuis les manuels français
-et anglais. Le sélecteur conserve la fiche consultée ; les captures sont identiques. Les pages
+organisé en huit fiches avec recherche dans chaque langue, générées depuis les manuels français,
+anglais et espagnol. Le sélecteur conserve la fiche consultée ; les captures sont identiques. Les pages
 de confidentialité reprennent le texte juridique du dépôt dans la langue choisie.
 Les liens d’installation ouvrent la fiche officielle du Store.
 La publication GitHub Pages reste manuelle, après fusion dans `main` ; voir le guide du site.

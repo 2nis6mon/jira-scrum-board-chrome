@@ -1,4 +1,5 @@
 import { useState } from "preact/hooks";
+import { languageLocale } from "../../i18n";
 import { type ProbeResult, writeConclusion } from "../../jira/diagnostics";
 import { SPRINT_PROPERTY_KEYS } from "../../jira/writes";
 import { language, localize, t } from "../i18n";
@@ -180,9 +181,7 @@ export function DiagnosticView({ diagnostic }: { diagnostic: DiagnosticModel }) 
                   key={`${entry.at}-${entry.issueKey}-${localize(entry.action)}`}
                   class={`journal-${entry.outcome === "réussi" ? "ok" : "ko"}`}
                 >
-                  <td>
-                    {new Date(entry.at).toLocaleString(language.value === "fr" ? "fr-FR" : "en-GB")}
-                  </td>
+                  <td>{new Date(entry.at).toLocaleString(languageLocale(language.value))}</td>
                   <td>{localize(entry.action)}</td>
                   <td>{entry.issueKey ?? "sprint"}</td>
                   <td>{entry.to ?? ""}</td>

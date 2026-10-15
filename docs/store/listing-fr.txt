@@ -16,8 +16,8 @@ TRAVAILLEZ AVEC VOTRE ÉQUIPE
 • Animez la Daily en plein écran, une swimlane à la fois, avec minuteur réglable et cartes déplaçables.
 • Partagez les réglages du board dans Jira. Leur modification exige le droit de modifier le board ; les préférences personnelles restent locales.
 
-FRANÇAIS ET ANGLAIS
-L'interface suit la langue de Jira : français si Jira est en français, anglais pour les autres langues. Choisissez aussi Auto, Français ou English dans les préférences personnelles, accessibles depuis le menu Site Jira ou l'administration. Le changement est immédiat. Votre choix reste dans ce navigateur et ne change pas la langue de votre équipe.
+FRANÇAIS, ANGLAIS ET ESPAGNOL
+L'interface suit la langue de Jira : français si Jira est en français, espagnol si Jira est en espagnol, anglais pour les autres langues. Choisissez aussi Auto, Français, English ou Español dans les préférences personnelles, accessibles depuis le menu Site Jira ou l'administration. Le changement est immédiat. Votre choix reste dans ce navigateur et ne change pas la langue de votre équipe.
 Les contenus de Jira (tickets, objectifs, statuts et noms de boards) restent dans leur langue d'origine. Les fenêtres natives suivent la langue de Jira.
 
 UNE INTÉGRATION DANS VOTRE JIRA

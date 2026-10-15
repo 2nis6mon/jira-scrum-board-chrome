@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none" role="img" aria-labelledby="title description">
+  <title id="title">Sprint Goals — Dale un rumbo claro a tu Jira.</title>
+  <desc id="description">Objetivos compartidos, un tablero claro. Ilustración de un tablero Scrum y Kanban, sin datos reales.</desc>
+  <defs>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(1050 100) rotate(132) scale(790 650)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4b5cff" stop-opacity=".28"/>
+      <stop offset="1" stop-color="#4b5cff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="board" x1="654" y1="138" x2="1125" y2="488" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#20294d"/>
+      <stop offset="1" stop-color="#151c39"/>
+    </linearGradient>
+    <filter id="shadow" x="580" y="88" width="620" height="485" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="22" stdDeviation="24" flood-color="#020411" flood-opacity=".3"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" fill="#0b1026"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <circle cx="1120" cy="-60" r="290" stroke="#b7f5d0" stroke-opacity=".12"/>
+  <circle cx="1120" cy="-60" r="360" stroke="#b7f5d0" stroke-opacity=".06"/>
+  <g transform="translate(70 65)">
+    <rect width="58" height="58" rx="16" fill="#4b5cff"/>
+    <rect x="12" y="26" width="8" height="20" rx="4" fill="#f6f7fb"/>
+    <rect x="25" y="18" width="8" height="28" rx="4" fill="#f6f7fb"/>
+    <rect x="38" y="29" width="8" height="17" rx="4" fill="#f6f7fb"/>
+    <circle cx="42" cy="16.5" r="6.5" fill="#b7f5d0"/>
+  </g>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <text x="145" y="104" fill="#f6f7fb" font-size="32" font-weight="700" letter-spacing="-.8">Sprint Goals</text>
+    <text x="70" y="214" fill="#b7f5d0" font-size="13" font-weight="700" letter-spacing="2.3">TUS OBJETIVOS EN PRIMER PLANO</text>
+    <text x="67" y="294" fill="#f6f7fb" font-size="61" font-weight="700" letter-spacing="-2.2">Dale a tu Jira</text>
+    <text x="67" y="364" fill="#f6f7fb" font-size="61" font-weight="700" letter-spacing="-2.2">un rumbo claro<tspan fill="#b7f5d0">.</tspan></text>
+    <text x="70" y="418" fill="#aeb7d5" font-size="21">Menos ruido. Más sentido.</text>
+    <g transform="translate(70 511)">
+      <rect width="81" height="34" rx="17" stroke="#465074"/>
+      <text x="40.5" y="22" fill="#e1e5f2" font-size="14" text-anchor="middle">Scrum</text>
+      <rect x="91" width="92" height="34" rx="17" stroke="#465074"/>
+      <text x="137" y="22" fill="#e1e5f2" font-size="14" text-anchor="middle">Kanban</text>
+      <rect x="193" width="75" height="34" rx="17" stroke="#465074"/>
+      <text x="230.5" y="22" fill="#e1e5f2" font-size="14" text-anchor="middle">Daily</text>
+    </g>
+    <g filter="url(#shadow)">
+      <rect x="643" y="139" width="487" height="352" rx="21" fill="url(#board)" stroke="#455078"/>
+      <circle cx="668" cy="166" r="4" fill="#636f98"/>
+      <circle cx="682" cy="166" r="4" fill="#636f98"/>
+      <circle cx="696" cy="166" r="4" fill="#636f98"/>
+      <rect x="1020" y="157" width="86" height="18" rx="9" fill="#b7f5d0" fill-opacity=".12"/>
+      <text x="1063" y="170" fill="#b7f5d0" font-size="10" font-weight="700" text-anchor="middle">UN RUMBO</text>
+      <path d="M644 190H1129" stroke="#344061"/>
+      <text x="669" y="218" fill="#abb6d6" font-size="11" font-weight="700">POR HACER</text>
+      <text x="819" y="218" fill="#abb6d6" font-size="11" font-weight="700">EN CURSO</text>
+      <text x="969" y="218" fill="#abb6d6" font-size="11" font-weight="700">HECHO</text>
+      <rect x="660" y="235" width="453" height="109" rx="10" fill="#0b1026" fill-opacity=".38"/>
+      <circle cx="676" cy="253" r="4" fill="#b7f5d0"/>
+      <text x="688" y="257" fill="#e9edf8" font-size="12" font-weight="700">Simplificar el día a día</text>
+      <path d="M674 274H1099" stroke="#384266"/>
+      <rect x="674" y="285" width="127" height="43" rx="6" fill="#303b66"/>
+      <rect x="684" y="296" width="78" height="4" rx="2" fill="#8c99bf"/>
+      <rect x="684" y="307" width="51" height="4" rx="2" fill="#65749e"/>
+      <rect x="823" y="285" width="127" height="43" rx="6" fill="#4b5cff"/>
+      <rect x="833" y="296" width="83" height="4" rx="2" fill="#f6f7fb" fill-opacity=".9"/>
+      <rect x="833" y="307" width="58" height="4" rx="2" fill="#f6f7fb" fill-opacity=".45"/>
+      <rect x="972" y="285" width="127" height="43" rx="6" fill="#b7f5d0"/>
+      <path d="m984 307 4 4 8-9" stroke="#216140" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="1005" y="300" width="72" height="4" rx="2" fill="#438465"/>
+      <rect x="1005" y="311" width="45" height="4" rx="2" fill="#76ae90"/>
+      <rect x="660" y="355" width="453" height="109" rx="10" fill="#0b1026" fill-opacity=".38"/>
+      <circle cx="676" cy="373" r="4" fill="#8490ff"/>
+      <text x="688" y="377" fill="#e9edf8" font-size="12" font-weight="700">Avanzar juntos</text>
+      <path d="M674 394H1099" stroke="#384266"/>
+      <rect x="674" y="405" width="127" height="43" rx="6" fill="#303b66"/>
+      <rect x="684" y="416" width="90" height="4" rx="2" fill="#8c99bf"/>
+      <rect x="684" y="427" width="61" height="4" rx="2" fill="#65749e"/>
+      <rect x="823" y="405" width="127" height="43" rx="6" fill="#303b66"/>
+      <rect x="833" y="416" width="74" height="4" rx="2" fill="#8c99bf"/>
+      <rect x="833" y="427" width="43" height="4" rx="2" fill="#65749e"/>
+      <rect x="972" y="405" width="127" height="43" rx="6" stroke="#384266" stroke-dasharray="4 5"/>
+    </g>
+    <text x="70" y="598" fill="#7784ac" font-size="12">La extensión de Chrome para tus tableros de Jira Cloud.</text>
+    <text x="1130" y="598" fill="#7784ac" font-size="12" text-anchor="end">Ilustración conceptual</text>
+  </g>
+</svg>

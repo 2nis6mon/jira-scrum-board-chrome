@@ -25,12 +25,13 @@ export function LanguagePreferenceCard({ model }: { model: AppModel }) {
           { id: "auto", label: t("Automatique — suivre Jira") },
           { id: "fr", label: "Français" },
           { id: "en", label: "English" },
+          { id: "es", label: "Español" },
         ]}
         onChange={(value) => void model.setLanguagePreference(value)}
       />
       <p class="settings-help">
         {t(
-          "Automatique : français si Jira est en français, anglais pour toutes les autres langues.",
+          "Automatique : français si Jira est en français, espagnol si Jira est en espagnol, anglais pour les autres langues.",
         )}
       </p>
       <p class="settings-help">

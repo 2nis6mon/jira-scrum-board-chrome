@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { integrationMessagesEs } from "../../src/i18n/es/integration";
 import { integrationMessages } from "../../src/i18n/integration";
 import { injectBoard } from "../../src/integration/injectBoard";
 
@@ -39,10 +40,13 @@ function page(frame: HTMLIFrameElement): Page {
   return value;
 }
 
-function mount(preference: "auto" | "fr" | "en" = "fr") {
+function mount(preference: "auto" | "fr" | "en" | "es" = "fr") {
   // Chrome sérialise la fonction : cette copie n'a accès à aucun import ni fermeture du module.
   const copied = new Function(`return (${injectBoard.toString()});`)() as typeof injectBoard;
-  copied(`${EXTENSION}/board.html`, BOARD, { preference, messages: integrationMessages });
+  copied(`${EXTENSION}/board.html`, BOARD, {
+    preference,
+    messages: { en: integrationMessages, es: integrationMessagesEs },
+  });
   const host = document.getElementById("sprint-goals-direct") as HTMLElement;
   const frame = host.shadowRoot?.querySelector("iframe") as HTMLIFrameElement;
   const board = page(frame);
@@ -115,6 +119,7 @@ beforeEach(() => {
   (window as unknown as { happyDOM: { setURL(url: string): void } }).happyDOM.setURL(BOARD);
   pages = new WeakMap();
   document.body.replaceChildren();
+  document.documentElement.lang = "fr";
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (
     this: HTMLDialogElement,
@@ -153,6 +158,82 @@ afterEach(async () => {
 });
 
 describe("hôte Jira — parcours natif autonome", () => {
+  it.each(["es_ES", "es-MX"])(
+    "reconnaît Jira %s dans la copie injectée et conserve la clé du ticket",
+    (locale) => {
+      document.documentElement.lang = locale;
+      const { board, open, send } = mount("auto");
+      expect(new URL(board.win.location.href).searchParams.get("jiraLocale")).toBe(
+        locale.replace("_", "-").toLowerCase(),
+      );
+      let current = open();
+      expect(current.dialog.getAttribute("aria-label")).toBe("Incidencia de Jira ABC-102");
+      expect(current.dialog.querySelector('[role="status"]')?.textContent).toBe(
+        "Cargando ABC-102…",
+      );
+      send({ type: "sprint-goals:language", language: "en" }, "https://evil.example");
+      current = open();
+      expect(current.dialog.getAttribute("aria-label")).toBe("Incidencia de Jira ABC-102");
+      send({ type: "sprint-goals:language", language: "en" });
+      current = open();
+      expect(current.dialog.getAttribute("aria-label")).toBe("Jira issue ABC-102");
+      send({ type: "sprint-goals:language", language: "es" });
+      current = open();
+      expect(current.dialog.getAttribute("aria-label")).toBe("Incidencia de Jira ABC-102");
+    },
+  );
+
+  it("reconnaît la fiche native espagnole même si l'extension est en français", async () => {
+    document.documentElement.lang = "es-ES";
+    const { open } = mount("fr");
+    const current = open();
+    const { panel } = nativeTicketDialog(current.doc);
+    const close = panel.querySelector("button");
+    close?.setAttribute("aria-label", "Cerrar");
+    if (close) close.textContent = "Cerrar";
+    await vi.advanceTimersByTimeAsync(300);
+    expect(current.dialog.getAttribute("aria-label")).toBe("Ticket Jira ABC-102");
+    expect(current.ticket.style.visibility).toBe("visible");
+    expect(panel.hasAttribute("data-sprint-goals-ticket")).toBe(true);
+  });
+
+  it("ouvre la transition depuis Cambiar estado sans traduire ni soumettre le formulaire Jira", async () => {
+    document.documentElement.lang = "es-ES";
+    const { open } = mount("auto");
+    const transition = { id: "11", name: "Aceptar revisión", to: "Validado" };
+    const current = open(transition);
+    const { panel, status } = ticketPanel(current.doc);
+    const close = panel.querySelector("button");
+    close?.setAttribute("aria-label", "Cerrar");
+    if (close) close.textContent = "Cerrar";
+    status.setAttribute("aria-label", "Cambiar estado");
+    status.textContent = "En revisión";
+    const submitted = vi.fn();
+    current.doc.addEventListener("submit", submitted);
+    const menuOpened = vi.fn(() => {
+      const choices = menu(current.doc, [
+        { text: "Aceptar revisión → Validado" },
+        { text: "Aceptar revisión → Rechazado" },
+      ]).choices;
+      choices[0]?.element.addEventListener("click", () => form(current.doc, transition.name));
+      return choices;
+    });
+    status.addEventListener("click", menuOpened);
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(current.ticket.style.visibility).toBe("visible");
+    expect(current.doc.querySelector("[data-sprint-goals-transition] h2")?.textContent).toBe(
+      "Aceptar revisión",
+    );
+    expect(current.doc.querySelector("input")?.value).toBe("");
+    expect(menuOpened).toHaveBeenCalledTimes(1);
+    const choices = menuOpened.mock.results[0]?.value ?? [];
+    expect(choices[0]?.clicked).toHaveBeenCalledTimes(1);
+    expect(choices[1]?.clicked).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(9000);
+    expect(menuOpened).toHaveBeenCalledTimes(1);
+    expect(submitted).not.toHaveBeenCalled();
+  });
+
   it("transmet la langue Jira normalisée et traduit seulement l'habillage de la fiche", () => {
     document.documentElement.lang = "de-DE";
     const { board, open, send } = mount("auto");

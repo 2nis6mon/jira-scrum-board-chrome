@@ -1,6 +1,8 @@
 // Script isolé et sans import. Sur un board Jira, il propose un bouton d'ouverture ; sur les
 // autres pages Jira, il reste inerte.
-declare const __INTEGRATION_MESSAGES__: Readonly<Record<string, string>>;
+declare const __INTEGRATION_MESSAGES__: Readonly<
+  Record<"en" | "es", Readonly<Record<string, string>>>
+>;
 (() => {
   if (window.top !== window) return;
   const marker = "sprint-goals-direct-bootstrap";
@@ -18,17 +20,22 @@ declare const __INTEGRATION_MESSAGES__: Readonly<Record<string, string>>;
   let stopped = false;
   let disposeButton = () => {};
   let reposition = () => {};
-  let preference: "auto" | "fr" | "en" = "auto";
+  let preference: "auto" | "fr" | "en" | "es" = "auto";
   let preferenceRevision = 0;
   let refreshLanguage = () => {};
   const t = (source: string) => {
     const locale = document.documentElement.lang.trim().replaceAll("_", "-").toLowerCase();
-    const french =
-      preference === "fr" || (preference === "auto" && /^fr(?:-[a-z0-9]{2,8})*$/.test(locale));
-    return french ? source : (__INTEGRATION_MESSAGES__[source] ?? source);
+    const detected = /^(fr|es)(?:-[a-z0-9]{2,8})*$/.exec(locale)?.[1];
+    const language =
+      preference === "auto"
+        ? detected === "fr" || detected === "es"
+          ? detected
+          : "en"
+        : preference;
+    return language === "fr" ? source : (__INTEGRATION_MESSAGES__[language][source] ?? source);
   };
   const readPreference = (value: unknown) => {
-    preference = value === "fr" || value === "en" ? value : "auto";
+    preference = value === "fr" || value === "en" || value === "es" ? value : "auto";
     refreshLanguage();
   };
   const decodePosition = (value: unknown): Position | null => {

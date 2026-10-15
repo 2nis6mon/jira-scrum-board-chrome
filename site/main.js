@@ -1,26 +1,37 @@
 // Site de présentation autonome : aucune connexion aux données Jira.
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 document.documentElement.classList.add("js-enabled");
-const french = document.documentElement.lang === "fr";
-const text = french
-  ? {
-      openMenu: "Ouvrir le menu",
-      closeMenu: "Fermer le menu",
-      daily: "Mode Daily",
-      goals: "Vue par objectifs",
-      pause: "Mettre en pause",
-      play: "Lancer l’animation",
-      enlarge: "Agrandir la capture : ",
-    }
-  : {
-      openMenu: "Open menu",
-      closeMenu: "Close menu",
-      daily: "Daily mode",
-      goals: "Goals view",
-      pause: "Pause animation",
-      play: "Play animation",
-      enlarge: "Enlarge screenshot: ",
-    };
+const language = document.documentElement.lang;
+const texts = {
+  fr: {
+    openMenu: "Ouvrir le menu",
+    closeMenu: "Fermer le menu",
+    daily: "Mode Daily",
+    goals: "Vue par objectifs",
+    pause: "Mettre en pause",
+    play: "Lancer l’animation",
+    enlarge: "Agrandir la capture : ",
+  },
+  en: {
+    openMenu: "Open menu",
+    closeMenu: "Close menu",
+    daily: "Daily mode",
+    goals: "Goals view",
+    pause: "Pause animation",
+    play: "Play animation",
+    enlarge: "Enlarge screenshot: ",
+  },
+  es: {
+    openMenu: "Abrir menú",
+    closeMenu: "Cerrar menú",
+    daily: "Modo Daily",
+    goals: "Vista por objetivos",
+    pause: "Pausar animación",
+    play: "Reproducir animación",
+    enlarge: "Ampliar captura: ",
+  },
+};
+const text = texts[language] ?? texts.en;
 
 const menuButton = document.querySelector(".menu-toggle");
 const navigation = document.querySelector("#site-navigation");
@@ -96,22 +107,31 @@ const playButton = document.querySelector("[data-demo-play]");
 const playLabel = document.querySelector("[data-play-label]");
 const playSymbol = document.querySelector("[data-play-symbol]");
 const demoProgress = document.querySelector(".demo-progress");
-const descriptions = french
-  ? {
-      goals:
-        "Les objectifs structurent le board. Le travail sans objectif garde sa place dans Build ou RUN.",
-      focus:
-        "Le ticket Support rejoint son objectif. Son type ne change pas : l’objectif est prioritaire sur sa ligne RUN.",
-      daily:
-        "En Daily, l’équipe échange sur un objectif à la fois. Les autres lignes attendent leur tour.",
-    }
-  : {
-      goals: "Goals give the board structure. Work without a goal keeps its place in Build or RUN.",
-      focus:
-        "The Support issue joins its goal. Its type stays the same: the goal takes priority over its RUN swimlane.",
-      daily:
-        "In Daily mode, the team discusses one goal at a time. Other swimlanes wait their turn.",
-    };
+const descriptionsByLanguage = {
+  fr: {
+    goals:
+      "Les objectifs structurent le board. Le travail sans objectif garde sa place dans Build ou RUN.",
+    focus:
+      "Le ticket Support rejoint son objectif. Son type ne change pas : l’objectif est prioritaire sur sa ligne RUN.",
+    daily:
+      "En Daily, l’équipe échange sur un objectif à la fois. Les autres lignes attendent leur tour.",
+  },
+  en: {
+    goals: "Goals give the board structure. Work without a goal keeps its place in Build or RUN.",
+    focus:
+      "The Support issue joins its goal. Its type stays the same: the goal takes priority over its RUN swimlane.",
+    daily: "In Daily mode, the team discusses one goal at a time. Other swimlanes wait their turn.",
+  },
+  es: {
+    goals:
+      "Los objetivos dan estructura al tablero. El trabajo sin objetivo mantiene su lugar en Build o RUN.",
+    focus:
+      "La incidencia de Soporte se une a su objetivo. Su tipo no cambia: el objetivo tiene prioridad sobre su carril RUN.",
+    daily:
+      "En modo Daily, el equipo conversa sobre un objetivo cada vez. Los demás carriles esperan su turno.",
+  },
+};
+const descriptions = descriptionsByLanguage[language] ?? descriptionsByLanguage.en;
 let currentScene = 0;
 let timer = null;
 let playing = !reducedMotion.matches;
@@ -279,10 +299,40 @@ const productViewsEn = {
     label: "Swimlane settings",
   },
 };
-const productViews = french ? productViewsFr : productViewsEn;
+const productViewsEs = {
+  scrum: {
+    image: "01-board.png",
+    alt: "Tablero Scrum organizado por objetivos, con progreso y filtros; interfaz en francés",
+    kicker: "UN SPRINT, UN RUMBO",
+    title: "Los objetivos marcan el ritmo.",
+    description:
+      "Consulta el progreso del sprint, localiza las incidencias bloqueadas y cambia de objetivo sin perder el contexto.",
+    label: "Tablero Scrum",
+  },
+  kanban: {
+    image: "02-kanban.png",
+    alt: "Tablero Kanban con objetivos de Atlassian y carriles por tipo de incidencia; interfaz en francés",
+    kicker: "EL FLUJO MANTIENE EL RUMBO",
+    title: "Tus objetivos avanzan con el trabajo.",
+    description:
+      "Conserva el filtro y las columnas de tu Kanban, con los Goals de Atlassian y carriles para tus tipos de incidencia.",
+    label: "Tablero Kanban",
+  },
+  settings: {
+    image: "03-swimlanes.png",
+    alt: "Administración de carriles en francés: Default, grupos por tipo y prioridad de los objetivos",
+    kicker: "UNA VISTA A TU MEDIDA",
+    title: "Una vista común, tu organización.",
+    description:
+      "Agrupa los tipos de incidencia en carriles adaptados a tu equipo. Los objetivos tienen prioridad; los ajustes se comparten en Jira.",
+    label: "Ajustes de los carriles",
+  },
+};
+const productViewsByLanguage = { fr: productViewsFr, en: productViewsEn, es: productViewsEs };
+const productViews = productViewsByLanguage[language] ?? productViewsByLanguage.en;
 const productTabs = [...document.querySelectorAll("[data-view]")];
 const productImage = document.querySelector("[data-product-image]");
-// L’image initiale fournit le dossier correct, même depuis la version /en/ du site.
+// L’image initiale fournit le dossier correct depuis chaque version linguistique du site.
 const screenshotDirectory = new URL(".", productImage.src);
 const captureButton = document.querySelector("[data-open-capture]");
 let currentView = "scrum";

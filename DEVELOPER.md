@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.35.1**, 15 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.35.2**, 15 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -18,7 +18,7 @@ Accès direct : [intégration Jira](#integration-jira), [API](#contrats-api),
 | `src/app/`, `src/app/platform/` | Modèles/vues/styles ; adaptateurs Chrome injectés |
 | `src/core/`, `src/jira/` | Métier sans DOM ni Chrome ; transport et contrats Jira |
 | `src/integration/` | Lanceur, worker, script de contenu, iframe et popins natives |
-| `src/i18n/`, `src/app/i18n.ts` | Catalogues FR/EN et sélection pure de langue ; adaptateur réactif des vues |
+| `src/i18n/`, `src/app/i18n.ts` | Catalogues FR/EN/ES et sélection pure de langue ; adaptateur réactif des vues |
 | `tests/support/`, `tests/harness/` | Faux services et banc visuel, absents de la distribution |
 | `scripts/`, `.run/` | Contrôles navigateur, distribution et configurations IntelliJ partagées |
 
@@ -62,11 +62,12 @@ copie, historique, fermeture et format étroit, avec captures dans `.vite/`.
 
 Le français constitue la source des catalogues ; l'anglais est la langue de repli. Le mode
 `auto` suit la langue de la page Jira transmise par l'intégration : toute variante `fr` reste en
-français, les autres langues passent en anglais. Si la page ne fournit pas de langue exploitable,
+français, toute variante `es` utilise l'espagnol et les autres langues passent en anglais.
+Si la page ne fournit pas de langue exploitable,
 `GET /rest/api/3/mypreferences/locale` sert de repli non bloquant ; sans résultat, l'anglais reste
 actif. Le contrat de cette lecture est [documenté par Atlassian](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-myself/#api-rest-api-3-mypreferences-locale-get).
 
-`AppModel.prepareLanguage()` restaure `language.v1` (`auto`, `fr`, `en`)
+`AppModel.prepareLanguage()` restaure `language.v1` (`auto`, `fr`, `en`, `es`)
 avant le premier rendu. La préférence est personnelle à ce profil Chrome et commune aux boards ;
 elle n'entre jamais dans `TeamSettings` ni dans une écriture Jira. Elle se modifie dans
 **Site Jira → Préférences personnelles**, même sans `canEdit`, ou dans la carte personnelle des
@@ -78,7 +79,7 @@ par les modèles. Ne jamais passer à `localize` les titres de tickets, noms des
 noms personnalisés : ce sont des contenus Jira. Les fiches et formulaires de transition natifs
 gardent la langue de Jira, indépendamment de la préférence du plugin.
 
-`npm run verify:i18n` contrôle le rendu FR/EN, les variantes Jira françaises, le repli anglais,
+`npm run verify:i18n` contrôle le rendu FR/EN/ES, les variantes Jira françaises et espagnoles, le repli anglais,
 la préférence sans droits d'administration et la conservation du JQL dans un Chrome isolé.
 Les métadonnées Chrome (`public/_locales/`) suivent la langue de Chrome ; la vue du board suit
 la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de traduction distant.
@@ -350,7 +351,7 @@ comme donnée inconnue, sans effet sur le classement.
 |---|---|
 | `connection.v1`, `launcher.v1` | Site connecté ; dernière adresse de board |
 | `boards.v1`, `interface.v1` | Boards/configuration/sélection par site ; préférences de présentation |
-| `language.v1` | Langue personnelle (`auto`, `fr`, `en`), commune aux boards de ce navigateur |
+| `language.v1` | Langue personnelle (`auto`, `fr`, `en`, `es`), commune aux boards de ce navigateur |
 | `sprint-planning.v1:<origine Jira>` | Brouillons par board/sprint : objectifs texte, clés/rattachements, capacité, révision de base ; oubli du board/site les efface |
 | `jira-button-position.v1:<origine Jira>` | Position personnelle commune aux boards d'un site |
 | `dismissedNotices.v1`, `graphqlOrigin.v1` | Avis fermés par site/board ; variante Origin du site |
@@ -434,8 +435,8 @@ saisies sont hors du transport et du journal de l'extension, qui ne les remplit 
 Le site de présentation possède son propre dossier `site/` et ses commandes `site:build`,
 `site:check`, `site:preview` et `site:verify`. Sa sortie `.vite/site-dist/` et son archive
 `release/sprint-goals-site.zip` sont indépendantes du paquet Chrome. Le guide est un mini-site de
-huit fiches par langue générées avec Marked depuis les manuels Markdown FR/EN, avec recherche
-locale. Les pages anglaises sont sous `en/` et partagent les captures françaises. Marked reste
+huit fiches par langue générées avec Marked depuis les manuels Markdown FR/EN/ES, avec recherche
+locale. Les pages anglaises sont sous `en/`, les espagnoles sous `es/` et toutes partagent les captures françaises. Marked reste
 une dépendance de développement ; aucune bibliothèque n'est embarquée dans le site.
 `node scripts/generate-icons.mjs` dérive les PNG Chrome de la marque SVG, via le navigateur isolé.
 La publication GitHub Pages est manuelle : voir [le guide du site](docs/site-web.md).
@@ -467,7 +468,7 @@ Ce flag ne provient ni de `.env`, ni d'un paramètre d'URL, ni d'une préférenc
 | `npm run package` | Archive `release/sprint-goals-board-<version>.zip` vérifiée |
 | `npm run store:screenshots` | Cinq captures Store 1280 × 800 du banc en mode `package`, sans Sprint Planning |
 | `npm run store:promotions` | Deux visuels promotionnels communs à toutes les langues, à partir de la capture existante |
-| `npm run store:kit` | Assemble le paquet Store déjà construit, les textes FR/EN et les visuels avec empreintes SHA-256 |
+| `npm run store:kit` | Assemble le paquet Store déjà construit, les textes FR/EN/ES et les visuels avec empreintes SHA-256 |
 
 Les vérifications navigateur interceptent Jira dans un profil temporaire vierge ; `CHROME_PATH`
 choisit l'exécutable. `verify:button` autorise deux hôtes fictifs dans une copie temporaire du paquet,

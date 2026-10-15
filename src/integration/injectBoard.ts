@@ -3,8 +3,8 @@ export function injectBoard(
   boardUrl: string,
   expectedAddress: string,
   localization?: {
-    preference: "auto" | "fr" | "en";
-    messages: Readonly<Record<string, string>>;
+    preference: "auto" | "fr" | "en" | "es";
+    messages: Readonly<Record<"en" | "es", Readonly<Record<string, string>>>>;
   },
 ): void {
   if (!/^https:\/\/[^/]+\.atlassian\.net$/.test(location.origin)) return;
@@ -21,13 +21,17 @@ export function injectBoard(
   const rawLocale = document.documentElement.lang.trim().replaceAll("_", "-").toLowerCase();
   const jiraLocale = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/.test(rawLocale) ? rawLocale : "";
   let language =
-    localization?.preference === "fr" || localization?.preference === "en"
+    localization?.preference === "fr" ||
+    localization?.preference === "en" ||
+    localization?.preference === "es"
       ? localization.preference
       : jiraLocale.split("-")[0] === "fr"
         ? "fr"
-        : "en";
+        : jiraLocale.split("-")[0] === "es"
+          ? "es"
+          : "en";
   const t = (source: string, params: Readonly<Record<string, string>> = {}) =>
-    (language === "fr" ? source : (localization?.messages[source] ?? source)).replace(
+    (language === "fr" ? source : (localization?.messages[language][source] ?? source)).replace(
       /\{([a-zA-Z]\w*)\}/g,
       (token, name: string) => params[name] ?? token,
     );
@@ -134,7 +138,7 @@ export function injectBoard(
   /** La fiche doit réunir bouton de fermeture, taille de panneau et lien du ticket demandé. */
   const findTicketPanel = (doc: Document, win: Window, key: string): HTMLElement | null => {
     const closes = [...doc.querySelectorAll<HTMLElement>('button,[role="button"]')].filter(
-      (element) => /^(Close|Fermer)$/.test(label(element)) && visible(element),
+      (element) => /^(Close|Fermer|Cerrar)$/.test(label(element)) && visible(element),
     );
     let fallback: HTMLElement | null = null;
     for (const close of closes) {
@@ -186,7 +190,7 @@ export function injectBoard(
         `${element.getAttribute("data-testid") ?? ""} ${element.getAttribute("data-test-id") ?? ""}`,
       );
       return (
-        /(?:change|changer|modifier).*(?:status|statut)|(?:status|statut).*(?:change|changer|modifier)/.test(
+        /(?:change|changer|modifier|cambiar).*(?:status|statut|estado)|(?:status|statut|estado).*(?:change|changer|modifier|cambiar)/.test(
           description,
         ) ||
         (testId.includes("status") && element.getAttribute("aria-haspopup") !== null)
@@ -478,7 +482,8 @@ export function injectBoard(
     if (event.source !== frame.contentWindow || event.origin !== url.origin) return;
     const data = event.data;
     if (data?.type === "sprint-goals:language") {
-      if (data.language === "fr" || data.language === "en") language = data.language;
+      if (data.language === "fr" || data.language === "en" || data.language === "es")
+        language = data.language;
       return;
     }
     if (data?.type === "sprint-goals:close") {

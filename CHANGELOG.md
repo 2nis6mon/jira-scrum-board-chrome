@@ -3,6 +3,18 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.35.2 — Espagnol dans l'extension, le site et le manuel
+
+- Interface espagnole complète, détectée pour les variantes espagnoles de Jira et disponible
+  dans le choix personnel **Español**. Français et anglais restent disponibles ; les autres
+  langues et les langues inconnues utilisent l'anglais.
+- Formats de dates, nombres et pluriels espagnols ; contenus Jira inchangés. Reconnaissance
+  des commandes natives espagnoles **Cerrar** et **Cambiar estado** dans les fenêtres Jira.
+- Site, huit fiches du manuel et confidentialité en espagnol, avec navigation FR/EN/ES.
+  Captures du board et promotions communes conservées.
+- Paquet Chrome Store multilingue et fiche espagnole prêts à publier. Sprint Planning reste
+  désactivé dans la distribution.
+
 ## 0.35.1 — Site, manuel et publication bilingues
 
 - Site public disponible en français et en anglais, avec un sélecteur qui conserve la page

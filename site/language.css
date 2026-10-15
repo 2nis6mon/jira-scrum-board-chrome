@@ -101,6 +101,7 @@
 @media (max-width: 600px) {
   .privacy-header {
     padding: 16px;
+    flex-wrap: wrap;
   }
   .privacy-header .brand {
     font-size: 14px;

@@ -16,8 +16,8 @@ WORK WITH YOUR TEAM
 • Run your Daily in full screen, one swimlane at a time, with an adjustable timer and cards you can move.
 • Share board settings through Jira. Editing them requires permission to edit the board; personal preferences stay local.
 
-ENGLISH AND FRENCH
-The interface follows Jira's language: French when Jira is in French, English for other languages. You can also choose Auto, Français or English in personal preferences, available from the Jira site menu or board administration. Changes take effect immediately. Your choice stays in this browser and does not change your team's language.
+ENGLISH, FRENCH AND SPANISH
+The interface follows Jira's language: French when Jira is in French, Spanish when Jira is in Spanish, English for other languages. You can also choose Auto, Français, English or Español in personal preferences, available from the Jira site menu or board administration. Changes take effect immediately. Your choice stays in this browser and does not change your team's language.
 Jira content (issues, goals, statuses and board names) stays in its original language. Native dialogs follow Jira's own language.
 
 INTEGRATED INTO YOUR JIRA

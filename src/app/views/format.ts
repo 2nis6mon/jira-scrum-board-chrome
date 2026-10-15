@@ -6,7 +6,7 @@ const formats = (locale: string) => ({
   points: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }),
   plural: new Intl.PluralRules(locale),
 });
-const FORMATS = { fr: formats("fr-FR"), en: formats("en-GB") };
+const FORMATS = { fr: formats("fr-FR"), en: formats("en-GB"), es: formats("es-ES") };
 
 export function formatDay(date: Date): string {
   return FORMATS[language.value].day.format(date);

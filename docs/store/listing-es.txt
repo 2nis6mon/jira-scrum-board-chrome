@@ -1,0 +1,32 @@
+Organiza tus tableros Scrum y Kanban por objetivos, directamente en Jira Cloud.
+
+Sprint Goals Board pone los resultados esperados en el centro del tablero. Cada objetivo tiene su propio carril y su progreso. Las incidencias vinculadas a un objetivo visible aparecen en él con prioridad; las demás van a Build o a un carril por tipo, como RUN u OPS.
+
+TU TABLERO, ORGANIZADO POR OBJETIVOS
+• Scrum: consulta las incidencias de los sprints activos y los objetivos del texto Sprint Goal o de Atlassian Goals.
+• Kanban: consulta las incidencias del filtro y subfiltro del tablero junto con sus Goals de Atlassian.
+• Mantén visibles los Goals fijados aunque no tengan incidencias. Los carriles vacíos de Build, RUN y OPS desaparecen.
+• Personaliza los carriles por tipo: nombre, orden y visibilidad. En la configuración, distribuye los tipos del grupo Predeterminado entre sus carriles.
+
+TRABAJA CON TU EQUIPO
+• Arrastra las tarjetas para cambiar su estado, orden u objetivo. Si varias transiciones llevan al mismo estado, la extensión utiliza la primera disponible en el orden de Jira.
+• Abre las fichas de incidencias y los formularios de transición nativos de Jira. Tú controlas sus campos y su envío.
+• Consulta las subtareas con su incidencia principal. Busca y filtra por persona, tipo, principal, estado o etiqueta, con los filtros rápidos de Jira.
+• Añade colores a las tarjetas mediante reglas JQL, con sugerencias de Jira, validación y vista previa antes de aplicarlas.
+• Dirige la Daily a pantalla completa, un carril cada vez, con temporizador ajustable y tarjetas que puedes mover.
+• Comparte la configuración del tablero en Jira. Modificarla requiere permiso para editar el tablero; las preferencias personales permanecen en local.
+
+ESPAÑOL, FRANCÉS E INGLÉS
+La interfaz sigue el idioma de Jira: español si Jira está en español, francés si está en francés e inglés para los demás idiomas. También puedes elegir Auto, Français, English o Español en las preferencias personales, accesibles desde el menú Sitio Jira o la administración del tablero. El cambio es inmediato. Tu elección permanece en este navegador y no cambia el idioma de tu equipo.
+Los contenidos de Jira (incidencias, objetivos, estados y nombres de tableros) mantienen su idioma original. Las ventanas nativas siguen el idioma de Jira.
+
+INTEGRADO EN TU JIRA
+Instala la extensión desde Chrome Web Store, autoriza tu sitio Jira Cloud y abre un tablero. Utiliza el icono de la extensión o el botón Sprint Goals para abrir la vista integrada; Volver a Jira regresa al tablero habitual.
+La extensión utiliza tu sesión de Jira. No hay servidor de recopilación del editor ni analítica. Solicita acceso al sitio Jira que elijas y respeta tus permisos de Jira al realizar cambios.
+
+Requiere Chrome 116 o posterior, una sesión iniciada en Jira Cloud y acceso a un tablero Scrum o Kanban en un dominio *.atlassian.net. Los Goals disponibles dependen de los permisos y las funciones que exponga tu sitio Atlassian. La extensión no crea sprints ni Goals de Atlassian.
+
+Guía de usuario: https://2nis6mon.github.io/jira-scrum-board-chrome/es/guide.html
+Asistencia: denis.simon.consulting@gmail.com
+
+Jira y Atlassian son marcas de Atlassian. Esta extensión no está desarrollada ni avalada por Atlassian.

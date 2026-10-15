@@ -2,8 +2,9 @@
 
 Huit fiches pour prendre en main votre board, organiser le travail par objectifs et retrouver
 les bons réglages. Les captures montrent l'interface avec des données fictives.
-Les instructions utilisent les libellés français ; une [version anglaise du guide](user-guide.en.md)
-est également disponible. Les captures du board restent en français dans les deux versions.
+Les instructions utilisent les libellés français ; des versions en [anglais](user-guide.en.md)
+et en [espagnol](user-guide.es.md) sont également disponibles. Les captures du board restent
+en français dans les trois versions.
 
 ## Installer l'extension
 
@@ -166,10 +167,11 @@ l'interface**. Le même choix figure dans les réglages du board, dans un encart
 Il est accessible sans droit d'administration Jira.
 
 - **Automatique — suivre Jira**, le choix initial : français si votre Jira est en français,
-  anglais pour toutes les autres langues. Si aucune langue Jira ne peut être déterminée,
+  espagnol si votre Jira est en espagnol, anglais pour toutes les autres langues. Si aucune langue Jira ne peut être déterminée,
   l'extension utilise l'anglais.
 - **Français** : conserve l'interface en français, quelle que soit la langue Jira.
 - **English** : conserve l'interface en anglais, quelle que soit la langue Jira.
+- **Español** : conserve l'interface en espagnol, quelle que soit la langue Jira.
 
 Le changement s'applique immédiatement, sans recharger le board ni effacer les champs en cours
 de saisie. Le choix reste dans ce navigateur pour tous vos boards ; il n'est ni partagé avec

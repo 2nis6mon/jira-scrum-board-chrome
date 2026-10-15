@@ -49,4 +49,22 @@ describe("affichage", () => {
     expect(formatPoints(1.5)).toBe("1,5");
     expect(goalStatusLabel("on_track")).toBe("En bonne voie");
   });
+
+  it("espagnol : zéro au pluriel, virgule décimale et dates locales sans modifier les statuts Jira", () => {
+    setLanguage("es");
+    expect(plural(0, "ticket")).toBe("0 incidencias");
+    expect(plural(1, "ticket")).toBe("1 incidencia");
+    expect(plural(2, "ticket")).toBe("2 incidencias");
+    expect(formatPoints(1.5)).toBe("1,5");
+    const date = new Date(2026, 9, 15, 9, 16);
+    expect(formatDay(date)).toBe(
+      new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" }).format(date),
+    );
+    expect(formatTime(date)).toBe("09:16");
+    expect(goalStatusLabel("Estado personalizado")).toBe("Estado personalizado");
+    expect(goalStatusLabel("En bonne voie")).toBe("En bonne voie");
+    setLanguage("en");
+    expect(formatPoints(1.5)).toBe("1.5");
+    expect(plural(0, "ticket")).toBe("0 issues");
+  });
 });

@@ -38,11 +38,16 @@ const assetExtensions = new Set([
   ".ttf",
   ".txt",
 ]);
-const privacyPaths = { fr: "confidentialite.html", en: "en/privacy.html" };
+const privacyPaths = {
+  fr: "confidentialite.html",
+  en: "en/privacy.html",
+  es: "es/privacidad.html",
+};
 const generatedFiles = [...guidePaths, ...Object.values(privacyPaths), ".nojekyll"];
 const sourceFiles = [
   "index.html",
   "en/index.html",
+  "es/index.html",
   "styles.css",
   "main.js",
   "guide.css",
@@ -86,6 +91,7 @@ function sourceAssets(directory = join(root, "site", "assets")) {
 function inventory() {
   assertPlainPath(join(root, "docs", "manuel-utilisateur.md"));
   assertPlainPath(join(root, "docs", "user-guide.en.md"));
+  assertPlainPath(join(root, "docs", "user-guide.es.md"));
   const sources = new Map(sourceFiles.map((file) => [file, join(root, "site", file)]));
   for (const file of sourceAssets()) {
     const target = relative(join(root, "site"), file).replaceAll("\\", "/");
@@ -117,10 +123,27 @@ function privacyHtml(language) {
   )?.[0];
   if (!article) throw new Error("Structure de la politique de confidentialité inconnue.");
   // Le texte juridique de chaque article est repris à l’identique dans son habillage localisé.
-  const prefix = language === "en" ? "../" : "";
-  const title = language === "fr" ? "Politique de confidentialité" : "Privacy policy";
-  const back = language === "fr" ? "Retour au site" : "Back to the website";
-  const label = language === "fr" ? "Langue du site" : "Website language";
+  const prefix = language === "fr" ? "" : "../";
+  const { title, back, label, description } = {
+    fr: {
+      title: "Politique de confidentialité",
+      back: "Retour au site",
+      label: "Langue du site",
+      description: "Données, stockage et permissions de Sprint Goals Board pour Jira Cloud.",
+    },
+    en: {
+      title: "Privacy policy",
+      back: "Back to the website",
+      label: "Website language",
+      description: "Data, storage and permissions of Sprint Goals Board for Jira Cloud.",
+    },
+    es: {
+      title: "Política de privacidad",
+      back: "Volver al sitio",
+      label: "Idioma del sitio",
+      description: "Datos, almacenamiento y permisos de Sprint Goals Board para Jira Cloud.",
+    },
+  }[language];
   const base = "https://2nis6mon.github.io/jira-scrum-board-chrome/";
   return `<!doctype html>
 <html lang="${language}">
@@ -128,10 +151,11 @@ function privacyHtml(language) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${title} — Sprint Goals Board</title>
-  <meta name="description" content="${language === "fr" ? "Données, stockage et permissions de Sprint Goals Board pour Jira Cloud." : "Data, storage and permissions of Sprint Goals Board for Jira Cloud."}">
+  <meta name="description" content="${description}">
   <link rel="canonical" href="${base}${privacyPaths[language]}">
   <link rel="alternate" hreflang="fr" href="${base}confidentialite.html">
   <link rel="alternate" hreflang="en" href="${base}en/privacy.html">
+  <link rel="alternate" hreflang="es" href="${base}es/privacidad.html">
   <link rel="alternate" hreflang="x-default" href="${base}en/privacy.html">
   <link rel="icon" href="${prefix}assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="${prefix}styles.css">
@@ -144,6 +168,7 @@ function privacyHtml(language) {
     <nav class="language-switch" aria-label="${label}">
       <a href="${prefix}confidentialite.html" data-language="fr" lang="fr" hreflang="fr"${language === "fr" ? ' aria-current="page"' : ""}>FR</a>
       <a href="${prefix}en/privacy.html" data-language="en" lang="en" hreflang="en"${language === "en" ? ' aria-current="page"' : ""}>EN</a>
+      <a href="${prefix}es/privacidad.html" data-language="es" lang="es" hreflang="es"${language === "es" ? ' aria-current="page"' : ""}>ES</a>
     </nav>
   </header>
   <main><a class="privacy-return" href="index.html?lang=${language}">← ${back}</a>
@@ -212,22 +237,22 @@ export function checkSite() {
     if (file.endsWith(".html") || file.endsWith(".svg")) {
       if (/github\.com\/2nis6mon|raw\.githubusercontent\.com\/2nis6mon/i.test(text))
         throw new Error(`Référence au dépôt privé dans la page publique : ${file}`);
-      if (/^(?:en\/)?guide(?:\.html|\/)/.test(file)) {
+      if (/^(?:(?:en|es)\/)?guide(?:\.html|\/)/.test(file)) {
         if (
-          /référence fonctionnelle|functional reference|\.zip\b|chrome:\/\/extensions|dist\/|\.\/DEVELOPER\.md/i.test(
+          /référence fonctionnelle|functional reference|referencia funcional|\.zip\b|chrome:\/\/extensions|dist\/|\.\/DEVELOPER\.md/i.test(
             text,
           )
         )
           throw new Error(`Instruction réservée au développement dans le guide public : ${file}`);
       }
       if (file.endsWith(".html")) {
-        const language = file.startsWith("en/") ? "en" : "fr";
+        const language = file.startsWith("en/") ? "en" : file.startsWith("es/") ? "es" : "fr";
         if (!text.includes(`<html lang="${language}">`))
           throw new Error(`Langue HTML incorrecte : ${file}`);
-        for (const alternate of ["fr", "en", "x-default"])
+        for (const alternate of ["fr", "en", "es", "x-default"])
           if (!text.includes(`hreflang="${alternate}"`))
             throw new Error(`Alternative ${alternate} absente : ${file}`);
-        for (const targetLanguage of ["fr", "en"])
+        for (const targetLanguage of ["fr", "en", "es"])
           if (!text.includes(`data-language="${targetLanguage}"`))
             throw new Error(`Sélecteur ${targetLanguage} absent : ${file}`);
       }

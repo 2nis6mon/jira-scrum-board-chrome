@@ -92,6 +92,10 @@ describe("bouton Sprint Goals sur les boards Jira", () => {
     ["de", "auto", "Open this board"],
     ["fr", "en", "Open this board"],
     ["en", "fr", "Ouvrir ce board"],
+    ["es-MX", "auto", "Abrir este tablero"],
+    ["es_419", "auto", "Abrir este tablero"],
+    ["fr", "es", "Abrir este tablero"],
+    ["es", "en", "Open this board"],
   ])("choisit la langue Jira %s avec préférence %s", async (locale, preference, expected) => {
     document.documentElement.lang = locale;
     stored.set("language.v1", preference);
@@ -106,6 +110,9 @@ describe("bouton Sprint Goals sur les boards Jira", () => {
     for (const listener of listeners) listener({ "language.v1": { newValue: "en" } }, "local");
     expect(button()).toBe(original);
     expect(button()?.title).toContain("Open this board");
+    for (const listener of listeners) listener({ "language.v1": { newValue: "es" } }, "local");
+    expect(button()).toBe(original);
+    expect(button()?.title).toContain("Abrir este tablero");
     for (const listener of listeners) listener({ "language.v1": {} }, "local");
     expect(button()?.title).toContain("Ouvrir ce board");
   });

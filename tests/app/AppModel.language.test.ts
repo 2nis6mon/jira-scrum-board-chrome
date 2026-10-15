@@ -35,10 +35,15 @@ describe("préférence personnelle de langue", () => {
   it.each([
     ["auto", "fr_FR", "fr"],
     ["auto", "fr-CA", "fr"],
+    ["auto", "es-MX", "es"],
+    ["auto", "es_ES", "es"],
+    ["auto", "es-419", "es"],
     ["auto", "de", "en"],
     ["auto", null, "en"],
     ["en", "fr", "en"],
     ["fr", "en", "fr"],
+    ["es", "fr", "es"],
+    ["en", "es", "en"],
   ])("restaure %s avec Jira %s avant tout accès au board", async (preference, locale, expected) => {
     const jira = new FakeJira();
     const platform = fakePlatform(jira);
@@ -64,18 +69,18 @@ describe("préférence personnelle de langue", () => {
     await model.prepareLanguage();
     model.startDaily(15, null);
     const daily = model.daily.value;
-    await model.setLanguagePreference("en");
-    expect(getLanguage()).toBe("en");
+    await model.setLanguagePreference("es");
+    expect(getLanguage()).toBe("es");
     expect(model.daily.value).toBe(daily);
     expect(platform.stored.get("interface.v1")).toEqual({
       sidebarWidth: 310,
       healthOpen: true,
       futurePreference: 5,
     });
-    expect(platform.stored.get("language.v1")).toBe("en");
+    expect(platform.stored.get("language.v1")).toBe("es");
     const reopened = new AppModel(platform, undefined, "fr-CA");
     await reopened.prepareLanguage();
-    expect(getLanguage()).toBe("en");
+    expect(getLanguage()).toBe("es");
     await reopened.setLanguagePreference("auto");
     expect(getLanguage()).toBe("fr");
     expect(jira.requests).toEqual([]);

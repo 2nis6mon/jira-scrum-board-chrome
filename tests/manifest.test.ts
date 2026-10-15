@@ -70,14 +70,14 @@ describe("manifest", () => {
     });
   });
 
-  it("métadonnées bilingues dans les limites de Chrome, avec le nom « … pour/for Jira »", () => {
+  it("métadonnées FR/EN/ES dans les limites de Chrome, avec le nom « … pour/for/para Jira »", () => {
     // Limites du Chrome Web Store : nom 75, nom court 12, description 132 caractères.
     expect([...(manifest.short_name as string)].length).toBeLessThanOrEqual(12);
     expect(manifest.default_locale).toBe("en");
     expect(manifest.name).toBe("__MSG_extensionName__");
     expect(manifest.description).toBe("__MSG_extensionDescription__");
     expect(manifest.action).toMatchObject({ default_title: "__MSG_extensionAction__" });
-    for (const language of ["fr", "en"]) {
+    for (const language of ["fr", "en", "es"]) {
       const messages = JSON.parse(
         readFileSync(
           new URL(`../public/_locales/${language}/messages.json`, import.meta.url),
@@ -86,7 +86,7 @@ describe("manifest", () => {
       );
       expect([...messages.extensionName.message].length).toBeLessThanOrEqual(75);
       expect([...messages.extensionDescription.message].length).toBeLessThanOrEqual(132);
-      expect(messages.extensionName.message).toMatch(/ (pour|for) Jira$/);
+      expect(messages.extensionName.message).toMatch(/ (pour|for|para) Jira$/);
       expect(messages.extensionAction.message).toBeTruthy();
     }
   });

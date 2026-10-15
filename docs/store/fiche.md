@@ -1,23 +1,23 @@
-# Publication Chrome Web Store — version bilingue 0.35.1
+# Publication Chrome Web Store — version multilingue 0.35.2
 
 Dossier préparé le **15 octobre 2026** pour mettre à jour l'article existant
 [Sprint Goals Board](https://chromewebstore.google.com/detail/sprint-goals-board-pour-j/pepbknjnielcbfcoefcdmadmomapicgp?hl=fr),
 identifiant `pepbknjnielcbfcoefcdmadmomapicgp`. Rien n'est soumis au Store par la préparation de ce dossier.
 
-Un seul paquet contient le français et l'anglais. Les fiches traduites appartiennent au **même article**.
+Un seul paquet contient le français, l'anglais et l'espagnol. Les fiches traduites appartiennent au **même article**.
 Sprint Planning est désactivé dans ce paquet et ne figure pas dans les descriptions publiques.
 
 ## Textes prêts à copier
 
-Les noms et résumés viennent des fichiers `_locales/fr/messages.json` et `_locales/en/messages.json`
+Les noms et résumés viennent des fichiers `_locales/fr/messages.json`, `_locales/en/messages.json` et `_locales/es/messages.json`
 du paquet. Chaque nom reste sous 75 caractères et chaque résumé sous 132 caractères.
 
-| Champ | Français | English |
-| --- | --- | --- |
-| Nom | Sprint Goals Board pour Jira | Sprint Goals Board for Jira |
-| Résumé | Boards Scrum et Kanban Jira Cloud : swimlanes par objectif, Build et RUN configurables, glisser-déposer et Daily. | Jira Cloud Scrum and Kanban boards: goal swimlanes, configurable Build and RUN lanes, drag and drop, and Daily mode. |
-| Description détaillée | [listing-fr.txt](listing-fr.txt) | [listing-en.txt](listing-en.txt) |
-| Note de version | [release-notes-fr.txt](release-notes-fr.txt) | [release-notes-en.txt](release-notes-en.txt) |
+| Champ | Français | English | Español |
+| --- | --- | --- | --- |
+| Nom | Sprint Goals Board pour Jira | Sprint Goals Board for Jira | Sprint Goals Board para Jira |
+| Résumé | Boards Scrum et Kanban Jira Cloud : swimlanes par objectif, Build et RUN configurables, glisser-déposer et Daily. | Jira Cloud Scrum and Kanban boards: goal swimlanes, configurable Build and RUN lanes, drag and drop, and Daily mode. | Tableros Scrum y Kanban de Jira Cloud: carriles por objetivo, Build y RUN configurables, arrastrar y soltar y Daily. |
+| Description détaillée | [listing-fr.txt](listing-fr.txt) | [listing-en.txt](listing-en.txt) | [listing-es.txt](listing-es.txt) |
+| Note de version | [release-notes-fr.txt](release-notes-fr.txt) | [release-notes-en.txt](release-notes-en.txt) | [release-notes-es.txt](release-notes-es.txt) |
 
 Les notes de version peuvent être ajoutées en fin de description si souhaité : il ne faut pas
 chercher un champ « nouveautés » obligatoire distinct. Les descriptions proposent les mêmes fonctions.
@@ -27,24 +27,26 @@ chercher un champ « nouveautés » obligatoire distinct. Les descriptions propo
 - **Site public** : <https://2nis6mon.github.io/jira-scrum-board-chrome/>.
 - **Manuel français** : <https://2nis6mon.github.io/jira-scrum-board-chrome/guide.html>.
 - **English guide** : <https://2nis6mon.github.io/jira-scrum-board-chrome/en/guide.html>.
-- **Politique de confidentialité proposée** : <https://2nis6mon.github.io/jira-scrum-board-chrome/confidentialite.html>, avec lien vers sa version anglaise.
+- **Guía en español** : <https://2nis6mon.github.io/jira-scrum-board-chrome/es/guide.html>.
+- **Politique de confidentialité proposée** : <https://2nis6mon.github.io/jira-scrum-board-chrome/confidentialite.html>, avec liens vers ses versions anglaise et espagnole.
 - **English privacy policy** : <https://2nis6mon.github.io/jira-scrum-board-chrome/en/privacy.html>.
+- **Política de privacidad en español** : <https://2nis6mon.github.io/jira-scrum-board-chrome/es/privacidad.html>.
 
 Ces nouvelles pages doivent être publiées et accessibles avant de changer les URL du Store.
 La politique historique <https://2nis6mon.github.io/sprint-goals-privacy/> reste une adresse distincte :
 la modifier localement ici ne publie pas ce second site. Aucune adresse du dépôt privé n'est à renseigner.
 
-La langue de l'interface est automatique à partir de Jira (français si Jira est en français, anglais
-sinon), avec choix personnel Auto / Français / English. La langue affichée par Chrome pour le nom et
+La langue de l'interface est automatique à partir de Jira (français si Jira est en français, espagnol
+si Jira est en espagnol, anglais sinon), avec choix personnel Auto / Français / English / Español. La langue affichée par Chrome pour le nom et
 le résumé de l'extension dépend, elle, de Chrome et des métadonnées du paquet (`default_locale: en`).
 Les contenus Jira ne sont pas traduits.
 
-## Images communes aux deux langues
+## Images communes aux trois langues
 
 Les **cinq captures du board restent celles de la version 0.34.9**, avec leurs textes en français,
 conformément au choix de conserver les images. Le [manifeste des captures](captures/captures.json)
 garde leur provenance réelle. Elles montrent l'interface sur des données fictives en mode `package`,
-avec Sprint Planning désactivé. Elles ne sont pas présentées comme de nouvelles captures 0.35.1.
+avec Sprint Planning désactivé. Elles ne sont pas présentées comme de nouvelles captures 0.35.2.
 
 | Fichier | Sujet FR | English caption |
 | --- | --- | --- |
@@ -55,7 +57,7 @@ avec Sprint Planning désactivé. Elles ne sont pas présentées comme de nouvel
 | [05-daily.png](captures/05-daily.png) | Daily guidée par objectifs | A Daily organized by goal |
 
 Dans les captures globales, conserver ces cinq PNG RGB opaques **1280 × 800**, dans cet ordre.
-Pas besoin de créer une seconde série de captures localisées.
+Pas besoin de créer de séries de captures localisées.
 
 | Ressource | Champ du Store | Format |
 | --- | --- | --- |
@@ -77,9 +79,9 @@ Pour régénérer seulement les promotions : `npm run store:promotions`.
 par objectif : consulter et filtrer ses tickets, modifier leur statut, leur rang ou leur rattachement
 et partager les réglages d'affichage du board.
 
-La version bilingue ne demande aucune nouvelle permission. La langue de Jira est consultée pour
+La version multilingue ne demande aucune nouvelle permission. La langue de Jira est consultée pour
 choisir l'interface ; le choix personnel de langue reste dans le navigateur, jamais dans les réglages
-partagés du board. La [politique source](../privacy/index.html) explique ce traitement dans les deux langues.
+partagés du board. La [politique source](../privacy/index.html) explique ce traitement dans les trois langues.
 
 | Permission | Justification à renseigner |
 | --- | --- |
@@ -122,7 +124,7 @@ jamais dans la description publique. Les coordonnées réelles sont à compléte
 Texte anglais à copier dans cet onglet après avoir complété l'environnement :
 
 ```text
-This update adds English and French. It uses the same Jira integration and Chrome permissions.
+This update adds Spanish alongside English and French. It uses the same Jira integration and Chrome permissions.
 
 Test site, Scrum board, Kanban board and test account access: provided separately in this private field by the publisher.
 
@@ -132,33 +134,34 @@ Test site, Scrum board, Kanban board and test account access: provided separatel
 4. Check goals, issues, search and filters. Open an issue and close its native Jira dialog to return to the refreshed board.
 5. Move a test issue to another column. A transition without a form uses the account's Jira permissions. If a form is required, fill it in and submit it yourself; the extension does not do this automatically.
 6. Open Board settings from the board-name menu. Check issue-type swimlanes, card fields and card colors. Try JQL suggestions, validation and preview before applying a valid color rule.
-7. Open Personal preferences from the Jira site menu or the language card in board settings. Select English, then Français. Labels change immediately, while Jira issue content, names and native dialogs keep their original language. The preference is personal and does not change shared settings.
-8. Select Auto. With Jira in French the extension is French; with Jira in English or another language it is English. Reload the Jira page after changing Jira's own language. An unavailable Jira language falls back to English.
+7. Open Personal preferences from the Jira site menu or the language card in board settings. Select English, then Français, then Español. Labels change immediately, while Jira issue content, names and native dialogs keep their original language. The preference is personal and does not change shared settings.
+8. Select Auto. With Jira in French the extension is French; with Jira in Spanish it is Spanish; with Jira in English or another language it is English. Reload the Jira page after changing Jira's own language. An unavailable Jira language falls back to English.
 9. Run Daily, move between swimlanes, then finish the Daily. Open the provided Kanban board and check its goals and issues without a sprint.
 10. Sprint Planning is disabled in the distributed package and cannot be enabled through the interface. Back to Jira returns to the native board; it is hidden while the extension sidebar is collapsed.
 ```
 
 ## Mettre à jour l'article existant, pas à pas
 
-1. Publier le site bilingue et vérifier les liens publics du site, du manuel et de la confidentialité.
+1. Publier le site multilingue et vérifier les liens publics du site, du manuel et de la confidentialité dans les trois langues.
 2. Dans le [Developer Dashboard](https://chrome.google.com/webstore/devconsole), ouvrir l'article
    `pepbknjnielcbfcoefcdmadmomapicgp` avec le compte éditeur habituel.
-3. Dans **Package → Upload New Package**, envoyer **`release/sprint-goals-board-0.35.1.zip`**.
+3. Dans **Package → Upload New Package**, envoyer **`release/sprint-goals-board-0.35.2.zip`**.
    La version doit être supérieure à celle déjà publiée. Utiliser ce paquet produit par
    `npm run package`, jamais un ZIP manuel de `dist/` qui active Sprint Planning.
 4. Dans **Store listing**, sélectionner **Français** puis coller [listing-fr.txt](listing-fr.txt).
-   Sélectionner **English** et coller [listing-en.txt](listing-en.txt). Les deux langues sont
-   proposées grâce aux répertoires `_locales/fr` et `_locales/en` du même paquet.
-5. Conserver les cinq captures globales et l'icône commune. Remplacer les deux tuiles promotionnelles
-   par les nouveaux fichiers sans slogan. Les captures ne demandent pas de traduction.
+   Sélectionner **English** et coller [listing-en.txt](listing-en.txt), puis **Español** et coller
+   [listing-es.txt](listing-es.txt). Les trois langues sont proposées grâce aux répertoires
+   `_locales/fr`, `_locales/en` et `_locales/es` du même paquet.
+5. Conserver les cinq captures globales, l'icône commune et les deux tuiles promotionnelles sans slogan
+   du kit précédent. Les images communes sont inchangées ; aucune traduction n'est nécessaire.
 6. Renseigner les URL publiques, relire **Privacy practices**, puis compléter **Test instructions**
    avec le compte de test et le parcours ci-dessus. Conserver les choix de distribution souhaités.
 7. Enregistrer et choisir **Submit for Review**. Choisir la publication automatique après validation
    ou la publication différée. La version installable ne change qu'après publication.
 
-Le dossier **`release/chrome-store-bilingual-0.35.1/`** regroupe le paquet de l'extension,
+Le dossier **`release/chrome-store-multilingual-0.35.2/`** regroupe le paquet de l'extension,
 les textes et les images. Choisir chaque ressource dans son champ : seul le ZIP
-`sprint-goals-board-0.35.1.zip` est destiné au champ **Package**.
+`sprint-goals-board-0.35.2.zip` est destiné au champ **Package**.
 
 Procédures officielles vérifiées le 15 octobre 2026 :
 [localiser la fiche](https://developer.chrome.com/docs/webstore/cws-dashboard-listing#localize-your-listing),

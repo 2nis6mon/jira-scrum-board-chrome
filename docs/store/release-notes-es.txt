@@ -1,0 +1,8 @@
+Versión 0.35.2 — Español, francés e inglés
+
+• Interfaz en español cuando Jira está en español, en francés cuando está en francés y en inglés para los demás idiomas.
+• Preferencia personal Auto / Français / English / Español para todos los tableros de este navegador, con cambios inmediatos que conservan lo que estás editando.
+• Sitio web, guía de usuario y política de privacidad en español, francés e inglés, con navegación entre los tres idiomas.
+• Los contenidos de Jira y las capturas del tablero mantienen su idioma original.
+
+Sin nuevos permisos de Chrome. Las preferencias de idioma permanecen en tu navegador.

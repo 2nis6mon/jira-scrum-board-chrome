@@ -12,7 +12,7 @@ import {
   planningRevision,
   publishSprintPlanning,
 } from "../../core/sprintPlanning";
-import { getLanguage, localize, t } from "../../i18n";
+import { languageLocale, localize, t } from "../../i18n";
 import type { JiraClient } from "../../jira/client";
 import { isRecord } from "../../jira/json";
 import { estimate, isDoneStatus, type JiraSprint } from "../../jira/models";
@@ -444,7 +444,7 @@ export class PlanningModel implements PlanningViewModel {
     this.notice.value = null;
     const selected = new Set(draft.selectedIssueKeys);
     const issues = this.issues.value.filter((item) => selected.has(item.issue.key));
-    const numbers = new Intl.NumberFormat(getLanguage() === "fr" ? "fr-FR" : "en-GB");
+    const numbers = new Intl.NumberFormat(languageLocale());
     const units = localize(this.estimationLabel);
     const blocks = [
       ...draft.goals.map((goal) => ({ id: goal.id, title: goal.title })),

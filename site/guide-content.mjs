@@ -1,4 +1,4 @@
-// Navigation uniquement : les textes viennent des deux manuels sous docs/.
+// Navigation uniquement : les textes viennent des trois manuels sous docs/.
 // sourceHeading correspond exactement au titre H2 du Markdown, sans les caractères ##.
 export const guideCards = [
   {
@@ -119,9 +119,57 @@ const englishCards = [
   },
 ];
 
+const spanishCards = [
+  {
+    eyebrow: "PRIMEROS PASOS",
+    title: "Instalar la extensión",
+    description: "Añade Sprint Goals a Chrome y tenlo siempre a un clic.",
+  },
+  {
+    eyebrow: "TU ESPACIO",
+    title: "Conectar tu Jira",
+    description: "Autoriza tu sitio y utiliza tu sesión habitual de Jira.",
+  },
+  {
+    eyebrow: "TUS TABLEROS",
+    title: "Añadir un tablero",
+    description: "Abre un tablero existente desde Jira o desde Sprint Goals.",
+  },
+  {
+    eyebrow: "EL DÍA A DÍA",
+    title: "Utilizar el tablero",
+    description: "Consulta, filtra y mueve las incidencias sin perder su contexto.",
+  },
+  {
+    eyebrow: "UN RUMBO COMÚN",
+    title: "Organizar los objetivos",
+    description: "Elige tus objetivos, vincula incidencias y mantén visibles las prioridades.",
+  },
+  {
+    eyebrow: "A TU MANERA",
+    title: "Configurar el tablero",
+    description: "Adapta los carriles, los campos y los colores a tu equipo.",
+  },
+  {
+    eyebrow: "LA REUNIÓN DEL EQUIPO",
+    title: "Dirigir la Daily",
+    description: "Revisa el trabajo carril a carril y facilita la conversación.",
+  },
+  {
+    eyebrow: "UNA AYUDA",
+    title: "Encontrar ayuda",
+    description: "Localiza lo que falta y prepara información útil para resolverlo.",
+  },
+];
+
 export const guideCardsByLanguage = {
   fr: guideCards,
   en: englishCards.map((card, index) => ({
+    ...guideCards[index],
+    ...card,
+    sourceHeading: card.title,
+  })),
+  es: spanishCards.map((card, index) => ({
     ...guideCards[index],
     ...card,
     sourceHeading: card.title,

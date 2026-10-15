@@ -1,8 +1,8 @@
 // Préférence propre au site public, indépendante de celle de l’extension.
 (() => {
   const storageKey = "sprint-goals-site-language";
-  const valid = (value) => value === "fr" || value === "en";
-  const current = document.documentElement.lang === "fr" ? "fr" : "en";
+  const valid = (value) => value === "fr" || value === "en" || value === "es";
+  const current = valid(document.documentElement.lang) ? document.documentElement.lang : "en";
   const url = new URL(location.href);
   const explicit = url.searchParams.get("lang");
   const links = [...document.querySelectorAll("a[data-language]")];
@@ -29,9 +29,12 @@
   try {
     preferred = localStorage.getItem(storageKey);
   } catch {
-    // L’anglais est le repli de toute langue navigateur autre que le français.
+    // La navigation ne dépend pas de l'accès au stockage du navigateur.
   }
-  if (!valid(preferred)) preferred = /^fr(?:-|_|$)/i.test(navigator.language) ? "fr" : "en";
+  if (!valid(preferred)) {
+    const primary = navigator.language.replaceAll("_", "-").toLowerCase().split("-")[0];
+    preferred = valid(primary) ? primary : "en";
+  }
   if (preferred === current) return;
   const link = links.find((candidate) => candidate.dataset.language === preferred);
   if (!link) return;

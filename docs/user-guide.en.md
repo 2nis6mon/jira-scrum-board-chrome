@@ -2,8 +2,8 @@
 
 Eight short guides to help you use your board, organize work around goals and find the right
 settings. Screenshots use sample data. Instructions use the English interface labels; a
-[French version of the guide](manuel-utilisateur.md) is also available. Board screenshots
-remain in French in both versions.
+[French](manuel-utilisateur.md) and [Spanish](user-guide.es.md) versions of the guide are also
+available. Board screenshots remain in French in all three versions.
 
 ## Install the extension
 
@@ -161,10 +161,11 @@ The same choice appears in board settings in a **Personal** panel. It is availab
 Jira administrator rights.
 
 - **Automatic — follow Jira**, the initial choice: French when your Jira is in French,
-  English for every other language. If the Jira language cannot be determined, the
+  Spanish when your Jira is in Spanish, English for every other language. If the Jira language cannot be determined, the
   extension uses English.
 - **Français**: keeps the interface in French, whatever the Jira language.
 - **English**: keeps the interface in English, whatever the Jira language.
+- **Español**: keeps the interface in Spanish, whatever the Jira language.
 
 The change takes effect immediately, without reloading the board or clearing fields you
 are editing. Your choice stays in this browser for all your boards; it is not shared with

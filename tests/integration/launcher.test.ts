@@ -41,6 +41,10 @@ describe("lanceur de Sprint Goals dans Jira", () => {
     ["de", "auto", "en"],
     ["fr", "en", "en"],
     [undefined, "fr", "fr"],
+    ["es_MX", "auto", "es"],
+    ["es-419", "auto", "es"],
+    ["fr", "es", "es"],
+    ["es", "en", "en"],
   ] as const)("langue %s, choix %s, résultat %s", async (locale, preference, expected) => {
     const { model, platform } = setup(
       { url: BOARD, locale: locale ?? null },

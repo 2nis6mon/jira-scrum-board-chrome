@@ -1,4 +1,4 @@
-// Régénère seulement les visuels de marque communs aux fiches FR/EN.
+// Régénère seulement les visuels de marque communs aux fiches FR/EN/ES.
 // Les cinq captures du board restent intactes. Aucun accès réseau ou profil utilisateur.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -83,7 +83,7 @@ try {
     generatedAt: new Date().toISOString(),
     browser: product,
     source: "Composition HTML/CSS : marque SVG, police Manrope et capture 01-board.png inchangée",
-    languages: ["fr", "en"],
+    languages: ["fr", "en", "es"],
     sharedAcrossLocales: true,
     boardCaptureSha256: createHash("sha256")
       .update(readFileSync(join(output, "captures/01-board.png")))
@@ -92,8 +92,8 @@ try {
   };
   // Le tableau court des langues suit le format JSON du dépôt.
   const manifestJson = JSON.stringify(manifest, null, 2).replace(
-    '"languages": [\n    "fr",\n    "en"\n  ]',
-    '"languages": ["fr", "en"]',
+    '"languages": [\n    "fr",\n    "en",\n    "es"\n  ]',
+    '"languages": ["fr", "en", "es"]',
   );
   writeFileSync(join(output, "promotions.json"), `${manifestJson}\n`);
   // Conserver les preuves de capture d'origine ; seules les métadonnées des promotions changent.
@@ -110,7 +110,7 @@ try {
   }
   writeFileSync(captureManifestPath, `${JSON.stringify(captureManifest, null, 2)}\n`);
   console.log(
-    "✓ Promotions communes FR/EN : 440 × 280 et 1400 × 560 ; captures du board inchangées.",
+    "✓ Promotions communes FR/EN/ES : 440 × 280 et 1400 × 560 ; captures du board inchangées.",
   );
 } finally {
   await browser.close();

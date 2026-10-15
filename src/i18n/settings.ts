@@ -365,8 +365,9 @@ export const settingsMessages = {
   "Préférence personnelle, conservée dans ce navigateur pour tous vos boards.":
     "A personal preference stored in this browser for all your boards.",
   "Automatique — suivre Jira": "Automatic — follow Jira",
-  "Automatique : français si Jira est en français, anglais pour toutes les autres langues.":
-    "Automatic: French when Jira is in French, English for every other language.",
+  "Automatique : français si Jira est en français, espagnol si Jira est en espagnol, anglais pour les autres langues.":
+    "Automatic: French when Jira is in French, Spanish when Jira is in Spanish, English for other languages.",
+  Español: "Español",
   "Le changement est immédiat. Les contenus et les fenêtres natives de Jira gardent leur langue.":
     "Changes apply immediately. Jira content and native dialogs keep their own language.",
   "Préférences personnelles": "Personal preferences",

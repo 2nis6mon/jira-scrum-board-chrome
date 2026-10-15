@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 import { Marked } from "marked";
 import { guideCardsByLanguage } from "../site/guide-content.mjs";
 
-const languages = ["fr", "en"];
+const languages = ["fr", "en", "es"];
+const directoryFor = (language) => (language === "fr" ? "" : `${language}/`);
+const privacyFor = (language) =>
+  ({ fr: "confidentialite.html", en: "privacy.html", es: "privacidad.html" })[language];
 const storeUrl = (language) =>
   `https://chromewebstore.google.com/detail/sprint-goals-board-pour-j/pepbknjnielcbfcoefcdmadmomapicgp?hl=${language}`;
 const escapeHtml = (text) =>
@@ -148,10 +151,66 @@ const copy = {
     endNote: "The right guidance, as you work.",
     screenshotNote: "Screenshots use sample data and show the French interface.",
   },
+  es: {
+    titleSuffix: "La guía de Sprint Goals",
+    skip: "Ir al contenido",
+    brand: "Sprint Goals, inicio",
+    navigation: "Navegación principal",
+    guide: "La guía",
+    product: "La extensión",
+    install: "Añadir a Chrome",
+    newTab: "Chrome Web Store, nueva pestaña",
+    language: "Idioma",
+    usefulLinks: "Enlaces útiles",
+    all: "Todas las fichas",
+    privacy: "Privacidad",
+    tagline: "Otra perspectiva. Tu Jira.",
+    enlargeLabel: "ampliar en una nueva pestaña",
+    enlarge: "Ampliar la captura",
+    browse: "Explorar las fichas",
+    outline: "Fichas de la guía",
+    open: "Abrir la ficha",
+    homeTitle: "La guía, a tu ritmo",
+    homeDescription:
+      "Ocho fichas sencillas para instalar Sprint Goals desde Chrome Web Store, conectar Jira y organizar tu tablero por objetivos.",
+    heroEyebrow: "LA GUÍA DE SPRINT GOALS",
+    heroTitle: "Los pasos adecuados.<br><span>En el lugar indicado.</span>",
+    heroDescription:
+      "Desde el primer clic hasta tu próxima Daily.<br>Una pregunta, una ficha. A tu ritmo.",
+    heroNote: "Tu tablero. Tu rumbo.",
+    explore: "EXPLORA LA GUÍA",
+    need: "¿Qué necesitas?",
+    search: "Buscar en las fichas",
+    searchPlaceholder: "Un objetivo, un color, un tablero…",
+    searchClear: "Borrar la búsqueda",
+    count: "8 fichas para empezar",
+    noMatch: "Ninguna ficha coincide con tu búsqueda.",
+    searchExamples: "Prueba con «tablero», «objetivo» o «color».",
+    showAll: "Mostrar todas las fichas",
+    firstBoard: "TU PRIMER TABLERO",
+    firstTitle: "Una nueva perspectiva.<br>Tres primeros pasos.",
+    start: "Empezar",
+    steps: [
+      ["Añadir a Chrome", "Desde la ficha oficial de la tienda."],
+      ["Conectar tu Jira", "Tu sesión, tus permisos."],
+      ["Abrir tu tablero", "Tus objetivos encuentran su lugar."],
+    ],
+    previous: "← Ficha anterior",
+    next: "Ficha siguiente →",
+    exploreLink: "Explorar la guía",
+    guideLabel: "LA GUÍA",
+    stillQuestion: "¿Te queda alguna duda?",
+    contact: "Contactar con el editor",
+    breadcrumb: "Ruta de navegación",
+    inGuide: "En esta guía",
+    pagination: "Fichas anterior y siguiente",
+    endNote: "La orientación que necesitas, mientras trabajas.",
+    screenshotNote: "Las capturas utilizan datos ficticios y muestran la interfaz en francés.",
+  },
 };
 
 export const guidePaths = languages.flatMap((language) => {
-  const directory = language === "en" ? "en/" : "";
+  const directory = directoryFor(language);
   return [
     `${directory}guide.html`,
     ...guideCardsByLanguage[language].map((card) => `${directory}guide/${card.slug}.html`),
@@ -161,11 +220,13 @@ export const guidePaths = languages.flatMap((language) => {
 function layout({ title, description, content, language, slug }) {
   const text = copy[language];
   const article = Boolean(slug);
-  const prefix = `${language === "en" ? "../" : ""}${article ? "../" : ""}`;
+  const prefix = `${language !== "fr" ? "../" : ""}${article ? "../" : ""}`;
   const localPrefix = article ? "../" : "";
   const home = `${localPrefix}index.html${language === "fr" ? "?lang=fr" : ""}`;
   const path = article ? `guide/${slug}.html` : "guide.html";
-  const alternatives = { fr: `${prefix}${path}`, en: `${prefix}en/${path}` };
+  const alternatives = Object.fromEntries(
+    languages.map((item) => [item, `${prefix}${directoryFor(item)}${path}`]),
+  );
   const publicBase = "https://2nis6mon.github.io/jira-scrum-board-chrome/";
   return `<!doctype html>
 <html lang="${language}">
@@ -175,9 +236,10 @@ function layout({ title, description, content, language, slug }) {
   <meta name="theme-color" content="#0b1026">
   <meta name="description" content="${escapeHtml(description)}">
   <title>${escapeHtml(title)} — ${text.titleSuffix}</title>
-  <link rel="canonical" href="${publicBase}${language === "en" ? "en/" : ""}${path}">
+  <link rel="canonical" href="${publicBase}${directoryFor(language)}${path}">
   <link rel="alternate" hreflang="fr" href="${publicBase}${path}">
   <link rel="alternate" hreflang="en" href="${publicBase}en/${path}">
+  <link rel="alternate" hreflang="es" href="${publicBase}es/${path}">
   <link rel="alternate" hreflang="x-default" href="${publicBase}en/${path}">
   <link rel="icon" href="${prefix}assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="${prefix}styles.css">
@@ -193,14 +255,14 @@ function layout({ title, description, content, language, slug }) {
     <div class="guide-header-actions"><nav class="guide-top-links" aria-label="${text.navigation}"><a href="${localPrefix}guide.html"${article ? "" : ' aria-current="page"'}>${text.guide}</a><a class="guide-product-link" href="${home}">${text.product} <span aria-hidden="true">↗</span></a><a class="button button-small button-dark" href="${storeUrl(language)}" target="_blank" rel="noopener noreferrer" aria-label="${text.install} — ${text.newTab}">${text.install} <span aria-hidden="true">↗</span></a></nav><nav class="language-switch" aria-label="${text.language}">${languages.map((item) => `<a href="${alternatives[item]}" lang="${item}" hreflang="${item}" data-language="${item}"${item === language ? ' aria-current="page"' : ""}>${item.toUpperCase()}</a>`).join("")}</nav></div>
   </header>
   <main id="contenu">${content}</main>
-  <footer class="guide-footer section-shell"><a class="brand" href="${home}"><img src="${prefix}assets/brand-mark.svg" width="28" height="28" alt=""><span>Sprint<span class="brand-light">Goals</span></span></a><nav aria-label="${text.usefulLinks}"><a href="${localPrefix}guide.html">${text.all}</a><a href="${localPrefix}${language === "en" ? "privacy.html" : "confidentialite.html"}">${text.privacy}</a><a href="mailto:denis.simon.consulting@gmail.com">Contact ↗</a></nav><small>${text.tagline}</small></footer>
+  <footer class="guide-footer section-shell"><a class="brand" href="${home}"><img src="${prefix}assets/brand-mark.svg" width="28" height="28" alt=""><span>Sprint<span class="brand-light">Goals</span></span></a><nav aria-label="${text.usefulLinks}"><a href="${localPrefix}guide.html">${text.all}</a><a href="${localPrefix}${privacyFor(language)}">${text.privacy}</a><a href="mailto:denis.simon.consulting@gmail.com">${language === "es" ? "Contacto" : "Contact"} ↗</a></nav><small>${text.tagline}</small></footer>
 </body>
 </html>`;
 }
 
 function readSections(language) {
   const cards = guideCardsByLanguage[language];
-  const source = language === "fr" ? "manuel-utilisateur.md" : "user-guide.en.md";
+  const source = language === "fr" ? "manuel-utilisateur.md" : `user-guide.${language}.md`;
   const markdown = readFileSync(new URL(`../docs/${source}`, import.meta.url), "utf8").replaceAll(
     "\r\n",
     "\n",
@@ -229,7 +291,7 @@ function readSections(language) {
 
 function renderBody(markdown, language) {
   const text = copy[language];
-  const prefix = language === "en" ? "../../" : "../";
+  const prefix = language !== "fr" ? "../../" : "../";
   const sectionsByAnchor = new Map(
     guideCardsByLanguage[language].map((card) => [anchor(card.sourceHeading), card.slug]),
   );
@@ -257,8 +319,7 @@ function renderBody(markdown, language) {
       if (token.type !== "link" && token.type !== "image") return;
       if (token.href.startsWith("store/captures/"))
         token.href = token.href.replace("store/captures/", `${prefix}assets/screenshots/`);
-      else if (token.href === "privacy/index.html")
-        token.href = language === "en" ? "../privacy.html" : "../confidentialite.html";
+      else if (token.href === "privacy/index.html") token.href = `../${privacyFor(language)}`;
       else if (token.href.startsWith("#")) {
         const slug = sectionsByAnchor.get(decodeURIComponent(token.href.slice(1)));
         if (slug) token.href = `${slug}.html`;
@@ -332,7 +393,7 @@ export function renderGuidePages() {
   return new Map(
     languages.flatMap((language) => {
       const sections = readSections(language);
-      const directory = language === "en" ? "en/" : "";
+      const directory = directoryFor(language);
       return [
         [`${directory}guide.html`, guideHome(sections, language)],
         ...guideCardsByLanguage[language].map((card, index) => [

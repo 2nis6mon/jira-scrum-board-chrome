@@ -1,3 +1,4 @@
+import { integrationMessagesEs } from "../i18n/es/integration";
 import { integrationMessages } from "../i18n/integration";
 import { LANGUAGE_PREFERENCE_KEY, languagePreference } from "../i18n/language";
 import { sprintGoalsBoardRoute } from "./boardRoute";
@@ -19,7 +20,7 @@ async function launch(tabId: number, address: string): Promise<void> {
     args: [
       chrome.runtime.getURL("board.html"),
       route.address,
-      { preference, messages: integrationMessages },
+      { preference, messages: { en: integrationMessages, es: integrationMessagesEs } },
     ],
   });
 }

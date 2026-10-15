@@ -1,4 +1,5 @@
 import { boardMessages } from "./board";
+import { spanish } from "./es";
 import { integrationMessages } from "./integration";
 import { getLanguage, type Language } from "./language";
 import { businessMessageParameters, businessMessages } from "./messages";
@@ -7,6 +8,7 @@ import { settingsMessages } from "./settings";
 export type { Language, LanguagePreference } from "./language";
 export {
   getLanguage,
+  languageLocale,
   languagePreference,
   normalizeLocale,
   resolveLanguage,
@@ -28,6 +30,11 @@ export const english = {
   ...integrationMessages,
 } as const;
 export type MessageKey = keyof typeof english;
+export { spanish } from "./es";
+
+const translations: Readonly<
+  Record<Exclude<Language, "fr">, Readonly<Record<MessageKey, string>>>
+> = { en: english, es: spanish };
 export type MessageParams = Readonly<Record<string, string | number>>;
 
 function interpolate(template: string, params: MessageParams): string {
@@ -41,7 +48,7 @@ export function translate(
   params: MessageParams = {},
   language = getLanguage(),
 ): string {
-  return interpolate(language === "fr" ? key : english[key], params);
+  return interpolate(language === "fr" ? key : translations[language][key], params);
 }
 
 export const t = translate;
@@ -49,7 +56,7 @@ export const t = translate;
 const escaped = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const patterns = Object.entries(english)
   .filter(([source]) => /\{[a-zA-Z]\w*\}/.test(source))
-  .map(([source, target]) => {
+  .map(([source]) => {
     const names: string[] = [];
     let expression = "";
     let offset = 0;
@@ -63,7 +70,6 @@ const patterns = Object.entries(english)
       expression: new RegExp(`^${expression}$`),
       names,
       source,
-      target,
       weight: source.replace(/\{[^}]+\}/g, "").length,
     };
   })
@@ -81,11 +87,12 @@ export function localize(text: string, language: Language = getLanguage()): stri
 
 function localizeMessage(text: string, language: Language, depth: number): string {
   if (language === "fr" || !text) return text;
-  const exact = Object.hasOwn(english, text)
-    ? (english as Readonly<Record<string, string>>)[text]
+  const dictionary = translations[language];
+  const exact = Object.hasOwn(dictionary, text)
+    ? (dictionary as Readonly<Record<string, string>>)[text]
     : undefined;
   if (exact !== undefined) return exact;
-  for (const { expression, names, source, target } of patterns) {
+  for (const { expression, names, source } of patterns) {
     const match = expression.exec(text);
     if (!match) continue;
     const params = Object.fromEntries(names.map((name, index) => [name, match[index + 1] ?? ""]));
@@ -104,7 +111,7 @@ function localizeMessage(text: string, language: Language, depth: number): strin
         params[name] = translated;
       }
     }
-    return interpolate(target, params);
+    return interpolate(dictionary[source as MessageKey], params);
   }
   return text;
 }

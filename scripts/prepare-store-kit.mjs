@@ -8,7 +8,7 @@ import { crc32, inflateRawSync } from "node:zlib";
 const root = resolve(import.meta.dirname, "..");
 const version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
 assert.match(version, /^\d+\.\d+\.\d+$/);
-const output = join(root, "release", `chrome-store-bilingual-${version}`);
+const output = join(root, "release", `chrome-store-multilingual-${version}`);
 const packageName = `sprint-goals-board-${version}.zip`;
 const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 
@@ -71,7 +71,7 @@ assert.deepEqual(manifest, expectedManifest, "Paquet obsolète : relancer npm ru
 assert.equal(manifest.version, version);
 assert.equal(manifest.default_locale, "en");
 const metadata = {};
-for (const language of ["fr", "en"]) {
+for (const language of ["fr", "en", "es"]) {
   const path = `_locales/${language}/messages.json`;
   assert.ok(entries.has(path), `Langue ${language} absente du paquet`);
   const messages = JSON.parse(entries.get(path).toString());
@@ -88,8 +88,10 @@ for (const file of [
   "fiche.md",
   "listing-fr.txt",
   "listing-en.txt",
+  "listing-es.txt",
   "release-notes-fr.txt",
   "release-notes-en.txt",
+  "release-notes-es.txt",
   "icon-128.png",
   "promo-440x280.png",
   "promo-1400x560.png",
@@ -124,30 +126,31 @@ assert.equal(sha256(files.get("captures/01-board.png")), promotions.boardCapture
 files.set("listing-metadata.json", Buffer.from(`${JSON.stringify(metadata, null, 2)}\n`));
 files.set(
   "LIRE-MOI.txt",
-  Buffer.from(`SPRINT GOALS BOARD — PUBLICATION BILINGUE ${version}
+  Buffer.from(`SPRINT GOALS BOARD — PUBLICATION FR/EN/ES ${version}
 
 Mettre à jour l’article Chrome Web Store existant pepbknjnielcbfcoefcdmadmomapicgp.
 Téléverser UNIQUEMENT ${packageName} dans Package.
 Ce dossier complet n’est pas une archive d’extension à téléverser.
 
-1. Publier d’abord les pages FR/EN du site via le workflow GitHub Pages sur main.
+1. Publier d’abord les pages FR/EN/ES du site via le workflow GitHub Pages sur main.
 2. Dans l’article Store existant, importer le nouveau paquet ci-dessus.
-3. Dans Store listing, vérifier les langues français et anglais et remplir chaque description
-   depuis listing-fr.txt / listing-en.txt. Noms et résumés : listing-metadata.json.
-4. Conserver les cinq captures françaises de captures/ pour les deux langues.
+3. Dans Store listing, vérifier les langues français, anglais et espagnol et remplir chaque description
+   depuis listing-fr.txt / listing-en.txt / listing-es.txt. Noms et résumés : listing-metadata.json.
+4. Conserver les cinq captures françaises de captures/ pour les trois langues.
    Les promotions et l’icône sont communes ; téléverser les PNG dans leurs champs dédiés.
 5. Vérifier les liens publics, Privacy practices et les instructions de revue de fiche.md.
-6. Relire les deux fiches avant de soumettre la mise à jour à Google.
+6. Relire les trois fiches avant de soumettre la mise à jour à Google.
 
 Site : https://2nis6mon.github.io/jira-scrum-board-chrome/
 Guide FR : https://2nis6mon.github.io/jira-scrum-board-chrome/guide.html
 Guide EN : https://2nis6mon.github.io/jira-scrum-board-chrome/en/guide.html
+Guide ES : https://2nis6mon.github.io/jira-scrum-board-chrome/es/guide.html
 Confidentialité : https://2nis6mon.github.io/jira-scrum-board-chrome/confidentialite.html
 
-L’interface suit Jira (français si Jira est en français, anglais sinon), avec choix personnel.
+L’interface suit Jira (français pour fr, espagnol pour es, anglais sinon), avec choix personnel.
 Sprint Planning est désactivé dans ce paquet de distribution.
 Les captures sont celles de ${captures.version}, conservées sans traduction comme demandé.
-Les notes FR/EN peuvent servir aux communications de version ; pas de champ Store obligatoire.
+Les notes FR/EN/ES peuvent servir aux communications de version ; pas de champ Store obligatoire.
 La langue principale existante du Store est conservée. Aucun nouveau produit n’est créé.
 Rien n’a été soumis ni publié automatiquement par ce script.
 `),
@@ -158,7 +161,7 @@ mkdirSync(output, { recursive: true });
 const receipt = {
   version,
   package: packageName,
-  locales: ["fr", "en"],
+  locales: ["fr", "en", "es"],
   screenshotSourceVersion: captures.version,
   files: [],
 };
@@ -169,5 +172,5 @@ for (const [file, data] of files) {
   receipt.files.push({ file, bytes: data.length, sha256: sha256(data) });
 }
 writeFileSync(safePath(join(output, "manifest.json")), `${JSON.stringify(receipt, null, 2)}\n`);
-console.log(`✓ Kit bilingue ${version} : ${relative(root, output)}`);
-console.log(`✓ ${files.size} fichiers contrôlés ; paquet FR/EN et captures inchangées.`);
+console.log(`✓ Kit FR/EN/ES ${version} : ${relative(root, output)}`);
+console.log(`✓ ${files.size} fichiers contrôlés ; paquet FR/EN/ES et captures inchangées.`);

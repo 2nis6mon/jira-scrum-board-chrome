@@ -1,15 +1,16 @@
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { LOAD_SPAN_LABELS } from "../../core/loadTrace";
+import { languageLocale } from "../../i18n";
 import { language, localize, t } from "../i18n";
 import type { LoadDiagnostics, LoadRun, LoadSpan } from "../model/LoadDiagnostics";
 import "../styles/loadDiagnostics.css";
 
 const seconds = (ms: number) =>
-  `${(Math.max(0, ms) / 1_000).toLocaleString(language.value === "fr" ? "fr-FR" : "en-GB", { maximumFractionDigits: 1, minimumFractionDigits: 1 })} s`;
+  `${(Math.max(0, ms) / 1_000).toLocaleString(languageLocale(language.value), { maximumFractionDigits: 1, minimumFractionDigits: 1 })} s`;
 const elapsed = (run: LoadRun, activeElapsed: number) => run.durationMs ?? activeElapsed;
 const runKind = (run: LoadRun) => (run.kind === "opening" ? t("Ouverture") : t("Actualisation"));
 const dateLabel = (run: LoadRun) =>
-  new Date(run.startedAt).toLocaleString(language.value === "fr" ? "fr-FR" : "en-GB");
+  new Date(run.startedAt).toLocaleString(languageLocale(language.value));
 const STATUS_LABEL = {
   loading: "En cours",
   ok: "Terminé",

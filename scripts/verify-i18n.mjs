@@ -1,4 +1,4 @@
-// Vérification FR/EN sur le seul banc fictif, dans un profil Chrome temporaire vierge.
+// Vérification FR/EN/ES sur le seul banc fictif, dans un profil Chrome temporaire vierge.
 // Aucun accès à une session Jira réelle ; aucune écriture de configuration hors du banc.
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -110,12 +110,18 @@ try {
     ["board", "en-US", "en"],
     ["board", "de", "en"],
     ["board", "fr-CA", "fr"],
+    ["board", "es-ES", "es"],
+    ["board", "es-MX", "es"],
+    ["board", "es-419", "es"],
     ["board-kanban", "de", "en"],
+    ["board-kanban", "es", "es"],
   ]) {
     await viewport(1440);
     await open(scenario, locale);
-    const expectedRefresh = language === "fr" ? "Actualiser" : "Refresh";
-    const expectedReturn = language === "fr" ? "Retour à Jira" : "Back to Jira";
+    const expectedRefresh = { fr: "Actualiser", en: "Refresh", es: "Actualizar" }[language];
+    const expectedReturn = { fr: "Retour à Jira", en: "Back to Jira", es: "Volver a Jira" }[
+      language
+    ];
     const observed = await run(`({
       language: document.documentElement.lang,
       refresh: Boolean(document.querySelector('button[aria-label=${JSON.stringify(expectedRefresh)}]')),
@@ -136,9 +142,9 @@ try {
       await viewport(width);
       await checkWidth(`${scenario}, ${locale}, ${width}px`);
     }
-    if (scenario === "board" && locale === "en-US") {
+    if (scenario === "board" && ["en-US", "es-ES"].includes(locale)) {
       await viewport(1440);
-      await capture("i18n-board-en-1440");
+      await capture(`i18n-board-${language}-1440`);
     }
     console.log(`✓ ${scenario} : Jira ${locale} → ${language}, noms Jira conservés, 1440/640 px`);
   }
@@ -168,6 +174,7 @@ try {
   for (const [preference, language, title] of [
     ["fr", "fr", "Réglages du board"],
     ["en", "en", "Board settings"],
+    ["es", "es", "Configuración del tablero"],
     ["auto", "en", "Board settings"],
   ]) {
     await choose(preference, language);
@@ -202,8 +209,16 @@ try {
     await capture(`i18n-settings-en-${width}`);
   }
   console.log(
-    "✓ Préférence FR/EN/Auto à chaud : même champ JQL, validation et brouillon conservés, aucune écriture Jira",
+    "✓ Préférence FR/EN/ES/Auto à chaud : même champ JQL, validation et brouillon conservés, aucune écriture Jira",
   );
+  await choose("es", "es");
+  for (const width of [1440, 640]) {
+    await viewport(width);
+    await checkWidth(`Réglages espagnols ${width}px`);
+    await run("window.scrollTo(0, 0)");
+    await frames();
+    await capture(`i18n-settings-es-${width}`);
+  }
 
   // Les préférences restent accessibles lorsque les réglages du board sont interdits.
   await viewport(1440);
@@ -221,6 +236,7 @@ try {
   );
   const personalWrites = await run("window.__equipe.writes()");
   await choose("fr", "fr");
+  await choose("es", "es");
   await choose("auto", "en");
   assert.equal(await run("window.__equipe.writes()"), personalWrites);
   for (const width of [1440, 640]) {
