@@ -35,9 +35,17 @@ sur cette sortie déjà construite. Aucun compte ni session Jira n'est utilisé.
 ## Contenu généré
 
 - `site/index.html`, `styles.css`, `main.js` et les images/polices de `site/assets/` forment l'accueil.
+- `site/en/index.html` est l'accueil anglais. Les assets, les animations et les captures sont
+  communs. `language.js` et `language.css` gèrent le sélecteur FR/EN : le choix conserve la page
+  consultée et est mémorisé dans `sprint-goals-site-language`, indépendamment de l'extension.
+  Seul l'accueil français sans choix explicite redirige à partir de la préférence mémorisée ou
+  de la langue du navigateur (français → FR, autre langue → EN). Les liens directs vers une
+  fiche respectent toujours leur langue. Les liens fonctionnent aussi sans JavaScript ou stockage.
 - `guide.html` est l’accueil du mini-site d’aide, avec une recherche locale et huit fiches.
   Les pages `guide/*.html` sont générées avec Marked depuis [le manuel utilisateur](manuel-utilisateur.md),
-  source unique des textes. `site/guide-content.mjs` définit uniquement les titres courts, résumés
+  source des textes français. `en/guide.html` et `en/guide/*.html` sont générés depuis le
+  [manuel anglais](user-guide.en.md). Les slugs des huit fiches sont identiques dans les deux
+  langues pour conserver des correspondances stables. `site/guide-content.mjs` définit les titres courts, résumés
   et identifiants de navigation ; `sourceHeading` doit correspondre au H2 du Markdown.
   `guide.css` et `guide.js` portent la présentation et la recherche. L’installation est exclusivement
   décrite depuis le Chrome Web Store ; aucun lien vers le dépôt privé n’est publié.
@@ -50,18 +58,25 @@ sur cette sortie déjà construite. Aucun compte ni session Jira n'est utilisé.
   La même marque est ainsi utilisée dans le site, l’extension et les captures du Store.
   Le générateur produit aussi `docs/store/icon-128.png` : dessin de 96 × 96 centré avec une marge
   transparente de 16 px, identique à l'icône 128 px du paquet.
-- `confidentialite.html` reprend [la politique bilingue](privacy/index.html) sans changer son texte
-  juridique ; un lien de retour au site et une icône d’onglet sont ajoutés.
+- `confidentialite.html` et `en/privacy.html` reprennent respectivement les articles français
+  et anglais de [la politique bilingue](privacy/index.html), sans changer leur texte juridique,
+  avec le branding et le sélecteur de langue du site.
+
+Les 22 pages HTML possèdent une langue, une URL canonique et des alternatives `fr`, `en` et
+`x-default` (anglais). Le contrôle navigateur parcourt les deux versions du manuel, la recherche,
+les démonstrations, les captures, les modes mobile et mouvement réduit, ainsi que la mémorisation
+de langue, le stockage indisponible et les liens sans JavaScript.
 
 Le site ne contient ni `dist/`, ni code source de l'extension, ni paquet ZIP, ni configuration de
 développement. La copie suit une liste de sources explicite ; les liens symboliques/physiques,
 les types de fichiers inattendus, les clés privées et les liens Confluence privés sont refusés.
 Les sorties n'incluent aucune dépendance Node : Marked sert uniquement à la génération.
 
-La [fiche de publication Store](store/fiche.md#images-à-téléverser) décrit les huit visuels du
-dossier `release/chrome-store-rebranding-0.34.9/` : cinq captures, l'icône et les promotions
-440 × 280 et 1400 × 560. Ces promotions sont destinées aux champs du Chrome Web Store ;
-la construction du site conserve son image de partage `site/assets/social-card.png`.
+La [fiche de publication Store](store/fiche.md) décrit le kit
+`release/chrome-store-bilingual-<version>/`, produit par `npm run store:kit` après construction
+du paquet : cinq captures inchangées, l'icône, les promotions communes 440 × 280 et 1400 × 560,
+les textes FR/EN et le ZIP de l'extension. Les images de partage du site sont séparées :
+`site/assets/social-card.png` et `site/assets/social-card-en.png`.
 
 ## Première publication sur GitHub Pages
 
@@ -83,7 +98,9 @@ deux tâches refusent toute branche autre que `main`.
 6. Attendre la réussite de la construction et du déploiement ; ouvrir l'adresse affichée par
    la tâche de déploiement. Pour ce dépôt :
    `https://2nis6mon.github.io/jira-scrum-board-chrome/`.
-7. Vérifier l'accueil, le guide, les cinq captures et le retour depuis la confidentialité.
+7. Vérifier les accueils français et anglais, le sélecteur, les deux guides, les cinq captures
+   communes et le retour depuis les deux pages de confidentialité. L'anglais est accessible
+   directement à `https://2nis6mon.github.io/jira-scrum-board-chrome/en/index.html`.
 
 Pour mettre à jour le site, fusionner les modifications dans `main`, puis relancer ce même
 workflow manuellement. Il ne publie pas l'extension sur le Chrome Web Store.

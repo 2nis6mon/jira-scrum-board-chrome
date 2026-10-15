@@ -311,6 +311,13 @@ p {
   stroke: currentColor;
   stroke-width: 1.6;
 }
+.language-note {
+  margin-top: 13px;
+  max-width: 430px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.8;
+}
 .separator-dot {
   margin: 0 4px;
 }
@@ -1525,14 +1532,80 @@ dialog > img {
 }
 @media (max-width: 850px) {
   .site-header {
-    height: 78px;
+    height: 72px;
+    padding-inline: 22px;
+    flex-wrap: wrap;
   }
   .brand {
     font-size: 21px;
+    gap: 8px;
+  }
+  .brand > img {
+    width: 31px;
+    height: 31px;
+  }
+  .menu-toggle {
+    display: flex;
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: white;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+  }
+  .menu-toggle > span {
+    width: 17px;
+    height: 1px;
+    background: var(--ink);
+    transition: transform 180ms;
+  }
+  .menu-toggle[aria-expanded="true"] > span:first-child {
+    transform: translateY(3px) rotate(45deg);
+  }
+  .menu-toggle[aria-expanded="true"] > span:last-child {
+    transform: translateY(-3px) rotate(-45deg);
   }
   .site-navigation {
-    gap: 20px;
-    font-size: 11px;
+    position: absolute;
+    top: 71px;
+    left: 0;
+    right: 0;
+    background: #fcfcfe;
+    border-bottom: 1px solid var(--line);
+    padding: 18px 24px 25px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    font-size: 13px;
+    box-shadow: 0 20px 35px #0b102612;
+  }
+  .js-enabled .site-navigation:not(.is-open) {
+    display: none;
+  }
+  .site-navigation .button {
+    align-self: flex-start;
+    margin-top: 10px;
+  }
+  .site-navigation .language-switch {
+    align-self: flex-start;
+  }
+  html:not(.js-enabled) .site-header {
+    height: auto;
+    position: relative;
+    padding-block: 16px;
+  }
+  html:not(.js-enabled) .menu-toggle {
+    display: none;
+  }
+  html:not(.js-enabled) .site-navigation {
+    position: static;
+    flex-basis: 100%;
+    padding: 12px 0 0;
+    border: 0;
+    box-shadow: none;
   }
   .hero {
     grid-template-columns: 1fr;
@@ -1732,64 +1805,6 @@ dialog > img {
 @media (max-width: 560px) {
   html {
     scroll-padding-top: 95px;
-  }
-  .site-header {
-    height: 72px;
-    padding-inline: 22px;
-    flex-wrap: wrap;
-  }
-  .brand {
-    font-size: 21px;
-    gap: 8px;
-  }
-  .brand > img {
-    width: 31px;
-    height: 31px;
-  }
-  .menu-toggle {
-    display: flex;
-    width: 42px;
-    height: 42px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: white;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 5px;
-  }
-  .menu-toggle > span {
-    width: 17px;
-    height: 1px;
-    background: var(--ink);
-    transition: transform 180ms;
-  }
-  .menu-toggle[aria-expanded="true"] > span:first-child {
-    transform: translateY(3px) rotate(45deg);
-  }
-  .menu-toggle[aria-expanded="true"] > span:last-child {
-    transform: translateY(-3px) rotate(-45deg);
-  }
-  .site-navigation {
-    position: absolute;
-    top: 71px;
-    left: 0;
-    right: 0;
-    background: #fcfcfe;
-    border-bottom: 1px solid var(--line);
-    padding: 18px 24px 25px;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    font-size: 13px;
-    box-shadow: 0 20px 35px #0b102612;
-  }
-  .js-enabled .site-navigation:not(.is-open) {
-    display: none;
-  }
-  .site-navigation .button {
-    align-self: flex-start;
-    margin-top: 10px;
   }
   .hero {
     padding-top: 48px;

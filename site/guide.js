@@ -1,6 +1,7 @@
 // Recherche locale des fiches : aucune donnée n’est envoyée ni conservée.
 const input = document.querySelector("[data-guide-search]");
 if (input) {
+  const english = document.documentElement.lang === "en";
   const cards = [...document.querySelectorAll("[data-guide-card]")];
   const empty = document.querySelector("[data-guide-empty]");
   const count = document.querySelector("[data-guide-count]");
@@ -17,8 +18,11 @@ if (input) {
     }
     reset.hidden = input.value.length === 0;
     empty.hidden = visible !== 0;
-    count.textContent =
-      terms.length === 0
+    count.textContent = english
+      ? terms.length === 0
+        ? `${cards.length} guides to help you get started`
+        : `${visible} guide${visible === 1 ? "" : "s"} found`
+      : terms.length === 0
         ? `${cards.length} fiches pour prendre vos repères`
         : `${visible} fiche${visible === 1 ? "" : "s"} trouvée${visible === 1 ? "" : "s"}`;
   }

@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-10-15T19:30:28.241Z",
+  "browser": "Chrome/155.0.8059.40",
+  "source": "Composition HTML/CSS : marque SVG, police Manrope et capture 01-board.png inchangée",
+  "languages": ["fr", "en"],
+  "sharedAcrossLocales": true,
+  "boardCaptureSha256": "534032aa0341d25c5b92294e47da23d1090378be7d5bd35b55527e12c4cf76e0",
+  "promotions": [
+    {
+      "file": "promo-440x280.png",
+      "width": 440,
+      "height": 280,
+      "format": "PNG RGB 24 bits, opaque",
+      "bytes": 69368,
+      "sha256": "3dad335b985b0dd03a419514bf8972da3567cdcc4eddce1e81164b97cd78beb4"
+    },
+    {
+      "file": "promo-1400x560.png",
+      "width": 1400,
+      "height": 560,
+      "format": "PNG RGB 24 bits, opaque",
+      "bytes": 204264,
+      "sha256": "8617b875c37cddfe2fca75a65c52359660431cf9d42c1f503a12a721dbb9adbe"
+    }
+  ]
+}

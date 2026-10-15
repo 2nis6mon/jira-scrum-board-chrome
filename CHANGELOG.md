@@ -3,6 +3,15 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.35.1 — Site, manuel et publication bilingues
+
+- Site public disponible en français et en anglais, avec un sélecteur qui conserve la page
+  consultée. L'accueil choisit la langue du navigateur au premier accès, puis mémorise le choix.
+- Manuel en huit fiches dans chaque langue, recherche locale traduite et politique de confidentialité
+  localisée. Les captures du board restent communes et inchangées.
+- Kit Chrome Web Store réunissant le paquet bilingue, les textes FR/EN, les captures existantes,
+  l'icône et les promotions communes. Sprint Planning reste désactivé dans le paquet Store.
+
 ## 0.35.0 — Interface en français et en anglais
 
 - Détection de la langue Jira : français pour les variantes françaises, anglais pour les autres

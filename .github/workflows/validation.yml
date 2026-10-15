@@ -67,3 +67,5 @@ jobs:
         run: npm run site:verify
       - name: Vérifier le paquet de distribution
         run: npm run package
+      - name: Assembler et vérifier le kit Store bilingue
+        run: npm run store:kit

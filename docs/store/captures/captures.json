@@ -152,17 +152,19 @@
     "width": 440,
     "height": 280,
     "format": "PNG RGB 24 bits, opaque",
-    "bytes": 70194,
-    "sha256": "b80037b6b5bc83cb416ec260157f48d0b3530bd03e299ca81e9bc5a6dd75cd45",
-    "source": "Composition HTML/CSS : marque SVG, police Manrope et aperçu de 01-board.png"
+    "bytes": 69368,
+    "sha256": "3dad335b985b0dd03a419514bf8972da3567cdcc4eddce1e81164b97cd78beb4",
+    "generatedAt": "2026-10-15T19:30:28.241Z",
+    "source": "Composition HTML/CSS : marque SVG, police Manrope et capture 01-board.png inchangée"
   },
   "marquee": {
     "file": "../promo-1400x560.png",
     "width": 1400,
     "height": 560,
     "format": "PNG RGB 24 bits, opaque",
-    "bytes": 219715,
-    "sha256": "662e8e183bdf6365f0e9c79dd0d4936998fe35699b05ef14b512985b2d7e1b31",
-    "source": "Composition HTML/CSS : marque SVG, police Manrope et aperçu de 01-board.png"
+    "bytes": 204264,
+    "sha256": "8617b875c37cddfe2fca75a65c52359660431cf9d42c1f503a12a721dbb9adbe",
+    "generatedAt": "2026-10-15T19:30:28.241Z",
+    "source": "Composition HTML/CSS : marque SVG, police Manrope et capture 01-board.png inchangée"
   }
 }

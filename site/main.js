@@ -1,19 +1,39 @@
 // Site de présentation autonome : aucune connexion aux données Jira.
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 document.documentElement.classList.add("js-enabled");
+const french = document.documentElement.lang === "fr";
+const text = french
+  ? {
+      openMenu: "Ouvrir le menu",
+      closeMenu: "Fermer le menu",
+      daily: "Mode Daily",
+      goals: "Vue par objectifs",
+      pause: "Mettre en pause",
+      play: "Lancer l’animation",
+      enlarge: "Agrandir la capture : ",
+    }
+  : {
+      openMenu: "Open menu",
+      closeMenu: "Close menu",
+      daily: "Daily mode",
+      goals: "Goals view",
+      pause: "Pause animation",
+      play: "Play animation",
+      enlarge: "Enlarge screenshot: ",
+    };
 
 const menuButton = document.querySelector(".menu-toggle");
 const navigation = document.querySelector("#site-navigation");
 function closeMenu(returnFocus = false) {
   menuButton.setAttribute("aria-expanded", "false");
-  menuButton.setAttribute("aria-label", "Ouvrir le menu");
+  menuButton.setAttribute("aria-label", text.openMenu);
   navigation.classList.remove("is-open");
   if (returnFocus) menuButton.focus();
 }
 menuButton.addEventListener("click", () => {
   const open = menuButton.getAttribute("aria-expanded") !== "true";
   menuButton.setAttribute("aria-expanded", String(open));
-  menuButton.setAttribute("aria-label", open ? "Fermer le menu" : "Ouvrir le menu");
+  menuButton.setAttribute("aria-label", open ? text.closeMenu : text.openMenu);
   navigation.classList.toggle("is-open", open);
 });
 navigation.addEventListener("click", (event) => {
@@ -76,14 +96,22 @@ const playButton = document.querySelector("[data-demo-play]");
 const playLabel = document.querySelector("[data-play-label]");
 const playSymbol = document.querySelector("[data-play-symbol]");
 const demoProgress = document.querySelector(".demo-progress");
-const descriptions = {
-  goals:
-    "Les objectifs structurent le board. Le travail sans objectif garde sa place dans Build ou RUN.",
-  focus:
-    "Le ticket Support rejoint son objectif. Son type ne change pas : l’objectif est prioritaire sur sa ligne RUN.",
-  daily:
-    "En Daily, l’équipe échange sur un objectif à la fois. Les autres lignes attendent leur tour.",
-};
+const descriptions = french
+  ? {
+      goals:
+        "Les objectifs structurent le board. Le travail sans objectif garde sa place dans Build ou RUN.",
+      focus:
+        "Le ticket Support rejoint son objectif. Son type ne change pas : l’objectif est prioritaire sur sa ligne RUN.",
+      daily:
+        "En Daily, l’équipe échange sur un objectif à la fois. Les autres lignes attendent leur tour.",
+    }
+  : {
+      goals: "Goals give the board structure. Work without a goal keeps its place in Build or RUN.",
+      focus:
+        "The Support issue joins its goal. Its type stays the same: the goal takes priority over its RUN swimlane.",
+      daily:
+        "In Daily mode, the team discusses one goal at a time. Other swimlanes wait their turn.",
+    };
 let currentScene = 0;
 let timer = null;
 let playing = !reducedMotion.matches;
@@ -111,7 +139,7 @@ function chooseScene(name) {
   }
   demoDescription.textContent = descriptions[name];
   document.querySelector("[data-demo-mode]").textContent =
-    name === "daily" ? "Mode Daily" : "Vue par objectifs";
+    name === "daily" ? text.daily : text.goals;
   if (moved && !reducedMotion.matches && demoVisible) {
     const after = movingCard.getBoundingClientRect();
     cardAnimation = movingCard.animate(
@@ -132,7 +160,7 @@ function updatePlayback() {
   timer = null;
   const active = playing && demoVisible && !document.hidden;
   playButton.setAttribute("aria-pressed", String(playing));
-  playLabel.textContent = playing ? "Mettre en pause" : "Lancer l’animation";
+  playLabel.textContent = playing ? text.pause : text.play;
   playSymbol.textContent = playing ? "Ⅱ" : "▶";
   demoProgress.classList.remove("is-playing");
   if (active) {
@@ -193,10 +221,10 @@ function keyboardTabs(tabs, activate) {
 }
 keyboardTabs(sceneTabs, (tab) => manuallyChooseScene(tab.dataset.scene));
 
-const productViews = {
+const productViewsFr = {
   scrum: {
     image: "01-board.png",
-    alt: "Board Scrum organisé par objectifs avec progression et filtres",
+    alt: "Board Scrum organisé par objectifs avec progression et filtres, interface en français",
     kicker: "UN SPRINT, UN CAP",
     title: "Les objectifs donnent le rythme.",
     description:
@@ -205,7 +233,7 @@ const productViews = {
   },
   kanban: {
     image: "02-kanban.png",
-    alt: "Board Kanban avec objectifs Atlassian et lignes par type de ticket",
+    alt: "Board Kanban avec objectifs Atlassian et lignes par type de ticket, interface en français",
     kicker: "LE FLUX GARDE LE CAP",
     title: "Vos objectifs suivent le mouvement.",
     description:
@@ -214,7 +242,7 @@ const productViews = {
   },
   settings: {
     image: "03-swimlanes.png",
-    alt: "Administration des swimlanes : Default, groupes par type et objectifs prioritaires",
+    alt: "Administration des swimlanes en français : Default, groupes par type et objectifs prioritaires",
     kicker: "UNE VUE À VOTRE MESURE",
     title: "Un cadre commun, votre organisation.",
     description:
@@ -222,21 +250,53 @@ const productViews = {
     label: "Réglages des swimlanes",
   },
 };
+const productViewsEn = {
+  scrum: {
+    image: "01-board.png",
+    alt: "Scrum board organized by goals with progress and filters; interface shown in French",
+    kicker: "ONE SPRINT, ONE DIRECTION",
+    title: "Goals set the pace.",
+    description:
+      "See sprint progress, find blocked issues and move between goals without losing context.",
+    label: "Scrum board",
+  },
+  kanban: {
+    image: "02-kanban.png",
+    alt: "Kanban board with Atlassian Goals and swimlanes by issue type; interface shown in French",
+    kicker: "KEEP THE FLOW ON COURSE",
+    title: "Your goals move with the work.",
+    description:
+      "Keep your Kanban filter and columns, with Atlassian Goals and swimlanes for your issue types.",
+    label: "Kanban board",
+  },
+  settings: {
+    image: "03-swimlanes.png",
+    alt: "Swimlane administration in French: Default, groups by type and goal priority",
+    kicker: "A VIEW THAT FITS YOUR TEAM",
+    title: "A shared view, your organization.",
+    description:
+      "Group issue types in swimlanes that fit your team. Goals always come first; settings are shared in Jira.",
+    label: "Swimlane settings",
+  },
+};
+const productViews = french ? productViewsFr : productViewsEn;
 const productTabs = [...document.querySelectorAll("[data-view]")];
 const productImage = document.querySelector("[data-product-image]");
+// L’image initiale fournit le dossier correct, même depuis la version /en/ du site.
+const screenshotDirectory = new URL(".", productImage.src);
 const captureButton = document.querySelector("[data-open-capture]");
 let currentView = "scrum";
 function chooseProduct(name) {
   const view = productViews[name];
   if (!view) return;
   currentView = name;
-  productImage.src = `assets/screenshots/${view.image}`;
+  productImage.src = new URL(view.image, screenshotDirectory).href;
   productImage.alt = view.alt;
   document.querySelector("[data-product-kicker]").textContent = view.kicker;
   document.querySelector("[data-product-title]").textContent = view.title;
   document.querySelector("[data-product-description]").textContent = view.description;
   document.querySelector("#product-panel").setAttribute("aria-labelledby", `view-${name}`);
-  captureButton.setAttribute("aria-label", `Agrandir la capture : ${view.label}`);
+  captureButton.setAttribute("aria-label", `${text.enlarge}${view.label}`);
   for (const tab of productTabs) {
     const selected = tab.dataset.view === name;
     tab.classList.toggle("is-active", selected);
@@ -251,7 +311,7 @@ const dialog = document.querySelector("#capture-dialog");
 captureButton.addEventListener("click", () => {
   const view = productViews[currentView];
   const image = document.querySelector("[data-dialog-image]");
-  image.src = `assets/screenshots/${view.image}`;
+  image.src = new URL(view.image, screenshotDirectory).href;
   image.alt = view.alt;
   document.querySelector("[data-dialog-title]").textContent = view.label;
   dialog.showModal();

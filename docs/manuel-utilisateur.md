@@ -2,7 +2,8 @@
 
 Huit fiches pour prendre en main votre board, organiser le travail par objectifs et retrouver
 les bons réglages. Les captures montrent l'interface avec des données fictives.
-Les instructions utilisent les libellés français ; l'interface est aussi disponible en anglais.
+Les instructions utilisent les libellés français ; une [version anglaise du guide](user-guide.en.md)
+est également disponible. Les captures du board restent en français dans les deux versions.
 
 ## Installer l'extension
 

@@ -1,6 +1,6 @@
 # Guide développeur — Sprint Goals Board pour Jira
 
-Référence technique **0.35.0**, 15 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
+Référence technique **0.35.1**, 15 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
 Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
@@ -434,7 +434,8 @@ saisies sont hors du transport et du journal de l'extension, qui ne les remplit 
 Le site de présentation possède son propre dossier `site/` et ses commandes `site:build`,
 `site:check`, `site:preview` et `site:verify`. Sa sortie `.vite/site-dist/` et son archive
 `release/sprint-goals-site.zip` sont indépendantes du paquet Chrome. Le guide est un mini-site de
-huit fiches générées avec Marked depuis le manuel Markdown, avec recherche locale. Marked reste
+huit fiches par langue générées avec Marked depuis les manuels Markdown FR/EN, avec recherche
+locale. Les pages anglaises sont sous `en/` et partagent les captures françaises. Marked reste
 une dépendance de développement ; aucune bibliothèque n'est embarquée dans le site.
 `node scripts/generate-icons.mjs` dérive les PNG Chrome de la marque SVG, via le navigateur isolé.
 La publication GitHub Pages est manuelle : voir [le guide du site](docs/site-web.md).
@@ -465,6 +466,8 @@ Ce flag ne provient ni de `.env`, ni d'un paramètre d'URL, ni d'une préférenc
 | `npm run verify:loading` | Diagnostic de chargement du banc fictif |
 | `npm run package` | Archive `release/sprint-goals-board-<version>.zip` vérifiée |
 | `npm run store:screenshots` | Cinq captures Store 1280 × 800 du banc en mode `package`, sans Sprint Planning |
+| `npm run store:promotions` | Deux visuels promotionnels communs à toutes les langues, à partir de la capture existante |
+| `npm run store:kit` | Assemble le paquet Store déjà construit, les textes FR/EN et les visuels avec empreintes SHA-256 |
 
 Les vérifications navigateur interceptent Jira dans un profil temporaire vierge ; `CHROME_PATH`
 choisit l'exécutable. `verify:button` autorise deux hôtes fictifs dans une copie temporaire du paquet,

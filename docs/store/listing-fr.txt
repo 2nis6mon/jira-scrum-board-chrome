@@ -1,0 +1,32 @@
+Organisez vos boards Scrum et Kanban par objectif, directement dans Jira Cloud.
+
+Sprint Goals Board donne une place centrale aux résultats attendus. Chaque objectif possède sa swimlane et sa progression. Un ticket rattaché à un objectif visible y apparaît en priorité ; les autres rejoignent Build ou une swimlane par type, comme RUN ou OPS.
+
+VOTRE BOARD, ORGANISÉ PAR OBJECTIF
+• Scrum : retrouvez les tickets des sprints actifs et les objectifs issus du texte Sprint Goal ou des Goals Atlassian.
+• Kanban : retrouvez les tickets du filtre et du sous-filtre du board, avec leurs Goals Atlassian.
+• Gardez visibles les Goals épinglés même sans ticket. Les lignes Build, RUN et OPS vides disparaissent.
+• Personnalisez les swimlanes par type : nom, ordre et visibilité. Dans les réglages, répartissez les types du groupe Default vers leurs swimlanes.
+
+TRAVAILLEZ AVEC VOTRE ÉQUIPE
+• Déplacez les cartes pour changer leur statut, leur rang ou leur objectif. Si plusieurs transitions mènent au même statut, l'extension utilise la première disponible dans l'ordre Jira.
+• Ouvrez les fiches et formulaires de transition natifs Jira. Vous gardez la main sur les champs et leur validation.
+• Retrouvez les sous-tâches avec leur parent. Recherchez et filtrez par personne, type, parent, statut ou label, avec les filtres rapides Jira.
+• Ajoutez des couleurs de cartes à partir de règles JQL : suggestions issues de Jira, validation et aperçu avant application.
+• Animez la Daily en plein écran, une swimlane à la fois, avec minuteur réglable et cartes déplaçables.
+• Partagez les réglages du board dans Jira. Leur modification exige le droit de modifier le board ; les préférences personnelles restent locales.
+
+FRANÇAIS ET ANGLAIS
+L'interface suit la langue de Jira : français si Jira est en français, anglais pour les autres langues. Choisissez aussi Auto, Français ou English dans les préférences personnelles, accessibles depuis le menu Site Jira ou l'administration. Le changement est immédiat. Votre choix reste dans ce navigateur et ne change pas la langue de votre équipe.
+Les contenus de Jira (tickets, objectifs, statuts et noms de boards) restent dans leur langue d'origine. Les fenêtres natives suivent la langue de Jira.
+
+UNE INTÉGRATION DANS VOTRE JIRA
+Installez l'extension depuis le Chrome Web Store, autorisez votre site Jira Cloud et ouvrez un board. L'icône de l'extension ou le bouton Sprint Goals ouvre la vue intégrée ; Retour à Jira retrouve le board habituel.
+L'extension utilise votre session Jira. Aucun serveur de collecte de l'éditeur, aucune mesure d'audience. Elle demande l'accès au site Jira que vous choisissez et respecte vos droits Jira pour les modifications.
+
+Nécessite Chrome 116 ou supérieur, un compte Jira Cloud connecté et l'accès à un board Scrum ou Kanban sur un domaine *.atlassian.net. Les Goals disponibles dépendent des droits et des fonctions exposées par votre site Atlassian. L'extension ne crée ni sprint ni Goal Atlassian.
+
+Manuel : https://2nis6mon.github.io/jira-scrum-board-chrome/guide.html
+Assistance : denis.simon.consulting@gmail.com
+
+Jira et Atlassian sont des marques d'Atlassian. Cette extension n'est ni développée ni approuvée par Atlassian.

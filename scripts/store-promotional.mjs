@@ -16,12 +16,12 @@ export function storePromoHtml({ width, height, logoDataUrl, boardDataUrl, fontD
   );
 
   return `<!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>SprintGoals — Donnez un cap à votre Jira.</title>
+  <title>SprintGoals — Scrum · Kanban</title>
   <style>
     @font-face {
       font-family: "Manrope";
@@ -78,41 +78,29 @@ export function storePromoHtml({ width, height, logoDataUrl, boardDataUrl, fontD
     }
     .brand {
       position: absolute;
-      top: 60px;
+      top: 118px;
       left: 64px;
       display: flex;
       align-items: center;
       gap: 18px;
       color: #f6f7fb;
-      font-size: 36px;
+      font-size: 56px;
       font-weight: 800;
       letter-spacing: -1.7px;
       line-height: 1;
       white-space: nowrap;
     }
-    .brand img { display: block; width: 60px; height: 60px; }
+    .brand img { display: block; width: 86px; height: 86px; }
     .brand-light { font-weight: 500; }
-    h1 {
-      position: absolute;
-      left: 60px;
-      top: 184px;
-      margin: 0;
-      font-size: 65px;
-      font-weight: 750;
-      line-height: 1.1;
-      letter-spacing: -3.4px;
-    }
-    h1 > span { display: block; }
-    h1 em { color: #b7f5d0; font-style: normal; }
     .modes {
       position: absolute;
-      top: 390px;
-      left: 65px;
+      top: 235px;
+      left: 170px;
       display: flex;
       align-items: center;
       gap: 13px;
       color: #b6bfd9;
-      font-size: 18px;
+      font-size: 25px;
       font-weight: 550;
       letter-spacing: 0.3px;
     }
@@ -134,12 +122,11 @@ export function storePromoHtml({ width, height, logoDataUrl, boardDataUrl, fontD
     .compact .orbit { width: 420px; height: 420px; top: -252px; right: -210px; }
     .compact .orbit::after { inset: -38px; }
     .compact .accent { width: 210px; height: 210px; right: -90px; bottom: -115px; }
-    .compact .brand { top: 24px; left: 25px; gap: 12px; font-size: 27px; letter-spacing: -1.25px; }
-    .compact .brand img { width: 40px; height: 40px; }
-    .compact h1 { top: 84px; left: 25px; font-size: 33px; line-height: 1.1; letter-spacing: -1.45px; }
-    .compact .modes { display: none; }
+    .compact .brand { top: 25px; left: 25px; gap: 14px; font-size: 35px; letter-spacing: -1.25px; }
+    .compact .brand img { width: 48px; height: 48px; }
+    .compact .modes { top: 83px; left: 88px; font-size: 15px; gap: 11px; }
     .compact .board {
-      top: 176px;
+      top: 140px;
       left: 45px;
       width: 452px;
       height: 290px;
@@ -161,9 +148,8 @@ export function storePromoHtml({ width, height, logoDataUrl, boardDataUrl, fontD
       <img src="${logo}" alt="" width="64" height="64">
       <span>Sprint<span class="brand-light">Goals</span></span>
     </div>
-    <h1><span>Donnez un cap</span><span>à votre <em>Jira.</em></span></h1>
     <div class="modes"><span>Scrum</span><span class="dot" aria-hidden="true"></span><span>Kanban</span></div>
-    <div class="board"><img src="${board}" alt="Aperçu réel du board SprintGoals organisé par objectifs"></div>
+    <div class="board"><img src="${board}" alt="SprintGoals board preview"></div>
   </main>
 </body>
 </html>`;

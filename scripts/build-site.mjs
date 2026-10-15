@@ -38,8 +38,18 @@ const assetExtensions = new Set([
   ".ttf",
   ".txt",
 ]);
-const generatedFiles = [...guidePaths, "confidentialite.html", ".nojekyll"];
-const sourceFiles = ["index.html", "styles.css", "main.js", "guide.css", "guide.js"];
+const privacyPaths = { fr: "confidentialite.html", en: "en/privacy.html" };
+const generatedFiles = [...guidePaths, ...Object.values(privacyPaths), ".nojekyll"];
+const sourceFiles = [
+  "index.html",
+  "en/index.html",
+  "styles.css",
+  "main.js",
+  "guide.css",
+  "guide.js",
+  "language.css",
+  "language.js",
+];
 
 function assertPlainPath(path) {
   const resolved = resolve(path);
@@ -75,6 +85,7 @@ function sourceAssets(directory = join(root, "site", "assets")) {
 
 function inventory() {
   assertPlainPath(join(root, "docs", "manuel-utilisateur.md"));
+  assertPlainPath(join(root, "docs", "user-guide.en.md"));
   const sources = new Map(sourceFiles.map((file) => [file, join(root, "site", file)]));
   for (const file of sourceAssets()) {
     const target = relative(join(root, "site"), file).replaceAll("\\", "/");
@@ -97,19 +108,50 @@ const decodeEntities = (value) =>
     .replaceAll("&lt;", "<")
     .replaceAll("&gt;", ">");
 
-function privacyHtml() {
+function privacyHtml(language) {
   const file = join(root, "docs", "privacy", "index.html");
   assertPlainPath(file);
   const original = readFileSync(file, "utf8");
-  if (!original.includes("<main>") || !original.includes("</head>"))
-    throw new Error("Structure de la politique de confidentialité inconnue.");
-  // Navigation et icône uniquement ; le document juridique reste intact, styles compris.
-  return original
-    .replace("</head>", '<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">\n</head>')
-    .replace(
-      "<main>",
-      '<main>\n<p class="site-return"><a href="index.html">← Retour au site Sprint Goals Board</a></p>',
-    );
+  const article = original.match(
+    new RegExp(`<article id="${language}" lang="${language}">[\\s\\S]*?</article>`),
+  )?.[0];
+  if (!article) throw new Error("Structure de la politique de confidentialité inconnue.");
+  // Le texte juridique de chaque article est repris à l’identique dans son habillage localisé.
+  const prefix = language === "en" ? "../" : "";
+  const title = language === "fr" ? "Politique de confidentialité" : "Privacy policy";
+  const back = language === "fr" ? "Retour au site" : "Back to the website";
+  const label = language === "fr" ? "Langue du site" : "Website language";
+  const base = "https://2nis6mon.github.io/jira-scrum-board-chrome/";
+  return `<!doctype html>
+<html lang="${language}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title} — Sprint Goals Board</title>
+  <meta name="description" content="${language === "fr" ? "Données, stockage et permissions de Sprint Goals Board pour Jira Cloud." : "Data, storage and permissions of Sprint Goals Board for Jira Cloud."}">
+  <link rel="canonical" href="${base}${privacyPaths[language]}">
+  <link rel="alternate" hreflang="fr" href="${base}confidentialite.html">
+  <link rel="alternate" hreflang="en" href="${base}en/privacy.html">
+  <link rel="alternate" hreflang="x-default" href="${base}en/privacy.html">
+  <link rel="icon" href="${prefix}assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="${prefix}styles.css">
+  <link rel="stylesheet" href="${prefix}language.css">
+  <script src="${prefix}language.js" defer></script>
+</head>
+<body class="privacy-page">
+  <header class="privacy-header">
+    <a class="brand" href="index.html?lang=${language}"><img src="${prefix}assets/brand-mark.svg" alt="" width="36" height="36">Sprint Goals Board</a>
+    <nav class="language-switch" aria-label="${label}">
+      <a href="${prefix}confidentialite.html" data-language="fr" lang="fr" hreflang="fr"${language === "fr" ? ' aria-current="page"' : ""}>FR</a>
+      <a href="${prefix}en/privacy.html" data-language="en" lang="en" hreflang="en"${language === "en" ? ' aria-current="page"' : ""}>EN</a>
+    </nav>
+  </header>
+  <main><a class="privacy-return" href="index.html?lang=${language}">← ${back}</a>
+${article}
+  </main>
+</body>
+</html>
+`;
 }
 
 function outputFiles(directory = SITE_DIRECTORY) {
@@ -170,13 +212,24 @@ export function checkSite() {
     if (file.endsWith(".html") || file.endsWith(".svg")) {
       if (/github\.com\/2nis6mon|raw\.githubusercontent\.com\/2nis6mon/i.test(text))
         throw new Error(`Référence au dépôt privé dans la page publique : ${file}`);
-      if (file === "guide.html" || file.startsWith("guide/")) {
+      if (/^(?:en\/)?guide(?:\.html|\/)/.test(file)) {
         if (
-          /référence fonctionnelle|\.zip\b|chrome:\/\/extensions|dist\/|\.\/DEVELOPER\.md/i.test(
+          /référence fonctionnelle|functional reference|\.zip\b|chrome:\/\/extensions|dist\/|\.\/DEVELOPER\.md/i.test(
             text,
           )
         )
           throw new Error(`Instruction réservée au développement dans le guide public : ${file}`);
+      }
+      if (file.endsWith(".html")) {
+        const language = file.startsWith("en/") ? "en" : "fr";
+        if (!text.includes(`<html lang="${language}">`))
+          throw new Error(`Langue HTML incorrecte : ${file}`);
+        for (const alternate of ["fr", "en", "x-default"])
+          if (!text.includes(`hreflang="${alternate}"`))
+            throw new Error(`Alternative ${alternate} absente : ${file}`);
+        for (const targetLanguage of ["fr", "en"])
+          if (!text.includes(`data-language="${targetLanguage}"`))
+            throw new Error(`Sélecteur ${targetLanguage} absent : ${file}`);
       }
       for (const name of ["href", "src", "poster"])
         for (const value of attributes(text, name)) checkLink(value, file);
@@ -192,8 +245,11 @@ export function checkSite() {
   for (const [file, content] of renderGuidePages())
     if (html.get(file) !== content)
       throw new Error(`Fiche générée différente du manuel source : ${file}`);
-  if (html.get("confidentialite.html") !== privacyHtml())
-    throw new Error("La politique générée ne correspond pas au texte juridique source.");
+  for (const [language, file] of Object.entries(privacyPaths))
+    if (html.get(file) !== privacyHtml(language))
+      throw new Error(
+        `La politique ${language} générée ne correspond pas au texte juridique source.`,
+      );
   console.log(
     `✓ Site vérifié : ${files.length} fichiers publics, ${links} liens locaux et ancres valides.`,
   );
@@ -258,7 +314,10 @@ function createArchive(files) {
 export function buildSite() {
   const sources = inventory();
   const guides = renderGuidePages();
-  const privacy = privacyHtml();
+  const privacy = Object.entries(privacyPaths).map(([language, file]) => [
+    file,
+    privacyHtml(language),
+  ]);
   const temporaryRoot = join(root, ".vite");
   mkdirSync(temporaryRoot, { recursive: true });
   assertPlainPath(temporaryRoot);
@@ -279,7 +338,10 @@ export function buildSite() {
     mkdirSync(dirname(join(SITE_DIRECTORY, file)), { recursive: true });
     writeFileSync(join(SITE_DIRECTORY, file), content);
   }
-  writeFileSync(join(SITE_DIRECTORY, "confidentialite.html"), privacy);
+  for (const [file, content] of privacy) {
+    mkdirSync(dirname(join(SITE_DIRECTORY, file)), { recursive: true });
+    writeFileSync(join(SITE_DIRECTORY, file), content);
+  }
   writeFileSync(join(SITE_DIRECTORY, ".nojekyll"), "");
   const result = checkSite();
   createArchive(result.files);

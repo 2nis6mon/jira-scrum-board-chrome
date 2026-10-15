@@ -1,0 +1,8 @@
+Version 0.35.1 — Français et anglais
+
+• Interface bilingue : français lorsque Jira est en français, anglais pour les autres langues.
+• Préférence personnelle Auto / Français / English, commune aux boards de ce navigateur, modifiable immédiatement sans perdre les saisies.
+• Site et manuel d'utilisation disponibles en français et en anglais, avec navigation entre les deux langues.
+• Les contenus Jira et les captures du board conservent leur langue d'origine.
+
+Aucune nouvelle autorisation Chrome. Les préférences de langue restent dans votre navigateur.

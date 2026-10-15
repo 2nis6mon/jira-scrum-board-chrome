@@ -103,7 +103,7 @@ async function resize(session, width, height) {
   );
 }
 
-async function navigate(session, path = "") {
+async function navigate(session, path = "index.html?lang=fr") {
   const url = new URL(path, server.url).href;
   const response = await fetch(url, { redirect: "error" });
   checked(response.status === 200, `${new URL(url).pathname} répond 200`);
@@ -226,6 +226,7 @@ async function checkPageImages(session) {
 }
 
 async function checkStoreLinks(session, minimum = 1) {
+  const language = await evaluate(session, "document.documentElement.lang");
   const links = await evaluate(
     session,
     `([...document.querySelectorAll('a[href]')].map(link => ({
@@ -242,7 +243,11 @@ async function checkStoreLinks(session, minimum = 1) {
   );
   checked(storeLinks.length >= minimum, "L’installation est accessible depuis le Chrome Web Store");
   for (const link of storeLinks) {
-    assert.equal(link.href, chromeStore, "Le lien doit viser la fiche Store fournie");
+    assert.equal(
+      link.href,
+      chromeStore.replace("hl=fr", `hl=${language}`),
+      "Le lien doit viser la fiche Store dans la langue de la page",
+    );
     if (link.cta || link.target === "_blank") {
       assert.equal(link.target, "_blank", "Le bouton Store ouvre la fiche dans un nouvel onglet");
       assert.ok(link.rel.split(/\s+/).includes("noopener"), "Le nouvel onglet est isolé");
@@ -251,11 +256,13 @@ async function checkStoreLinks(session, minimum = 1) {
   }
 }
 
-async function checkGuide(session) {
-  await navigate(session, "guide.html");
+async function checkGuide(session, language = "fr") {
+  const prefix = language === "en" ? "en/" : "";
+  const localizedPages = guidePages.map((path) => `${prefix}${path}`);
+  await navigate(session, `${prefix}guide.html`);
   await checkStoreLinks(session);
   await noOverflow(session, "Accueil du guide 390 px");
-  await screenshot(session, "site-guide-mobile.png");
+  await screenshot(session, `site-guide-${language}-mobile.png`);
   await resize(session, 1440, 1000);
   await noOverflow(session, "Accueil du guide 1440 px");
   const cards = await evaluate(
@@ -264,7 +271,7 @@ async function checkGuide(session) {
   );
   assert.deepEqual(
     [...cards].sort(),
-    guidePages.map((path) => new URL(path, server.url).href).sort(),
+    localizedPages.map((path) => new URL(path, server.url).href).sort(),
     "Le guide présente exactement les huit fiches prévues",
   );
   checked(
@@ -274,7 +281,7 @@ async function checkGuide(session) {
     ),
     "Le nombre de résultats de recherche est annoncé de manière accessible",
   );
-  await screenshot(session, "site-guide-desktop.png");
+  await screenshot(session, `site-guide-${language}-desktop.png`);
   const visibleCards =
     "[...document.querySelectorAll('[data-guide-card]')].filter(card => !card.hidden)";
   await click(session, "[data-guide-search]");
@@ -311,19 +318,21 @@ async function checkGuide(session) {
   );
 
   const titles = new Set();
-  for (const path of guidePages) {
+  for (const path of localizedPages) {
     await navigate(session, path);
     await resize(session, 1440, 1000);
     const article = await evaluate(
       session,
       `(() => ({
         title:document.querySelector('article.guide-article h1')?.textContent.trim(),
-        current:[...document.querySelectorAll('a[aria-current="page"]')].map(link => link.href),
-        hub:[...document.querySelectorAll('a[href]')].some(link => link.href === ${JSON.stringify(new URL("guide.html", server.url).href)}),
+        current:[...document.querySelectorAll('a[aria-current="page"]:not([data-language])')].map(link => link.href),
+        hub:[...document.querySelectorAll('a[href]')].some(link => link.href === ${JSON.stringify(new URL(`${prefix}guide.html`, server.url).href)}),
+        language:document.documentElement.lang,
         text:document.body.innerText
       }))()`,
     );
     assert.ok(article.title, `La fiche ${path} possède un titre principal`);
+    assert.equal(article.language, language, "La fiche est dans la langue choisie");
     titles.add(article.title);
     assert.ok(article.hub, `La fiche ${path} permet de revenir au guide`);
     assert.ok(article.current.length > 0, `La fiche ${path} est indiquée dans la navigation`);
@@ -342,11 +351,12 @@ async function checkGuide(session) {
     await checkStoreLinks(session);
     await checkPageImages(session);
     await noOverflow(session, `${path} 1440 px`);
-    if (path === guidePages[0]) await screenshot(session, "site-guide-article-desktop.png");
+    if (path === localizedPages[0])
+      await screenshot(session, `site-guide-article-${language}-desktop.png`);
     await resize(session, 390, 844);
     await noOverflow(session, `${path} 390 px`);
-    if (path !== guidePages[0]) continue;
-    await screenshot(session, "site-guide-article-mobile.png");
+    if (path !== localizedPages[0]) continue;
+    await screenshot(session, `site-guide-article-${language}-mobile.png`);
     const summary = await evaluate(
       session,
       "document.querySelector('details.guide-mobile-outline summary')?.textContent.trim()",
@@ -382,6 +392,91 @@ async function checkGuide(session) {
     titles.size === 8,
     "Les huit fiches ont un contenu identifié et une navigation cohérente",
   );
+}
+
+async function checkLanguageNavigation(session) {
+  await resize(session, 1440, 1000);
+  await navigate(session, "en/guide/administration.html");
+  await click(session, 'a[data-language="fr"]');
+  await waitFor(
+    session,
+    "location.pathname.endsWith('/guide/administration.html') && !location.pathname.includes('/en/') && document.documentElement.lang === 'fr' && document.readyState === 'complete'",
+    "Changer de langue conserve la fiche administration",
+  );
+  assert.equal(await evaluate(session, "localStorage.getItem('sprint-goals-site-language')"), "fr");
+  await click(session, 'a[data-language="en"]');
+  await waitFor(
+    session,
+    "location.pathname.endsWith('/en/guide/administration.html') && document.documentElement.lang === 'en' && document.readyState === 'complete'",
+    "Le retour anglais retrouve la même fiche",
+  );
+  await browser.navigateToHarness(session, server.url);
+  await waitFor(
+    session,
+    "location.pathname.endsWith('/en/index.html') && document.readyState === 'complete'",
+    "L’accueil mémorise le choix anglais",
+  );
+  await navigate(session, "guide/administration.html");
+  assert.equal(
+    await evaluate(session, "document.documentElement.lang"),
+    "fr",
+    "Un lien direct français est respecté malgré la préférence anglaise",
+  );
+  await click(session, '.guide-header a[href$="index.html?lang=fr"]');
+  await waitFor(
+    session,
+    "document.documentElement.lang === 'fr' && location.search.includes('lang=fr') && document.readyState === 'complete'",
+    "Le retour au site depuis une fiche française conserve le français",
+  );
+  await evaluate(session, "localStorage.removeItem('sprint-goals-site-language')");
+  for (const [locale, expected] of [
+    ["fr-CA", "fr"],
+    ["de-DE", "en"],
+  ]) {
+    const { identifier } = await send(
+      "Page.addScriptToEvaluateOnNewDocument",
+      {
+        source: `Object.defineProperty(navigator, 'language', {get: () => ${JSON.stringify(locale)}});`,
+      },
+      session,
+    );
+    await browser.navigateToHarness(session, server.url);
+    await waitFor(
+      session,
+      `document.readyState === 'complete' && document.documentElement.lang === '${expected}'`,
+      `Accueil automatique ${locale} → ${expected}`,
+    );
+    await send("Page.removeScriptToEvaluateOnNewDocument", { identifier }, session);
+    await evaluate(session, "localStorage.removeItem('sprint-goals-site-language')");
+  }
+  const { identifier } = await send(
+    "Page.addScriptToEvaluateOnNewDocument",
+    {
+      source:
+        "Object.defineProperty(window, 'localStorage', {get() { throw new DOMException('Blocked', 'SecurityError'); }});",
+    },
+    session,
+  );
+  await navigate(session, "en/index.html");
+  await click(session, 'a[data-language="fr"]');
+  await waitFor(
+    session,
+    "document.documentElement.lang === 'fr' && location.search.includes('lang=fr') && document.readyState === 'complete'",
+    "Le choix explicite fonctionne même sans stockage local",
+  );
+  await send("Page.removeScriptToEvaluateOnNewDocument", { identifier }, session);
+  await send("Emulation.setScriptExecutionDisabled", { value: true }, session);
+  try {
+    await navigate(session, "en/guide/demarrer.html");
+    await click(session, 'a[data-language="fr"]');
+    await waitFor(
+      session,
+      "document.documentElement.lang === 'fr' && location.pathname.endsWith('/guide/demarrer.html') && document.readyState === 'complete'",
+      "Les liens de langue fonctionnent aussi sans JavaScript",
+    );
+  } finally {
+    await send("Emulation.setScriptExecutionDisabled", { value: false }, session);
+  }
 }
 
 try {
@@ -544,7 +639,8 @@ try {
   await screenshot(desktop, "site-preview-mobile.png");
 
   await checkGuide(desktop);
-  for (const path of ["confidentialite.html"]) {
+  await checkGuide(desktop, "en");
+  for (const path of ["confidentialite.html", "en/privacy.html"]) {
     await navigate(desktop, path);
     await noOverflow(desktop, `${path} 390 px`);
     if (path === "guide.html") await checkPageImages(desktop);
@@ -552,6 +648,42 @@ try {
     await noOverflow(desktop, `${path} 1440 px`);
     await resize(desktop, 390, 844);
   }
+
+  await resize(desktop, 1440, 1000);
+  await navigate(desktop, "en/index.html");
+  await checkStoreLinks(desktop, 3);
+  await noOverflow(desktop, "Accueil anglais 1440 px");
+  await screenshot(desktop, "site-preview-en-desktop.png");
+  for (const scene of ["goals", "focus", "daily"]) {
+    await click(desktop, `[data-scene='${scene}']`);
+    const text = await evaluate(
+      desktop,
+      "document.querySelector('[data-demo-description]').textContent",
+    );
+    assert.doesNotMatch(
+      text,
+      /objectifs|équipe|réunion|tickets terminés/i,
+      "La démonstration anglaise ne reprend pas les légendes françaises",
+    );
+  }
+  await click(desktop, "[data-view='settings']");
+  await checkPageImages(desktop);
+  await resize(desktop, 390, 844);
+  await noOverflow(desktop, "Accueil anglais 390 px");
+  await screenshot(desktop, "site-preview-en-mobile.png");
+  await click(desktop, menuSelector);
+  await waitFor(
+    desktop,
+    "document.querySelector('.menu-toggle').getAttribute('aria-expanded') === 'true'",
+    "Le menu anglais expose le choix de langue sur mobile",
+  );
+  await click(desktop, 'a[data-language="fr"]');
+  await waitFor(
+    desktop,
+    "document.documentElement.lang === 'fr' && document.readyState === 'complete'",
+    "Changer de langue depuis le menu mobile ouvre le français",
+  );
+  await checkLanguageNavigation(desktop);
 
   const reduced = await createPage(1440, 1000, true);
   await navigate(reduced);

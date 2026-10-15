@@ -1,10 +1,11 @@
-// Le Markdown reste la source unique des fiches ; ce module porte leur présentation.
+// Chaque manuel reste la source des fiches dans sa langue ; ce module porte leur présentation.
 import { readFileSync } from "node:fs";
 import { Marked } from "marked";
-import { guideCards } from "../site/guide-content.mjs";
+import { guideCardsByLanguage } from "../site/guide-content.mjs";
 
-const storeUrl =
-  "https://chromewebstore.google.com/detail/sprint-goals-board-pour-j/pepbknjnielcbfcoefcdmadmomapicgp?hl=fr";
+const languages = ["fr", "en"];
+const storeUrl = (language) =>
+  `https://chromewebstore.google.com/detail/sprint-goals-board-pour-j/pepbknjnielcbfcoefcdmadmomapicgp?hl=${language}`;
 const escapeHtml = (text) =>
   text
     .replaceAll("&", "&amp;")
@@ -33,39 +34,177 @@ const symbols = {
 const icon = (name) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${symbols[name] ?? symbols.help}</svg>`;
 
-export const guidePaths = ["guide.html", ...guideCards.map((card) => `guide/${card.slug}.html`)];
+const copy = {
+  fr: {
+    titleSuffix: "Le guide Sprint Goals",
+    skip: "Aller au contenu",
+    brand: "Sprint Goals, accueil",
+    navigation: "Navigation principale",
+    guide: "Le guide",
+    product: "Le plugin",
+    install: "Installer sur Chrome",
+    newTab: "Chrome Web Store, nouvel onglet",
+    language: "Langue",
+    usefulLinks: "Liens utiles",
+    all: "Toutes les fiches",
+    privacy: "Confidentialité",
+    tagline: "Une autre vue. Votre Jira.",
+    enlargeLabel: "agrandir dans un nouvel onglet",
+    enlarge: "Agrandir la capture",
+    browse: "Parcourir les fiches",
+    outline: "Les fiches du guide",
+    open: "Ouvrir la fiche",
+    homeTitle: "Le guide, à votre rythme",
+    homeDescription:
+      "Huit fiches simples pour installer Sprint Goals depuis le Chrome Web Store, connecter Jira et organiser votre board par objectifs.",
+    heroEyebrow: "LE GUIDE SPRINT GOALS",
+    heroTitle: "Les bons gestes.<br><span>Au bon endroit.</span>",
+    heroDescription:
+      "Du premier clic à votre prochaine Daily.<br>Une question, une fiche. À votre rythme.",
+    heroNote: "Votre board. Votre cap.",
+    explore: "EXPLOREZ LE GUIDE",
+    need: "De quoi avez-vous besoin ?",
+    search: "Rechercher dans les fiches",
+    searchPlaceholder: "Un objectif, une couleur, un board…",
+    searchClear: "Effacer la recherche",
+    count: "8 fiches pour prendre vos repères",
+    noMatch: "Aucune fiche ne correspond.",
+    searchExamples: "Essayez « board », « objectif » ou « couleur ».",
+    showAll: "Afficher toutes les fiches",
+    firstBoard: "VOTRE PREMIER BOARD",
+    firstTitle: "Un nouveau regard.<br>Trois premiers pas.",
+    start: "Je commence",
+    steps: [
+      ["Installer dans Chrome", "Depuis la fiche officielle du Store."],
+      ["Connecter votre Jira", "Votre session, vos droits."],
+      ["Ouvrir votre board", "Vos objectifs prennent leur place."],
+    ],
+    previous: "← Fiche précédente",
+    next: "Fiche suivante →",
+    exploreLink: "Explorer le guide",
+    guideLabel: "LE GUIDE",
+    stillQuestion: "Une question reste ouverte ?",
+    contact: "Contacter l’éditeur",
+    breadcrumb: "Fil d’Ariane",
+    inGuide: "Dans le guide",
+    pagination: "Fiches précédente et suivante",
+    endNote: "Les bons repères, au fil du travail.",
+    screenshotNote:
+      "Les captures utilisent des données fictives et montrent l’interface en français.",
+  },
+  en: {
+    titleSuffix: "The Sprint Goals guide",
+    skip: "Skip to content",
+    brand: "Sprint Goals, home",
+    navigation: "Main navigation",
+    guide: "The guide",
+    product: "The extension",
+    install: "Add to Chrome",
+    newTab: "Chrome Web Store, new tab",
+    language: "Language",
+    usefulLinks: "Useful links",
+    all: "All guides",
+    privacy: "Privacy",
+    tagline: "A fresh view. Your Jira.",
+    enlargeLabel: "enlarge in a new tab",
+    enlarge: "Enlarge screenshot",
+    browse: "Browse the guides",
+    outline: "Guides",
+    open: "Open the guide",
+    homeTitle: "The guide, at your own pace",
+    homeDescription:
+      "Eight short guides to install Sprint Goals from the Chrome Web Store, connect Jira and organize your board around goals.",
+    heroEyebrow: "THE SPRINT GOALS GUIDE",
+    heroTitle: "The right steps.<br><span>In the right place.</span>",
+    heroDescription:
+      "From your first click to your next Daily.<br>One question, one guide. At your own pace.",
+    heroNote: "Your board. Your direction.",
+    explore: "EXPLORE THE GUIDE",
+    need: "What do you need?",
+    search: "Search the guides",
+    searchPlaceholder: "A goal, a color, a board…",
+    searchClear: "Clear search",
+    count: "8 guides to help you get started",
+    noMatch: "No guides match your search.",
+    searchExamples: "Try “board”, “goal” or “color”.",
+    showAll: "Show all guides",
+    firstBoard: "YOUR FIRST BOARD",
+    firstTitle: "A fresh perspective.<br>Three first steps.",
+    start: "Get started",
+    steps: [
+      ["Add to Chrome", "From the official Store listing."],
+      ["Connect your Jira", "Your session, your permissions."],
+      ["Open your board", "Give your goals their place."],
+    ],
+    previous: "← Previous guide",
+    next: "Next guide →",
+    exploreLink: "Explore the guide",
+    guideLabel: "THE GUIDE",
+    stillQuestion: "Still have a question?",
+    contact: "Contact the publisher",
+    breadcrumb: "Breadcrumb",
+    inGuide: "In this guide",
+    pagination: "Previous and next guides",
+    endNote: "The right guidance, as you work.",
+    screenshotNote: "Screenshots use sample data and show the French interface.",
+  },
+};
 
-function layout({ title, description, content, prefix = "", article = false }) {
+export const guidePaths = languages.flatMap((language) => {
+  const directory = language === "en" ? "en/" : "";
+  return [
+    `${directory}guide.html`,
+    ...guideCardsByLanguage[language].map((card) => `${directory}guide/${card.slug}.html`),
+  ];
+});
+
+function layout({ title, description, content, language, slug }) {
+  const text = copy[language];
+  const article = Boolean(slug);
+  const prefix = `${language === "en" ? "../" : ""}${article ? "../" : ""}`;
+  const localPrefix = article ? "../" : "";
+  const home = `${localPrefix}index.html${language === "fr" ? "?lang=fr" : ""}`;
+  const path = article ? `guide/${slug}.html` : "guide.html";
+  const alternatives = { fr: `${prefix}${path}`, en: `${prefix}en/${path}` };
+  const publicBase = "https://2nis6mon.github.io/jira-scrum-board-chrome/";
   return `<!doctype html>
-<html lang="fr">
+<html lang="${language}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b1026">
   <meta name="description" content="${escapeHtml(description)}">
-  <title>${escapeHtml(title)} — Le guide Sprint Goals</title>
+  <title>${escapeHtml(title)} — ${text.titleSuffix}</title>
+  <link rel="canonical" href="${publicBase}${language === "en" ? "en/" : ""}${path}">
+  <link rel="alternate" hreflang="fr" href="${publicBase}${path}">
+  <link rel="alternate" hreflang="en" href="${publicBase}en/${path}">
+  <link rel="alternate" hreflang="x-default" href="${publicBase}en/${path}">
   <link rel="icon" href="${prefix}assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="${prefix}styles.css">
   <link rel="stylesheet" href="${prefix}guide.css">
+  <link rel="stylesheet" href="${prefix}language.css">
+  <script src="${prefix}language.js" defer></script>
   <script src="${prefix}guide.js" defer></script>
 </head>
 <body class="guide-page${article ? " guide-detail-page" : ""}">
-  <a class="skip-link" href="#contenu">Aller au contenu</a>
+  <a class="skip-link" href="#contenu">${text.skip}</a>
   <header class="site-header guide-header">
-    <a class="brand" href="${prefix}index.html" aria-label="Sprint Goals, accueil"><img src="${prefix}assets/brand-mark.svg" width="36" height="36" alt=""><span>Sprint<span class="brand-light">Goals</span></span></a>
-    <nav class="guide-top-links" aria-label="Navigation principale"><a href="${prefix}guide.html"${article ? "" : ' aria-current="page"'}>Le guide</a><a class="guide-product-link" href="${prefix}index.html">Le plugin <span aria-hidden="true">↗</span></a><a class="button button-small button-dark" href="${storeUrl}" target="_blank" rel="noopener noreferrer" aria-label="Installer sur Chrome — Chrome Web Store, nouvel onglet">Installer sur Chrome <span aria-hidden="true">↗</span></a></nav>
+    <a class="brand" href="${home}" aria-label="${text.brand}"><img src="${prefix}assets/brand-mark.svg" width="36" height="36" alt=""><span>Sprint<span class="brand-light">Goals</span></span></a>
+    <div class="guide-header-actions"><nav class="guide-top-links" aria-label="${text.navigation}"><a href="${localPrefix}guide.html"${article ? "" : ' aria-current="page"'}>${text.guide}</a><a class="guide-product-link" href="${home}">${text.product} <span aria-hidden="true">↗</span></a><a class="button button-small button-dark" href="${storeUrl(language)}" target="_blank" rel="noopener noreferrer" aria-label="${text.install} — ${text.newTab}">${text.install} <span aria-hidden="true">↗</span></a></nav><nav class="language-switch" aria-label="${text.language}">${languages.map((item) => `<a href="${alternatives[item]}" lang="${item}" hreflang="${item}" data-language="${item}"${item === language ? ' aria-current="page"' : ""}>${item.toUpperCase()}</a>`).join("")}</nav></div>
   </header>
   <main id="contenu">${content}</main>
-  <footer class="guide-footer section-shell"><a class="brand" href="${prefix}index.html"><img src="${prefix}assets/brand-mark.svg" width="28" height="28" alt=""><span>Sprint<span class="brand-light">Goals</span></span></a><nav aria-label="Liens utiles"><a href="${prefix}guide.html">Toutes les fiches</a><a href="${prefix}confidentialite.html">Confidentialité</a><a href="mailto:denis.simon.consulting@gmail.com">Contact ↗</a></nav><small>Une autre vue. Votre Jira.</small></footer>
+  <footer class="guide-footer section-shell"><a class="brand" href="${home}"><img src="${prefix}assets/brand-mark.svg" width="28" height="28" alt=""><span>Sprint<span class="brand-light">Goals</span></span></a><nav aria-label="${text.usefulLinks}"><a href="${localPrefix}guide.html">${text.all}</a><a href="${localPrefix}${language === "en" ? "privacy.html" : "confidentialite.html"}">${text.privacy}</a><a href="mailto:denis.simon.consulting@gmail.com">Contact ↗</a></nav><small>${text.tagline}</small></footer>
 </body>
 </html>`;
 }
 
-function readSections() {
-  const markdown = readFileSync(
-    new URL("../docs/manuel-utilisateur.md", import.meta.url),
-    "utf8",
-  ).replaceAll("\r\n", "\n");
+function readSections(language) {
+  const cards = guideCardsByLanguage[language];
+  const source = language === "fr" ? "manuel-utilisateur.md" : "user-guide.en.md";
+  const markdown = readFileSync(new URL(`../docs/${source}`, import.meta.url), "utf8").replaceAll(
+    "\r\n",
+    "\n",
+  );
   const headings = [...markdown.matchAll(/^## (.+)$/gm)];
   const sections = new Map(
     headings.map((heading, index) => [
@@ -75,20 +214,24 @@ function readSections() {
         .trim(),
     ]),
   );
-  if (sections.size !== guideCards.length || headings.length !== guideCards.length)
-    throw new Error("Le manuel doit contenir exactement une section par fiche du guide.");
-  for (const card of guideCards) {
+  if (sections.size !== cards.length || headings.length !== cards.length)
+    throw new Error(
+      `Le manuel ${language} doit contenir exactement une section par fiche du guide.`,
+    );
+  for (const card of cards) {
     if (!/^[a-z]+(?:-[a-z]+)*$/.test(card.slug) || !sections.has(card.sourceHeading))
-      throw new Error(`Fiche du guide invalide ou absente : ${card.slug}`);
+      throw new Error(`Fiche du guide ${language} invalide ou absente : ${card.slug}`);
   }
-  if (new Set(guideCards.map((card) => card.slug)).size !== guideCards.length)
-    throw new Error("Identifiants de fiches dupliqués.");
+  if (new Set(cards.map((card) => card.slug)).size !== cards.length)
+    throw new Error(`Identifiants de fiches dupliqués (${language}).`);
   return sections;
 }
 
-function renderBody(markdown) {
+function renderBody(markdown, language) {
+  const text = copy[language];
+  const prefix = language === "en" ? "../../" : "../";
   const sectionsByAnchor = new Map(
-    guideCards.map((card) => [anchor(card.sourceHeading), card.slug]),
+    guideCardsByLanguage[language].map((card) => [anchor(card.sourceHeading), card.slug]),
   );
   const ids = new Map();
   const parser = new Marked({
@@ -106,15 +249,16 @@ function renderBody(markdown) {
       html({ text }) {
         return escapeHtml(text);
       },
-      image({ href, text }) {
-        return `<a class="guide-image-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(text)} — agrandir dans un nouvel onglet"><img src="${escapeHtml(href)}" alt="${escapeHtml(text)}" width="1280" height="800" loading="lazy"><span>Agrandir la capture <span aria-hidden="true">↗</span></span></a>`;
+      image({ href, text: alt }) {
+        return `<a class="guide-image-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(alt)} — ${text.enlargeLabel}"><img src="${escapeHtml(href)}" alt="${escapeHtml(alt)}" width="1280" height="800" loading="lazy"><span>${text.enlarge} <span aria-hidden="true">↗</span></span></a>`;
       },
     },
     walkTokens(token) {
       if (token.type !== "link" && token.type !== "image") return;
       if (token.href.startsWith("store/captures/"))
-        token.href = token.href.replace("store/captures/", "../assets/screenshots/");
-      else if (token.href === "privacy/index.html") token.href = "../confidentialite.html";
+        token.href = token.href.replace("store/captures/", `${prefix}assets/screenshots/`);
+      else if (token.href === "privacy/index.html")
+        token.href = language === "en" ? "../privacy.html" : "../confidentialite.html";
       else if (token.href.startsWith("#")) {
         const slug = sectionsByAnchor.get(decodeURIComponent(token.href.slice(1)));
         if (slug) token.href = `${slug}.html`;
@@ -124,60 +268,78 @@ function renderBody(markdown) {
   return parser.parse(markdown);
 }
 
-function outline(card, mobile = false) {
-  const links = guideCards
+function outline(card, language, mobile = false) {
+  const text = copy[language];
+  const links = guideCardsByLanguage[language]
     .map(
       (item) =>
         `<a href="${item.slug}.html"${item.slug === card.slug ? ' aria-current="page"' : ""}><span>${escapeHtml(item.number)}</span>${escapeHtml(item.title)}${item.slug === card.slug ? '<i aria-hidden="true">↗</i>' : ""}</a>`,
     )
     .join("");
-  return `<nav class="guide-outline-links" aria-label="${mobile ? "Parcourir les fiches" : "Les fiches du guide"}">${links}</nav>`;
+  return `<nav class="guide-outline-links" aria-label="${mobile ? text.browse : text.outline}">${links}</nav>`;
 }
 
-function guideHome(sections) {
-  const cards = guideCards
+function guideHome(sections, language) {
+  const text = copy[language];
+  const cards = guideCardsByLanguage[language]
     .map((card) => {
       const keywords =
         `${card.title} ${card.description} ${sections.get(card.sourceHeading)}`.replace(
           /!\[[^\]]*\]\([^)]*\)/g,
           "",
         );
-      return `<a class="guide-card" data-guide-card data-guide-keywords="${escapeHtml(keywords)}" href="guide/${card.slug}.html"><div class="guide-card-meta"><span class="guide-card-icon">${icon(card.icon)}</span><span>${escapeHtml(card.number)} / ${escapeHtml(card.eyebrow)}</span></div><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.description)}</p><span class="guide-card-action">Ouvrir la fiche <span aria-hidden="true">↗</span></span></a>`;
+      return `<a class="guide-card" data-guide-card data-guide-keywords="${escapeHtml(keywords)}" href="guide/${card.slug}.html"><div class="guide-card-meta"><span class="guide-card-icon">${icon(card.icon)}</span><span>${escapeHtml(card.number)} / ${escapeHtml(card.eyebrow)}</span></div><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.description)}</p><span class="guide-card-action">${text.open} <span aria-hidden="true">↗</span></span></a>`;
     })
     .join("\n");
+  const steps = text.steps
+    .map(
+      ([title, description], index) =>
+        `<li><span>0${index + 1}</span><a href="guide/${guideCardsByLanguage[language][index].slug}.html"><strong>${title}</strong><small>${description}</small></a></li>`,
+    )
+    .join("");
   return layout({
-    title: "Le guide, à votre rythme",
-    description:
-      "Huit fiches simples pour installer Sprint Goals depuis le Chrome Web Store, connecter Jira et organiser votre board par objectifs.",
-    content: `<section class="guide-hero section-shell"><p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> LE GUIDE SPRINT GOALS</p><h1>Les bons gestes.<br><span>Au bon endroit.</span></h1><div class="guide-hero-bottom"><p>Du premier clic à votre prochaine Daily.<br>Une question, une fiche. À votre rythme.</p><span class="guide-hero-note"><span aria-hidden="true">◎</span> Votre board. Votre cap.</span></div></section>
-    <section class="guide-library section-shell" aria-labelledby="fiches-title"><div class="guide-library-heading"><div><p class="eyebrow">EXPLOREZ LE GUIDE</p><h2 id="fiches-title">De quoi avez-vous besoin ?</h2></div><form class="guide-search" role="search"><label class="guide-sr-only" for="guide-search">Rechercher dans les fiches</label><span aria-hidden="true">⌕</span><input id="guide-search" data-guide-search type="search" placeholder="Un objectif, une couleur, un board…" autocomplete="off"><button data-guide-reset type="button" aria-label="Effacer la recherche" hidden>×</button></form></div><p class="guide-result-count" data-guide-count role="status" aria-live="polite">8 fiches pour prendre vos repères</p><div class="guide-grid">${cards}</div><div class="guide-empty" data-guide-empty hidden><span aria-hidden="true">⌕</span><h3>Aucune fiche ne correspond.</h3><p>Essayez « board », « objectif » ou « couleur ».</p><button type="button" data-guide-show-all>Afficher toutes les fiches <span aria-hidden="true">↗</span></button></div></section>
-    <section class="guide-start section-shell"><div class="guide-start-inner"><div><p class="eyebrow eyebrow-mint">VOTRE PREMIER BOARD</p><h2>Un nouveau regard.<br>Trois premiers pas.</h2><a class="button button-mint" href="guide/demarrer.html">Je commence <span aria-hidden="true">↗</span></a></div><ol><li><span>01</span><a href="guide/demarrer.html"><strong>Installer dans Chrome</strong><small>Depuis la fiche officielle du Store.</small></a></li><li><span>02</span><a href="guide/connecter-jira.html"><strong>Connecter votre Jira</strong><small>Votre session, vos droits.</small></a></li><li><span>03</span><a href="guide/ajouter-board.html"><strong>Ouvrir votre board</strong><small>Vos objectifs prennent leur place.</small></a></li></ol></div></section>`,
+    language,
+    title: text.homeTitle,
+    description: text.homeDescription,
+    content: `<section class="guide-hero section-shell"><p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> ${text.heroEyebrow}</p><h1>${text.heroTitle}</h1><div class="guide-hero-bottom"><p>${text.heroDescription}</p><span class="guide-hero-note"><span aria-hidden="true">◎</span> ${text.heroNote}</span></div></section>
+    <section class="guide-library section-shell" aria-labelledby="fiches-title"><div class="guide-library-heading"><div><p class="eyebrow">${text.explore}</p><h2 id="fiches-title">${text.need}</h2></div><form class="guide-search" role="search"><label class="guide-sr-only" for="guide-search">${text.search}</label><span aria-hidden="true">⌕</span><input id="guide-search" data-guide-search type="search" placeholder="${text.searchPlaceholder}" autocomplete="off"><button data-guide-reset type="button" aria-label="${text.searchClear}" hidden>×</button></form></div><p class="guide-result-count" data-guide-count role="status" aria-live="polite">${text.count}</p><div class="guide-grid">${cards}</div><div class="guide-empty" data-guide-empty hidden><span aria-hidden="true">⌕</span><h3>${text.noMatch}</h3><p>${text.searchExamples}</p><button type="button" data-guide-show-all>${text.showAll} <span aria-hidden="true">↗</span></button></div></section>
+    <section class="guide-start section-shell"><div class="guide-start-inner"><div><p class="eyebrow eyebrow-mint">${text.firstBoard}</p><h2>${text.firstTitle}</h2><a class="button button-mint" href="guide/demarrer.html">${text.start} <span aria-hidden="true">↗</span></a></div><ol>${steps}</ol></div></section>`,
   });
 }
 
-function guideArticle(card, index, body) {
-  const prev = guideCards[index - 1];
-  const next = guideCards[index + 1];
+function guideArticle(card, index, body, language) {
+  const text = copy[language];
+  const cards = guideCardsByLanguage[language];
+  const previous = cards[index - 1];
+  const next = cards[index + 1];
   const stepLink = (item, direction) =>
     item
-      ? `<a href="${item.slug}.html"><small>${direction === "prev" ? "← Fiche précédente" : "Fiche suivante →"}</small><strong>${escapeHtml(item.title)}</strong></a>`
-      : '<a href="../guide.html"><small>← Explorer le guide</small><strong>Toutes les fiches</strong></a>';
+      ? `<a href="${item.slug}.html"><small>${direction === "prev" ? text.previous : text.next}</small><strong>${escapeHtml(item.title)}</strong></a>`
+      : `<a href="../guide.html"><small>← ${text.exploreLink}</small><strong>${text.all}</strong></a>`;
+  const screenshotNote = body.includes("store/captures/")
+    ? `<p class="guide-screenshot-note">${text.screenshotNote}</p>`
+    : "";
   return layout({
+    language,
+    slug: card.slug,
     title: card.title,
     description: card.description,
-    prefix: "../",
-    article: true,
-    content: `<div class="guide-reading-shell section-shell"><aside class="guide-sidebar"><a class="guide-back" href="../guide.html">← Toutes les fiches</a><p class="eyebrow">LE GUIDE</p>${outline(card)}<div class="guide-sidebar-help"><span aria-hidden="true">↗</span><p>Une question reste ouverte ?</p><a href="mailto:denis.simon.consulting@gmail.com">Contacter l’éditeur</a></div></aside><div class="guide-reading"><nav class="guide-breadcrumb" aria-label="Fil d’Ariane"><a href="../guide.html">Le guide</a><span aria-hidden="true">/</span><span>${escapeHtml(card.title)}</span></nav><details class="guide-mobile-outline"><summary>Dans le guide <span aria-hidden="true">↓</span></summary>${outline(card, true)}</details><article class="guide-article"><header class="guide-article-heading"><p class="eyebrow"><span class="guide-fiche-number">${escapeHtml(card.number)}</span> ${escapeHtml(card.eyebrow)}</p><h1>${escapeHtml(card.title)}</h1><p>${escapeHtml(card.description)}</p></header><div class="guide-prose">${renderBody(body)}</div></article><nav class="guide-pagination" aria-label="Fiches précédente et suivante">${stepLink(prev, "prev")}${stepLink(next, "next")}</nav><div class="guide-end-note"><span aria-hidden="true">◎</span><p>Les bons repères, au fil du travail.</p><a href="../guide.html">Explorer le guide ↗</a></div></div></div>`,
+    content: `<div class="guide-reading-shell section-shell"><aside class="guide-sidebar"><a class="guide-back" href="../guide.html">← ${text.all}</a><p class="eyebrow">${text.guideLabel}</p>${outline(card, language)}<div class="guide-sidebar-help"><span aria-hidden="true">↗</span><p>${text.stillQuestion}</p><a href="mailto:denis.simon.consulting@gmail.com">${text.contact}</a></div></aside><div class="guide-reading"><nav class="guide-breadcrumb" aria-label="${text.breadcrumb}"><a href="../guide.html">${text.guide}</a><span aria-hidden="true">/</span><span>${escapeHtml(card.title)}</span></nav><details class="guide-mobile-outline"><summary>${text.inGuide} <span aria-hidden="true">↓</span></summary>${outline(card, language, true)}</details><article class="guide-article"><header class="guide-article-heading"><p class="eyebrow"><span class="guide-fiche-number">${escapeHtml(card.number)}</span> ${escapeHtml(card.eyebrow)}</p><h1>${escapeHtml(card.title)}</h1><p>${escapeHtml(card.description)}</p></header><div class="guide-prose">${screenshotNote}${renderBody(body, language)}</div></article><nav class="guide-pagination" aria-label="${text.pagination}">${stepLink(previous, "prev")}${stepLink(next, "next")}</nav><div class="guide-end-note"><span aria-hidden="true">◎</span><p>${text.endNote}</p><a href="../guide.html">${text.exploreLink} ↗</a></div></div></div>`,
   });
 }
 
 export function renderGuidePages() {
-  const sections = readSections();
-  return new Map([
-    ["guide.html", guideHome(sections)],
-    ...guideCards.map((card, index) => [
-      `guide/${card.slug}.html`,
-      guideArticle(card, index, sections.get(card.sourceHeading)),
-    ]),
-  ]);
+  return new Map(
+    languages.flatMap((language) => {
+      const sections = readSections(language);
+      const directory = language === "en" ? "en/" : "";
+      return [
+        [`${directory}guide.html`, guideHome(sections, language)],
+        ...guideCardsByLanguage[language].map((card, index) => [
+          `${directory}guide/${card.slug}.html`,
+          guideArticle(card, index, sections.get(card.sourceHeading), language),
+        ]),
+      ];
+    }),
+  );
 }

@@ -1,0 +1,8 @@
+Version 0.35.1 — English and French
+
+• Bilingual interface: French when Jira is in French, English for other languages.
+• Personal Auto / Français / English preference across boards in this browser, with immediate changes that preserve work in progress.
+• Website and user guide available in English and French, with navigation between languages.
+• Jira content and board screenshots keep their original language.
+
+No new Chrome permissions. Language preferences stay in your browser.
