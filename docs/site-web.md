@@ -35,11 +35,17 @@ sur cette sortie déjà construite. Aucun compte ni session Jira n'est utilisé.
 ## Contenu généré
 
 - `site/index.html`, `styles.css`, `main.js` et les images/polices de `site/assets/` forment l'accueil.
-- `guide.html` est généré avec Marked depuis [le manuel complet](manuel-utilisateur.md) : tableaux,
-  sommaire, captures et annexe locale sont conservés. Modifier le Markdown source pour le mettre à jour.
+- `guide.html` est l’accueil du mini-site d’aide, avec une recherche locale et huit fiches.
+  Les pages `guide/*.html` sont générées avec Marked depuis [le manuel utilisateur](manuel-utilisateur.md),
+  source unique des textes. `site/guide-content.mjs` définit uniquement les titres courts, résumés
+  et identifiants de navigation ; `sourceHeading` doit correspondre au H2 du Markdown.
+  `guide.css` et `guide.js` portent la présentation et la recherche. L’installation est exclusivement
+  décrite depuis le Chrome Web Store ; aucun lien vers le dépôt privé n’est publié.
 - Les cinq captures de `docs/store/captures/` sont copiées dans `assets/screenshots/`. Elles montrent
-  des données fictives ; leur version de référence reste celle indiquée dans le manuel.
+  des données fictives ; leur version et leur provenance figurent dans `captures.json`, non publié.
 - Les icônes publiques de `public/icons/` sont copiées dans `assets/icons/`.
+  Elles sont dérivées de `site/assets/brand-mark.svg` avec `node scripts/generate-icons.mjs`.
+  La même marque est ainsi utilisée dans le site, l’extension et les captures du Store.
 - `confidentialite.html` reprend [la politique bilingue](privacy/index.html) sans changer son texte
   juridique ; un lien de retour au site et une icône d’onglet sont ajoutés.
 

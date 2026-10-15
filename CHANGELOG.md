@@ -3,6 +3,16 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.34.8 — Marque commune et guide par fiches
+
+- Nouvelle icône du plugin alignée sur le site, dans toutes les tailles Chrome ; captures et
+  promotion du Store actualisées avec cette marque.
+- Manuel simplifié en huit fiches, présentées dans un mini-site avec recherche, navigation et
+  mise en page adaptée au mobile, dans le style du site de présentation.
+- Installation exclusivement depuis la fiche officielle Chrome Web Store ; références au dépôt
+  privé, installation locale et informations de version techniques retirées du guide public.
+- Vérification automatique de toutes les fiches, de la recherche et des liens d’installation.
+
 ## 0.34.7 — Site de présentation prêt pour GitHub Pages
 
 - Site public avec nouvelle identité visuelle, police locale, animations au défilement,

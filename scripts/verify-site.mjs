@@ -7,6 +7,18 @@ import { launchIsolatedBrowser, sleep } from "./browser-check.mjs";
 import { startPreviewServer } from "./preview-site.mjs";
 
 const output = fileURLToPath(new URL("../.vite/", import.meta.url));
+const chromeStore =
+  "https://chromewebstore.google.com/detail/sprint-goals-board-pour-j/pepbknjnielcbfcoefcdmadmomapicgp?hl=fr";
+const guidePages = [
+  "demarrer",
+  "connecter-jira",
+  "ajouter-board",
+  "utiliser-board",
+  "objectifs",
+  "administration",
+  "daily",
+  "aide",
+].map((name) => `guide/${name}.html`);
 mkdirSync(output, { recursive: true });
 rmSync(`${output}site-preview-failure.png`, { force: true });
 const server = await startPreviewServer({ port: 0 });
@@ -36,11 +48,18 @@ const pump = setInterval(async () => {
       const target = new URL(request.url);
       const allowed = target.origin === origin || target.protocol === "data:";
       if (!allowed) blocked.push(request.url);
-      await send(
-        allowed ? "Fetch.continueRequest" : "Fetch.failRequest",
-        allowed ? { requestId } : { requestId, errorReason: "BlockedByClient" },
-        event.sessionId,
-      );
+      const method = allowed ? "Fetch.continueRequest" : "Fetch.failRequest";
+      try {
+        await send(
+          method,
+          allowed ? { requestId } : { requestId, errorReason: "BlockedByClient" },
+          event.sessionId,
+        );
+      } catch (error) {
+        // Une navigation peut annuler une ressource avant sa reprise. Son identifiant
+        // n'existe alors plus ; une tentative externe reste enregistrée dans blocked.
+        if (error.message !== `${method} : Invalid InterceptionId.`) throw error;
+      }
     }
   } catch (error) {
     interceptionErrors.push(error.message);
@@ -206,10 +225,170 @@ async function checkPageImages(session) {
   checked(images.length > 0, "Les images locales et leurs textes alternatifs sont présents");
 }
 
+async function checkStoreLinks(session, minimum = 1) {
+  const links = await evaluate(
+    session,
+    `([...document.querySelectorAll('a[href]')].map(link => ({
+      href:link.href,target:link.target,rel:link.rel,cta:link.classList.contains('button'),
+      name:link.getAttribute('aria-label') || link.textContent.trim()
+    })))`,
+  );
+  checked(
+    !links.some((link) => new URL(link.href).hostname === "github.com"),
+    "Aucun lien du site public ne renvoie au dépôt privé",
+  );
+  const storeLinks = links.filter(
+    (link) => new URL(link.href).hostname === "chromewebstore.google.com",
+  );
+  checked(storeLinks.length >= minimum, "L’installation est accessible depuis le Chrome Web Store");
+  for (const link of storeLinks) {
+    assert.equal(link.href, chromeStore, "Le lien doit viser la fiche Store fournie");
+    if (link.cta || link.target === "_blank") {
+      assert.equal(link.target, "_blank", "Le bouton Store ouvre la fiche dans un nouvel onglet");
+      assert.ok(link.rel.split(/\s+/).includes("noopener"), "Le nouvel onglet est isolé");
+    }
+    assert.ok(link.name, "Le lien d’installation possède un nom accessible");
+  }
+}
+
+async function checkGuide(session) {
+  await navigate(session, "guide.html");
+  await checkStoreLinks(session);
+  await noOverflow(session, "Accueil du guide 390 px");
+  await screenshot(session, "site-guide-mobile.png");
+  await resize(session, 1440, 1000);
+  await noOverflow(session, "Accueil du guide 1440 px");
+  const cards = await evaluate(
+    session,
+    "[...document.querySelectorAll('[data-guide-card]')].map(link => link.href)",
+  );
+  assert.deepEqual(
+    [...cards].sort(),
+    guidePages.map((path) => new URL(path, server.url).href).sort(),
+    "Le guide présente exactement les huit fiches prévues",
+  );
+  checked(
+    await evaluate(
+      session,
+      "document.querySelector('[data-guide-count]')?.getAttribute('aria-live') === 'polite'",
+    ),
+    "Le nombre de résultats de recherche est annoncé de manière accessible",
+  );
+  await screenshot(session, "site-guide-desktop.png");
+  const visibleCards =
+    "[...document.querySelectorAll('[data-guide-card]')].filter(card => !card.hidden)";
+  await click(session, "[data-guide-search]");
+  await send("Input.insertText", { text: "Daily" }, session);
+  await waitFor(
+    session,
+    `${visibleCards}.length > 0 && ${visibleCards}.length < 8 && ${visibleCards}.some(card => card.href.endsWith('/guide/daily.html'))`,
+    "La recherche retrouve la fiche Daily",
+  );
+  checked(
+    await evaluate(
+      session,
+      `parseInt(document.querySelector('[data-guide-count]').textContent,10) === ${visibleCards}.length`,
+    ),
+    "Le compteur suit les résultats filtrés",
+  );
+  await send("Input.insertText", { text: " zzz-sans-resultat" }, session);
+  await waitFor(
+    session,
+    `${visibleCards}.length === 0 && !document.querySelector('[data-guide-empty]').hidden`,
+    "Une recherche sans résultat affiche une explication",
+  );
+  await click(session, "[data-guide-reset]");
+  await waitFor(
+    session,
+    `${visibleCards}.length === 8 && document.querySelector('[data-guide-search]').value === '' && document.querySelector('[data-guide-empty]').hidden`,
+    "Réinitialiser retrouve les huit fiches",
+  );
+  await click(session, "[data-guide-card][href$='demarrer.html']");
+  await waitFor(
+    session,
+    "location.pathname.endsWith('/guide/demarrer.html') && !!document.querySelector('article.guide-article h1')",
+    "Une carte du guide ouvre réellement sa fiche",
+  );
+
+  const titles = new Set();
+  for (const path of guidePages) {
+    await navigate(session, path);
+    await resize(session, 1440, 1000);
+    const article = await evaluate(
+      session,
+      `(() => ({
+        title:document.querySelector('article.guide-article h1')?.textContent.trim(),
+        current:[...document.querySelectorAll('a[aria-current="page"]')].map(link => link.href),
+        hub:[...document.querySelectorAll('a[href]')].some(link => link.href === ${JSON.stringify(new URL("guide.html", server.url).href)}),
+        text:document.body.innerText
+      }))()`,
+    );
+    assert.ok(article.title, `La fiche ${path} possède un titre principal`);
+    titles.add(article.title);
+    assert.ok(article.hub, `La fiche ${path} permet de revenir au guide`);
+    assert.ok(article.current.length > 0, `La fiche ${path} est indiquée dans la navigation`);
+    for (const href of article.current) {
+      assert.equal(
+        href,
+        new URL(path, server.url).href,
+        "La navigation marque la bonne fiche active",
+      );
+    }
+    assert.doesNotMatch(
+      article.text,
+      /Sprint Planning/i,
+      "Le guide public décrit la version distribuée",
+    );
+    await checkStoreLinks(session);
+    await checkPageImages(session);
+    await noOverflow(session, `${path} 1440 px`);
+    if (path === guidePages[0]) await screenshot(session, "site-guide-article-desktop.png");
+    await resize(session, 390, 844);
+    await noOverflow(session, `${path} 390 px`);
+    if (path !== guidePages[0]) continue;
+    await screenshot(session, "site-guide-article-mobile.png");
+    const summary = await evaluate(
+      session,
+      "document.querySelector('details.guide-mobile-outline summary')?.textContent.trim()",
+    );
+    checked(summary?.length > 0, "Le guide propose une commande de navigation mobile nommée");
+    await click(session, "details.guide-mobile-outline summary");
+    await waitFor(
+      session,
+      "document.querySelector('details.guide-mobile-outline').open",
+      "La navigation des fiches s’ouvre",
+    );
+    await key(session, "Enter", "Enter", 13);
+    await waitFor(
+      session,
+      "!document.querySelector('details.guide-mobile-outline').open",
+      "Le clavier referme la navigation",
+    );
+    await key(session, "Enter", "Enter", 13);
+    await waitFor(
+      session,
+      "document.querySelector('details.guide-mobile-outline').open",
+      "Le clavier ouvre la navigation",
+    );
+    await noOverflow(session, "Navigation des fiches ouverte à 390 px");
+    await click(session, "details.guide-mobile-outline a[href$='connecter-jira.html']");
+    await waitFor(
+      session,
+      "location.pathname.endsWith('/guide/connecter-jira.html') && !!document.querySelector('article.guide-article h1')",
+      "La navigation mobile ouvre une autre fiche",
+    );
+  }
+  checked(
+    titles.size === 8,
+    "Les huit fiches ont un contenu identifié et une navigation cohérente",
+  );
+}
+
 try {
   console.log((await send("Browser.getVersion")).product);
   const desktop = await createPage(1440, 1000);
   await navigate(desktop);
+  await checkStoreLinks(desktop, 3);
   await noOverflow(desktop, "Accueil 1440 px");
   const demoRoot = "document.querySelector('[data-demo-scene]')";
   const play = "document.querySelector('[data-demo-play]')";
@@ -336,6 +515,7 @@ try {
     ),
     "La navigation mobile ouverte contient des liens visibles",
   );
+  await noOverflow(desktop, "Menu mobile ouvert à 390 px");
   await key(desktop, "Escape", "Escape", 27);
   await waitFor(
     desktop,
@@ -363,7 +543,8 @@ try {
   await key(desktop, "Escape", "Escape", 27);
   await screenshot(desktop, "site-preview-mobile.png");
 
-  for (const path of ["guide.html", "confidentialite.html"]) {
+  await checkGuide(desktop);
+  for (const path of ["confidentialite.html"]) {
     await navigate(desktop, path);
     await noOverflow(desktop, `${path} 390 px`);
     if (path === "guide.html") await checkPageImages(desktop);

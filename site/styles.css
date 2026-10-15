@@ -1454,136 +1454,6 @@ dialog > img {
   transform: none;
 }
 
-/* Le guide est généré depuis le manuel du dépôt, sans copie éditoriale parallèle. */
-.documentation-page {
-  background: var(--paper);
-  font-size: 15px;
-  line-height: 1.85;
-}
-.doc-header {
-  padding: 22px max(24px, calc((100vw - 1000px) / 2));
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  background: var(--ink);
-  color: white;
-  flex-wrap: wrap;
-}
-.doc-header a {
-  font-weight: 650;
-  font-size: 13px;
-}
-.doc-header nav {
-  display: flex;
-  gap: 25px;
-  margin-left: auto;
-}
-.document-content {
-  max-width: 1000px;
-  margin: 50px auto;
-  padding: 55px 70px;
-  background: white;
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  overflow-wrap: anywhere;
-}
-.document-content h1 {
-  font-size: 38px;
-  line-height: 1.25;
-  letter-spacing: -1.5px;
-  margin-bottom: 30px;
-}
-.document-content h2 {
-  font-size: 28px;
-  line-height: 1.35;
-  letter-spacing: -0.8px;
-  margin: 55px 0 20px;
-  border-top: 1px solid var(--line);
-  padding-top: 30px;
-}
-.document-content h3 {
-  font-size: 19px;
-  letter-spacing: -0.4px;
-  margin: 32px 0 15px;
-}
-.document-content p,
-.document-content ul,
-.document-content ol {
-  margin: 15px 0;
-}
-.document-content li {
-  margin: 7px 0;
-}
-.document-content a {
-  color: #3648df;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.document-content img {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  margin: 25px 0;
-}
-.document-content table {
-  display: block;
-  overflow-x: auto;
-  border-collapse: collapse;
-  margin: 25px 0;
-  font-size: 12px;
-  line-height: 1.7;
-}
-.document-content th,
-.document-content td {
-  text-align: left;
-  padding: 13px;
-  border: 1px solid var(--line);
-  min-width: 130px;
-  vertical-align: top;
-}
-.document-content th {
-  background: #f0f3fa;
-}
-.document-content code {
-  font-family: Consolas, monospace;
-  background: #eef1f7;
-  padding: 2px 5px;
-  border-radius: 4px;
-  font-size: 0.88em;
-}
-.document-content pre {
-  white-space: pre-wrap;
-  background: #eef1f7;
-  border-radius: 8px;
-  padding: 20px;
-}
-.document-content pre code {
-  padding: 0;
-  background: none;
-}
-.document-content blockquote {
-  border-left: 3px solid var(--blue);
-  padding-left: 20px;
-  margin-left: 0;
-  color: var(--muted);
-}
-.document-content :is(h1, h2, h3) {
-  scroll-margin-top: 30px;
-}
-.doc-footer {
-  max-width: 1000px;
-  margin: 25px auto 45px;
-  padding-inline: 24px;
-  color: var(--muted);
-  font-size: 11px;
-  text-align: center;
-}
-.doc-footer a {
-  color: #3648df;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
 @media (min-width: 1600px) {
   .hero-window {
     width: 120%;
@@ -1857,10 +1727,6 @@ dialog > img {
   }
   .footer-meta {
     flex-wrap: wrap;
-  }
-  .document-content {
-    margin: 25px;
-    padding: 35px;
   }
 }
 @media (max-width: 560px) {
@@ -2384,39 +2250,6 @@ dialog > img {
     font-size: 8px;
     padding-top: 16px;
   }
-  .doc-header {
-    padding: 18px 24px;
-    font-size: 11px;
-  }
-  .doc-header nav {
-    margin-left: 0;
-    gap: 17px;
-  }
-  .document-content {
-    margin: 16px 12px;
-    padding: 28px 20px;
-    border-radius: 12px;
-    font-size: 13px;
-  }
-  .document-content h1 {
-    font-size: 29px;
-    letter-spacing: -1px;
-  }
-  .document-content h2 {
-    font-size: 23px;
-    letter-spacing: -0.5px;
-  }
-  .document-content h3 {
-    font-size: 17px;
-  }
-  .document-content table {
-    font-size: 11px;
-  }
-  .document-content th,
-  .document-content td {
-    padding: 9px;
-    min-width: 110px;
-  }
   .dialog-toolbar {
     padding: 11px;
     font-size: 10px;
@@ -2446,26 +2279,12 @@ dialog > img {
   .scroll-cue,
   .demo-playback,
   .back-top,
-  dialog,
-  .doc-header {
+  dialog {
     display: none;
   }
   body {
     color: black;
     background: white;
-  }
-  .document-content {
-    max-width: none;
-    margin: 0;
-    padding: 0;
-    border: 0;
-  }
-  .document-content table {
-    display: table;
-    font-size: 9pt;
-  }
-  .document-content a {
-    color: inherit;
   }
   .motion-ready .reveal,
   .motion-ready .reveal.is-visible {

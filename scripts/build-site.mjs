@@ -13,12 +13,11 @@ import {
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { crc32, deflateRawSync } from "node:zlib";
-import { Marked } from "marked";
+import { guidePaths, renderGuidePages } from "./render-guide.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 export const SITE_DIRECTORY = join(root, ".vite", "site-dist");
 export const SITE_BASE_PATH = "/jira-scrum-board-chrome/";
-const repository = "https://github.com/2nis6mon/jira-scrum-board-chrome";
 const screenshots = [
   "01-board.png",
   "02-kanban.png",
@@ -39,8 +38,8 @@ const assetExtensions = new Set([
   ".ttf",
   ".txt",
 ]);
-const generatedFiles = ["guide.html", "confidentialite.html", ".nojekyll"];
-const sourceFiles = ["index.html", "styles.css", "main.js"];
+const generatedFiles = [...guidePaths, "confidentialite.html", ".nojekyll"];
+const sourceFiles = ["index.html", "styles.css", "main.js", "guide.css", "guide.js"];
 
 function assertPlainPath(path) {
   const resolved = resolve(path);
@@ -75,6 +74,7 @@ function sourceAssets(directory = join(root, "site", "assets")) {
 }
 
 function inventory() {
+  assertPlainPath(join(root, "docs", "manuel-utilisateur.md"));
   const sources = new Map(sourceFiles.map((file) => [file, join(root, "site", file)]));
   for (const file of sourceAssets()) {
     const target = relative(join(root, "site"), file).replaceAll("\\", "/");
@@ -89,12 +89,6 @@ function inventory() {
   return sources;
 }
 
-const escapeHtml = (value) =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
 const decodeEntities = (value) =>
   value
     .replaceAll("&amp;", "&")
@@ -102,70 +96,6 @@ const decodeEntities = (value) =>
     .replaceAll("&#39;", "'")
     .replaceAll("&lt;", "<")
     .replaceAll("&gt;", ">");
-
-function guideHtml() {
-  const file = join(root, "docs", "manuel-utilisateur.md");
-  assertPlainPath(file);
-  const markdown = readFileSync(file, "utf8");
-  const counts = new Map();
-  const parser = new Marked({
-    gfm: true,
-    renderer: {
-      heading({ tokens, depth }) {
-        const text = this.parser.parseInline(tokens);
-        // Même ancrage que le sommaire Markdown : accents conservés, ponctuation retirée.
-        const base = decodeEntities(text.replace(/<[^>]*>/g, ""))
-          .toLowerCase()
-          .replace(/[^\p{L}\p{N}_\s-]/gu, "")
-          .replace(/\s/g, "-");
-        const count = counts.get(base) ?? 0;
-        counts.set(base, count + 1);
-        const id = count ? `${base}-${count}` : base;
-        return `<h${depth} id="${escapeHtml(id)}">${text}</h${depth}>\n`;
-      },
-      // Le manuel est une source Markdown contrôlée, pas une source de scripts HTML.
-      html({ text }) {
-        return escapeHtml(text);
-      },
-    },
-    walkTokens(token) {
-      if (token.type !== "link" && token.type !== "image") return;
-      if (token.href.startsWith("store/captures/"))
-        token.href = token.href.replace("store/captures/", "assets/screenshots/");
-      else if (token.href === "privacy/index.html") token.href = "confidentialite.html";
-      else if (token.href === "../DEVELOPER.md") {
-        token.href = `${repository}/blob/main/DEVELOPER.md`;
-        token.tokens.push({
-          type: "text",
-          raw: " (accès contributeur)",
-          text: " (accès contributeur)",
-        });
-      }
-    },
-  });
-  const content = parser.parse(markdown);
-  return `<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Manuel utilisateur — Sprint Goals Board pour Jira</title>
-  <meta name="description" content="Installer Sprint Goals Board, ajouter vos boards Scrum et Kanban, organiser les objectifs et animer votre Daily dans Jira.">
-  <link rel="icon" href="assets/icons/icon-32.png" type="image/png">
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body class="documentation-page">
-  <a class="skip-link" href="#contenu">Aller au contenu</a>
-  <header class="doc-header">
-    <a class="brand" href="index.html"><img src="assets/icons/icon-48.png" alt="" width="32" height="32"><span>Sprint Goals Board</span></a>
-    <nav aria-label="Navigation du guide"><a href="index.html">Retour au site</a><a href="#sommaire">Sommaire</a><a href="confidentialite.html">Confidentialité</a></nav>
-  </header>
-  <main id="contenu" class="document-content">${content}</main>
-  <footer class="doc-footer"><a href="mailto:denis.simon.consulting@gmail.com">Contacter l’éditeur</a> · <a href="index.html">Retour au site</a></footer>
-</body>
-</html>
-`;
-}
 
 function privacyHtml() {
   const file = join(root, "docs", "privacy", "index.html");
@@ -238,6 +168,16 @@ export function checkSite() {
     )
       throw new Error(`Clé privée ou lien Confluence privé dans ${file}`);
     if (file.endsWith(".html") || file.endsWith(".svg")) {
+      if (/github\.com\/2nis6mon|raw\.githubusercontent\.com\/2nis6mon/i.test(text))
+        throw new Error(`Référence au dépôt privé dans la page publique : ${file}`);
+      if (file === "guide.html" || file.startsWith("guide/")) {
+        if (
+          /référence fonctionnelle|\.zip\b|chrome:\/\/extensions|dist\/|\.\/DEVELOPER\.md/i.test(
+            text,
+          )
+        )
+          throw new Error(`Instruction réservée au développement dans le guide public : ${file}`);
+      }
       for (const name of ["href", "src", "poster"])
         for (const value of attributes(text, name)) checkLink(value, file);
       for (const value of attributes(text, "srcset"))
@@ -249,8 +189,9 @@ export function checkSite() {
       for (const match of text.matchAll(/@import\s+["']([^"']+)["']/gi)) checkLink(match[1], file);
     }
   }
-  if (html.get("guide.html") !== guideHtml())
-    throw new Error("Le guide généré ne correspond pas au manuel complet.");
+  for (const [file, content] of renderGuidePages())
+    if (html.get(file) !== content)
+      throw new Error(`Fiche générée différente du manuel source : ${file}`);
   if (html.get("confidentialite.html") !== privacyHtml())
     throw new Error("La politique générée ne correspond pas au texte juridique source.");
   console.log(
@@ -316,7 +257,7 @@ function createArchive(files) {
 
 export function buildSite() {
   const sources = inventory();
-  const guide = guideHtml();
+  const guides = renderGuidePages();
   const privacy = privacyHtml();
   const temporaryRoot = join(root, ".vite");
   mkdirSync(temporaryRoot, { recursive: true });
@@ -334,7 +275,10 @@ export function buildSite() {
     mkdirSync(dirname(destination), { recursive: true });
     copyFileSync(source, destination);
   }
-  writeFileSync(join(SITE_DIRECTORY, "guide.html"), guide);
+  for (const [file, content] of guides) {
+    mkdirSync(dirname(join(SITE_DIRECTORY, file)), { recursive: true });
+    writeFileSync(join(SITE_DIRECTORY, file), content);
+  }
   writeFileSync(join(SITE_DIRECTORY, "confidentialite.html"), privacy);
   writeFileSync(join(SITE_DIRECTORY, ".nojekyll"), "");
   const result = checkSite();

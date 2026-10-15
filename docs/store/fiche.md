@@ -1,9 +1,10 @@
 # Fiche Chrome Web Store — Sprint Goals Board pour Jira
 
-Dossier de publication préparé le **14 octobre 2026**, pour la version **0.34.5**.
+Dossier de publication actualisé le **15 octobre 2026**, pour la version **0.34.8**.
 Les textes ci-dessous décrivent le paquet de distribution. Ils ne confirment ni une soumission,
-ni une approbation de Google. L'identifiant de l'article et le compte éditeur restent ceux du
-tableau de bord Chrome Web Store ; aucun identifiant Store n'est défini dans ce document.
+ni une approbation de Google. Mettre à jour l’article existant
+[`pepbknjnielcbfcoefcdmadmomapicgp`](https://chromewebstore.google.com/detail/sprint-goals-board-pour-j/pepbknjnielcbfcoefcdmadmomapicgp?hl=fr)
+depuis le compte éditeur habituel.
 
 ## Fiche du produit à copier
 
@@ -12,7 +13,8 @@ tableau de bord Chrome Web Store ; aucun identifiant Store n'est défini dans ce
 - **Résumé** : Boards Scrum et Kanban Jira Cloud : swimlanes par objectif, Build et RUN configurables, glisser-déposer et Daily.
 - **Catégorie proposée** : Productivité → Workflow et planification, selon les choix du tableau de bord.
 - **Contact d'assistance** : `denis.simon.consulting@gmail.com`.
-- **Site du projet** : <https://github.com/2nis6mon/jira-scrum-board-chrome>.
+- **Site du projet** : `https://2nis6mon.github.io/jira-scrum-board-chrome/`, à renseigner après
+  sa publication GitHub Pages. Ne pas utiliser l’adresse du dépôt privé dans la fiche publique.
 - **Politique de confidentialité** : <https://2nis6mon.github.io/sprint-goals-privacy/>.
 
 **Description** :

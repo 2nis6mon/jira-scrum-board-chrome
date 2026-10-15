@@ -58,5 +58,6 @@ Le ZIP et les captures préparés ici ne sont pas envoyés automatiquement au St
 
 Le site de présentation est dans `site/`. `npm run site:build` prépare le site autonome et son
 archive ; `npm run site:preview` le rend accessible à l'adresse indiquée dans le terminal. Son guide est
-généré depuis le manuel et sa page de confidentialité depuis le texte juridique du dépôt.
+organisé en huit fiches avec recherche, générées depuis le manuel. Sa page de confidentialité
+reprend le texte juridique du dépôt. Les liens d’installation ouvrent la fiche officielle du Store.
 La publication GitHub Pages reste manuelle, après fusion dans `main` ; voir le guide du site.
