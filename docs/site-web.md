@@ -50,6 +50,12 @@ Les sorties n'incluent aucune dépendance Node : Marked sert uniquement à la g�
 
 ## Première publication sur GitHub Pages
 
+Ce dépôt est privé. La publication Pages depuis un dépôt privé nécessite une offre GitHub
+compatible (GitHub Pro pour ce compte personnel) : voir [les conditions de disponibilité](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages).
+Si Pages n’est pas disponible dans **Settings**, utiliser une offre compatible ou publier
+uniquement le contenu du ZIP dans un dépôt public dédié au site. Le code de l’extension peut
+rester privé ; adapter alors le sous-chemin de publication et l’URL de l’image de partage.
+
 La présence du workflow ne publie rien automatiquement. Il ne démarre que manuellement et ses
 deux tâches refusent toute branche autre que `main`.
 

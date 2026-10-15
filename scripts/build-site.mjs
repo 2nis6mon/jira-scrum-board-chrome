@@ -133,8 +133,14 @@ function guideHtml() {
       if (token.href.startsWith("store/captures/"))
         token.href = token.href.replace("store/captures/", "assets/screenshots/");
       else if (token.href === "privacy/index.html") token.href = "confidentialite.html";
-      else if (token.href === "../DEVELOPER.md")
+      else if (token.href === "../DEVELOPER.md") {
         token.href = `${repository}/blob/main/DEVELOPER.md`;
+        token.tokens.push({
+          type: "text",
+          raw: " (accès contributeur)",
+          text: " (accès contributeur)",
+        });
+      }
     },
   });
   const content = parser.parse(markdown);
@@ -155,7 +161,7 @@ function guideHtml() {
     <nav aria-label="Navigation du guide"><a href="index.html">Retour au site</a><a href="#sommaire">Sommaire</a><a href="confidentialite.html">Confidentialité</a></nav>
   </header>
   <main id="contenu" class="document-content">${content}</main>
-  <footer class="doc-footer"><a href="${repository}/blob/main/docs/manuel-utilisateur.md">Consulter le manuel source sur GitHub</a> · <a href="index.html">Retour au site</a></footer>
+  <footer class="doc-footer"><a href="mailto:denis.simon.consulting@gmail.com">Contacter l’éditeur</a> · <a href="index.html">Retour au site</a></footer>
 </body>
 </html>
 `;
