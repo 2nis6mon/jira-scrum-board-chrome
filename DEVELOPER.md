@@ -551,10 +551,13 @@ des textes ou des captures ne les publie pas sur le Store ; la soumission reste 
 - [ ] Étudier les lectures Software « enhanced » avant de remplacer les endpoints Agile ; préserver filtre, sprints et pagination.
 - [ ] Confirmer publication et canal de mise à jour ; fiche, empaquetage et politique existent.
 - [ ] Renouveler les captures Store après chaque évolution visuelle ; revue de sécurité indépendante avant diffusion large.
+- [ ] Au démarrage d'un nouveau sprint, les tickets ajoutés au sprint précédent restent marqués « ajout ».
 
 ### Pistes produit à décider
 
 - [ ] Export/import JSON validé avec aperçu des différences.
+- [ ] Menu contextuel (clic droit) sur un ticket du board : « Envoyer vers un goal », « Mettre en top priorité »,
+  « Mettre en basse priorité ». Priorité = rang en tête/en fin, écritures déjà autorisées ; le champ Priorité Jira serait une nouvelle écriture.
 - [ ] Préférences personnelles entre postes : propriété utilisateur Jira = nouvelle écriture à autoriser ; `storage.sync` exclu.
 - [ ] WIP en points et minimums de colonne ; présentation des sources Goals selon capacités du site.
 - [ ] Déploiement IT via `storage.managed` si besoin ; déplacement clavier si la décision d'abandon est réouverte.
