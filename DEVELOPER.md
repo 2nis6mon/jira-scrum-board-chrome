@@ -126,6 +126,8 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
   utilisent ces données, sans lecture Jira supplémentaire.
 - « Ajouté en cours de sprint » rejoue l'historique Sprint jusqu'au démarrage, ou utilise la date
   de création sans changement de sprint ; sans historique, aucun indicateur (`sprintScope`).
+  Identifiants `from`/`to` prioritaires sur les noms d'époque ; démarrage compté avec 2 min de tolérance,
+  car Jira peut dater le démarrage du sprint suivant avant d'écrire le report des tickets non terminés.
   L'en-tête/filtres/colonnes restent fixes ; le Goal courant reste sous les colonnes, sur toute
   la largeur logique. Les Goals atteints sont verts ; le compteur porte sur les Goals visibles.
 
@@ -551,11 +553,13 @@ des textes ou des captures ne les publie pas sur le Store ; la soumission reste 
 - [ ] Étudier les lectures Software « enhanced » avant de remplacer les endpoints Agile ; préserver filtre, sprints et pagination.
 - [ ] Confirmer publication et canal de mise à jour ; fiche, empaquetage et politique existent.
 - [ ] Renouveler les captures Store après chaque évolution visuelle ; revue de sécurité indépendante avant diffusion large.
-- [ ] Au démarrage d'un nouveau sprint, les tickets ajoutés au sprint précédent restent marqués « ajout ».
 
 ### Pistes produit à décider
 
 - [ ] Export/import JSON validé avec aperçu des différences.
+- [ ] Story à affiner : « Parfois il y a plusieurs sprints actifs dans le même board, comment résoudre le problème ? »
+  Déjà en place : union sans doublon des tickets, marquage « ajout » daté par sprint. À trancher : objectifs, santé,
+  RAF du Sprint Planning et sprint précédent de chaque sprint actif.
 - [ ] Menu contextuel (clic droit) sur un ticket du board : « Envoyer vers un goal », « Mettre en top priorité »,
   « Mettre en basse priorité ». Priorité = rang en tête/en fin, écritures déjà autorisées ; le champ Priorité Jira serait une nouvelle écriture.
 - [ ] Préférences personnelles entre postes : propriété utilisateur Jira = nouvelle écriture à autoriser ; `storage.sync` exclu.

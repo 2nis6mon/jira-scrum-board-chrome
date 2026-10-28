@@ -266,6 +266,59 @@ describe("sprintScope — le ticket était-il dans le sprint à son démarrage ?
     });
   });
 
+  describe("report du sprint précédent, lu par identifiant", () => {
+    // Démarrage daté 5 s AVANT la clôture du précédent, puis rafale de report (cas mesuré).
+    const STARTED_BEFORE_CLOSE = parseJiraDate("2026-10-27T09:45:01.000Z") as Date;
+    const PLANNED = parseJiraDate("2026-10-20T10:00:00.000Z") as Date;
+    function idChangelog(
+      entries: [created: string, from: string | null, to: string | null, names: string | null][],
+    ) {
+      return decodeChangelog({
+        histories: entries.map(([created, from, to, names]) => ({
+          created,
+          items: [{ field: "Sprint", from, to, fromString: null, toString: names }],
+        })),
+      }) as JiraChangelog;
+    }
+    const idScope = (
+      entries: [string, string | null, string | null, string | null][],
+      sprintName = "Équipe S2",
+    ) =>
+      sprintScope({
+        changelog: idChangelog(entries),
+        sprintId: 102,
+        sprintName,
+        startedAt: STARTED_BEFORE_CLOSE,
+        created: PLANNED,
+      });
+
+    it("reporté dans la rafale qui suit un démarrage antidaté : présent au démarrage", () => {
+      for (const at of ["2026-10-27T09:45:06.853Z", "2026-10-27T09:45:09.164Z"]) {
+        const result = idScope([
+          ["2026-10-21T16:02:13.000Z", "", "101", "Équipe S1"],
+          [at, "101", "101, 102", "Équipe S1, Équipe S2"],
+        ]);
+        expect(result.inSprintAtStart).toBe(true);
+        expect(result.enteredAt).toEqual(parseJiraDate(at));
+      }
+    });
+
+    it("entré au-delà de la tolérance de démarrage : ajouté", () => {
+      expect(
+        idScope([["2026-10-27T09:47:02.000Z", "101", "101, 102", "Équipe S1, Équipe S2"]])
+          .inSprintAtStart,
+      ).toBe(false);
+    });
+
+    it("sprint renommé ou nom avec virgule : l'identifiant fait foi", () => {
+      const entries: [string, string | null, string | null, string | null][] = [
+        ["2026-10-22T10:00:00.000Z", null, "102", "Ancien nom"],
+      ];
+      expect(idScope(entries, "Nouveau nom").inSprintAtStart).toBe(true);
+      expect(idScope(entries, "MFA, Pixel").inSprintAtStart).toBe(true);
+    });
+  });
+
   it("lastStatusChange ne regarde que les changements de statut", () => {
     const log = decodeChangelog({
       histories: [

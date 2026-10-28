@@ -383,6 +383,7 @@ export function assembleBoardIssues(input: {
     if (sprint && activated && issue.changelog) {
       const scope = sprintScope({
         changelog: issue.changelog,
+        sprintId: sprint.id,
         sprintName: sprint.name,
         startedAt: activated,
         created: fields.created,

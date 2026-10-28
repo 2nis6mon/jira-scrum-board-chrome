@@ -115,6 +115,9 @@ export function indicatesBlocked(link: JiraIssueLink): boolean {
 
 export interface JiraChangelogItem {
   readonly field: string;
+  /** Valeur brute : pour le champ Sprint, les identifiants séparés par des virgules. */
+  readonly from: string | null;
+  readonly to: string | null;
   readonly fromString: string | null;
   readonly toString: string | null;
 }
@@ -142,6 +145,13 @@ export function lastStatusChange(changelog: JiraChangelog): Date | null {
   return latest;
 }
 
+/**
+ * Tolérance après le démarrage d'un sprint. Jira peut enregistrer le démarrage du sprint suivant
+ * quelques secondes avant d'y reporter les tickets non terminés du précédent (rafale mesurée :
+ * moins de 10 s pour 30 tickets) ; ce report ne doit pas compter comme un ajout.
+ */
+export const SPRINT_START_GRACE_MS = 2 * 60 * 1000;
+
 /** Place d'un ticket dans un sprint, lue dans l'historique de son champ « Sprint ». */
 export interface SprintScope {
   /**
@@ -159,22 +169,36 @@ export interface SprintScope {
  * changement avant, l'ancienne valeur du premier changement d'après ; sans aucun changement, la
  * date de création (créé avant le démarrage : il y était). Un ticket mis dans le sprint pendant le
  * planning, retiré, puis remis après le démarrage, compte donc comme ajouté ; un ticket présent au
- * démarrage, sorti puis revenu, non. Jira note les sprints par leur NOM, séparés par des virgules.
+ * démarrage, sorti puis revenu, non. Jira note les sprints par identifiant (`from`/`to`) et par
+ * nom (`fromString`/`toString`), séparés par des virgules : l'identifiant fait foi quand il est
+ * connu, car le nom noté est celui d'époque (un renommage ou une virgule le rend trompeur).
+ *
+ * Le démarrage est compté avec `SPRINT_START_GRACE_MS` de tolérance : Jira peut dater le
+ * démarrage du sprint suivant avant d'écrire le report des tickets non terminés du précédent.
  */
 export function sprintScope(input: {
   changelog: JiraChangelog;
+  sprintId?: number | null;
   sprintName: string;
   startedAt: Date;
   created: Date | null;
 }): SprintScope {
   const target = input.sprintName.trim();
-  if (target === "") return { inSprintAtStart: null, enteredAt: null };
-  // `target` n'est jamais vide : une liste absente ne peut donc pas le contenir.
-  const lists = (list: string | null): boolean =>
+  const targetId = input.sprintId == null ? "" : String(input.sprintId);
+  if (target === "" && targetId === "") return { inSprintAtStart: null, enteredAt: null };
+  const contains = (list: string | null, wanted: string): boolean =>
+    wanted !== "" &&
     (list ?? "")
       .split(",")
-      .map((name) => name.trim())
-      .includes(target);
+      .map((entry) => entry.trim())
+      .includes(wanted);
+  // Un item qui porte des identifiants est lu par identifiant ; sinon par nom.
+  const byId = (item: JiraChangelogItem) =>
+    targetId !== "" && (item.from !== null || item.to !== null);
+  const before = (item: JiraChangelogItem) =>
+    byId(item) ? contains(item.from, targetId) : contains(item.fromString, target);
+  const afterwards = (item: JiraChangelogItem) =>
+    byId(item) ? contains(item.to, targetId) : contains(item.toString, target);
 
   const changes = input.changelog.histories
     .flatMap((history) => {
@@ -183,21 +207,18 @@ export function sprintScope(input: {
     })
     .sort((a, b) => a.at.getTime() - b.at.getTime());
 
-  const before = changes.filter((change) => change.at <= input.startedAt);
-  const after = changes.filter((change) => change.at > input.startedAt);
-  const lastBefore = before.at(-1);
-  const firstAfter = after[0];
+  const startedAt = new Date(input.startedAt.getTime() + SPRINT_START_GRACE_MS);
+  const lastBefore = changes.filter((change) => change.at <= startedAt).at(-1);
+  const firstAfter = changes.find((change) => change.at > startedAt);
   const inSprintAtStart = lastBefore
-    ? lists(lastBefore.item.toString)
+    ? afterwards(lastBefore.item)
     : firstAfter
-      ? lists(firstAfter.item.fromString)
+      ? before(firstAfter.item)
       : input.created === null
         ? null
-        : input.created <= input.startedAt;
+        : input.created <= startedAt;
 
-  const entries = changes.filter(
-    (change) => lists(change.item.toString) && !lists(change.item.fromString),
-  );
+  const entries = changes.filter((change) => afterwards(change.item) && !before(change.item));
   const enteredAt =
     entries.at(-1)?.at ?? (changes.length === 0 || !inSprintAtStart ? input.created : null);
   return { inSprintAtStart, enteredAt };
@@ -572,6 +593,8 @@ export function decodeChangelog(value: unknown): JiraChangelog | null {
           if (!isRecord(item) || typeof item.field !== "string") return null;
           return {
             field: item.field,
+            from: text(item.from),
+            to: text(item.to),
             fromString: text(item.fromString),
             toString: text(item.toString),
           };

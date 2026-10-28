@@ -3,6 +3,14 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.35.3 — Tickets reportés non marqués « ajout »
+
+- Les tickets non terminés reportés au sprint suivant ne sont plus marqués « ajout » lorsque Jira
+  date le démarrage de ce sprint quelques secondes avant d'écrire le report. Une entrée dans les
+  2 minutes qui suivent le démarrage compte comme présente au démarrage.
+- L'historique Sprint est lu par identifiant de sprint quand Jira le fournit : un sprint renommé
+  ou un nom contenant une virgule ne fausse plus le marquage.
+
 ## 0.35.2 — Espagnol dans l'extension, le site et le manuel
 
 - Interface espagnole complète, détectée pour les variantes espagnoles de Jira et disponible
