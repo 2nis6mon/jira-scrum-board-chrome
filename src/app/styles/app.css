@@ -3048,3 +3048,15 @@ details.lane-menu:not([data-placed]) .menu-panel {
   gap: 6px;
   padding: 0 12px 0 10px;
 }
+
+/* Sprint d'un autre board, remonté par un ticket partagé : seul son nom est distingué. */
+.sprint-foreign {
+  color: var(--foreign-sprint);
+}
+
+/* Préfixe de sprint d'un objectif, quand plusieurs sprints du board sont réunis. */
+.lane-sprint {
+  color: var(--ink-3);
+  font-weight: 500;
+  white-space: nowrap;
+}

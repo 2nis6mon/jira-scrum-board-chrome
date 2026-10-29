@@ -8,9 +8,12 @@ import {
   blockingKeys,
   browseUrl,
   goalProgress,
+  goalsOfSprint,
+  isForeignSprint,
   locateBlocker,
   snapshotGoalProgress,
   sprintMetrics,
+  textLinkSprintId,
 } from "../../src/core/boardIssue";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
 import type { JiraIssue, JiraSprint } from "../../src/jira/models";
@@ -407,5 +410,38 @@ describe("photographie du board", () => {
     expect(browseUrl("https://acme.atlassian.net", "ABC-1")).toBe(
       "https://acme.atlassian.net/browse/ABC-1",
     );
+  });
+});
+
+describe("plusieurs sprints actifs", () => {
+  const sprint = (id: number, originBoardId: number | null) =>
+    ({ id, name: `Sprint ${id}`, originBoardId }) as JiraSprint;
+
+  it("sprint d'un autre board : seulement si Jira le prouve par originBoardId", () => {
+    expect(isForeignSprint(sprint(40, 99), 1)).toBe(true);
+    expect(isForeignSprint(sprint(42, 1), 1)).toBe(false);
+    expect(isForeignSprint(sprint(43, null), 1)).toBe(false);
+  });
+
+  it("le lien s'écrit dans le sprint du ticket, sinon dans le sprint de référence", () => {
+    const board = {
+      sprint: sprint(42, 1),
+      goals: [
+        makeSprintGoal({ id: "g1", title: "A", position: 0 }),
+        makeSprintGoal({ id: "g2", title: "B", position: 1 }),
+        makeSprintGoal({ id: "g3", title: "C", position: 2 }),
+      ],
+      goalSprintIds: [42, 43],
+      goalSprintOf: { g1: 42, g2: 43, g3: 43 },
+    } as unknown as BoardSnapshot;
+    const issue = (sprintId: number | null) => ({ sprintId }) as BoardIssue;
+    expect(textLinkSprintId(board, issue(43))).toBe(43);
+    // Ticket d'un sprint d'un autre board : la propriété du sprint de référence.
+    expect(textLinkSprintId(board, issue(50))).toBe(42);
+    // Positions propres au sprint, pour sa propriété.
+    expect(goalsOfSprint(board, 43).map((goal) => [goal.id, goal.position])).toEqual([
+      ["g2", 0],
+      ["g3", 1],
+    ]);
   });
 });

@@ -263,7 +263,7 @@ export interface ReconciledGoals {
 export function reconcileSprintGoals(
   nativeGoalText: string | null | undefined,
   document: SprintGoalDocument | null,
-  newId: () => string = () => crypto.randomUUID(),
+  newId: (title: string) => string = () => crypto.randomUUID(),
 ): ReconciledGoals {
   const titles = parseSprintGoalText(nativeGoalText);
   const stored = document?.goals ?? [];
@@ -288,7 +288,7 @@ export function reconcileSprintGoals(
     } else {
       // Objectif ajouté dans Jira : on lui crée un identifiant stable.
       goals.push(
-        makeSprintGoal({ id: newId(), title, color: goalColorName(index), position: index }),
+        makeSprintGoal({ id: newId(title), title, color: goalColorName(index), position: index }),
       );
       changed = true;
     }
@@ -305,4 +305,80 @@ export function reconcileSprintGoals(
   }
 
   return { goals, links, propertyNeedsUpdate: changed };
+}
+
+/**
+ * Identifiants des objectifs du texte que la propriété du sprint ne connaît pas encore. Ils sont
+ * déduits du sprint et du libellé : identiques d'une lecture à l'autre, ils permettent à un
+ * ticket d'un autre sprint du board de s'y rattacher avant que cette propriété ne soit écrite.
+ */
+export function stableGoalIds(sprintId: number): (title: string) => string {
+  const used = new Set<string>();
+  return (title) => {
+    const base = `text-${sprintId}-${titleHash(title)}`;
+    let id = base;
+    for (let occurrence = 2; used.has(id); occurrence++) id = `${base}-${occurrence}`;
+    used.add(id);
+    return id;
+  };
+}
+
+/** Empreinte FNV-1a 32 bits, en base 36 : courte et stable, sans portée cryptographique. */
+function titleHash(text: string): string {
+  let hash = 0x811c9dc5;
+  for (const char of text) {
+    hash ^= char.codePointAt(0) ?? 0;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(36);
+}
+
+/** Objectifs réunis de plusieurs sprints du board. */
+export interface ReconciledSprintsGoals {
+  /** Objectifs de chaque sprint dans l'ordre des sprints, positions numérotées à la suite. */
+  readonly goals: SprintGoal[];
+  readonly links: Record<string, string>;
+  /** Sprint de chaque objectif. */
+  readonly goalSprintOf: Record<string, number>;
+}
+
+/**
+ * Réconcilie chaque sprint avec sa propriété, puis réunit objectifs et liens. Un lien peut viser
+ * l'objectif de n'importe quel sprint réuni ; pour un ticket noté dans plusieurs propriétés, celle
+ * de son propre sprint fait foi, sinon la première dans l'ordre des sprints.
+ */
+export function reconcileSprintsGoals(
+  sprints: readonly {
+    sprintId: number;
+    nativeGoalText: string | null | undefined;
+    document: SprintGoalDocument | null;
+  }[],
+  sprintOfIssue: (issueKey: string) => number | null,
+): ReconciledSprintsGoals {
+  const goals: SprintGoal[] = [];
+  const goalSprintOf: Record<string, number> = {};
+  for (const sprint of sprints) {
+    const reconciled = reconcileSprintGoals(
+      sprint.nativeGoalText,
+      sprint.document,
+      stableGoalIds(sprint.sprintId),
+    );
+    for (const goal of reconciled.goals) {
+      goals.push({ ...goal, position: goals.length });
+      goalSprintOf[goal.id] = sprint.sprintId;
+    }
+  }
+
+  const links: Record<string, string> = {};
+  const fromOwnSprint = new Set<string>();
+  for (const sprint of sprints) {
+    for (const [issueKey, goalId] of Object.entries(sprint.document?.links ?? {})) {
+      // Un lien vers un objectif disparu ne mène plus nulle part.
+      if (goalSprintOf[goalId] === undefined || fromOwnSprint.has(issueKey)) continue;
+      const own = sprintOfIssue(issueKey) === sprint.sprintId;
+      if (own || links[issueKey] === undefined) links[issueKey] = goalId;
+      if (own) fromOwnSprint.add(issueKey);
+    }
+  }
+  return { goals, links, goalSprintOf };
 }

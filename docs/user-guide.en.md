@@ -99,6 +99,11 @@ Columns and their statuses come from Jira. Click a row in the sidebar to jump to
 Use **Search**, then the **Person**, **Type**, **Parent**, **Status** or **Label** filters.
 Quick filters come from Jira. **Reset (N)** clears the filters; **Refresh** reloads the data.
 
+With several active sprints, the board combines their issues and the goals of the board's sprints,
+each prefixed with its sprint name. A sprint from another board, brought in by a shared issue, is
+shown in colour in the header. The **Sprint** filter keeps only one sprint's issues; every goal
+stays visible.
+
 ### Open and move issues
 
 - Click a card to open its native Jira issue dialog. Closing it refreshes the board.

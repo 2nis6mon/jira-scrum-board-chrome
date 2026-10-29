@@ -124,6 +124,8 @@ export const boardMessagesEs = {
   "Clé, résumé, personne, type, label…": "Clave, resumen, persona, tipo, etiqueta…",
   Personne: "Persona",
   "Sans parent": "Sin principal",
+  "Sprint d'un autre board": "Sprint de otro tablero",
+  "{name} (autre board)": "{name} (otro tablero)",
   Statut: "Estado",
   "Réinitialiser ({count})": "Restablecer ({count})",
   "Filtres rapides Jira": "Filtros rápidos de Jira",

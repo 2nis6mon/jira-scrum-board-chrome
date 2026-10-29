@@ -10,6 +10,7 @@ import {
   makeSprintGoalDocument,
   parseSprintGoalText,
   reconcileSprintGoals,
+  stableGoalIds,
 } from "../../src/core/sprintGoals";
 
 const goal = (id: string, title: string, position: number) =>
@@ -253,5 +254,16 @@ describe("assignGoalColors", () => {
     expect(goalColorName(8)).toBe("goal9");
     expect(goalColorName(9)).toBe("goal1");
     expect(goalColorName(-3)).toBe("goal1");
+  });
+});
+
+describe("identifiants stables des objectifs pas encore enregistrés", () => {
+  it("dépendent du sprint et du libellé, et distinguent deux libellés identiques", () => {
+    const first = stableGoalIds(42);
+    const again = stableGoalIds(42);
+    const a = first("Paiement");
+    expect(again("Paiement")).toBe(a);
+    expect(first("Paiement")).toBe(`${a}-2`);
+    expect(stableGoalIds(43)("Paiement")).not.toBe(a);
   });
 });

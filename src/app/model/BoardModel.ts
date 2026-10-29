@@ -242,7 +242,7 @@ export class BoardModel {
 
   readonly options = computed(() => {
     const snapshot = this.snapshot.value;
-    return snapshot ? filterOptions(snapshot) : null;
+    return snapshot ? filterOptions(snapshot, this.configuration.value?.boardId) : null;
   });
 
   /** Swimlanes de haut en bas, filtres ignorés : l'ordre dans lequel on les monte et descend. */

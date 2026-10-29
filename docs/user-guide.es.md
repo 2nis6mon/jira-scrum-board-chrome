@@ -104,6 +104,11 @@ Utiliza **Buscar** y los filtros **Persona**, **Tipo**, **Principal**, **Estado*
 Los filtros rápidos proceden de Jira. **Restablecer (N)** elimina los filtros;
 **Actualizar** vuelve a cargar los datos.
 
+Con varios sprints activos, el tablero reúne sus incidencias y los objetivos de los sprints del
+tablero, cada uno precedido del nombre de su sprint. Un sprint de otro tablero, aportado por una
+incidencia compartida, aparece en color en el encabezado. El filtro **Sprint** solo conserva las
+incidencias de un sprint; todos los objetivos siguen visibles.
+
 ### Abrir y mover incidencias
 
 - Pulsa una tarjeta para abrir su ventana nativa de Jira. Al cerrarla se actualiza el tablero.

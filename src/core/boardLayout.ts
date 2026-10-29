@@ -15,6 +15,7 @@ import {
   type BoardSnapshot,
   type GoalProgress,
   goalProgress,
+  isForeignSprint,
 } from "./boardIssue";
 import { applyFilters, areFiltersActive, type BoardFilters } from "./filters";
 import type { SprintGoal } from "./sprintGoals";
@@ -31,6 +32,8 @@ export interface Lane {
   readonly id: string;
   readonly title: string;
   readonly goal: SprintGoal | null;
+  /** Sprint de l'objectif, affiché en préfixe quand plusieurs sprints du board sont réunis. */
+  readonly sprintName: string | null;
   /** Avancement de l'objectif, calculé sur TOUS ses tickets, filtres ignorés. */
   readonly progress: GoalProgress | null;
   readonly cells: readonly LaneCell[];
@@ -87,10 +90,28 @@ export function buildBoardLayout(
     filteredByLane.get(blockIdentifier(block)) ?? [];
 
   const goalsById = new Map(visibleGoals.map((goal) => [goal.id, goal]));
+  // Le filtre Sprint ne retient que des tickets : un objectif reste affiché s'il passe les autres.
+  const withoutSprint = { ...filters, sprintIds: new Set<string>() };
+  const goalCountByLane =
+    filters.sprintIds.size === 0
+      ? filteredByLane
+      : groupBy(applyFilters(withoutSprint, everything), (issue) => laneKey(configuration, issue));
+  const goalFiltersActive = areFiltersActive(withoutSprint);
+  const sprintNames = new Map(snapshot.activeSprints.map((sprint) => [sprint.id, sprint.name]));
+  const prefixSprint = (snapshot.goalSprintIds?.length ?? 0) > 1;
+  const sprintNameOf = (goal: SprintGoal | null): string | null => {
+    const sprintId = goal && prefixSprint ? snapshot.goalSprintOf?.[goal.id] : undefined;
+    return sprintId === undefined ? null : (sprintNames.get(sprintId) ?? null);
+  };
   const shown = displayedBlocks({
     blocks,
     filtersActive,
-    filteredCount: (block) => visibleIssuesOf(block).length,
+    filteredCount: (block) =>
+      block.kind === "goal"
+        ? goalFiltersActive
+          ? (goalCountByLane.get(blockIdentifier(block)) ?? []).length
+          : allIssuesOf(block).length
+        : visibleIssuesOf(block).length,
     totalCount: (block) => allIssuesOf(block).length,
     showEmptyBuild: options.showEmptyBuild === true,
     ...(options.showEmptySwimlaneId ? { showEmptySwimlaneId: options.showEmptySwimlaneId } : {}),
@@ -116,6 +137,7 @@ export function buildBoardLayout(
       id: blockIdentifier(block),
       title: blockTitle(configuration, block, goal),
       goal,
+      sprintName: sprintNameOf(goal),
       // L'avancement d'un objectif compte ses tickets RATTACHÉS, même masqués ou filtrés.
       progress: goal
         ? goalProgress(
@@ -201,10 +223,12 @@ export interface FilterOptions {
   readonly withoutParentCount: number;
   readonly goals: readonly FilterOption[];
   readonly withoutGoalCount: number;
+  /** Sprints actifs affichés, dans l'ordre du board ; un sprint d'un autre board est signalé. */
+  readonly sprints: readonly (FilterOption & { readonly foreign: boolean })[];
 }
 
 /** Valeurs réellement présentes dans le sprint, avec leur nombre de tickets. Rien n'est inventé. */
-export function filterOptions(snapshot: BoardSnapshot): FilterOptions {
+export function filterOptions(snapshot: BoardSnapshot, boardId?: number): FilterOptions {
   const issues = [...snapshot.goalIssues, ...snapshot.swimlaneIssues];
   const tally = () => new Map<string, { label: string; count: number }>();
   const add = (map: ReturnType<typeof tally>, value: string, label: string) => {
@@ -267,6 +291,12 @@ export function filterOptions(snapshot: BoardSnapshot): FilterOptions {
       .sort((a, b) => a.position - b.position)
       .map((goal) => ({ value: goal.id, label: goal.title, count: goalCounts.get(goal.id) ?? 0 })),
     withoutGoalCount: issues.filter((issue) => issue.goalId === null).length,
+    sprints: snapshot.activeSprints.map((sprint) => ({
+      value: String(sprint.id),
+      label: sprint.name,
+      count: issues.filter((issue) => issue.sprintId === sprint.id).length,
+      foreign: boardId !== undefined && isForeignSprint(sprint, boardId),
+    })),
   };
 }
 

@@ -15,7 +15,13 @@ import { focusGoal, NO_FILTERS } from "../../src/core/filters";
 import { withPendingMove } from "../../src/core/pendingMove";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
 import type { JiraIssue } from "../../src/jira/models";
-import { makeConfiguration, makeIssue, STORY_TYPE, SWIMLANE_TYPE } from "../support/jiraFixtures";
+import {
+  makeConfiguration,
+  makeIssue,
+  makeSprint,
+  STORY_TYPE,
+  SWIMLANE_TYPE,
+} from "../support/jiraFixtures";
 
 const config = makeConfiguration();
 const GOALS = [
@@ -430,5 +436,70 @@ describe("position provisoire d’un ticket", () => {
       beforeKey: null,
     });
     expect(reordered.lanes[0]?.cells[0]?.issues[0]?.issue.fields.status.id).toBe("1");
+  });
+});
+
+describe("plusieurs sprints actifs", () => {
+  const S42 = { ...makeSprint(null), id: 42, name: "Sprint 42", originBoardId: 1 };
+  const S43 = { ...makeSprint(null), id: 43, name: "Sprint 43", originBoardId: 1 };
+  const OTHER = { ...makeSprint(null), id: 50, name: "Autre équipe", originBoardId: 99 };
+  const links = { "ABC-1": "g1", "ABC-2": "g2" };
+  const assemble = (issues: JiraIssue[], sprint: typeof S42) =>
+    assembleBoardIssues({ issues, configuration: config, columns: config.columns, links, sprint });
+  const board: BoardSnapshot = {
+    ...snapshot([]),
+    sprint: S42,
+    activeSprints: [S42, S43, OTHER],
+    goalSprintIds: [42, 43],
+    goalSprintOf: { g1: 42, g2: 43 },
+    goalIssues: [
+      ...assemble([makeIssue("ABC-1", { statusId: "3" })], S42),
+      ...assemble([makeIssue("ABC-2", { statusId: "3" })], S43),
+      ...assemble([makeIssue("ABC-3", { statusId: "3" })], OTHER),
+    ],
+  };
+  const keys = (layout: ReturnType<typeof buildBoardLayout>) =>
+    layout.lanes.flatMap((lane) =>
+      lane.cells.flatMap((cell) => cell.issues.map((i) => i.issue.key)),
+    );
+
+  it("préfixe chaque objectif du nom de son sprint", () => {
+    const layout = buildBoardLayout(board, config, NO_FILTERS);
+    expect(layout.lanes.map((lane) => [lane.id, lane.sprintName])).toEqual([
+      ["goal:g1", "Sprint 42"],
+      ["goal:g2", "Sprint 43"],
+      ["build", null],
+    ]);
+  });
+
+  it("un seul sprint du board : aucun préfixe", () => {
+    const single = { ...board, goalSprintIds: [42], goalSprintOf: { g1: 42, g2: 42 } };
+    expect(buildBoardLayout(single, config, NO_FILTERS).lanes.map((l) => l.sprintName)).toEqual([
+      null,
+      null,
+      null,
+    ]);
+  });
+
+  it("le filtre Sprint ne retient que les tickets du sprint, sans masquer aucun objectif", () => {
+    const filters = { ...NO_FILTERS, sprintIds: new Set(["42"]) };
+    const layout = buildBoardLayout(board, config, filters);
+    expect(keys(layout)).toEqual(["ABC-1"]);
+    expect(layout.lanes.map((lane) => lane.id)).toEqual(["goal:g1", "goal:g2"]);
+  });
+
+  it("combiné à un autre filtre, un objectif sans ticket retenu par cet autre filtre se masque", () => {
+    const filters = { ...NO_FILTERS, sprintIds: new Set(["42"]), searchText: "ABC-1" };
+    expect(buildBoardLayout(board, config, filters).lanes.map((lane) => lane.id)).toEqual([
+      "goal:g1",
+    ]);
+  });
+
+  it("propose chaque sprint affiché, celui d'un autre board signalé", () => {
+    expect(filterOptions(board, 1).sprints).toEqual([
+      { value: "42", label: "Sprint 42", count: 1, foreign: false },
+      { value: "43", label: "Sprint 43", count: 1, foreign: false },
+      { value: "50", label: "Autre équipe", count: 1, foreign: true },
+    ]);
   });
 });

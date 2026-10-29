@@ -90,8 +90,17 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
 
 - Scrum réunit sans doublon les tickets de tous les sprints actifs retenus par le filtre du board.
   Un sprint actif sans ticket du board est omis ; si tous sont vides, le premier reste affiché.
-  Le premier sprint affiché par date de début porte l'épinglage et le mode texte ; les dates
-  d'entrée de chaque ticket restent celles de son sprint. Les textes de plusieurs sprints ne sont pas agrégés.
+  Un sprint est **étranger** si `originBoardId` diffère du board (absent = du board) : il passe après
+  ceux du board, seul son nom est coloré, ses tickets comptent comme les autres et ses objectifs ne
+  sont pas lus. Un ticket présent dans deux sprints suit un sprint du board, puis le plus ancien démarré.
+- Le premier sprint du board porte titre, dates et fenêtre d'épinglage. Les objectifs de chaque
+  sprint du board (texte `goal` et propriété) sont réconciliés par sprint puis réunis, préfixés du
+  nom de leur sprint dès qu'il y en a plusieurs ; les épinglages de tous sont lus. Un objectif encore
+  absent de sa propriété reçoit un identifiant déduit du sprint et du libellé (`stableGoalIds`).
+- Rattachement libre à l'objectif de n'importe quel sprint du board. En mode texte, le lien s'écrit
+  dans la seule propriété du sprint du ticket (sprint de référence pour un ticket étranger) ; pour un
+  ticket noté dans deux propriétés, celle de son sprint fait foi. Le filtre **Sprint**, visible dès
+  deux sprints affichés, ne retient que des tickets : il ne masque aucun objectif.
 - Le texte `sprint.goal` est la source par défaut d'un nouveau Scrum ; les choix existants ou
   partagés sont conservés. Les Goals Atlassian sont optionnels ; leur échec permet un repli texte explicite.
   **Seule la publication explicite du Sprint Planning peut modifier le champ natif d'un sprint futur.**
@@ -557,9 +566,6 @@ des textes ou des captures ne les publie pas sur le Store ; la soumission reste 
 ### Pistes produit à décider
 
 - [ ] Export/import JSON validé avec aperçu des différences.
-- [ ] Story à affiner : « Parfois il y a plusieurs sprints actifs dans le même board, comment résoudre le problème ? »
-  Déjà en place : union sans doublon des tickets, marquage « ajout » daté par sprint. À trancher : objectifs, santé,
-  RAF du Sprint Planning et sprint précédent de chaque sprint actif.
 - [ ] Menu contextuel (clic droit) sur un ticket du board : « Envoyer vers un goal », « Mettre en top priorité »,
   « Mettre en basse priorité ». Priorité = rang en tête/en fin, écritures déjà autorisées ; le champ Priorité Jira serait une nouvelle écriture.
 - [ ] Préférences personnelles entre postes : propriété utilisateur Jira = nouvelle écriture à autoriser ; `storage.sync` exclu.

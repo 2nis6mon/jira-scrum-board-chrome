@@ -120,6 +120,8 @@ export const boardMessages = {
   "Clé, résumé, personne, type, label…": "Key, summary, person, type, label…",
   Personne: "Person",
   "Sans parent": "No parent",
+  "Sprint d'un autre board": "Sprint from another board",
+  "{name} (autre board)": "{name} (another board)",
   Statut: "Status",
   "Réinitialiser ({count})": "Reset ({count})",
   "Filtres rapides Jira": "Jira quick filters",

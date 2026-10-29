@@ -1,4 +1,9 @@
-import type { BoardIssue, BoardSnapshot } from "../../core/boardIssue";
+import {
+  type BoardIssue,
+  type BoardSnapshot,
+  goalsOfSprint,
+  textLinkSprintId,
+} from "../../core/boardIssue";
 import {
   type JiraWriter,
   linkToTextGoal,
@@ -101,13 +106,18 @@ export class BoardMovementService {
     if (snapshot.goalsOrigin === "atlassianGoals") {
       return this.#assignAtlassianGoal(issue, goalId, title);
     }
-    if (!snapshot.sprint) return false;
+    const sprintId = textLinkSprintId(snapshot, issue);
+    if (sprintId === null) return false;
+    const goals = goalsOfSprint(snapshot, sprintId);
     try {
       await linkToTextGoal(this.#reader, this.#writer, {
-        sprintId: snapshot.sprint.id,
+        sprintId,
         issueKey,
         goalId,
-        goals: snapshot.goals,
+        goals,
+        linkableGoalIds: snapshot.goals
+          .filter((goal) => !goals.some((own) => own.id === goal.id))
+          .map((goal) => goal.id),
         accountId: snapshot.currentUser?.accountId ?? null,
         now: this.#effects.now(),
       });

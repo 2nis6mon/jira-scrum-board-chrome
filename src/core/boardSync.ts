@@ -11,7 +11,12 @@ import {
   mergeConfiguration,
   swimlaneOfType,
 } from "./boardConfiguration";
-import { assembleBoardIssues, type BoardIssue, type BoardSnapshot } from "./boardIssue";
+import {
+  assembleBoardIssues,
+  type BoardIssue,
+  type BoardSnapshot,
+  isForeignSprint,
+} from "./boardIssue";
 import { cardFieldJiraId } from "./cardFields";
 import { withObservedIssueTypes } from "./issueTypeDiscovery";
 import type { LoadPhase, LoadTrace } from "./loadTrace";
@@ -19,7 +24,7 @@ import {
   assignGoalColors,
   decodeSprintGoalDocument,
   goalColorName,
-  reconcileSprintGoals,
+  reconcileSprintsGoals,
   type SprintGoal,
   type SprintGoalDocument,
 } from "./sprintGoals";
@@ -239,13 +244,22 @@ export async function loadSnapshot(input: {
     });
   }
   const withIssues = read.filter((entry) => entry.issues.length > 0);
-  const shown = withIssues.length > 0 ? withIssues : read.slice(0, 1);
+  const kept = withIssues.length > 0 ? withIssues : read.slice(0, 1);
+  // Sprints du board d'abord, puis ceux d'autres boards : chaque groupe garde l'ordre de démarrage.
+  const foreign = (entry: { sprint: JiraSprint }) =>
+    isForeignSprint(entry.sprint, configuration.boardId);
+  const shown = [...kept.filter((entry) => !foreign(entry)), ...kept.filter(foreign)];
   const activeSprints = shown.map((entry) => entry.sprint);
   // Premier sprint affiché : celui dont la propriété porte l'épinglage des Goals.
   const sprint = activeSprints[0] as JiraSprint;
+  // Objectifs réunis : ceux des sprints du board ; à défaut, ceux du sprint de référence.
+  const ownSprints = activeSprints.filter(
+    (candidate) => !isForeignSprint(candidate, configuration.boardId),
+  );
+  const goalSprints = ownSprints.length > 0 ? ownSprints : [sprint];
 
-  // Un ticket peut appartenir à plusieurs sprints : on garde sa première apparition, et avec
-  // elle le sprint qui date son entrée de périmètre.
+  // Un ticket peut appartenir à plusieurs sprints : on garde sa première apparition (un sprint du
+  // board passe avant un autre board), et avec elle le sprint qui date son entrée de périmètre.
   const seenKeys = new Set<string>();
   const issuesBySprint = shown.map((entry) => ({
     sprint: entry.sprint,
@@ -262,20 +276,42 @@ export async function loadSnapshot(input: {
   );
   await input.onIssueTypesDiscovered?.(discoveredIssueTypes);
 
-  // Propriété d'entité du sprint : épinglage des Goals, et liens du mode texte.
-  let document: SprintGoalDocument | null = null;
+  // Propriété d'entité de chaque sprint réuni : épinglage des Goals, et liens du mode texte.
   let goalsReadOnly = false;
-  let pinnedGoalIds: readonly string[] | null = null;
-  try {
-    const value = await measure(trace, "goalSettings", () =>
-      reader.sprintProperty(sprint.id, SPRINT_PROPERTY_KEYS.goals),
+  // Une mesure par lecture : l'échec d'une propriété reste visible dans la trace de chargement.
+  const documents = await Promise.all(
+    goalSprints.map(async (goalSprint) => {
+      try {
+        const value = await measure(trace, "goalSettings", () =>
+          reader.sprintProperty(goalSprint.id, SPRINT_PROPERTY_KEYS.goals),
+        );
+        return { known: true, document: value === null ? null : decodeSprintGoalDocument(value) };
+      } catch (error) {
+        if (!(error instanceof JiraError)) throw error;
+        if (error.info.kind === "forbidden") goalsReadOnly = true;
+        return { known: false, document: null };
+      }
+    }),
+  );
+  const reference = documents[0] ?? { known: false, document: null };
+  const document: SprintGoalDocument | null = reference.document;
+  const pinnedGoalIds: readonly string[] | null = reference.known
+    ? (document?.atlassianGoalIds ?? [])
+    : null;
+  const otherPins = documents.slice(1).flatMap((entry) => entry.document?.atlassianGoalIds ?? []);
+  const sprintOfIssue = new Map(
+    issuesBySprint.flatMap((entry) => entry.issues.map((issue) => [issue.key, entry.sprint.id])),
+  );
+  const textGoals = () =>
+    reconcileSprintsGoals(
+      goalSprints.map((goalSprint, index) => ({
+        sprintId: goalSprint.id,
+        nativeGoalText: goalSprint.goal,
+        document: documents[index]?.document ?? null,
+      })),
+      (issueKey) => sprintOfIssue.get(issueKey) ?? null,
     );
-    document = value === null ? null : decodeSprintGoalDocument(value);
-    pinnedGoalIds = document?.atlassianGoalIds ?? [];
-  } catch (error) {
-    if (!(error instanceof JiraError)) throw error;
-    if (error.info.kind === "forbidden") goalsReadOnly = true;
-  }
+  let goalSprintOf: Record<string, number> | undefined;
 
   let goals: SprintGoal[];
   let links: Record<string, string>;
@@ -294,7 +330,9 @@ export async function loadSnapshot(input: {
     try {
       const resolved = await measure(trace, "goals", () =>
         goalsLoader.load({
-          pinnedGoalIds: localPinnedGoalIds ?? document?.atlassianGoalIds ?? [],
+          pinnedGoalIds: [
+            ...new Set([...(localPinnedGoalIds ?? document?.atlassianGoalIds ?? []), ...otherPins]),
+          ],
           issues: sprintIssues,
           configuration,
         }),
@@ -306,17 +344,13 @@ export async function loadSnapshot(input: {
     } catch (error) {
       // Repli explicite sur le champ texte, sans masquer la cause.
       goalsIssue = describeGoalsFailure(error);
-      ({ goals, links } = measureSync(trace, "goals", () =>
-        reconcileSprintGoals(sprint.goal, document),
-      ));
+      ({ goals, links, goalSprintOf } = measureSync(trace, "goals", textGoals));
     }
   } else {
     if (configuration.goalSource === "atlassianGoals") {
       goalsIssue = "Lecture des Goals Atlassian indisponible.";
     }
-    ({ goals, links } = measureSync(trace, "goals", () =>
-      reconcileSprintGoals(sprint.goal, document),
-    ));
+    ({ goals, links, goalSprintOf } = measureSync(trace, "goals", textGoals));
   }
 
   return measureSync(trace, "assemble", () => {
@@ -342,6 +376,8 @@ export async function loadSnapshot(input: {
         sprint,
         activeSprints,
         goals: coloredGoals,
+        goalSprintIds: goalSprints.map((goalSprint) => goalSprint.id),
+        ...(goalSprintOf ? { goalSprintOf } : {}),
         goalsOrigin,
         goalIssues,
         swimlaneIssues,

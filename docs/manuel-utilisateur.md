@@ -105,6 +105,11 @@ Utilisez **Rechercher**, puis les filtres **Personne**, **Type**, **Parent**, **
 Les filtres rapides viennent de Jira. **Réinitialiser (N)** retire
 les filtres ; **Actualiser** relit les données.
 
+Avec plusieurs sprints actifs, le board réunit leurs tickets et les objectifs des sprints du board,
+chacun préfixé du nom de son sprint. Un sprint d'un autre board, remonté par un ticket partagé,
+apparaît en couleur dans l'en-tête. Le filtre **Sprint** ne garde que les tickets d'un sprint ; tous
+les objectifs restent affichés.
+
 ### Ouvrir et déplacer les tickets
 
 - Cliquez sur une carte pour ouvrir sa fiche native Jira. Sa fermeture actualise le board.

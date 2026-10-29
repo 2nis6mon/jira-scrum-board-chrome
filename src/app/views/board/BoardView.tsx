@@ -13,6 +13,7 @@ import {
   browseUrl,
   familyKey,
   goalProgress,
+  isForeignSprint,
   isIssueDone,
   type SprintMetrics,
   sprintMetrics,
@@ -305,7 +306,20 @@ function SprintHeader(props: {
             {kanban
               ? configuration.boardName
               : snapshot
-                ? snapshot.activeSprints.map((s) => s.name).join(" + ") || t("Aucun sprint actif")
+                ? snapshot.activeSprints.length === 0
+                  ? t("Aucun sprint actif")
+                  : snapshot.activeSprints.map((s, index) => (
+                      <Fragment key={s.id}>
+                        {index > 0 && " + "}
+                        {isForeignSprint(s, configuration.boardId) ? (
+                          <span class="sprint-foreign" title={t("Sprint d'un autre board")}>
+                            {s.name}
+                          </span>
+                        ) : (
+                          s.name
+                        )}
+                      </Fragment>
+                    ))
                 : "…"}
           </h2>
           {kanban && <span class="sprint-active">Kanban</span>}
@@ -709,6 +723,19 @@ function FilterBar({ board, trailing }: { board: BoardModel; trailing?: Componen
           onToggle: () => set({ ...filters, includeWithoutParent: !filters.includeWithoutParent }),
         }}
       />
+      {options.sprints.length > 1 && (
+        <FilterMenu
+          label="Sprint"
+          icon="board"
+          options={options.sprints.map((sprint) =>
+            sprint.foreign
+              ? { ...sprint, label: t("{name} (autre board)", { name: sprint.label }) }
+              : sprint,
+          )}
+          selected={filters.sprintIds}
+          onToggle={(value) => set({ ...filters, sprintIds: toggled(filters.sprintIds, value) })}
+        />
+      )}
       <FilterMenu
         label={t("Statut")}
         icon="status"
@@ -1232,11 +1259,13 @@ function LaneView(props: {
             onClick={() => board.focusGoal(goal.id)}
           >
             <GoalMarker completed={progress?.state === "completed"} />
+            {lane.sprintName && <span class="lane-sprint">{lane.sprintName} · </span>}
             {lane.title}
           </button>
         ) : (
           <span class="lane-title">
             {goal && <GoalMarker completed={progress?.state === "completed"} />}
+            {lane.sprintName && <span class="lane-sprint">{lane.sprintName} · </span>}
             {lane.title}
           </span>
         )}

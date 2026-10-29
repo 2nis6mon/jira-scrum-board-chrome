@@ -155,7 +155,8 @@ export function rankFailures(body: JsonValue | null): string[] | null {
  *
  * Le lien est stocké dans la propriété d'entité du sprint. La propriété est relue juste avant
  * l'écriture et seule l'entrée du ticket change : les autres Goals et liens sont conservés. Le champ
- * « Objectif » du sprint, lui, n'est jamais touché.
+ * « Objectif » du sprint, lui, n'est jamais touché. Avec plusieurs sprints du board, le lien peut
+ * viser l'objectif d'un autre sprint (`linkableGoalIds`) : il reste écrit dans ce seul sprint.
  */
 export async function linkToTextGoal(
   reader: WriteReader,
@@ -164,13 +165,19 @@ export async function linkToTextGoal(
     sprintId: number;
     issueKey: string;
     goalId: string | null;
-    /** Objectifs affichés, tels que réconciliés à la dernière synchronisation. */
+    /** Objectifs de ce sprint, tels que réconciliés à la dernière synchronisation. */
     goals: readonly SprintGoal[];
+    /** Objectifs des autres sprints réunis sur le board, auxquels le ticket peut aussi se rattacher. */
+    linkableGoalIds?: readonly string[];
     accountId: string | null;
     now: Date;
   },
 ): Promise<void> {
-  if (input.goalId !== null && !input.goals.some((goal) => goal.id === input.goalId)) {
+  const linkable = new Set([
+    ...input.goals.map((goal) => goal.id),
+    ...(input.linkableGoalIds ?? []),
+  ]);
+  if (input.goalId !== null && !linkable.has(input.goalId)) {
     throw new Error("Cet objectif n'existe plus dans le sprint. Actualisez le board.");
   }
   const stored = await readStoredDocument(reader, input.sprintId);
@@ -196,6 +203,7 @@ export function withTextGoalLink(
     issueKey: string;
     goalId: string | null;
     goals: readonly SprintGoal[];
+    linkableGoalIds?: readonly string[];
     accountId: string | null;
     now: Date;
   },
@@ -215,10 +223,10 @@ export function withTextGoalLink(
           });
     });
 
-  const validIds = new Set(goals.map((goal) => goal.id));
+  const validIds = new Set([...goals.map((goal) => goal.id), ...(input.linkableGoalIds ?? [])]);
   const links: Record<string, string> = {};
   for (const [issueKey, goalId] of Object.entries(fresh?.links ?? {})) {
-    // Un lien vers un objectif disparu du texte du sprint ne mène plus nulle part.
+    // Un lien vers un objectif disparu des sprints réunis ne mène plus nulle part.
     if (validIds.has(goalId)) links[issueKey] = goalId;
   }
   if (input.goalId === null) delete links[input.issueKey];

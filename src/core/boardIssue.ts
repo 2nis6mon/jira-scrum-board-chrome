@@ -104,6 +104,8 @@ export interface BoardIssue {
    * pas déterminable — on n'affiche alors rien.
    */
   readonly addedAfterSprintStart: boolean | null;
+  /** Sprint actif auquel le ticket est rattaché sur le board ; `null` en Kanban. */
+  readonly sprintId: number | null;
   /** Sous-tâches du ticket, dans l'ordre de Jira. Vide pour une sous-tâche. */
   readonly subtasks: readonly Subtask[];
 }
@@ -225,11 +227,24 @@ export interface SprintMetrics {
 
 /** Photographie complète du board à un instant donné. */
 export interface BoardSnapshot {
-  /** Sprint de référence : le premier sprint actif du board (dates, titre, épinglage). */
+  /**
+   * Sprint de référence : le premier sprint actif du board, ceux d'autres boards ensuite (dates,
+   * titre, épinglage).
+   */
   readonly sprint: JiraSprint | null;
-  /** Tous les sprints actifs du board. Le board affiche leurs tickets réunis. */
+  /**
+   * Tous les sprints actifs : ceux du board, puis ceux d'autres boards remontés par un ticket
+   * partagé (`isForeignSprint`). Le board affiche leurs tickets réunis.
+   */
   readonly activeSprints: readonly JiraSprint[];
   readonly goals: readonly SprintGoal[];
+  /**
+   * Sprints dont les objectifs sont réunis : ceux du board, dans l'ordre d'affichage. Absent ou
+   * vide : seul le sprint de référence porte des objectifs.
+   */
+  readonly goalSprintIds?: readonly number[];
+  /** Sprint de chaque objectif du texte du sprint. Absent : celui du sprint de référence. */
+  readonly goalSprintOf?: Readonly<Record<string, number>>;
   /**
    * D'où viennent les objectifs AFFICHÉS : peut différer de la source configurée quand la
    * lecture des Goals Atlassian a échoué et que le board s'est rabattu sur le texte du sprint.
@@ -256,6 +271,38 @@ export interface BoardSnapshot {
    * `null` : la sélection affichée est celle de Jira (ou il n'y en a aucune).
    */
   readonly localPinnedGoalIds: readonly string[] | null;
+}
+
+/**
+ * Sprint d'un autre board, remonté par le filtre du board via un ticket partagé. Sans
+ * `originBoardId`, rien ne le prouve : le sprint est considéré comme celui du board.
+ */
+export function isForeignSprint(sprint: JiraSprint, boardId: number): boolean {
+  return sprint.originBoardId !== null && sprint.originBoardId !== boardId;
+}
+
+/**
+ * Sprint dont la propriété reçoit le rattachement d'un ticket à un objectif du texte : celui du
+ * ticket quand ses objectifs sont réunis sur le board, sinon le sprint de référence. Une seule
+ * écriture, quel que soit le sprint de l'objectif visé.
+ */
+export function textLinkSprintId(snapshot: BoardSnapshot, issue: BoardIssue): number | null {
+  const goalSprints = snapshot.goalSprintIds ?? [];
+  if (issue.sprintId !== null && goalSprints.includes(issue.sprintId)) return issue.sprintId;
+  return snapshot.sprint?.id ?? null;
+}
+
+/**
+ * Objectifs du texte portés par un sprint, à conserver dans sa propriété, avec leur position dans
+ * ce sprint (le board numérote à la suite ceux de tous les sprints réunis).
+ */
+export function goalsOfSprint(snapshot: BoardSnapshot, sprintId: number): SprintGoal[] {
+  const owners = snapshot.goalSprintOf;
+  if (!owners) return [...snapshot.goals];
+  return snapshot.goals
+    .filter((goal) => owners[goal.id] === sprintId)
+    .sort((a, b) => a.position - b.position)
+    .map((goal, position) => ({ ...goal, position }));
 }
 
 export function allIssues(snapshot: BoardSnapshot): BoardIssue[] {
@@ -416,6 +463,7 @@ export function assembleBoardIssues(input: {
       daysInColumn,
       addedToSprintAt,
       addedAfterSprintStart,
+      sprintId: sprint?.id ?? null,
       subtasks: subtasksOf(issue, subtaskIssues),
     };
   });

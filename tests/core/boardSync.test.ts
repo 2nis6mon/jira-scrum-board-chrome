@@ -484,6 +484,98 @@ describe("loadSnapshot", () => {
     expect(jira.sent("GET", "/rest/agile/1.0/board/1/sprint/41/issue")).toEqual([]);
   });
 
+  describe("plusieurs sprints actifs", () => {
+    it("un sprint d'un autre board passe après ceux du board, sans objectifs ni propriété lus", async () => {
+      const jira = boardJira({
+        sprints: [
+          sprintJson(40, {
+            originBoardId: 99,
+            startDate: "2026-09-01T09:00:00.000+0200",
+            goal: "Objectif d'une autre équipe",
+          }),
+          sprintJson(42, { originBoardId: 1, goal: "Notre objectif" }),
+        ],
+        issues: { 40: [issueJson("ABC-2"), issueJson("ABC-3")], 42: [issueJson("ABC-2")] },
+      });
+      const { snapshot } = await sync(jira);
+
+      expect(snapshot.activeSprints.map((s) => s.id)).toEqual([42, 40]);
+      expect(snapshot.sprint?.id).toBe(42);
+      expect(snapshot.goals.map((goal) => goal.title)).toEqual(["Notre objectif"]);
+      // Présent dans les deux sprints : rattaché au sprint du board.
+      const sprintOf = (key: string) =>
+        [...snapshot.goalIssues, ...snapshot.swimlaneIssues].find((i) => i.issue.key === key)
+          ?.sprintId;
+      expect(sprintOf("ABC-2")).toBe(42);
+      expect(sprintOf("ABC-3")).toBe(40);
+      expect(jira.sent("GET", GOALS_PROPERTY(40))).toEqual([]);
+    });
+
+    it("réunit les objectifs des sprints du board ; un lien peut viser l'autre sprint", async () => {
+      const jira = boardJira({
+        sprints: [
+          sprintJson(42, { goal: "Paiement\nRecherche" }),
+          sprintJson(43, { startDate: "2026-09-14T09:00:00.000+0200", goal: "Pixel" }),
+        ],
+        issues: { 42: [issueJson("ABC-1"), issueJson("ABC-3")], 43: [issueJson("ABC-2")] },
+      })
+        .on("GET", GOALS_PROPERTY(42), {
+          status: 200,
+          json: { value: { version: 1, goals: [{ id: "g-pay", title: "Paiement" }], links: {} } },
+        })
+        .on("GET", GOALS_PROPERTY(43), { status: 404 });
+      const first = (await sync(jira)).snapshot;
+      const pixel = first.goals.find((goal) => goal.title === "Pixel");
+      expect(first.goals.map((goal) => [goal.title, goal.position])).toEqual([
+        ["Paiement", 0],
+        ["Recherche", 1],
+        ["Pixel", 2],
+      ]);
+      expect(first.goalSprintIds).toEqual([42, 43]);
+      expect(first.goalSprintOf?.["g-pay"]).toBe(42);
+      expect(pixel && first.goalSprintOf?.[pixel.id]).toBe(43);
+
+      // Objectif encore inconnu de sa propriété : même identifiant d'une lecture à l'autre, et un
+      // ticket de l'autre sprint peut s'y rattacher.
+      jira.on("GET", GOALS_PROPERTY(42), {
+        status: 200,
+        json: {
+          value: {
+            version: 1,
+            goals: [{ id: "g-pay", title: "Paiement" }],
+            links: { "ABC-1": pixel?.id, "ABC-2": "g-pay" },
+          },
+        },
+      });
+      const second = (await sync(jira)).snapshot;
+      expect(second.goals.find((goal) => goal.title === "Pixel")?.id).toBe(pixel?.id);
+      const goalOf = (key: string) => second.goalIssues.find((i) => i.issue.key === key)?.goalId;
+      expect(goalOf("ABC-1")).toBe(pixel?.id);
+      expect(goalOf("ABC-2")).toBe("g-pay");
+    });
+
+    it("pour un ticket noté dans deux propriétés, celle de son propre sprint fait foi", async () => {
+      const property = (links: Record<string, string>) => ({
+        status: 200,
+        json: { value: { version: 1, goals: [], links } },
+      });
+      const jira = boardJira({
+        sprints: [
+          sprintJson(42, { goal: "A" }),
+          sprintJson(43, { startDate: "2026-09-14T09:00:00.000+0200", goal: "B" }),
+        ],
+        issues: { 42: [issueJson("ABC-1")], 43: [issueJson("ABC-2")] },
+      });
+      const ids = (await sync(jira)).snapshot.goals.map((goal) => goal.id);
+      const [goalA, goalB] = ids as [string, string];
+      jira
+        .on("GET", GOALS_PROPERTY(42), property({ "ABC-2": goalA }))
+        .on("GET", GOALS_PROPERTY(43), property({ "ABC-2": goalB }));
+      const { snapshot } = await sync(jira);
+      expect(snapshot.goalIssues.find((i) => i.issue.key === "ABC-2")?.goalId).toBe(goalB);
+    });
+  });
+
   it("ne lit que les tickets du sprint retenus par le board, par l'adresse du board", async () => {
     const jira = boardJira({ issues: { 42: [issueJson("ABC-1")] } });
     await sync(jira);
@@ -708,12 +800,20 @@ describe("phases de chargement", () => {
 
     expect(actual).toEqual(expected);
     expect(completed).toEqual(
-      ["sprints", "issues", "issues", "types", "goalSettings", "goals", "assemble"].map(
-        (phase) => ({
-          phase,
-          error: null,
-        }),
-      ),
+      // Une lecture de propriété par sprint du board réuni.
+      [
+        "sprints",
+        "issues",
+        "issues",
+        "types",
+        "goalSettings",
+        "goalSettings",
+        "goals",
+        "assemble",
+      ].map((phase) => ({
+        phase,
+        error: null,
+      })),
     );
   });
 

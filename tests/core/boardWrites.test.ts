@@ -387,6 +387,25 @@ describe("rattachement à un objectif du texte du sprint", () => {
     expect(jira.sent("PUT")).toHaveLength(1);
   });
 
+  it("objectif d'un autre sprint du board : lien écrit ici, sans copier cet objectif", async () => {
+    const jira = new FakeJira()
+      .on("GET", GOALS, {
+        status: 200,
+        json: { value: { version: 1, goals: [], links: { "ABC-7": "g-autre" } } },
+      })
+      .on("PUT", GOALS, { status: 200 });
+    const { reader, writer } = setup(jira);
+    await linkToTextGoal(reader, writer, {
+      ...input("g-pixel"),
+      linkableGoalIds: ["g-pixel", "g-autre"],
+    });
+
+    const body = jira.sent("PUT")[0]?.body as { goals: { id: string }[]; links: unknown };
+    expect(body.goals.map((g) => g.id)).toEqual(["g1", "g2"]);
+    expect(body.links).toEqual({ "ABC-7": "g-autre", "ABC-1": "g-pixel" });
+    expect(jira.sent("PUT")).toHaveLength(1);
+  });
+
   it("n'écrit que la propriété des objectifs, jamais le sprint lui-même", async () => {
     const jira = new FakeJira().on("GET", GOALS, { status: 404 }).on("PUT", GOALS, { status: 201 });
     const { reader, writer } = setup(jira);

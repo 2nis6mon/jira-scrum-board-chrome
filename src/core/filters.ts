@@ -37,6 +37,11 @@ export interface BoardFilters {
   /** Objectifs sélectionnés. */
   readonly goalIds: ReadonlySet<string>;
   readonly includeWithoutGoal: boolean;
+  /**
+   * Sprints actifs sélectionnés (identifiants Jira en texte). Ne retient que des tickets : il ne
+   * masque jamais un objectif.
+   */
+  readonly sprintIds: ReadonlySet<string>;
   readonly quickFilters: ReadonlySet<QuickFilter>;
   /** Filtres rapides du board Jira actuellement actifs (identifiants Jira). */
   readonly jiraQuickFilterIds: ReadonlySet<number>;
@@ -60,6 +65,7 @@ export const NO_FILTERS: BoardFilters = {
   includeWithoutParent: false,
   goalIds: new Set(),
   includeWithoutGoal: false,
+  sprintIds: new Set(),
   quickFilters: new Set(),
   jiraQuickFilterIds: new Set(),
   jiraQuickFilterKeys: null,
@@ -94,6 +100,7 @@ export function activeFilterCount(filters: BoardFilters): number {
   if (filters.statusIds.size > 0) count += 1;
   if (filters.parentKeys.size > 0 || filters.includeWithoutParent) count += 1;
   if (filters.goalIds.size > 0 || filters.includeWithoutGoal) count += 1;
+  if (filters.sprintIds.size > 0) count += 1;
   return count + filters.quickFilters.size + filters.jiraQuickFilterIds.size;
 }
 
@@ -151,6 +158,13 @@ export function applyFilters(filters: BoardFilters, issues: readonly BoardIssue[
       const matchesGoal = issue.goalId !== null && filters.goalIds.has(issue.goalId);
       const matchesNone = filters.includeWithoutGoal && issue.goalId === null;
       if (!matchesGoal && !matchesNone) return false;
+    }
+
+    if (
+      filters.sprintIds.size > 0 &&
+      (issue.sprintId === null || !filters.sprintIds.has(String(issue.sprintId)))
+    ) {
+      return false;
     }
 
     if (filters.quickFilters.has("blocked") && !issue.isBlocked) return false;

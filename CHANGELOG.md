@@ -3,6 +3,15 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.36.0 — Plusieurs sprints actifs
+
+- Les objectifs de tous les sprints actifs du board sont affichés ensemble, chacun préfixé du nom
+  de son sprint. Un ticket peut être rattaché à l'objectif de n'importe lequel de ces sprints.
+- Un sprint d'un autre board, remonté par un ticket partagé, est affiché après ceux du board et
+  signalé par la couleur de son nom ; ses tickets restent affichés et comptés comme les autres.
+- Nouveau filtre **Sprint**, présent dès que plusieurs sprints sont affichés : il ne garde que
+  les tickets du sprint choisi, sans masquer d'objectif.
+
 ## 0.35.3 — Tickets reportés non marqués « ajout »
 
 - Les tickets non terminés reportés au sprint suivant ne sont plus marqués « ajout » lorsque Jira
