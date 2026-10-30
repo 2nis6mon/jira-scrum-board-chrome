@@ -607,6 +607,17 @@ describe("App", () => {
     expect(tab("Board").getAttribute("aria-selected")).toBe("true");
   });
 
+  it("réglages : la langue, personnelle, n'apparaît dans aucun onglet partagé du board", async () => {
+    const { model } = await connectedBoard();
+    for (const section of ["board", "goals", "cardFields", "cardColors"] as const) {
+      model.showSettings(section);
+      await tick();
+      expect(document.querySelector("#settings-panel")).not.toBeNull();
+      expect(document.querySelector('input[name="interface-language"]')).toBeNull();
+      expect(text()).not.toContain("Langue de l'interface");
+    }
+  });
+
   it("réglages, onglet Board : chaque champ validé est enregistré dans Jira pour l'équipe", async () => {
     const { jira } = await connectedBoard();
     await openSettings();
