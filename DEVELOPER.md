@@ -2,7 +2,7 @@
 
 Référence technique **0.35.2**, 15 octobre 2026 : architecture, contrats, sécurité et travaux ouverts.
 Un seul produit : l'extension Chrome intégrée dans Jira Cloud. Le mode autonome et l'application
-Mac sont abandonnés. [CLAUDE.md](CLAUDE.md) porte les règles de contribution ; le
+Mac sont abandonnés. [AGENTS.md](AGENTS.md) porte les règles de contribution, lues par Codex et par Claude Code (via `CLAUDE.md`) ; le
 [manuel](docs/manuel-utilisateur.md) décrit l'utilisation et le [changelog](CHANGELOG.md) les livraisons.
 
 Accès direct : [intégration Jira](#integration-jira), [API](#contrats-api),
@@ -489,7 +489,7 @@ Pour préserver un `dist/` en essai : construire avec `npx vite build --mode dis
 Les anciens alias `*:jira-direct-test` et `JIRA_DIRECT_DIST` restent retirés.
 
 [Le workflow GitHub](.github/workflows/validation.yml) exécute les contrôles à chaque push sur
-`main` ou `codex/**` et sur les demandes de fusion vers `main` : typage, style, tests, compilation,
+`main`, `agent/**` ou `codex/**` (ancien préfixe) et sur les demandes de fusion vers `main` : typage, style, tests, compilation,
 intégration Jira, glisser-déposer (board et réglages), Sprint Planning, diagnostic du banc et paquet. Il utilise une machine Windows,
 Node 24 et Chrome for Testing 155.0.8059.39 téléchargé depuis la distribution officielle Google.
 Après extraction, le workflow accorde aux processus AppContainer/LPAC les droits de lecture et
@@ -508,7 +508,7 @@ de sources empêchent le retour de dépendances vers les vues depuis les couches
 Ces contrôles ne valident pas les workflows réels. Un ancien `npm audit` ne garantit pas les dépendances
 actuelles : le relancer lors d'une revue de distribution ; prévoir une revue indépendante avant diffusion large.
 
-Git et identité : appliquer [CLAUDE.md](CLAUDE.md), branche `codex/...`, push des commits cohérents,
+Git et identité : appliquer [AGENTS.md](AGENTS.md), branche `agent/...`, push des commits cohérents,
 `main` uniquement sur demande. Avant commit : `npm run check`, `npm run verify:jira`, revue du diff
 et des non-suivis ; versions `package.json`, `package-lock.json`, `public/manifest.json` cohérentes,
 documentation et changelog à jour. `dist/`, `release/`, profils, cookies, captures Jira et clé privée

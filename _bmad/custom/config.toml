@@ -5,3 +5,8 @@
 #
 # [agents.bmad-agent-pm]
 # description = "Prefers short, bulleted PRDs over narrative drafts."
+
+# Langue des agents BMAD pour toute l'équipe : les consignes du dépôt (AGENTS.md) imposent le français.
+[core]
+communication_language = "Français"
+document_output_language = "Français"

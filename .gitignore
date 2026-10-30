@@ -18,3 +18,6 @@ coverage/
 out/
 
 artifacts/demo-sprint-goals/
+
+# BMAD : mémoire personnelle des discussions ; le reste de _bmad-output/ est versionné.
+_bmad-output/party-mode/

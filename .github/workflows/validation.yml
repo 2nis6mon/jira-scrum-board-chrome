@@ -2,7 +2,7 @@ name: Validation de l'extension
 
 on:
   push:
-    branches: [main, "codex/**"]
+    branches: [main, "agent/**", "codex/**"]
   pull_request:
     branches: [main]
   workflow_dispatch:

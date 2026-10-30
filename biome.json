@@ -6,7 +6,14 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!package-lock.json", "!.claude/skills", "!_bmad", "!_bmad-output"]
+    "includes": [
+      "**",
+      "!package-lock.json",
+      "!.claude/skills",
+      "!.agents/skills",
+      "!_bmad",
+      "!_bmad-output"
+    ]
   },
   "formatter": {
     "indentStyle": "space",
