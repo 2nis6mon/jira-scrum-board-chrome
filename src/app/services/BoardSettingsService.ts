@@ -1,6 +1,6 @@
 import type { BoardConfiguration } from "../../core/boardConfiguration";
 import { withLocalPins } from "../../core/boardPreferences";
-import { type JiraWriter, pinAtlassianGoals } from "../../core/boardWrites";
+import { pinAtlassianGoals } from "../../core/boardWrites";
 import { type PinnedGoalsStorage, saveBoardPinnedGoals } from "../../core/pinnedGoals";
 import {
   encodeTeamSettings,
@@ -19,6 +19,8 @@ import type { PinEditor, TeamNotice, TeamState } from "../model/BoardTypes";
 import { toMessage } from "../model/messages";
 import type {
   BoardScope,
+  BoardWriteAccess,
+  BoardWriteGateway,
   ConfigurationChange,
   ReadableValue,
   RecordWrite,
@@ -45,23 +47,25 @@ export interface BoardSettingsEffects {
   record: RecordWrite;
   sync(): Promise<void>;
 }
-/** Propriétaire des relectures, conflits et écritures sérialisées des réglages et épinglages. */
+/**
+ * Propriétaire des relectures, conflits et avis des réglages et épinglages. Chaque écriture passe
+ * par la porte du board, qui les sérialise avec les autres gestes.
+ */
 export class BoardSettingsService {
   readonly #reader: Pick<JiraClient, "boardProperty" | "sprintProperty" | "boardCanEdit">;
-  readonly #writer: JiraWriter;
+  readonly #gate: BoardWriteGateway;
   readonly #state: BoardSettingsState;
   readonly #effects: BoardSettingsEffects;
-  #teamQueue: Promise<void> = Promise.resolve();
   #teamWrites = 0;
   #canEditAsked = false;
   constructor(
     reader: Pick<JiraClient, "boardProperty" | "sprintProperty" | "boardCanEdit">,
-    writer: JiraWriter,
+    gate: BoardWriteGateway,
     state: BoardSettingsState,
     effects: BoardSettingsEffects,
   ) {
     this.#reader = reader;
-    this.#writer = writer;
+    this.#gate = gate;
     this.#state = state;
     this.#effects = effects;
   }
@@ -86,13 +90,15 @@ export class BoardSettingsService {
     const to = `${count} Goal${count > 1 ? "s" : ""} épinglé${count > 1 ? "s" : ""}`;
     const entry = { action: "épinglage", issueKey: null, from: null, to } as const;
     try {
-      const outcome = await pinAtlassianGoals(this.#reader, this.#writer, {
-        sprintId,
-        shownGoalIds: editor.base,
-        goalIds: editor.selection,
-        accountId: this.#effects.currentUser()?.accountId ?? null,
-        now: this.#effects.now(),
-      });
+      const outcome = await this.#gate.run(({ writer }) =>
+        pinAtlassianGoals(this.#reader, writer, {
+          sprintId,
+          shownGoalIds: editor.base,
+          goalIds: editor.selection,
+          accountId: this.#effects.currentUser()?.accountId ?? null,
+          now: this.#effects.now(),
+        }),
+      );
       switch (outcome.kind) {
         case "pinned":
           settle(null);
@@ -161,7 +167,7 @@ export class BoardSettingsService {
     await this.#effects.sync();
   }
 
-  /** Épinglage Kanban partagé : même file et même propriété que les réglages, sans optimisme. */
+  /** Épinglage Kanban partagé : même porte et même propriété que les réglages, sans optimisme. */
   async #saveBoardPinnedGoals(
     editor: PinEditor,
     storage: Extract<PinnedGoalsStorage, { kind: "board" }>,
@@ -213,31 +219,23 @@ export class BoardSettingsService {
     };
     this.#teamWrites += 1;
     this.#state.teamSaving.value += 1;
-    const task = this.#teamQueue.then(async () => {
-      if (stale()) return;
-      if (!this.#state.canEditSettings.value) {
-        settle({
-          ...editor,
-          notice: {
-            tone: "error",
-            text: "Il faut pouvoir modifier le board pour y épingler des Goals.",
-            suggestion: null,
-          },
-        });
-        return;
-      }
-      try {
-        const user = this.#effects.currentUser();
-        const outcome = await saveBoardPinnedGoals(
-          this.#reader,
-          {
-            write: async (write) => {
-              if (stale() || !this.#state.canEditSettings.value)
-                throw new Error("Le board ou vos droits ont changé : rien n'a été écrit.");
-              return this.#writer.write(write);
+    const task = this.#gate.run(
+      async ({ writer }) => {
+        if (stale()) return;
+        if (!this.#state.canEditSettings.value) {
+          settle({
+            ...editor,
+            notice: {
+              tone: "error",
+              text: "Il faut pouvoir modifier le board pour y épingler des Goals.",
+              suggestion: null,
             },
-          },
-          {
+          });
+          return;
+        }
+        try {
+          const user = this.#effects.currentUser();
+          const outcome = await saveBoardPinnedGoals(this.#reader, writer, {
             boardId: storage.boardId,
             base: editor.base,
             selection: editor.selection,
@@ -247,59 +245,56 @@ export class BoardSettingsService {
               displayName: user?.displayName ?? null,
             },
             now: this.#effects.now(),
-          },
-        );
-        if (stale()) return;
-        if (outcome.kind === "unreadable")
-          throw new Error("Les réglages du board sont illisibles : rien n'a été écrit.");
-        if (outcome.kind === "conflict") {
-          await conflict(outcome.current);
-          return;
-        }
-        if (outcome.kind === "unchanged") {
+          });
+          if (stale()) return;
+          if (outcome.kind === "unreadable")
+            throw new Error("Les réglages du board sont illisibles : rien n'a été écrit.");
+          if (outcome.kind === "conflict") {
+            await conflict(outcome.current);
+            return;
+          }
+          if (outcome.kind === "unchanged") {
+            settle(null);
+            return;
+          }
+          this.#state.team.value = { kind: "published", document: outcome.document };
+          await this.#applyTeamDocument(outcome.document);
           settle(null);
-          return;
+          await this.#effects.record({
+            ...entry,
+            outcome: "réussi",
+            detail: "propriété du board Kanban",
+          });
+        } catch (error) {
+          if (stale()) return;
+          const jiraError = error instanceof JiraError ? error : null;
+          const uncertain = jiraError?.isOutcomeUnknown ?? false;
+          const forbidden = jiraError?.info.kind === "forbidden";
+          const message = toMessage(error);
+          if (forbidden) this.#state.canEditBoard.value = false;
+          settle({
+            ...editor,
+            canKeepLocally: false,
+            notice: {
+              tone: uncertain ? "warning" : "error",
+              text: uncertain
+                ? `Jira n'a pas confirmé l'enregistrement (${message.text.replace(/\.$/, "")}).`
+                : message.text,
+              suggestion: uncertain
+                ? "Le board va être relu. Vérifiez sa sélection avant de recommencer ; l'extension ne rejoue jamais une écriture."
+                : forbidden
+                  ? "Il faut pouvoir modifier le board pour y épingler des Goals."
+                  : message.suggestion,
+            },
+          });
+          await this.#effects.record({
+            ...entry,
+            outcome: uncertain ? "incertain" : "échec",
+            detail: message.text,
+          });
         }
-        this.#state.team.value = { kind: "published", document: outcome.document };
-        await this.#applyTeamDocument(outcome.document);
-        settle(null);
-        await this.#effects.record({
-          ...entry,
-          outcome: "réussi",
-          detail: "propriété du board Kanban",
-        });
-      } catch (error) {
-        if (stale()) return;
-        const jiraError = error instanceof JiraError ? error : null;
-        const uncertain = jiraError?.isOutcomeUnknown ?? false;
-        const forbidden = jiraError?.info.kind === "forbidden";
-        const message = toMessage(error);
-        if (forbidden) this.#state.canEditBoard.value = false;
-        settle({
-          ...editor,
-          canKeepLocally: false,
-          notice: {
-            tone: uncertain ? "warning" : "error",
-            text: uncertain
-              ? `Jira n'a pas confirmé l'enregistrement (${message.text.replace(/\.$/, "")}).`
-              : message.text,
-            suggestion: uncertain
-              ? "Le board va être relu. Vérifiez sa sélection avant de recommencer ; l'extension ne rejoue jamais une écriture."
-              : forbidden
-                ? "Il faut pouvoir modifier le board pour y épingler des Goals."
-                : message.suggestion,
-          },
-        });
-        await this.#effects.record({
-          ...entry,
-          outcome: uncertain ? "incertain" : "échec",
-          detail: message.text,
-        });
-      }
-    });
-    this.#teamQueue = task.then(
-      () => {},
-      () => {},
+      },
+      { refusal: "Le board ou vos droits ont changé : rien n'a été écrit." },
     );
     try {
       await task;
@@ -325,11 +320,7 @@ export class BoardSettingsService {
     if (!shared) return;
     this.#teamWrites += 1;
     this.#state.teamSaving.value += 1;
-    const task = this.#teamQueue.then(() => this.#saveShared(change));
-    this.#teamQueue = task.then(
-      () => {},
-      () => {},
-    );
+    const task = this.#gate.run((access) => this.#saveShared(access, change));
     try {
       await task;
     } finally {
@@ -348,18 +339,14 @@ export class BoardSettingsService {
     const generation = this.#effects.scope.generation();
     this.#teamWrites += 1;
     this.#state.teamSaving.value += 1;
-    const task = this.#teamQueue.then(async () => {
+    const task = this.#gate.run(async (access) => {
       if (
         generation !== this.#effects.scope.generation() ||
         this.#state.configuration.value?.boardId !== configuration.boardId
       )
         return false;
-      return this.#saveShared(change, base ?? configuration, sameFamily);
+      return this.#saveShared(access, change, base ?? configuration, sameFamily);
     });
-    this.#teamQueue = task.then(
-      () => {},
-      () => {},
-    );
     try {
       return (await task) === true;
     } finally {
@@ -369,6 +356,7 @@ export class BoardSettingsService {
 
   /** Écrit une modification des réglages partagés sur la version relue dans Jira. */
   async #saveShared(
+    { writer }: BoardWriteAccess,
     change: (configuration: BoardConfiguration) => BoardConfiguration,
     confirmed?: BoardConfiguration,
     sameFamily?: (base: BoardConfiguration, latest: BoardConfiguration) => boolean,
@@ -390,14 +378,7 @@ export class BoardSettingsService {
     } as const;
     this.#state.teamNotice.value = null;
     try {
-      const writer: JiraWriter = {
-        write: async (operation) => {
-          if (stale() || !this.#state.canEditSettings.value)
-            throw new Error("Le board ou ses droits ont changé avant l'enregistrement.");
-          return this.#writer.write(operation);
-        },
-      };
-      // Relecture, détection des conflits et publication : `core/teamSettings.ts`.
+      // La porte refuse l'écriture si le board ou ses droits ont changé. Relecture, détection des conflits et publication : `core/teamSettings.ts`.
       const outcome = await saveTeamSettings(this.#reader, writer, {
         boardId,
         configuration: () => configuration,

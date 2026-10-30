@@ -1,9 +1,11 @@
 import { signal } from "@preact/signals";
 import { describe, expect, it, vi } from "vitest";
 import { AuditLog } from "../../src/app/model/auditLog";
+import { BoardWriteGate } from "../../src/app/model/BoardWriteGate";
 import { PlanningModel } from "../../src/app/model/PlanningModel";
 import { setLanguage } from "../../src/i18n";
 import { JiraClient } from "../../src/jira/client";
+import { GoalsClient } from "../../src/jira/goals";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { JiraTransport } from "../../src/jira/transport";
 import { isWriteRequest } from "../support/fakeJira";
@@ -19,20 +21,40 @@ function context() {
     fetch: platform.fetch,
   });
   const client = new JiraClient(transport);
+  const audit = new AuditLog(platform.store);
+  const gate = new BoardWriteGate({
+    writer: transport,
+    goals: new GoalsClient(transport),
+    scope: { generation: () => 0, disposed: () => false },
+    canEditSettings: () => true,
+  });
   const configuration = signal(
     makeConfiguration({ boardId: 7, estimationFieldId: "customfield_10016" }),
   );
   const canWrite = signal(true);
   const openIssue = vi.fn();
   const create = () =>
-    new PlanningModel(client, transport, platform, {
+    new PlanningModel(client, platform, {
       configuration: () => configuration.value,
       canWrite: () => canWrite.value,
       accountId: () => "u1",
       openIssue,
-      audit: new AuditLog(platform.store),
+      write: (task) => gate.run(task),
+      record: (entry) =>
+        audit.append({ ...entry, at: new Date().toISOString(), site: client.site.origin }),
     });
-  return { ...fixture, platform, configuration, canWrite, openIssue, create, planning: create() };
+  return {
+    ...fixture,
+    platform,
+    configuration,
+    canWrite,
+    openIssue,
+    create,
+    gate,
+    audit,
+    transport,
+    planning: create(),
+  };
 }
 
 describe("atelier Sprint Planning", () => {
@@ -215,6 +237,35 @@ describe("atelier Sprint Planning", () => {
     expect(planning.dirty.value).toBe(false);
     expect(planning.canPublish.value).toBe(false);
     expect(planning.publishing.value).toBe(false);
+  });
+
+  it("publie par la porte du board : attend le geste en cours, journal du board inchangé", async () => {
+    const { planning, gate, audit, inspect } = context();
+    await planning.load();
+    planning.addGoal("Attendre son tour");
+    let release = () => {};
+    const held = gate.run(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const publishing = planning.publish();
+    await vi.waitFor(() => expect(gate.busy.value).toBe(2));
+    expect(inspect().writes).toHaveLength(0);
+    release();
+    await Promise.all([held, publishing]);
+    expect(planning.notice.value).toContain("publié et vérifié");
+    expect(inspect().writes.length).toBeGreaterThan(0);
+    const [entry] = await audit.list("https://acme.atlassian.net");
+    expect(entry).toMatchObject({
+      action: "sprint planning",
+      issueKey: null,
+      from: null,
+      to: "43",
+      outcome: "réussi",
+      site: "https://acme.atlassian.net",
+    });
   });
 
   it("protège une publication contre les écritures déjà en cours", async () => {

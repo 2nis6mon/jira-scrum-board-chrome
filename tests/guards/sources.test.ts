@@ -80,6 +80,26 @@ describe("code de production", () => {
     }
   });
 
+  it("fait passer les écritures du board par sa seule porte (AD-6)", () => {
+    // Services et planning reçoivent la porte, jamais le transport brut, et ne tiennent pas de
+    // file d'écriture propre : `BoardModel` détient la seule, `app/model/BoardWriteGate.ts`.
+    const gated = sources.filter(
+      ({ file }) =>
+        file.startsWith("src/app/services/") || file === "src/app/model/PlanningModel.ts",
+    );
+    expect(gated.length).toBeGreaterThan(1);
+    for (const { file, code } of gated) {
+      expect(code, file).not.toMatch(/\bJiraTransport\b|\bgraphqlWrite\b/);
+      if (file.startsWith("src/app/services/")) expect(code, file).not.toMatch(/\.then\(/);
+      // Seule file tolérée : les brouillons locaux du planning (`#saveQueue`), sans écriture Jira.
+      const queues = [...code.matchAll(/#\w*[Qq]ueue\b/g)].map((match) => match[0]);
+      expect(new Set(queues), file).toEqual(
+        new Set(file.endsWith("PlanningModel.ts") && queues.length > 0 ? ["#saveQueue"] : []),
+      );
+    }
+    expect(filesMatching(/\bnew\s+BoardWriteGate\b/)).toEqual(["src/app/model/BoardModel.ts"]);
+  });
+
   it("ne nomme une méthode HTTP d'écriture que dans le transport et l'inventaire", () => {
     expect(filesMatching(/["'`](POST|PUT|PATCH|DELETE)["'`]/).sort()).toEqual([
       "src/jira/transport.ts",

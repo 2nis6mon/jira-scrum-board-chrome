@@ -7,10 +7,9 @@ import {
   type RankStepResult,
   type TransitionStepResult,
 } from "../../core/boardMove";
-import type { JiraWriter, WriteReader } from "../../core/boardWrites";
+import type { WriteReader } from "../../core/boardWrites";
 import type { BoardDropPlan, RankChange } from "../../core/dropPlan";
 import { JiraError } from "../../jira/errors";
-import type { GoalsClient } from "../../jira/goals";
 import type { JiraTransition } from "../../jira/models";
 import type { AuditEntry } from "../model/auditLog";
 import type {
@@ -20,7 +19,7 @@ import type {
   WriteNotice,
 } from "../model/BoardTypes";
 import { toMessage } from "../model/messages";
-import type { RecordWrite, StateValue } from "./ports";
+import type { BoardWriteAccess, RecordWrite, StateValue } from "./ports";
 
 export interface BoardMovementState {
   writeNotice: StateValue<WriteNotice | null>;
@@ -50,28 +49,19 @@ export interface MovementCommand {
 }
 /**
  * Déclenche le déplacement (`core/boardMove.ts` porte l'ordre transition → Goal → rang) et
- * traduit son résultat en avis et en entrées de journal.
+ * traduit son résultat en avis et en entrées de journal. Les écritures passent par l'accès remis
+ * par la porte du board, pour la seule durée du geste.
  */
 export class BoardMovementService {
   readonly #reader: WriteReader;
-  readonly #writer: JiraWriter;
-  readonly #goals: Pick<GoalsClient, "setLink">;
   readonly #state: BoardMovementState;
   readonly #effects: BoardMovementEffects;
-  constructor(
-    reader: WriteReader,
-    writer: JiraWriter,
-    goals: Pick<GoalsClient, "setLink">,
-    state: BoardMovementState,
-    effects: BoardMovementEffects,
-  ) {
+  constructor(reader: WriteReader, state: BoardMovementState, effects: BoardMovementEffects) {
     this.#reader = reader;
-    this.#writer = writer;
-    this.#goals = goals;
     this.#state = state;
     this.#effects = effects;
   }
-  async execute(command: MovementCommand): Promise<boolean> {
+  async execute(command: MovementCommand, access: BoardWriteAccess): Promise<boolean> {
     const { issue, snapshot, column, drop, selection, plan, rank } = command;
     if (
       plan.changesColumn &&
@@ -81,7 +71,7 @@ export class BoardMovementService {
       return false;
     // La séquence et l'arrêt au premier échec sont portés par `core` ; ici, avis et journal.
     const result = await executeMove(
-      { reader: this.#reader, writer: this.#writer, goals: this.#goals },
+      { reader: this.#reader, writer: access.writer, goals: access.goals },
       {
         issue,
         snapshot,

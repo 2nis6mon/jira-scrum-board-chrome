@@ -16,11 +16,10 @@ import { languageLocale, localize, t } from "../../i18n";
 import type { JiraClient } from "../../jira/client";
 import { isRecord } from "../../jira/json";
 import { estimate, isDoneStatus, type JiraSprint } from "../../jira/models";
-import type { JiraTransport } from "../../jira/transport";
 import { isIssueKey } from "../../jira/writes";
 import { SPRINT_PLANNING_ENABLED } from "../featureFlags";
 import type { Platform } from "../platform/types";
-import type { AuditLog } from "./auditLog";
+import type { BoardWriteGateway, RecordWrite } from "../services/ports";
 import { toMessage, type UserMessage } from "./messages";
 import type { PlanningDraft, PlanningIssue, PlanningViewModel } from "./PlanningTypes";
 
@@ -36,7 +35,10 @@ interface PlanningContext {
   canWrite(): boolean;
   accountId(): string | null;
   openIssue(key: string): void;
-  readonly audit: AuditLog;
+  /** Porte d'écriture du board : la publication attend les autres gestes qui écrivent. */
+  readonly write: BoardWriteGateway["run"];
+  /** Journal du board. */
+  readonly record: RecordWrite;
 }
 
 /** Atelier à la demande : toutes les modifications restent locales jusqu'à Publier. */
@@ -63,7 +65,6 @@ export class PlanningModel implements PlanningViewModel {
 
   constructor(
     readonly client: JiraClient,
-    readonly transport: Pick<JiraTransport, "write">,
     readonly platform: Platform,
     readonly context: PlanningContext,
   ) {}
@@ -365,32 +366,32 @@ export class PlanningModel implements PlanningViewModel {
     this.notice.value = null;
     const generation = this.#generation;
     try {
-      await this.#saveQueue;
-      const result = await publishSprintPlanning(this.client, this.transport, {
-        snapshot,
-        goals: draft.goals.map((goal) => ({ ...goal, title: goal.title.trim() })),
-        links: draft.links,
-        selectedIssueKeys: draft.selectedIssueKeys,
-        accountId: this.context.accountId(),
-        now: new Date(),
+      // La porte est demandée avant d'attendre les brouillons : un changement de board pendant
+      // cette attente rend la publication périmée.
+      const result = await this.context.write(async ({ writer }) => {
+        await this.#saveQueue;
+        return publishSprintPlanning(this.client, writer, {
+          snapshot,
+          goals: draft.goals.map((goal) => ({ ...goal, title: goal.title.trim() })),
+          links: draft.links,
+          selectedIssueKeys: draft.selectedIssueKeys,
+          accountId: this.context.accountId(),
+          now: new Date(),
+        });
       });
-      await this.context.audit
-        .append({
-          at: new Date().toISOString(),
-          site: this.client.site.origin,
-          action: "sprint planning",
-          issueKey: null,
-          from: null,
-          to: String(draft.sprintId),
-          outcome:
-            result.kind === "confirmed"
-              ? "réussi"
-              : result.kind === "partial"
-                ? "incertain"
-                : "échec",
-          detail: result.message,
-        })
-        .catch(() => {});
+      await this.context.record({
+        action: "sprint planning",
+        issueKey: null,
+        from: null,
+        to: String(draft.sprintId),
+        outcome:
+          result.kind === "confirmed"
+            ? "réussi"
+            : result.kind === "partial"
+              ? "incertain"
+              : "échec",
+        detail: result.message,
+      });
       if (this.#stale(generation)) return;
       this.notice.value = result.message;
       if (result.kind === "confirmed" && result.snapshot) {

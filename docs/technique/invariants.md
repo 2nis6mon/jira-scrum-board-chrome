@@ -87,8 +87,9 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
 
 `JqlEditor` fournit les suggestions de Jira et la validation stricte pour les couleurs des cartes.
 Un JQL actif invalide ou non vérifié bloque l'application ; une erreur ou un conflit conserve le
-brouillon. `BoardSettingsService` vérifie la famille de réglages et les droits avant l'écriture,
-puis applique les règles après confirmation. `BoardCardColorService` évalue uniquement les
+brouillon. `BoardSettingsService` vérifie la famille de réglages ; la porte d'écriture du board
+(`BoardWriteGate`) refuse E6 sans droit `canEdit` avant l'envoi. Les règles sont appliquées après
+confirmation. `BoardCardColorService` évalue uniquement les
 couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 appels simultanés via
 `JqlService`). Les résultats périmés sont écartés ; aucun classement de swimlane n'utilise JQL.
 
@@ -120,6 +121,10 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   Arrêt au premier échec, réussite partielle indiquée, aucun rollback automatique. Cette séquence
   (et détacher → lier pour un Goal Atlassian) est portée par `core/boardMove.ts` ; la publication
   des réglages partagés relit `boardsettings.v1` par `saveTeamSettings` (`core/teamSettings.ts`).
+  Déplacement, rattachement, réglages, épinglage et publication du planning passent par la seule
+  porte d'écriture du board (`app/model/BoardWriteGate.ts`) : un geste attend la fin du précédent ;
+  une écriture préparée pour un board quitté est refusée avant l'envoi ; `canEdit` ne refuse que
+  la propriété du board (E6).
   La carte projetée est visuelle ; les compteurs restent ceux confirmés par Jira. Repère rouge
   pour les erreurs, aucune confirmation verte. Les formulaires suivent le parcours natif décrit dans
   l'[intégration Jira](integration-jira.md).

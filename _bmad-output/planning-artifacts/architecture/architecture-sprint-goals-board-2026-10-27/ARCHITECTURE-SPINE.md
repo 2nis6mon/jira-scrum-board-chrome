@@ -118,7 +118,11 @@ filtres et méthodes publiques. Trois services dans `src/app/services/` portent 
 |---|---|
 | `BoardLoadingService` | Synchronisation, relance des lectures concurrentes, résultats périmés, types observés et diagnostic |
 | `BoardMovementService` | Déclenche le déplacement (`core/boardMove`), délégation native, avis des erreurs partielles et journal |
-| `BoardSettingsService` | Écritures de réglages en file (`core/teamSettings.saveTeamSettings`), avis des conflits, permissions et épinglage Scrum/Kanban |
+| `BoardSettingsService` | Réglages partagés (`core/teamSettings.saveTeamSettings`) et épinglage Scrum/Kanban écrits par la porte du board, avis des conflits et permissions |
+
+Toute écriture Jira du board passe par [`BoardWriteGate`](../../../../src/app/model/BoardWriteGate.ts),
+détenue par `BoardModel` : file unique des gestes (déplacement, rattachement, réglages, épinglage,
+publication du planning) et décorateur remis à `core` (péremption de génération, `canEdit` pour E6).
 
 Leurs ports décrivent les seuls états et effets nécessaires ; ils n'importent ni `BoardModel`,
 ni les vues, ni Preact, ni le DOM ou Chrome. Les types communs sont dans `BoardTypes.ts`, réexportés
@@ -205,8 +209,6 @@ Le code actuel s'écarte de la spine sur ces points. Un agent ne les prend jamai
 | --- | --- |
 | AD-1 | `jira/transport.ts` importe `core/loadTrace.ts` : déplacer ce contrat d'observation des lectures dans `src/jira/` (5 importeurs) |
 | AD-1 | `tests/guards/sources.test.ts` ne vérifie ni `jira → core` ni la racine de composition |
-| AD-2, AD-6 | `PlanningModel` déclenche `publishSprintPlanning` et journalise depuis un modèle, avec le transport non décoré |
-| AD-6 | Files d'écriture séparées : `BoardSettingsService.#teamQueue`, `BoardModel.dropIssue` (`pendingKeys` seulement), rattachement texte sans file |
 | AD-4 | Clés par site sous deux formes (carte par site : `boards.v1`, `dismissedNotices.v1`, `graphqlOrigin.v1`, `audit.v1`) ; effacement par liste manuelle dans `AppModel.disconnect()` au lieu de `forgetSite` |
 | AD-7 | `src/integration/messages.ts` n'existe pas : littéraux `sprint-goals:*` répartis dans `embedded.ts`, `injectBoard.ts`, `worker.ts`, `bootstrap.ts`, `launcherChrome.ts` |
 | AD-4 | `connection.v1`, `launcher.v1` écrits par `AppModel` et `LauncherModel`, `boards.v1` lu brut par le lanceur : créer `app/model/connectionStore.ts`, passer par lui et `boardStore` |

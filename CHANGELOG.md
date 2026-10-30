@@ -17,6 +17,9 @@ sont dans la [documentation technique](docs/technique/index.md).
 - Déplacer un ticket (statut → objectif → rang), changer son Goal Atlassian (détacher → lier) et
   publier les réglages partagés suivent chacun une seule séquence d'écritures, réutilisable par un
   nouveau geste ; comportement, avis et journal inchangés.
+- Chaque geste qui écrit dans Jira depuis un board (déplacement, rattachement, réglages partagés,
+  épinglage, publication du Sprint Planning) attend la fin du précédent sur ce board ; une écriture
+  préparée pour un board quitté n'est jamais envoyée. Avis et journal inchangés.
 
 ## 0.36.1 — Langue dans les préférences personnelles
 

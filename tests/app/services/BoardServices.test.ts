@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { BoardWriteGate } from "../../../src/app/model/BoardWriteGate";
 import { LoadDiagnostics } from "../../../src/app/model/LoadDiagnostics";
 import {
   BoardLoadingService,
@@ -106,7 +107,7 @@ function movement(hasScreen = false) {
   };
   const record = vi.fn(async () => {});
   const openNative = vi.fn(() => true);
-  const service = new BoardMovementService(reader, writer, goals, state, {
+  const service = new BoardMovementService(reader, state, {
     now: () => NOW,
     record,
     openNative,
@@ -131,7 +132,9 @@ function movement(hasScreen = false) {
 describe("service de commandes de déplacement", () => {
   it("enchaîne transition, détachement, rattachement et rang dans cet ordre", async () => {
     const test = movement();
-    expect(await test.service.execute(test.command)).toBe(true);
+    expect(
+      await test.service.execute(test.command, { writer: test.writer, goals: test.goals }),
+    ).toBe(true);
     expect(test.order).toEqual(["issue.transition", "goal.unlink", "goal.link", "issue.rank"]);
     expect(test.state.writeNotice.value).toBeNull();
     expect(test.openNative).not.toHaveBeenCalled();
@@ -139,7 +142,9 @@ describe("service de commandes de déplacement", () => {
 
   it("une transition native suspend le déplacement sans écrire Goal ou rang", async () => {
     const test = movement(true);
-    expect(await test.service.execute(test.command)).toBe(false);
+    expect(
+      await test.service.execute(test.command, { writer: test.writer, goals: test.goals }),
+    ).toBe(false);
     expect(test.state.nativeTransitionPending.value).toBe(true);
     expect(test.openNative).toHaveBeenCalledOnce();
     expect(test.writer.write).not.toHaveBeenCalled();
@@ -152,7 +157,9 @@ describe("service de commandes de déplacement", () => {
       test.order.push(kind);
       return { success: kind === "goal.unlink", messages: kind === "goal.link" ? ["Refus"] : [] };
     });
-    expect(await test.service.execute(test.command)).toBe(false);
+    expect(
+      await test.service.execute(test.command, { writer: test.writer, goals: test.goals }),
+    ).toBe(false);
     expect(test.order).toEqual(["issue.transition", "goal.unlink", "goal.link"]);
     expect(test.state.writeNotice.value?.text).toContain("ancien Goal a déjà été retiré");
     expect(test.state.writeNotice.value?.text).toContain("Déjà effectué : statut modifié");
@@ -189,7 +196,13 @@ function settings() {
     canEditSettings: cell(true),
     canPinGoals: cell(true),
   };
-  const service = new BoardSettingsService(reader, writer, state, {
+  const gate = new BoardWriteGate({
+    writer,
+    goals: { setLink: async () => ({ success: true, messages: [] }) },
+    scope: { generation: () => 1, disposed: () => false },
+    canEditSettings: () => state.canEditSettings.value,
+  });
+  const service = new BoardSettingsService(reader, gate, state, {
     scope: { generation: () => 1, disposed: () => false },
     currentUser: () => USER,
     now: () => NOW,

@@ -4,9 +4,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
 import { AuditLog } from "../../src/app/model/auditLog";
+import { BoardWriteGate } from "../../src/app/model/BoardWriteGate";
 import { PlanningModel } from "../../src/app/model/PlanningModel";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
 import { JiraClient } from "../../src/jira/client";
+import { GoalsClient } from "../../src/jira/goals";
 import { decodeSprint } from "../../src/jira/models";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { JiraTransport } from "../../src/jira/transport";
@@ -28,14 +30,23 @@ function setup() {
     fetch: platform.fetch,
   });
   const client = new JiraClient(transport);
+  const audit = new AuditLog(platform.store);
+  const gate = new BoardWriteGate({
+    writer: transport,
+    goals: new GoalsClient(transport),
+    scope: { generation: () => 0, disposed: () => false },
+    canEditSettings: () => true,
+  });
   const openIssue = vi.fn();
   const create = () =>
-    new PlanningModel(client, transport, platform, {
+    new PlanningModel(client, platform, {
       configuration: () => makeConfiguration({ boardId: 7 }),
       canWrite: () => true,
       accountId: () => "u1",
       openIssue,
-      audit: new AuditLog(platform.store),
+      write: (task) => gate.run(task),
+      record: (entry) =>
+        audit.append({ ...entry, at: new Date().toISOString(), site: client.site.origin }),
     });
   return { jira, platform, openIssue, create, planning: create() };
 }

@@ -59,6 +59,7 @@ import type {
   TransitionSelection,
   WriteNotice,
 } from "./BoardTypes";
+import { BoardWriteGate } from "./BoardWriteGate";
 import {
   activateBoard,
   listBoards,
@@ -285,6 +286,8 @@ export class BoardModel {
   readonly #settings: BoardSettingsService;
   readonly #loading: BoardLoadingService;
   readonly #movements: BoardMovementService;
+  /** Seule file d'écritures Jira du board (AD-6). */
+  readonly #gate: BoardWriteGate;
   #generation = 0;
   #disposed = false;
   /** Enregistrements locaux enchaînés : le dernier demandé est le dernier écrit. */
@@ -309,10 +312,21 @@ export class BoardModel {
         this.#disposed ? undefined : this.loadDiagnostics.observeTransport(kind),
     });
     this.#client = new JiraClient(transport);
+    this.#goals = new GoalsClient(transport);
+    const scope = { generation: () => this.#generation, disposed: () => this.#disposed };
+    // Le transport brut ne sort pas d'ici : services, planning et `core` reçoivent la porte.
+    this.#gate = new BoardWriteGate({
+      writer: transport,
+      goals: this.#goals,
+      scope,
+      canEditSettings: () => this.canEditSettings.peek(),
+    });
     this.jql = new JqlService(this.#client);
-    this.planning = new PlanningModel(this.#client, transport, platform, {
+    this.planning = new PlanningModel(this.#client, platform, {
       configuration: () => this.configuration.value,
       canWrite: () =>
+        // La publication du planning tient elle-même la porte : elle ne s'attend pas.
+        (this.#gate.busy.value === 0 || this.planning.publishing.value) &&
         this.pendingKeys.value.size === 0 &&
         this.teamSaving.value === 0 &&
         !this.setupBusy.value &&
@@ -320,14 +334,13 @@ export class BoardModel {
         this.transitionChoice.value === null,
       accountId: () => this.snapshot.value?.currentUser?.accountId ?? null,
       openIssue: (key) => this.nativeIssueHandler?.(key),
-      audit: this.audit,
+      write: (task, options) => this.#gate.run(task, options),
+      record: (entry) => this.#record(entry),
     });
-    this.#goals = new GoalsClient(transport);
     this.images = new ImageCache((url) => transport.fetchImage(url));
-    const scope = { generation: () => this.#generation, disposed: () => this.#disposed };
     this.#settings = new BoardSettingsService(
       this.#client,
-      transport,
+      this.#gate,
       {
         configuration: this.configuration,
         pinEditor: this.pinEditor,
@@ -385,8 +398,6 @@ export class BoardModel {
     );
     this.#movements = new BoardMovementService(
       this.#client,
-      transport,
-      this.#goals,
       {
         writeNotice: this.writeNotice,
         nativeTransitionPending: this.nativeTransitionPending,
@@ -438,7 +449,8 @@ export class BoardModel {
       this.pinEditor.value?.saving !== true &&
       !this.planning.publishing.value &&
       this.planning.saving.value === 0 &&
-      this.teamSaving.value === 0,
+      this.teamSaving.value === 0 &&
+      this.#gate.busy.value === 0,
   );
 
   /** Affiche un autre board déjà enregistré, avec ses réglages, puis le relit dans Jira. */
@@ -962,15 +974,21 @@ export class BoardModel {
     this.writeNotice.value = null;
     let finished = false;
     try {
-      finished = await this.#movements.execute({
-        issue,
-        snapshot,
-        column,
-        drop: input,
-        ...(selection ? { selection } : {}),
-        plan,
-        rank,
-      });
+      // Un réglage ou une publication en cours passe d'abord : le dépôt attend la porte.
+      finished = await this.#gate.run((access) =>
+        this.#movements.execute(
+          {
+            issue,
+            snapshot,
+            column,
+            drop: input,
+            ...(selection ? { selection } : {}),
+            plan,
+            rank,
+          },
+          access,
+        ),
+      );
     } finally {
       let refreshed = false;
       try {
