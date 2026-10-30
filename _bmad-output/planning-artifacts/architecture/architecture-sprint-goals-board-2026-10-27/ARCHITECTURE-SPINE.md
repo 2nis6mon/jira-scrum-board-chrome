@@ -88,7 +88,7 @@ graph TD
 - **Prevents:** formats réinventés ; lecture des anciennes données cassée ; extensions de format perdues par un autre écrivain ; politiques de conflit divergentes sur une même propriété ; données d'un site survivant à la déconnexion.
 - **Rule:** Chaque propriété Jira et chaque clé locale a un unique module propriétaire qui seul décode, encode et migre son format ; les autres modules passent par lui. Clés versionnées, version inconnue ou donnée illisible jamais écrasée, clés inconnues conservées à tous les niveaux. Un doublon n'est toléré que s'il est imposé par l'absence d'import de `bootstrap.ts` (`language.v1`, `jira-button-position.v1:<origine>`), nommé ici et couvert par un test.
   - **Propriétés Jira** : le module propriétaire expose la **seule** primitive de mise à jour (relecture, mutation pure fournie par l'appelant, écriture) et fixe lui-même la règle de conflit et le format d'horodatage. Pour `sprintgoals.v1` : fusion sur Jira frais quand la mutation ne touche qu'un lien, refus si la zone modifiée a changé depuis la version de base. Les fonctions de `core` qui écrivent ne fournissent qu'une mutation du document décodé. Une entité stockée dans plusieurs propriétés (Goals épinglés : `sprintgoals.v1` en Scrum, `boardsettings.v1` en Kanban) a un seul résolveur de stockage dans `core` ; aucun geste ne choisit la propriété.
-  - **Clés locales** : une nouvelle clé contenant des données d'un site est suffixée par l'origine (`<clé>.vN:<origine Jira>`). Son module propriétaire exporte `forgetSite(origin)`, enregistré dans une liste unique appelée par la déconnexion. Les écritures concurrentes entre onglets ne sont pas fusionnées : la dernière écriture gagne, et c'est accepté.
+  - **Clés locales** : une nouvelle clé contenant des données d'un site est suffixée par l'origine (`<clé>.vN:<origine Jira>`). Son module propriétaire exporte `forgetSite(origin)`, enregistré dans la liste unique `app/model/siteData.ts` appelée par la déconnexion ; les clés existantes en carte par site (`boards.v1`, `dismissedNotices.v1`, `graphqlOrigin.v1`, `audit.v1`) gardent leur format et passent par la même liste. Une clé sans donnée de site y est déclarée explicitement (`language.v1`, `interface.v1`, `loadDiagnostics.v1`). Les écritures concurrentes entre onglets ne sont pas fusionnées : la dernière écriture gagne, et c'est accepté.
 
 ### AD-5 — Interrupteurs de fonction à la compilation [ADOPTED]
 
@@ -207,8 +207,6 @@ Le code actuel s'écarte de la spine sur ces points. Un agent ne les prend jamai
 
 | Règle | Écart |
 | --- | --- |
-| AD-4 | Clés par site sous deux formes (carte par site : `boards.v1`, `dismissedNotices.v1`, `graphqlOrigin.v1`, `audit.v1`) ; effacement par liste manuelle dans `AppModel.disconnect()` au lieu de `forgetSite` |
-| AD-4 | `connection.v1`, `launcher.v1` écrits par `AppModel` et `LauncherModel`, `boards.v1` lu brut par le lanceur : créer `app/model/connectionStore.ts`, passer par lui et `boardStore` |
 | AD-5 | `SPRINT_HEALTH_ENABLED` (`views/board/BoardView.tsx`) et `DIAGNOSTIC_ENABLED` (`views/DiagnosticView.tsx`) à migrer dans `app/featureFlags.ts` |
 | Conventions | `core/sprintPlanning.ts` et `core/boardWrites.ts` produisent des phrases utilisateur, persistées ensuite dans `audit.v1` puis relocalisées par motifs |
 

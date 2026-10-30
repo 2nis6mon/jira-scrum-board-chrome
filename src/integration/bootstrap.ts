@@ -23,7 +23,8 @@ declare const __INTEGRATION_MESSAGES__: Readonly<
   // </protocole sprint-goals>
 
   const buttonId = "sprint-goals-open";
-  // Même clé dans AppModel.disconnect ; une entrée par site, jamais partagée avec Jira.
+  // Doublon nommé de app/model/buttonPosition.ts (effacée à la déconnexion) ; une entrée par
+  // site, jamais partagée avec Jira.
   const positionKey = `jira-button-position.v1:${location.origin}`;
   // Même clé que LANGUAGE_PREFERENCE_KEY ; ce script n'importe aucun module.
   const languageKey = "language.v1";

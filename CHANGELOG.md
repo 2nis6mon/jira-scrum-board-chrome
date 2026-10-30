@@ -27,6 +27,10 @@ sont dans la [documentation technique](docs/technique/index.md).
   (`src/integration/messages.ts`) ; les copies imposées par les scripts sans import sont comparées
   à cette déclaration par les tests. Valeurs acceptées et refusées inchangées, sauf la clé du
   ticket à ouvrir, qui doit désormais être une chaîne de caractères.
+- La déconnexion efface les données locales du site par une liste unique de propriétaires, comparée
+  par les tests à la table des clés : un échec d'effacement n'empêche plus les autres. Le site
+  connecté et la dernière adresse du lanceur ne sont plus effacés s'ils désignent un autre site.
+  Langue, interface et données des autres sites restent ; noms et formats des clés inchangés.
 
 ## 0.36.1 — Langue dans les préférences personnelles
 

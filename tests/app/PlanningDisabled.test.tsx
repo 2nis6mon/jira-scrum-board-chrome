@@ -5,7 +5,7 @@ import { App } from "../../src/app/App";
 import { AppModel } from "../../src/app/model/AppModel";
 import { AuditLog } from "../../src/app/model/auditLog";
 import { BoardWriteGate } from "../../src/app/model/BoardWriteGate";
-import { PlanningModel } from "../../src/app/model/PlanningModel";
+import { forgetPlanningDrafts, PlanningModel } from "../../src/app/model/PlanningModel";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
 import { JiraClient } from "../../src/jira/client";
 import { GoalsClient } from "../../src/jira/goals";
@@ -163,7 +163,7 @@ describe("Sprint Planning désactivé à la compilation", () => {
     expect(platform.stored.get(STORAGE_KEY)).toBe(saved);
     await reopened.forgetBoard(7);
     expect(platform.stored.get(STORAGE_KEY)).toEqual({ "8:44": saved["8:44"] });
-    await reopened.forgetSite();
+    await forgetPlanningDrafts(platform.store, "https://acme.atlassian.net");
     expect(platform.stored.has(STORAGE_KEY)).toBe(false);
   });
 });

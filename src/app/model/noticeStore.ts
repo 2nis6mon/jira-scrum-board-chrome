@@ -8,6 +8,8 @@ import type { LocalStore } from "../platform/types";
  */
 const NOTICES_KEY = "dismissedNotices.v1";
 
+export const NOTICE_STORE_KEYS = [NOTICES_KEY] as const;
+
 /**
  * Les explications et les lectures partielles non bloquantes se ferment pour de bon. Les erreurs
  * qui empêchent de lire le board et les décisions à prendre restent visibles ailleurs.

@@ -1,4 +1,9 @@
 import { signal } from "@preact/signals";
+import {
+  loadLastLaunchAddress,
+  saveConnection,
+  saveLastLaunchAddress,
+} from "../app/model/connectionStore";
 import type { Platform } from "../app/platform/types";
 import {
   LANGUAGE_PREFERENCE_KEY,
@@ -55,11 +60,10 @@ export class LauncherModel {
 
   async start(): Promise<void> {
     try {
-      const [tab, connection, boards, lastAddress, preferences] = await Promise.all([
+      const [tab, configuredAddress, lastAddress, preferences] = await Promise.all([
         this.#platform.currentTab(),
-        this.#platform.store.get("connection.v1"),
-        this.#platform.store.get("boards.v1"),
-        this.#platform.store.get("launcher.v1"),
+        configuredBoardAddress(this.#platform.store),
+        loadLastLaunchAddress(this.#platform.store),
         this.#platform.store.get(LANGUAGE_PREFERENCE_KEY).catch(() => null),
       ]);
       setLanguage(resolveLanguage(languagePreference(preferences), tab?.locale));
@@ -69,8 +73,8 @@ export class LauncherModel {
       this.offBoard.value = tabAddress === null && isJiraPage(tab?.url);
       const boardAddress =
         tabAddress ??
-        configuredBoardAddress(connection, boards) ??
-        (typeof lastAddress === "string" ? launchBoardAddress(lastAddress) : null);
+        configuredAddress ??
+        (lastAddress !== null ? launchBoardAddress(lastAddress) : null);
       // Sur une page Jira sans board connu, le site de l'onglet est proposé : l'autoriser suffit
       // pour que le bouton « Sprint Goals » apparaisse sur ses boards.
       this.address.value =
@@ -144,9 +148,9 @@ export class LauncherModel {
 
   async #enter(address: string, isBoard: boolean): Promise<void> {
     await this.#platform.prepareLaunch();
-    await this.#platform.store.set("connection.v1", { origin: new URL(address).origin });
+    await saveConnection(this.#platform.store, new URL(address).origin);
     // Seule l'adresse d'un board est mémorisée pour les ouvertures suivantes.
-    if (isBoard) await this.#platform.store.set("launcher.v1", address);
+    if (isBoard) await saveLastLaunchAddress(this.#platform.store, address);
     await this.#platform.navigate(address, this.#tab);
     this.#platform.close();
   }

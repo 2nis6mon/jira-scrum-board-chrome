@@ -8,6 +8,8 @@ import type { LocalStore } from "../platform/types";
  */
 const BOARDS_KEY = "boards.v1";
 
+export const BOARD_STORE_KEYS = [BOARDS_KEY] as const;
+
 interface SiteBoards {
   activeBoardId: number | null;
   boards: Record<string, unknown>;
@@ -40,6 +42,26 @@ export async function loadActiveBoard(
   if (!site || site.activeBoardId === null) return null;
   const configuration = decodeStoredConfiguration(site.boards[String(site.activeBoardId)]);
   return configuration?.siteOrigin === siteOrigin ? configuration : null;
+}
+
+/**
+ * Board actif du site pour le lanceur : identifiant et clés de projet seulement, lus sans exiger
+ * une configuration complète (les anciennes installations n'en ont pas toujours).
+ */
+export async function loadActiveBoardRef(
+  store: LocalStore,
+  siteOrigin: string,
+): Promise<{ boardId: number; projectKeys: string[] } | null> {
+  const site = (await readAll(store))[siteOrigin];
+  if (!site || site.activeBoardId === null) return null;
+  const board = site.boards[String(site.activeBoardId)];
+  if (typeof board !== "object" || board === null) return null;
+  const projectKeys = (board as Record<string, unknown>).projectKeys;
+  if (!Array.isArray(projectKeys)) return null;
+  return {
+    boardId: site.activeBoardId,
+    projectKeys: projectKeys.filter((value): value is string => typeof value === "string"),
+  };
 }
 
 /** Configuration déjà enregistrée pour ce board, pour en garder les réglages locaux. */

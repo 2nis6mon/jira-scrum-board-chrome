@@ -28,47 +28,63 @@ export interface AuditEntry {
 
 const AUDIT_KEY = "audit.v1";
 export const MAX_AUDIT_ENTRIES = 500;
+export const AUDIT_STORE_KEYS = [AUDIT_KEY] as const;
+
+/**
+ * File unique des lectures-écritures de audit.v1 pour un même stockage : ajouts des instances et
+ * effacement de la déconnexion s'y enchaînent, aucune entrée n'est perdue ni ne revient.
+ */
+const queues = new WeakMap<LocalStore, Promise<unknown>>();
+
+function enqueue<T>(store: LocalStore, task: () => Promise<T>): Promise<T> {
+  const next = (queues.get(store) ?? Promise.resolve()).then(task);
+  queues.set(
+    store,
+    next.catch(() => {}),
+  );
+  return next;
+}
 
 export class AuditLog {
   readonly #store: LocalStore;
-  /** Les ajouts sont enchaînés : deux écritures simultanées ne perdent aucune entrée. */
-  #queue: Promise<unknown> = Promise.resolve();
 
   constructor(store: LocalStore) {
     this.#store = store;
   }
 
+  /** Les ajouts sont enchaînés : deux écritures simultanées ne perdent aucune entrée. */
   append(entry: AuditEntry): Promise<void> {
-    const next = this.#queue.then(async () => {
-      const entries = await this.#readAll();
+    return enqueue(this.#store, async () => {
+      const entries = await readEntries(this.#store);
       entries.push(entry);
       await this.#store.set(AUDIT_KEY, entries.slice(-MAX_AUDIT_ENTRIES));
     });
-    this.#queue = next.catch(() => {});
-    return next;
   }
 
   /** Entrées d'un site, de la plus récente à la plus ancienne. */
   async list(site: string): Promise<AuditEntry[]> {
-    await this.#queue;
-    return (await this.#readAll()).filter((entry) => entry.site === site).reverse();
+    await (queues.get(this.#store) ?? Promise.resolve());
+    return (await readEntries(this.#store)).filter((entry) => entry.site === site).reverse();
   }
 
   /** Efface les entrées d'un site (bouton du journal, ou déconnexion). */
   forgetSite(site: string): Promise<void> {
-    const next = this.#queue.then(async () => {
-      const kept = (await this.#readAll()).filter((entry) => entry.site !== site);
-      if (kept.length === 0) await this.#store.remove(AUDIT_KEY);
-      else await this.#store.set(AUDIT_KEY, kept);
-    });
-    this.#queue = next.catch(() => {});
-    return next;
+    return forgetAuditSite(this.#store, site);
   }
+}
 
-  async #readAll(): Promise<AuditEntry[]> {
-    const raw = await this.#store.get(AUDIT_KEY);
-    return Array.isArray(raw) ? raw.filter(isEntry) : [];
-  }
+async function readEntries(store: LocalStore): Promise<AuditEntry[]> {
+  const raw = await store.get(AUDIT_KEY);
+  return Array.isArray(raw) ? raw.filter(isEntry) : [];
+}
+
+/** Efface les entrées d'un site (liste de la déconnexion), dans la file des ajouts. */
+export function forgetAuditSite(store: LocalStore, site: string): Promise<void> {
+  return enqueue(store, async () => {
+    const kept = (await readEntries(store)).filter((entry) => entry.site !== site);
+    if (kept.length === 0) await store.remove(AUDIT_KEY);
+    else await store.set(AUDIT_KEY, kept);
+  });
 }
 
 function isEntry(value: unknown): value is AuditEntry {

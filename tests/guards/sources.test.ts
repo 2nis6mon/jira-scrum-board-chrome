@@ -116,6 +116,12 @@ describe("code de production", () => {
     expect(putsGoals).toEqual(["src/core/sprintGoals.ts"]);
   });
 
+  it("ne nomme les clés de connexion et de boards que dans leur module propriétaire (AD-4)", () => {
+    expect(filesMatching(/["'`]connection\.v1["'`]/)).toEqual(["src/app/model/connectionStore.ts"]);
+    expect(filesMatching(/["'`]launcher\.v1["'`]/)).toEqual(["src/app/model/connectionStore.ts"]);
+    expect(filesMatching(/["'`]boards\.v1["'`]/)).toEqual(["src/app/model/boardStore.ts"]);
+  });
+
   it("ne choisit le stockage des Goals épinglés que dans core/pinnedGoals.ts (AD-4)", () => {
     // Service et vue de l'épinglage consomment le stockage résolu, sans tester le type du board.
     const pinning = [

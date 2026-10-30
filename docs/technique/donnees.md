@@ -50,6 +50,17 @@ comme donnée inconnue, sans effet sur le classement.
 | `audit.v1` | Au plus 500 écritures de l'extension : clés des tickets, résultat, erreurs, aucun cookie ni saisie native |
 | `loadDiagnostics.v1` | Cinq chargements, 500 segments chacun ; troncature comptée |
 
+Chaque clé a un module propriétaire sous `src/app/model/` : `connectionStore.ts` (`connection.v1`,
+`launcher.v1`), `boardStore.ts`, `noticeStore.ts`, `graphqlOrigin.ts`, `auditLog.ts`,
+`PlanningModel.ts` (brouillons), `buttonPosition.ts` (préfixe dupliqué et nommé dans `bootstrap.ts`,
+sans import), `AppModel.ts` (`interface.v1`) et `LoadDiagnostics.ts` ; la langue relève de
+`src/i18n/language.ts`. La déconnexion d'un site parcourt la liste unique `siteData.ts` : chaque
+propriétaire efface les données de ce site, un échec n'arrête pas les autres ; celles des autres
+sites, la langue et l'interface restent ; les mesures de chargement, sans donnée de site, sont
+remises à zéro. `connection.v1` et `launcher.v1` ne sont effacés que s'ils désignent le site
+déconnecté. Une nouvelle clé de site est suffixée par l'origine et ajoutée à cette table, à son
+propriétaire et à la liste : `tests/app/siteData.test.ts` compare la liste à cette table.
+
 Les mesures de chargement ne stockent que version/date, type du board, compteurs, temps et catégories
 fermées : aucun nom, URL, JQL, identifiant Jira, en-tête, corps ou message brut. Identifiants de
 rapports/appels locaux à la mesure, décodeur strict, stockage non bloquant. Historique par onglet,

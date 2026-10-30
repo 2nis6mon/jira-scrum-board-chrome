@@ -2,7 +2,7 @@ import { signal } from "@preact/signals";
 import { describe, expect, it, vi } from "vitest";
 import { AuditLog } from "../../src/app/model/auditLog";
 import { BoardWriteGate } from "../../src/app/model/BoardWriteGate";
-import { PlanningModel } from "../../src/app/model/PlanningModel";
+import { forgetPlanningDrafts, PlanningModel } from "../../src/app/model/PlanningModel";
 import { setLanguage } from "../../src/i18n";
 import { JiraClient } from "../../src/jira/client";
 import { GoalsClient } from "../../src/jira/goals";
@@ -333,7 +333,8 @@ describe("atelier Sprint Planning", () => {
     await planning.load();
     planning.addGoal("À préparer");
     planning.dispose();
-    await planning.forgetSite();
+    await planning.flushDraft();
+    await forgetPlanningDrafts(platform.store, "https://acme.atlassian.net");
     expect([...platform.stored.keys()].some((key) => key.startsWith("sprint-planning.v1:"))).toBe(
       false,
     );

@@ -16,15 +16,17 @@ import { SPRINT_PLANNING_ENABLED } from "../featureFlags";
 import type { Platform } from "../platform/types";
 import { AuditLog } from "./auditLog";
 import { BoardModel } from "./BoardModel";
-import { forgetSite } from "./boardStore";
+import { loadConnectedOrigin, saveConnection } from "./connectionStore";
 import { DiagnosticModel } from "./DiagnosticModel";
 import { GraphqlOrigin } from "./graphqlOrigin";
 import { LoadDiagnostics } from "./LoadDiagnostics";
 import { toMessage, type UserMessage } from "./messages";
-import { forgetDismissedNotices } from "./noticeStore";
+import { forgetSiteData } from "./siteData";
 
-const CONNECTION_KEY = "connection.v1";
-/** Préférences d'affichage de ce navigateur, communes à tous les sites et boards. */
+/**
+ * Préférences d'affichage de ce navigateur, communes à tous les sites et boards. Non liées à un
+ * site : la déconnexion les garde (voir `NOT_SITE_DATA_KEYS` de siteData.ts).
+ */
 const INTERFACE_KEY = "interface.v1";
 
 /** Largeur de la barre latérale, en pixels : 248 par défaut, 200 au moins. */
@@ -169,11 +171,9 @@ export class AppModel {
     boardAddress?: string,
   ): Promise<{ site: JiraSite; address: string | undefined } | null> {
     await this.prepareLanguage();
-    const saved = await this.#platform.store.get(CONNECTION_KEY);
+    const saved = await loadConnectedOrigin(this.#platform.store);
     const target = boardAddress ? parseBoardUrl(boardAddress) : null;
-    const origin =
-      target?.site.origin ??
-      (isRecord(saved) && typeof saved.origin === "string" ? saved.origin : null);
+    const origin = target?.site.origin ?? saved;
     if (origin === null) {
       this.connection.value = { state: "disconnected", lastInput: "" };
       return null;
@@ -231,7 +231,7 @@ export class AppModel {
       return;
     }
 
-    await this.#platform.store.set(CONNECTION_KEY, { origin: site.origin });
+    await saveConnection(this.#platform.store, site.origin);
     await this.#enter(site, this.#hostBoardAddress);
   }
 
@@ -241,24 +241,16 @@ export class AppModel {
     if (current.state !== "connected") return;
     if (current.board.planning.publishing.value) return;
     this.#localeGeneration++;
-    await current.board.planning.flushDraft();
+    await current.board.planning.flushDraft().catch(() => {});
     current.board.dispose();
-    await current.board.planning.forgetSite();
+    // Un brouillon mis en file pendant la fermeture est écrit avant l'effacement, jamais après.
+    await current.board.planning.flushDraft().catch(() => {});
+    // Liste unique des propriétaires de données du site (AD-4) : chacun efface les siennes, un
+    // échec n'empêche ni les autres ni la déconnexion. Le journal passe par la file de ses ajouts.
+    await forgetSiteData(this.#platform.store, current.site.origin);
     await this.loadDiagnostics.clear();
-    await new GraphqlOrigin(this.#platform, current.site).forget().catch(() => {});
+    await new GraphqlOrigin(this.#platform, current.site).removeRule().catch(() => {});
     await this.#platform.permissions.remove(current.site.permissionPattern);
-    await this.#platform.store.remove(CONNECTION_KEY);
-    const lastLaunch = await this.#platform.store.get("launcher.v1");
-    if (
-      typeof lastLaunch === "string" &&
-      parseBoardUrl(lastLaunch)?.site.origin === current.site.origin
-    ) {
-      await this.#platform.store.remove("launcher.v1");
-    }
-    await forgetSite(this.#platform.store, current.site.origin);
-    await forgetDismissedNotices(this.#platform.store, current.site.origin).catch(() => {});
-    await this.#platform.store.remove(`jira-button-position.v1:${current.site.origin}`);
-    await this.#audit.forgetSite(current.site.origin);
     this.connectionError.value = null;
     this.view.value = "board";
     this.settingsSection.value = "board";

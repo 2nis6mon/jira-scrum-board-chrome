@@ -1,4 +1,6 @@
-import { isRecord } from "../jira/json";
+import { loadActiveBoardRef } from "../app/model/boardStore";
+import { loadConnectedOrigin } from "../app/model/connectionStore";
+import type { LocalStore } from "../app/platform/types";
 import { normalizeSiteUrl, parseBoardUrl } from "../jira/site";
 import { sprintGoalsBoardRoute } from "./boardRoute";
 
@@ -58,18 +60,13 @@ export function launchBoardAddress(raw: string): string | null {
   }
 }
 
-/** Retrouve l'URL Jira du board actif sans recopier de donnée hors du stockage local Chrome. */
-export function configuredBoardAddress(rawConnection: unknown, rawBoards: unknown): string | null {
-  if (!isRecord(rawConnection) || typeof rawConnection.origin !== "string") return null;
-  if (!isRecord(rawBoards)) return null;
-  const site = rawBoards[rawConnection.origin];
-  if (!isRecord(site) || typeof site.activeBoardId !== "number" || !isRecord(site.boards))
-    return null;
-  const board = site.boards[String(site.activeBoardId)];
-  if (!isRecord(board) || !Array.isArray(board.projectKeys)) return null;
-  return boardPageAddress({
-    siteOrigin: rawConnection.origin,
-    boardId: site.activeBoardId,
-    projectKeys: board.projectKeys.filter((value): value is string => typeof value === "string"),
-  });
+/**
+ * Retrouve l'URL Jira du board actif du site connecté sans recopier de donnée hors du stockage
+ * local Chrome. Les clés sont lues par leurs propriétaires (AD-4).
+ */
+export async function configuredBoardAddress(store: LocalStore): Promise<string | null> {
+  const origin = await loadConnectedOrigin(store);
+  if (origin === null) return null;
+  const board = await loadActiveBoardRef(store, origin);
+  return board && boardPageAddress({ siteOrigin: origin, ...board });
 }

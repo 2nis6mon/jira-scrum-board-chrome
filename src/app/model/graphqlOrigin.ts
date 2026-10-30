@@ -1,6 +1,6 @@
 import type { JiraSite } from "../../jira/site";
 import { graphqlOriginRule, type OriginMode } from "../platform/originRule";
-import type { Platform } from "../platform/types";
+import type { LocalStore, Platform } from "../platform/types";
 
 const ORIGIN_KEY = "graphqlOrigin.v1";
 
@@ -58,14 +58,21 @@ export class GraphqlOrigin {
     await this.use(await this.preferred());
   }
 
-  /** Déconnexion : plus de règle, plus de préférence pour ce site. */
-  async forget(): Promise<void> {
+  /** Retire la règle de session ; la préférence mémorisée est effacée par siteData.ts. */
+  async removeRule(): Promise<void> {
     await this.#platform.originRules.apply(null);
-    const stored = await this.#platform.store.get(ORIGIN_KEY);
-    if (typeof stored !== "object" || stored === null) return;
-    const all = { ...(stored as Record<string, unknown>) };
-    delete all[this.#site.origin];
-    if (Object.keys(all).length === 0) await this.#platform.store.remove(ORIGIN_KEY);
-    else await this.#platform.store.set(ORIGIN_KEY, all);
   }
+}
+
+export const GRAPHQL_ORIGIN_STORE_KEYS = [ORIGIN_KEY] as const;
+
+/** Oublie la variante mémorisée d'un site (liste de la déconnexion) ; les autres sites restent. */
+export async function forgetGraphqlOrigin(store: LocalStore, origin: string): Promise<void> {
+  const stored = await store.get(ORIGIN_KEY);
+  if (typeof stored !== "object" || stored === null) return;
+  const all = { ...(stored as Record<string, unknown>) };
+  if (!(origin in all)) return;
+  delete all[origin];
+  if (Object.keys(all).length === 0) await store.remove(ORIGIN_KEY);
+  else await store.set(ORIGIN_KEY, all);
 }

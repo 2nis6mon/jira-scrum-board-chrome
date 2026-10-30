@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_ORIGIN_MODE, GraphqlOrigin } from "../../src/app/model/graphqlOrigin";
+import {
+  DEFAULT_ORIGIN_MODE,
+  forgetGraphqlOrigin,
+  GraphqlOrigin,
+} from "../../src/app/model/graphqlOrigin";
 import { graphqlOriginRule } from "../../src/app/platform/originRule";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { FakeJira } from "../support/fakeJira";
@@ -66,11 +70,13 @@ describe("GraphqlOrigin", () => {
     await acme.restore();
     expect(platform.appliedRules.at(-1)?.action.requestHeaders[0].operation).toBe("set");
 
-    await acme.forget();
+    await acme.removeRule();
     expect(platform.appliedRules.at(-1)).toBeNull();
+    expect(await acme.preferred()).toBe("site");
+    await forgetGraphqlOrigin(platform.store, SITE.origin);
     expect(await acme.preferred()).toBe(DEFAULT_ORIGIN_MODE);
     expect(await other.preferred()).toBe("remove");
-    await other.forget();
+    await forgetGraphqlOrigin(platform.store, OTHER.origin);
     expect(platform.stored.has("graphqlOrigin.v1")).toBe(false);
   });
 });

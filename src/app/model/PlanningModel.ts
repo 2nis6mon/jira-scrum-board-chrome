@@ -18,7 +18,7 @@ import { isRecord } from "../../jira/json";
 import { estimate, isDoneStatus, type JiraSprint } from "../../jira/models";
 import { isIssueKey } from "../../jira/writes";
 import { SPRINT_PLANNING_ENABLED } from "../featureFlags";
-import type { Platform } from "../platform/types";
+import type { LocalStore, Platform } from "../platform/types";
 import type { BoardWriteGateway, RecordWrite } from "../services/ports";
 import { toMessage, type UserMessage } from "./messages";
 import type { PlanningDraft, PlanningIssue, PlanningViewModel } from "./PlanningTypes";
@@ -39,6 +39,22 @@ interface PlanningContext {
   readonly write: BoardWriteGateway["run"];
   /** Journal du board. */
   readonly record: RecordWrite;
+}
+
+/** Brouillons du Sprint Planning d'un site, par board et sprint : une clé par site. */
+const PLANNING_DRAFT_PREFIX = "sprint-planning.v1:";
+export const PLANNING_DRAFT_KEYS = [`${PLANNING_DRAFT_PREFIX}<origine Jira>`] as const;
+
+export function planningDraftKey(origin: string): string {
+  return `${PLANNING_DRAFT_PREFIX}${origin}`;
+}
+
+/**
+ * Oublie les brouillons d'un site (liste de la déconnexion). Indépendant de l'interrupteur du
+ * planning : un brouillon d'un build local reste effacé par le paquet.
+ */
+export function forgetPlanningDrafts(store: LocalStore, origin: string): Promise<void> {
+  return store.remove(planningDraftKey(origin));
 }
 
 /** Atelier à la demande : toutes les modifications restent locales jusqu'à Publier. */
@@ -511,12 +527,6 @@ export class PlanningModel implements PlanningViewModel {
     this.#disposed = true;
   }
 
-  async forgetSite(): Promise<void> {
-    await this.#saveQueue;
-    await this.platform.store.remove(this.#storageKey());
-    this.#memoryDrafts.clear();
-  }
-
   async flushDraft(): Promise<void> {
     await this.#saveQueue;
   }
@@ -564,7 +574,7 @@ export class PlanningModel implements PlanningViewModel {
     return this.#disposed || generation !== this.#generation;
   }
   #storageKey(): string {
-    return `sprint-planning.v1:${this.client.site.origin}`;
+    return planningDraftKey(this.client.site.origin);
   }
 
   #acceptSnapshot(snapshot: PlanningSnapshot, capacity: number | null = null): void {
