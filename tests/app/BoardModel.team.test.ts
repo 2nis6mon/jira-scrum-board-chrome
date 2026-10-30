@@ -97,6 +97,18 @@ describe("BoardModel — réglages du board partagés", () => {
     expect(entry).toMatchObject({ action: "réglages d'équipe", outcome: "réussi" });
   });
 
+  it("sur un document déjà publié, le journal nomme la famille de réglages modifiée", async () => {
+    const { board } = await boardWith();
+    await board.moveLane("build", -1);
+    await board.setGoalHidden("g-stabilite", true);
+    const [entry] = await board.audit.list(SITE.origin);
+    expect(entry).toMatchObject({
+      action: "réglages d'équipe",
+      outcome: "réussi",
+      detail: "Objectifs masqués",
+    });
+  });
+
   it("la version de Jira est appliquée à chaque lecture, même si ce navigateur avait autre chose", async () => {
     const { board, property, puts } = await boardWith();
     await board.moveLane("build", -1);

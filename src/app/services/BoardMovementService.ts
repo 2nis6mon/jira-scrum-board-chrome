@@ -1,17 +1,13 @@
+import type { BoardIssue, BoardSnapshot } from "../../core/boardIssue";
 import {
-  type BoardIssue,
-  type BoardSnapshot,
-  goalsOfSprint,
-  textLinkSprintId,
-} from "../../core/boardIssue";
-import {
-  type JiraWriter,
-  linkToTextGoal,
-  type MoveOutcome,
-  moveToColumn,
-  rankIssue,
-  type WriteReader,
-} from "../../core/boardWrites";
+  type AtlassianGoalOutcome,
+  executeMove,
+  type GoalStepResult,
+  type MoveStep,
+  type RankStepResult,
+  type TransitionStepResult,
+} from "../../core/boardMove";
+import type { JiraWriter, WriteReader } from "../../core/boardWrites";
 import type { BoardDropPlan, RankChange } from "../../core/dropPlan";
 import { JiraError } from "../../jira/errors";
 import type { GoalsClient } from "../../jira/goals";
@@ -37,6 +33,12 @@ export interface BoardMovementEffects {
   openNative(key: string, transition: JiraTransition): boolean;
   sync(): Promise<void>;
 }
+/** Étapes rappelées dans « Déjà effectué » ; le rang, dernière étape, n'y figure jamais. */
+const DONE_LABELS: Record<MoveStep, string | null> = {
+  transition: "statut modifié",
+  goal: "objectif modifié",
+  rank: null,
+};
 export interface MovementCommand {
   issue: BoardIssue;
   snapshot: BoardSnapshot;
@@ -46,7 +48,10 @@ export interface MovementCommand {
   plan: BoardDropPlan;
   rank: RankChange;
 }
-/** Exécute l'intention dans l'ordre transition → Goal → rang, sans rejouer une écriture. */
+/**
+ * Déclenche le déplacement (`core/boardMove.ts` porte l'ordre transition → Goal → rang) et
+ * traduit son résultat en avis et en entrées de journal.
+ */
 export class BoardMovementService {
   readonly #reader: WriteReader;
   readonly #writer: JiraWriter;
@@ -68,21 +73,44 @@ export class BoardMovementService {
   }
   async execute(command: MovementCommand): Promise<boolean> {
     const { issue, snapshot, column, drop, selection, plan, rank } = command;
-    const completed: string[] = [];
+    if (
+      plan.changesColumn &&
+      drop.targetStatusId &&
+      !column.statusIds.includes(drop.targetStatusId)
+    )
+      return false;
+    // La séquence et l'arrêt au premier échec sont portés par `core` ; ici, avis et journal.
+    const result = await executeMove(
+      { reader: this.#reader, writer: this.#writer, goals: this.#goals },
+      {
+        issue,
+        snapshot,
+        transition: plan.changesColumn
+          ? {
+              knownStatusId: selection?.knownStatusId ?? issue.issue.fields.status.id,
+              targetStatusIds: drop.targetStatusId ? [drop.targetStatusId] : column.statusIds,
+              ...(selection ? { transitionId: selection.id } : {}),
+            }
+          : null,
+        ...(plan.goalChange.kind === "assign" ? { goal: { goalId: plan.goalChange.goalId } } : {}),
+        rank,
+        now: this.#effects.now(),
+      },
+    );
     try {
-      if (plan.changesColumn) {
-        if (drop.targetStatusId && !column.statusIds.includes(drop.targetStatusId)) return false;
-        if (!(await this.#moveIssue(issue, column, drop, selection))) return false;
-        completed.push("statut modifié");
-      }
-      if (plan.goalChange.kind === "assign") {
-        if (!(await this.#assignGoal(issue, snapshot, plan.goalChange.goalId))) return false;
-        completed.push("objectif modifié");
-      }
-      if (rank.kind !== "none") await this.#rank(issue, rank);
-      return this.#state.writeNotice.peek() === null;
+      if (result.transition)
+        await this.#reportTransition(issue, column, drop, selection, result.transition);
+      if (result.goal && plan.goalChange.kind === "assign")
+        await this.#reportGoal(issue, snapshot, plan.goalChange.goalId, result.goal);
+      if (result.rank) await this.#reportRank(issue, rank, result.rank);
+      // Une étape demandée mais non aboutie a arrêté la séquence dans `core`.
+      const stopped =
+        (result.transition !== undefined && !result.completed.includes("transition")) ||
+        (result.goal !== undefined && !result.completed.includes("goal"));
+      return !stopped && this.#state.writeNotice.peek() === null;
     } finally {
       const notice = this.#state.writeNotice.peek();
+      const completed = result.completed.flatMap((step) => DONE_LABELS[step] ?? []);
       if (notice && completed.length > 0) {
         this.#state.writeNotice.value = {
           ...notice,
@@ -93,39 +121,37 @@ export class BoardMovementService {
       }
     }
   }
-  async #assignGoal(
+
+  /** Avis et journal de l'étape Goal. */
+  async #reportGoal(
     issue: BoardIssue,
     snapshot: BoardSnapshot,
     goalId: string | null,
-  ): Promise<boolean> {
+    step: GoalStepResult,
+  ): Promise<void> {
     const issueKey = issue.issue.key;
     const title =
       goalId === null
         ? "aucun objectif"
         : (snapshot.goals.find((goal) => goal.id === goalId)?.title ?? goalId);
-    if (snapshot.goalsOrigin === "atlassianGoals") {
-      return this.#assignAtlassianGoal(issue, goalId, title);
+    if (step.origin === "atlassianGoals") {
+      await this.#reportAtlassianGoal(issue, title, step.outcome);
+      return;
     }
-    const sprintId = textLinkSprintId(snapshot, issue);
-    if (sprintId === null) return false;
-    const goals = goalsOfSprint(snapshot, sprintId);
-    try {
-      const outcome = await linkToTextGoal(this.#reader, this.#writer, {
-        sprintId,
-        issueKey,
-        goalId,
-        // Sans propriété lue au chargement, la base est inconnue : fusion sans contrôle.
-        ...(snapshot.storedTextLinks?.[sprintId]
-          ? { knownGoalId: snapshot.storedTextLinks[sprintId][issueKey] ?? null }
-          : {}),
-        goals,
-        linkableGoalIds: snapshot.goals
-          .filter((goal) => !goals.some((own) => own.id === goal.id))
-          .map((goal) => goal.id),
-        accountId: snapshot.currentUser?.accountId ?? null,
-        now: this.#effects.now(),
-      });
-      if (outcome.kind === "conflict") {
+    const outcome = step.outcome;
+    switch (outcome.kind) {
+      case "noSprint":
+        return;
+      case "failed":
+        await this.#fail(
+          "rattachement",
+          issueKey,
+          title,
+          outcome.error,
+          "Rattacher un ticket à un objectif du sprint exige en général la permission Jira de gérer les sprints.",
+        );
+        return;
+      case "conflict":
         // Rien n'est écrit ni rejoué : le board est relu après le geste.
         this.#state.writeNotice.value = {
           tone: "warning",
@@ -142,43 +168,29 @@ export class BoardMovementService {
           outcome: "échec",
           detail: "conflit : lien modifié dans Jira",
         });
-        return false;
-      }
-      await this.#effects.record({
-        action: "rattachement",
-        issueKey,
-        from: null,
-        to: title,
-        outcome: "réussi",
-        detail: "propriété du sprint",
-      });
-      return true;
-    } catch (error) {
-      await this.#fail(
-        "rattachement",
-        issueKey,
-        title,
-        error,
-        "Rattacher un ticket à un objectif du sprint exige en général la permission Jira de gérer les sprints.",
-      );
-      return false;
+        return;
+      case "linked":
+      case "unchanged":
+        await this.#effects.record({
+          action: "rattachement",
+          issueKey,
+          from: null,
+          to: title,
+          outcome: "réussi",
+          detail: "propriété du sprint",
+        });
+        return;
     }
   }
 
-  /**
-   * Lien NATIF ticket↔Goal Atlassian. L'ancien Goal est détaché d'abord ; si Atlassian refuse ce
-   * détachement, on s'arrête là : poursuivre laisserait le ticket rattaché à deux Goals.
-   */
-  async #assignAtlassianGoal(
+  /** Lien NATIF ticket↔Goal Atlassian, écrit par `changeAtlassianGoal` (détacher → lier). */
+  async #reportAtlassianGoal(
     issue: BoardIssue,
-    goalId: string | null,
     title: string,
-  ): Promise<boolean> {
+    outcome: AtlassianGoalOutcome,
+  ): Promise<void> {
     const issueKey = issue.issue.key;
-    const previous = issue.goalId;
-    if (previous === goalId) return true;
-    let detached = false;
-    const refused = async (text: string, messages: readonly string[]) => {
+    const refused = async (text: string, messages: readonly string[], detached: boolean) => {
       const detail = messages.join(" ") || "aucun détail fourni par Atlassian";
       this.#state.writeNotice.value = {
         tone: "error",
@@ -195,78 +207,64 @@ export class BoardMovementService {
         outcome: "échec",
         detail,
       });
-      return false;
+      return;
     };
-    try {
-      if (previous !== null) {
-        const removal = await this.#goals.setLink("goal.unlink", previous, issue.issue.id);
-        if (!removal.success) {
-          return refused(
-            "Atlassian a refusé de détacher le ticket de son Goal actuel.",
-            removal.messages,
-          );
+    switch (outcome.kind) {
+      case "unchanged":
+        return;
+      case "unlinked":
+      case "linked":
+        await this.#effects.record({
+          action: "rattachement",
+          issueKey,
+          from: null,
+          to: title,
+          outcome: "réussi",
+          detail: outcome.kind === "unlinked" ? "lien Goal retiré" : "lien Goal Atlassian natif",
+        });
+        return;
+      case "unlinkRefused":
+        await refused(
+          "Atlassian a refusé de détacher le ticket de son Goal actuel.",
+          outcome.messages,
+          false,
+        );
+        return;
+      case "linkRefused":
+        await refused(
+          "Atlassian a refusé de rattacher le ticket au Goal.",
+          outcome.messages,
+          outcome.detached,
+        );
+        return;
+      case "failed": {
+        await this.#fail("rattachement", issueKey, title, outcome.error);
+        const notice = this.#state.writeNotice.peek();
+        if (outcome.detached && notice) {
+          this.#state.writeNotice.value = {
+            ...notice,
+            text: `${notice.text} Le lien avec l’ancien Goal a déjà été retiré.`,
+          };
         }
-        detached = true;
-        if (goalId === null) {
-          await this.#effects.record({
-            action: "rattachement",
-            issueKey,
-            from: null,
-            to: title,
-            outcome: "réussi",
-            detail: "lien Goal retiré",
-          });
-          return true;
-        }
+        return;
       }
-      if (goalId === null) return true;
-      const link = await this.#goals.setLink("goal.link", goalId, issue.issue.id);
-      if (!link.success)
-        return refused("Atlassian a refusé de rattacher le ticket au Goal.", link.messages);
-      await this.#effects.record({
-        action: "rattachement",
-        issueKey,
-        from: null,
-        to: title,
-        outcome: "réussi",
-        detail: "lien Goal Atlassian natif",
-      });
-      return true;
-    } catch (error) {
-      await this.#fail("rattachement", issueKey, title, error);
-      const notice = this.#state.writeNotice.peek();
-      if (detached && notice) {
-        this.#state.writeNotice.value = {
-          ...notice,
-          text: `${notice.text} Le lien avec l’ancien Goal a déjà été retiré.`,
-        };
-      }
-      return false;
     }
   }
 
-  async #moveIssue(
+  /** Avis et journal de l'étape transition. */
+  async #reportTransition(
     issue: BoardIssue,
     column: { name: string; statusIds: readonly string[] },
     drop: IssueDrop,
-    selection?: TransitionSelection,
-  ): Promise<boolean> {
+    selection: TransitionSelection | undefined,
+    outcome: TransitionStepResult,
+  ): Promise<void> {
     const issueKey = issue.issue.key;
     const from = issue.issue.fields.status.name;
-    let outcome: MoveOutcome;
-    try {
-      outcome = await moveToColumn(this.#reader, this.#writer, {
-        issueKey,
-        knownStatusId: selection?.knownStatusId ?? issue.issue.fields.status.id,
-        targetStatusIds: drop.targetStatusId ? [drop.targetStatusId] : column.statusIds,
-        ...(selection ? { transitionId: selection.id } : {}),
-      });
-    } catch (error) {
-      await this.#fail("transition", issueKey, column.name, error);
-      return false;
-    }
-
     switch (outcome.kind) {
+      case "failed":
+        await this.#fail("transition", issueKey, column.name, outcome.error);
+        return;
       case "moved":
         this.#state.nativeTransitionPending.value = false;
         await this.#effects.record({
@@ -277,9 +275,9 @@ export class BoardMovementService {
           outcome: "réussi",
           detail: `Transition « ${outcome.transition.name} »`,
         });
-        return true;
+        return;
       case "alreadyThere":
-        return true;
+        return;
       case "conflict":
         this.#state.writeNotice.value = {
           tone: "warning",
@@ -297,7 +295,7 @@ export class BoardMovementService {
           detail: "conflit : statut modifié dans Jira",
         });
         if (this.#state.nativeTransitionPending.value) await this.#effects.sync();
-        return false;
+        return;
       case "requiresFields": {
         if (this.#effects.openNative(issueKey, outcome.transition)) {
           this.#state.nativeTransitionPending.value = true;
@@ -308,7 +306,7 @@ export class BoardMovementService {
             sessionLost: false,
             issueKey,
           };
-          return false;
+          return;
         }
         this.#state.writeNotice.value = {
           tone: "error",
@@ -318,7 +316,7 @@ export class BoardMovementService {
           sessionLost: false,
           issueKey,
         };
-        return false;
+        return;
       }
       case "noTransition":
         this.#state.writeNotice.value = {
@@ -340,7 +338,7 @@ export class BoardMovementService {
           outcome: "échec",
           detail: "aucune transition proposée",
         });
-        return false;
+        return;
       case "choose":
         // Une action par statut : seul le choix de la destination reste manuel.
         this.#state.transitionChoice.value = {
@@ -350,11 +348,12 @@ export class BoardMovementService {
           columnName: column.name,
           available: outcome.available,
         };
-        return false;
+        return;
     }
   }
 
-  async #rank(issue: BoardIssue, change: RankChange): Promise<void> {
+  /** Journal (ou avis d'échec) de l'étape rang. */
+  async #reportRank(issue: BoardIssue, change: RankChange, step: RankStepResult): Promise<void> {
     const issueKey = issue.issue.key;
     const to =
       change.kind === "before"
@@ -362,8 +361,7 @@ export class BoardMovementService {
         : change.kind === "after"
           ? `après ${change.issueKey}`
           : null;
-    try {
-      await rankIssue(this.#writer, issueKey, change);
+    if (step.kind === "ranked") {
       await this.#effects.record({
         action: "classement",
         issueKey,
@@ -372,15 +370,15 @@ export class BoardMovementService {
         outcome: "réussi",
         detail: "rang du board Jira",
       });
-    } catch (error) {
-      await this.#fail(
-        "classement",
-        issueKey,
-        to,
-        error,
-        "Réordonner un ticket exige la permission Jira « Planifier les tickets ».",
-      );
+      return;
     }
+    await this.#fail(
+      "classement",
+      issueKey,
+      to,
+      step.error,
+      "Réordonner un ticket exige la permission Jira « Planifier les tickets ».",
+    );
   }
 
   /** Échec d'une écriture : message, et entrée au journal. Jamais de nouvelle tentative. */

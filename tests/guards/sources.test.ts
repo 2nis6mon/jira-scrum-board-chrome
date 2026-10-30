@@ -65,6 +65,21 @@ describe("code de production", () => {
     expect(filesMatching(/\bfunction pinnedGoalsStorage\b/)).toEqual(["src/core/pinnedGoals.ts"]);
   });
 
+  it("laisse à core l'enchaînement des écritures de déplacement et de réglages (AD-2)", () => {
+    // Les services déclenchent et traduisent les résultats ; séquences et relectures sont
+    // portées par core/boardMove.ts et core/teamSettings.ts.
+    for (const file of [
+      "src/app/services/BoardMovementService.ts",
+      "src/app/services/BoardSettingsService.ts",
+    ]) {
+      const source = sources.find((candidate) => candidate.file === file);
+      expect(source, file).toBeDefined();
+      expect(source?.code, file).not.toMatch(
+        /\b(moveToColumn|rankIssue|setLink|boardProperty|publishTeamSettings|linkToTextGoal)\s*\(/,
+      );
+    }
+  });
+
   it("ne nomme une méthode HTTP d'écriture que dans le transport et l'inventaire", () => {
     expect(filesMatching(/["'`](POST|PUT|PATCH|DELETE)["'`]/).sort()).toEqual([
       "src/jira/transport.ts",

@@ -3,19 +3,18 @@ import { withLocalPins } from "../../core/boardPreferences";
 import { type JiraWriter, pinAtlassianGoals } from "../../core/boardWrites";
 import { type PinnedGoalsStorage, saveBoardPinnedGoals } from "../../core/pinnedGoals";
 import {
-  decodeTeamDocument,
   encodeTeamSettings,
-  publishTeamSettings,
+  readTeamSettings,
   sameTeamSettings,
+  saveTeamSettings,
   type TeamDocument,
+  type TeamReadOutcome,
   teamDifferences,
-  teamSettingsOf,
   withTeamSettings,
 } from "../../core/teamSettings";
 import type { JiraClient } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import type { JiraUser } from "../../jira/models";
-import { BOARD_PROPERTY_KEYS } from "../../jira/writes";
 import type { PinEditor, TeamNotice, TeamState } from "../model/BoardTypes";
 import { toMessage } from "../model/messages";
 import type {
@@ -391,10 +390,28 @@ export class BoardSettingsService {
     } as const;
     this.#state.teamNotice.value = null;
     try {
-      const raw = await this.#reader.boardProperty(boardId, BOARD_PROPERTY_KEYS.teamSettings);
+      const writer: JiraWriter = {
+        write: async (operation) => {
+          if (stale() || !this.#state.canEditSettings.value)
+            throw new Error("Le board ou ses droits ont changé avant l'enregistrement.");
+          return this.#writer.write(operation);
+        },
+      };
+      // Relecture, détection des conflits et publication : `core/teamSettings.ts`.
+      const outcome = await saveTeamSettings(this.#reader, writer, {
+        boardId,
+        configuration: () => configuration,
+        change,
+        ...(confirmed ? { confirmed } : {}),
+        ...(sameFamily ? { sameFamily } : {}),
+        publishedBy: {
+          accountId: user?.accountId ?? null,
+          displayName: user?.displayName ?? null,
+        },
+        now: this.#effects.now(),
+      });
       if (stale()) return false;
-      const current = raw === null ? null : decodeTeamDocument(raw);
-      if (raw !== null && !current) {
+      if (outcome.kind === "unreadable") {
         this.#state.teamNotice.value = {
           tone: "error",
           text: "Réglage non enregistré dans Jira : les réglages du board y sont dans un format inconnu.",
@@ -403,12 +420,8 @@ export class BoardSettingsService {
         };
         return false;
       }
-      const latest = current ? withTeamSettings(configuration, current.settings) : configuration;
-      if (
-        confirmed &&
-        ((current === null && confirmed.teamBase !== null) ||
-          (sameFamily && !sameFamily(confirmed, latest)))
-      ) {
+      if (outcome.kind === "changedDuringEdit") {
+        const current = outcome.current;
         if (current) {
           this.#state.team.value = { kind: "published", document: current };
           await this.#applyTeamDocument(current);
@@ -421,42 +434,20 @@ export class BoardSettingsService {
         };
         return false;
       }
-      // Les autres familles de réglages sont reprises de la version la plus récente.
-      const next = current
-        ? change(withTeamSettings(configuration, current.settings))
-        : confirmed
-          ? change(configuration)
-          : configuration;
-      const writer: JiraWriter = {
-        write: async (operation) => {
-          if (stale() || !this.#state.canEditSettings.value)
-            throw new Error("Le board ou ses droits ont changé avant l'enregistrement.");
-          return this.#writer.write(operation);
-        },
-      };
-      const outcome = await publishTeamSettings(this.#reader, writer, {
-        boardId,
-        settings: teamSettingsOf(next),
-        columns: next.columns,
-        basePublishedAt: current?.publishedAt ?? null,
-        publishedBy: {
-          accountId: user?.accountId ?? null,
-          displayName: user?.displayName ?? null,
-        },
-        now: this.#effects.now(),
-      });
-      if (stale()) return false;
       if (outcome.kind === "published") {
         this.#state.team.value = { kind: "published", document: outcome.document };
         await this.#applyTeamDocument(outcome.document);
-        const changes = current ? teamDifferences(next, current.settings) : [];
+        const changes = outcome.previous
+          ? teamDifferences(outcome.next, outcome.previous.settings)
+          : [];
         await this.#effects.record({
           ...entry,
           outcome: "réussi",
           detail: changes.length > 0 ? changes.join(" ; ") : "réglages du board",
         });
         return true;
-      } else {
+      }
+      if (outcome.kind === "conflict") {
         if (outcome.current) {
           this.#state.team.value = { kind: "published", document: outcome.current };
           await this.#applyTeamDocument(outcome.current);
@@ -526,18 +517,15 @@ export class BoardSettingsService {
       generation !== this.#effects.scope.generation() ||
       this.#state.configuration.value?.boardId !== configuration.boardId ||
       (!options.force && (writes !== this.#teamWrites || this.#state.teamSaving.value > 0));
-    let raw: unknown;
+    let read: TeamReadOutcome;
     try {
-      raw = await this.#reader.boardProperty(
-        configuration.boardId,
-        BOARD_PROPERTY_KEYS.teamSettings,
-      );
+      read = await readTeamSettings(this.#reader, configuration.boardId);
     } catch (error) {
       if (!stale()) this.#state.team.value = { kind: "unreadable", message: toMessage(error).text };
       return;
     }
     if (stale()) return;
-    if (raw === null) {
+    if (read.kind === "none") {
       this.#state.team.value = { kind: "none" };
       if (
         this.#state.pinStorage.value.kind === "board" &&
@@ -550,8 +538,7 @@ export class BoardSettingsService {
       }
       return;
     }
-    const document = decodeTeamDocument(raw);
-    if (!document) {
+    if (read.kind === "unreadable") {
       this.#state.team.value = {
         kind: "unreadable",
         message:
@@ -559,6 +546,7 @@ export class BoardSettingsService {
       };
       return;
     }
+    const document = read.document;
     this.#state.team.value = { kind: "published", document };
     const latest = this.#state.configuration.value;
     if (

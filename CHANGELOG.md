@@ -14,6 +14,9 @@ sont dans la [documentation technique](docs/technique/index.md).
   jour de la propriété ; l'horodatage est enregistré à la seconde.
 - L'emplacement des Goals épinglés (propriété du sprint en Scrum, réglages du board en Kanban,
   indisponible sans sprint actif) est choisi en un seul endroit ; comportement inchangé.
+- Déplacer un ticket (statut → objectif → rang), changer son Goal Atlassian (détacher → lier) et
+  publier les réglages partagés suivent chacun une seule séquence d'écritures, réutilisable par un
+  nouveau geste ; comportement, avis et journal inchangés.
 
 ## 0.36.1 — Langue dans les préférences personnelles
 

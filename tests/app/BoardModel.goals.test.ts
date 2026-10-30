@@ -118,7 +118,12 @@ describe("BoardModel — Goals Atlassian", () => {
       },
     ]);
     const [entry] = await board.audit.list(SITE.origin);
-    expect(entry).toMatchObject({ action: "rattachement", to: "Zéro incident", outcome: "réussi" });
+    expect(entry).toMatchObject({
+      action: "rattachement",
+      to: "Zéro incident",
+      outcome: "réussi",
+      detail: "lien Goal Atlassian natif",
+    });
   });
 
   it("vers Build : détache seulement", async () => {
@@ -130,6 +135,12 @@ describe("BoardModel — Goals Atlassian", () => {
       beforeKey: null,
     });
     expect(mutations.map((m) => m.field)).toEqual(["goals_unlinkWorkItem"]);
+    const [entry] = await board.audit.list(SITE.origin);
+    expect(entry).toMatchObject({
+      action: "rattachement",
+      outcome: "réussi",
+      detail: "lien Goal retiré",
+    });
   });
 
   it("depuis Build : rattache seulement", async () => {

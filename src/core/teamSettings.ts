@@ -414,6 +414,107 @@ export async function publishTeamSettings(
   return { kind: "published", document };
 }
 
+export type TeamReadOutcome =
+  /** Aucun réglage publié pour ce board. */
+  | { kind: "none" }
+  /** Valeur d'un format inconnu : jamais appliquée ni écrasée. */
+  | { kind: "unreadable" }
+  | { kind: "published"; document: TeamDocument };
+
+/** Lit les réglages d'équipe publiés du board. Une erreur de lecture est propagée. */
+export async function readTeamSettings(
+  reader: TeamReader,
+  boardId: number,
+): Promise<TeamReadOutcome> {
+  const raw = await reader.boardProperty(boardId, BOARD_PROPERTY_KEYS.teamSettings);
+  if (raw === null) return { kind: "none" };
+  const document = decodeTeamDocument(raw);
+  return document ? { kind: "published", document } : { kind: "unreadable" };
+}
+
+export type SaveTeamOutcome =
+  /**
+   * Jira a confirmé l'enregistrement de `document`. `previous` : version relue avant d'écrire ;
+   * `next` : configuration dont les réglages ont été publiés.
+   */
+  | {
+      kind: "published";
+      document: TeamDocument;
+      previous: TeamDocument | null;
+      next: BoardConfiguration;
+    }
+  /** La précondition du geste constate que Jira porte déjà le résultat : rien n'a été écrit. */
+  | { kind: "unchanged" }
+  /** Quelqu'un a publié depuis la version relue (ou la précondition l'a constaté) : rien d'écrit. */
+  | { kind: "conflict"; current: TeamDocument | null }
+  /** Le brouillon confirmé repose sur des règles qui ont changé dans Jira : rien n'a été écrit. */
+  | { kind: "changedDuringEdit"; current: TeamDocument | null }
+  /** Les réglages du board sont dans un format inconnu : jamais écrasés. */
+  | { kind: "unreadable" };
+
+/**
+ * Publie une modification des réglages partagés sur la version relue dans Jira (E6, AD-2) :
+ *
+ * 1. relecture de `boardsettings.v1` ; une version inconnue n'est jamais écrasée ;
+ * 2. précondition propre au geste (`expect`), puis, pour un brouillon confirmé, refus si la
+ *    famille modifiée a changé dans Jira depuis `confirmed` ;
+ * 3. `change` appliqué aux réglages relus (les autres familles sont reprises de Jira), puis
+ *    `publishTeamSettings`, qui relit encore et refuse un conflit. Une seule écriture.
+ *
+ * Sans document publié ni brouillon confirmé, `configuration` porte déjà la modification (elle
+ * est appliquée localement d'abord) : elle est publiée telle quelle.
+ */
+export async function saveTeamSettings(
+  reader: TeamReader,
+  writer: JiraWriter,
+  input: {
+    boardId: number;
+    /** Configuration du board, lue après la relecture, sur laquelle les réglages s'appliquent. */
+    configuration: () => BoardConfiguration;
+    change: (configuration: BoardConfiguration) => BoardConfiguration;
+    /** Base d'un brouillon confirmé (règles JQL) : son écriture n'a lieu qu'après confirmation. */
+    confirmed?: BoardConfiguration;
+    sameFamily?: (base: BoardConfiguration, latest: BoardConfiguration) => boolean;
+    /** Précondition du geste sur le document relu. */
+    expect?: (current: TeamDocument | null) => "write" | "unchanged" | "conflict";
+    publishedBy: TeamPublisher;
+    now: Date;
+  },
+): Promise<SaveTeamOutcome> {
+  const read = await readTeamSettings(reader, input.boardId);
+  if (read.kind === "unreadable") return { kind: "unreadable" };
+  const current = read.kind === "published" ? read.document : null;
+  const expected = input.expect?.(current) ?? "write";
+  if (expected === "conflict") return { kind: "conflict", current };
+  if (expected === "unchanged") return { kind: "unchanged" };
+  const configuration = input.configuration();
+  const latest = current ? withTeamSettings(configuration, current.settings) : configuration;
+  const { confirmed, sameFamily } = input;
+  if (
+    confirmed &&
+    ((current === null && confirmed.teamBase !== null) ||
+      (sameFamily && !sameFamily(confirmed, latest)))
+  ) {
+    return { kind: "changedDuringEdit", current };
+  }
+  const next = current
+    ? input.change(latest)
+    : confirmed
+      ? input.change(configuration)
+      : configuration;
+  const outcome = await publishTeamSettings(reader, writer, {
+    boardId: input.boardId,
+    settings: teamSettingsOf(next),
+    columns: next.columns,
+    basePublishedAt: current?.publishedAt ?? null,
+    publishedBy: input.publishedBy,
+    now: input.now,
+  });
+  return outcome.kind === "conflict"
+    ? { kind: "conflict", current: outcome.current }
+    : { kind: "published", document: outcome.document, previous: current, next };
+}
+
 /** Colonnes de Jira dans le format des versions d'avant 0.31.0. */
 function legacyColumns(columns: readonly ColumnConfiguration[]): JsonValue {
   const written: TeamColumn[] = columns.map(({ id, name, hidden, wipLimit }) => ({

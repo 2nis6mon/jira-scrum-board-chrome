@@ -117,7 +117,9 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   dans une colonne conservent leurs zones de dépôt et, si nécessaire, un choix par statut.
   Cet ordre de présentation est documenté ; l'API ne garantit pas le défaut interne du board natif.
   Aucun réglage administratif supplémentaire. Ordre : **transition → Goal → rang**.
-  Arrêt au premier échec, réussite partielle indiquée, aucun rollback automatique.
+  Arrêt au premier échec, réussite partielle indiquée, aucun rollback automatique. Cette séquence
+  (et détacher → lier pour un Goal Atlassian) est portée par `core/boardMove.ts` ; la publication
+  des réglages partagés relit `boardsettings.v1` par `saveTeamSettings` (`core/teamSettings.ts`).
   La carte projetée est visuelle ; les compteurs restent ceux confirmés par Jira. Repère rouge
   pour les erreurs, aucune confirmation verte. Les formulaires suivent le parcours natif décrit dans
   l'[intégration Jira](integration-jira.md).

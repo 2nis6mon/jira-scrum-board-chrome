@@ -1,15 +1,11 @@
-import { BOARD_PROPERTY_KEYS } from "../jira/writes";
 import type { BoardConfiguration } from "./boardConfiguration";
 import type { BoardSnapshot } from "./boardIssue";
 import type { JiraWriter } from "./boardWrites";
 import {
-  decodeTeamDocument,
-  publishTeamSettings,
+  saveTeamSettings,
   type TeamDocument,
   type TeamPublisher,
   type TeamReader,
-  teamSettingsOf,
-  withTeamSettings,
 } from "./teamSettings";
 
 /**
@@ -76,7 +72,7 @@ export type BoardPinOutcome =
 /**
  * Épinglage Kanban : relit `boardsettings.v1`, refuse si la sélection n'est plus celle affichée
  * (`base`), n'écrit rien si elle porte déjà `selection`, sinon publie les réglages relus avec la
- * seule sélection remplacée. Une seule écriture, jamais rejouée.
+ * seule sélection remplacée, par `saveTeamSettings`. Une seule écriture, jamais rejouée.
  */
 export async function saveBoardPinnedGoals(
   reader: TeamReader,
@@ -92,25 +88,32 @@ export async function saveBoardPinnedGoals(
     now: Date;
   },
 ): Promise<BoardPinOutcome> {
-  const raw = await reader.boardProperty(input.boardId, BOARD_PROPERTY_KEYS.teamSettings);
-  const current = raw === null ? null : decodeTeamDocument(raw);
-  if (raw !== null && !current) return { kind: "unreadable" };
-  const currentIds = current?.settings.boardPinnedGoalIds ?? [];
-  if (!sameOrder(currentIds, input.base)) return { kind: "conflict", current };
-  if (sameOrder(currentIds, input.selection)) return { kind: "unchanged" };
-  const latest = input.configuration();
-  const base = current ? withTeamSettings(latest, current.settings) : latest;
-  const outcome = await publishTeamSettings(reader, writer, {
+  const withSelection = (configuration: BoardConfiguration): BoardConfiguration => ({
+    ...configuration,
+    boardPinnedGoalIds: [...input.selection],
+  });
+  const outcome = await saveTeamSettings(reader, writer, {
     boardId: input.boardId,
-    settings: teamSettingsOf({ ...base, boardPinnedGoalIds: [...input.selection] }),
-    columns: base.columns,
-    basePublishedAt: current?.publishedAt ?? null,
+    // La configuration publiée porte déjà la sélection, même sans réglages publiés.
+    configuration: () => withSelection(input.configuration()),
+    change: withSelection,
+    expect: (current) => {
+      const currentIds = current?.settings.boardPinnedGoalIds ?? [];
+      if (!sameOrder(currentIds, input.base)) return "conflict";
+      return sameOrder(currentIds, input.selection) ? "unchanged" : "write";
+    },
     publishedBy: input.publishedBy,
     now: input.now,
   });
-  return outcome.kind === "conflict"
-    ? { kind: "conflict", current: outcome.current }
-    : { kind: "pinned", document: outcome.document };
+  switch (outcome.kind) {
+    case "published":
+      return { kind: "pinned", document: outcome.document };
+    case "changedDuringEdit":
+      // Sans brouillon confirmé, ce cas n'arrive pas ; traité comme un conflit par prudence.
+      return { kind: "conflict", current: outcome.current };
+    default:
+      return outcome;
+  }
 }
 
 function sameOrder(a: readonly string[], b: readonly string[]): boolean {

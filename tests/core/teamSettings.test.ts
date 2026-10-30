@@ -9,6 +9,7 @@ import {
   encodeTeamDocument,
   encodeTeamSettings,
   publishTeamSettings,
+  saveTeamSettings,
   TEAM_FAMILIES,
   type TeamDocument,
   teamDifferences,
@@ -521,5 +522,78 @@ describe("compatibilité avec la 0.22.7, sur le même board", () => {
       ["RUN", false],
       ["OPS", true],
     ]);
+  });
+});
+
+describe("saveTeamSettings : une fonction pour publier les réglages partagés (AD-2)", () => {
+  const save = (
+    jira: ReturnType<typeof fakeJira>,
+    options: {
+      confirmed?: typeof base;
+      sameFamily?: (a: typeof base, b: typeof base) => boolean;
+    } = {},
+  ) =>
+    saveTeamSettings(jira.reader, jira.writer as never, {
+      boardId: 7,
+      configuration: () => tuned,
+      change: (configuration) => ({ ...configuration, agingThresholdDays: 9 }),
+      ...options,
+      publishedBy: { accountId: "u2", displayName: "Alex Martin" },
+      now: new Date("2026-09-19T09:30:12.345Z"),
+    });
+
+  it("applique la modification aux réglages relus et publie une fois", async () => {
+    const jira = fakeJira(encodeTeamDocument(DOCUMENT));
+    const outcome = await save(jira);
+    if (outcome.kind !== "published") throw new Error("publication attendue");
+    expect(outcome.previous).toEqual(DOCUMENT);
+    expect(outcome.next.agingThresholdDays).toBe(9);
+    expect(outcome.document.settings.agingThresholdDays).toBe(9);
+    expect(jira.writes).toHaveLength(1);
+  });
+
+  it("sans document ni brouillon confirmé, publie la configuration telle quelle", async () => {
+    const jira = fakeJira(null);
+    const outcome = await save(jira);
+    if (outcome.kind !== "published") throw new Error("publication attendue");
+    expect(outcome.previous).toBeNull();
+    expect(outcome.next).toBe(tuned);
+  });
+
+  it("collègue a publié entre les deux relectures : conflit, rien d'écrit", async () => {
+    const newer = { ...DOCUMENT, publishedAt: "2026-09-19T09:00:00Z" };
+    let reads = 0;
+    const jira = fakeJira(null);
+    jira.reader.boardProperty = async () =>
+      encodeTeamDocument(reads++ === 0 ? DOCUMENT : newer) as never;
+    const outcome = await save(jira);
+    expect(outcome).toEqual({ kind: "conflict", current: newer });
+    expect(jira.writes).toEqual([]);
+  });
+
+  it("version inconnue : illisible, rien d'écrit", async () => {
+    const jira = fakeJira({ ...encodeTeamDocument(DOCUMENT), version: 99 });
+    expect(await save(jira)).toEqual({ kind: "unreadable" });
+    expect(jira.writes).toEqual([]);
+  });
+
+  it("brouillon confirmé dont la famille a changé : changedDuringEdit avec le document courant", async () => {
+    const jira = fakeJira(encodeTeamDocument(DOCUMENT));
+    const outcome = await save(jira, { confirmed: base, sameFamily: () => false });
+    expect(outcome).toEqual({ kind: "changedDuringEdit", current: DOCUMENT });
+    expect(jira.writes).toEqual([]);
+  });
+
+  it("brouillon confirmé sur un document disparu : changedDuringEdit", async () => {
+    const jira = fakeJira(null);
+    const confirmed = {
+      ...base,
+      teamBase: {
+        publishedAt: DOCUMENT.publishedAt,
+        settings: encodeTeamSettings(DOCUMENT.settings),
+      },
+    };
+    expect(await save(jira, { confirmed })).toEqual({ kind: "changedDuringEdit", current: null });
+    expect(jira.writes).toEqual([]);
   });
 });
