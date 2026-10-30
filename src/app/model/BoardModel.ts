@@ -37,6 +37,7 @@ import { type AtlassianGoal, blockingRequiredFields, type JiraTransition } from 
 import { type JiraSite, parseBoardUrl } from "../../jira/site";
 import { defaultTransitions } from "../../jira/transitionPlanner";
 import { JiraTransport } from "../../jira/transport";
+import { SPRINT_HEALTH_ENABLED } from "../featureFlags";
 import type { Platform } from "../platform/types";
 import { evaluateBoardCardColors } from "../services/BoardCardColorService";
 import { BoardLoadingService } from "../services/BoardLoadingService";
@@ -244,8 +245,12 @@ export class BoardModel {
     return parentColors(snapshot ? allIssues(snapshot) : []);
   });
 
-  /** Sprint Health : comptages sur les tickets du sprint, filtres de la barre appliqués. */
+  /**
+   * Sprint Health : comptages sur les tickets du sprint, filtres de la barre appliqués. Interrupteur
+   * coupé : rien n'est calculé, même si une vue le demande.
+   */
   readonly health = computed(() => {
+    if (!SPRINT_HEALTH_ENABLED) return null;
     const snapshot = this.snapshot.value;
     const configuration = this.configuration.value;
     return snapshot?.sprint && configuration

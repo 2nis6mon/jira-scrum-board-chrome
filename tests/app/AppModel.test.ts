@@ -267,26 +267,6 @@ describe("AppModel — largeur de la barre latérale", () => {
 });
 
 describe("AppModel — santé du sprint", () => {
-  it("panneau replié par défaut ; déplié, il le reste à la réouverture, sans toucher la largeur", async () => {
-    const platform = fakePlatform(new FakeJira());
-    const model = new AppModel(platform);
-    await model.start();
-    expect(model.healthOpen.value).toBe(false);
-    await model.resizeSidebar(300, 1600, true);
-
-    await model.toggleHealth();
-    expect(model.healthOpen.value).toBe(true);
-    expect(platform.stored.get("interface.v1")).toEqual({ sidebarWidth: 300, healthOpen: true });
-
-    const reopened = new AppModel(platform);
-    await reopened.start();
-    expect(reopened.healthOpen.value).toBe(true);
-    expect(reopened.sidebarWidth.value).toBe(300);
-
-    await reopened.toggleHealth();
-    expect(reopened.healthOpen.value).toBe(false);
-  });
-
   it("ancien enregistrement, sans l'état du panneau : replié", async () => {
     const platform = fakePlatform(new FakeJira());
     await platform.store.set("interface.v1", { sidebarWidth: 320 });

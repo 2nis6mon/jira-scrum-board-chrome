@@ -2,12 +2,11 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import type { BoardConfiguration } from "../../core/boardConfiguration";
 import { type LaneSummary, laneSummaries } from "../../core/boardPreferences";
-import { SPRINT_PLANNING_ENABLED } from "../featureFlags";
+import { DIAGNOSTIC_ENABLED, SPRINT_PLANNING_ENABLED } from "../featureFlags";
 import { t } from "../i18n";
 import { type AppModel, clampSidebarWidth, SIDEBAR_WIDTH } from "../model/AppModel";
 import type { BoardModel, BoardSummary } from "../model/BoardModel";
 import { LANE_DRAG_TYPE, revealLane } from "./board/lanes";
-import { DIAGNOSTIC_ENABLED } from "./DiagnosticView";
 import { GoalMarker } from "./GoalMarker";
 import { Icon, type IconName } from "./Icon";
 

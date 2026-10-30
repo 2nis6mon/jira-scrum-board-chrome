@@ -36,6 +36,7 @@ import {
 import { activeFilterCount, isGoalFocused, QUICK_FILTERS } from "../../../core/filters";
 import { goalColorName } from "../../../core/sprintGoals";
 import { blockingRequiredFields } from "../../../jira/models";
+import { SPRINT_HEALTH_ENABLED } from "../../featureFlags";
 import { localize, t } from "../../i18n";
 import type { SettingsSection } from "../../model/AppModel";
 import type { BoardModel } from "../../model/BoardModel";
@@ -50,12 +51,6 @@ import { FilterMenu } from "./FilterMenu";
 import { placeFloatingMenu } from "./floatingMenu";
 import { IssueCard } from "./IssueCard";
 import { LANE_DRAG_TYPE } from "./lanes";
-
-/**
- * Santé du sprint : bouton de l'en-tête et panneau. Masquée à la demande de Denis (24/09/2026,
- * « pour l'instant ») ; le code reste, il suffit de repasser à `true` pour la réafficher.
- */
-export const SPRINT_HEALTH_ENABLED = false;
 
 export function BoardView({
   board,

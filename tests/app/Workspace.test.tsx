@@ -2,9 +2,8 @@
 import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App, PRESENTATION_HINT_MS } from "../../src/app/App";
+import { DIAGNOSTIC_ENABLED, SPRINT_HEALTH_ENABLED } from "../../src/app/featureFlags";
 import { AppModel } from "../../src/app/model/AppModel";
-import { SPRINT_HEALTH_ENABLED } from "../../src/app/views/board/BoardView";
-import { DIAGNOSTIC_ENABLED } from "../../src/app/views/DiagnosticView";
 import { visibleColumns } from "../../src/core/boardConfiguration";
 import { BOARD_PROPERTY_KEYS } from "../../src/jira/writes";
 import {

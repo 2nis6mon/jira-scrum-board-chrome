@@ -203,6 +203,30 @@ describe("code de production", () => {
     expect(filesMatching(/["'`]boards\.v1["'`]/)).toEqual(["src/app/model/boardStore.ts"]);
   });
 
+  it("ne déclare d'interrupteur de fonction que dans app/featureFlags.ts, fixé à la compilation (AD-5)", () => {
+    const declaration = /(?:export\s+)?(?:const|let|var)\s+[A-Z0-9_]+_ENABLED\b/;
+    expect(
+      sources
+        .filter(({ file, code }) => file !== "src/app/featureFlags.ts" && declaration.test(code))
+        .map(({ file }) => file),
+    ).toEqual([]);
+    const flags = sources.find(({ file }) => file === "src/app/featureFlags.ts");
+    expect(flags).toBeDefined();
+    // Aucune préférence, aucun réglage ni aucune URL : seulement des constantes de compilation.
+    expect(forbiddenImports(flags ? [flags] : [], /./, /./)).toEqual([]);
+    const found = [
+      ...(flags?.code.matchAll(
+        /(?:export\s+)?(?:const|let|var)\s+([A-Z0-9_]+_ENABLED)\s*(?::\s*[^=;]+)?=\s*([^;]+);/g,
+      ) ?? []),
+    ];
+    expect(found.map((match) => match[1]).sort()).toEqual([
+      "DIAGNOSTIC_ENABLED",
+      "SPRINT_HEALTH_ENABLED",
+      "SPRINT_PLANNING_ENABLED",
+    ]);
+    for (const match of found) expect(match[2]?.trim(), match[1]).toBe(`__${match[1]}__`);
+  });
+
   it("ne choisit le stockage des Goals épinglés que dans core/pinnedGoals.ts (AD-4)", () => {
     // Service et vue de l'épinglage consomment le stockage résolu, sans tester le type du board.
     const pinning = [

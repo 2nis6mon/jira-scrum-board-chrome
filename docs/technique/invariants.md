@@ -138,9 +138,11 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   aucune permission Chrome). Un refus laisse la Daily utilisable. Sortir du plein écran termine
   la présentation via `fullscreenchange`, mais laisse la Daily active. Présentation : en-tête et
   barre latérale masqués, filtres conservés ; commandes détaillées dans le manuel.
-- `SPRINT_HEALTH_ENABLED` dans `BoardView.tsx` reste désactivé. `DIAGNOSTIC_ENABLED` dans
-  `DiagnosticView.tsx` reste actif, notamment pour le renvoi « Invalid CORS request » ; le désactiver
-  retire l'entrée Diagnostic du menu « Site Jira » (site et déconnexion restent).
+- `SPRINT_HEALTH_ENABLED` (`src/app/featureFlags.ts`) reste désactivé. `DIAGNOSTIC_ENABLED`
+  (même fichier) reste actif, notamment pour le renvoi « Invalid CORS request » ; le désactiver
+  retire l'entrée Diagnostic du menu « Site Jira » (site et déconnexion restent) et bloque les
+  points d'entrée du modèle : ouverture, sondes (dont les essais de variantes Origin), test
+  d'écriture, lecture du journal et copie du rapport. L'effacement du journal reste permis.
 - Réglages du board ([`settings/`](../../src/app/views/settings/SettingsView.tsx)) : vue
   `settings` à onglets Board, Objectifs, Champs et Couleurs des cartes, ouverte depuis le board
   (menu du board, menu ⋯ d'une swimlane) ; le pied de barre « Site Jira »

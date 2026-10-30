@@ -17,7 +17,10 @@ import { fakePlatform } from "../support/fakePlatform";
 import { makeConfiguration, makeIssue } from "../support/jiraFixtures";
 import { planningFixture } from "../support/planningFixture";
 
-vi.mock("../../src/app/featureFlags", () => ({ SPRINT_PLANNING_ENABLED: false }));
+vi.mock("../../src/app/featureFlags", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../src/app/featureFlags")>()),
+  SPRINT_PLANNING_ENABLED: false,
+}));
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 const STORAGE_KEY = "sprint-planning.v1:https://acme.atlassian.net";

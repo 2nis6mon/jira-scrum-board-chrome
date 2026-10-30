@@ -17,6 +17,9 @@ export default defineConfig(({ mode }) => {
     // utilisateur ni fichier .env ne peut l'activer dans le mode package.
     define: {
       __SPRINT_PLANNING_ENABLED__: ["dist", "development", "test"].includes(mode),
+      // Santé du sprint masquée et diagnostic actif, identiques dans dist/ et dans le paquet.
+      __SPRINT_HEALTH_ENABLED__: false,
+      __DIAGNOSTIC_ENABLED__: true,
       __INTEGRATION_MESSAGES__: JSON.stringify({
         en: integrationMessages,
         es: integrationMessagesEs,

@@ -20,7 +20,18 @@ une dépendance de développement ; aucune bibliothèque n'est embarquée dans l
 `node scripts/generate-icons.mjs` dérive les PNG Chrome de la marque SVG, via le navigateur isolé.
 La publication GitHub Pages est manuelle : voir [le guide du site](../site-web.md).
 
-## Interrupteur Sprint Planning
+## Interrupteurs de fonction
+
+Tous les interrupteurs sont déclarés dans `src/app/featureFlags.ts` et injectés par Vite à la
+compilation (`vite.config.ts`, `vite.harness.config.ts`) ; `tests/buildModes.test.ts` vérifie leur
+valeur par mode et `tests/guards/sources.test.ts` refuse un interrupteur déclaré ailleurs. Chacun
+garde la vue et les points d'entrée des modèles qui lisent ou écrivent pour sa fonction ; décodage,
+conservation des formats et effacement des données n'en dépendent jamais.
+
+- `SPRINT_HEALTH_ENABLED` (`__SPRINT_HEALTH_ENABLED__`) vaut `false` dans tous les modes : ni
+  bouton ni panneau, `BoardModel.health` ne calcule rien et `toggleHealth` n'enregistre rien.
+- `DIAGNOSTIC_ENABLED` (`__DIAGNOSTIC_ENABLED__`) vaut `true` dans tous les modes. Coupé, il
+  retire l'entrée et bloque l'ouverture, les sondes, le test d'écriture et la lecture du journal.
 
 Feature flag `SPRINT_PLANNING_ENABLED` : Vite injecte `__SPRINT_PLANNING_ENABLED__` à la compilation.
 Il vaut `true` uniquement pour les modes `dist` (`npm run build`), `development` (`watch` et banc)

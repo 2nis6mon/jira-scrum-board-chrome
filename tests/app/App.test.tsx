@@ -2,8 +2,8 @@
 import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/app/App";
+import { DIAGNOSTIC_ENABLED } from "../../src/app/featureFlags";
 import { AppModel } from "../../src/app/model/AppModel";
-import { DIAGNOSTIC_ENABLED } from "../../src/app/views/DiagnosticView";
 import { atlassianGoalsPlatform } from "../support/atlassianGoalsBoard";
 import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
 import { FakeJira, isWriteRequest } from "../support/fakeJira";

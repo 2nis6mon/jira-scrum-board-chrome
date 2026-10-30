@@ -37,6 +37,10 @@ sont dans la [documentation technique](docs/technique/index.md).
   affichées comme avant. Une version précédente accepte les nouvelles entrées, mais affiche vides
   leurs colonnes Cible et Détail produites par l'extension. Le métier ne produit plus aucune
   phrase (raisons typées, vérifiées par les tests) ; textes visibles en français inchangés.
+- Les interrupteurs de la santé du sprint (masquée) et du diagnostic (actif) rejoignent celui du
+  Sprint Planning dans `src/app/featureFlags.ts`, fixés à la compilation et identiques dans `dist/`
+  et dans le paquet ; coupés, ils arrêtent aussi les modèles, pas seulement l'affichage.
+  Comportement visible inchangé.
 
 ## 0.36.1 — Langue dans les préférences personnelles
 

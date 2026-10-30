@@ -203,11 +203,7 @@ Aucun serveur ni télémétrie. Environnements : build local `dist/` (Sprint Pla
 
 ## Écarts à résorber
 
-Le code actuel s'écarte de la spine sur ces points. Un agent ne les prend jamais pour précédent.
-
-| Règle | Écart |
-| --- | --- |
-| AD-5 | `SPRINT_HEALTH_ENABLED` (`views/board/BoardView.tsx`) et `DIAGNOSTIC_ENABLED` (`views/DiagnosticView.tsx`) à migrer dans `app/featureFlags.ts` |
+Aucun écart connu : le code suit la spine. Un écart découvert s'ajoute ici, et un agent ne le prend jamais pour précédent.
 
 ## Deferred
 

@@ -12,7 +12,11 @@ import { JiraClient } from "../../jira/client";
 import { isRecord } from "../../jira/json";
 import { type JiraSite, normalizeSiteUrl, parseBoardUrl } from "../../jira/site";
 import { JiraTransport } from "../../jira/transport";
-import { SPRINT_PLANNING_ENABLED } from "../featureFlags";
+import {
+  DIAGNOSTIC_ENABLED,
+  SPRINT_HEALTH_ENABLED,
+  SPRINT_PLANNING_ENABLED,
+} from "../featureFlags";
 import type { Platform } from "../platform/types";
 import { AuditLog } from "./auditLog";
 import { BoardModel } from "./BoardModel";
@@ -297,8 +301,12 @@ export class AppModel {
     if (this.view.value === "diagnostic") this.siteMenuOpen.value = false;
   }
 
-  /** Déplie ou replie la santé du sprint, dans la vue du sprint. */
+  /**
+   * Déplie ou replie la santé du sprint, dans la vue du sprint. Interrupteur coupé : rien ne change
+   * ni n'est enregistré ; l'état déjà retenu reste relu et conservé tel quel.
+   */
   async toggleHealth(): Promise<void> {
+    if (!SPRINT_HEALTH_ENABLED) return;
     this.healthOpen.value = !this.healthOpen.value;
     // Un stockage indisponible n'empêche pas le panneau : il ne sera simplement pas retenu.
     await this.#saveInterface().catch(() => {});
@@ -360,7 +368,7 @@ export class AppModel {
 
   /** Ouvre le diagnostic ; ses lectures sont lancées à la première ouverture. */
   showDiagnostic(): void {
-    if (this.#planningPublishing()) return;
+    if (!DIAGNOSTIC_ENABLED || this.#planningPublishing()) return;
     this.presenting.value = false;
     this.daily.value = null;
     this.siteMenuOpen.value = true;

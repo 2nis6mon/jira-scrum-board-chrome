@@ -10,6 +10,7 @@ import {
 } from "../../jira/diagnostics";
 import { type JiraSite, parseBoardUrl } from "../../jira/site";
 import { JiraTransport } from "../../jira/transport";
+import { DIAGNOSTIC_ENABLED } from "../featureFlags";
 import type { Platform } from "../platform/types";
 import type { AuditEntry, AuditLog } from "./auditLog";
 import type { GraphqlOrigin } from "./graphqlOrigin";
@@ -18,6 +19,7 @@ import { toMessage, type UserMessage } from "./messages";
 /**
  * Diagnostic de connexion : ce que Jira répond réellement aux requêtes de l'extension. Lectures à
  * l'ouverture ; test d'écriture uniquement sur un geste explicite, sur le sprint affiché.
+ * Interrupteur coupé : aucun point d'entrée ne lit ni n'écrit ; l'effacement du journal reste permis.
  */
 export class DiagnosticModel {
   readonly site: JiraSite;
@@ -58,7 +60,7 @@ export class DiagnosticModel {
   }
 
   async runReads(): Promise<void> {
-    if (this.readRunning.value) return;
+    if (!DIAGNOSTIC_ENABLED || this.readRunning.value) return;
     this.readRunning.value = true;
     this.reportCopied.value = false;
     const origin = this.#origin;
@@ -76,7 +78,7 @@ export class DiagnosticModel {
 
   /** Cherche le sprint actif du board désigné : c'est lui qui portera le test d'écriture. */
   async findSprint(rawBoardUrl: string): Promise<void> {
-    if (this.sprintLoading.value) return;
+    if (!DIAGNOSTIC_ENABLED || this.sprintLoading.value) return;
     this.sprint.value = null;
     this.write.value = null;
     this.sprintError.value = null;
@@ -118,7 +120,7 @@ export class DiagnosticModel {
   /** Test d'écriture : uniquement sur un geste explicite, uniquement sur le sprint affiché. */
   async runWriteTest(): Promise<void> {
     const sprint = this.sprint.value;
-    if (!sprint || this.writeRunning.value) return;
+    if (!DIAGNOSTIC_ENABLED || !sprint || this.writeRunning.value) return;
     this.writeRunning.value = true;
     this.reportCopied.value = false;
     try {
@@ -129,6 +131,7 @@ export class DiagnosticModel {
   }
 
   async loadJournal(): Promise<void> {
+    if (!DIAGNOSTIC_ENABLED) return;
     this.journal.value = await this.#audit.list(this.site.origin);
   }
 
@@ -147,6 +150,7 @@ export class DiagnosticModel {
   }
 
   async copyReport(): Promise<void> {
+    if (!DIAGNOSTIC_ENABLED) return;
     await this.#platform.copyText(this.report());
     this.reportCopied.value = true;
   }
