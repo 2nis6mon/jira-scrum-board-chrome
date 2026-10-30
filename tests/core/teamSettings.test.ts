@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { TEAM_FAMILY_LABEL } from "../../src/app/model/coreText";
 import {
   withSwimlaneHidden,
   withSwimlaneName,
   withTypeDestination,
 } from "../../src/core/boardSettings";
+import { CoreError } from "../../src/core/reasons";
 import {
   decodeTeamDocument,
   encodeTeamDocument,
@@ -16,10 +18,10 @@ import {
   teamSettingsOf,
   withTeamSettings,
 } from "../../src/core/teamSettings";
-import { JiraError } from "../../src/jira/errors";
 import type { JsonValue } from "../../src/jira/json";
 import type { JiraWrite } from "../../src/jira/writes";
 import { column, makeConfiguration, STORY_TYPE, SWIMLANE_TYPE } from "../support/jiraFixtures";
+import { rejectionMessage } from "../support/messages";
 
 // Données FICTIVES. Réglages d'équipe : propriété du board, publiée sur un geste explicite.
 
@@ -131,15 +133,19 @@ describe("réglages d'équipe ↔ configuration", () => {
     const settings = teamSettingsOf(tuned);
     const changed = withTeamSettings(base, settings);
     expect(teamDifferences({ ...changed, agingThresholdDays: 8 }, settings)).toEqual([
-      "Nom de Build, seuil de vieillissement",
+      "buildAndAging",
     ]);
     expect(
       teamDifferences(
         { ...changed, cardFields: [{ kind: "labels" }], hiddenGoalIds: [] },
         settings,
       ),
-    ).toEqual(["Objectifs masqués", "Champs des cartes"]);
+    ).toEqual(["hiddenGoals", "cardFields"]);
     expect(TEAM_FAMILIES).toHaveLength(10);
+    // Chaque famille a son libellé dans le catalogue, produit par l'application.
+    expect(TEAM_FAMILIES.map((family) => TEAM_FAMILY_LABEL[family])).toContain(
+      "Nom de Build, seuil de vieillissement",
+    );
     // Un réglage personnel changé n'est pas une différence.
     expect(teamDifferences({ ...changed, collapsedBlockIds: ["build"] }, settings)).toEqual([]);
   });
@@ -395,9 +401,19 @@ describe("publier les réglages d'équipe", () => {
   it("une valeur illisible n'est jamais écrasée", async () => {
     for (const stored of [["tableau"], "texte", { version: 2, settings: {} }] as JsonValue[]) {
       const jira = fakeJira(stored);
-      await expect(publish(jira, null)).rejects.toBeInstanceOf(JiraError);
+      await expect(publish(jira, null)).rejects.toBeInstanceOf(CoreError);
       expect(jira.writes).toEqual([]);
     }
+    expect(await rejectionMessage(publish(fakeJira(["tableau"]), null))).toEqual({
+      text: "Réponse Jira inattendue (réglages d'équipe du board : objet JSON attendu, rien n'a été écrit).",
+      suggestion:
+        "Signalez cette anomalie : la réponse de votre instance Jira ne correspond pas au format attendu.",
+    });
+    expect(await rejectionMessage(publish(fakeJira({ version: 2, settings: {} }), null))).toEqual({
+      text: "Réponse Jira inattendue (réglages d'équipe du board dans un format inconnu (version plus récente ?)).",
+      suggestion:
+        "Signalez cette anomalie : la réponse de votre instance Jira ne correspond pas au format attendu.",
+    });
   });
 });
 

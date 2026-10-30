@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { sourceText } from "../../src/app/model/appMessage";
+import { goalsWarningMessage } from "../../src/app/model/coreText";
+import { toMessage } from "../../src/app/model/messages";
 import { type GoalsReader, loadAtlassianSprintGoals } from "../../src/core/atlassianGoals";
+import { CoreError } from "../../src/core/reasons";
 import { JiraError } from "../../src/jira/errors";
 import type { AtlassianGoal } from "../../src/jira/models";
 import { makeConfiguration, makeIssue, SWIMLANE_TYPE } from "../support/jiraFixtures";
@@ -56,10 +60,26 @@ const issues = [
   makeIssue("ABC-3"),
 ];
 
+/**
+ * `core` rend des raisons typées ; les textes vérifiés ici sont ceux que l'application en
+ * produit, inchangés depuis qu'ils étaient écrits dans `core`.
+ */
+async function load(input: Parameters<typeof loadAtlassianSprintGoals>[0]) {
+  try {
+    const result = await loadAtlassianSprintGoals(input);
+    return {
+      ...result,
+      warnings: result.warnings.map((warning) => sourceText(goalsWarningMessage(warning))),
+    };
+  } catch (error) {
+    throw error instanceof CoreError ? new Error(toMessage(error).text) : error;
+  }
+}
+
 describe("loadAtlassianSprintGoals", () => {
   it("Kanban : une recherche impossible ne devient pas une absence d'objectifs", async () => {
     await expect(
-      loadAtlassianSprintGoals({
+      load({
         reader: reader({ fail: { search: new Error("quota") } }),
         configuration: { ...config, boardType: "kanban" },
         pinnedGoalIds: [],
@@ -79,7 +99,7 @@ describe("loadAtlassianSprintGoals", () => {
       }),
     ]) {
       await expect(
-        loadAtlassianSprintGoals({
+        load({
           reader: r,
           configuration: { ...config, boardType: "kanban" },
           pinnedGoalIds: [],
@@ -105,7 +125,7 @@ describe("loadAtlassianSprintGoals", () => {
       workItems: { [goalId]: ["ABC-2"] },
       known: [goal(goalId, "Objectif du board")],
     });
-    const result = await loadAtlassianSprintGoals({
+    const result = await load({
       reader: r,
       configuration: { ...config, boardType: "kanban" },
       pinnedGoalIds: [],
@@ -128,7 +148,7 @@ describe("loadAtlassianSprintGoals", () => {
         makeIssue("ABC-2", { typeId }),
       ];
       await expect(
-        loadAtlassianSprintGoals({
+        load({
           reader: reader({ lastWorkItemsIssue: "schéma incompatible" }),
           configuration: { ...config, boardType: "kanban" },
           pinnedGoalIds: [],
@@ -141,7 +161,7 @@ describe("loadAtlassianSprintGoals", () => {
   it("Kanban : une perte de session reste une erreur de connexion même avec le champ Goals", async () => {
     const sessionLost = new JiraError({ kind: "unauthorized" });
     await expect(
-      loadAtlassianSprintGoals({
+      load({
         reader: reader({ fail: { workItems: sessionLost } }),
         configuration: { ...config, boardType: "kanban" },
         pinnedGoalIds: [],
@@ -153,14 +173,14 @@ describe("loadAtlassianSprintGoals", () => {
   });
 
   it("Kanban : aucune donnée est valide, les libellés illisibles restent des avertissements", async () => {
-    const empty = await loadAtlassianSprintGoals({
+    const empty = await load({
       reader: reader({}),
       configuration: { ...config, boardType: "kanban" },
       pinnedGoalIds: [],
       issues: [],
     });
     expect(empty).toEqual({ goals: [], links: {}, warnings: [] });
-    const missingTitles = await loadAtlassianSprintGoals({
+    const missingTitles = await load({
       reader: reader({ fail: { byIds: new Error("indisponible") } }),
       configuration: { ...config, boardType: "kanban" },
       pinnedGoalIds: [],
@@ -175,7 +195,7 @@ describe("loadAtlassianSprintGoals", () => {
       workItems: { "ari:cloud:goal:c:goal/declare": ["ABC-2", "HORS-9"] },
       known: [goal("ari:cloud:goal:c:goal/declare", "Paiement")],
     });
-    const result = await loadAtlassianSprintGoals({
+    const result = await load({
       reader: r,
       pinnedGoalIds: [],
       issues,
@@ -195,7 +215,7 @@ describe("loadAtlassianSprintGoals", () => {
 
   it("un objectif épinglé s'affiche même sans ticket, en premier", async () => {
     const r = reader({ known: [goal("g-epingle", "Préparer la release")] });
-    const result = await loadAtlassianSprintGoals({
+    const result = await load({
       reader: r,
       pinnedGoalIds: ["g-epingle"],
       issues,
@@ -211,7 +231,7 @@ describe("loadAtlassianSprintGoals", () => {
       workItems: { g2: ["ABC-3"] },
       known: [goal("g2", "Stabilité")],
     });
-    const result = await loadAtlassianSprintGoals({
+    const result = await load({
       reader: r,
       pinnedGoalIds: [],
       issues: [makeIssue("ABC-3")],
@@ -229,7 +249,7 @@ describe("loadAtlassianSprintGoals", () => {
       workItems: { "g-site": ["ABC-3"] },
       known: [goal("g-epingle", "Préparer la release"), goal("g-site", "Stabilité")],
     });
-    const result = await loadAtlassianSprintGoals({
+    const result = await load({
       reader: r,
       pinnedGoalIds: ["g-epingle"],
       issues: [makeIssue("ABC-3")],
@@ -245,7 +265,7 @@ describe("loadAtlassianSprintGoals", () => {
       fail: { search: new Error("délai dépassé") },
       known: [goal("g-epingle", "Préparer la release")],
     });
-    const result = await loadAtlassianSprintGoals({
+    const result = await load({
       reader: r,
       pinnedGoalIds: ["g-epingle"],
       issues: [makeIssue("ABC-3")],
@@ -260,7 +280,7 @@ describe("loadAtlassianSprintGoals", () => {
       workItems: { g1: ["ABC-2"], g2: ["ABC-2"] },
       known: [goal("g1"), goal("g2")],
     });
-    const result = await loadAtlassianSprintGoals({
+    const result = await load({
       reader: r,
       pinnedGoalIds: ["g2", "g1"],
       issues: [makeIssue("ABC-2")],
@@ -271,7 +291,7 @@ describe("loadAtlassianSprintGoals", () => {
 
   it("un objectif non résolu garde son identifiant brut plutôt que de disparaître", async () => {
     const r = reader({ fail: { byIds: new Error("délai dépassé") } });
-    const result = await loadAtlassianSprintGoals({
+    const result = await load({
       reader: r,
       pinnedGoalIds: [],
       issues,
@@ -286,7 +306,7 @@ describe("loadAtlassianSprintGoals", () => {
       fail: { workItems: new Error("refus") },
       lastWorkItemsIssue: "arguments non pris en charge",
     });
-    const result = await loadAtlassianSprintGoals({
+    const result = await load({
       reader: r,
       pinnedGoalIds: [],
       issues,
@@ -302,7 +322,7 @@ describe("loadAtlassianSprintGoals", () => {
 
   it("recherche du site en échec et aucun candidat : rien, avec la cause", async () => {
     const r = reader({ fail: { search: new Error("quota") } });
-    const result = await loadAtlassianSprintGoals({
+    const result = await load({
       reader: r,
       pinnedGoalIds: [],
       issues: [makeIssue("ABC-2")],
@@ -318,7 +338,7 @@ describe("loadAtlassianSprintGoals", () => {
   it("passerelle muette : échec, pour que le board se rabatte sur le texte du sprint", async () => {
     const r = reader({ fail: { cloudId: new Error("Invalid CORS request") } });
     await expect(
-      loadAtlassianSprintGoals({ reader: r, pinnedGoalIds: [], issues, configuration: config }),
+      load({ reader: r, pinnedGoalIds: [], issues, configuration: config }),
     ).rejects.toThrowError("Invalid CORS request");
   });
 });

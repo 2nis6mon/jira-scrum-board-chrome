@@ -1,5 +1,4 @@
 import type { JiraClient } from "../jira/client";
-import { JiraError } from "../jira/errors";
 import { isRecord, type JsonObject, type JsonValue } from "../jira/json";
 import { BOARD_PROPERTY_KEYS } from "../jira/writes";
 import {
@@ -15,6 +14,7 @@ import {
 import type { JiraWriter } from "./boardWrites";
 import type { CardColorRule } from "./cardColors";
 import type { CardField } from "./cardFields";
+import { CoreError } from "./reasons";
 
 /**
  * Réglages d'équipe d'un board, partagés par une propriété du board dans Jira
@@ -215,24 +215,37 @@ function readCategory(category: TeamCategory): IssueCategory {
   return category === "KANBAN" ? "SWIMLANE" : category === "IGNORED" ? "IGNORED" : "GOAL";
 }
 
+/** Familles de réglages ; leurs libellés sont produits par l'application. */
+export type TeamFamily =
+  | "issueTypes"
+  | "buildAndAging"
+  | "daily"
+  | "goalSource"
+  | "boardPinnedGoals"
+  | "goalColors"
+  | "blockOrder"
+  | "hiddenGoals"
+  | "cardFields"
+  | "cardColorRules";
+
 /**
  * Familles de réglages, pour dire ce qu'une publication ou une mise à jour change. Les champs
  * déduits pour la 0.22.7 n'y sont pas : ils suivent les autres.
  */
-const FAMILIES: readonly (readonly [string, (settings: TeamSettings) => unknown])[] = [
-  ["Types de tickets et swimlanes par type", (s) => [s.issueTypes, s.ticketSwimlanes]],
-  ["Nom de Build, seuil de vieillissement", (s) => [s.buildSectionLabel, s.agingThresholdDays]],
-  ["Daily : durée et stock", (s) => [s.dailyMinutes, s.dailyStockLimit]],
-  ["Source des objectifs", (s) => s.goalSource],
-  ["Goals épinglés au board", (s) => s.boardPinnedGoalIds],
-  ["Couleurs des objectifs", (s) => s.goalColorIndex],
-  ["Ordre des swimlanes", (s) => s.blockOrder],
-  ["Objectifs masqués", (s) => s.hiddenGoalIds],
-  ["Champs des cartes", (s) => s.cardFields],
-  ["Règles de couleur des cartes", (s) => s.cardColorRules],
+const FAMILIES: readonly (readonly [TeamFamily, (settings: TeamSettings) => unknown])[] = [
+  ["issueTypes", (s) => [s.issueTypes, s.ticketSwimlanes]],
+  ["buildAndAging", (s) => [s.buildSectionLabel, s.agingThresholdDays]],
+  ["daily", (s) => [s.dailyMinutes, s.dailyStockLimit]],
+  ["goalSource", (s) => s.goalSource],
+  ["boardPinnedGoals", (s) => s.boardPinnedGoalIds],
+  ["goalColors", (s) => s.goalColorIndex],
+  ["blockOrder", (s) => s.blockOrder],
+  ["hiddenGoals", (s) => s.hiddenGoalIds],
+  ["cardFields", (s) => s.cardFields],
+  ["cardColorRules", (s) => s.cardColorRules],
 ];
 
-export const TEAM_FAMILIES: readonly string[] = FAMILIES.map(([label]) => label);
+export const TEAM_FAMILIES: readonly TeamFamily[] = FAMILIES.map(([family]) => family);
 
 /**
  * Familles de réglages où ce navigateur diffère de `settings`. La comparaison se fait après avoir
@@ -242,11 +255,11 @@ export const TEAM_FAMILIES: readonly string[] = FAMILIES.map(([label]) => label)
 export function teamDifferences(
   configuration: BoardConfiguration,
   settings: TeamSettings,
-): string[] {
+): TeamFamily[] {
   const mine = teamSettingsOf(configuration);
   const theirs = teamSettingsOf(withTeamSettings(configuration, settings));
   return FAMILIES.filter(([, pick]) => canonical(pick(mine)) !== canonical(pick(theirs))).map(
-    ([label]) => label,
+    ([family]) => family,
   );
 }
 
@@ -272,7 +285,7 @@ export function decodeTeamSettings(value: unknown): TeamSettings | null {
     ...value,
     columns: [],
     boardId: 1,
-    boardName: "réglages d'équipe",
+    boardName: "",
     siteOrigin: "",
   });
   return decoded ? teamSettingsOf(decoded) : null;
@@ -353,19 +366,11 @@ export async function publishTeamSettings(
   let extraSettings: JsonObject = {};
   if (stored !== null) {
     if (!isRecord(stored)) {
-      throw new JiraError({
-        kind: "decoding",
-        context: "réglages d'équipe du board : objet JSON attendu, rien n'a été écrit",
-        detail: Array.isArray(stored) ? "tableau" : typeof stored,
-      });
+      throw new CoreError({ code: "teamSettingsNotObject" });
     }
     current = decodeTeamDocument(stored);
     if (!current) {
-      throw new JiraError({
-        kind: "decoding",
-        context: "réglages d'équipe du board dans un format inconnu (version plus récente ?)",
-        detail: "rien n'a été écrit",
-      });
+      throw new CoreError({ code: "teamSettingsUnknownFormat" });
     }
     extraKeys = pickUnknown(stored, DOCUMENT_KEYS);
     if (isRecord(stored.settings)) {

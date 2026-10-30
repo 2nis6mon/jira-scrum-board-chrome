@@ -3,6 +3,7 @@ import { isRecord, type JsonValue } from "../jira/json";
 import { isDoneStatus, type JiraIssue, type JiraSprint } from "../jira/models";
 import type { JiraTransport } from "../jira/transport";
 import { buildWriteRequest, SPRINT_PROPERTY_KEYS } from "../jira/writes";
+import { CoreError } from "./reasons";
 import {
   makeSprintGoal,
   makeSprintGoalDocument,
@@ -48,9 +49,34 @@ export interface PlanningPublication {
   readonly now: Date;
 }
 
+/** Étape confirmée par une relecture de Jira avant l'arrêt d'une publication. */
+export type PlanningStep =
+  | { readonly kind: "goalText" }
+  | { readonly kind: "issuesAdded"; readonly count: number }
+  | { readonly kind: "links" };
+
+/**
+ * Raison typée du résultat ; `PlanningModel` en produit le texte. `error` est la cause d'origine :
+ * une `CoreError` du planning, une erreur Jira, ou toute autre valeur levée.
+ */
+export type PlanningReason =
+  | { readonly code: "published" }
+  /** La relecture préalable a échoué : rien n'a été écrit. */
+  | { readonly code: "suspended"; readonly error: unknown }
+  | { readonly code: "notFuture" }
+  | { readonly code: "sprintChanged" }
+  /** La publication est refusée avant toute écriture. */
+  | { readonly code: "refused"; readonly error: unknown }
+  /** Arrêt après une écriture : `confirmed` liste ce que Jira a confirmé. */
+  | {
+      readonly code: "unconfirmed";
+      readonly confirmed: readonly PlanningStep[];
+      readonly error: unknown;
+    };
+
 export interface PlanningOutcome {
   readonly kind: "confirmed" | "partial" | "conflict";
-  readonly message: string;
+  readonly reason: PlanningReason;
   readonly snapshot?: PlanningSnapshot;
 }
 
@@ -75,13 +101,9 @@ export async function loadSprintPlanning(
     reader.backlogIssues(input.boardId, input.query),
     reader.sprints(input.boardId, ["active"]),
   ]);
-  if (sprint.id !== input.sprintId) throw new Error("Jira a renvoyé un autre sprint.");
+  if (sprint.id !== input.sprintId) throw new CoreError({ code: "planningOtherSprint" });
   const read = readSprintGoalProperty(rawGoalProperty);
-  if (read.kind === "unreadable") {
-    throw new Error(
-      "La propriété des objectifs du sprint est illisible ou utilise une version inconnue. Elle ne sera pas écrasée.",
-    );
-  }
+  if (read.kind === "unreadable") throw new CoreError({ code: "planningUnreadableProperty" });
   const reconciled = reconcileSprintGoals(
     sprint.goal,
     read.kind === "document" ? read.document : null,
@@ -134,26 +156,17 @@ export async function publishSprintPlanning(
   try {
     current = await load();
   } catch (error) {
-    return { kind: "conflict", message: `Publication suspendue : ${messageOf(error)}` };
+    return { kind: "conflict", reason: { code: "suspended", error } };
   }
   if (current.sprint.state !== "future") {
-    return {
-      kind: "conflict",
-      message: "Ce sprint n’est plus futur. Rien n’a été écrit.",
-      snapshot: current,
-    };
+    return { kind: "conflict", reason: { code: "notFuture" }, snapshot: current };
   }
   if (
     current.nativeGoalText !== snapshot.nativeGoalText ||
     !sameJson(current.rawGoalProperty, snapshot.rawGoalProperty) ||
     !sameKeys(current.sprintIssues, snapshot.sprintIssues)
   ) {
-    return {
-      kind: "conflict",
-      message:
-        "Le sprint a changé dans Jira. Rechargez ses données avant de publier ; votre brouillon est conservé.",
-      snapshot: current,
-    };
+    return { kind: "conflict", reason: { code: "sprintChanged" }, snapshot: current };
   }
   // Zone modifiée : le document entier, qui doit être resté celui de la photographie.
   const baseProperty = current.rawGoalProperty;
@@ -174,10 +187,10 @@ export async function publishSprintPlanning(
     }
     const selected = new Set(input.selectedIssueKeys);
     if (selected.size !== input.selectedIssueKeys.length)
-      throw new Error("La sélection contient des doublons.");
+      throw new CoreError({ code: "planningDuplicateSelection" });
     const existing = new Set(current.sprintIssues.map((issue) => issue.key));
     if ([...existing].some((key) => !selected.has(key))) {
-      throw new Error("Les tickets déjà présents dans le sprint doivent être conservés.");
+      throw new CoreError({ code: "planningExistingIssuesKept" });
     }
     const available = new Map(current.backlogIssues.map((issue) => [issue.key, issue]));
     const activeKeys = new Set(current.remainingIssues.map((issue) => issue.key));
@@ -190,9 +203,7 @@ export async function publishSprintPlanning(
         isDoneStatus(issue.fields.status) ||
         issue.fields.issuetype.subtask === true
       ) {
-        throw new Error(
-          `${key} n’est plus un ticket du backlog disponible. Les tickets actifs et sous-tâches ne sont pas déplacés.`,
-        );
+        throw new CoreError({ code: "planningIssueUnavailable", issueKey: key });
       }
     }
     // Refus des valeurs invalides et de la taille avant la première écriture métier.
@@ -205,22 +216,18 @@ export async function publishSprintPlanning(
       });
     }
   } catch (error) {
-    return {
-      kind: "conflict",
-      message: `${messageOf(error)} Rien n’a été écrit.`,
-      snapshot: current,
-    };
+    return { kind: "conflict", reason: { code: "refused", error }, snapshot: current };
   }
 
-  const confirmed: string[] = [];
+  const confirmed: PlanningStep[] = [];
   try {
     if (goalText !== current.nativeGoalText) {
       await ensureFuture(reader, snapshot.sprint.id, current.nativeGoalText);
       await writer.write({ kind: "sprint.goal", sprintId: snapshot.sprint.id, goal: goalText });
       const read = await reader.sprint(snapshot.sprint.id);
       if ((read.goal ?? "") !== goalText)
-        throw new Error("Le texte des objectifs n’a pas été confirmé par Jira.");
-      confirmed.push("texte des objectifs");
+        throw new CoreError({ code: "planningGoalTextUnconfirmed" });
+      confirmed.push({ kind: "goalText" });
     }
     for (let index = 0; index < additions.length; index += 50) {
       await ensureFuture(reader, snapshot.sprint.id, goalText);
@@ -242,7 +249,7 @@ export async function publishSprintPlanning(
       );
       const activeKeys = new Set(activeIssues.flat().map((issue) => issue.key));
       if (batch.some((key) => !freshBacklog.has(key) || activeKeys.has(key))) {
-        throw new Error("Un ticket retenu a quitté le backlog pendant la publication.");
+        throw new CoreError({ code: "planningIssueLeftBacklog" });
       }
       await writer.write({
         kind: "sprint.issues.add",
@@ -255,20 +262,19 @@ export async function publishSprintPlanning(
         ),
       );
       if (batch.some((key) => !read.has(key)))
-        throw new Error("Jira n’a pas confirmé tous les ajouts au sprint.");
-      confirmed.push(`${batch.length} ticket(s) ajouté(s)`);
+        throw new CoreError({ code: "planningAdditionsUnconfirmed" });
+      confirmed.push({ kind: "issuesAdded", count: batch.length });
     }
     await ensureFuture(reader, snapshot.sprint.id, goalText);
     const update = await updateSprintGoalProperty(reader, writer, propertyUpdate);
     if (update.kind === "conflict") {
-      throw new Error("Les rattachements ont été modifiés par un collègue pendant la publication.");
+      throw new CoreError({ code: "planningLinksChanged" });
     }
     const property = update.value;
     if (update.kind === "written") {
       const read = await reader.sprintProperty(snapshot.sprint.id, SPRINT_PROPERTY_KEYS.goals);
-      if (!sameJson(read, property))
-        throw new Error("Les rattachements n’ont pas été confirmés par Jira.");
-      confirmed.push("rattachements aux objectifs");
+      if (!sameJson(read, property)) throw new CoreError({ code: "planningLinksUnconfirmed" });
+      confirmed.push({ kind: "links" });
     }
     const final = await load();
     if (
@@ -278,13 +284,9 @@ export async function publishSprintPlanning(
       !sameSprintGoalContent(final.rawGoalProperty, property) ||
       input.selectedIssueKeys.some((key) => !final.sprintIssues.some((issue) => issue.key === key))
     ) {
-      throw new Error("Le sprint a changé pendant la vérification finale.");
+      throw new CoreError({ code: "planningFinalCheckChanged" });
     }
-    return {
-      kind: "confirmed",
-      message: "Planning publié et vérifié dans Jira. Le sprint reste à démarrer dans Jira.",
-      snapshot: final,
-    };
+    return { kind: "confirmed", reason: { code: "published" }, snapshot: final };
   } catch (error) {
     let refreshed: PlanningSnapshot | undefined;
     try {
@@ -294,7 +296,7 @@ export async function publishSprintPlanning(
     }
     return {
       kind: "partial",
-      message: `${confirmed.length ? `Étapes confirmées : ${confirmed.join(", ")}. ` : "Publication non confirmée. "}${messageOf(error)} Aucune écriture n’a été rejouée. Vérifiez Jira avant de reprendre ; votre brouillon est conservé.`,
+      reason: { code: "unconfirmed", confirmed, error },
       ...(refreshed ? { snapshot: refreshed } : {}),
     };
   }
@@ -307,7 +309,7 @@ async function ensureFuture(
 ): Promise<void> {
   const sprint = await reader.sprint(sprintId);
   if (sprint.id !== sprintId || sprint.state !== "future" || (sprint.goal ?? "") !== goalText) {
-    throw new Error("Le sprint ou ses objectifs ont changé pendant la publication.");
+    throw new CoreError({ code: "planningSprintChanged" });
   }
 }
 
@@ -322,9 +324,7 @@ function validateGoals(goals: readonly SprintGoal[]): string {
       titles.length !== 1 ||
       titles[0] !== goal.title.trim()
     ) {
-      throw new Error(
-        "Chaque objectif doit avoir un titre non vide sur une ligne, sans préfixe de liste.",
-      );
+      throw new CoreError({ code: "planningInvalidGoals" });
     }
     ids.add(goal.id);
   }
@@ -344,8 +344,7 @@ function planningDocument(
     if (ids.has(id) && !selected.has(key)) links[key] = id;
   }
   for (const [key, id] of Object.entries(input.links)) {
-    if (!selected.has(key) || !ids.has(id))
-      throw new Error("Un rattachement ne correspond plus à la sélection ou aux objectifs.");
+    if (!selected.has(key) || !ids.has(id)) throw new CoreError({ code: "planningLinkMismatch" });
     links[key] = id;
   }
   // Les attributs natifs connus cèdent la place au texte ; les extensions de format restent.
@@ -376,8 +375,4 @@ function stableJson(input: unknown): string {
     return value;
   };
   return JSON.stringify(normalize(input));
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : "La vérification Jira a échoué.";
 }

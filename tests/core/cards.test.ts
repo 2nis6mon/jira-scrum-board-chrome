@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { cardFieldLabel } from "../../src/app/model/coreText";
 import { displayedCardFields } from "../../src/core/boardConfiguration";
 import {
   type CardColorRule,
@@ -11,7 +12,6 @@ import {
   type CardField,
   cardFieldId,
   cardFieldJiraId,
-  cardFieldLabel,
   cardFieldValues,
 } from "../../src/core/cardFields";
 import {

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import { auditText } from "../../src/app/model/auditLog";
 import { BoardModel } from "../../src/app/model/BoardModel";
 import { loadActiveBoard } from "../../src/app/model/boardStore";
+import { localize } from "../../src/i18n";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { atlassianGoalsPlatform } from "../support/atlassianGoalsBoard";
@@ -134,7 +136,8 @@ describe("BoardModel — épinglage de Goals au sprint", () => {
     expect(entry).toMatchObject({
       action: "épinglage",
       issueKey: null,
-      to: "1 Goal épinglé",
+      to: null,
+      toMessage: { key: "{p0} Goal épinglé", params: { p0: 1 } },
       outcome: "réussi",
     });
   });
@@ -158,6 +161,9 @@ describe("BoardModel — épinglage de Goals au sprint", () => {
     expect(board.pinEditor.value?.notice?.suggestion).toContain("Rien n'a été écrit");
     const [entry] = await board.audit.list(SITE.origin);
     expect(entry).toMatchObject({ action: "épinglage", outcome: "échec" });
+    expect(entry && auditText(entry, "detail", "fr")).toBe(
+      "conflit : sélection modifiée dans Jira",
+    );
   });
 
   it("refus de droits : une seule tentative, la fenêtre reste ouverte et dit pourquoi", async () => {
@@ -175,7 +181,10 @@ describe("BoardModel — épinglage de Goals au sprint", () => {
     expect(board.pinEditor.value?.notice?.suggestion).toContain("gérer les sprints");
     expect(board.snapshot.value?.pinnedGoalIds).toEqual([]);
     const [entry] = await board.audit.list(SITE.origin);
-    expect(entry).toMatchObject({ action: "épinglage", outcome: "échec" });
+    expect(entry).toMatchObject({ action: "épinglage", outcome: "échec", detail: null });
+    // La cause gardée au journal est le texte de l'erreur Jira, comme dans la fenêtre.
+    expect(entry && auditText(entry, "detail", "fr")).toBe(board.pinEditor.value?.notice?.text);
+    expect(entry && auditText(entry, "detail", "fr")).toContain("Manage Sprints requis");
   });
 
   it("issue incertaine : jamais rejouée, et on le dit", async () => {
@@ -190,6 +199,10 @@ describe("BoardModel — épinglage de Goals au sprint", () => {
     expect(board.pinEditor.value?.notice?.text).toContain("n'a pas confirmé");
     const [entry] = await board.audit.list(SITE.origin);
     expect(entry).toMatchObject({ action: "épinglage", outcome: "incertain" });
+    expect(entry && auditText(entry, "detail", "fr")).toBe("Connexion à Jira impossible.");
+    expect(entry && auditText(entry, "detail", "en")).toBe(
+      localize("Connexion à Jira impossible.", "en"),
+    );
   });
 
   it("changement de board pendant l'enregistrement : la fenêtre de l'ancien sprint ne revient pas", async () => {

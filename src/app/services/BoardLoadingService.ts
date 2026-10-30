@@ -7,7 +7,9 @@ import type { JiraClient } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import type { LoadTrace } from "../../jira/loadTrace";
 import type { JiraUser } from "../../jira/models";
+import { message, sourceText } from "../model/appMessage";
 import type { SyncProblem } from "../model/BoardTypes";
+import { goalsIssueMessage, goalsWarningMessage } from "../model/coreText";
 import type { LoadDiagnostics } from "../model/LoadDiagnostics";
 import { toMessage } from "../model/messages";
 import type { BoardScope, ConfigurationChange, ReadableValue, StateValue } from "./ports";
@@ -189,8 +191,15 @@ export class BoardLoadingService {
       this.#state.goalsNotice.value =
         result.goalsIssue === null
           ? null
-          : `Goals Atlassian illisibles : ${result.goalsIssue} Les objectifs affichés sont les lignes du champ « Objectif » du sprint.`;
-      this.#state.goalsWarnings.value = result.goalsWarnings;
+          : sourceText(
+              message(
+                "Goals Atlassian illisibles : {p0} Les objectifs affichés sont les lignes du champ « Objectif » du sprint.",
+                { p0: goalsIssueMessage(result.goalsIssue) },
+              ),
+            );
+      this.#state.goalsWarnings.value = result.goalsWarnings.map((warning) =>
+        sourceText(goalsWarningMessage(warning)),
+      );
       this.#state.syncProblem.value = null;
       this.#diagnostics.setContext({
         boardType: configuration.boardType === "kanban" ? "kanban" : "scrum",

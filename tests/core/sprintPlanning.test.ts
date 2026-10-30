@@ -12,6 +12,7 @@ import type { JsonValue } from "../../src/jira/json";
 import { decodeSprint } from "../../src/jira/models";
 import type { JiraWrite } from "../../src/jira/writes";
 import { makeIssue } from "../support/jiraFixtures";
+import { rejectionText } from "../support/messages";
 
 const query = { estimationFieldId: "customfield_10016", includeChangelog: false };
 const goal = makeSprintGoal({ id: "goal-a", title: "Premier résultat", position: 0 });
@@ -133,7 +134,9 @@ describe("chargement Sprint Planning", () => {
   ])("refuse une propriété illisible sans écrasement : %j", async (raw) => {
     const f = fixture();
     f.state.property = raw;
-    await expect(f.load()).rejects.toThrow("illisible");
+    expect(await rejectionText(f.load())).toBe(
+      "La propriété des objectifs du sprint est illisible ou utilise une version inconnue. Elle ne sera pas écrasée.",
+    );
     expect(f.writes).toEqual([]);
   });
 });
@@ -169,6 +172,15 @@ describe("publication Sprint Planning", () => {
       if (change === "backlog") f.state.backlog = [];
       const result = await publishSprintPlanning(f.reader, f.writer, input);
       expect(result.kind).toBe("conflict");
+      expect(result.reason.code).toBe(
+        {
+          active: "notFuture",
+          native: "sprintChanged",
+          property: "sprintChanged",
+          membership: "sprintChanged",
+          backlog: "refused",
+        }[change],
+      );
       expect(f.writes).toEqual([]);
     },
   );
@@ -307,7 +319,10 @@ describe("publication Sprint Planning", () => {
     expect(result.kind).toBe("partial");
     expect(result.snapshot?.sprintIssues.some((issue) => issue.key === "ABC-201")).toBe(true);
     expect(f.writes.map((write) => write.kind)).toEqual(["sprint.goal", "sprint.issues.add"]);
-    expect(result.message).toContain("Aucune écriture n’a été rejouée");
+    expect(result.reason).toMatchObject({
+      code: "unconfirmed",
+      confirmed: [{ kind: "goalText" }],
+    });
   });
 
   it("ne présente pas un HTTP réussi non confirmé comme une réussite", async () => {
@@ -368,7 +383,7 @@ describe("publication Sprint Planning", () => {
     };
     const result = await publishSprintPlanning(f.reader, writer, await f.publication());
     expect(result.kind).toBe("partial");
-    expect(result.message).not.toContain("reste à démarrer");
+    expect(result.reason.code).toBe("unconfirmed");
   });
 
   it("valide la limite 32 Ko avant toute modification du texte ou des tickets", async () => {

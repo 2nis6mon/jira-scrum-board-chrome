@@ -47,7 +47,7 @@ comme donnée inconnue, sans effet sur le classement.
 | `sprint-planning.v1:<origine Jira>` | Brouillons par board/sprint : objectifs texte, clés/rattachements, capacité, révision de base ; oubli du board/site les efface |
 | `jira-button-position.v1:<origine Jira>` | Position personnelle commune aux boards d'un site |
 | `dismissedNotices.v1`, `graphqlOrigin.v1` | Avis fermés par site/board ; variante Origin du site |
-| `audit.v1` | Au plus 500 écritures de l'extension : clés des tickets, résultat, erreurs, aucun cookie ni saisie native |
+| `audit.v1` | Au plus 500 écritures de l'extension : clés des tickets, résultat, erreurs, aucun cookie ni saisie native. Depuis 0.36.2, `toMessage`/`detailMessage` (facultatifs) portent une clé du catalogue et ses paramètres, traduits à l'affichage ; `to`/`detail` ne gardent que du contenu Jira brut ou `null` (`detail` : seul le message renvoyé par Atlassian lors d'un rattachement refusé). Le message d'erreur d'une écriture en échec est rangé dans `detailMessage` sous la forme `{ text }`, présentée par `localize`. Les anciennes entrées (phrases dans `to`/`detail`) restent affichées comme avant. Les champs exigés par 0.36.1 sont inchangés : une version précédente accepte les nouvelles entrées, mais affiche vides leurs colonnes Cible et Détail produites par l'extension |
 | `loadDiagnostics.v1` | Cinq chargements, 500 segments chacun ; troncature comptée |
 
 Chaque clé a un module propriétaire sous `src/app/model/` : `connectionStore.ts` (`connection.v1`,

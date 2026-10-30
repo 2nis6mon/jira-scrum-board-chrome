@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { auditText } from "../../src/app/model/auditLog";
 import { BoardModel } from "../../src/app/model/BoardModel";
 import { goalBlock } from "../../src/core/boardBlocks";
 import { encodeTeamDocument, type TeamDocument, teamSettingsOf } from "../../src/core/teamSettings";
@@ -105,8 +106,12 @@ describe("BoardModel — réglages du board partagés", () => {
     expect(entry).toMatchObject({
       action: "réglages d'équipe",
       outcome: "réussi",
-      detail: "Objectifs masqués",
+      detail: null,
+      detailMessage: { list: [{ key: "Objectifs masqués" }], separator: " ; " },
     });
+    // Le détail reste présenté comme avant, et suit la langue courante.
+    expect(entry && auditText(entry, "detail", "fr")).toBe("Objectifs masqués");
+    expect(entry && auditText(entry, "detail", "en")).toBe("Hidden goals");
   });
 
   it("la version de Jira est appliquée à chaque lecture, même si ce navigateur avait autre chose", async () => {

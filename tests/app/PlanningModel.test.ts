@@ -265,6 +265,11 @@ describe("atelier Sprint Planning", () => {
       to: "43",
       outcome: "réussi",
       site: "https://acme.atlassian.net",
+      // Résultat gardé en clé du catalogue, traduit à l'affichage.
+      detail: null,
+      detailMessage: {
+        key: "Planning publié et vérifié dans Jira. Le sprint reste à démarrer dans Jira.",
+      },
     });
   });
 

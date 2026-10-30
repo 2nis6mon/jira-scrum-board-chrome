@@ -20,6 +20,7 @@ import {
 } from "./boardIssue";
 import { cardFieldJiraId } from "./cardFields";
 import { withObservedIssueTypes } from "./issueTypeDiscovery";
+import { CoreError, type GoalsWarning } from "./reasons";
 import {
   assignGoalColors,
   decodeSprintGoalDocument,
@@ -48,23 +49,14 @@ export type BoardSetupProblem =
   | { kind: "unrecognizedUrl" }
   | { kind: "siteMismatch"; expected: string; found: string };
 
+/** Adresse de board refusée ; l'application en produit le message et la suggestion. */
 export class BoardSetupError extends Error {
   readonly problem: BoardSetupProblem;
 
   constructor(problem: BoardSetupProblem) {
-    super(
-      problem.kind === "unrecognizedUrl"
-        ? "Cette adresse ne désigne pas un board Jira."
-        : `Ce board appartient à ${problem.found}, pas à ${problem.expected}.`,
-    );
+    super(problem.kind);
     this.name = "BoardSetupError";
     this.problem = problem;
-  }
-
-  get suggestion(): string {
-    return this.problem.kind === "unrecognizedUrl"
-      ? "Collez l'adresse complète de votre board, par exemple https://societe.atlassian.net/jira/software/c/projects/ABC/boards/123"
-      : "L'extension n'a accès qu'au site auquel vous êtes connecté.";
   }
 }
 
@@ -163,8 +155,19 @@ export interface AtlassianGoalsLoader {
     pinnedGoalIds: readonly string[];
     issues: readonly JiraIssue[];
     configuration: BoardConfiguration;
-  }): Promise<{ goals: SprintGoal[]; links: Record<string, string>; warnings?: readonly string[] }>;
+  }): Promise<{
+    goals: SprintGoal[];
+    links: Record<string, string>;
+    warnings?: readonly GoalsWarning[];
+  }>;
 }
+
+/** Pourquoi le board s'est rabattu sur le texte du sprint ; le texte est produit par l'application. */
+export type GoalsIssue =
+  /** Mode Goals Atlassian sans lecteur de Goals. */
+  | { readonly kind: "unavailable" }
+  /** La lecture des Goals a échoué : `error` en est la cause. */
+  | { readonly kind: "failed"; readonly error: unknown };
 
 export interface SyncResult {
   readonly snapshot: BoardSnapshot;
@@ -176,9 +179,9 @@ export interface SyncResult {
    * Pourquoi les Goals Atlassian n'ont pas pu être lus, quand le board s'est rabattu sur le
    * texte du sprint. `null` si tout s'est passé comme configuré.
    */
-  readonly goalsIssue: string | null;
+  readonly goalsIssue: GoalsIssue | null;
   /** Lectures partielles des Goals Atlassian : le board s'affiche, il y manque quelque chose. */
-  readonly goalsWarnings: readonly string[];
+  readonly goalsWarnings: readonly GoalsWarning[];
   /** Couleurs des objectifs à mémoriser localement (jamais écrites dans Jira). */
   readonly goalColorIndex: Record<string, number>;
 }
@@ -320,9 +323,9 @@ export async function loadSnapshot(input: {
 
   let goals: SprintGoal[];
   let links: Record<string, string>;
-  let goalsIssue: string | null = null;
+  let goalsIssue: GoalsIssue | null = null;
   let goalsOrigin: GoalSource = "sprintText";
-  let goalsWarnings: readonly string[] = [];
+  let goalsWarnings: readonly GoalsWarning[] = [];
 
   // La sélection enregistrée dans Jira fait foi ; à défaut, celle gardée dans ce navigateur quand
   // Jira a refusé de l'enregistrer.
@@ -348,12 +351,12 @@ export async function loadSnapshot(input: {
       goalsOrigin = "atlassianGoals";
     } catch (error) {
       // Repli explicite sur le champ texte, sans masquer la cause.
-      goalsIssue = describeGoalsFailure(error);
+      goalsIssue = { kind: "failed", error };
       ({ goals, links, goalSprintOf } = measureSync(trace, "goals", textGoals));
     }
   } else {
     if (configuration.goalSource === "atlassianGoals") {
-      goalsIssue = "Lecture des Goals Atlassian indisponible.";
+      goalsIssue = { kind: "unavailable" };
     }
     ({ goals, links, goalSprintOf } = measureSync(trace, "goals", textGoals));
   }
@@ -438,9 +441,7 @@ async function loadKanbanSnapshot(input: {
   );
   await input.onIssueTypesDiscovered?.(discoveredIssueTypes);
   if (!input.goalsLoader) {
-    throw new Error(
-      "Lecture des Goals Atlassian indisponible : le board Kanban ne peut pas déterminer ses objectifs.",
-    );
+    throw new CoreError({ code: "kanbanGoalsUnavailable" });
   }
   const goalsLoader = input.goalsLoader;
   let resolved: Awaited<ReturnType<AtlassianGoalsLoader["load"]>>;
@@ -455,7 +456,7 @@ async function loadKanbanSnapshot(input: {
   } catch (error) {
     // Sans texte de sprint, un repli vide classerait à tort tous les tickets dans Build.
     if (error instanceof JiraError && error.isAuthenticationFailure) throw error;
-    throw new Error(`Objectifs du board Kanban indisponibles : ${describeGoalsFailure(error)}`);
+    throw new CoreError({ code: "kanbanGoalsFailed", error });
   }
   return measureSync(trace, "assemble", () => {
     const { goalIssues, swimlaneIssues } = assembleSnapshotIssues({
@@ -623,16 +624,4 @@ function emptySnapshot(now: Date, currentUser: JiraUser | null): BoardSnapshot {
     pinnedGoalIds: null,
     localPinnedGoalIds: null,
   };
-}
-
-/** Cause d'un échec de lecture des Goals, dite dans les termes de ce qui s'est passé. */
-export function describeGoalsFailure(error: unknown): string {
-  if (
-    error instanceof JiraError &&
-    error.info.kind === "forbidden" &&
-    /cors/i.test(error.info.bodyExcerpt)
-  ) {
-    return "la passerelle GraphQL d'Atlassian refuse l'origine des requêtes de l'extension (« Invalid CORS request »). Site Jira → Diagnostic, en bas de la barre latérale, essaie les variantes de l'en-tête Origin et retient celle qui passe.";
-  }
-  return error instanceof Error ? error.message : String(error);
 }

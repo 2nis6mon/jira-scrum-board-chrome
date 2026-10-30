@@ -31,6 +31,12 @@ sont dans la [documentation technique](docs/technique/index.md).
   par les tests à la table des clés : un échec d'effacement n'empêche plus les autres. Le site
   connecté et la dernière adresse du lanceur ne sont plus effacés s'ils désignent un autre site.
   Langue, interface et données des autres sites restent ; noms et formats des clés inchangés.
+- Le journal des écritures (Diagnostic) garde désormais les textes de l'extension en clés du
+  catalogue avec leurs paramètres : les nouvelles entrées suivent la langue choisie, y compris
+  leur cible (« après ABC-1 ») et la cause d'une écriture en échec. Les anciennes entrées restent
+  affichées comme avant. Une version précédente accepte les nouvelles entrées, mais affiche vides
+  leurs colonnes Cible et Détail produites par l'extension. Le métier ne produit plus aucune
+  phrase (raisons typées, vérifiées par les tests) ; textes visibles en français inchangés.
 
 ## 0.36.1 — Langue dans les préférences personnelles
 

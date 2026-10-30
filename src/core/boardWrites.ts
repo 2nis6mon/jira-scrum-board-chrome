@@ -5,6 +5,7 @@ import type { JiraStatus, JiraTransition } from "../jira/models";
 import { resolveTransition } from "../jira/transitionPlanner";
 import type { JiraTransport } from "../jira/transport";
 import type { RankChange } from "./dropPlan";
+import { CoreError } from "./reasons";
 import {
   goalColorName,
   makeSprintGoal,
@@ -121,11 +122,9 @@ export async function rankIssue(
   );
   const failures = rankFailures(response.body);
   if (failures !== null) {
-    throw new JiraError({
-      kind: "badRequest",
-      messages: failures.length > 0 ? failures : [`Jira a refusé de classer ${issueKey}.`],
-      fieldErrors: {},
-    });
+    // Sans message de Jira, le refus est nommé par core ; l'application en produit le texte.
+    if (failures.length === 0) throw new CoreError({ code: "rankRefused", issueKey });
+    throw new JiraError({ kind: "badRequest", messages: failures, fieldErrors: {} });
   }
 }
 
@@ -191,7 +190,7 @@ export async function linkToTextGoal(
     ...(input.linkableGoalIds ?? []),
   ]);
   if (input.goalId !== null && !linkable.has(input.goalId)) {
-    throw new Error("Cet objectif n'existe plus dans le sprint. Actualisez le board.");
+    throw new CoreError({ code: "goalGone" });
   }
   const linkOf = (document: SprintGoalDocument | null) => document?.links[input.issueKey] ?? null;
   // Seul le lien de ce ticket est modifié : les autres liens sont fusionnés sur Jira frais.

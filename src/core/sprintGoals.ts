@@ -1,8 +1,8 @@
 import type { JiraClient } from "../jira/client";
-import { JiraError } from "../jira/errors";
 import { isRecord, type JsonObject } from "../jira/json";
 import type { JiraTransport } from "../jira/transport";
 import { buildWriteRequest, SPRINT_PROPERTY_KEYS } from "../jira/writes";
+import { CoreError } from "./reasons";
 
 /**
  * Un objectif de sprint tel que manipulé par l'application.
@@ -273,15 +273,8 @@ export function readSprintGoalProperty(raw: unknown): StrictSprintGoalRead {
 }
 
 /** Erreur levée quand la propriété relue ne peut pas être mise à jour sans risque. */
-function unreadableError(read: Extract<StrictSprintGoalRead, { kind: "unreadable" }>): JiraError {
-  return new JiraError({
-    kind: "decoding",
-    context:
-      read.reason === "notObject"
-        ? "propriété des objectifs du sprint : objet JSON attendu, rien n'a été écrit"
-        : "propriété des objectifs du sprint : version inconnue ou illisible, rien n'a été écrit",
-    detail: read.detail,
-  });
+function unreadableError(read: Extract<StrictSprintGoalRead, { kind: "unreadable" }>): CoreError {
+  return new CoreError({ code: "sprintGoalsUnreadable", reason: read.reason });
 }
 
 /**

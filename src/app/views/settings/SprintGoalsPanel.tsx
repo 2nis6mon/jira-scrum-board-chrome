@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { GOAL_COLOR_NAMES } from "../../../core/boardPreferences";
 import { filterAtlassianGoals } from "../../../core/filters";
 import { pinnedGoalIdsIn } from "../../../core/pinnedGoals";
 import { goalColorName, type SprintGoal } from "../../../core/sprintGoals";
 import { type AtlassianGoal, goalDisplayName } from "../../../jira/models";
 import { localize, t } from "../../i18n";
 import type { BoardModel, PinEditor } from "../../model/BoardModel";
+import { GOAL_COLOR_NAMES } from "../../model/coreText";
 import { goalStatusLabel, plural } from "../format";
 import { Icon } from "../Icon";
 import { ColorMenu, SaveBar } from "./controls";

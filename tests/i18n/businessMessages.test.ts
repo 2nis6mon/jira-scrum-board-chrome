@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { renderMessage, sourceText } from "../../src/app/model/appMessage";
+import { planningMessage } from "../../src/app/model/coreText";
+import { CoreError } from "../../src/core/reasons";
 import { localize } from "../../src/i18n";
 
 describe("messages métier bilingues", () => {
@@ -59,6 +62,22 @@ describe("messages métier bilingues", () => {
       "Confirmed steps: goal text, 2 issue(s) added. Jira did not confirm the issue links. No write was retried. Check Jira before continuing; your draft has been kept.",
     );
     expect(localize(historical, "fr")).toBe(historical);
+  });
+
+  it("produit le même texte depuis le résultat typé du planning, puis le traduit sans motifs", () => {
+    const historical =
+      "Étapes confirmées : texte des objectifs, 2 ticket(s) ajouté(s). Les rattachements n’ont pas été confirmés par Jira. Aucune écriture n’a été rejouée. Vérifiez Jira avant de reprendre ; votre brouillon est conservé.";
+    const typed = planningMessage({
+      code: "unconfirmed",
+      confirmed: [{ kind: "goalText" }, { kind: "issuesAdded", count: 2 }],
+      error: new CoreError({ code: "planningLinksUnconfirmed" }),
+    });
+    expect(sourceText(typed)).toBe(historical);
+    expect(renderMessage(typed, "en")).toBe(localize(historical, "en"));
+    // Chaque étape est traduite seule : en espagnol, son libellé est celui de l'étape isolée.
+    expect(renderMessage(typed, "es")).toMatch(
+      /^Etapas confirmadas: texto de los objetivos, 2 incidencia\(s\) añadida\(s\)\. /,
+    );
   });
 
   it("traduit une sonde composée sans interpréter le corps de réponse Jira", () => {

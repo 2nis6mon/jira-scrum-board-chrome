@@ -17,12 +17,6 @@ import { foldText } from "./text";
 
 // Transformations pures des réglages. Le modèle publie ensuite les changements partagés dans Jira.
 
-export const ISSUE_CATEGORY_LABEL: Record<IssueCategory, string> = {
-  GOAL: "Build par défaut",
-  SWIMLANE: "Swimlane par défaut",
-  IGNORED: "Ignoré",
-};
-
 /** Rafraîchissements automatiques proposés, en secondes (`null` = désactivé). */
 export const AUTO_REFRESH_CHOICES: readonly (number | null)[] = [null, 60, 120, 300];
 
@@ -32,9 +26,15 @@ export const AUTO_REFRESH_CHOICES: readonly (number | null)[] = [null, 60, 120, 
 // ne touche qu'à son réglage : deux modifications rapprochées s'additionnent, et un type ou une
 // swimlane disparus entre-temps (structure relue dans Jira) laissent la configuration intacte.
 
+/** Saisie refusée : l'application en produit le message, avec la borne `max`. */
+export type SettingError =
+  | { readonly field: "agingThreshold"; readonly max: number }
+  | { readonly field: "dailyMinutes"; readonly max: number }
+  | { readonly field: "dailyStock"; readonly max: number };
+
 export type SettingResult =
   | { readonly ok: true; readonly configuration: BoardConfiguration }
-  | { readonly ok: false; readonly error: string };
+  | { readonly ok: false; readonly error: SettingError };
 
 /**
  * Classement par défaut d'un type sans objectif visible : Build, une swimlane par type ou une
@@ -172,10 +172,7 @@ export function withBuildLabel(
 export function withAgingThreshold(configuration: BoardConfiguration, raw: string): SettingResult {
   const days = Number(raw.trim());
   if (raw.trim() === "" || !Number.isInteger(days) || days < 1 || days > 365) {
-    return {
-      ok: false,
-      error: "Le seuil « vieillissant » doit être un nombre entier de jours, entre 1 et 365.",
-    };
+    return { ok: false, error: { field: "agingThreshold", max: 365 } };
   }
   return { ok: true, configuration: { ...configuration, agingThresholdDays: days } };
 }
@@ -189,10 +186,7 @@ export function withDailyMinutes(configuration: BoardConfiguration, raw: string)
     minutes < 1 ||
     minutes > MAX_DAILY_MINUTES
   ) {
-    return {
-      ok: false,
-      error: `La durée de la daily doit être un nombre entier de minutes, entre 1 et ${MAX_DAILY_MINUTES}.`,
-    };
+    return { ok: false, error: { field: "dailyMinutes", max: MAX_DAILY_MINUTES } };
   }
   return { ok: true, configuration: { ...configuration, dailyMinutes: minutes } };
 }
@@ -201,10 +195,7 @@ export function withDailyMinutes(configuration: BoardConfiguration, raw: string)
 export function withDailyStockLimit(configuration: BoardConfiguration, raw: string): SettingResult {
   const count = Number(raw.trim());
   if (raw.trim() === "" || !Number.isInteger(count) || count < 1 || count > MAX_DAILY_STOCK) {
-    return {
-      ok: false,
-      error: `Le nombre de cartes du stock en daily doit être un entier, entre 1 et ${MAX_DAILY_STOCK}.`,
-    };
+    return { ok: false, error: { field: "dailyStock", max: MAX_DAILY_STOCK } };
   }
   return { ok: true, configuration: { ...configuration, dailyStockLimit: count } };
 }

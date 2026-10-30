@@ -10,17 +10,6 @@ export type QuickFilter = "blocked" | "addedAfterStart";
 
 export const QUICK_FILTERS: readonly QuickFilter[] = ["blocked", "addedAfterStart"];
 
-export const QUICK_FILTER_LABEL: Record<QuickFilter, string> = {
-  blocked: "Bloqués",
-  addedAfterStart: "Ajoutés",
-};
-
-/** Libellé complet, pour l'infobulle. */
-export const QUICK_FILTER_HELP: Record<QuickFilter, string> = {
-  blocked: "Tickets bloqués par un lien Jira « est bloqué par »",
-  addedAfterStart: "Tickets ajoutés au sprint après son démarrage",
-};
-
 /** Critères de filtrage. Combinables ; n'affectent jamais les données Jira. */
 export interface BoardFilters {
   readonly searchText: string;

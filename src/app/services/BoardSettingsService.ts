@@ -15,7 +15,9 @@ import {
 import type { JiraClient } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import type { JiraUser } from "../../jira/models";
+import { type AppMessage, message } from "../model/appMessage";
 import type { PinEditor, TeamNotice, TeamState } from "../model/BoardTypes";
+import { errorMessage, TEAM_FAMILY_LABEL } from "../model/coreText";
 import { toMessage } from "../model/messages";
 import type {
   BoardScope,
@@ -86,9 +88,13 @@ export class BoardSettingsService {
     const settle = (next: PinEditor | null) => {
       if (this.#state.pinEditor.value === saving) this.#state.pinEditor.value = next;
     };
-    const count = editor.selection.length;
-    const to = `${count} Goal${count > 1 ? "s" : ""} épinglé${count > 1 ? "s" : ""}`;
-    const entry = { action: "épinglage", issueKey: null, from: null, to } as const;
+    const entry = {
+      action: "épinglage",
+      issueKey: null,
+      from: null,
+      to: null,
+      toMessage: pinnedCount(editor.selection.length),
+    } as const;
     try {
       const outcome = await this.#gate.run(({ writer }) =>
         pinAtlassianGoals(this.#reader, writer, {
@@ -105,7 +111,8 @@ export class BoardSettingsService {
           await this.#effects.record({
             ...entry,
             outcome: "réussi",
-            detail: "propriété du sprint",
+            detail: null,
+            detailMessage: message("propriété du sprint"),
           });
           // Enregistré dans Jira : la copie locale de repli devient inutile.
           await this.forgetLocalPins(sprintId);
@@ -131,14 +138,15 @@ export class BoardSettingsService {
           await this.#effects.record({
             ...entry,
             outcome: "échec",
-            detail: "conflit : sélection modifiée dans Jira",
+            detail: null,
+            detailMessage: message("conflit : sélection modifiée dans Jira"),
           });
           break;
       }
     } catch (error) {
       const jiraError = error instanceof JiraError ? error : null;
       const uncertain = jiraError?.isOutcomeUnknown ?? false;
-      const message = toMessage(error);
+      const userMessage = toMessage(error);
       const forbidden = jiraError?.info.kind === "forbidden";
       settle({
         ...editor,
@@ -146,22 +154,23 @@ export class BoardSettingsService {
         notice: uncertain
           ? {
               tone: "warning",
-              text: `Jira n'a pas confirmé l'enregistrement (${message.text.replace(/\.$/, "")}).`,
+              text: `Jira n'a pas confirmé l'enregistrement (${userMessage.text.replace(/\.$/, "")}).`,
               suggestion:
                 "Il a peut-être eu lieu : le board vient d'être relu. Vérifiez-le avant de recommencer ; l'extension ne rejoue jamais une écriture.",
             }
           : {
               tone: "error",
-              text: message.text,
+              text: userMessage.text,
               suggestion: forbidden
                 ? "Épingler un Goal au sprint exige en général la permission Jira de gérer les sprints. Vous pouvez garder cette sélection dans ce navigateur, sans la partager."
-                : message.suggestion,
+                : userMessage.suggestion,
             },
       });
       await this.#effects.record({
         ...entry,
         outcome: uncertain ? "incertain" : "échec",
-        detail: message.text,
+        detail: null,
+        detailMessage: errorMessage(error),
       });
     }
     await this.#effects.sync();
@@ -188,7 +197,8 @@ export class BoardSettingsService {
       action: "épinglage",
       issueKey: null,
       from: null,
-      to: `${editor.selection.length} Goal${editor.selection.length > 1 ? "s" : ""} épinglé${editor.selection.length > 1 ? "s" : ""}`,
+      to: null,
+      toMessage: pinnedCount(editor.selection.length),
     } as const;
     const conflict = async (current: TeamDocument | null) => {
       if (current) {
@@ -214,7 +224,8 @@ export class BoardSettingsService {
       await this.#effects.record({
         ...entry,
         outcome: "échec",
-        detail: "conflit : réglages du board modifiés",
+        detail: null,
+        detailMessage: message("conflit : réglages du board modifiés"),
       });
     };
     this.#teamWrites += 1;
@@ -263,14 +274,15 @@ export class BoardSettingsService {
           await this.#effects.record({
             ...entry,
             outcome: "réussi",
-            detail: "propriété du board Kanban",
+            detail: null,
+            detailMessage: message("propriété du board Kanban"),
           });
         } catch (error) {
           if (stale()) return;
           const jiraError = error instanceof JiraError ? error : null;
           const uncertain = jiraError?.isOutcomeUnknown ?? false;
           const forbidden = jiraError?.info.kind === "forbidden";
-          const message = toMessage(error);
+          const userMessage = toMessage(error);
           if (forbidden) this.#state.canEditBoard.value = false;
           settle({
             ...editor,
@@ -278,19 +290,20 @@ export class BoardSettingsService {
             notice: {
               tone: uncertain ? "warning" : "error",
               text: uncertain
-                ? `Jira n'a pas confirmé l'enregistrement (${message.text.replace(/\.$/, "")}).`
-                : message.text,
+                ? `Jira n'a pas confirmé l'enregistrement (${userMessage.text.replace(/\.$/, "")}).`
+                : userMessage.text,
               suggestion: uncertain
                 ? "Le board va être relu. Vérifiez sa sélection avant de recommencer ; l'extension ne rejoue jamais une écriture."
                 : forbidden
                   ? "Il faut pouvoir modifier le board pour y épingler des Goals."
-                  : message.suggestion,
+                  : userMessage.suggestion,
             },
           });
           await this.#effects.record({
             ...entry,
             outcome: uncertain ? "incertain" : "échec",
-            detail: message.text,
+            detail: null,
+            detailMessage: errorMessage(error),
           });
         }
       },
@@ -374,7 +387,8 @@ export class BoardSettingsService {
       action: "réglages d'équipe",
       issueKey: null,
       from: null,
-      to: "enregistrement",
+      to: null,
+      toMessage: message("enregistrement"),
     } as const;
     this.#state.teamNotice.value = null;
     try {
@@ -424,7 +438,14 @@ export class BoardSettingsService {
         await this.#effects.record({
           ...entry,
           outcome: "réussi",
-          detail: changes.length > 0 ? changes.join(" ; ") : "réglages du board",
+          detail: null,
+          detailMessage:
+            changes.length > 0
+              ? {
+                  list: changes.map((family) => message(TEAM_FAMILY_LABEL[family])),
+                  separator: " ; ",
+                }
+              : message("réglages du board"),
         });
         return true;
       }
@@ -444,7 +465,8 @@ export class BoardSettingsService {
         await this.#effects.record({
           ...entry,
           outcome: "échec",
-          detail: "modifiés au même moment",
+          detail: null,
+          detailMessage: message("modifiés au même moment"),
         });
       }
     } catch (error) {
@@ -452,7 +474,7 @@ export class BoardSettingsService {
       const jiraError = error instanceof JiraError ? error : null;
       const uncertain = jiraError?.isOutcomeUnknown ?? false;
       const forbidden = jiraError?.info.kind === "forbidden";
-      const message = toMessage(error);
+      const userMessage = toMessage(error);
       if (forbidden) this.#state.canEditBoard.value = false;
       this.#state.teamNotice.value = forbidden
         ? {
@@ -464,19 +486,20 @@ export class BoardSettingsService {
         : uncertain
           ? {
               tone: "warning",
-              text: `Jira n'a pas confirmé l'enregistrement du réglage (${message.text.replace(/\.$/, "")}).`,
+              text: `Jira n'a pas confirmé l'enregistrement du réglage (${userMessage.text.replace(/\.$/, "")}).`,
               suggestion:
                 "Les réglages du board vont être relus. L'extension ne rejoue jamais une écriture.",
             }
           : {
               tone: "error",
-              text: `Réglage non enregistré dans Jira (${message.text.replace(/\.$/, "")}).`,
+              text: `Réglage non enregistré dans Jira (${userMessage.text.replace(/\.$/, "")}).`,
               suggestion: "Il sera remplacé par les réglages du board au prochain chargement.",
             };
       await this.#effects.record({
         ...entry,
         outcome: uncertain ? "incertain" : "échec",
-        detail: message.text,
+        detail: null,
+        detailMessage: errorMessage(error),
       });
       if (forbidden || uncertain) await this.refresh({ force: true });
     }
@@ -567,4 +590,9 @@ export class BoardSettingsService {
       },
     }));
   }
+}
+
+/** Nombre de Goals épinglés, pour le journal. */
+function pinnedCount(count: number): AppMessage {
+  return message(count > 1 ? "{p0} Goals épinglés" : "{p0} Goal épinglé", { p0: count });
 }

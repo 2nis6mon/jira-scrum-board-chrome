@@ -18,21 +18,6 @@ export function cardFieldId(field: CardField): string {
   return field.kind === "custom" ? `custom:${field.customFieldId}` : field.kind;
 }
 
-export function cardFieldLabel(field: CardField): string {
-  switch (field.kind) {
-    case "fixVersions":
-      return "Fix version";
-    case "affectsVersions":
-      return "Affects version";
-    case "labels":
-      return "Labels";
-    case "components":
-      return "Composants";
-    case "custom":
-      return field.customFieldName ?? field.customFieldId;
-  }
-}
-
 /** Champ à demander à Jira en plus de la liste de base. Labels et composants y sont déjà. */
 export function cardFieldJiraId(field: CardField): string | null {
   switch (field.kind) {

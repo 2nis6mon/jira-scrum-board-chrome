@@ -2,6 +2,7 @@ import { JiraError } from "../jira/errors";
 import type { GoalsClient } from "../jira/goals";
 import { goalDisplayName, type JiraIssue, linkedGoalIds } from "../jira/models";
 import type { BoardConfiguration } from "./boardConfiguration";
+import { CoreError, type GoalsFieldGap, type GoalsWarning } from "./reasons";
 import { goalColorName, makeSprintGoal, type SprintGoal } from "./sprintGoals";
 
 /** Lectures de l'API Goals dont le board a besoin. `GoalsClient` les fournit. */
@@ -15,7 +16,7 @@ export interface AtlassianSprintGoals {
   /** Ticket → objectif affiché (un ticket lié à plusieurs objectifs suit le premier affiché). */
   readonly links: Record<string, string>;
   /** Lectures partielles : le board s'affiche, mais il manque quelque chose — et on le dit. */
-  readonly warnings: string[];
+  readonly warnings: GoalsWarning[];
 }
 
 /**
@@ -38,9 +39,7 @@ export async function loadAtlassianSprintGoals(input: {
   configuration: BoardConfiguration;
 }): Promise<AtlassianSprintGoals> {
   const { reader, configuration } = input;
-  const warnings: string[] = [];
-  const describe = (operation: string, error: unknown) =>
-    `${operation} : ${error instanceof Error ? error.message : String(error)}`;
+  const warnings: GoalsWarning[] = [];
 
   // La passerelle doit répondre : sinon, repli explicite sur le texte du sprint.
   await reader.cloudId();
@@ -58,10 +57,7 @@ export async function loadAtlassianSprintGoals(input: {
     goalIssues.length === 0 ||
     (goalFieldId !== null &&
       goalIssues.every((issue) => Object.hasOwn(issue.fields.customFields, goalFieldId)));
-  const incompleteIssueField =
-    goalFieldId === null
-      ? "Le champ Goals Jira n'a pas été identifié ; relisez la structure du board."
-      : `Le champ Goals Jira est absent de certains tickets du board (${goalFieldId}).`;
+  const gap: GoalsFieldGap = { goalFieldId };
 
   // Lecture 2 — ce que les tickets déclarent.
   const linksFromIssues = new Map<string, string[]>();
@@ -85,9 +81,13 @@ export async function loadAtlassianSprintGoals(input: {
     } catch (error) {
       if (configuration.boardType === "kanban") {
         if (error instanceof JiraError && error.isAuthenticationFailure) throw error;
-        throw new Error(describe("Recherche des objectifs du board", error));
+        throw new CoreError({
+          code: "goalsReadFailed",
+          warning: { kind: "failed", operation: "boardSearch", error },
+          gap: null,
+        });
       }
-      warnings.push(describe("Recherche des objectifs du site", error));
+      warnings.push({ kind: "failed", operation: "siteSearch", error });
     }
   }
   if (candidates.length === 0) return { goals: [], links: {}, warnings };
@@ -100,19 +100,23 @@ export async function loadAtlassianSprintGoals(input: {
   } catch (error) {
     if (error instanceof JiraError && error.isAuthenticationFailure) throw error;
     if (configuration.boardType === "kanban" && !issueLinksComplete) {
-      throw new Error(
-        `${describe("Tickets rattachés aux objectifs", error)}. ${incompleteIssueField}`,
-      );
+      throw new CoreError({
+        code: "goalsReadFailed",
+        warning: { kind: "failed", operation: "workItems", error },
+        gap,
+      });
     }
-    warnings.push(describe("Tickets rattachés aux objectifs", error));
+    warnings.push({ kind: "failed", operation: "workItems", error });
   }
   if (reader.lastWorkItemsIssue) {
     if (configuration.boardType === "kanban" && !issueLinksComplete) {
-      throw new Error(
-        `Tickets rattachés aux objectifs : ${reader.lastWorkItemsIssue}. ${incompleteIssueField}`,
-      );
+      throw new CoreError({
+        code: "goalsReadFailed",
+        warning: { kind: "workItemsIssue", issue: reader.lastWorkItemsIssue },
+        gap,
+      });
     }
-    warnings.push(`Tickets rattachés aux objectifs : ${reader.lastWorkItemsIssue}`);
+    warnings.push({ kind: "workItemsIssue", issue: reader.lastWorkItemsIssue });
     if (configuration.boardType === "kanban") workItems = {};
   }
 
@@ -148,7 +152,7 @@ export async function loadAtlassianSprintGoals(input: {
       });
     }
   } catch (error) {
-    warnings.push(describe("Libellés des objectifs", error));
+    warnings.push({ kind: "failed", operation: "labels", error });
   }
 
   const goals = retained.map((goalId, index) => {

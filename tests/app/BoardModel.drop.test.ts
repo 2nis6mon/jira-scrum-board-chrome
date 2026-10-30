@@ -4,6 +4,7 @@ import { BUILD_BLOCK, goalBlock, swimlaneBlock } from "../../src/core/boardBlock
 
 const RUN_BLOCK = swimlaneBlock("1");
 
+import { auditText } from "../../src/app/model/auditLog";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import {
@@ -83,7 +84,17 @@ describe("glisser-déposer — changement de colonne", () => {
       from: "À faire",
       to: "En cours",
       outcome: "réussi",
+      detail: null,
+      detailMessage: { key: "Transition « {p0} »" },
     });
+    // Le nom de la transition est un contenu Jira : seul le cadre est traduit.
+    const name =
+      entry?.detailMessage && "key" in entry.detailMessage
+        ? entry.detailMessage.params?.p0
+        : undefined;
+    expect(typeof name).toBe("string");
+    expect(entry && auditText(entry, "detail", "fr")).toBe(`Transition « ${name} »`);
+    expect(entry && auditText(entry, "detail", "en")).toBe(`Transition ‘${name}’`);
   });
 
   it("ticket modifié dans Jira entre-temps : rien n'est écrit, le board est relu, on le dit", async () => {
@@ -315,7 +326,13 @@ describe("glisser-déposer — rang", () => {
       [RANK, { issues: ["ABC-106"], rankBeforeIssue: "ABC-105" }],
     ]);
     const [entry] = await board.audit.list(SITE.origin);
-    expect(entry).toMatchObject({ action: "classement", to: "avant ABC-105", outcome: "réussi" });
+    // Cible décrite par l'extension : une clé et ses paramètres, plus aucune phrase dans `to`.
+    expect(entry).toMatchObject({
+      action: "classement",
+      to: null,
+      toMessage: { key: "avant {p0}", params: { p0: "ABC-105" } },
+      outcome: "réussi",
+    });
   });
 
   it("en bas alors qu'elle y est déjà : rien", async () => {
@@ -997,7 +1014,8 @@ describe("glisser-déposer — rattachement texte en conflit", () => {
     expect(entry).toMatchObject({
       action: "rattachement",
       outcome: "échec",
-      detail: "conflit : lien modifié dans Jira",
+      detail: null,
+      detailMessage: { key: "conflit : lien modifié dans Jira" },
     });
   });
 });

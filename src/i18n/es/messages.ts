@@ -422,6 +422,8 @@ export const businessMessagesEs = {
   "Rien n'a été modifié.": "No se ha modificado nada.",
   "aucune transition proposée": "ninguna transición disponible",
   "après {p0}": "después de {p0}",
+  "avant {p0}": "antes de {p0}",
+  "Transition « {p0} »": "Transición «{p0}»",
   "rang du board Jira": "orden del tablero de Jira",
   "Réordonner un ticket exige la permission Jira « Planifier les tickets ».":
     "Cambiar el orden de una incidencia requiere el permiso de Jira para programar incidencias.",
@@ -468,6 +470,7 @@ export const businessMessagesEs = {
   "Le board ou ses droits ont changé avant l'enregistrement.":
     "El tablero o sus permisos han cambiado antes de guardar.",
   "réglages du board": "ajustes del tablero",
+  enregistrement: "guardado",
   "Quelqu'un": "Alguien",
   "Réglage non enregistré : {p0} a modifié les réglages du board au même moment.":
     "Ajuste no guardado: {p0} ha cambiado los ajustes del tablero al mismo tiempo.",

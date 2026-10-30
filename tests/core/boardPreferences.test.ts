@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { GOAL_COLOR_NAMES } from "../../src/app/model/coreText";
 import { BUILD_BLOCK, goalBlock } from "../../src/core/boardBlocks";
 import { assembleBoardIssues, type BoardSnapshot } from "../../src/core/boardIssue";
 import { buildBoardLayout } from "../../src/core/boardLayout";
 import {
-  GOAL_COLOR_NAMES,
   laneOrder,
   laneSummaries,
   settingsLaneOrder,

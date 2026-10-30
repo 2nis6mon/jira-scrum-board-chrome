@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { auditText } from "../../src/app/model/auditLog";
 import { BoardModel } from "../../src/app/model/BoardModel";
 import { BUILD_BLOCK, goalBlock, swimlaneBlock } from "../../src/core/boardBlocks";
 import { normalizeSiteUrl } from "../../src/jira/site";
@@ -122,7 +123,8 @@ describe("BoardModel — Goals Atlassian", () => {
       action: "rattachement",
       to: "Zéro incident",
       outcome: "réussi",
-      detail: "lien Goal Atlassian natif",
+      detail: null,
+      detailMessage: { key: "lien Goal Atlassian natif" },
     });
   });
 
@@ -139,7 +141,8 @@ describe("BoardModel — Goals Atlassian", () => {
     expect(entry).toMatchObject({
       action: "rattachement",
       outcome: "réussi",
-      detail: "lien Goal retiré",
+      detail: null,
+      detailMessage: { key: "lien Goal retiré" },
     });
   });
 
@@ -226,6 +229,25 @@ describe("BoardModel — Goals Atlassian", () => {
         .map((r) => r.path),
     ).toEqual(mutations.map(() => "/gateway/api/graphql"));
     expect(jira.sent("GET", "/rest/api/3/issue/ABC-102")).toEqual([]);
+  });
+
+  it("refus Atlassian sans message : le journal dit qu'aucun détail n'a été fourni", async () => {
+    const { board } = await goalsBoard({
+      mutation: (_input, field) =>
+        field === "goals_unlinkWorkItem"
+          ? { status: 200, json: { data: { [field]: { success: false, errors: [] } } } }
+          : { status: 200, json: { data: { [field]: { success: true } } } },
+    });
+    await board.dropIssue({
+      issueKey: "ABC-102",
+      block: goalBlock(STABILITE),
+      columnId: "col-0-À faire",
+      beforeKey: null,
+    });
+    const [entry] = await board.audit.list(SITE.origin);
+    expect(entry).toMatchObject({ action: "rattachement", outcome: "échec", detail: null });
+    expect(entry && auditText(entry, "detail", "fr")).toBe("aucun détail fourni par Atlassian");
+    expect(entry && auditText(entry, "detail", "en")).toBe("no details provided by Atlassian");
   });
 
   it("issue incertaine d'une mutation : pas de nouvelle tentative, et on le dit", async () => {

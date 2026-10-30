@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { sourceText } from "../../src/app/model/appMessage";
+import { settingErrorMessage } from "../../src/app/model/coreText";
 import { type BoardConfiguration, swimlaneName } from "../../src/core/boardConfiguration";
 import {
   customFieldChoices,
@@ -23,7 +25,7 @@ const config = makeConfiguration();
 
 describe("onglet Board : chaque réglage s'applique seul", () => {
   const ok = (result: SettingResult) => {
-    if (!result.ok) throw new Error(result.error);
+    if (!result.ok) throw new Error(result.error.field);
     return result.configuration;
   };
 
@@ -40,10 +42,12 @@ describe("onglet Board : chaque réglage s'applique seul", () => {
     expect(withBuildLabel(config, "   ").buildSectionLabel).toBe("Build");
     expect(ok(withAgingThreshold(config, " 5 ")).agingThresholdDays).toBe(5);
     for (const raw of ["", "0", "366", "trois", "2.5"]) {
-      expect(withAgingThreshold(config, raw)).toEqual({
-        ok: false,
-        error: "Le seuil « vieillissant » doit être un nombre entier de jours, entre 1 et 365.",
-      });
+      const result = withAgingThreshold(config, raw);
+      expect(result).toEqual({ ok: false, error: { field: "agingThreshold", max: 365 } });
+      if (!result.ok)
+        expect(sourceText(settingErrorMessage(result.error))).toBe(
+          "Le seuil « vieillissant » doit être un nombre entier de jours, entre 1 et 365.",
+        );
     }
   });
 

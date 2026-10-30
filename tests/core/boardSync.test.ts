@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { sourceText } from "../../src/app/model/appMessage";
+import { goalsIssueMessage } from "../../src/app/model/coreText";
 import type { BoardConfiguration } from "../../src/core/boardConfiguration";
 import { snapshotGoalProgress, sprintMetrics } from "../../src/core/boardIssue";
 import {
@@ -16,6 +18,7 @@ import { JiraTransport } from "../../src/jira/transport";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { ACME, FakeJira, type Reply } from "../support/fakeJira";
 import { issueJson, makeConfiguration, statusJson } from "../support/jiraFixtures";
+import { rejectionText } from "../support/messages";
 
 const BOARD_URL = "https://acme.atlassian.net/jira/software/c/projects/ABC/boards/7";
 const GOALS_PROPERTY = (sprintId: number) =>
@@ -159,7 +162,9 @@ describe("detectBoard", () => {
       "https://autre.atlassian.net/jira/software/c/projects/ABC/boards/7",
       null,
     );
-    await expect(attempt).rejects.toThrowError(/autre\.atlassian\.net/);
+    expect(await rejectionText(attempt)).toBe(
+      "Ce board appartient à autre.atlassian.net, pas à acme.atlassian.net.",
+    );
     expect(jira.requests).toEqual([]);
   });
 
@@ -775,7 +780,9 @@ describe("loadSnapshot", () => {
       const { snapshot, goalsIssue } = await sync(jiraWithPins(), configuration, loader);
 
       expect(snapshot.goals.map((g) => g.title)).toEqual(["Texte du sprint"]);
-      expect(goalsIssue).toBe("La passerelle a répondu 403.");
+      expect(goalsIssue && sourceText(goalsIssueMessage(goalsIssue))).toBe(
+        "La passerelle a répondu 403.",
+      );
     });
 
     it("sans lecteur de Goals : même repli, et il est signalé", async () => {
@@ -866,7 +873,7 @@ describe("phases de chargement", () => {
 
     expect(result.snapshot.goals[0]?.title).toBe("Texte de repli");
     expect(result.snapshot.goalsReadOnly).toBe(true);
-    expect(result.goalsIssue).toBe(failure.message);
+    expect(result.goalsIssue).toEqual({ kind: "failed", error: failure });
     expect(completed.map(({ phase, error }) => [phase, error !== null])).toEqual([
       ["sprints", false],
       ["issues", false],

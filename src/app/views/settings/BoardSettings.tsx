@@ -32,7 +32,9 @@ import {
   withTypeDestination,
 } from "../../../core/boardSettings";
 import { t } from "../../i18n";
+import { sourceText } from "../../model/appMessage";
 import type { BoardModel } from "../../model/BoardModel";
+import { settingErrorMessage } from "../../model/coreText";
 import type { ImageCache } from "../../model/ImageCache";
 import { JiraIcon } from "../board/JiraIcon";
 import { plural } from "../format";
@@ -73,7 +75,7 @@ export function BoardSettings({
   const set: Apply = (change, resync = false) => void board.applySettings(change, { resync });
   const commit: Commit = (change) => {
     const preview = change(configuration);
-    if (!preview.ok) return preview.error;
+    if (!preview.ok) return sourceText(settingErrorMessage(preview.error));
     // Appliqué à la configuration la plus récente : deux saisies rapprochées s'additionnent.
     set((current) => {
       const latest = change(current);

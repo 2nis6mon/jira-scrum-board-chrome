@@ -11,6 +11,7 @@ import type { WriteReader } from "../../core/boardWrites";
 import type { BoardDropPlan, RankChange } from "../../core/dropPlan";
 import { JiraError } from "../../jira/errors";
 import type { JiraTransition } from "../../jira/models";
+import { message } from "../model/appMessage";
 import type { AuditEntry } from "../model/auditLog";
 import type {
   IssueDrop,
@@ -18,6 +19,7 @@ import type {
   TransitionSelection,
   WriteNotice,
 } from "../model/BoardTypes";
+import { errorMessage } from "../model/coreText";
 import { toMessage } from "../model/messages";
 import type { BoardWriteAccess, RecordWrite, StateValue } from "./ports";
 
@@ -32,6 +34,9 @@ export interface BoardMovementEffects {
   openNative(key: string, transition: JiraTransition): boolean;
   sync(): Promise<void>;
 }
+/** Cible d'une entrée du journal : contenu Jira brut, ou message de l'extension. */
+type AuditTarget = Pick<AuditEntry, "to" | "toMessage">;
+
 /** Étapes rappelées dans « Déjà effectué » ; le rang, dernière étape, n'y figure jamais. */
 const DONE_LABELS: Record<MoveStep, string | null> = {
   transition: "statut modifié",
@@ -120,10 +125,10 @@ export class BoardMovementService {
     step: GoalStepResult,
   ): Promise<void> {
     const issueKey = issue.issue.key;
-    const title =
+    const title: AuditTarget =
       goalId === null
-        ? "aucun objectif"
-        : (snapshot.goals.find((goal) => goal.id === goalId)?.title ?? goalId);
+        ? { to: null, toMessage: message("aucun objectif") }
+        : { to: snapshot.goals.find((goal) => goal.id === goalId)?.title ?? goalId };
     if (step.origin === "atlassianGoals") {
       await this.#reportAtlassianGoal(issue, title, step.outcome);
       return;
@@ -154,9 +159,10 @@ export class BoardMovementService {
           action: "rattachement",
           issueKey,
           from: null,
-          to: title,
+          ...title,
           outcome: "échec",
-          detail: "conflit : lien modifié dans Jira",
+          detail: null,
+          detailMessage: message("conflit : lien modifié dans Jira"),
         });
         return;
       case "linked":
@@ -165,9 +171,10 @@ export class BoardMovementService {
           action: "rattachement",
           issueKey,
           from: null,
-          to: title,
+          ...title,
           outcome: "réussi",
-          detail: "propriété du sprint",
+          detail: null,
+          detailMessage: message("propriété du sprint"),
         });
         return;
     }
@@ -176,12 +183,14 @@ export class BoardMovementService {
   /** Lien NATIF ticket↔Goal Atlassian, écrit par `changeAtlassianGoal` (détacher → lier). */
   async #reportAtlassianGoal(
     issue: BoardIssue,
-    title: string,
+    title: AuditTarget,
     outcome: AtlassianGoalOutcome,
   ): Promise<void> {
     const issueKey = issue.issue.key;
     const refused = async (text: string, messages: readonly string[], detached: boolean) => {
-      const detail = messages.join(" ") || "aucun détail fourni par Atlassian";
+      // Les messages d'Atlassian sont un contenu Jira : ils restent tels quels.
+      const atlassian = messages.join(" ");
+      const detail = atlassian || "aucun détail fourni par Atlassian";
       this.#state.writeNotice.value = {
         tone: "error",
         text: detached ? `${text} Le lien avec l’ancien Goal a déjà été retiré.` : text,
@@ -193,9 +202,11 @@ export class BoardMovementService {
         action: "rattachement",
         issueKey,
         from: null,
-        to: title,
+        ...title,
         outcome: "échec",
-        detail,
+        ...(atlassian
+          ? { detail: atlassian }
+          : { detail: null, detailMessage: message("aucun détail fourni par Atlassian") }),
       });
       return;
     };
@@ -208,9 +219,12 @@ export class BoardMovementService {
           action: "rattachement",
           issueKey,
           from: null,
-          to: title,
+          ...title,
           outcome: "réussi",
-          detail: outcome.kind === "unlinked" ? "lien Goal retiré" : "lien Goal Atlassian natif",
+          detail: null,
+          detailMessage: message(
+            outcome.kind === "unlinked" ? "lien Goal retiré" : "lien Goal Atlassian natif",
+          ),
         });
         return;
       case "unlinkRefused":
@@ -253,7 +267,7 @@ export class BoardMovementService {
     const from = issue.issue.fields.status.name;
     switch (outcome.kind) {
       case "failed":
-        await this.#fail("transition", issueKey, column.name, outcome.error);
+        await this.#fail("transition", issueKey, { to: column.name }, outcome.error);
         return;
       case "moved":
         this.#state.nativeTransitionPending.value = false;
@@ -263,7 +277,8 @@ export class BoardMovementService {
           from,
           to: outcome.transition.to.name,
           outcome: "réussi",
-          detail: `Transition « ${outcome.transition.name} »`,
+          detail: null,
+          detailMessage: message("Transition « {p0} »", { p0: outcome.transition.name }),
         });
         return;
       case "alreadyThere":
@@ -282,7 +297,8 @@ export class BoardMovementService {
           from,
           to: column.name,
           outcome: "échec",
-          detail: "conflit : statut modifié dans Jira",
+          detail: null,
+          detailMessage: message("conflit : statut modifié dans Jira"),
         });
         if (this.#state.nativeTransitionPending.value) await this.#effects.sync();
         return;
@@ -326,7 +342,8 @@ export class BoardMovementService {
           from,
           to: column.name,
           outcome: "échec",
-          detail: "aucune transition proposée",
+          detail: null,
+          detailMessage: message("aucune transition proposée"),
         });
         return;
       case "choose":
@@ -345,20 +362,21 @@ export class BoardMovementService {
   /** Journal (ou avis d'échec) de l'étape rang. */
   async #reportRank(issue: BoardIssue, change: RankChange, step: RankStepResult): Promise<void> {
     const issueKey = issue.issue.key;
-    const to =
+    const to: AuditTarget =
       change.kind === "before"
-        ? `avant ${change.issueKey}`
+        ? { to: null, toMessage: message("avant {p0}", { p0: change.issueKey }) }
         : change.kind === "after"
-          ? `après ${change.issueKey}`
-          : null;
+          ? { to: null, toMessage: message("après {p0}", { p0: change.issueKey }) }
+          : { to: null };
     if (step.kind === "ranked") {
       await this.#effects.record({
         action: "classement",
         issueKey,
         from: null,
-        to,
+        ...to,
         outcome: "réussi",
-        detail: "rang du board Jira",
+        detail: null,
+        detailMessage: message("rang du board Jira"),
       });
       return;
     }
@@ -375,17 +393,17 @@ export class BoardMovementService {
   async #fail(
     action: AuditEntry["action"],
     issueKey: string,
-    to: string | null,
+    target: AuditTarget,
     error: unknown,
     forbiddenHint?: string,
   ): Promise<void> {
     const jiraError = error instanceof JiraError ? error : null;
     const uncertain = jiraError?.isOutcomeUnknown ?? false;
-    const message = toMessage(error);
+    const userMessage = toMessage(error);
     this.#state.writeNotice.value = uncertain
       ? {
           tone: "warning",
-          text: `Jira n'a pas confirmé l'écriture sur ${issueKey} (${message.text.replace(/\.$/, "")}).`,
+          text: `Jira n'a pas confirmé l'écriture sur ${issueKey} (${userMessage.text.replace(/\.$/, "")}).`,
           suggestion:
             "Elle a peut-être eu lieu : l'affichage a été relu dans Jira. Vérifiez-le avant de recommencer ; l'extension ne rejoue jamais une écriture.",
           sessionLost: false,
@@ -393,11 +411,11 @@ export class BoardMovementService {
         }
       : {
           tone: "error",
-          text: message.text,
+          text: userMessage.text,
           suggestion:
             jiraError?.info.kind === "forbidden" && forbiddenHint
               ? forbiddenHint
-              : message.suggestion,
+              : userMessage.suggestion,
           sessionLost: isSessionLost(error),
           issueKey,
         };
@@ -405,9 +423,10 @@ export class BoardMovementService {
       action,
       issueKey,
       from: null,
-      to,
+      ...target,
       outcome: uncertain ? "incertain" : "échec",
-      detail: message.text,
+      detail: null,
+      detailMessage: errorMessage(error),
     });
   }
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { toMessage } from "../../src/app/model/messages";
 import * as sprintGoals from "../../src/core/sprintGoals";
 import {
   assignGoalColors,
@@ -307,11 +308,27 @@ describe("mise à jour de la propriété du sprint (seul écrivain)", () => {
           }),
         ),
       ).toThrowError(
-        expect.objectContaining({ info: expect.objectContaining({ kind: "decoding" }) }),
+        expect.objectContaining({
+          reason: expect.objectContaining({ code: "sprintGoalsUnreadable" }),
+        }),
       );
       expect(called).toBe(false);
     },
   );
+
+  it("décodage refusé : texte et suggestion de l'application", () => {
+    let caught: unknown;
+    try {
+      sprintGoals.prepareSprintGoalUpdate({ version: 2, goals: [], links: {} }, update({}));
+    } catch (error) {
+      caught = error;
+    }
+    expect(toMessage(caught)).toEqual({
+      text: "Réponse Jira inattendue (propriété des objectifs du sprint : version inconnue ou illisible, rien n'a été écrit).",
+      suggestion:
+        "Signalez cette anomalie : la réponse de votre instance Jira ne correspond pas au format attendu.",
+    });
+  });
 
   it("conserve les clés inconnues de la racine et de chaque objectif, par id", () => {
     const prepared = sprintGoals.prepareSprintGoalUpdate(

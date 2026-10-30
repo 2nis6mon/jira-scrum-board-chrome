@@ -6,14 +6,10 @@ import {
   type SubtaskProgress,
   subtaskProgress,
 } from "../../../core/boardIssue";
-import {
-  type CardField,
-  cardFieldId,
-  cardFieldLabel,
-  cardFieldValues,
-} from "../../../core/cardFields";
+import { type CardField, cardFieldId, cardFieldValues } from "../../../core/cardFields";
 import type { ParentColor } from "../../../core/parentColors";
 import { localize, t } from "../../i18n";
+import { cardFieldLabel } from "../../model/coreText";
 import type { ImageCache } from "../../model/ImageCache";
 import { formatPoints, initials, plural } from "../format";
 import { Icon } from "../Icon";

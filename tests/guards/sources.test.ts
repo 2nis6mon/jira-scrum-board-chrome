@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, posix, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { english } from "../../src/i18n";
 
 // Garde-fous sur le code de production. Ils complètent le typage : une écriture Jira ne
 // peut naître que dans src/jira/writes.ts, et une requête que dans src/jira/transport.ts.
@@ -63,6 +64,54 @@ function constructionsOutsideRoots(files: Source[]): string[] {
     );
 }
 
+// Phrases de l'interface (AD, convention « Erreurs et messages ») : `core` rend des raisons
+// typées, l'application produit le texte. Un littéral de `src/core/` égal à une clé du catalogue,
+// ou à sa partie fixe une fois les paramètres remplacés, est une phrase écrite au mauvais endroit.
+const placeholders = (text: string, pattern: RegExp) => {
+  let index = 0;
+  return text.replace(pattern, () => `{p${index++}}`);
+};
+const CATALOG_SHAPES = new Set(
+  Object.keys(english).map((key) => placeholders(key, /\{[a-zA-Z]\w*\}/g)),
+);
+
+// Littéraux "…", '…' et gabarits `…${x}…` (les `${…}` deviennent des paramètres). Les
+// commentaires sont consommés dans le même balayage, sans capture : une apostrophe ou un
+// accent grave dans un commentaire ne décale pas l'analyse, et `//` dans une chaîne reste à elle.
+const STRING_LITERALS =
+  /\/\/[^\n]*|\/\*[\s\S]*?\*\/|"((?:[^"\\\n]|\\.)*)"|'((?:[^'\\\n]|\\.)*)'|`((?:[^`\\]|\\.|\$\{[^}]*\})*)`/g;
+
+/**
+ * Valeurs persistées qui coïncident avec une clé du catalogue : ce sont des données, pas des
+ * messages. Le nom de la règle intégrée est écrit dans les réglages du board depuis 0.27 ; le
+ * changer modifierait un format persisté.
+ */
+const PERSISTED_CATALOG_VALUES = [
+  { file: "src/core/cardColors.ts", text: "Ajouté en cours de sprint" },
+];
+
+function catalogPhrases(files: Source[]): string[] {
+  return files
+    .filter(({ file }) => file.startsWith("src/core/"))
+    .flatMap(({ file, code }) =>
+      [...code.matchAll(STRING_LITERALS)]
+        .filter(
+          (match) => match[1] !== undefined || match[2] !== undefined || match[3] !== undefined,
+        )
+        .map((match) =>
+          match[3] === undefined
+            ? (match[1] ?? match[2] ?? "")
+            : placeholders(match[3], /\$\{[^}]*\}/g),
+        )
+        .filter(
+          (text) =>
+            CATALOG_SHAPES.has(placeholders(text, /\{[a-zA-Z]\w*\}/g)) &&
+            !PERSISTED_CATALOG_VALUES.some((value) => value.file === file && value.text === text),
+        )
+        .map((text) => `${file} → « ${text} »`),
+    );
+}
+
 describe("gardes de dépendances", () => {
   // Sources fictives en mémoire : la garde doit échouer en nommant le fichier fautif.
   it("signale un import jira → core en nommant le fichier", () => {
@@ -93,7 +142,39 @@ describe("gardes de dépendances", () => {
   });
 });
 
+describe("garde des phrases de core", () => {
+  it("signale une phrase du catalogue écrite dans core, en nommant le fichier", () => {
+    const fictive = [
+      { file: "src/core/x.ts", code: 'throw new Error("La sélection contient des doublons.");' },
+      // Partie fixe d'une clé à paramètre, écrite en gabarit.
+      { file: "src/core/y.ts", code: "const text = `Jira a refusé de classer $" + "{key}.`;" },
+      { file: "src/core/z.ts", code: 'throw new CoreError({ code: "goalGone" });' },
+      { file: "src/app/model/a.ts", code: 'message("La sélection contient des doublons.");' },
+      { file: "src/core/cardColors.ts", code: 'const name = "Ajouté en cours de sprint";' },
+      // Commentaires pièges : un accent grave et une apostrophe isolés ne décalent pas l'analyse,
+      // et une phrase citée en commentaire n'est pas un littéral.
+      {
+        file: "src/core/w.ts",
+        code: [
+          'const url = "https://x.atlassian.net"; // l\'accent ` ouvre un faux gabarit',
+          "/* « La sélection contient des doublons. » n'est qu'une citation */",
+          'const a = "Jira a renvoyé un autre sprint.";',
+        ].join("\n"),
+      },
+    ];
+    expect(catalogPhrases(fictive)).toEqual([
+      "src/core/x.ts → « La sélection contient des doublons. »",
+      "src/core/y.ts → « Jira a refusé de classer {p0}. »",
+      "src/core/w.ts → « Jira a renvoyé un autre sprint. »",
+    ]);
+  });
+});
+
 describe("code de production", () => {
+  it("n'écrit dans core aucune phrase du catalogue : raisons typées seulement", () => {
+    expect(catalogPhrases(sources)).toEqual([]);
+  });
+
   it("n'appelle fetch qu'à deux endroits : le transport et son branchement", () => {
     expect(filesMatching(/\bfetch\s*\(/).sort()).toEqual([
       "src/app/platform/chrome.ts",

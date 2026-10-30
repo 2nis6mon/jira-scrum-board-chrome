@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { type BoardConfiguration, colorRules } from "../../../core/boardConfiguration";
 import { allIssues } from "../../../core/boardIssue";
 import {
-  CARD_COLOR_LABEL,
   CARD_COLOR_PALETTE,
   type CardColorRule,
   moveColorRule,
@@ -11,6 +10,7 @@ import {
 import { shiftTarget } from "../../../core/reorder";
 import { localize, t } from "../../i18n";
 import type { BoardModel } from "../../model/BoardModel";
+import { CARD_COLOR_LABEL } from "../../model/coreText";
 import type { JqlValidation } from "../../services/JqlService";
 import { plural } from "../format";
 import { Icon } from "../Icon";

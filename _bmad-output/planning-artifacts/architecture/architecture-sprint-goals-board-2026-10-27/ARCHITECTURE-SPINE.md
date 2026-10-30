@@ -157,7 +157,7 @@ copie, historique, fermeture et format étroit, avec captures dans `.vite/`.
 | --- | --- |
 | Textes visibles | Uniquement dans les catalogues `src/i18n` : français source, anglais repli, espagnol complet |
 | Contenus Jira | Rendus en texte Preact, jamais passés à `localize` |
-| Erreurs et messages | `JiraError` côté `jira` ; `core` renvoie des résultats typés ou des clés du catalogue, jamais de phrase ; les modèles produisent le texte ; le journal `audit.v1` stocke clé + paramètres |
+| Erreurs et messages | `JiraError` côté `jira` ; `core` renvoie des résultats typés ou des `CoreError` (`core/reasons.ts`), jamais de phrase (garde de `tests/guards/sources.test.ts`) ; `app/model/coreText.ts` en fait des messages du catalogue ; le journal `audit.v1` stocke clé + paramètres |
 | Lectures Jira | Par `JiraClient`/`GoalsClient` et les endpoints documentés dans [integration-jira.md](../../../../docs/technique/integration-jira.md#contrats-api), jusqu'à décision sur les endpoints « enhanced » |
 | Tests | Faux services et données fictives uniquement sous `tests/` |
 | Langue | Commentaires et commits en français |
@@ -208,7 +208,6 @@ Le code actuel s'écarte de la spine sur ces points. Un agent ne les prend jamai
 | Règle | Écart |
 | --- | --- |
 | AD-5 | `SPRINT_HEALTH_ENABLED` (`views/board/BoardView.tsx`) et `DIAGNOSTIC_ENABLED` (`views/DiagnosticView.tsx`) à migrer dans `app/featureFlags.ts` |
-| Conventions | `core/sprintPlanning.ts` et `core/boardWrites.ts` produisent des phrases utilisateur, persistées ensuite dans `audit.v1` puis relocalisées par motifs |
 
 ## Deferred
 

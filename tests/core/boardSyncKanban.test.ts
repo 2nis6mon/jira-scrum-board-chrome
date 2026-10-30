@@ -8,6 +8,7 @@ import { JiraError } from "../../src/jira/errors";
 import { JiraTransport } from "../../src/jira/transport";
 import { ACME, FakeJira } from "../support/fakeJira";
 import { issueJson, makeConfiguration, STORY_TYPE, SWIMLANE_TYPE } from "../support/jiraFixtures";
+import { rejectionText } from "../support/messages";
 
 const PATH = "/rest/agile/1.0/board/1/issue";
 const NOW = new Date("2026-10-01T10:00:00Z");
@@ -206,15 +207,17 @@ describe("photographie Kanban", () => {
       status: 200,
       json: { issues: [issueJson("ABC-1")], total: 1 },
     });
-    await expect(
-      sync(jira, makeConfiguration({ boardType: "kanban" }), {
-        load: async () => {
-          throw new Error("refus GraphQL");
-        },
-      }),
-    ).rejects.toThrow("Objectifs du board Kanban indisponibles : refus GraphQL");
-    await expect(sync(jira, makeConfiguration({ boardType: "kanban" }), null)).rejects.toThrow(
-      "Lecture des Goals Atlassian indisponible",
+    expect(
+      await rejectionText(
+        sync(jira, makeConfiguration({ boardType: "kanban" }), {
+          load: async () => {
+            throw new Error("refus GraphQL");
+          },
+        }),
+      ),
+    ).toBe("Objectifs du board Kanban indisponibles : refus GraphQL");
+    expect(await rejectionText(sync(jira, makeConfiguration({ boardType: "kanban" }), null))).toBe(
+      "Lecture des Goals Atlassian indisponible : le board Kanban ne peut pas déterminer ses objectifs.",
     );
     expect(jira.requests.every((r) => r.path === PATH)).toBe(true);
   });

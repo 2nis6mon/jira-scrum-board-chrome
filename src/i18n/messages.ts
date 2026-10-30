@@ -405,6 +405,8 @@ export const businessMessages = {
   "Rien n'a été modifié.": "Nothing was changed.",
   "aucune transition proposée": "no transition available",
   "après {p0}": "after {p0}",
+  "avant {p0}": "before {p0}",
+  "Transition « {p0} »": "Transition ‘{p0}’",
   "rang du board Jira": "Jira board rank",
   "Réordonner un ticket exige la permission Jira « Planifier les tickets ».":
     "Reordering an issue requires the Jira Schedule issues permission.",
@@ -450,6 +452,7 @@ export const businessMessages = {
   "Le board ou ses droits ont changé avant l'enregistrement.":
     "The board or its permissions changed before saving.",
   "réglages du board": "board settings",
+  enregistrement: "save",
   "Quelqu'un": "Someone",
   "Réglage non enregistré : {p0} a modifié les réglages du board au même moment.":
     "Setting not saved: {p0} changed the board settings at the same time.",

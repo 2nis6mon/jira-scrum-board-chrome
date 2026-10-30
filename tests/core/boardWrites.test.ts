@@ -15,6 +15,7 @@ import { JiraTransport } from "../../src/jira/transport";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { ACME, FakeJira } from "../support/fakeJira";
 import { statusJson } from "../support/jiraFixtures";
+import { rejectionMessage, rejectionText } from "../support/messages";
 
 const ISSUE = "/rest/api/3/issue/ABC-1";
 const TRANSITIONS = "/rest/api/3/issue/ABC-1/transitions";
@@ -274,6 +275,22 @@ describe("rankIssue", () => {
     expect(jira.sent("PUT")).toHaveLength(1);
   });
 
+  it("207 avec un refus sans message : refus nommé par core, texte et suggestion de l'application", async () => {
+    const jira = new FakeJira().on("PUT", RANK, {
+      status: 207,
+      json: { entries: [{ issueId: 1, issueKey: "ABC-1", status: 500 }] },
+    });
+    expect(
+      await rejectionMessage(
+        rankIssue(setup(jira).writer, "ABC-1", { kind: "before", issueKey: "ABC-2" }),
+      ),
+    ).toEqual({
+      text: "Jira a refusé de classer ABC-1.",
+      suggestion: "Corrigez la demande dans Jira, puis actualisez.",
+    });
+    expect(jira.sent("PUT")).toHaveLength(1);
+  });
+
   it("403 : refus de droits (permission « Planifier les tickets »)", async () => {
     const jira = new FakeJira().on("PUT", RANK, {
       status: 403,
@@ -373,8 +390,8 @@ describe("rattachement à un objectif du texte du sprint", () => {
   it("objectif disparu du sprint : aucune requête", async () => {
     const jira = new FakeJira();
     const { reader, writer } = setup(jira);
-    await expect(linkToTextGoal(reader, writer, input("inconnu"))).rejects.toThrowError(
-      /n'existe plus/,
+    expect(await rejectionText(linkToTextGoal(reader, writer, input("inconnu")))).toBe(
+      "Cet objectif n'existe plus dans le sprint. Actualisez le board.",
     );
     expect(jira.requests).toEqual([]);
   });
@@ -535,7 +552,11 @@ describe("épinglage de Goals Atlassian au sprint", () => {
 
   it("valeur stockée qui n'est pas un objet JSON : elle n'est pas écrasée", async () => {
     const jira = new FakeJira().on("GET", GOALS, stored(["inattendu"]));
-    await expect(pin(jira, [PAIEMENT])).rejects.toMatchObject({ info: { kind: "decoding" } });
+    expect(await rejectionMessage(pin(jira, [PAIEMENT]))).toEqual({
+      text: "Réponse Jira inattendue (propriété des objectifs du sprint : objet JSON attendu, rien n'a été écrit).",
+      suggestion:
+        "Signalez cette anomalie : la réponse de votre instance Jira ne correspond pas au format attendu.",
+    });
     expect(jira.sent("PUT")).toEqual([]);
   });
 
@@ -606,7 +627,7 @@ describe("document Jira partagé entre versions", () => {
         accountId: null,
         now: NOW,
       }),
-    ).rejects.toMatchObject({ info: { kind: "decoding" } });
+    ).rejects.toMatchObject({ reason: { code: "sprintGoalsUnreadable" } });
     expect(jira.sent("PUT")).toEqual([]);
   });
 });
@@ -637,7 +658,9 @@ describe("rattachement du texte : matrice de la propriété partagée", () => {
       GOALS,
       stored({ version: 2, goals: [], links: {}, nouveau: true }),
     );
-    await expect(link(jira, "g1")).rejects.toMatchObject({ info: { kind: "decoding" } });
+    await expect(link(jira, "g1")).rejects.toMatchObject({
+      reason: { code: "sprintGoalsUnreadable" },
+    });
     expect(jira.sent("PUT")).toEqual([]);
     expect(jira.sent("GET", GOALS)).toHaveLength(1);
   });
@@ -754,7 +777,7 @@ describe("épinglage : matrice de la propriété partagée", () => {
 
   it("version inconnue : rien n'est écrit", async () => {
     const jira = new FakeJira().on("GET", GOALS, stored({ version: 2, atlassianGoalIds: [] }));
-    await expect(pin(jira)).rejects.toMatchObject({ info: { kind: "decoding" } });
+    await expect(pin(jira)).rejects.toMatchObject({ reason: { code: "sprintGoalsUnreadable" } });
     expect(jira.sent("PUT")).toEqual([]);
   });
 

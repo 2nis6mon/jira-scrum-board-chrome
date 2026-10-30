@@ -7,3 +7,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-5-gardes-de-sources.md`
   summary: `src/jira/diagnostics.ts` importe `../i18n`, dépendance de la couche Jira hors du graphe AD-1 (un contenu Jira n'est jamais localisé) ; non couverte par les gardes de la story 1.5.
   evidence: import de `../i18n` dans src/jira/diagnostics.ts, antérieur à la story 1.5 ; `forbiddenImports` ne vise que `core`, `app` et `integration`.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-8-journal-en-cles.md`
+  summary: Les messages des erreurs de la couche Jira (`src/jira/errors.ts`) restent des phrases françaises, stockées en `{ text }` dans le journal et relocalisées par motifs à l'affichage.
+  evidence: `errorMessage()` (src/app/model/coreText.ts) renvoie `{ text: error.message }` pour une `JiraError` ; la story 1.8 ne visait que les phrases de `core`.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-8-journal-en-cles.md`
+  summary: Les avis en direct (planning, Goals) restent des textes français relocalisés par motifs à l'affichage, y compris des messages imbriqués, sans test en anglais ni en espagnol.
+  evidence: `PlanningModel` (`notice.value = sourceText(...)`) et `BoardLoadingService` (`goalsNotice`, `goalsWarnings`) ; mécanisme antérieur, conservé par la story 1.8.

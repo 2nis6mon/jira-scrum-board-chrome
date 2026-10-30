@@ -1,9 +1,20 @@
+import { getLanguage, type Language, localize } from "../../i18n";
 import type { LocalStore } from "../platform/types";
+import { type AppMessage, isAppMessage, renderMessage } from "./appMessage";
 
 /**
  * Journal local des écritures dans Jira, pour le diagnostic : quoi, sur quel ticket, avec quel
  * résultat. Il reste dans ce navigateur (`chrome.storage.local`) et ne contient aucun secret ni
  * nom de personne. Les 500 dernières entrées sont conservées.
+ *
+ * Depuis 0.36.2, les textes produits par l'extension sont gardés en clés du catalogue avec leurs
+ * paramètres (`toMessage`, `detailMessage`) et traduits à l'affichage ; `to` et `detail` ne
+ * portent plus que du contenu Jira brut, ou `null`. Les entrées plus anciennes gardent leurs
+ * phrases françaises dans `to`/`detail` et restent présentées par `localize`. Le message d'erreur
+ * d'une écriture en échec est rangé dans `detailMessage` (`{ text }`) ; `detail` ne garde que le
+ * message renvoyé par Atlassian. Les champs obligatoires de 0.36.1 sont inchangés : une version
+ * précédente accepte les nouvelles entrées, mais affiche vides leurs colonnes Cible et Détail
+ * produites par l'extension.
  */
 export interface AuditEntry {
   /** Date ISO de la tentative. */
@@ -20,10 +31,16 @@ export interface AuditEntry {
   /** Ticket concerné ; `null` pour une écriture qui porte sur le sprint ou le board. */
   readonly issueKey: string | null;
   readonly from: string | null;
+  /** Contenu Jira brut (nom de colonne, de statut, titre d'objectif), ou phrase historique. */
   readonly to: string | null;
+  /** Cible décrite par l'extension (« aucun objectif », « après ABC-1 »…), traduite à l'affichage. */
+  readonly toMessage?: AppMessage;
   /** `incertain` : Jira n'a pas répondu, l'écriture a peut-être eu lieu. */
   readonly outcome: "réussi" | "échec" | "incertain";
+  /** Message renvoyé par Atlassian (rattachement refusé), ou phrase historique. */
   readonly detail: string | null;
+  /** Détail décrit par l'extension, traduit à l'affichage. */
+  readonly detailMessage?: AppMessage;
 }
 
 const AUDIT_KEY = "audit.v1";
@@ -97,4 +114,21 @@ function isEntry(value: unknown): value is AuditEntry {
     (typeof entry.issueKey === "string" || entry.issueKey === null) &&
     typeof entry.outcome === "string"
   );
+}
+
+/**
+ * Texte d'une colonne de l'entrée, dans la langue courante : le message de l'extension s'il est
+ * lisible, sinon le champ texte (contenu Jira, ou phrase historique présentée par `localize`).
+ * Un message d'une forme inconnue n'écarte jamais l'entrée.
+ */
+export function auditText(
+  entry: AuditEntry,
+  field: "to" | "detail",
+  language: Language = getLanguage(),
+): string {
+  const described = field === "to" ? entry.toMessage : entry.detailMessage;
+  if (isAppMessage(described)) return renderMessage(described, language);
+  const text = entry[field] ?? "";
+  // Le contenu Jira de `to` n'a jamais été traduit ; les phrases historiques de `detail` le sont.
+  return field === "detail" ? localize(text, language) : text;
 }

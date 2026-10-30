@@ -19,7 +19,6 @@ import {
   sprintMetrics,
 } from "../../../core/boardIssue";
 import { type BoardLayout, columnLoad, daysRemaining, type Lane } from "../../../core/boardLayout";
-import { GOAL_COLOR_NAMES } from "../../../core/boardPreferences";
 import {
   cappedStock,
   currentStepIndex,
@@ -34,18 +33,13 @@ import {
   toggleDailyPause,
   toggleStockExpanded,
 } from "../../../core/daily";
-import {
-  activeFilterCount,
-  isGoalFocused,
-  QUICK_FILTER_HELP,
-  QUICK_FILTER_LABEL,
-  QUICK_FILTERS,
-} from "../../../core/filters";
+import { activeFilterCount, isGoalFocused, QUICK_FILTERS } from "../../../core/filters";
 import { goalColorName } from "../../../core/sprintGoals";
 import { blockingRequiredFields } from "../../../jira/models";
 import { localize, t } from "../../i18n";
 import type { SettingsSection } from "../../model/AppModel";
 import type { BoardModel } from "../../model/BoardModel";
+import { GOAL_COLOR_NAMES, QUICK_FILTER_HELP, QUICK_FILTER_LABEL } from "../../model/coreText";
 import type { NoticeId } from "../../model/noticeStore";
 import { formatDay, formatPoints, formatTime, plural, pluralWord, toggled } from "../format";
 import { FullscreenButton, requestFullscreen, useFullscreen } from "../fullscreen";

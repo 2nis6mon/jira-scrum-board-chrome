@@ -10,13 +10,13 @@ import {
 import {
   type CardField,
   cardFieldId,
-  cardFieldLabel,
   cardFieldValues,
   MAX_CARD_FIELDS,
 } from "../../../core/cardFields";
 import { shiftTarget } from "../../../core/reorder";
 import { localize, t } from "../../i18n";
 import type { BoardModel } from "../../model/BoardModel";
+import { cardFieldLabel } from "../../model/coreText";
 import { Icon } from "../Icon";
 import { CardPreview } from "./CardPreview";
 import { Grip, SaveBar, useReorder } from "./controls";

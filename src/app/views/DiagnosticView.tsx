@@ -3,6 +3,7 @@ import { languageLocale } from "../../i18n";
 import { type ProbeResult, writeConclusion } from "../../jira/diagnostics";
 import { SPRINT_PROPERTY_KEYS } from "../../jira/writes";
 import { language, localize, t } from "../i18n";
+import { auditText } from "../model/auditLog";
 import type { DiagnosticModel } from "../model/DiagnosticModel";
 import { ErrorMessage } from "./Message";
 
@@ -184,9 +185,9 @@ export function DiagnosticView({ diagnostic }: { diagnostic: DiagnosticModel }) 
                   <td>{new Date(entry.at).toLocaleString(languageLocale(language.value))}</td>
                   <td>{localize(entry.action)}</td>
                   <td>{entry.issueKey ?? "sprint"}</td>
-                  <td>{entry.to ?? ""}</td>
+                  <td>{auditText(entry, "to", language.value)}</td>
                   <td>{localize(entry.outcome)}</td>
-                  <td>{localize(entry.detail ?? "")}</td>
+                  <td>{auditText(entry, "detail", language.value)}</td>
                 </tr>
               ))}
             </tbody>

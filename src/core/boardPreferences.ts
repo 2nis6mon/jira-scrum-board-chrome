@@ -20,19 +20,6 @@ import { GOAL_COLOR_COUNT, type SprintGoal } from "./sprintGoals";
 // Réglages d'affichage modifiés depuis le board : ordre, repli, masquage, couleur des objectifs.
 // Fonctions pures : elles rendent une configuration. Le modèle publie les réglages partagés.
 
-/** Noms des couleurs d'objectif, dans l'ordre de la palette. */
-export const GOAL_COLOR_NAMES = [
-  "Bleu",
-  "Bleu ardoise",
-  "Violet",
-  "Orange",
-  "Rose",
-  "Indigo",
-  "Framboise",
-  "Ocre",
-  "Ambre",
-] as const;
-
 /**
  * Swimlanes affichées de haut en bas, filtres ignorés : objectifs non masqués, Build et les
  * swimlanes par type non masquées seulement si elles ont des tickets. C'est dans cet ordre qu'on

@@ -20,6 +20,8 @@ import { isIssueKey } from "../../jira/writes";
 import { SPRINT_PLANNING_ENABLED } from "../featureFlags";
 import type { LocalStore, Platform } from "../platform/types";
 import type { BoardWriteGateway, RecordWrite } from "../services/ports";
+import { message, sourceText } from "./appMessage";
+import { planningMessage } from "./coreText";
 import { toMessage, type UserMessage } from "./messages";
 import type { PlanningDraft, PlanningIssue, PlanningViewModel } from "./PlanningTypes";
 
@@ -395,6 +397,7 @@ export class PlanningModel implements PlanningViewModel {
           now: new Date(),
         });
       });
+      const outcome = planningMessage(result.reason);
       await this.context.record({
         action: "sprint planning",
         issueKey: null,
@@ -406,14 +409,17 @@ export class PlanningModel implements PlanningViewModel {
             : result.kind === "partial"
               ? "incertain"
               : "échec",
-        detail: result.message,
+        detail: null,
+        detailMessage: outcome,
       });
       if (this.#stale(generation)) return;
-      this.notice.value = result.message;
+      this.notice.value = sourceText(outcome);
       if (result.kind === "confirmed" && result.snapshot) {
         this.#acceptSnapshot(result.snapshot, draft.capacity);
         await this.#removeStored(configuration.boardId, draft.sprintId).catch(() => {
-          this.notice.value = `${result.message} L'ancien brouillon local n'a pas pu être effacé.`;
+          this.notice.value = sourceText(
+            message("{p0} L'ancien brouillon local n'a pas pu être effacé.", { p0: outcome }),
+          );
         });
       } else {
         this.#reviewRequired.value =

@@ -161,7 +161,8 @@ describe("BoardModel — Kanban sans sprint", () => {
     expect((await board.audit.list(SITE.origin))[0]).toMatchObject({
       action: "épinglage",
       outcome: "réussi",
-      detail: "propriété du board Kanban",
+      detail: null,
+      detailMessage: { key: "propriété du board Kanban" },
     });
   });
 
