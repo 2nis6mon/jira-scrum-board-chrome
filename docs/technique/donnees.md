@@ -19,6 +19,9 @@ illisibles jamais écrasées, clés inconnues conservées, limite client 32 Ko. 
 stricte (version inconnue refusée), refus si la zone modifiée a changé depuis le chargement (lien
 du ticket, Goals épinglés, document entier pour le planning), fusion sur Jira frais sinon, clés
 inconnues gardées à la racine et par objectif, `updatedAt` ISO à la seconde, une seule écriture.
+L'emplacement des Goals épinglés n'est choisi que par `pinnedGoalsStorage` (`pinnedGoals.ts`) :
+propriété du sprint de référence en Scrum, `boardPinnedGoalIds` en Kanban, indisponible en Scrum
+sans sprint actif ; services et vues consomment ce stockage sans tester le type du board.
 Les anciennes valeurs `SCRUM`/`KANBAN`, `showKanbanSection`, `kanbanSectionLabel`,
 `dailyKanbanStockLimit` restent compatibles ; retrait seulement avec migration et décision sur les
 anciennes installations. Valeurs absentes : défauts compatibles, pas de perte des données.

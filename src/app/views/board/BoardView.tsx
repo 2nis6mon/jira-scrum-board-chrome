@@ -948,7 +948,7 @@ function FloatingNotices(props: {
   onShowPinning: () => void;
 }) {
   const { board, snapshot, layout } = props;
-  const scope = board.configuration.value?.boardType === "kanban" ? "board" : "sprint";
+  const scope = board.pinStorage.value.kind === "board" ? "board" : "sprint";
   const dismissed = board.dismissedNotices.value;
   // Fermetures pas encore relues : rien n'est montré, plutôt qu'un bandeau qui clignote.
   if (dismissed === null) return null;

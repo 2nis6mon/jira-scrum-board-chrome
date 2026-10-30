@@ -127,7 +127,8 @@ le constructeur du modèle ; les tests peuvent fournir des états ordinaires et 
 
 `boardSync` lit le périmètre, `boardIssue` assemble les cartes, `boardLayout`/`boardBlocks` les
 répartissent ; `pendingMove` projette les déplacements. `dropPlan` prépare l'intention et
-`boardWrites` l'exécute après relecture. `teamSettings` gère le partage, `boardStore` la copie locale
+`boardWrites` l'exécute après relecture. `teamSettings` gère le partage, `pinnedGoals` résout le stockage des Goals épinglés (sprint, board ou
+indisponible), `boardStore` la copie locale
 et le board actif par origine, `auditLog` les écritures. `DiagnosticModel` teste les capacités Jira.
 
 L'ouverture relit structure, statuts et champs, sans parcourir l'historique pour recenser les types.
@@ -205,10 +206,9 @@ Le code actuel s'écarte de la spine sur ces points. Un agent ne les prend jamai
 | AD-1 | `jira/transport.ts` importe `core/loadTrace.ts` : déplacer ce contrat d'observation des lectures dans `src/jira/` (5 importeurs) |
 | AD-1 | `tests/guards/sources.test.ts` ne vérifie ni `jira → core` ni la racine de composition |
 | AD-2 | `BoardMovementService.execute` et `#assignAtlassianGoal` portent la séquence transition → Goal → rang et détacher → lier : déplacer dans `core` |
-| AD-2 | `BoardSettingsService` relit et détecte les conflits de `boardsettings.v1` avant `publishTeamSettings` : déplacer dans `core/teamSettings.ts` |
+| AD-2 | `BoardSettingsService.#saveShared` relit et détecte les conflits de `boardsettings.v1` avant `publishTeamSettings` pour les réglages partagés (l'épinglage Kanban passe déjà par `core/pinnedGoals.ts`) : déplacer dans `core/teamSettings.ts` |
 | AD-2, AD-6 | `PlanningModel` déclenche `publishSprintPlanning` et journalise depuis un modèle, avec le transport non décoré |
 | AD-6 | Files d'écriture séparées : `BoardSettingsService.#teamQueue`, `BoardModel.dropIssue` (`pendingKeys` seulement), rattachement texte sans file |
-| AD-4 | Choix de la propriété des Goals épinglés fait dans `BoardSettingsService` selon `boardType` |
 | AD-4 | Clés par site sous deux formes (carte par site : `boards.v1`, `dismissedNotices.v1`, `graphqlOrigin.v1`, `audit.v1`) ; effacement par liste manuelle dans `AppModel.disconnect()` au lieu de `forgetSite` |
 | AD-7 | `src/integration/messages.ts` n'existe pas : littéraux `sprint-goals:*` répartis dans `embedded.ts`, `injectBoard.ts`, `worker.ts`, `bootstrap.ts`, `launcherChrome.ts` |
 | AD-4 | `connection.v1`, `launcher.v1` écrits par `AppModel` et `LauncherModel`, `boards.v1` lu brut par le lanceur : créer `app/model/connectionStore.ts`, passer par lui et `boardStore` |

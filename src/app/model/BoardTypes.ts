@@ -1,4 +1,5 @@
 import type { BoardBlock } from "../../core/boardBlocks";
+import type { WritablePinnedGoalsStorage } from "../../core/pinnedGoals";
 import type { TeamDocument } from "../../core/teamSettings";
 import type { JiraTransition } from "../../jira/models";
 import type { UserMessage } from "./messages";
@@ -68,7 +69,11 @@ export interface DropTarget {
 
 /** Sélection des Goals épinglés au sprint, ou au board Kanban sans sprint. */
 export interface PinEditor {
+  /** Stockage résolu à l'ouverture par `core/pinnedGoals.ts` : propriété du sprint ou du board. */
+  readonly storage: WritablePinnedGoalsStorage;
+  /** Sprint du stockage (`null` pour le board), qui porte aussi le repli local. */
   readonly sprintId: number | null;
+  /** Nom du sprint, ou du board Kanban. */
   readonly sprintName: string;
   /** Sélection lue dans Jira à l'ouverture : l'écriture est refusée si Jira ne la porte plus. */
   readonly base: readonly string[];

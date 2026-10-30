@@ -18,6 +18,7 @@ import type { BoardConfiguration } from "../../../src/core/boardConfiguration";
 import { assembleBoardIssues, type BoardSnapshot } from "../../../src/core/boardIssue";
 import type { BoardReader } from "../../../src/core/boardSync";
 import type { JiraWriter } from "../../../src/core/boardWrites";
+import { pinnedGoalsStorage } from "../../../src/core/pinnedGoals";
 import { makeSprintGoal } from "../../../src/core/sprintGoals";
 import { decodeTeamDocument } from "../../../src/core/teamSettings";
 import type { JiraClient } from "../../../src/jira/client";
@@ -176,6 +177,11 @@ function settings() {
   const state: BoardSettingsState = {
     configuration,
     pinEditor: cell(null),
+    pinStorage: {
+      get value() {
+        return pinnedGoalsStorage(configuration.value, null);
+      },
+    },
     team: cell({ kind: "unknown" }),
     teamSaving: cell(0),
     teamNotice: cell(null),

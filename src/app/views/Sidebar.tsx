@@ -381,7 +381,7 @@ function BoardSwitcher(props: {
               onClick={(event) => act(event, () => model.showSettings("goals"))}
             >
               {t("Épingler des Goals au {scope}…", {
-                scope: configuration.boardType === "kanban" ? "board" : "sprint",
+                scope: board.pinStorage.value.kind === "board" ? "board" : "sprint",
               })}
             </button>
           )}

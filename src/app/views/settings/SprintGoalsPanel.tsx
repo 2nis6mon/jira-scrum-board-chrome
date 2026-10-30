@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { GOAL_COLOR_NAMES } from "../../../core/boardPreferences";
 import { filterAtlassianGoals } from "../../../core/filters";
+import { pinnedGoalIdsIn } from "../../../core/pinnedGoals";
 import { goalColorName, type SprintGoal } from "../../../core/sprintGoals";
 import { type AtlassianGoal, goalDisplayName } from "../../../jira/models";
 import { localize, t } from "../../i18n";
@@ -29,7 +30,9 @@ const GOAL_COLORS = GOAL_COLOR_NAMES.map((name, index) => ({ id: goalColorName(i
 export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinning: boolean }) {
   const snapshot = board.snapshot.value;
   const configuration = board.configuration.value;
-  const kanban = configuration?.boardType === "kanban";
+  const storage = board.pinStorage.value;
+  // Libellés « board » ou « sprint » selon le stockage résolu des Goals épinglés.
+  const onBoard = storage.kind === "board";
   const canPin = pinning && board.canPinGoals.value;
   const editor = canPin ? board.pinEditor.value : null;
   const [search, setSearch] = useState("");
@@ -37,9 +40,7 @@ export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinnin
   const wasSaving = useRef(false);
 
   const sprintId = snapshot?.sprint?.id ?? null;
-  const pinned = kanban
-    ? (configuration?.boardPinnedGoalIds ?? null)
-    : (snapshot?.pinnedGoalIds ?? null);
+  const pinned = pinnedGoalIdsIn(storage, configuration, snapshot);
   const pinnedKey = JSON.stringify([pinned, snapshot?.localPinnedGoalIds ?? null]);
 
   // Brouillon d'épinglage ouvert d'office, et recalé sur Jira tant qu'il n'a pas été touché.
@@ -177,8 +178,8 @@ export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinnin
     );
   };
 
-  const scope = kanban ? "board" : "sprint";
-  const title = kanban
+  const scope = onBoard ? "board" : "sprint";
+  const title = onBoard
     ? t("Objectifs du board « {v0} »", { v0: configuration?.boardName ?? "" })
     : snapshot?.sprint
       ? t("Objectifs du sprint « {v0} »", { v0: snapshot.sprint.name })
@@ -195,7 +196,7 @@ export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinnin
                 {t(
                   "Couleur et masquage s'enregistrent aussitôt pour toute l'équipe ; un objectif garde sa couleur",
                 )}{" "}
-                {kanban ? t("au fil du temps") : t("d'un sprint à l'autre")}
+                {onBoard ? t("au fil du temps") : t("d'un sprint à l'autre")}
                 {t(". Masqué, ses tickets passent dans")}{" "}
                 {configuration?.buildSectionLabel || "Build"}{" "}
                 {t("sans toucher à leur rattachement dans Jira. L'ordre se règle sur le board.")}
@@ -204,7 +205,7 @@ export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinnin
           </header>
           {pinning && !canPin && (
             <p class="settings-help">
-              {kanban
+              {onBoard
                 ? t(
                     "Les objectifs ne sont pas encore disponibles : actualisez le board pour épingler des Goals.",
                   )
@@ -267,7 +268,7 @@ export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinnin
               <div class="settings-card-title">
                 <h2 id="pin-site-title">{t("Épingler un Goal du site")}</h2>
                 <p class="settings-help">
-                  {kanban
+                  {onBoard
                     ? t(
                         "Un Goal épinglé garde sa swimlane même sans ticket ; l'épinglage est partagé pour ce board.",
                       )

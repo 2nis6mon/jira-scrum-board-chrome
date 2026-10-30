@@ -1,6 +1,7 @@
 import type { BoardConfiguration } from "../../core/boardConfiguration";
 import { withLocalPins } from "../../core/boardPreferences";
 import { type JiraWriter, pinAtlassianGoals } from "../../core/boardWrites";
+import { type PinnedGoalsStorage, saveBoardPinnedGoals } from "../../core/pinnedGoals";
 import {
   decodeTeamDocument,
   encodeTeamSettings,
@@ -28,6 +29,8 @@ import type {
 export interface BoardSettingsState {
   configuration: ReadableValue<BoardConfiguration | null>;
   pinEditor: StateValue<PinEditor | null>;
+  /** Stockage des Goals épinglés, choisi par `core/pinnedGoals.ts`. */
+  pinStorage: ReadableValue<PinnedGoalsStorage>;
   team: StateValue<TeamState>;
   teamSaving: StateValue<number>;
   teamNotice: StateValue<TeamNotice | null>;
@@ -69,10 +72,11 @@ export class BoardSettingsService {
   async savePinnedGoals(): Promise<void> {
     const editor = this.#state.pinEditor.value;
     if (!editor || editor.saving) return;
-    if (editor.sprintId === null) {
-      await this.#saveBoardPinnedGoals(editor);
+    if (editor.storage.kind === "board") {
+      await this.#saveBoardPinnedGoals(editor, editor.storage);
       return;
     }
+    const sprintId = editor.storage.sprintId;
     const saving: PinEditor = { ...editor, saving: true, notice: null };
     this.#state.pinEditor.value = saving;
     // La fenêtre a pu disparaître pendant l'écriture (changement de board) : on ne la rouvre pas.
@@ -84,7 +88,7 @@ export class BoardSettingsService {
     const entry = { action: "épinglage", issueKey: null, from: null, to } as const;
     try {
       const outcome = await pinAtlassianGoals(this.#reader, this.#writer, {
-        sprintId: editor.sprintId,
+        sprintId,
         shownGoalIds: editor.base,
         goalIds: editor.selection,
         accountId: this.#effects.currentUser()?.accountId ?? null,
@@ -99,11 +103,11 @@ export class BoardSettingsService {
             detail: "propriété du sprint",
           });
           // Enregistré dans Jira : la copie locale de repli devient inutile.
-          await this.forgetLocalPins(editor.sprintId);
+          await this.forgetLocalPins(sprintId);
           break;
         case "unchanged":
           settle(null);
-          await this.forgetLocalPins(editor.sprintId);
+          await this.forgetLocalPins(sprintId);
           break;
         case "conflict":
           // Rien n'est écrasé : la fenêtre repart de ce que Jira porte maintenant.
@@ -159,13 +163,17 @@ export class BoardSettingsService {
   }
 
   /** Épinglage Kanban partagé : même file et même propriété que les réglages, sans optimisme. */
-  async #saveBoardPinnedGoals(editor: PinEditor): Promise<void> {
+  async #saveBoardPinnedGoals(
+    editor: PinEditor,
+    storage: Extract<PinnedGoalsStorage, { kind: "board" }>,
+  ): Promise<void> {
     const configuration = this.#state.configuration.value;
-    if (configuration?.boardType !== "kanban" || !this.#state.canPinGoals.value) return;
+    if (!configuration || this.#state.pinStorage.value.kind !== "board") return;
+    if (configuration.boardId !== storage.boardId || !this.#state.canPinGoals.value) return;
     const generation = this.#effects.scope.generation();
     const stale = () =>
       generation !== this.#effects.scope.generation() ||
-      this.#state.configuration.value?.boardId !== configuration.boardId;
+      this.#state.configuration.value?.boardId !== storage.boardId;
     const saving: PinEditor = { ...editor, saving: true, notice: null };
     this.#state.pinEditor.value = saving;
     const settle = (next: PinEditor | null) => {
@@ -220,27 +228,8 @@ export class BoardSettingsService {
         return;
       }
       try {
-        const raw = await this.#reader.boardProperty(
-          configuration.boardId,
-          BOARD_PROPERTY_KEYS.teamSettings,
-        );
-        if (stale()) return;
-        const current = raw === null ? null : decodeTeamDocument(raw);
-        if (raw !== null && !current)
-          throw new Error("Les réglages du board sont illisibles : rien n'a été écrit.");
-        const currentIds = current?.settings.boardPinnedGoalIds ?? [];
-        if (!sameOrder(currentIds, editor.base)) {
-          await conflict(current);
-          return;
-        }
-        if (sameOrder(currentIds, editor.selection)) {
-          settle(null);
-          return;
-        }
-        const latest = this.#state.configuration.value ?? configuration;
-        const base = current ? withTeamSettings(latest, current.settings) : latest;
         const user = this.#effects.currentUser();
-        const outcome = await publishTeamSettings(
+        const outcome = await saveBoardPinnedGoals(
           this.#reader,
           {
             write: async (write) => {
@@ -250,10 +239,10 @@ export class BoardSettingsService {
             },
           },
           {
-            boardId: configuration.boardId,
-            settings: teamSettingsOf({ ...base, boardPinnedGoalIds: [...editor.selection] }),
-            columns: base.columns,
-            basePublishedAt: current?.publishedAt ?? null,
+            boardId: storage.boardId,
+            base: editor.base,
+            selection: editor.selection,
+            configuration: () => this.#state.configuration.value ?? configuration,
             publishedBy: {
               accountId: user?.accountId ?? null,
               displayName: user?.displayName ?? null,
@@ -262,8 +251,14 @@ export class BoardSettingsService {
           },
         );
         if (stale()) return;
+        if (outcome.kind === "unreadable")
+          throw new Error("Les réglages du board sont illisibles : rien n'a été écrit.");
         if (outcome.kind === "conflict") {
           await conflict(outcome.current);
+          return;
+        }
+        if (outcome.kind === "unchanged") {
+          settle(null);
           return;
         }
         this.#state.team.value = { kind: "published", document: outcome.document };
@@ -544,7 +539,10 @@ export class BoardSettingsService {
     if (stale()) return;
     if (raw === null) {
       this.#state.team.value = { kind: "none" };
-      if (configuration.boardType === "kanban" && configuration.boardPinnedGoalIds.length > 0) {
+      if (
+        this.#state.pinStorage.value.kind === "board" &&
+        configuration.boardPinnedGoalIds.length > 0
+      ) {
         await this.#effects.updatePreferences((current) => ({
           ...current,
           boardPinnedGoalIds: [],
@@ -600,7 +598,4 @@ export class BoardSettingsService {
       },
     }));
   }
-}
-function sameOrder(a: readonly string[], b: readonly string[]): boolean {
-  return a.length === b.length && a.every((id, index) => id === b[index]);
 }

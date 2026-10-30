@@ -121,7 +121,13 @@ it("affiche objectifs, Build, RUN et OPS sans sprint et garde Daily et présenta
 
 it("épingle un Goal sans ticket au board dans les réglages partagés", async () => {
   const { model, board, jira } = await connectedBoard();
-  model.showSettings("goals");
+  // Le menu nomme le stockage résolu : le board, pas un sprint.
+  const pinMenu = [...document.querySelectorAll("button")].find((button) =>
+    button.textContent?.trim().startsWith("Épingler des Goals au board"),
+  );
+  if (!pinMenu) throw new Error("Bouton « Épingler des Goals au board… » attendu");
+  pinMenu.click();
+  await expect.poll(() => model.settingsSection.value).toBe("goals");
   await expect.poll(() => document.querySelector(".pin-list")).not.toBeNull();
   expect(body()).toContain(`Objectifs du board « ${KANBAN_NAME} »`);
   expect(body()).not.toContain("Texte du sprint");

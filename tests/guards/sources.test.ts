@@ -51,6 +51,20 @@ describe("code de production", () => {
     expect(putsGoals).toEqual(["src/core/sprintGoals.ts"]);
   });
 
+  it("ne choisit le stockage des Goals épinglés que dans core/pinnedGoals.ts (AD-4)", () => {
+    // Service et vue de l'épinglage consomment le stockage résolu, sans tester le type du board.
+    const pinning = [
+      "src/app/services/BoardSettingsService.ts",
+      "src/app/views/settings/SprintGoalsPanel.tsx",
+    ];
+    for (const file of pinning) {
+      const source = sources.find((candidate) => candidate.file === file);
+      expect(source, file).toBeDefined();
+      expect(source?.code, file).not.toMatch(/\bboardType\b/);
+    }
+    expect(filesMatching(/\bfunction pinnedGoalsStorage\b/)).toEqual(["src/core/pinnedGoals.ts"]);
+  });
+
   it("ne nomme une méthode HTTP d'écriture que dans le transport et l'inventaire", () => {
     expect(filesMatching(/["'`](POST|PUT|PATCH|DELETE)["'`]/).sort()).toEqual([
       "src/jira/transport.ts",

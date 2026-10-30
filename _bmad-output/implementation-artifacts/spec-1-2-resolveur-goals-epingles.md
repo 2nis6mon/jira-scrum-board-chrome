@@ -2,7 +2,8 @@
 title: 'Story 1.2 — Un seul endroit décide où sont stockés les Goals épinglés'
 type: 'refactor'
 created: '2026-10-30'
-status: 'ready-for-dev'
+status: 'done'
+baseline_commit: '2d8ec50787c67d18e77cd2612076028934c92a63'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -45,13 +46,13 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/core/pinnedGoals.ts` -- résolveur, lecture de la sélection, écriture Kanban -- AD-4 (résolveur unique)
-- [ ] `src/app/services/BoardSettingsService.ts` -- déléguer à `core`, aiguiller sur le stockage -- plus de choix par `boardType`
-- [ ] `src/app/model/BoardTypes.ts`, `src/app/model/BoardModel.ts` -- `PinEditor.storage`, `canPinGoals`, `openPinEditor`, stockage exposé -- idem
-- [ ] `src/app/views/settings/SprintGoalsPanel.tsx` -- consommer le stockage résolu -- idem
-- [ ] `tests/core/pinnedGoals.test.ts` -- trois cas de la matrice + conflit/unchanged Kanban -- CAP-2
-- [ ] `tests/guards/sources.test.ts` -- garde : `BoardSettingsService.ts` et `src/app/views/**` ne contiennent pas `boardType` à côté de `PinnedGoalIds`/`pinEditor` (ou plus simplement : `BoardSettingsService.ts` ne mentionne plus `boardType`) -- régression
-- [ ] `_bmad-output/planning-artifacts/architecture/architecture-sprint-goals-board-2026-10-27/ARCHITECTURE-SPINE.md` -- retirer l'écart AD-4 « Choix de la propriété des Goals épinglés » ; `CHANGELOG.md` (entrée sous la version en cours 0.36.2, sans nouvelle version)
+- [x] `src/core/pinnedGoals.ts` -- résolveur, lecture de la sélection, écriture Kanban -- AD-4 (résolveur unique)
+- [x] `src/app/services/BoardSettingsService.ts` -- déléguer à `core`, aiguiller sur le stockage -- plus de choix par `boardType`
+- [x] `src/app/model/BoardTypes.ts`, `src/app/model/BoardModel.ts` -- `PinEditor.storage`, `canPinGoals`, `openPinEditor`, stockage exposé -- idem
+- [x] `src/app/views/settings/SprintGoalsPanel.tsx` -- consommer le stockage résolu -- idem
+- [x] `tests/core/pinnedGoals.test.ts` -- trois cas de la matrice + conflit/unchanged Kanban -- CAP-2
+- [x] `tests/guards/sources.test.ts` -- garde : `BoardSettingsService.ts` et `src/app/views/**` ne contiennent pas `boardType` à côté de `PinnedGoalIds`/`pinEditor` (ou plus simplement : `BoardSettingsService.ts` ne mentionne plus `boardType`) -- régression
+- [x] `_bmad-output/planning-artifacts/architecture/architecture-sprint-goals-board-2026-10-27/ARCHITECTURE-SPINE.md` -- retirer l'écart AD-4 « Choix de la propriété des Goals épinglés » ; `CHANGELOG.md` (entrée sous la version en cours 0.36.2, sans nouvelle version)
 
 **Acceptance Criteria:**
 - Given les tests existants d'épinglage Scrum et Kanban, when `npm run check` tourne, then ils passent sans modification d'attente (comportement visible inchangé).
@@ -62,6 +63,22 @@ context:
 ## Spec Change Log
 
 ## Review Triage Log
+
+| # | Constat | Verdict | Preuve / route |
+|---|---------|---------|----------------|
+| 1 | `BoardView.tsx` choisit encore le libellé d'épinglage par `boardType` | medium | `onShowPinning` (l. ~951) teste `boardType` ; patch |
+| 2 | Libellé Kanban du menu latéral non testé | medium | Gap pré-vérifié (verification-gap) ; patch |
+| 3 | Conflit renvoyé par `publishTeamSettings` non testé | low | Branche jamais exercée ; patch (ajout direct) |
+| 4 | Écart AD-2 de la spine plus exact (épinglage Kanban passé dans `core`) | low | Doc : patch direct |
+| 5 | Garde limitée à deux fichiers | low | Rejeté : `Sidebar.tsx`/`BoardView.tsx` testent `boardType` pour d'autres libellés, une garde fichier entière serait fausse |
+| 6 | Éditeur ouvert puis sprint clos : écrit sur l'ancien sprint | low | Rejeté : comportement antérieur (`editor.sprintId` déjà figé à l'ouverture) |
+| 7 | Retour silencieux si le stockage ne correspond plus | false | Comportement antérieur identique (`boardType !== "kanban"` → `return`) |
+| 8 | `canPinGoals` faux sans configuration | low | Rejeté : état inatteignable avec un board affiché |
+| 9 | `PinEditor.sprintId` doublé par `storage` | low | Rejeté : dérivé du stockage à l'ouverture, utilisé par les tests existants |
+| 10 | `pinStorage` recrée un objet à chaque synchronisation | low | Rejeté : coût négligeable |
+| 11 | Vocabulaire « sprint de référence » / « actif » | low | Rejeté : le sprint de référence est le premier sprint actif affiché |
+| 12 | Stub du test de service toujours `unavailable` en Scrum, `as never` | low | Rejeté : chemins couverts par `BoardModel.pin.test.ts` |
+| 13 | Statut de spec en avance | false | Contrôles relancés en étape 4 avant `done` |
 
 ## Verification
 

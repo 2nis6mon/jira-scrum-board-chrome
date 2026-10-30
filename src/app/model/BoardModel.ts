@@ -27,6 +27,7 @@ import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../.
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
 import { parentColors } from "../../core/parentColors";
 import { type PendingMove, withPendingMove } from "../../core/pendingMove";
+import { pinnedGoalIdsIn, pinnedGoalsStorage } from "../../core/pinnedGoals";
 import { goalColorName, type SprintGoal } from "../../core/sprintGoals";
 import { sprintHealth } from "../../core/sprintHealth";
 import { JiraClient, type JiraField, type JiraQuickFilter } from "../../jira/client";
@@ -195,20 +196,31 @@ export class BoardModel {
   /** Tickets affichés retenus par chaque règle, à la dernière évaluation. */
   readonly colorRuleCounts = signal<Readonly<Record<string, number>>>({});
 
+  /** Stockage des Goals épinglés : propriété du sprint, du board Kanban, ou indisponible. */
+  readonly pinStorage = computed(() =>
+    pinnedGoalsStorage(this.configuration.value, this.snapshot.value),
+  );
+
   /** L'épinglage exige des Goals Atlassian et une propriété Jira relue. */
   readonly canPinGoals = computed(() => {
     const snapshot = this.snapshot.value;
-    const kanban = this.configuration.value?.boardType === "kanban";
-    const teamKnown = this.team.value.kind === "none" || this.team.value.kind === "published";
-    // Un Goal épinglé supprimé peut empêcher la lecture du board : ses réglages restent éditables
-    // pour retirer cet identifiant et rétablir la synchronisation, sans dépendre des tickets.
-    if (kanban) return teamKnown && this.canEditSettings.value;
-    return (
-      snapshot !== null &&
-      snapshot.sprint !== null &&
-      snapshot.goalsOrigin === "atlassianGoals" &&
-      snapshot.pinnedGoalIds !== null
-    );
+    switch (this.pinStorage.value.kind) {
+      case "board": {
+        // Un Goal épinglé supprimé peut empêcher la lecture du board : ses réglages restent
+        // éditables pour retirer cet identifiant et rétablir la synchronisation, sans dépendre
+        // des tickets.
+        const team = this.team.value.kind;
+        return (team === "none" || team === "published") && this.canEditSettings.value;
+      }
+      case "sprint":
+        return (
+          snapshot !== null &&
+          snapshot.goalsOrigin === "atlassianGoals" &&
+          snapshot.pinnedGoalIds !== null
+        );
+      case "unavailable":
+        return false;
+    }
   });
 
   readonly layout = computed(() => {
@@ -319,6 +331,7 @@ export class BoardModel {
       {
         configuration: this.configuration,
         pinEditor: this.pinEditor,
+        pinStorage: this.pinStorage,
         team: this.team,
         teamSaving: this.teamSaving,
         teamNotice: this.teamNotice,
@@ -1010,15 +1023,16 @@ export class BoardModel {
   openPinEditor(): void {
     const snapshot = this.snapshot.value;
     const configuration = this.configuration.value;
-    const kanban = configuration?.boardType === "kanban";
-    const pinned = kanban ? configuration.boardPinnedGoalIds : snapshot?.pinnedGoalIds;
-    if (!this.canPinGoals.value || !configuration || pinned == null) return;
-    const local = kanban ? null : (snapshot?.localPinnedGoalIds ?? null);
+    const storage = this.pinStorage.value;
+    const pinned = pinnedGoalIdsIn(storage, configuration, snapshot);
+    if (!this.canPinGoals.value || !configuration || storage.kind === "unavailable") return;
+    if (pinned === null) return;
+    // Le repli local n'existe que pour la propriété du sprint.
+    const local = storage.kind === "sprint" ? (snapshot?.localPinnedGoalIds ?? null) : null;
     this.pinEditor.value = {
-      sprintId: kanban ? null : (snapshot?.sprint?.id ?? null),
-      sprintName: kanban
-        ? configuration.boardName
-        : (snapshot?.sprint?.name ?? configuration.boardName),
+      storage,
+      sprintId: storage.kind === "sprint" ? storage.sprintId : null,
+      sprintName: storage.kind === "sprint" ? storage.sprintName : storage.boardName,
       base: [...pinned],
       // Une sélection gardée localement repart d'ici : l'enregistrer la partage enfin dans Jira.
       selection: [...(local ?? pinned)],
@@ -1037,8 +1051,9 @@ export class BoardModel {
    */
   async keepPinnedLocally(): Promise<void> {
     const editor = this.pinEditor.value;
-    if (!editor || editor.saving || !editor.canKeepLocally || editor.sprintId === null) return;
-    const sprintId = editor.sprintId;
+    if (!editor || editor.saving || !editor.canKeepLocally || editor.storage.kind !== "sprint")
+      return;
+    const sprintId = editor.storage.sprintId;
     this.pinEditor.value = null;
     await this.applySettings((current) => withLocalPins(current, sprintId, editor.selection), {
       resync: true,

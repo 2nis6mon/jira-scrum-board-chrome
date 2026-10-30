@@ -12,6 +12,8 @@ sont dans la [documentation technique](docs/technique/index.md).
   recommence si besoin. » Les rattachements des autres tickets restent fusionnés.
 - Rattachement, épinglage et publication du Sprint Planning partagent une seule règle de mise à
   jour de la propriété ; l'horodatage est enregistré à la seconde.
+- L'emplacement des Goals épinglés (propriété du sprint en Scrum, réglages du board en Kanban,
+  indisponible sans sprint actif) est choisi en un seul endroit ; comportement inchangé.
 
 ## 0.36.1 — Langue dans les préférences personnelles
 
