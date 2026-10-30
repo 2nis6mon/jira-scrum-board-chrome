@@ -86,6 +86,8 @@ export const businessMessagesEs = {
     "Este objetivo ya no existe en el sprint. Actualiza el tablero.",
   "propriété des objectifs du sprint : objet JSON attendu, rien n'a été écrit":
     "propiedad de objetivos del sprint: se esperaba un objeto JSON; no se ha escrito nada",
+  "propriété des objectifs du sprint : version inconnue ou illisible, rien n'a été écrit":
+    "propiedad de objetivos del sprint: versión desconocida o contenido ilegible; no se ha escrito nada",
   "Ajouté en cours de sprint": "Añadida durante el sprint",
   Bloqués: "Bloqueadas",
   Ajoutés: "Añadidas",
@@ -399,6 +401,11 @@ export const businessMessagesEs = {
   "L'affichage a été relu dans Jira. Relancez le déplacement si besoin.":
     "La vista se ha vuelto a cargar desde Jira. Repite el movimiento si es necesario.",
   "conflit : statut modifié dans Jira": "conflicto: estado cambiado en Jira",
+  "Ce ticket a été modifié par quelqu'un d'autre depuis le chargement.":
+    "Otra persona ha modificado esta incidencia desde la carga.",
+  "Le board a été rechargé ; recommence si besoin.":
+    "El tablero se ha vuelto a cargar; repite la acción si es necesario.",
+  "conflit : lien modifié dans Jira": "conflicto: vínculo cambiado en Jira",
   "Complétez « {p0} » dans Jira pour {p1}.": "Completa «{p0}» en Jira para {p1}.",
   "Le board sera actualisé à la fermeture du ticket.":
     "El tablero se actualizará al cerrar la incidencia.",

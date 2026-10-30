@@ -1,15 +1,20 @@
 import type { IssueQuery, JiraClient } from "../jira/client";
-import { isRecord, type JsonObject, type JsonValue } from "../jira/json";
+import { isRecord, type JsonValue } from "../jira/json";
 import { isDoneStatus, type JiraIssue, type JiraSprint } from "../jira/models";
 import type { JiraTransport } from "../jira/transport";
 import { buildWriteRequest, SPRINT_PROPERTY_KEYS } from "../jira/writes";
 import {
-  decodeSprintGoalDocument,
-  encodeSprintGoalDocument,
   makeSprintGoal,
+  makeSprintGoalDocument,
   parseSprintGoalText,
+  prepareSprintGoalUpdate,
+  readSprintGoalProperty,
   reconcileSprintGoals,
   type SprintGoal,
+  type SprintGoalDocument,
+  type SprintGoalUpdate,
+  sameSprintGoalContent,
+  updateSprintGoalProperty,
 } from "./sprintGoals";
 
 export type PlanningReader = Pick<
@@ -71,8 +76,16 @@ export async function loadSprintPlanning(
     reader.sprints(input.boardId, ["active"]),
   ]);
   if (sprint.id !== input.sprintId) throw new Error("Jira a renvoyé un autre sprint.");
-  const document = readGoalProperty(rawGoalProperty);
-  const reconciled = reconcileSprintGoals(sprint.goal, document);
+  const read = readSprintGoalProperty(rawGoalProperty);
+  if (read.kind === "unreadable") {
+    throw new Error(
+      "La propriété des objectifs du sprint est illisible ou utilise une version inconnue. Elle ne sera pas écrasée.",
+    );
+  }
+  const reconciled = reconcileSprintGoals(
+    sprint.goal,
+    read.kind === "document" ? read.document : null,
+  );
   const activeIssues = await Promise.all(
     activeSprints
       .filter((active) => active.state === "active")
@@ -142,8 +155,16 @@ export async function publishSprintPlanning(
       snapshot: current,
     };
   }
+  // Zone modifiée : le document entier, qui doit être resté celui de la photographie.
+  const baseProperty = current.rawGoalProperty;
+  const propertyUpdate: SprintGoalUpdate = {
+    sprintId: snapshot.sprint.id,
+    unchangedSince: (_fresh, raw) => sameJson(raw, baseProperty),
+    mutate: (fresh) => planningDocument(fresh, input),
+    accountId: input.accountId,
+    now: input.now,
+  };
   let goalText: string;
-  let property: JsonObject;
   let additions: string[];
   try {
     goalText = validateGoals(input.goals);
@@ -174,14 +195,8 @@ export async function publishSprintPlanning(
         );
       }
     }
-    property = planningProperty(current.rawGoalProperty, input);
     // Refus des valeurs invalides et de la taille avant la première écriture métier.
-    buildWriteRequest({
-      kind: "sprintProperty.put",
-      sprintId: snapshot.sprint.id,
-      key: SPRINT_PROPERTY_KEYS.goals,
-      value: property,
-    });
+    prepareSprintGoalUpdate(current.rawGoalProperty, propertyUpdate);
     for (let index = 0; index < additions.length; index += 50) {
       buildWriteRequest({
         kind: "sprint.issues.add",
@@ -244,20 +259,12 @@ export async function publishSprintPlanning(
       confirmed.push(`${batch.length} ticket(s) ajouté(s)`);
     }
     await ensureFuture(reader, snapshot.sprint.id, goalText);
-    const freshProperty = await reader.sprintProperty(
-      snapshot.sprint.id,
-      SPRINT_PROPERTY_KEYS.goals,
-    );
-    if (!sameJson(freshProperty, current.rawGoalProperty)) {
+    const update = await updateSprintGoalProperty(reader, writer, propertyUpdate);
+    if (update.kind === "conflict") {
       throw new Error("Les rattachements ont été modifiés par un collègue pendant la publication.");
     }
-    if (!samePlanningProperty(freshProperty, property)) {
-      await writer.write({
-        kind: "sprintProperty.put",
-        sprintId: snapshot.sprint.id,
-        key: SPRINT_PROPERTY_KEYS.goals,
-        value: property,
-      });
+    const property = update.value;
+    if (update.kind === "written") {
       const read = await reader.sprintProperty(snapshot.sprint.id, SPRINT_PROPERTY_KEYS.goals);
       if (!sameJson(read, property))
         throw new Error("Les rattachements n’ont pas été confirmés par Jira.");
@@ -268,7 +275,7 @@ export async function publishSprintPlanning(
       final.sprint.state !== "future" ||
       final.sprint.id !== snapshot.sprint.id ||
       final.nativeGoalText !== goalText ||
-      !samePlanningProperty(final.rawGoalProperty, property) ||
+      !sameSprintGoalContent(final.rawGoalProperty, property) ||
       input.selectedIssueKeys.some((key) => !final.sprintIssues.some((issue) => issue.key === key))
     ) {
       throw new Error("Le sprint a changé pendant la vérification finale.");
@@ -324,8 +331,12 @@ function validateGoals(goals: readonly SprintGoal[]): string {
   return goals.map((goal) => goal.title.trim()).join("\n");
 }
 
-function planningProperty(raw: JsonValue | null, input: PlanningPublication): JsonObject {
-  const stored = readGoalProperty(raw);
+/** Mutation pure de la publication : objectifs du brouillon et liens des tickets retenus. */
+function planningDocument(
+  fresh: SprintGoalDocument | null,
+  input: PlanningPublication,
+): SprintGoalDocument {
+  const stored = fresh ?? makeSprintGoalDocument();
   const ids = new Set(input.goals.map((goal) => goal.id));
   const selected = new Set(input.selectedIssueKeys);
   const links: Record<string, string> = {};
@@ -337,66 +348,12 @@ function planningProperty(raw: JsonValue | null, input: PlanningPublication): Js
       throw new Error("Un rattachement ne correspond plus à la sélection ou aux objectifs.");
     links[key] = id;
   }
-  const encoded = encodeSprintGoalDocument({
+  // Les attributs natifs connus cèdent la place au texte ; les extensions de format restent.
+  return {
     ...stored,
     goals: input.goals.map((goal, position) => ({ ...goal, title: goal.title.trim(), position })),
     links,
-    updatedAt: input.now.toISOString(),
-    updatedBy: input.accountId,
-  });
-  const oldGoals = isRecord(raw) && Array.isArray(raw.goals) ? raw.goals : [];
-  if (Array.isArray(encoded.goals))
-    encoded.goals = encoded.goals.map((goal) => {
-      if (!isRecord(goal)) return goal;
-      const previous = oldGoals.find((item) => isRecord(item) && item.id === goal.id);
-      if (!isRecord(previous)) return goal;
-      // Les extensions de format restent, les attributs natifs connus cèdent la place au texte.
-      const {
-        atlassianGoalId: _id,
-        atlassianKey: _key,
-        atlassianStatus: _status,
-        atlassianURL: _url,
-        ...preserved
-      } = previous;
-      return { ...preserved, ...goal };
-    });
-  return {
-    ...(isRecord(raw) ? (raw as JsonObject) : {}),
-    ...encoded,
   };
-}
-
-function readGoalProperty(raw: JsonValue | null) {
-  if (
-    raw !== null &&
-    (!isRecord(raw) ||
-      (raw.version !== undefined && raw.version !== 1) ||
-      (raw.atlassianGoalIds !== undefined &&
-        (!Array.isArray(raw.atlassianGoalIds) ||
-          raw.atlassianGoalIds.some((id) => typeof id !== "string"))) ||
-      (raw.goals !== undefined &&
-        (!Array.isArray(raw.goals) ||
-          raw.goals.some(
-            (goal) =>
-              !isRecord(goal) || typeof goal.id !== "string" || typeof goal.title !== "string",
-          ))) ||
-      (raw.links !== undefined &&
-        (!isRecord(raw.links) || Object.values(raw.links).some((id) => typeof id !== "string"))))
-  ) {
-    throw new Error(
-      "La propriété des objectifs du sprint est illisible ou utilise une version inconnue. Elle ne sera pas écrasée.",
-    );
-  }
-  return decodeSprintGoalDocument(raw);
-}
-
-function samePlanningProperty(a: JsonValue | null, b: JsonObject): boolean {
-  if (!isRecord(a)) return false;
-  const clean = (raw: JsonObject) => {
-    const { updatedAt: _at, updatedBy: _by, ...rest } = raw;
-    return rest;
-  };
-  return sameJson(clean(a as JsonObject), clean(b));
 }
 
 function sameKeys(a: readonly JiraIssue[], b: readonly JiraIssue[]): boolean {

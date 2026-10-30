@@ -3,6 +3,16 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.36.2 — Objectifs du sprint écrits sans perte
+
+- Rattacher un ticket à un objectif du texte du sprint ne réécrit plus une propriété d'une version
+  inconnue et conserve les champs ajoutés par une autre version, y compris dans chaque objectif.
+- Si le rattachement du ticket a été modifié dans Jira depuis le chargement, rien n'est écrit :
+  « Ce ticket a été modifié par quelqu'un d'autre depuis le chargement. Le board a été rechargé ;
+  recommence si besoin. » Les rattachements des autres tickets restent fusionnés.
+- Rattachement, épinglage et publication du Sprint Planning partagent une seule règle de mise à
+  jour de la propriété ; l'horodatage est enregistré à la seconde.
+
 ## 0.36.1 — Langue dans les préférences personnelles
 
 - Le choix de la langue n'apparaît plus en tête de chaque onglet des réglages du board, partagés

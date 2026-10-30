@@ -37,6 +37,20 @@ describe("code de production", () => {
     expect(filesMatching(/XMLHttpRequest|WebSocket|EventSource|sendBeacon/)).toEqual([]);
   });
 
+  it("n'encode et n'écrit sprintgoals.v1 que dans son module propriétaire (AD-4)", () => {
+    expect(filesMatching(/\bencodeSprintGoalDocument\b/)).toEqual(["src/core/sprintGoals.ts"]);
+    // Seule exception : la lecture tolérante d'affichage du board.
+    expect(filesMatching(/\bdecodeSprintGoalDocument\b/).sort()).toEqual([
+      "src/core/boardSync.ts",
+      "src/core/sprintGoals.ts",
+    ]);
+    const putsGoals = sources
+      .filter(({ code }) => /["'`]sprintProperty\.put["'`]/.test(code))
+      .filter(({ code }) => /SPRINT_PROPERTY_KEYS\.goals/.test(code))
+      .map(({ file }) => file);
+    expect(putsGoals).toEqual(["src/core/sprintGoals.ts"]);
+  });
+
   it("ne nomme une méthode HTTP d'écriture que dans le transport et l'inventaire", () => {
     expect(filesMatching(/["'`](POST|PUT|PATCH|DELETE)["'`]/).sort()).toEqual([
       "src/jira/transport.ts",

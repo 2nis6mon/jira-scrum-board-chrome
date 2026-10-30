@@ -267,3 +267,152 @@ describe("identifiants stables des objectifs pas encore enregistrés", () => {
     expect(stableGoalIds(43)("Paiement")).not.toBe(a);
   });
 });
+
+describe("mise à jour de la propriété du sprint (seul écrivain)", () => {
+  const NOW = new Date("2026-09-18T10:15:30.123Z");
+  const sentinel = makeSprintGoalDocument({ links: { "ABC-1": "g1" } });
+  const update = (
+    overrides: Partial<Parameters<typeof sprintGoals.prepareSprintGoalUpdate>[1]> = {},
+  ) => ({
+    sprintId: 42,
+    unchangedSince: () => true,
+    mutate: (fresh: sprintGoals.SprintGoalDocument | null) => ({
+      ...(fresh ?? makeSprintGoalDocument()),
+      links: { ...(fresh?.links ?? {}), "ABC-1": "g1" },
+    }),
+    accountId: "compte-1",
+    now: NOW,
+    ...overrides,
+  });
+
+  it.each([
+    [{ version: 2, goals: [], links: {} }],
+    ["texte"],
+    [["tableau"]],
+    [{ goals: [{ id: 3 }] }],
+    [{ links: { "ABC-1": 9 } }],
+    [{ atlassianGoalIds: [1] }],
+  ])(
+    "version inconnue ou donnée illisible : refus de décodage, mutation jamais appelée (%j)",
+    (raw) => {
+      let called = false;
+      expect(() =>
+        sprintGoals.prepareSprintGoalUpdate(
+          raw,
+          update({
+            mutate: () => {
+              called = true;
+              return sentinel;
+            },
+          }),
+        ),
+      ).toThrowError(
+        expect.objectContaining({ info: expect.objectContaining({ kind: "decoding" }) }),
+      );
+      expect(called).toBe(false);
+    },
+  );
+
+  it("conserve les clés inconnues de la racine et de chaque objectif, par id", () => {
+    const prepared = sprintGoals.prepareSprintGoalUpdate(
+      {
+        version: 1,
+        goals: [
+          { id: "g1", title: "Paiement", color: "goal4", position: 0, extra: 1 },
+          { id: "g2", title: "Stabilité", color: "goal2", position: 1, atlassianKey: "OLD" },
+        ],
+        links: {},
+        future: {},
+      },
+      update(),
+    );
+    expect(prepared).toMatchObject({ kind: "ready", changed: true });
+    if (prepared.kind !== "ready") return;
+    expect(prepared.value).toEqual({
+      version: 1,
+      goals: [
+        { id: "g1", title: "Paiement", color: "goal4", position: 0, extra: 1 },
+        { id: "g2", title: "Stabilité", color: "goal2", position: 1, atlassianKey: "OLD" },
+      ],
+      links: { "ABC-1": "g1" },
+      atlassianGoalIds: [],
+      future: {},
+      updatedAt: "2026-09-18T10:15:30Z",
+      updatedBy: "compte-1",
+    });
+  });
+
+  it("zone modifiée changée depuis la lecture : conflit avant toute mutation", () => {
+    let called = false;
+    const prepared = sprintGoals.prepareSprintGoalUpdate(
+      { version: 1, links: { "ABC-1": "g3" } },
+      update({
+        unchangedSince: (fresh) => (fresh?.links["ABC-1"] ?? null) === "g1",
+        mutate: () => {
+          called = true;
+          return sentinel;
+        },
+      }),
+    );
+    expect(prepared).toMatchObject({ kind: "conflict", fresh: { links: { "ABC-1": "g3" } } });
+    expect(called).toBe(false);
+  });
+
+  it("rien à changer hors horodatage : pas de changement, même sur une propriété partielle", () => {
+    const prepared = sprintGoals.prepareSprintGoalUpdate(
+      { links: { "ABC-1": "g1" }, updatedAt: "2020-01-01T00:00:00Z", updatedBy: "autre" },
+      update(),
+    );
+    expect(prepared).toMatchObject({ kind: "ready", changed: false });
+  });
+
+  it("une seule écriture, puis la valeur écrite ; aucune écriture si rien ne change ou en conflit", async () => {
+    const writes: unknown[] = [];
+    const writer = {
+      write: async (write: unknown) => {
+        writes.push(write);
+        return { status: 200, body: null };
+      },
+    };
+    const reader = (value: unknown) => ({ sprintProperty: async () => value as never });
+
+    const written = await sprintGoals.updateSprintGoalProperty(reader(null), writer, update());
+    expect(written.kind).toBe("written");
+    expect(writes).toEqual([
+      {
+        kind: "sprintProperty.put",
+        sprintId: 42,
+        key: "com.scrumboardmac.sprintgoals.v1",
+        value: written.kind === "written" ? written.value : null,
+      },
+    ]);
+
+    const unchanged = await sprintGoals.updateSprintGoalProperty(
+      reader({ links: { "ABC-1": "g1" } }),
+      writer,
+      update(),
+    );
+    expect(unchanged.kind).toBe("unchanged");
+    const conflict = await sprintGoals.updateSprintGoalProperty(
+      reader({ links: {} }),
+      writer,
+      update({ unchangedSince: () => false }),
+    );
+    expect(conflict.kind).toBe("conflict");
+    expect(writes).toHaveLength(1);
+  });
+
+  it("compare deux valeurs sans horodatage ni auteur ; absente vaut un document vide", () => {
+    expect(
+      sprintGoals.sameSprintGoalContent(null, {
+        version: 1,
+        goals: [],
+        links: {},
+        atlassianGoalIds: [],
+        updatedAt: "2026-01-01T00:00:00Z",
+      }),
+    ).toBe(true);
+    expect(sprintGoals.sameSprintGoalContent({ links: { a: "g1" } }, { links: {} })).toBe(false);
+    expect(sprintGoals.sameSprintGoalContent({ version: 2 }, { version: 2 })).toBe(false);
+  });
+});

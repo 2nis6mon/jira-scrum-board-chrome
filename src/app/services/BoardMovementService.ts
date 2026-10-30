@@ -110,10 +110,14 @@ export class BoardMovementService {
     if (sprintId === null) return false;
     const goals = goalsOfSprint(snapshot, sprintId);
     try {
-      await linkToTextGoal(this.#reader, this.#writer, {
+      const outcome = await linkToTextGoal(this.#reader, this.#writer, {
         sprintId,
         issueKey,
         goalId,
+        // Sans propriété lue au chargement, la base est inconnue : fusion sans contrôle.
+        ...(snapshot.storedTextLinks?.[sprintId]
+          ? { knownGoalId: snapshot.storedTextLinks[sprintId][issueKey] ?? null }
+          : {}),
         goals,
         linkableGoalIds: snapshot.goals
           .filter((goal) => !goals.some((own) => own.id === goal.id))
@@ -121,6 +125,25 @@ export class BoardMovementService {
         accountId: snapshot.currentUser?.accountId ?? null,
         now: this.#effects.now(),
       });
+      if (outcome.kind === "conflict") {
+        // Rien n'est écrit ni rejoué : le board est relu après le geste.
+        this.#state.writeNotice.value = {
+          tone: "warning",
+          text: "Ce ticket a été modifié par quelqu'un d'autre depuis le chargement.",
+          suggestion: "Le board a été rechargé ; recommence si besoin.",
+          sessionLost: false,
+          issueKey,
+        };
+        await this.#effects.record({
+          action: "rattachement",
+          issueKey,
+          from: null,
+          to: title,
+          outcome: "échec",
+          detail: "conflit : lien modifié dans Jira",
+        });
+        return false;
+      }
       await this.#effects.record({
         action: "rattachement",
         issueKey,

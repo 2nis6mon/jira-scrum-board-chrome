@@ -552,6 +552,30 @@ describe("loadSnapshot", () => {
       const goalOf = (key: string) => second.goalIssues.find((i) => i.issue.key === key)?.goalId;
       expect(goalOf("ABC-1")).toBe(pixel?.id);
       expect(goalOf("ABC-2")).toBe("g-pay");
+      // Liens bruts de chaque sprint, sous son propre id : base du contrôle de conflit.
+      expect(first.storedTextLinks).toEqual({ 42: {}, 43: {} });
+      expect(second.storedTextLinks).toEqual({
+        42: { "ABC-1": pixel?.id, "ABC-2": "g-pay" },
+        43: {},
+      });
+    });
+
+    it("liens bruts : un sprint dont la propriété n'a pas pu être lue est absent", async () => {
+      const jira = boardJira({
+        sprints: [
+          sprintJson(42, { goal: "Paiement" }),
+          sprintJson(43, { startDate: "2026-09-14T09:00:00.000+0200", goal: "Pixel" }),
+        ],
+        issues: { 42: [issueJson("ABC-1")], 43: [issueJson("ABC-2")] },
+      })
+        .on("GET", GOALS_PROPERTY(42), {
+          status: 200,
+          json: { value: { version: 1, goals: [], links: { "ABC-1": "g-x" } } },
+        })
+        .on("GET", GOALS_PROPERTY(43), { status: 500, json: {} });
+      const { snapshot } = await sync(jira);
+      expect(snapshot.storedTextLinks).toEqual({ 42: { "ABC-1": "g-x" } });
+      expect(snapshot.goalsReadOnly).toBe(false);
     });
 
     it("pour un ticket noté dans deux propriétés, celle de son propre sprint fait foi", async () => {

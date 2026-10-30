@@ -386,3 +386,45 @@ describe("publication Sprint Planning", () => {
     expect(f.writes).toEqual([]);
   });
 });
+
+describe("publication Sprint Planning : propriété partagée des objectifs", () => {
+  it("horodate à la seconde et garde les champs inconnus de la racine et des objectifs", async () => {
+    const f = fixture();
+    f.state.property = {
+      version: 1,
+      goals: [{ ...goal, extra: 1 }],
+      links: { "ABC-210": goal.id },
+      future: {},
+    };
+    const result = await publishSprintPlanning(f.reader, f.writer, await f.publication());
+    expect(result.kind).toBe("confirmed");
+    expect(f.state.property).toMatchObject({
+      future: {},
+      goals: [{ id: goal.id, extra: 1 }, { id: newGoal.id }],
+      updatedAt: "2026-10-14T10:00:00Z",
+      updatedBy: "user",
+    });
+  });
+
+  it("version inconnue apparue avant la publication : rien n'est écrit", async () => {
+    const f = fixture();
+    const input = await f.publication();
+    f.state.property = { version: 2, goals: [], links: {} };
+    const result = await publishSprintPlanning(f.reader, f.writer, input);
+    expect(result.kind).toBe("conflict");
+    expect(f.writes).toEqual([]);
+    expect(f.state.property).toEqual({ version: 2, goals: [], links: {} });
+  });
+
+  it("rien à changer dans la propriété : aucune écriture, publication confirmée", async () => {
+    const f = fixture();
+    const result = await publishSprintPlanning(f.reader, f.writer, {
+      ...(await f.publication()),
+      goals: [goal],
+      links: { "ABC-210": goal.id },
+      selectedIssueKeys: ["ABC-210"],
+    });
+    expect(result.kind).toBe("confirmed");
+    expect(f.writes).toEqual([]);
+  });
+});

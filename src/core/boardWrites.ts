@@ -1,19 +1,18 @@
 import type { JiraClient } from "../jira/client";
 import { JiraError } from "../jira/errors";
-import { isRecord, type JsonObject, type JsonValue } from "../jira/json";
+import { isRecord, type JsonValue } from "../jira/json";
 import type { JiraStatus, JiraTransition } from "../jira/models";
 import { resolveTransition } from "../jira/transitionPlanner";
 import type { JiraTransport } from "../jira/transport";
-import { SPRINT_PROPERTY_KEYS } from "../jira/writes";
 import type { RankChange } from "./dropPlan";
 import {
-  decodeSprintGoalDocument,
-  encodeSprintGoalDocument,
   goalColorName,
   makeSprintGoal,
   SPRINT_GOAL_DOCUMENT_VERSION,
   type SprintGoal,
   type SprintGoalDocument,
+  sprintGoalTimestamp,
+  updateSprintGoalProperty,
 } from "./sprintGoals";
 
 // Écritures du board, dans les catégories validées : transition, rang, rattachement à un
@@ -150,6 +149,14 @@ export function rankFailures(body: JsonValue | null): string[] | null {
 
 // ─── Rattachement à un objectif du texte du sprint ───────────────────────────
 
+export type LinkOutcome =
+  /** Jira a confirmé l'écriture du lien. */
+  | { kind: "linked" }
+  /** Jira porte déjà exactement ce contenu : rien n'a été écrit. */
+  | { kind: "unchanged" }
+  /** Le lien du ticket a changé dans Jira depuis le chargement : rien n'a été écrit. */
+  | { kind: "conflict"; current: string | null };
+
 /**
  * Rattache (ou détache, `goalId` à `null`) un ticket à un objectif du TEXTE du sprint.
  *
@@ -157,14 +164,20 @@ export function rankFailures(body: JsonValue | null): string[] | null {
  * l'écriture et seule l'entrée du ticket change : les autres Goals et liens sont conservés. Le champ
  * « Objectif » du sprint, lui, n'est jamais touché. Avec plusieurs sprints du board, le lien peut
  * viser l'objectif d'un autre sprint (`linkableGoalIds`) : il reste écrit dans ce seul sprint.
+ * Si le lien du ticket a changé dans Jira depuis le chargement (`knownGoalId`), rien n'est écrit.
  */
 export async function linkToTextGoal(
-  reader: WriteReader,
+  reader: Pick<WriteReader, "sprintProperty">,
   writer: JiraWriter,
   input: {
     sprintId: number;
     issueKey: string;
     goalId: string | null;
+    /**
+     * Lien du ticket lu dans la propriété de ce sprint au chargement (`null` : aucun).
+     * `undefined` : base inconnue (propriété non lue), le lien est fusionné sans contrôle.
+     */
+    knownGoalId?: string | null;
     /** Objectifs de ce sprint, tels que réconciliés à la dernière synchronisation. */
     goals: readonly SprintGoal[];
     /** Objectifs des autres sprints réunis sur le board, auxquels le ticket peut aussi se rattacher. */
@@ -172,7 +185,7 @@ export async function linkToTextGoal(
     accountId: string | null;
     now: Date;
   },
-): Promise<void> {
+): Promise<LinkOutcome> {
   const linkable = new Set([
     ...input.goals.map((goal) => goal.id),
     ...(input.linkableGoalIds ?? []),
@@ -180,14 +193,24 @@ export async function linkToTextGoal(
   if (input.goalId !== null && !linkable.has(input.goalId)) {
     throw new Error("Cet objectif n'existe plus dans le sprint. Actualisez le board.");
   }
-  const stored = await readStoredDocument(reader, input.sprintId);
-  const document = withTextGoalLink(stored.document, input);
-  await writer.write({
-    kind: "sprintProperty.put",
+  const linkOf = (document: SprintGoalDocument | null) => document?.links[input.issueKey] ?? null;
+  // Seul le lien de ce ticket est modifié : les autres liens sont fusionnés sur Jira frais.
+  const outcome = await updateSprintGoalProperty(reader, writer, {
     sprintId: input.sprintId,
-    key: SPRINT_PROPERTY_KEYS.goals,
-    value: documentValue(stored, document),
+    unchangedSince: (fresh) =>
+      input.knownGoalId === undefined || linkOf(fresh) === input.knownGoalId,
+    mutate: (fresh) => withTextGoalLink(fresh, input),
+    accountId: input.accountId,
+    now: input.now,
   });
+  switch (outcome.kind) {
+    case "conflict":
+      return { kind: "conflict", current: linkOf(outcome.fresh) };
+    case "unchanged":
+      return { kind: "unchanged" };
+    case "written":
+      return { kind: "linked" };
+  }
 }
 
 /**
@@ -237,7 +260,7 @@ export function withTextGoalLink(
     goals,
     links,
     atlassianGoalIds: [...(fresh?.atlassianGoalIds ?? [])],
-    updatedAt: timestamp(input.now),
+    updatedAt: sprintGoalTimestamp(input.now),
     updatedBy: input.accountId,
   };
 }
@@ -274,21 +297,23 @@ export async function pinAtlassianGoals(
   },
 ): Promise<PinOutcome> {
   const goalIds = normalizedGoalIds(input.goalIds);
-  const stored = await readStoredDocument(reader, input.sprintId);
-  const current = [...(stored.document?.atlassianGoalIds ?? [])];
-  if (!sameIds(current, normalizedGoalIds(input.shownGoalIds))) {
-    return { kind: "conflict", current };
-  }
-  if (sameIds(current, goalIds)) return { kind: "unchanged" };
-
-  const document = withPinnedGoals(stored.document, { ...input, goalIds });
-  await writer.write({
-    kind: "sprintProperty.put",
+  const shown = normalizedGoalIds(input.shownGoalIds);
+  const pinnedOf = (document: SprintGoalDocument | null) => [...(document?.atlassianGoalIds ?? [])];
+  const outcome = await updateSprintGoalProperty(reader, writer, {
     sprintId: input.sprintId,
-    key: SPRINT_PROPERTY_KEYS.goals,
-    value: documentValue(stored, document),
+    unchangedSince: (fresh) => sameIds(pinnedOf(fresh), shown),
+    mutate: (fresh) => withPinnedGoals(fresh, { ...input, goalIds }),
+    accountId: input.accountId,
+    now: input.now,
   });
-  return { kind: "pinned", goalIds };
+  switch (outcome.kind) {
+    case "conflict":
+      return { kind: "conflict", current: pinnedOf(outcome.fresh) };
+    case "unchanged":
+      return { kind: "unchanged" };
+    case "written":
+      return { kind: "pinned", goalIds };
+  }
 }
 
 /** Document à écrire : celui lu dans Jira, avec la seule sélection de Goals remplacée. */
@@ -301,7 +326,7 @@ export function withPinnedGoals(
     goals: [...(fresh?.goals ?? [])],
     links: { ...(fresh?.links ?? {}) },
     atlassianGoalIds: normalizedGoalIds(input.goalIds),
-    updatedAt: timestamp(input.now),
+    updatedAt: sprintGoalTimestamp(input.now),
     updatedBy: input.accountId,
   };
 }
@@ -313,57 +338,4 @@ function normalizedGoalIds(ids: readonly string[]): string[] {
 
 function sameIds(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((id, index) => id === b[index]);
-}
-
-// ─── Propriété d'entité du sprint ────────────────────────────────────────────
-
-/** Clés du document connues de cette version. */
-const DOCUMENT_KEYS = new Set([
-  "version",
-  "goals",
-  "links",
-  "atlassianGoalIds",
-  "updatedAt",
-  "updatedBy",
-]);
-
-interface StoredDocument {
-  readonly document: SprintGoalDocument | null;
-  /**
-   * Clés inconnues, éventuellement ajoutées par une autre version : conservées telles quelles.
-   */
-  readonly unknownKeys: JsonObject;
-}
-
-/**
- * Relit la propriété juste avant de l'écrire. Une valeur qui n'est pas un objet JSON n'est pas
- * écrasée : on ne sait ni ce qu'elle contient, ni qui l'a posée.
- */
-async function readStoredDocument(
-  reader: Pick<WriteReader, "sprintProperty">,
-  sprintId: number,
-): Promise<StoredDocument> {
-  const stored = await reader.sprintProperty(sprintId, SPRINT_PROPERTY_KEYS.goals);
-  if (stored === null) return { document: null, unknownKeys: {} };
-  if (!isRecord(stored)) {
-    throw new JiraError({
-      kind: "decoding",
-      context: "propriété des objectifs du sprint : objet JSON attendu, rien n'a été écrit",
-      detail: Array.isArray(stored) ? "tableau" : typeof stored,
-    });
-  }
-  const unknownKeys: JsonObject = {};
-  for (const [key, value] of Object.entries(stored)) {
-    if (!DOCUMENT_KEYS.has(key)) unknownKeys[key] = value as JsonValue;
-  }
-  return { document: decodeSprintGoalDocument(stored), unknownKeys };
-}
-
-function documentValue(stored: StoredDocument, document: SprintGoalDocument): JsonObject {
-  return { ...stored.unknownKeys, ...encodeSprintGoalDocument(document) };
-}
-
-/** Horodatage persisté : ISO 8601, à la seconde. */
-function timestamp(now: Date): string {
-  return now.toISOString().replace(/\.\d{3}Z$/, "Z");
 }

@@ -80,6 +80,8 @@ export const businessMessages = {
     "This goal no longer exists in the sprint. Refresh the board.",
   "propriété des objectifs du sprint : objet JSON attendu, rien n'a été écrit":
     "sprint goals property: a JSON object was expected; nothing was written",
+  "propriété des objectifs du sprint : version inconnue ou illisible, rien n'a été écrit":
+    "sprint goals property: unknown version or unreadable content; nothing was written",
   "Ajouté en cours de sprint": "Added during the sprint",
   Bloqués: "Blocked",
   Ajoutés: "Added",
@@ -383,6 +385,11 @@ export const businessMessages = {
   "L'affichage a été relu dans Jira. Relancez le déplacement si besoin.":
     "The view was reloaded from Jira. Try the move again if needed.",
   "conflit : statut modifié dans Jira": "conflict: status changed in Jira",
+  "Ce ticket a été modifié par quelqu'un d'autre depuis le chargement.":
+    "Someone else changed this issue since the board was loaded.",
+  "Le board a été rechargé ; recommence si besoin.":
+    "The board has been reloaded; try again if needed.",
+  "conflit : lien modifié dans Jira": "conflict: link changed in Jira",
   "Complétez « {p0} » dans Jira pour {p1}.": "Complete ‘{p0}’ in Jira for {p1}.",
   "Le board sera actualisé à la fermeture du ticket.":
     "The board will refresh when the issue is closed.",

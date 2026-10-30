@@ -305,6 +305,7 @@ describe("rattachement à un objectif du texte du sprint", () => {
     sprintId: 42,
     issueKey: "ABC-1",
     goalId,
+    knownGoalId: null,
     goals: displayed,
     accountId: "compte-1",
     now: NOW,
@@ -581,6 +582,7 @@ describe("document Jira partagé entre versions", () => {
       sprintId: 42,
       issueKey: "ABC-1",
       goalId: "g1",
+      knownGoalId: null,
       goals: [makeSprintGoal({ id: "g1", title: "Paiement", position: 0, color: "goal1" })],
       accountId: null,
       now: NOW,
@@ -599,11 +601,180 @@ describe("document Jira partagé entre versions", () => {
         sprintId: 42,
         issueKey: "ABC-1",
         goalId: null,
+        knownGoalId: null,
         goals: [],
         accountId: null,
         now: NOW,
       }),
     ).rejects.toMatchObject({ info: { kind: "decoding" } });
     expect(jira.sent("PUT")).toEqual([]);
+  });
+});
+
+describe("rattachement du texte : matrice de la propriété partagée", () => {
+  const goals = [
+    makeSprintGoal({ id: "g1", title: "Paiement", position: 0 }),
+    makeSprintGoal({ id: "g2", title: "Stabilité", position: 1 }),
+    makeSprintGoal({ id: "g3", title: "Recherche", position: 2 }),
+  ];
+  const link = (jira: FakeJira, goalId: string | null, knownGoalId: string | null = null) => {
+    const { reader, writer } = setup(jira);
+    return linkToTextGoal(reader, writer, {
+      sprintId: 42,
+      issueKey: "ABC-1",
+      goalId,
+      knownGoalId,
+      goals,
+      accountId: "compte-1",
+      now: NOW,
+    });
+  };
+  const stored = (value: unknown) => ({ status: 200, json: { key: "k", value } });
+
+  it("version inconnue : rien n'est écrit, refus de décodage, aucune nouvelle tentative", async () => {
+    const jira = new FakeJira().on(
+      "GET",
+      GOALS,
+      stored({ version: 2, goals: [], links: {}, nouveau: true }),
+    );
+    await expect(link(jira, "g1")).rejects.toMatchObject({ info: { kind: "decoding" } });
+    expect(jira.sent("PUT")).toEqual([]);
+    expect(jira.sent("GET", GOALS)).toHaveLength(1);
+  });
+
+  it("champs inconnus d'un objectif et de la racine écrits inchangés", async () => {
+    const jira = new FakeJira()
+      .on(
+        "GET",
+        GOALS,
+        stored({
+          version: 1,
+          goals: [{ id: "g1", title: "Paiement", color: "goal1", position: 0, extra: 1 }],
+          links: {},
+          future: {},
+        }),
+      )
+      .on("PUT", GOALS, { status: 200 });
+    expect(await link(jira, "g1")).toEqual({ kind: "linked" });
+    expect(jira.sent("PUT")[0]?.body).toMatchObject({
+      future: {},
+      goals: [{ id: "g1", extra: 1 }, { id: "g2" }, { id: "g3" }],
+      links: { "ABC-1": "g1" },
+    });
+  });
+
+  it("autre lien modifié dans Jira : fusion, le lien du collègue est conservé", async () => {
+    const jira = new FakeJira()
+      .on("GET", GOALS, stored({ version: 1, goals: [], links: { "ABC-2": "g2" } }))
+      .on("PUT", GOALS, { status: 200 });
+    expect(await link(jira, "g1")).toEqual({ kind: "linked" });
+    expect(jira.sent("PUT")[0]?.body).toMatchObject({ links: { "ABC-1": "g1", "ABC-2": "g2" } });
+    expect(jira.sent("PUT")).toHaveLength(1);
+  });
+
+  it("même lien modifié dans Jira depuis le chargement : conflit, rien n'est écrit", async () => {
+    const jira = new FakeJira().on(
+      "GET",
+      GOALS,
+      stored({ version: 1, goals: [], links: { "ABC-1": "g3" } }),
+    );
+    expect(await link(jira, "g2", "g1")).toEqual({ kind: "conflict", current: "g3" });
+    expect(jira.requests.filter((r) => r.method !== "GET")).toEqual([]);
+  });
+
+  it("détachement refusé si le lien du ticket a changé dans Jira", async () => {
+    const jira = new FakeJira().on(
+      "GET",
+      GOALS,
+      stored({ version: 1, goals: [], links: { "ABC-1": "g3" } }),
+    );
+    expect(await link(jira, null, "g1")).toEqual({ kind: "conflict", current: "g3" });
+    expect(jira.sent("PUT")).toEqual([]);
+  });
+
+  it("lien connu retiré dans Jira depuis le chargement : conflit", async () => {
+    const jira = new FakeJira().on("GET", GOALS, stored({ version: 1, goals: [], links: {} }));
+    expect(await link(jira, "g2", "g1")).toEqual({ kind: "conflict", current: null });
+    expect(jira.sent("PUT")).toEqual([]);
+  });
+
+  it("base inconnue (knownGoalId absent) : fusion sur Jira frais, sans contrôle", async () => {
+    const jira = new FakeJira()
+      .on("GET", GOALS, stored({ version: 1, goals: [], links: { "ABC-1": "g3", "ABC-2": "g2" } }))
+      .on("PUT", GOALS, { status: 200 });
+    const { reader, writer } = setup(jira);
+    const outcome = await linkToTextGoal(reader, writer, {
+      sprintId: 42,
+      issueKey: "ABC-1",
+      goalId: "g1",
+      goals,
+      accountId: "compte-1",
+      now: NOW,
+    });
+    expect(outcome).toEqual({ kind: "linked" });
+    expect(jira.sent("PUT")[0]?.body).toMatchObject({ links: { "ABC-1": "g1", "ABC-2": "g2" } });
+    expect(jira.sent("PUT")).toHaveLength(1);
+  });
+
+  it("rien à changer hors horodatage : aucune écriture", async () => {
+    const jira = new FakeJira().on(
+      "GET",
+      GOALS,
+      stored({
+        version: 1,
+        goals: goals.map(({ id, title, position }) => ({
+          id,
+          title,
+          position,
+          color: `goal${position + 1}`,
+        })),
+        links: { "ABC-1": "g1" },
+        atlassianGoalIds: [],
+        updatedAt: "2026-01-01T00:00:00Z",
+      }),
+    );
+    expect(await link(jira, "g1", "g1")).toEqual({ kind: "unchanged" });
+    expect(jira.sent("PUT")).toEqual([]);
+  });
+});
+
+describe("épinglage : matrice de la propriété partagée", () => {
+  const PAIEMENT = "ari:cloud:townsquare:c:goal/paiement";
+  const stored = (value: unknown) => ({ status: 200, json: { key: "k", value } });
+  const pin = (jira: FakeJira) => {
+    const { reader, writer } = setup(jira);
+    return pinAtlassianGoals(reader, writer, {
+      sprintId: 42,
+      shownGoalIds: [],
+      goalIds: [PAIEMENT],
+      accountId: "compte-1",
+      now: NOW,
+    });
+  };
+
+  it("version inconnue : rien n'est écrit", async () => {
+    const jira = new FakeJira().on("GET", GOALS, stored({ version: 2, atlassianGoalIds: [] }));
+    await expect(pin(jira)).rejects.toMatchObject({ info: { kind: "decoding" } });
+    expect(jira.sent("PUT")).toEqual([]);
+  });
+
+  it("champs inconnus d'un objectif conservés", async () => {
+    const jira = new FakeJira()
+      .on(
+        "GET",
+        GOALS,
+        stored({
+          version: 1,
+          goals: [{ id: "g1", title: "Paiement", color: "goal1", position: 0, extra: 1 }],
+          future: {},
+        }),
+      )
+      .on("PUT", GOALS, { status: 200 });
+    expect((await pin(jira)).kind).toBe("pinned");
+    expect(jira.sent("PUT")[0]?.body).toMatchObject({
+      future: {},
+      goals: [{ id: "g1", extra: 1 }],
+      atlassianGoalIds: [PAIEMENT],
+    });
   });
 });

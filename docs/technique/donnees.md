@@ -15,6 +15,10 @@ autres références : [index technique](index.md).
 Préserver ces noms et les identifiants ; relecture avant modification, conflits refusés, données
 illisibles jamais écrasées, clés inconnues conservées, limite client 32 Ko. Références de format :
 [`sprintGoals.ts`](../../src/core/sprintGoals.ts), [`teamSettings.ts`](../../src/core/teamSettings.ts) et leurs tests.
+`sprintgoals.v1` n'est mis à jour que par `updateSprintGoalProperty` (`sprintGoals.ts`) : relecture
+stricte (version inconnue refusée), refus si la zone modifiée a changé depuis le chargement (lien
+du ticket, Goals épinglés, document entier pour le planning), fusion sur Jira frais sinon, clés
+inconnues gardées à la racine et par objectif, `updatedAt` ISO à la seconde, une seule écriture.
 Les anciennes valeurs `SCRUM`/`KANBAN`, `showKanbanSection`, `kanbanSectionLabel`,
 `dailyKanbanStockLimit` restent compatibles ; retrait seulement avec migration et décision sur les
 anciennes installations. Valeurs absentes : défauts compatibles, pas de perte des données.

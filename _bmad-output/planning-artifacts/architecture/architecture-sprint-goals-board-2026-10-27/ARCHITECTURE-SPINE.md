@@ -208,7 +208,6 @@ Le code actuel s'écarte de la spine sur ces points. Un agent ne les prend jamai
 | AD-2 | `BoardSettingsService` relit et détecte les conflits de `boardsettings.v1` avant `publishTeamSettings` : déplacer dans `core/teamSettings.ts` |
 | AD-2, AD-6 | `PlanningModel` déclenche `publishSprintPlanning` et journalise depuis un modèle, avec le transport non décoré |
 | AD-6 | Files d'écriture séparées : `BoardSettingsService.#teamQueue`, `BoardModel.dropIssue` (`pendingKeys` seulement), rattachement texte sans file |
-| AD-4 | `sprintgoals.v1` décodé et encodé hors de `core/sprintGoals.ts` (`boardWrites.ts` : `readStoredDocument`, `DOCUMENT_KEYS` ; `sprintPlanning.ts` : `readGoalProperty`), avec trois politiques de conflit ; `linkToTextGoal` réencode une version inconnue et perd les champs inconnus d'un objectif |
 | AD-4 | Choix de la propriété des Goals épinglés fait dans `BoardSettingsService` selon `boardType` |
 | AD-4 | Clés par site sous deux formes (carte par site : `boards.v1`, `dismissedNotices.v1`, `graphqlOrigin.v1`, `audit.v1`) ; effacement par liste manuelle dans `AppModel.disconnect()` au lieu de `forgetSite` |
 | AD-7 | `src/integration/messages.ts` n'existe pas : littéraux `sprint-goals:*` répartis dans `embedded.ts`, `injectBoard.ts`, `worker.ts`, `bootstrap.ts`, `launcherChrome.ts` |

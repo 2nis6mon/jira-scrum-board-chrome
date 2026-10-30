@@ -1,4 +1,8 @@
+import type { JiraClient } from "../jira/client";
+import { JiraError } from "../jira/errors";
 import { isRecord, type JsonObject } from "../jira/json";
+import type { JiraTransport } from "../jira/transport";
+import { buildWriteRequest, SPRINT_PROPERTY_KEYS } from "../jira/writes";
 
 /**
  * Un objectif de sprint tel que manipulé par l'application.
@@ -198,6 +202,239 @@ export function encodeSprintGoalDocument(document: SprintGoalDocument): JsonObje
 
 function optionalText(value: unknown): string | null {
   return typeof value === "string" ? value : null;
+}
+
+// ─── Mise à jour de la propriété (seul écrivain de `sprintgoals.v1`) ─────────
+
+/** Lecture de la propriété dont la mise à jour a besoin. `JiraClient` la fournit. */
+export type SprintGoalPropertyReader = Pick<JiraClient, "sprintProperty">;
+/** Seule porte d'écriture : l'inventaire fermé de `writes.ts`. */
+export type SprintGoalPropertyWriter = Pick<JiraTransport, "write">;
+
+/** Clés du document connues de cette version. Les autres sont conservées telles quelles. */
+const DOCUMENT_KEYS = new Set([
+  "version",
+  "goals",
+  "links",
+  "atlassianGoalIds",
+  "updatedAt",
+  "updatedBy",
+]);
+/** Clés d'un objectif connues de cette version. Les autres sont conservées, par `id`. */
+const GOAL_KEYS = new Set([
+  "id",
+  "title",
+  "color",
+  "position",
+  "atlassianGoalId",
+  "atlassianKey",
+  "atlassianStatus",
+  "atlassianURL",
+]);
+
+/** Lecture stricte, avant toute écriture : une donnée qu'on ne comprend pas n'est jamais écrasée. */
+export type StrictSprintGoalRead =
+  /** Propriété absente du sprint. */
+  | { kind: "absent" }
+  | { kind: "document"; raw: JsonObject; document: SprintGoalDocument }
+  /** Valeur qui n'est pas un objet JSON, version inconnue ou champ connu mal formé. */
+  | { kind: "unreadable"; reason: "notObject" | "unknownFormat"; detail: string };
+
+export function readSprintGoalProperty(raw: unknown): StrictSprintGoalRead {
+  if (raw === null || raw === undefined) return { kind: "absent" };
+  if (!isRecord(raw)) {
+    return {
+      kind: "unreadable",
+      reason: "notObject",
+      detail: Array.isArray(raw) ? "tableau" : typeof raw,
+    };
+  }
+  const malformed =
+    (raw.version !== undefined && raw.version !== SPRINT_GOAL_DOCUMENT_VERSION) ||
+    (raw.atlassianGoalIds !== undefined &&
+      (!Array.isArray(raw.atlassianGoalIds) ||
+        raw.atlassianGoalIds.some((id) => typeof id !== "string"))) ||
+    (raw.goals !== undefined &&
+      (!Array.isArray(raw.goals) ||
+        raw.goals.some(
+          (goal) =>
+            !isRecord(goal) || typeof goal.id !== "string" || typeof goal.title !== "string",
+        ))) ||
+    (raw.links !== undefined &&
+      (!isRecord(raw.links) || Object.values(raw.links).some((id) => typeof id !== "string")));
+  if (malformed) {
+    return {
+      kind: "unreadable",
+      reason: "unknownFormat",
+      detail: raw.version === undefined ? "champ mal formé" : `version ${String(raw.version)}`,
+    };
+  }
+  return { kind: "document", raw: raw as JsonObject, document: decodeSprintGoalDocument(raw) };
+}
+
+/** Erreur levée quand la propriété relue ne peut pas être mise à jour sans risque. */
+function unreadableError(read: Extract<StrictSprintGoalRead, { kind: "unreadable" }>): JiraError {
+  return new JiraError({
+    kind: "decoding",
+    context:
+      read.reason === "notObject"
+        ? "propriété des objectifs du sprint : objet JSON attendu, rien n'a été écrit"
+        : "propriété des objectifs du sprint : version inconnue ou illisible, rien n'a été écrit",
+    detail: read.detail,
+  });
+}
+
+/**
+ * Forme JSON à écrire : le document encodé, posé sur la valeur brute relue dans Jira. Les clés
+ * inconnues sont gardées à la racine et dans chaque objectif (retrouvé par son `id`) ; les clés
+ * connues sont celles du document, un champ vide disparaît.
+ */
+export function encodeSprintGoalPropertyOver(
+  raw: JsonObject | null,
+  document: SprintGoalDocument,
+): JsonObject {
+  const encoded = encodeSprintGoalDocument(document);
+  const rawGoals = new Map<string, JsonObject>();
+  for (const item of raw && Array.isArray(raw.goals) ? raw.goals : []) {
+    if (isRecord(item) && typeof item.id === "string" && !rawGoals.has(item.id))
+      rawGoals.set(item.id, item as JsonObject);
+  }
+  const goals = (encoded.goals as JsonObject[]).map((goal) => {
+    const previous = rawGoals.get(goal.id as string);
+    return previous ? { ...unknownEntries(previous, GOAL_KEYS), ...goal } : goal;
+  });
+  return { ...(raw ? unknownEntries(raw, DOCUMENT_KEYS) : {}), ...encoded, goals };
+}
+
+function unknownEntries(value: JsonObject, known: ReadonlySet<string>): JsonObject {
+  const kept: JsonObject = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (!known.has(key)) kept[key] = entry;
+  }
+  return kept;
+}
+
+/** Horodatage persisté par tous les écrivains : ISO 8601, à la seconde. */
+export function sprintGoalTimestamp(now: Date): string {
+  return now.toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+/**
+ * Deux valeurs de la propriété portent-elles le même contenu, horodatage et auteur mis à part ?
+ * Les deux sont normalisées par le même encodage : une propriété absente vaut un document vide.
+ */
+export function sameSprintGoalContent(a: unknown, b: unknown): boolean {
+  const normalized = (value: unknown): string | null => {
+    const read = readSprintGoalProperty(value);
+    if (read.kind === "unreadable") return null;
+    const raw = read.kind === "document" ? read.raw : null;
+    const document = read.kind === "document" ? read.document : makeSprintGoalDocument();
+    return contentKey(encodeSprintGoalPropertyOver(raw, document));
+  };
+  const left = normalized(a);
+  return left !== null && left === normalized(b);
+}
+
+function contentKey(value: JsonObject): string {
+  const { updatedAt: _at, updatedBy: _by, ...content } = value;
+  return stableJson(content);
+}
+
+function stableJson(input: unknown): string {
+  const normalize = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(normalize);
+    if (isRecord(value))
+      return Object.fromEntries(
+        Object.keys(value)
+          .sort()
+          .map((key) => [key, normalize(value[key])]),
+      );
+    return value;
+  };
+  return JSON.stringify(normalize(input));
+}
+
+export interface SprintGoalUpdate {
+  readonly sprintId: number;
+  /**
+   * Vrai si la zone que l'appelant modifie n'a pas changé depuis sa lecture de base. Reçoit le
+   * document frais décodé (`null` : propriété absente) et sa valeur brute.
+   */
+  readonly unchangedSince: (fresh: SprintGoalDocument | null, raw: JsonObject | null) => boolean;
+  /** Mutation pure du document frais (`null` : propriété absente). */
+  readonly mutate: (fresh: SprintGoalDocument | null) => SprintGoalDocument;
+  readonly accountId: string | null;
+  readonly now: Date;
+}
+
+export type PreparedSprintGoalUpdate =
+  /** La zone modifiée a changé depuis la lecture de base : `mutate` n'a pas été appelée. */
+  | { kind: "conflict"; fresh: SprintGoalDocument | null }
+  /** Valeur à écrire, déjà validée ; `changed` faux si Jira porte déjà ce contenu. */
+  | { kind: "ready"; value: JsonObject; document: SprintGoalDocument; changed: boolean };
+
+/**
+ * Prépare la mise à jour sur la valeur brute relue, sans rien écrire : lecture stricte (lève une
+ * erreur de décodage si la propriété est illisible ou d'une version inconnue), contrôle de la zone
+ * modifiée, mutation, horodatage, encodage conservant les inconnus et validation de la requête
+ * (taille comprise).
+ */
+export function prepareSprintGoalUpdate(
+  raw: unknown,
+  input: SprintGoalUpdate,
+): PreparedSprintGoalUpdate {
+  const read = readSprintGoalProperty(raw);
+  if (read.kind === "unreadable") throw unreadableError(read);
+  const freshRaw = read.kind === "document" ? read.raw : null;
+  const fresh = read.kind === "document" ? read.document : null;
+  if (!input.unchangedSince(fresh, freshRaw)) return { kind: "conflict", fresh };
+
+  const document: SprintGoalDocument = {
+    ...input.mutate(fresh),
+    version: SPRINT_GOAL_DOCUMENT_VERSION,
+    updatedAt: sprintGoalTimestamp(input.now),
+    updatedBy: input.accountId,
+  };
+  const value = encodeSprintGoalPropertyOver(freshRaw, document);
+  buildWriteRequest({
+    kind: "sprintProperty.put",
+    sprintId: input.sprintId,
+    key: SPRINT_PROPERTY_KEYS.goals,
+    value,
+  });
+  const before = encodeSprintGoalPropertyOver(freshRaw, fresh ?? makeSprintGoalDocument());
+  return { kind: "ready", value, document, changed: contentKey(value) !== contentKey(before) };
+}
+
+export type SprintGoalUpdateOutcome =
+  | { kind: "conflict"; fresh: SprintGoalDocument | null }
+  /** Jira porte déjà ce contenu : rien n'a été écrit. */
+  | { kind: "unchanged"; value: JsonObject; document: SprintGoalDocument }
+  /** Écrit une fois ; la valeur envoyée est renvoyée pour une éventuelle relecture de contrôle. */
+  | { kind: "written"; value: JsonObject; document: SprintGoalDocument };
+
+/**
+ * Seule mise à jour de `com.scrumboardmac.sprintgoals.v1` : relecture juste avant l'écriture,
+ * refus si la zone modifiée a changé (fusion sur le document frais sinon), une seule écriture,
+ * jamais rejouée. Une relecture impossible ou une propriété illisible n'écrit rien.
+ */
+export async function updateSprintGoalProperty(
+  reader: SprintGoalPropertyReader,
+  writer: SprintGoalPropertyWriter,
+  input: SprintGoalUpdate,
+): Promise<SprintGoalUpdateOutcome> {
+  const raw = await reader.sprintProperty(input.sprintId, SPRINT_PROPERTY_KEYS.goals);
+  const prepared = prepareSprintGoalUpdate(raw, input);
+  if (prepared.kind === "conflict") return prepared;
+  const { value, document } = prepared;
+  if (!prepared.changed) return { kind: "unchanged", value, document };
+  await writer.write({
+    kind: "sprintProperty.put",
+    sprintId: input.sprintId,
+    key: SPRINT_PROPERTY_KEYS.goals,
+    value,
+  });
+  return { kind: "written", value, document };
 }
 
 // ─── Champ texte natif `sprint.goal` ─────────────────────────────────────────

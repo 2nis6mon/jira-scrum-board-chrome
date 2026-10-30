@@ -298,6 +298,11 @@ export async function loadSnapshot(input: {
   const pinnedGoalIds: readonly string[] | null = reference.known
     ? (document?.atlassianGoalIds ?? [])
     : null;
+  const storedTextLinks: Record<number, Record<string, string>> = {};
+  goalSprints.forEach((goalSprint, index) => {
+    const entry = documents[index];
+    if (entry?.known) storedTextLinks[goalSprint.id] = { ...(entry.document?.links ?? {}) };
+  });
   const otherPins = documents.slice(1).flatMap((entry) => entry.document?.atlassianGoalIds ?? []);
   const sprintOfIssue = new Map(
     issuesBySprint.flatMap((entry) => entry.issues.map((issue) => [issue.key, entry.sprint.id])),
@@ -378,6 +383,7 @@ export async function loadSnapshot(input: {
         goals: coloredGoals,
         goalSprintIds: goalSprints.map((goalSprint) => goalSprint.id),
         ...(goalSprintOf ? { goalSprintOf } : {}),
+        storedTextLinks,
         goalsOrigin,
         goalIssues,
         swimlaneIssues,

@@ -6,7 +6,13 @@ const RUN_BLOCK = swimlaneBlock("1");
 
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
-import { BOARD_URL, boardSiteJira, GOALS_DOCUMENT, SPRINT_ISSUES } from "../support/boardFixture";
+import {
+  BOARD_URL,
+  boardSiteJira,
+  GOALS_DOCUMENT,
+  SPRINT_GOAL_TEXT,
+  SPRINT_ISSUES,
+} from "../support/boardFixture";
 import { type FakeJira, isWriteRequest, type Reply } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 import { issueJson, statusJson } from "../support/jiraFixtures";
@@ -953,5 +959,125 @@ describe("formulaire de transition natif Jira", () => {
     expect(board.canSwitchBoard.value).toBe(false);
     expect(writes()).toEqual([]);
     board.dispose();
+  });
+});
+
+describe("glisser-déposer — rattachement texte en conflit", () => {
+  it("lien du ticket modifié dans Jira depuis le chargement : refus, rien n'est écrit ni rejoué, board relu", async () => {
+    const { board, jira, writes } = await boardWith();
+    // Un collègue rattache ABC-105 pendant que le board est affiché.
+    jira.on("GET", PROPERTY, {
+      status: 200,
+      json: {
+        value: { ...GOALS_DOCUMENT, links: { ...GOALS_DOCUMENT.links, "ABC-105": "g-paiement" } },
+      },
+    });
+    const reads = () => jira.requests.filter((r) => r.method === "GET" && r.path === PROPERTY);
+    const before = reads().length;
+
+    await board.dropIssue({
+      issueKey: "ABC-105",
+      block: goalBlock("g-stabilite"),
+      columnId: TODO,
+      beforeKey: null,
+    });
+
+    expect(writes()).toEqual([]);
+    expect(board.writeNotice.value).toMatchObject({
+      tone: "warning",
+      text: "Ce ticket a été modifié par quelqu'un d'autre depuis le chargement.",
+      suggestion: "Le board a été rechargé ; recommence si besoin.",
+    });
+    // Une relecture pour l'écriture refusée, une pour le board.
+    expect(reads().length).toBe(before + 2);
+    expect(
+      board.snapshot.value?.goalIssues.find((issue) => issue.issue.key === "ABC-105")?.goalId,
+    ).toBe("g-paiement");
+    const [entry] = await board.audit.list(SITE.origin);
+    expect(entry).toMatchObject({
+      action: "rattachement",
+      outcome: "échec",
+      detail: "conflit : lien modifié dans Jira",
+    });
+  });
+});
+
+describe("glisser-déposer — rattachement texte sans conflit", () => {
+  const PROPERTY_43 = `/rest/agile/1.0/sprint/43/properties/${SPRINT_PROPERTY_KEYS.goals}`;
+
+  it("ticket du sprint 43 déjà lié dans sa propriété : écrit dans la propriété 43, pas refusé", async () => {
+    const sprint = (id: number, startDate: string, goal: string) => ({
+      id,
+      name: `Sprint ${id}`,
+      state: "active",
+      originBoardId: 7,
+      startDate,
+      endDate: "2026-09-25T18:00:00.000+0200",
+      goal,
+    });
+    const jira = boardSiteJira()
+      .on("GET", "/rest/agile/1.0/board/7/sprint", {
+        status: 200,
+        json: {
+          isLast: true,
+          values: [
+            sprint(42, "2026-09-14T08:00:00.000+0200", SPRINT_GOAL_TEXT),
+            sprint(43, "2026-09-15T08:00:00.000+0200", "Pixel"),
+          ],
+        },
+      })
+      .on("GET", "/rest/agile/1.0/board/7/sprint/43/issue", {
+        status: 200,
+        json: { issues: [issueJson("ABC-301", { statusId: "1" })], total: 1 },
+      })
+      .on("GET", PROPERTY_43, {
+        status: 200,
+        json: { value: { version: 1, goals: [], links: { "ABC-301": "g-paiement" } } },
+      })
+      .on("PUT", PROPERTY_43, { status: 200 });
+    const { board, writes } = await boardWith(jira);
+    expect(
+      board.snapshot.value?.goalIssues.find((issue) => issue.issue.key === "ABC-301")?.goalId,
+    ).toBe("g-paiement");
+
+    await board.dropIssue({
+      issueKey: "ABC-301",
+      block: goalBlock("g-stabilite"),
+      columnId: TODO,
+      beforeKey: null,
+    });
+
+    expect(writes().map((r) => r.path)).toEqual([PROPERTY_43]);
+    expect(writes()[0]?.body).toMatchObject({ links: { "ABC-301": "g-stabilite" } });
+    expect(board.writeNotice.value).toBeNull();
+  });
+
+  it("propriété non lue au chargement, ticket lié dans Jira : écrit, pas refusé", async () => {
+    let readable = false;
+    let linked: Record<string, unknown> = {};
+    const jira = boardSiteJira();
+    jira.on("GET", PROPERTY, () =>
+      readable
+        ? { status: 200, json: { value: { ...linked } } }
+        : { status: 500, json: { errorMessages: ["Indisponible"] } },
+    );
+    const { board, writes } = await boardWith(jira);
+    const goals = board.snapshot.value?.goals ?? [];
+    expect(goals.length).toBeGreaterThanOrEqual(2);
+    const [first, second] = goals;
+    linked = { version: 1, goals: [], links: { "ABC-105": first?.id } };
+    readable = true;
+    jira.on("PUT", PROPERTY, { status: 200 });
+
+    await board.dropIssue({
+      issueKey: "ABC-105",
+      block: goalBlock(second?.id ?? ""),
+      columnId: TODO,
+      beforeKey: null,
+    });
+
+    expect(writes().map((r) => r.path)).toEqual([PROPERTY]);
+    expect(writes()[0]?.body).toMatchObject({ links: { "ABC-105": second?.id } });
+    expect(board.writeNotice.value).toBeNull();
   });
 });
