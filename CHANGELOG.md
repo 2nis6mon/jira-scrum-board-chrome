@@ -20,6 +20,9 @@ sont dans la [documentation technique](docs/technique/index.md).
 - Chaque geste qui écrit dans Jira depuis un board (déplacement, rattachement, réglages partagés,
   épinglage, publication du Sprint Planning) attend la fin du précédent sur ce board ; une écriture
   préparée pour un board quitté n'est jamais envoyée. Avis et journal inchangés.
+- Le contrat de mesure des lectures Jira (`LoadTrace`) rejoint `src/jira/` ; les tests vérifient
+  désormais que `src/jira/` ne dépend jamais du métier et que seuls `AppModel`, `BoardModel` et
+  `DiagnosticModel` construisent transport, clients Jira et journal. Comportement inchangé.
 
 ## 0.36.1 — Langue dans les préférences personnelles
 

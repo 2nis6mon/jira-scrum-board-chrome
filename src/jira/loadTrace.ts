@@ -1,23 +1,21 @@
-import { JiraError } from "../jira/errors";
+import { JiraError } from "./errors";
 
-export const LOAD_PHASE_LABELS = {
-  startup: "Démarrage dans Jira",
-  structure: "Configuration du board",
-  statuses: "Statuts Jira",
-  fields: "Champs Jira",
-  types: "Types de tickets",
-  settings: "Réglages du board",
-  user: "Compte courant",
-  sprints: "Sprints",
-  issues: "Tickets",
-  goalSettings: "Réglages des objectifs",
-  goals: "Objectifs et rattachements",
-  assemble: "Préparation du board",
-  filters: "Filtres rapides",
-  colors: "Couleurs des cartes",
-} as const;
-
-export type LoadPhase = keyof typeof LOAD_PHASE_LABELS;
+// Libellés affichés : côté app (`app/model/LoadDiagnostics.ts`), jamais dans la couche Jira.
+export type LoadPhase =
+  | "startup"
+  | "structure"
+  | "statuses"
+  | "fields"
+  | "types"
+  | "settings"
+  | "user"
+  | "sprints"
+  | "issues"
+  | "goalSettings"
+  | "goals"
+  | "assemble"
+  | "filters"
+  | "colors";
 
 /** Mesures facultatives : aucune donnée Jira ni message d'erreur brut. */
 export interface LoadTrace {
@@ -62,18 +60,12 @@ export interface ReadObserver {
 /** Appelé une fois par lecture logique ; son résultat suit toutes les tentatives de celle-ci. */
 export type ObserveRead = (kind: ReadKind) => ReadObserver | undefined;
 
-export const LOAD_SPAN_LABELS = {
-  ...LOAD_PHASE_LABELS,
-  get: "Lecture Jira GET",
-  readPost: "Lecture Jira POST",
-  graphql: "Lecture Goals GraphQL",
-  retry: "Attente avant nouvelle tentative",
-} as const;
+export type LoadSpanLabel = LoadPhase | "get" | "readPost" | "graphql" | "retry";
 
 export interface LoadSpan {
   readonly id: number;
   readonly kind: "phase" | "request" | "wait";
-  readonly label: keyof typeof LOAD_SPAN_LABELS;
+  readonly label: LoadSpanLabel;
   readonly startMs: number;
   readonly durationMs: number | null;
   readonly status: "running" | "ok" | "error" | "cancelled";

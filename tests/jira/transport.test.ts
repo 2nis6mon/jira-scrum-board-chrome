@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ObserveRead, ReadResult } from "../../src/core/loadTrace";
 import { JiraError, type JiraErrorInfo } from "../../src/jira/errors";
+import type { ObserveRead, ReadResult } from "../../src/jira/loadTrace";
 import { isReadOnlyGraphql, JiraTransport } from "../../src/jira/transport";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { ACME, FakeJira, XSRF_REFUSAL } from "../support/fakeJira";

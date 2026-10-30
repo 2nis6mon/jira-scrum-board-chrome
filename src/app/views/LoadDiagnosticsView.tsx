@@ -1,8 +1,12 @@
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
-import { LOAD_SPAN_LABELS } from "../../core/loadTrace";
 import { languageLocale } from "../../i18n";
 import { language, localize, t } from "../i18n";
-import type { LoadDiagnostics, LoadRun, LoadSpan } from "../model/LoadDiagnostics";
+import {
+  LOAD_SPAN_LABELS,
+  type LoadDiagnostics,
+  type LoadRun,
+  type LoadSpan,
+} from "../model/LoadDiagnostics";
 import "../styles/loadDiagnostics.css";
 
 const seconds = (ms: number) =>

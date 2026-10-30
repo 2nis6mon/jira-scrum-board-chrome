@@ -28,6 +28,71 @@ function filesMatching(pattern: RegExp): string[] {
   return sources.filter(({ code }) => pattern.test(code)).map(({ file }) => file);
 }
 
+type Source = { file: string; code: string };
+
+// Imports des fichiers `from` vers une cible `to`, chacun écrit « fichier → cible » pour
+// qu'un échec désigne le fautif. Couvre `from`, `import()` et l'import d'effet de bord.
+function forbiddenImports(files: Source[], from: RegExp, to: RegExp): string[] {
+  return files
+    .filter(({ file }) => from.test(file))
+    .flatMap(({ file, code }) =>
+      [...code.matchAll(/(?:from\s*|import\s*\(\s*|^\s*import\s+)["']([^"']+)["']/gm)]
+        .map((match) => posix.normalize(posix.join(posix.dirname(file), match[1] ?? "")))
+        .filter((target) => to.test(target))
+        .map((target) => `${file} → ${target}`),
+    );
+}
+
+// Racine de composition (AD-1) : seuls ces modèles construisent l'accès Jira et le journal ;
+// tout autre module les reçoit par injection.
+const COMPOSITION_ROOTS = [
+  "src/app/model/AppModel.ts",
+  "src/app/model/BoardModel.ts",
+  "src/app/model/DiagnosticModel.ts",
+];
+
+function constructionsOutsideRoots(files: Source[]): string[] {
+  return files
+    .filter(({ file }) => !COMPOSITION_ROOTS.includes(file))
+    .flatMap(({ file, code }) =>
+      [
+        ...code.matchAll(
+          /\bnew\s+(JiraTransport|JiraClient|GoalsClient|AuditLog)\s*(?:<[^>]*>\s*)?\(/g,
+        ),
+      ].map((match) => `${file} → new ${match[1]}`),
+    );
+}
+
+describe("gardes de dépendances", () => {
+  // Sources fictives en mémoire : la garde doit échouer en nommant le fichier fautif.
+  it("signale un import jira → core en nommant le fichier", () => {
+    const fictive = [
+      { file: "src/jira/x.ts", code: 'import { y } from "../core/y";' },
+      { file: "src/jira/z.ts", code: 'import { errors } from "./errors";' },
+      { file: "src/core/w.ts", code: 'import type { JiraClient } from "../jira/client";' },
+      { file: "src/jira/effet.ts", code: 'const a = 1;\nimport "../core/x";' },
+      { file: "src/jira/dossier.ts", code: 'export { y } from "../core";' },
+    ];
+    expect(forbiddenImports(fictive, /^src\/jira\//, /^src\/core(?:\/|$)/)).toEqual([
+      "src/jira/x.ts → src/core/y",
+      "src/jira/effet.ts → src/core/x",
+      "src/jira/dossier.ts → src/core",
+    ]);
+  });
+
+  it("signale une construction hors de la racine de composition en nommant le fichier", () => {
+    const fictive = [
+      { file: "src/app/services/X.ts", code: "const client = new JiraClient(transport);" },
+      { file: "src/app/model/BoardModel.ts", code: "this.audit = new AuditLog(store);" },
+      { file: "src/app/services/Y.ts", code: "const goals = new GoalsClient<Goal>(transport);" },
+    ];
+    expect(constructionsOutsideRoots(fictive)).toEqual([
+      "src/app/services/X.ts → new JiraClient",
+      "src/app/services/Y.ts → new GoalsClient",
+    ]);
+  });
+});
+
 describe("code de production", () => {
   it("n'appelle fetch qu'à deux endroits : le transport et son branchement", () => {
     expect(filesMatching(/\bfetch\s*\(/).sort()).toEqual([
@@ -175,12 +240,24 @@ describe("code de production", () => {
   });
 
   it("interdit aux couches métier et Jira de dépendre de l'interface ou de l'intégration", () => {
-    for (const { file, code } of sources.filter(({ file }) => /^src\/(core|jira)\//.test(file))) {
-      for (const match of code.matchAll(/(?:from\s*|import\s*\(\s*)["']([^"']+)["']/g)) {
-        const target = posix.normalize(posix.join(posix.dirname(file), match[1] ?? ""));
-        expect(target, `${file} → ${target}`).not.toMatch(/^src\/(app|integration)\//);
-      }
+    expect(
+      forbiddenImports(sources, /^src\/(core|jira)\//, /^src\/(app|integration)(?:\/|$)/),
+    ).toEqual([]);
+  });
+
+  it("interdit à Jira de dépendre du métier, sans exception (AD-1)", () => {
+    expect(sources.some(({ file }) => file.startsWith("src/jira/"))).toBe(true);
+    expect(forbiddenImports(sources, /^src\/jira\//, /^src\/core(?:\/|$)/)).toEqual([]);
+  });
+
+  it("ne construit transport, clients et journal que dans la racine de composition (AD-1)", () => {
+    for (const file of COMPOSITION_ROOTS) {
+      expect(
+        sources.some((source) => source.file === file),
+        file,
+      ).toBe(true);
     }
+    expect(constructionsOutsideRoots(sources)).toEqual([]);
   });
 
   it("interdit aux services de revenir vers la façade BoardModel ou les vues", () => {

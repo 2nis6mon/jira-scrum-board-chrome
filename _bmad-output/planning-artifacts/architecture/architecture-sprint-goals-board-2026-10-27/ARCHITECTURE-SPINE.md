@@ -143,7 +143,7 @@ seuls les types nouveaux sans choix partagé reçoivent un défaut. Les métadon
 localement dès lecture des tickets, même si les Goals échouent ensuite, sans écriture Jira.
 La relecture explicite de structure conserve le recensement exhaustif et paginé.
 
-[`LoadDiagnostics`](../../../../src/app/model/LoadDiagnostics.ts) et `LoadTrace` mesurent les phases et lectures
+[`LoadDiagnostics`](../../../../src/app/model/LoadDiagnostics.ts) et [`LoadTrace`](../../../../src/jira/loadTrace.ts) mesurent les phases et lectures
 sans appel réseau supplémentaire ; écritures et images sont exclues. Horloge monotone, départ à
 la navigation du document de l'extension (navigation Jira précédente hors mesure), rendu estimé
 après deux frames. Les durées parallèles ne s'additionnent pas ; une relecture de structure pendant
@@ -207,8 +207,6 @@ Le code actuel s'écarte de la spine sur ces points. Un agent ne les prend jamai
 
 | Règle | Écart |
 | --- | --- |
-| AD-1 | `jira/transport.ts` importe `core/loadTrace.ts` : déplacer ce contrat d'observation des lectures dans `src/jira/` (5 importeurs) |
-| AD-1 | `tests/guards/sources.test.ts` ne vérifie ni `jira → core` ni la racine de composition |
 | AD-4 | Clés par site sous deux formes (carte par site : `boards.v1`, `dismissedNotices.v1`, `graphqlOrigin.v1`, `audit.v1`) ; effacement par liste manuelle dans `AppModel.disconnect()` au lieu de `forgetSite` |
 | AD-7 | `src/integration/messages.ts` n'existe pas : littéraux `sprint-goals:*` répartis dans `embedded.ts`, `injectBoard.ts`, `worker.ts`, `bootstrap.ts`, `launcherChrome.ts` |
 | AD-4 | `connection.v1`, `launcher.v1` écrits par `AppModel` et `LauncherModel`, `boards.v1` lu brut par le lanceur : créer `app/model/connectionStore.ts`, passer par lui et `boardStore` |

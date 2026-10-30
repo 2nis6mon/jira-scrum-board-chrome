@@ -1,6 +1,6 @@
-import { loadError, type ObserveRead, type ReadObserver } from "../core/loadTrace";
 import { JiraError } from "./errors";
 import { isRecord, type JsonObject, type JsonValue } from "./json";
+import { loadError, type ObserveRead, type ReadObserver } from "./loadTrace";
 import type { JiraSite } from "./site";
 import { buildGraphqlWrite, buildWriteRequest, type GraphqlWrite, type JiraWrite } from "./writes";
 

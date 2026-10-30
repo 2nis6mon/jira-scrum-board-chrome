@@ -1,5 +1,6 @@
 import { flaggedFieldId, goalsFieldId, type JiraClient } from "../jira/client";
 import { JiraError } from "../jira/errors";
+import type { LoadPhase, LoadTrace } from "../jira/loadTrace";
 import type { JiraIssue, JiraIssueType, JiraSprint, JiraUser } from "../jira/models";
 import { parseBoardUrl } from "../jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../jira/writes";
@@ -19,7 +20,6 @@ import {
 } from "./boardIssue";
 import { cardFieldJiraId } from "./cardFields";
 import { withObservedIssueTypes } from "./issueTypeDiscovery";
-import type { LoadPhase, LoadTrace } from "./loadTrace";
 import {
   assignGoalColors,
   decodeSprintGoalDocument,

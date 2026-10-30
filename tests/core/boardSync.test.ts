@@ -8,10 +8,10 @@ import {
   loadSnapshot,
   refreshBoardStructure,
 } from "../../src/core/boardSync";
-import type { LoadPhase, LoadTrace } from "../../src/core/loadTrace";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
 import { JiraClient } from "../../src/jira/client";
 import { JiraError } from "../../src/jira/errors";
+import type { LoadPhase, LoadTrace } from "../../src/jira/loadTrace";
 import { JiraTransport } from "../../src/jira/transport";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { ACME, FakeJira, type Reply } from "../support/fakeJira";

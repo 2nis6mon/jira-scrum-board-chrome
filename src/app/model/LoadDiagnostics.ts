@@ -1,20 +1,44 @@
 import { signal } from "@preact/signals";
+import { localize } from "../../i18n";
 import {
   LOAD_ERRORS,
-  LOAD_PHASE_LABELS,
-  LOAD_SPAN_LABELS,
   type LoadError,
   type LoadPhase,
   type LoadRun,
   type LoadSpan,
+  type LoadSpanLabel,
   type LoadTrace,
   loadError,
   type ObserveRead,
-} from "../../core/loadTrace";
-import { localize } from "../../i18n";
+} from "../../jira/loadTrace";
 import type { Platform } from "../platform/types";
 
-export type { LoadError, LoadPhase, LoadRun, LoadSpan } from "../../core/loadTrace";
+export type { LoadError, LoadPhase, LoadRun, LoadSpan } from "../../jira/loadTrace";
+
+export const LOAD_PHASE_LABELS = {
+  startup: "Démarrage dans Jira",
+  structure: "Configuration du board",
+  statuses: "Statuts Jira",
+  fields: "Champs Jira",
+  types: "Types de tickets",
+  settings: "Réglages du board",
+  user: "Compte courant",
+  sprints: "Sprints",
+  issues: "Tickets",
+  goalSettings: "Réglages des objectifs",
+  goals: "Objectifs et rattachements",
+  assemble: "Préparation du board",
+  filters: "Filtres rapides",
+  colors: "Couleurs des cartes",
+} as const satisfies Record<LoadPhase, string>;
+
+export const LOAD_SPAN_LABELS = {
+  ...LOAD_PHASE_LABELS,
+  get: "Lecture Jira GET",
+  readPost: "Lecture Jira POST",
+  graphql: "Lecture Goals GraphQL",
+  retry: "Attente avant nouvelle tentative",
+} as const satisfies Record<LoadSpanLabel, string>;
 
 export const LOAD_HISTORY_KEY = "loadDiagnostics.v1";
 export const MAX_LOAD_SPANS = 500;
