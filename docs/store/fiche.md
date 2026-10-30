@@ -134,7 +134,7 @@ Test site, Scrum board, Kanban board and test account access: provided separatel
 4. Check goals, issues, search and filters. Open an issue and close its native Jira dialog to return to the refreshed board.
 5. Move a test issue to another column. A transition without a form uses the account's Jira permissions. If a form is required, fill it in and submit it yourself; the extension does not do this automatically.
 6. Open Board settings from the board-name menu. Check issue-type swimlanes, card fields and card colors. Try JQL suggestions, validation and preview before applying a valid color rule.
-7. Open Personal preferences from the Jira site menu or the language card in board settings. Select English, then Français, then Español. Labels change immediately, while Jira issue content, names and native dialogs keep their original language. The preference is personal and does not change shared settings.
+7. Open Personal preferences from the Jira site menu. Select English, then Français, then Español. Labels change immediately, while Jira issue content, names and native dialogs keep their original language. The preference is personal and does not change shared settings.
 8. Select Auto. With Jira in French the extension is French; with Jira in Spanish it is Spanish; with Jira in English or another language it is English. Reload the Jira page after changing Jira's own language. An unavailable Jira language falls back to English.
 9. Run Daily, move between swimlanes, then finish the Daily. Open the provided Kanban board and check its goals and issues without a sprint.
 10. Sprint Planning is disabled in the distributed package and cannot be enabled through the interface. Back to Jira returns to the native board; it is hidden while the extension sidebar is collapsed.
@@ -166,3 +166,28 @@ les textes et les images. Choisir chaque ressource dans son champ : seul le ZIP
 Procédures officielles vérifiées le 15 octobre 2026 :
 [localiser la fiche](https://developer.chrome.com/docs/webstore/cws-dashboard-listing#localize-your-listing),
 [mettre à jour un article](https://developer.chrome.com/docs/webstore/update/).
+
+## Produire les ressources
+
+Livrer exclusivement `release/sprint-goals-board-<version>.zip`, produit par `npm run package` :
+ne jamais zipper `dist/`, qui conserve le Sprint Planning expérimental. `npm run verify:planning:package`
+contrôle le mode désactivé : entrée absente, ouverture forcée neutralisée, aucune lecture ni publication Planning.
+
+`npm run store:screenshots` utilise l'interface réelle du banc avec des données fictives et le mode
+`package`, dans un navigateur temporaire vierge (`CHROME_PATH` facultatif). Les cinq PNG RGB opaques
+sont générés directement par Chrome dans `docs/store/captures/`, à 1280 × 800 ; leur version,
+les contrôles et leurs empreintes sont consignés dans [captures.json](captures/captures.json).
+Le script vérifie l'absence du planning avant de capturer ; aucun masquage graphique ne remplace le
+feature flag. Vérifier visuellement chaque image après génération, puis joindre les cinq PNG au champ
+des captures du Store. Ces images illustrent les composants du produit sur le banc, sans utiliser de
+session Jira réelle ; elles ne constituent pas un essai sur un workflow client.
+Les promotions `docs/store/promo-440x280.png` et `docs/store/promo-1400x560.png` sont des PNG opaques
+destinés respectivement à la petite vignette obligatoire et au grand visuel facultatif.
+`node scripts/generate-icons.mjs` dérive les icônes de la marque et copie l'icône 128 px dans
+`docs/store/icon-128.png`. Son dessin occupe 96 × 96 px, avec 16 px transparents de chaque côté ;
+la même image figure dans `public/icons/icon-128.png` et le paquet.
+
+Politique : [docs/privacy/index.html](../privacy/index.html),
+à recopier si modifiée dans `2nis6mon/sprint-goals-privacy` publié via GitHub Pages.
+Vérifier que l'URL publique présente bien la version relue avant la soumission. Préparer une archive,
+des textes ou des captures ne les publie pas sur le Store ; la soumission reste une action distincte.

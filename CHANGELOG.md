@@ -1,7 +1,7 @@
 # Historique
 
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
-sont dans le [guide développeur](DEVELOPER.md).
+sont dans la [documentation technique](docs/technique/index.md).
 
 ## 0.36.1 — Langue dans les préférences personnelles
 

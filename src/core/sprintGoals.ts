@@ -3,7 +3,7 @@ import { isRecord, type JsonObject } from "../jira/json";
 /**
  * Un objectif de sprint tel que manipulé par l'application.
  *
- * Rappel de la contrainte réelle (DEVELOPER.md, section Contrats API) : Jira
+ * Rappel de la contrainte réelle (docs/technique/integration-jira.md, section Contrats API) : Jira
  * ne connaît qu'UN SEUL champ texte `goal` par sprint. En mode « texte du sprint », les objectifs
  * sont les lignes de ce champ et leurs identifiants stables sont conservés
  * dans une propriété d'entité du sprint, c'est-à-dire un stockage Jira officiel.

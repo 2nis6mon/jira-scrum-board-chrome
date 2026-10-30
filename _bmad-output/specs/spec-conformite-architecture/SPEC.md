@@ -32,7 +32,7 @@ Obligation interne. La spine d'architecture (AD-1 à AD-7) fixe les règles qui 
   - **success:** Un test échoue si un type, un sens ou une validation de `injectBoard.ts` diffère de la liste déclarée ; `verify:jira` passe.
 - **CAP-6**
   - **intent:** Chaque clé locale a son module propriétaire, et la déconnexion efface toutes les données du site par ces modules (AD-4).
-  - **success:** Le lanceur ne lit ni n'écrit de clé locale directement ; un test confronte les modules enregistrés à la table des clés de DEVELOPER.md et vérifie qu'après déconnexion aucune donnée du site ne reste.
+  - **success:** Le lanceur ne lit ni n'écrit de clé locale directement ; un test confronte les modules enregistrés à la table des clés de [docs/technique/donnees.md](../../../docs/technique/donnees.md) et vérifie qu'après déconnexion aucune donnée du site ne reste.
 - **CAP-7**
   - **intent:** `core` ne produit plus de phrases ; le journal enregistre les nouvelles entrées sous forme de clé et paramètres, sans perdre l'affichage des anciennes (convention Erreurs et messages).
   - **success:** Un test de garde refuse une phrase utilisateur dans `src/core/` ; les entrées `audit.v1` existantes s'affichent comme avant, dans les trois langues.

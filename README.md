@@ -46,7 +46,7 @@ automatiquement. Les limites et les réglages sont décrits dans le manuel.
 | [Manuel utilisateur](docs/manuel-utilisateur.md) | Installer, autoriser Jira, ajouter un board depuis Jira ou l'extension, utiliser et administrer le board |
 | [User guide in English](docs/user-guide.en.md) | Install, connect Jira, add boards, use and configure the extension |
 | [Manual de usuario en español](docs/user-guide.es.md) | Instalar, conectar Jira, añadir tableros, utilizar y configurar la extensión |
-| [Guide développeur](DEVELOPER.md) | Architecture, intégration Jira, API, sécurité, tests et travaux restants |
+| [Documentation technique](docs/technique/index.md) | Architecture, invariants, intégration Jira, API, données, sécurité, contrôles et backlog |
 | [Consignes de contribution](AGENTS.md) | Règles à respecter pour modifier le dépôt, pour toute IA ou personne |
 | [Historique](CHANGELOG.md) | Évolutions par version |
 | [Fiche Chrome Web Store](docs/store/fiche.md) | Textes et éléments de publication |

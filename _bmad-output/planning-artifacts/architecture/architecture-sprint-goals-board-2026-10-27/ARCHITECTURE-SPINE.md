@@ -7,15 +7,15 @@ paradigm: 'architecture en couches à noyau lié à Jira (hexagonal différé)'
 scope: 'Extension Chrome MV3 intégrée à Jira Cloud : tout src/, public/, board.html, launcher.html'
 status: final
 created: '2026-10-27'
-updated: '2026-10-27'
+updated: '2026-10-30'
 binds: [all]
-sources: [CLAUDE.md, DEVELOPER.md, src/, tests/guards/sources.test.ts]
+sources: [AGENTS.md, docs/technique/, src/, tests/guards/sources.test.ts]
 companions: [.memlog.md]
 ---
 
 # Architecture Spine — Sprint Goals Board pour Jira
 
-Contrat de cohérence. [DEVELOPER.md](../../../../DEVELOPER.md) reste la référence technique (contrats API, inventaire E1–E9, données persistantes, sécurité S1–S12) ; [CLAUDE.md](../../../../CLAUDE.md) les règles produit. Cette spine ne les recopie pas : elle fixe les règles de structure qu'un agent ne déduit pas du code.
+Contrat de cohérence et carte des modules. La [documentation technique](../../../../docs/technique/index.md) reste la référence des comportements (invariants, contrats API, inventaire E1–E9, données persistantes, sécurité S1–S12) ; [AGENTS.md](../../../../AGENTS.md) porte les règles produit. Cette spine ne les recopie pas : elle fixe les règles de structure qu'un agent ne déduit pas du code.
 
 ## Design Paradigm
 
@@ -31,7 +31,11 @@ Couches à noyau métier lié à Jira : `core` dépend des **contrats** de `jira
 | Plateforme | `src/app/platform/` | Adaptateurs Chrome injectés |
 | Noyau | `src/core/` | Règles métier et orchestration des écritures |
 | Jira | `src/jira/` | Transport, client, Goals GraphQL, inventaire des écritures |
-| Transversal | `src/i18n/`, `src/app/i18n.ts`, `src/app/featureFlags.ts` | Catalogues, adaptateur réactif de langue, interrupteurs |
+| Transversal | `src/i18n/`, `src/app/i18n.ts`, `src/app/featureFlags.ts` | Catalogues FR/EN/ES et sélection pure de langue, adaptateur réactif de langue, interrupteurs |
+| Pages | `board.html`, `launcher.html` | Vue Preact intégrée ; lanceur/bienvenue sans lecture de tickets |
+| Manifest | `public/manifest.json` | Permissions, CSP, identité et entrées compilées |
+| Tests | `tests/support/`, `tests/harness/` | Faux services et banc visuel, absents de la distribution |
+| Outillage | `scripts/`, `.run/` | Contrôles navigateur, distribution et configurations IntelliJ partagées |
 
 ## Invariants & Rules
 
@@ -104,6 +108,44 @@ graph TD
 - **Prevents:** un message étendu côté vue et rejeté silencieusement côté hôte ; types de message ajoutés sans validation.
 - **Rule:** Les types `sprint-goals:*` (canal `postMessage` ou `chrome.runtime`, sens, schéma de charge utile, validation) sont déclarés dans une liste unique `src/integration/messages.ts`, utilisée par tout module qui peut importer. La copie inévitable dans `injectBoard.ts` est un doublon nommé, couvert par un test qui compare littéraux et validations. Origine et fenêtre source restent vérifiées dans les deux sens.
 
+## Modules et flux
+
+[`AppModel`](../../../../src/app/model/AppModel.ts) pilote connexion et présentation ;
+[`BoardModel`](../../../../src/app/model/BoardModel.ts) reste la façade des vues : signaux, état visuel,
+filtres et méthodes publiques. Trois services dans `src/app/services/` portent les opérations :
+
+| Service | Responsabilité |
+|---|---|
+| `BoardLoadingService` | Synchronisation, relance des lectures concurrentes, résultats périmés, types observés et diagnostic |
+| `BoardMovementService` | Commandes transition → Goal → rang, délégation native, erreurs partielles et journal |
+| `BoardSettingsService` | Écritures de réglages en file, conflits, permissions et épinglage Scrum/Kanban |
+
+Leurs ports décrivent les seuls états et effets nécessaires ; ils n'importent ni `BoardModel`,
+ni les vues, ni Preact, ni le DOM ou Chrome. Les types communs sont dans `BoardTypes.ts`, réexportés
+par la façade pour conserver les imports existants. Les adaptateurs réels sont assemblés dans
+le constructeur du modèle ; les tests peuvent fournir des états ordinaires et des services fictifs.
+
+`boardSync` lit le périmètre, `boardIssue` assemble les cartes, `boardLayout`/`boardBlocks` les
+répartissent ; `pendingMove` projette les déplacements. `dropPlan` prépare l'intention et
+`boardWrites` l'exécute après relecture. `teamSettings` gère le partage, `boardStore` la copie locale
+et le board actif par origine, `auditLog` les écritures. `DiagnosticModel` teste les capacités Jira.
+
+L'ouverture relit structure, statuts et champs, sans parcourir l'historique pour recenser les types.
+Les types connus du même site/board et ceux des réglages partagés restent présents même sans ticket.
+[`issueTypeDiscovery`](../../../../src/core/issueTypeDiscovery.ts) les complète depuis les tickets utiles,
+avant les Goals et l'assemblage : catégories et groupes choisis sont conservés ;
+seuls les types nouveaux sans choix partagé reçoivent un défaut. Les métadonnées sont mémorisées
+localement dès lecture des tickets, même si les Goals échouent ensuite, sans écriture Jira.
+La relecture explicite de structure conserve le recensement exhaustif et paginé.
+
+[`LoadDiagnostics`](../../../../src/app/model/LoadDiagnostics.ts) et `LoadTrace` mesurent les phases et lectures
+sans appel réseau supplémentaire ; écritures et images sont exclues. Horloge monotone, départ à
+la navigation du document de l'extension (navigation Jira précédente hors mesure), rendu estimé
+après deux frames. Les durées parallèles ne s'additionnent pas ; une relecture de structure pendant
+la synchronisation prolonge la mesure. **Aucun indicateur ni accès à la popin dans Jira.**
+La vue subsiste uniquement sur le banc `?scenario=board-chargement` ; `verify:loading` contrôle
+copie, historique, fermeture et format étroit, avec captures dans `.vite/`.
+
 ## Consistency Conventions
 
 | Concern | Convention |
@@ -111,11 +153,13 @@ graph TD
 | Textes visibles | Uniquement dans les catalogues `src/i18n` : français source, anglais repli, espagnol complet |
 | Contenus Jira | Rendus en texte Preact, jamais passés à `localize` |
 | Erreurs et messages | `JiraError` côté `jira` ; `core` renvoie des résultats typés ou des clés du catalogue, jamais de phrase ; les modèles produisent le texte ; le journal `audit.v1` stocke clé + paramètres |
-| Lectures Jira | Par `JiraClient`/`GoalsClient` et les endpoints documentés dans DEVELOPER.md, jusqu'à décision sur les endpoints « enhanced » |
+| Lectures Jira | Par `JiraClient`/`GoalsClient` et les endpoints documentés dans [integration-jira.md](../../../../docs/technique/integration-jira.md#contrats-api), jusqu'à décision sur les endpoints « enhanced » |
 | Tests | Faux services et données fictives uniquement sous `tests/` |
 | Langue | Commentaires et commits en français |
 
 ## Stack
+
+Versions relevées le 27/10/2026 ; `package.json` et `package-lock.json` font foi.
 
 | Name | Version |
 | --- | --- |
@@ -175,6 +219,6 @@ Le code actuel s'écarte de la spine sur ces points. Un agent ne les prend jamai
 ## Deferred
 
 - **Inversion hexagonale** (ports définis par `core`, implémentés par `jira`) : à reconsidérer si une seconde source de données apparaît ou si tester `core` sans les types Jira devient pénible. AD-1 sera amendé sur place.
-- **Endpoints Software « enhanced »** : décision produit ouverte dans DEVELOPER.md ; d'ici là, convention « Lectures Jira ».
-- **Canal de publication et de mise à jour** (Store, `storage.managed`) : décision produit ouverte dans DEVELOPER.md.
-- **Contrats API, inventaire des écritures, sécurité** : détenus par DEVELOPER.md et `jira/writes.ts`, non repris ici.
+- **Endpoints Software « enhanced »** : décision produit ouverte dans le [backlog](../../backlog.md) ; d'ici là, convention « Lectures Jira ».
+- **Canal de publication et de mise à jour** (Store, `storage.managed`) : décision produit ouverte dans le [backlog](../../backlog.md).
+- **Contrats API, inventaire des écritures, sécurité** : détenus par la [documentation technique](../../../../docs/technique/index.md) et `jira/writes.ts`, non repris ici.

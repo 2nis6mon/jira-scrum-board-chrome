@@ -1,12 +1,13 @@
 <!-- bmad:context -->
-<!-- Verified 2026-10-30 against 3048d81. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
+<!-- Verified 2026-10-30 against 1ce66a5. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
 ## Sprint Goals Board pour Jira
 
 Extension Chrome pour Jira Cloud, uniquement dans une page Jira autorisée, en Scrum ou Kanban
 (TypeScript, Preact + signals, Vite, Vitest, Biome). Le mode autonome et l'application macOS sont
-abandonnés. Référence technique unique : [guide développeur](DEVELOPER.md) (architecture, API,
-intégration, sécurité E1–E9/S1–S12, validation, livraison, travaux restants) ; utilisation :
+abandonnés. Référence technique : [docs/technique/](docs/technique/index.md) (invariants, intégration et API,
+données, sécurité E1–E9/S1–S12, contrôles et livraison) et la [note d'architecture](_bmad-output/planning-artifacts/architecture/architecture-sprint-goals-board-2026-10-27/ARCHITECTURE-SPINE.md)
+(couches, modules, règles AD-1 à AD-7) ; travaux restants : [backlog](_bmad-output/planning-artifacts/backlog.md) ; utilisation :
 [manuel](docs/manuel-utilisateur.md) ; versions livrées : [historique](CHANGELOG.md) ; entrée du
 projet : [README](README.md). Éviter les copies entre documents. L'historique détaillé reste dans Git.
 
@@ -52,7 +53,7 @@ projet : [README](README.md). Éviter les copies entre documents. L'historique d
 ## Exécuter et vérifier
 
 - Avant commit : `npm run check` et `npm run verify:jira`. Si `dist/` est en cours d'essai,
-  construire ailleurs et utiliser `EXTENSION_DIR` comme décrit dans le guide développeur.
+  construire ailleurs et utiliser `EXTENSION_DIR` comme décrit dans `docs/technique/developpement.md`.
 - Après un changement de texte visible ou de langue : `npm run verify:i18n` (banc fictif, profil Chrome temporaire).
 - Scripts Python de BMAD (`_bmad/scripts/`, skills) : `uv run …`, jamais `python` directement.
 - Ne pas lire les identifiants ou la session Jira de l'utilisateur. Contrôles sur profils Chrome
@@ -74,8 +75,9 @@ projet : [README](README.md). Éviter les copies entre documents. L'historique d
 - Ne pas modifier à la main `_bmad/` (hors `_bmad/custom/`), `.claude/skills/bmad-*` ni
   `.agents/skills/bmad-*` : générés par l'installeur BMAD 6.12.4. Personnaliser dans `_bmad/custom/` ;
   ajouter un outil avec `npx bmad-method@6.12.4 install --action update --tools <outils> --yes`.
-- `_bmad-output/` est versionné (architecture, specs, artefacts BMAD) : documents de travail, pas une
-  seconde référence technique ; reporter les décisions retenues dans le guide développeur.
+- `_bmad-output/` est versionné. La note d'architecture et le backlog y sont des références ; specs et
+  autres artefacts sont des documents de travail : reporter les décisions retenues dans `docs/technique/`
+  ou la note d'architecture.
   `_bmad-output/party-mode/` (mémoire des discussions) reste hors de Git.
 
 ## Pièges connus
