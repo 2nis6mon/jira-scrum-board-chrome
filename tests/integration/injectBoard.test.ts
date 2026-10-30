@@ -252,6 +252,19 @@ describe("hôte Jira — parcours natif autonome", () => {
     expect(current.dialog.getAttribute("aria-label")).toBe("Ticket Jira ABC-102");
   });
 
+  it("ignore un message bien formé venu d'une autre fenêtre ou d'une autre origine", () => {
+    const { send } = mount();
+    const request = { type: "sprint-goals:open-issue", key: "ABC-102" };
+    send(request, "https://evil.example");
+    send(request, EXTENSION, window);
+    send({ type: "sprint-goals:open-board", boardId: 8, projectKey: "XYZ" }, EXTENSION, window);
+    send({ type: "sprint-goals:close" }, "https://evil.example");
+    expect(document.querySelector("dialog")).toBeNull();
+    expect(document.getElementById("sprint-goals-direct")?.hasAttribute("data-leaving")).toBe(
+      false,
+    );
+  });
+
   it("exécute la copie sérialisée, montre la fiche et actualise une fois à sa fermeture", async () => {
     const { frame, board, open } = mount();
     expect(new URL(board.win.location.href).searchParams.get("jiraHost")).toBe(SITE);

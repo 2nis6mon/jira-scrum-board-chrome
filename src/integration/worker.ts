@@ -3,6 +3,7 @@ import { integrationMessages } from "../i18n/integration";
 import { LANGUAGE_PREFERENCE_KEY, languagePreference } from "../i18n/language";
 import { sprintGoalsBoardRoute } from "./boardRoute";
 import { injectBoard } from "./injectBoard";
+import { PROTOCOL, readMessage } from "./messages";
 
 const CONTENT_SCRIPT_ID = "sprint-goals-direct-sites";
 
@@ -29,7 +30,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   // Le lanceur attend l'enregistrement avant d'ouvrir Jira : le premier chargement doit déjà
   // recevoir le script de contenu, y compris juste après l'autorisation du nouveau site.
   if (
-    message?.type === "sprint-goals:prepare-launch" &&
+    readMessage(message, "launcher-to-worker")?.type === PROTOCOL.prepareLaunch.type &&
     sender.id === chrome.runtime.id &&
     // Le lanceur s'ouvre aussi en onglet de bienvenue, avec un paramètre d'affichage.
     sender.url?.split(/[?#]/)[0] === chrome.runtime.getURL("launcher.html")
@@ -39,7 +40,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       .catch(() => respond({ error: true }));
     return true;
   }
-  if (message?.type !== "sprint-goals:launch") return false;
+  if (readMessage(message, "content-to-worker")?.type !== PROTOCOL.launch.type) return false;
   if (
     sender.id !== chrome.runtime.id ||
     sender.frameId !== 0 ||

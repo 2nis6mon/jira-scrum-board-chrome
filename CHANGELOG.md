@@ -23,6 +23,10 @@ sont dans la [documentation technique](docs/technique/index.md).
 - Le contrat de mesure des lectures Jira (`LoadTrace`) rejoint `src/jira/` ; les tests vérifient
   désormais que `src/jira/` ne dépend jamais du métier et que seuls `AppModel`, `BoardModel` et
   `DiagnosticModel` construisent transport, clients Jira et journal. Comportement inchangé.
+- Les messages entre Jira, la vue, le lanceur et le service worker sont déclarés une seule fois
+  (`src/integration/messages.ts`) ; les copies imposées par les scripts sans import sont comparées
+  à cette déclaration par les tests. Valeurs acceptées et refusées inchangées, sauf la clé du
+  ticket à ouvrir, qui doit désormais être une chaîne de caractères.
 
 ## 0.36.1 — Langue dans les préférences personnelles
 

@@ -9,6 +9,19 @@ declare const __INTEGRATION_MESSAGES__: Readonly<
   if (document.documentElement.hasAttribute(marker)) return;
   document.documentElement.setAttribute(marker, "");
 
+  // Doublon nommé de src/integration/messages.ts (ce script n'importe aucun module), comparé par
+  // tests/integration/messages.test.ts.
+  // <protocole sprint-goals>
+  const PROTOCOL = {
+    launch: {
+      type: "sprint-goals:launch",
+      channel: "runtime",
+      direction: "content-to-worker",
+      fields: {},
+    },
+  };
+  // </protocole sprint-goals>
+
   const buttonId = "sprint-goals-open";
   // Même clé dans AppModel.disconnect ; une entrée par site, jamais partagée avec Jira.
   const positionKey = `jira-button-position.v1:${location.origin}`;
@@ -359,7 +372,7 @@ declare const __INTEGRATION_MESSAGES__: Readonly<
     }
     busy = true;
     try {
-      await chrome.runtime.sendMessage({ type: "sprint-goals:launch" });
+      await chrome.runtime.sendMessage({ type: PROTOCOL.launch.type });
     } catch {
       stop();
     } finally {

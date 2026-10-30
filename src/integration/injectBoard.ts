@@ -36,6 +36,126 @@ export function injectBoard(
       (token, name: string) => params[name] ?? token,
     );
 
+  // Doublons nommés de src/integration/messages.ts, comparés par tests/integration/messages.test.ts.
+  // <protocole sprint-goals>
+  const PROTOCOL = {
+    refresh: {
+      type: "sprint-goals:refresh",
+      channel: "postMessage",
+      direction: "host-to-view",
+      fields: {},
+    },
+    language: {
+      type: "sprint-goals:language",
+      channel: "postMessage",
+      direction: "view-to-host",
+      fields: { language: { kind: "enum", values: ["fr", "en", "es"] } },
+    },
+    close: {
+      type: "sprint-goals:close",
+      channel: "postMessage",
+      direction: "view-to-host",
+      fields: {},
+    },
+    openBoard: {
+      type: "sprint-goals:open-board",
+      channel: "postMessage",
+      direction: "view-to-host",
+      fields: {
+        boardId: { kind: "integer", min: 1 },
+        projectKey: { kind: "string", pattern: "^[A-Z][A-Z0-9_]*$" },
+      },
+    },
+    openIssue: {
+      type: "sprint-goals:open-issue",
+      channel: "postMessage",
+      direction: "view-to-host",
+      fields: {
+        key: { kind: "string", pattern: "^[A-Z][A-Z0-9_]*-[1-9]\\d*$" },
+        transition: {
+          kind: "object",
+          optional: true,
+          fields: {
+            id: { kind: "string", pattern: "^\\d+$" },
+            name: { kind: "string", maxLength: 199 },
+            to: { kind: "string", maxLength: 199, optional: true },
+          },
+        },
+      },
+    },
+    launch: {
+      type: "sprint-goals:launch",
+      channel: "runtime",
+      direction: "content-to-worker",
+      fields: {},
+    },
+    prepareLaunch: {
+      type: "sprint-goals:prepare-launch",
+      channel: "runtime",
+      direction: "launcher-to-worker",
+      fields: {},
+    },
+  };
+  // </protocole sprint-goals>
+  // <validation sprint-goals>
+  type SprintGoalsRule = {
+    readonly kind: string;
+    readonly optional?: boolean;
+    readonly values?: readonly string[];
+    readonly min?: number;
+    readonly pattern?: string;
+    readonly maxLength?: number;
+    readonly fields?: Readonly<Record<string, SprintGoalsRule>>;
+  };
+  type SprintGoalsDeclaration = {
+    readonly type: string;
+    readonly direction: string;
+    readonly fields: Readonly<Record<string, SprintGoalsRule>>;
+  };
+  function readSprintGoalsValue(rule: SprintGoalsRule, value: unknown): unknown {
+    if (rule.kind === "enum")
+      return typeof value === "string" && rule.values?.includes(value) ? value : undefined;
+    if (rule.kind === "integer")
+      return Number.isSafeInteger(value) && (rule.min === undefined || Number(value) >= rule.min)
+        ? value
+        : undefined;
+    if (rule.kind === "string")
+      return typeof value === "string" &&
+        (rule.pattern === undefined || new RegExp(rule.pattern).test(value)) &&
+        (rule.maxLength === undefined || value.length <= rule.maxLength)
+        ? value
+        : undefined;
+    if (rule.kind === "object") return readSprintGoalsFields(rule.fields ?? {}, value) ?? undefined;
+    return undefined;
+  }
+  function readSprintGoalsFields(
+    fields: Readonly<Record<string, SprintGoalsRule>>,
+    value: unknown,
+  ): Record<string, unknown> | null {
+    if (!value || typeof value !== "object") return null;
+    const read: Record<string, unknown> = {};
+    for (const [name, rule] of Object.entries(fields)) {
+      const field = readSprintGoalsValue(rule, (value as Record<string, unknown>)[name]);
+      if (field === undefined && !rule.optional) return null;
+      read[name] = field === undefined ? null : field;
+    }
+    return read;
+  }
+  function readSprintGoalsMessage(
+    protocol: Readonly<Record<string, SprintGoalsDeclaration>>,
+    data: unknown,
+    direction: string,
+  ): Record<string, unknown> | null {
+    if (!data || typeof data !== "object") return null;
+    const type = (data as { type?: unknown }).type;
+    const declaration = Object.values(protocol).find(
+      (candidate) => candidate.type === type && candidate.direction === direction,
+    );
+    const fields = declaration ? readSprintGoalsFields(declaration.fields, data) : null;
+    return declaration && fields ? { type: declaration.type, ...fields } : null;
+  }
+  // </validation sprint-goals>
+
   const id = "sprint-goals-direct";
   document.getElementById(id)?.remove();
   const host = document.createElement("div");
@@ -66,7 +186,7 @@ export function injectBoard(
   frame.src = url.href;
 
   const refresh = () =>
-    frame.contentWindow?.postMessage({ type: "sprint-goals:refresh" }, url.origin);
+    frame.contentWindow?.postMessage({ type: PROTOCOL.refresh.type }, url.origin);
   let ticketSession: { dialog: HTMLDialogElement; stop: () => void } | null = null;
   const closeTicket = () => {
     const session = ticketSession;
@@ -480,13 +600,14 @@ export function injectBoard(
 
   const onMessage = (event: MessageEvent) => {
     if (event.source !== frame.contentWindow || event.origin !== url.origin) return;
-    const data = event.data;
-    if (data?.type === "sprint-goals:language") {
-      if (data.language === "fr" || data.language === "en" || data.language === "es")
-        language = data.language;
+    // Champs relus selon la copie du protocole : jamais d'adresse ni de valeur non déclarée.
+    const data = readSprintGoalsMessage(PROTOCOL, event.data, "view-to-host");
+    if (!data) return;
+    if (data.type === PROTOCOL.language.type) {
+      language = data.language as typeof language;
       return;
     }
-    if (data?.type === "sprint-goals:close") {
+    if (data.type === PROTOCOL.close.type) {
       // Retour à Jira : la même adresse sans le marqueur, rechargée (voir bootstrap.ts, 0.26.2).
       const plain = new URL(location.href);
       plain.searchParams.delete("sprintGoals");
@@ -496,15 +617,8 @@ export function injectBoard(
       location.assign(plain.href);
       return;
     }
-    if (data?.type === "sprint-goals:open-board") {
+    if (data.type === PROTOCOL.openBoard.type) {
       // Jamais d'adresse reçue : la page hôte construit elle-même celle du board, sur son site.
-      if (
-        !Number.isSafeInteger(data.boardId) ||
-        data.boardId <= 0 ||
-        typeof data.projectKey !== "string" ||
-        !/^[A-Z][A-Z0-9_]*$/.test(data.projectKey)
-      )
-        return;
       const board = new URL(
         `/jira/software/c/projects/${data.projectKey}/boards/${data.boardId}`,
         location.origin,
@@ -516,25 +630,10 @@ export function injectBoard(
       location.assign(board.href);
       return;
     }
-    if (data?.type !== "sprint-goals:open-issue" || !/^[A-Z][A-Z0-9_]*-[1-9]\d*$/.test(data.key))
-      return;
-    const transition =
-      data.transition &&
-      typeof data.transition.id === "string" &&
-      /^\d+$/.test(data.transition.id) &&
-      typeof data.transition.name === "string" &&
-      data.transition.name.length < 200
-        ? {
-            id: data.transition.id,
-            name: data.transition.name,
-            to:
-              typeof data.transition.to === "string" && data.transition.to.length < 200
-                ? data.transition.to
-                : null,
-          }
-        : null;
+    if (data.type !== PROTOCOL.openIssue.type) return;
+    const transition = data.transition as Transition | null;
     host.removeAttribute("data-error");
-    openTicket(data.key, transition);
+    openTicket(data.key as string, transition);
   };
   window.addEventListener("message", onMessage);
 

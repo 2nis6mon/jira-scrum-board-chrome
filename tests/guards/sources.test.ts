@@ -245,6 +245,17 @@ describe("code de production", () => {
     ).toEqual([]);
   });
 
+  it("garde sans import le script copié par executeScript et le script de contenu (AD-7)", () => {
+    // Leurs doublons du protocole sont comparés à integration/messages.ts par un test dédié.
+    const selfContained = sources.filter(({ file }) =>
+      /^src\/integration\/(?:injectBoard|bootstrap)\.ts$/.test(file),
+    );
+    expect(selfContained).toHaveLength(2);
+    // Même extracteur que les gardes de dépendances, sur le code sans commentaires.
+    expect(forbiddenImports(selfContained, /./, /./)).toEqual([]);
+    for (const { file, code } of selfContained) expect(code, file).not.toMatch(/\brequire\s*\(/);
+  });
+
   it("interdit à Jira de dépendre du métier, sans exception (AD-1)", () => {
     expect(sources.some(({ file }) => file.startsWith("src/jira/"))).toBe(true);
     expect(forbiddenImports(sources, /^src\/jira\//, /^src\/core(?:\/|$)/)).toEqual([]);

@@ -35,12 +35,18 @@ site normalisé `jiraHost`, une URL `jiraBoard` valide et la permission Chrome *
 Ouverture directe, cadre imbriqué et autre origine refusés. [`embedded`](../../src/integration/embedded.ts)
 et l'hôte vérifient origine et fenêtre source dans les deux sens ; l'hôte valide aussi les identifiants.
 
+Les messages sont déclarés une seule fois dans [`messages.ts`](../../src/integration/messages.ts)
+(canal, sens, champs, motifs et longueurs) ; un champ obligatoire invalide fait ignorer le message.
+
 | Message | Sens et effet |
 |---|---|
 | `sprint-goals:open-issue` | Vue → hôte : fiche complète ou formulaire de transition |
 | `sprint-goals:open-board` | Vue → hôte : navigation construite, aucune URL arbitraire acceptée |
 | `sprint-goals:close` | Vue → hôte : retour à Jira |
 | `sprint-goals:refresh` | Hôte → vue : fermeture, déblocage et relecture |
+| `sprint-goals:language` | Vue → hôte : langue des textes affichés par l'hôte |
+| `sprint-goals:launch` | Script de contenu → service worker : injection dans l'onglet marqué |
+| `sprint-goals:prepare-launch` | Lanceur → service worker : enregistrement du script de contenu |
 
 Un clic carte ouvre la fiche native complète dans une enveloppe transparente occupant le viewport
 de l'onglet. Jira conserve ainsi ses propres dimensions, marges, en-tête et défilements des colonnes,

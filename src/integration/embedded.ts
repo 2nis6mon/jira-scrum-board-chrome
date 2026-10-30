@@ -4,6 +4,7 @@ import type { AppModel } from "../app/model/AppModel";
 import type { Platform } from "../app/platform/types";
 import { parseBoardUrl } from "../jira/site";
 import { type EmbeddingTarget, embeddingTarget } from "./embeddingGuard";
+import { message, PROTOCOL, readMessage } from "./messages";
 
 /**
  * Hébergement demandé à la page du board affichée dans un cadre : admis seulement dans la page
@@ -25,14 +26,14 @@ export async function embeddedBoardTarget(
   return (await platform.permissions.contains(target.permissionPattern)) ? target : null;
 }
 
-/** Clé de projet utilisable dans une adresse de board Jira. */
-const PROJECT_KEY = /^[A-Z][A-Z0-9_]*$/;
+/** Clé de projet utilisable dans une adresse de board Jira, telle que l'hôte la valide. */
+const PROJECT_KEY = new RegExp(PROTOCOL.openBoard.fields.projectKey.pattern);
 
 /** Relie les cartes de l'application embarquée à la page Jira qui l'héberge, déjà vérifiée. */
 export function installEmbeddedLinks(model: AppModel, origin: string, address: string): () => void {
   if (window.parent === window) return () => {};
   const stopLanguage = effect(() => {
-    window.parent.postMessage({ type: "sprint-goals:language", language: language.value }, origin);
+    window.parent.postMessage(message("language", { language: language.value }), origin);
   });
   const hostBoardId = parseBoardUrl(address)?.boardId ?? null;
   // « Retour à Jira » : la page hôte retire elle-même le marqueur de sa propre adresse.
@@ -42,7 +43,7 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
     await current.board.planning.flushDraft();
     if (model.connection.peek() !== current || !current.board.canSwitchBoard.value) return;
     model.exitPresentation();
-    window.parent.postMessage({ type: "sprint-goals:close" }, origin);
+    window.parent.postMessage(message("close"), origin);
   };
 
   const stopConnection = effect(() => {
@@ -51,19 +52,18 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
     const board = connection.board;
     board.nativeIssueHandler = (key) => {
       if (board.site.origin !== origin || board.planning.publishing.value) return;
-      window.parent.postMessage({ type: "sprint-goals:open-issue", key }, origin);
+      window.parent.postMessage(message("openIssue", { key }), origin);
     };
     board.nativeTransitionHandler = (key, transition) => {
       if (board.site.origin !== origin) return false;
       model.exitPresentation();
       window.parent.postMessage(
-        {
-          type: "sprint-goals:open-issue",
+        message("openIssue", {
           key,
           // Identifiant, nom et statut d'arrivée de la transition : la page hôte ouvre le menu de
           // statut de Jira et n'y clique que l'élément qui désigne à coup sûr CETTE transition.
           transition: { id: transition.id, name: transition.name, to: transition.to.name },
-        },
+        }),
         origin,
       );
       return true;
@@ -77,7 +77,7 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
       if (!projectKey) return "unreachable";
       model.exitPresentation();
       window.parent.postMessage(
-        { type: "sprint-goals:open-board", boardId: target.boardId, projectKey },
+        message("openBoard", { boardId: target.boardId, projectKey }),
         origin,
       );
       return "leaving";
@@ -93,7 +93,7 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
     if (
       event.source !== window.parent ||
       event.origin !== origin ||
-      event.data?.type !== "sprint-goals:refresh"
+      readMessage(event.data, "host-to-view")?.type !== PROTOCOL.refresh.type
     )
       return;
     const connection = model.connection.peek();
@@ -118,10 +118,8 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
     const connection = model.connection.peek();
     if (connection.state !== "connected" || connection.board.site.origin !== origin) return;
     event.preventDefault();
-    window.parent.postMessage(
-      { type: "sprint-goals:open-issue", key: link.dataset.issueKey },
-      origin,
-    );
+    // Clé envoyée telle quelle : l'hôte la valide (le sélecteur garantit l'attribut).
+    window.parent.postMessage(message("openIssue", { key: link.dataset.issueKey ?? "" }), origin);
   };
   document.addEventListener("click", onClick);
   return () => {

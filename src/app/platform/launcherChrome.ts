@@ -1,6 +1,19 @@
 import type { LauncherPlatform } from "../../integration/LauncherModel";
 import { normalizeSiteUrl } from "../../jira/site";
 
+// Doublon nommé de src/integration/messages.ts (AD-1 : platform n'importe d'integration que des
+// types), comparé par tests/integration/messages.test.ts.
+// <protocole sprint-goals>
+const PROTOCOL = {
+  prepareLaunch: {
+    type: "sprint-goals:prepare-launch",
+    channel: "runtime",
+    direction: "launcher-to-worker",
+    fields: {},
+  },
+};
+// </protocole sprint-goals>
+
 /** Le lanceur ouvert en pleine page par le service worker, à l'installation. */
 export function isWelcomeTab(search: string): boolean {
   return new URLSearchParams(search).get("bienvenue") === "1";
@@ -40,7 +53,7 @@ export function chromeLauncherPlatform(): LauncherPlatform {
     },
     prepareLaunch: async () => {
       const response: unknown = await chrome.runtime.sendMessage({
-        type: "sprint-goals:prepare-launch",
+        type: PROTOCOL.prepareLaunch.type,
       });
       if (!response || typeof response !== "object" || !("ok" in response) || response.ok !== true)
         throw new Error("L'intégration Jira n'est pas prête.");

@@ -106,7 +106,7 @@ graph TD
 
 - **Binds:** `src/integration/`, `app/platform/launcherChrome.ts`, messages `sprint-goals:*`
 - **Prevents:** un message étendu côté vue et rejeté silencieusement côté hôte ; types de message ajoutés sans validation.
-- **Rule:** Les types `sprint-goals:*` (canal `postMessage` ou `chrome.runtime`, sens, schéma de charge utile, validation) sont déclarés dans une liste unique `src/integration/messages.ts`, utilisée par tout module qui peut importer. La copie inévitable dans `injectBoard.ts` est un doublon nommé, couvert par un test qui compare littéraux et validations. Origine et fenêtre source restent vérifiées dans les deux sens.
+- **Rule:** Les types `sprint-goals:*` (canal `postMessage` ou `chrome.runtime`, sens, schéma de charge utile, validation) sont déclarés dans une liste unique `src/integration/messages.ts`, utilisée par tout module qui peut importer. Doublons nommés, imposés par l'absence d'import ou par AD-1, chacun entre les marqueurs `<protocole sprint-goals>` : copie complète dans `injectBoard.ts` (copié par `executeScript`), avec le même bloc `<validation sprint-goals>` que `messages.ts` ; `launch` dans `bootstrap.ts` ; `prepareLaunch` dans `app/platform/launcherChrome.ts`. `tests/integration/messages.test.ts` compare chaque copie et le code de validation, et refuse tout littéral `sprint-goals:` hors de ces blocs. Origine et fenêtre source restent vérifiées dans les deux sens.
 
 ## Modules et flux
 
@@ -208,7 +208,6 @@ Le code actuel s'écarte de la spine sur ces points. Un agent ne les prend jamai
 | Règle | Écart |
 | --- | --- |
 | AD-4 | Clés par site sous deux formes (carte par site : `boards.v1`, `dismissedNotices.v1`, `graphqlOrigin.v1`, `audit.v1`) ; effacement par liste manuelle dans `AppModel.disconnect()` au lieu de `forgetSite` |
-| AD-7 | `src/integration/messages.ts` n'existe pas : littéraux `sprint-goals:*` répartis dans `embedded.ts`, `injectBoard.ts`, `worker.ts`, `bootstrap.ts`, `launcherChrome.ts` |
 | AD-4 | `connection.v1`, `launcher.v1` écrits par `AppModel` et `LauncherModel`, `boards.v1` lu brut par le lanceur : créer `app/model/connectionStore.ts`, passer par lui et `boardStore` |
 | AD-5 | `SPRINT_HEALTH_ENABLED` (`views/board/BoardView.tsx`) et `DIAGNOSTIC_ENABLED` (`views/DiagnosticView.tsx`) à migrer dans `app/featureFlags.ts` |
 | Conventions | `core/sprintPlanning.ts` et `core/boardWrites.ts` produisent des phrases utilisateur, persistées ensuite dans `audit.v1` puis relocalisées par motifs |
