@@ -3,6 +3,11 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans le [guide développeur](DEVELOPER.md).
 
+## 0.36.1 — Langue dans les préférences personnelles
+
+- Le choix de la langue n'apparaît plus en tête de chaque onglet des réglages du board, partagés
+  avec l'équipe : il reste dans **Site Jira → Préférences personnelles**.
+
 ## 0.36.0 — Plusieurs sprints actifs
 
 - Les objectifs de tous les sprints actifs du board sont affichés ensemble, chacun préfixé du nom

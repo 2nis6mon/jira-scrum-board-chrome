@@ -70,8 +70,8 @@ actif. Le contrat de cette lecture est [documenté par Atlassian](https://develo
 `AppModel.prepareLanguage()` restaure `language.v1` (`auto`, `fr`, `en`, `es`)
 avant le premier rendu. La préférence est personnelle à ce profil Chrome et commune aux boards ;
 elle n'entre jamais dans `TeamSettings` ni dans une écriture Jira. Elle se modifie dans
-**Site Jira → Préférences personnelles**, même sans `canEdit`, ou dans la carte personnelle des
-réglages. La bascule réactive conserve les composants et leurs brouillons ; les nombres, dates,
+**Site Jira → Préférences personnelles**, même sans `canEdit`, et jamais dans les réglages partagés
+du board. La bascule réactive conserve les composants et leurs brouillons ; les nombres, dates,
 textes visibles et noms accessibles suivent la langue choisie.
 
 `t` traduit une clé du catalogue ; `localize` présente les messages historiques déjà construits

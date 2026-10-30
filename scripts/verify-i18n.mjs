@@ -149,76 +149,31 @@ try {
     console.log(`✓ ${scenario} : Jira ${locale} → ${language}, noms Jira conservés, 1440/640 px`);
   }
 
-  await viewport(1440);
-  await open("board-reglages", "en-US", { onglet: "cardColors" });
-  assert.equal(
-    await run("document.querySelector('#settings-title').textContent"),
-    "Board settings",
-  );
-  const writes = await run("window.__equipe.writes()");
-  const data = await run(`(() => {
-    const row = [...document.querySelectorAll('.color-rule')]
-      .find(item => item.querySelector('.color-rule-name')?.value === 'Bloquant');
-    if (!row) throw new Error('Règle fictive Bloquant absente');
-    const field = row.querySelector('textarea');
-    window.__i18nDraft = field;
-    field.focus(); field.value = 'labels = "urgence"';
-    field.dispatchEvent(new Event('input', { bubbles: true }));
-    return { name: row.querySelector('.color-rule-name').value, value: field.value };
-  })()`);
-  await waitFor(
-    sessionId,
-    "document.querySelector('.settings-savebar.is-changed') && window.__i18nDraft.getAttribute('aria-invalid') === 'false'",
-    "Le brouillon JQL fictif n'est pas validé",
-  );
-  for (const [preference, language, title] of [
-    ["fr", "fr", "Réglages du board"],
-    ["en", "en", "Board settings"],
-    ["es", "es", "Configuración del tablero"],
-    ["auto", "en", "Board settings"],
+  // La langue est personnelle : elle ne s'affiche pas dans les réglages partagés du board.
+  for (const [locale, language, title] of [
+    ["en-US", "en", "Board settings"],
+    ["es-ES", "es", "Configuración del tablero"],
   ]) {
-    await choose(preference, language);
-    const draft = await run(`({
-      connected: window.__i18nDraft.isConnected,
-      value: window.__i18nDraft.value,
-      name: window.__i18nDraft.closest('.color-rule').querySelector('.color-rule-name').value,
-      valid: window.__i18nDraft.getAttribute('aria-invalid'),
-      title: document.querySelector('#settings-title').textContent,
-      writes: window.__equipe.writes(),
-      changed: Boolean(document.querySelector('.settings-savebar.is-changed'))
-    })`);
-    assert.deepEqual(
-      draft,
-      {
-        connected: true,
-        value: data.value,
-        name: data.name,
-        valid: "false",
-        title,
-        writes,
-        changed: true,
-      },
-      `Le changement ${preference} a modifié ou remonté le brouillon JQL`,
-    );
-  }
-  for (const width of [1440, 640]) {
-    await viewport(width);
-    await checkWidth(`Réglages anglais ${width}px`);
-    await run("window.scrollTo(0, 0)");
-    await frames();
-    await capture(`i18n-settings-en-${width}`);
+    for (const onglet of ["board", "goals", "cardFields", "cardColors"]) {
+      await viewport(1440);
+      await open("board-reglages", locale, { onglet });
+      assert.equal(await run("document.querySelector('#settings-title').textContent"), title);
+      assert.ok(
+        await run("!document.querySelector('input[name=\"interface-language\"]')"),
+        `La langue apparaît dans l'onglet ${onglet} des réglages du board`,
+      );
+    }
+    for (const width of [1440, 640]) {
+      await viewport(width);
+      await checkWidth(`Réglages ${language} ${width}px`);
+      await run("window.scrollTo(0, 0)");
+      await frames();
+      await capture(`i18n-settings-${language}-${width}`);
+    }
   }
   console.log(
-    "✓ Préférence FR/EN/ES/Auto à chaud : même champ JQL, validation et brouillon conservés, aucune écriture Jira",
+    "✓ Réglages du board EN/ES sans carte de langue, sur leurs quatre onglets, 1440/640 px",
   );
-  await choose("es", "es");
-  for (const width of [1440, 640]) {
-    await viewport(width);
-    await checkWidth(`Réglages espagnols ${width}px`);
-    await run("window.scrollTo(0, 0)");
-    await frames();
-    await capture(`i18n-settings-es-${width}`);
-  }
 
   // Les préférences restent accessibles lorsque les réglages du board sont interdits.
   await viewport(1440);

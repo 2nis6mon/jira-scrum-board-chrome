@@ -9,7 +9,6 @@ import { BoardSettings } from "./BoardSettings";
 import { CardColorSettings } from "./CardColorSettings";
 import { CardFieldSettings } from "./CardFieldSettings";
 import { GoalSettings } from "./GoalSettings";
-import { LanguagePreferenceCard } from "./PersonalPreferences";
 
 /** Onglets des réglages du board, dans l'ordre de la barre d'onglets. */
 export const SETTINGS_SECTIONS: readonly { id: SettingsSection; label: string }[] = [
@@ -107,7 +106,6 @@ export function SettingsView({
         role="tabpanel"
         aria-labelledby={`settings-tab-${section}`}
       >
-        <LanguagePreferenceCard model={model} />
         {teamNotice && (
           <div class={`notice notice-${teamNotice.tone} notice-inline`} role="alert">
             <p>
