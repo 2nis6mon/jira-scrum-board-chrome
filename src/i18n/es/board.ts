@@ -270,4 +270,13 @@ export const boardMessagesEs = {
   "Une écriture est en cours": "Hay una escritura en curso",
   "Pas de changement d'objectif pendant la daily": "No se cambia de objetivo durante la Daily",
   "Aucun objectif où l'envoyer": "No hay ningún objetivo al que enviarla",
+  "Mettre en top priorité": "Poner en prioridad máxima",
+  "Mettre en basse priorité": "Poner en prioridad baja",
+  "Déjà en tête de sa swimlane": "Ya está al principio de su carril",
+  "Déjà en fin de sa swimlane": "Ya está al final de su carril",
+  "Ordre de rang Jira indisponible": "Orden de rango de Jira no disponible",
+  "Utilisez « Relire colonnes et types depuis Jira » pour lire le rang Jira.":
+    "Use «Volver a leer las columnas y los tipos desde Jira» para leer el rango de Jira.",
+  "Aucune autre sous-tâche de son parent dans cette swimlane":
+    "Ninguna otra subtarea de su padre en este carril",
 } as const satisfies Record<keyof typeof boardMessages, string>;

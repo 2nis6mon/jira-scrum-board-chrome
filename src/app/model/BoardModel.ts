@@ -28,7 +28,7 @@ import {
 import { customFieldChoices } from "../../core/boardSettings";
 import { detectBoard, refreshBoardStructure } from "../../core/boardSync";
 import { type CardColorRule, resolveCardColors } from "../../core/cardColors";
-import { defaultBlock, goalTargets } from "../../core/cardMenu";
+import { defaultBlock, edgeRank, goalTargets, type RankEdge } from "../../core/cardMenu";
 import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/dropPlan";
 import {
   type BoardFilters,
@@ -100,6 +100,7 @@ import {
 } from "./noticeStore";
 import { PlanningModel } from "./PlanningModel";
 
+export type { RankEdge } from "../../core/cardMenu";
 export type {
   BoardSummary,
   CardMenuBlocked,
@@ -1047,33 +1048,30 @@ export class BoardModel {
         ? { kind: "none" as const }
         : this.#rankFor(input, column.id);
     if (isNoOpDrop(plan) && rank.kind === "none") return;
+    await this.#runMovement(
+      { issue, snapshot, column, drop: input, ...(selection ? { selection } : {}), plan, rank },
+      { issue, block: input.block, columnId: input.columnId, beforeKey: input.beforeKey },
+    );
+  }
+
+  /**
+   * Fin commune du dépôt et du classement par le menu : projection visuelle, porte d'écriture,
+   * exécution (une seule tentative), relecture du board et repère de la carte en cas de doute.
+   */
+  async #runMovement(
+    command: Parameters<BoardMovementService["execute"]>[0],
+    projection: PendingMove,
+  ): Promise<void> {
+    const issueKey = command.issue.issue.key;
     const generation = this.#generation;
     this.#clearMoveFeedback();
-    this.pendingMove.value = {
-      issue,
-      block: input.block,
-      columnId: input.columnId,
-      beforeKey: input.beforeKey,
-    };
-    this.#setPending(input.issueKey, true);
+    this.pendingMove.value = projection;
+    this.#setPending(issueKey, true);
     this.writeNotice.value = null;
     let finished = false;
     try {
-      // Un réglage ou une publication en cours passe d'abord : le dépôt attend la porte.
-      finished = await this.#gate.run((access) =>
-        this.#movements.execute(
-          {
-            issue,
-            snapshot,
-            column,
-            drop: input,
-            ...(selection ? { selection } : {}),
-            plan,
-            rank,
-          },
-          access,
-        ),
-      );
+      // Un réglage ou une publication en cours passe d'abord : le geste attend la porte.
+      finished = await this.#gate.run((access) => this.#movements.execute(command, access));
     } finally {
       let refreshed = false;
       try {
@@ -1084,17 +1082,14 @@ export class BoardModel {
       } finally {
         batch(() => {
           this.pendingMove.value = null;
-          this.#setPending(input.issueKey, false);
+          this.#setPending(issueKey, false);
           if (
             generation === this.#generation &&
             !this.transitionChoice.value &&
             !this.nativeTransitionPending.value &&
             !(finished && refreshed && !this.syncProblem.value)
           ) {
-            this.moveFeedback.value = {
-              issueKey: input.issueKey,
-              kind: "warning",
-            };
+            this.moveFeedback.value = { issueKey, kind: "warning" };
             this.#feedbackTimer = setTimeout(() => this.#clearMoveFeedback(), 4000);
           }
         });
@@ -1124,14 +1119,69 @@ export class BoardModel {
     const issue = snapshot ? findIssue(snapshot, issueKey) : null;
     if (!snapshot || !configuration || !issue) return null;
     const targets = goalTargets(snapshot, configuration, issue);
-    const blocked = this.#writing()
+    const writing = this.#writing();
+    const blocked = writing
       ? "writing"
       : context.daily
         ? "daily"
         : targets.goals.length === 0 && !targets.canDetach
           ? "noGoal"
           : null;
-    return { sendToGoal: { blocked, goals: targets.goals, canDetach: targets.canDetach } };
+    // Le classement reste permis en daily, comme le glissé dans une case.
+    const edge = (side: RankEdge) => {
+      if (writing) return { blocked: "writing" as const };
+      const result = edgeRank(snapshot, configuration, issue, side);
+      return { blocked: result.kind === "blocked" ? result.reason : null };
+    };
+    return {
+      sendToGoal: { blocked, goals: targets.goals, canDetach: targets.canDetach },
+      top: edge("top"),
+      bottom: edge("bottom"),
+    };
+  }
+
+  /**
+   * Classe le ticket en tête (`top`) ou en fin (`bottom`) de sa swimlane, tous sprints et toutes
+   * colonnes confondus, filtres ignorés : UNE écriture de rang, sans transition ni changement
+   * d'objectif. Même fin de chemin que le dépôt : une seule tentative, puis relecture du board.
+   */
+  async rankToEdge(
+    issueKey: string,
+    edge: RankEdge,
+    // Obligatoire, comme pour `sendToGoal` : les options sont celles du contexte affiché.
+    context: { daily: boolean },
+  ): Promise<void> {
+    this.closeCardMenu();
+    const options = this.cardMenuOptions(issueKey, context);
+    const snapshot = this.snapshot.value;
+    const configuration = this.configuration.value;
+    const issue = snapshot ? findIssue(snapshot, issueKey) : null;
+    if (!options || !snapshot || !configuration || !issue || issue.columnId === null) return;
+    if ((edge === "top" ? options.top : options.bottom).blocked !== null) return;
+    const column = configuration.columns.find((candidate) => candidate.id === issue.columnId);
+    const result = edgeRank(snapshot, configuration, issue, edge);
+    if (!column || result.kind !== "rank") return;
+    // Bloc où la carte est affichée : son objectif affiché, sinon sa destination par défaut.
+    const shownGoalId = displayedGoalId(configuration, issue.goalId);
+    const block = shownGoalId === null ? defaultBlock(issue) : goalBlock(shownGoalId);
+    const columnId = issue.columnId;
+    // Projection seulement : la carte s'affiche en tête ou en fin de sa case jusqu'à la relecture.
+    const cell = this.layout.value?.lanes
+      .find((lane) => lane.id === blockIdentifier(block))
+      ?.cells.find((candidate) => candidate.column.id === columnId);
+    const firstOther = cell?.issues.find((candidate) => candidate.issue.key !== issueKey);
+    const beforeKey = edge === "top" ? (firstOther?.issue.key ?? null) : null;
+    await this.#runMovement(
+      {
+        issue,
+        snapshot,
+        column,
+        drop: { issueKey, block, columnId, beforeKey },
+        plan: { goalChange: { kind: "none" }, changesColumn: false },
+        rank: result.change,
+      },
+      { issue, block, columnId, beforeKey },
+    );
   }
 
   /**

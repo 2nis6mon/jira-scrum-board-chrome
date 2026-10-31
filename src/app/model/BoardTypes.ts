@@ -119,9 +119,17 @@ export interface CardMenuState {
 
 /**
  * Raison d'une action du menu de carte désactivée : une écriture est en cours, la daily ne change
- * pas d'objectif, ou aucun objectif où l'envoyer.
+ * pas d'objectif, aucun objectif où l'envoyer, ticket déjà en tête ou en fin de sa swimlane, ou
+ * ordre de rang Jira indisponible entre sprints.
  */
-export type CardMenuBlocked = "writing" | "daily" | "noGoal";
+export type CardMenuBlocked =
+  | "writing"
+  | "daily"
+  | "noGoal"
+  | "first"
+  | "last"
+  | "unknownRank"
+  | "subtaskAlone";
 
 /** Actions du menu d'une carte, sans écriture tant qu'aucune n'est choisie. */
 export interface CardMenuOptions {
@@ -130,4 +138,8 @@ export interface CardMenuOptions {
     readonly goals: readonly { id: string; title: string; sprintName: string | null }[];
     readonly canDetach: boolean;
   };
+  /** Mettre en top priorité : avant le premier ticket de la swimlane. */
+  readonly top: { readonly blocked: CardMenuBlocked | null };
+  /** Mettre en basse priorité : après le dernier ticket de la swimlane. */
+  readonly bottom: { readonly blocked: CardMenuBlocked | null };
 }

@@ -265,4 +265,13 @@ export const boardMessages = {
   "Une écriture est en cours": "A write is in progress",
   "Pas de changement d'objectif pendant la daily": "No goal changes during the daily",
   "Aucun objectif où l'envoyer": "No goal to send it to",
+  "Mettre en top priorité": "Move to top priority",
+  "Mettre en basse priorité": "Move to low priority",
+  "Déjà en tête de sa swimlane": "Already at the top of its swimlane",
+  "Déjà en fin de sa swimlane": "Already at the bottom of its swimlane",
+  "Ordre de rang Jira indisponible": "Jira rank order unavailable",
+  "Utilisez « Relire colonnes et types depuis Jira » pour lire le rang Jira.":
+    "Use “Reload columns and issue types from Jira” to read the Jira rank.",
+  "Aucune autre sous-tâche de son parent dans cette swimlane":
+    "No other subtask of its parent in this swimlane",
 } as const;

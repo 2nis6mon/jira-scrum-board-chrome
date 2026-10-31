@@ -73,9 +73,13 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
   Une carte peut rejoindre tout objectif ou revenir uniquement dans sa destination par défaut.
   Pendant le glissé, sa destination vide réapparaît temporairement en fin de board pour préserver
   la position de la carte source ; elle reprend l'ordre configuré après détachement.
-  Le menu d'une carte (clic droit, Maj+F10, touche Menu) repasse par `dropIssue`, colonne et rang
-  inchangés, avec les règles du glissé : aucun changement d'objectif en Daily, rien pendant une
-  écriture ; « Retirer du goal » exige que la destination par défaut soit affichée.
+  Le menu d'une carte (clic droit, Maj+F10, touche Menu) suit les règles du glissé : rien pendant
+  une écriture. « Envoyer vers un goal » repasse par `dropIssue` sans changer colonne ni rang,
+  sans changement d'objectif en Daily ; « Retirer du goal » exige que la destination par défaut
+  soit affichée. « Mettre en top / basse priorité » écrit une seule E2 par le même chemin privé
+  (`#runMovement`), avant le premier ou après le dernier ticket de toute la swimlane (toutes
+  colonnes, tous sprints, filtres ignorés), selon le rang global lu dans
+  `ranking.rankCustomFieldId` ; permis en Daily.
 - Les sous-tâches gardent leur carte et leurs compteurs ; sans Goal propre, elles héritent de celui
   du parent. Si celui-ci est présent, elles héritent de sa destination par défaut ; leur propre
   objectif reste prioritaire s'il existe.

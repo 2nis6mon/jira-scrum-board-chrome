@@ -148,6 +148,7 @@ describe("JiraClient", () => {
             ],
           },
           estimation: { type: "field", field: { fieldId: "customfield_10016" } },
+          ranking: { rankCustomFieldId: 10019 },
         },
       });
 
@@ -163,7 +164,26 @@ describe("JiraClient", () => {
         { name: "Vide", statusIds: [], max: null },
       ],
       estimationFieldId: "customfield_10016",
+      rankFieldId: "customfield_10019",
     });
+  });
+
+  it("champ de rang absent ou illisible : `rankFieldId` à null", async () => {
+    for (const ranking of [
+      undefined,
+      {},
+      { rankCustomFieldId: "10019" },
+      { rankCustomFieldId: 0 },
+      { rankCustomFieldId: -3 },
+    ]) {
+      const jira = new FakeJira()
+        .on("GET", "/rest/agile/1.0/board/7", { status: 200, json: { id: 7, name: "B" } })
+        .on("GET", "/rest/agile/1.0/board/7/configuration", {
+          status: 200,
+          json: { columnConfig: { columns: [] }, ...(ranking ? { ranking } : {}) },
+        });
+      expect((await clientFor(jira).boardStructure(7)).rankFieldId).toBeNull();
+    }
   });
 
   it("signale une configuration de board illisible", async () => {

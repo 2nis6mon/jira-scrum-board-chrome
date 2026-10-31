@@ -27,7 +27,7 @@ Toute évolution de permission, hôte, écriture ou CSP, soumise à décision pr
 | ID | Opération / contrat | Geste |
 |---|---|---|
 | E1 | `POST /rest/api/3/issue/{clé}/transitions`, seul `transition.id`, sans formulaire | Dépôt autre colonne / choix explicite |
-| E2 | `PUT /rest/agile/1.0/issue/rank` | Dépôt avant/après un ticket |
+| E2 | `PUT /rest/agile/1.0/issue/rank` | Dépôt avant/après un ticket ; tête/fin de swimlane depuis le menu d'une carte (même écriture, corps inchangé, `rankCustomFieldId` omis) |
 | E3 | `goals_linkWorkItem` | Dépôt vers un Goal |
 | E4 | `goals_unlinkWorkItem` | Retour dans la destination par défaut / changement de Goal |
 | E5 | `PUT /rest/agile/1.0/sprint/{id}/properties/com.scrumboardmac.sprintgoals.v1` | Épinglage Scrum / lien en mode texte |

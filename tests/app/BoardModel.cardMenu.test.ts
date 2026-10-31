@@ -1,14 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BoardModel } from "../../src/app/model/BoardModel";
 import { goalBlock } from "../../src/core/boardBlocks";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { atlassianGoalsPlatform } from "../support/atlassianGoalsBoard";
-import { BOARD_URL, boardSiteJira, GOALS_DOCUMENT } from "../support/boardFixture";
+import { BOARD_URL, boardSiteJira, GOALS_DOCUMENT, SPRINT_ISSUES } from "../support/boardFixture";
 import { type FakeJira, isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 import { goalsGateway } from "../support/goalsGateway";
-import { statusJson } from "../support/jiraFixtures";
+import { issueJson, statusJson } from "../support/jiraFixtures";
 
 // Menu d'une carte : « Envoyer vers un goal » réutilise le chemin du dépôt. Données FICTIVES.
 
@@ -61,6 +61,9 @@ describe("menu d'une carte — options", () => {
         goals: [{ id: "g-stabilite", title: "Améliorer la stabilité", sprintName: null }],
         canDetach: true,
       },
+      // Ordre de lecture du sprint (ABC-101 puis ABC-102) : ABC-102 est déjà dernier.
+      top: { blocked: null },
+      bottom: { blocked: "last" },
     });
   });
 
@@ -271,4 +274,177 @@ describe("menu d'une carte — envoi vers un Goal Atlassian", () => {
     const written = jira.requests.slice(before).filter(isWriteRequest);
     expect(written.every((request) => request.path === "/gateway/api/graphql")).toBe(true);
   });
+});
+
+describe("menu d'une carte — top et basse priorité", () => {
+  const RANK = "/rest/agile/1.0/issue/rank";
+  const RANK_FIELD = "customfield_10019";
+  // Rangs FICTIFS : l'ordre de rang Jira (ABC-102 avant ABC-101) diffère de l'ordre de lecture.
+  const RANKS: Record<string, string> = {
+    "ABC-101": "0|i0000c:",
+    "ABC-102": "0|i0000a:",
+    "ABC-103": "0|i0000b:",
+    "ABC-104": "0|i0000d:",
+    "ABC-105": "0|i0000e:",
+    "RUN-7": "0|i0000f:",
+  };
+  function rankedJira() {
+    const issues = SPRINT_ISSUES.map((raw) => {
+      const issue = raw as { key: string; fields: Record<string, unknown> };
+      return { ...issue, fields: { ...issue.fields, [RANK_FIELD]: RANKS[issue.key] } };
+    });
+    return boardSiteJira({ sprintIssues: issues }).on(
+      "GET",
+      "/rest/agile/1.0/board/7/configuration",
+      {
+        status: 200,
+        json: {
+          columnConfig: {
+            columns: [
+              { name: "À faire", statuses: [{ id: "1" }] },
+              { name: "En cours", statuses: [{ id: "3" }, { id: "4" }], max: 2 },
+              { name: "Terminé", statuses: [{ id: "6" }] },
+            ],
+          },
+          estimation: { field: { fieldId: "customfield_10016" } },
+          ranking: { rankCustomFieldId: 10019 },
+        },
+      },
+    );
+  }
+
+  it("top : UNE écriture de rang avant le premier de la swimlane, board relu, journal", async () => {
+    const { board, jira, writes } = await boardWith();
+    jira.on("PUT", RANK, { status: 204 });
+    const syncs = jira.sent("GET", SPRINT_READ).length;
+    board.openCardMenu("ABC-102", POINT);
+
+    await board.rankToEdge("ABC-102", "top", { daily: false });
+
+    expect(board.cardMenu.value).toBeNull();
+    expect(writes().map((request) => [request.method, request.path, request.body])).toEqual([
+      ["PUT", RANK, { issues: ["ABC-102"], rankBeforeIssue: "ABC-101" }],
+    ]);
+    expect(jira.sent("GET", SPRINT_READ).length).toBe(syncs + 1);
+    const [entry] = await board.audit.list(SITE.origin);
+    expect(entry).toMatchObject({ action: "classement", issueKey: "ABC-102", outcome: "réussi" });
+    expect(board.writeNotice.value).toBeNull();
+    expect(board.moveFeedback.value).toBeNull();
+    expect(board.pendingMove.value).toBeNull();
+  });
+
+  it("basse : après le dernier ; déjà dernier : rien n'est écrit", async () => {
+    const { board, jira, writes } = await boardWith();
+    jira.on("PUT", RANK, { status: 204 });
+    await board.rankToEdge("ABC-102", "bottom", { daily: false });
+    expect(writes()).toEqual([]);
+    await board.rankToEdge("ABC-101", "bottom", { daily: false });
+    expect(writes().map((request) => request.body)).toEqual([
+      { issues: ["ABC-101"], rankAfterIssue: "ABC-102" },
+    ]);
+  });
+
+  it("champ de rang du board lu avec les tickets ; l'ordre de rang Jira fait foi", async () => {
+    const jira = rankedJira();
+    const { board, writes } = await boardWith(jira);
+    expect(board.configuration.value?.rankFieldId).toBe(RANK_FIELD);
+    const read = jira.sent("GET", SPRINT_READ).at(-1);
+    expect(read?.url.searchParams.get("fields")?.split(",")).toContain(RANK_FIELD);
+    // Rang Jira : ABC-102 est en tête de « Finaliser le parcours de paiement ».
+    expect(board.cardMenuOptions("ABC-102", { daily: false })).toMatchObject({
+      top: { blocked: "first" },
+      bottom: { blocked: null },
+    });
+    jira.on("PUT", RANK, { status: 204 });
+    await board.rankToEdge("ABC-101", "top", { daily: false });
+    expect(writes().map((request) => request.body)).toEqual([
+      { issues: ["ABC-101"], rankBeforeIssue: "ABC-102" },
+    ]);
+  });
+
+  it("filtre actif : la référence est le premier ticket de la swimlane, même masqué", async () => {
+    const { board, jira, writes } = await boardWith();
+    jira.on("PUT", RANK, { status: 204 });
+    board.setSearch("ABC-102");
+    expect(columnOf(board, "ABC-101")).toBeUndefined();
+    await board.rankToEdge("ABC-102", "top", { daily: false });
+    expect(writes().map((request) => request.body)).toEqual([
+      { issues: ["ABC-102"], rankBeforeIssue: "ABC-101" },
+    ]);
+    board.dispose();
+  });
+
+  it("en daily : les deux actions restent permises", async () => {
+    const { board, jira, writes } = await boardWith();
+    jira.on("PUT", RANK, { status: 204 });
+    expect(board.cardMenuOptions("ABC-102", { daily: true })?.top.blocked).toBeNull();
+    await board.rankToEdge("ABC-102", "top", { daily: true });
+    expect(writes()).toHaveLength(1);
+  });
+
+  it("écriture en cours : actions désactivées « writing », rien n'est écrit", async () => {
+    const { board, writes } = await boardWith();
+    board.pendingKeys.value = new Set(["ABC-105"]);
+    expect(board.cardMenuOptions("ABC-102", { daily: false })).toMatchObject({
+      top: { blocked: "writing" },
+      bottom: { blocked: "writing" },
+    });
+    await board.rankToEdge("ABC-102", "top", { daily: false });
+    expect(writes()).toEqual([]);
+  });
+
+  it("refus de Jira (403) : avis, repère sur la carte, aucune nouvelle tentative, board relu", async () => {
+    const { board, jira, writes } = await boardWith();
+    jira.on("PUT", RANK, { status: 403, json: {} });
+    const syncs = jira.sent("GET", SPRINT_READ).length;
+    await board.rankToEdge("ABC-102", "top", { daily: false });
+    expect(writes()).toHaveLength(1);
+    expect(board.writeNotice.value?.tone).toBe("error");
+    expect(board.writeNotice.value?.suggestion).toContain("Planifier les tickets");
+    expect(board.moveFeedback.value).toEqual({ issueKey: "ABC-102", kind: "warning" });
+    expect(jira.sent("GET", SPRINT_READ).length).toBe(syncs + 1);
+    const [entry] = await board.audit.list(SITE.origin);
+    expect(entry).toMatchObject({ action: "classement", outcome: "échec" });
+    board.dispose();
+  });
+  it.each([
+    ["top", "ABC-106", ["ABC-106", "ABC-105"]],
+    ["bottom", "ABC-105", ["ABC-106", "ABC-105"]],
+  ] as const)(
+    "%s : pendant l'écriture, la carte reste dans sa case, à l'extrémité visée",
+    async (edge, key, during) => {
+      const extra = issueJson("ABC-106", {
+        summary: "Sixième",
+        statusId: "1",
+        statusName: "À faire",
+        category: "new",
+      });
+      const { board, jira } = await boardWith(
+        boardSiteJira({ sprintIssues: [...SPRINT_ISSUES, extra] }),
+      );
+      jira.on("PUT", RANK, { status: 204 });
+      const TODO = "col-0-À faire";
+      const cellKeys = () =>
+        board.layout.value?.lanes
+          .find((lane) => lane.id === "build")
+          ?.cells.find((cell) => cell.column.id === TODO)
+          ?.issues.map((issue) => issue.issue.key);
+      expect(cellKeys()).toEqual(["ABC-105", "ABC-106"]);
+      let release: () => void = () => {};
+      const sync = vi.spyOn(board, "sync").mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            release = resolve;
+          }),
+      );
+      const ranking = board.rankToEdge(key, edge, { daily: false });
+      await expect.poll(() => sync.mock.calls.length).toBe(1);
+      expect(board.pendingKeys.value.has(key)).toBe(true);
+      expect(cellKeys()).toEqual(during);
+      release();
+      await ranking;
+      expect(board.pendingMove.value).toBeNull();
+      board.dispose();
+    },
+  );
 });

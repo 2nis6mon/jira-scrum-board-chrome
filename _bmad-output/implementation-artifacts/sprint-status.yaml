@@ -55,7 +55,7 @@ development_status:
 
   epic-3: in-progress
   3-1-ouvrir-le-menu-d-un-ticket-et-l-envoyer-vers-un-goal: review
-  3-2-mettre-un-ticket-en-top-ou-en-basse-priorité: backlog
+  3-2-mettre-un-ticket-en-top-ou-en-basse-priorité: review
   epic-3-retrospective: optional
 
   epic-4: backlog

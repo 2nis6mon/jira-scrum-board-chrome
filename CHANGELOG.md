@@ -3,6 +3,26 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.40.0 — Mettre un ticket en top ou en basse priorité depuis son menu
+
+- Le menu d'une carte propose **Mettre en top priorité** et **Mettre en basse priorité** : une seule
+  écriture de rang (`PUT /rest/agile/1.0/issue/rank`, E2 existante) place le ticket avant le
+  premier, ou après le dernier, ticket de sa swimlane, toutes colonnes et tous sprints actifs
+  confondus, filtres ignorés. Une sous-tâche se classe parmi les sous-tâches du même parent. Le
+  champ Priorité de Jira n'est jamais modifié. Même fin de chemin que le glisser-déposer : une
+  seule tentative, journal « classement », avis et repère **Déplacement à vérifier** après un
+  échec, board relu.
+- L'ordre de rang Jira est lu dans le champ de rang déclaré par le board
+  (`ranking.rankCustomFieldId` de la configuration, déjà lue), demandé avec les tickets, sans
+  requête de plus. Sans ce rang, ou avec des compartiments LexoRank mêlés pendant un rééquilibrage,
+  l'ordre de lecture fait foi dans un seul sprint ; sur plusieurs sprints, les deux actions sont
+  désactivées (« Ordre de rang Jira indisponible »). Une configuration locale plus ancienne est
+  relue sans erreur, mais ne connaît le rang entre sprints qu'après
+  **Relire colonnes et types depuis Jira**, ce que la raison affichée rappelle.
+- Les actions restent permises en Daily et en présentation ; elles sont désactivées, avec leur
+  raison, pendant une écriture, quand le ticket est déjà en tête ou en fin de sa swimlane, ou pour
+  une sous-tâche sans autre sous-tâche de son parent dans la swimlane.
+
 ## 0.39.0 — Envoyer un ticket vers un goal depuis son menu
 
 - Un clic droit sur une carte (ou **Maj+F10**, ou la touche **Menu**, la carte ayant le focus) ouvre

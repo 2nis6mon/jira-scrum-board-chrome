@@ -81,7 +81,7 @@ sans jeton ni mot de passe.
 |---|---|
 | Utilisateur | `GET /rest/api/3/myself` |
 | Recherche/droit du board | `GET /rest/agile/1.0/board`, dont `expand=permissions` |
-| Structure | `GET /rest/agile/1.0/board/{id}` et `/{id}/configuration` |
+| Structure | `GET /rest/agile/1.0/board/{id}` et `/{id}/configuration`, dont le champ de rang `ranking.rankCustomFieldId` (nombre → `customfield_<n>`), demandé avec les tickets pour l'ordre de rang Jira entre sprints |
 | Sprints actifs/futurs | `GET /rest/agile/1.0/board/{id}/sprint`, filtre `state` ; `GET /rest/agile/1.0/sprint/{id}` pour relecture |
 | Backlog du planning | `GET /rest/software/1.0/board/{id}/backlog`, pagination `nextPageToken` et `isLast`, limite 5 000 |
 | Tickets Scrum | `GET /rest/agile/1.0/board/{board}/sprint/{sprint}/issue`, `expand=changelog`, champs dont `closedSprints` (documenté par l'API Agile, sert aux reportés) ; jamais le sprint seul |

@@ -241,3 +241,94 @@ describe("menu d'une carte", () => {
     expect(board.cardMenu.value).toEqual({ issueKey: "ABC-102", x: 50, y: 380 });
   });
 });
+
+describe("menu d'une carte — top et basse priorité", () => {
+  const RANK = "/rest/agile/1.0/issue/rank";
+  const rootItems = () => [
+    ...(menu()?.querySelectorAll<HTMLElement>(":scope > [role='menuitem']") ?? []),
+  ];
+
+  it("deux actions après « Envoyer vers un goal » ; déjà dernier : désactivée, raison visible", async () => {
+    const { writes } = await connectedBoard();
+    rightClick(card("ABC-102"));
+    await settle();
+    const [send, top, bottom] = rootItems();
+    expect(send?.textContent).toContain("Envoyer vers un goal");
+    expect(top?.textContent).toBe("Mettre en top priorité");
+    expect(top?.getAttribute("aria-disabled")).toBeNull();
+    expect(bottom?.textContent).toContain("Mettre en basse priorité");
+    expect(bottom?.getAttribute("aria-disabled")).toBe("true");
+    expect(bottom?.textContent).toContain("Déjà en fin de sa swimlane");
+    const reason = bottom?.getAttribute("aria-describedby");
+    expect(reason && document.getElementById(reason)?.textContent).toBe(
+      "Déjà en fin de sa swimlane",
+    );
+    bottom?.click();
+    await settle();
+    expect(writes()).toEqual([]);
+  });
+
+  it("au clavier : Flèche bas puis Entrée classe en tête, focus rendu à la carte", async () => {
+    const { jira, writes } = await connectedBoard();
+    jira.on("PUT", RANK, { status: 204 });
+    card("ABC-102").focus();
+    press("F10", { shiftKey: true });
+    await settle();
+    press("ArrowDown");
+    expect(document.activeElement?.textContent).toBe("Mettre en top priorité");
+    press("Enter");
+    await settle();
+    expect(menu()).toBeNull();
+    expect(writes().map((request) => [request.path, request.body])).toEqual([
+      [RANK, { issues: ["ABC-102"], rankBeforeIssue: "ABC-101" }],
+    ]);
+    expect(document.activeElement).toBe(card("ABC-102"));
+  });
+
+  it("une écriture en cours : les deux actions désactivées, rien n'est écrit", async () => {
+    const { board, writes } = await connectedBoard();
+    board.pendingKeys.value = new Set(["ABC-105"]);
+    rightClick(card("ABC-101"));
+    await settle();
+    const [, top, bottom] = rootItems();
+    expect(top?.getAttribute("aria-disabled")).toBe("true");
+    expect(bottom?.getAttribute("aria-disabled")).toBe("true");
+    expect(top?.textContent).toContain("Une écriture est en cours");
+    top?.click();
+    await settle();
+    expect(writes()).toEqual([]);
+  });
+  it("rang inconnu sans champ de rang lu (configuration ancienne) : la raison dit quoi faire", async () => {
+    const { board } = await connectedBoard();
+    const real = board.cardMenuOptions.bind(board);
+    vi.spyOn(board, "cardMenuOptions").mockImplementation((key, context) => {
+      const options = real(key, context);
+      return (
+        options && {
+          ...options,
+          top: { blocked: "unknownRank" },
+          bottom: { blocked: "unknownRank" },
+        }
+      );
+    });
+    expect(board.configuration.value?.rankFieldId).toBeNull();
+    rightClick(card("ABC-102"));
+    await settle();
+    const [, top] = rootItems();
+    expect(top?.textContent).toContain(
+      "Ordre de rang Jira indisponible Utilisez « Relire colonnes et types depuis Jira » pour lire le rang Jira.",
+    );
+    board.closeCardMenu();
+    await settle();
+
+    // Champ de rang connu : la raison seule, sans invitation à relire la structure.
+    const configuration = board.configuration.value;
+    if (!configuration) throw new Error("configuration attendue");
+    board.configuration.value = { ...configuration, rankFieldId: "customfield_10019" };
+    rightClick(card("ABC-102"));
+    await settle();
+    const [, known] = rootItems();
+    expect(known?.textContent).toContain("Ordre de rang Jira indisponible");
+    expect(known?.textContent).not.toContain("Relire colonnes et types");
+  });
+});

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { t } from "../../i18n";
-import type { BoardModel, CardMenuBlocked, CardMenuState } from "../../model/BoardModel";
+import type { BoardModel, CardMenuBlocked, CardMenuState, RankEdge } from "../../model/BoardModel";
 import { placeAtPoint } from "./floatingMenu";
 
 /**
@@ -132,6 +132,47 @@ function CardMenuPanel(props: { board: BoardModel; daily: boolean; menu: CardMen
     event.stopPropagation();
   };
 
+  const rank = (edge: RankEdge) => {
+    close();
+    void board
+      .rankToEdge(issueKey, edge, { daily })
+      .finally(() => {
+        if (document.activeElement === document.body)
+          cardElement(issueKey)?.focus({ preventScroll: true });
+      })
+      // L'échec est déjà dit par l'avis d'écriture et le repère de la carte.
+      .catch(() => {});
+  };
+
+  const rankItem = (edge: RankEdge, label: string) => {
+    const reason = (edge === "top" ? options?.top : options?.bottom)?.blocked ?? null;
+    const id = `card-menu-reason-${edge}-${issueKey}`;
+    return (
+      <button
+        type="button"
+        role="menuitem"
+        class="card-menu-item"
+        aria-disabled={reason !== null || undefined}
+        aria-describedby={reason ? id : undefined}
+        tabIndex={-1}
+        onClick={() => {
+          if (reason === null) rank(edge);
+        }}
+      >
+        {label}
+        {reason && (
+          <span class="card-menu-reason" id={id}>
+            {reasonText(reason)}
+            {/* Configuration d'avant 0.40.0 : le champ de rang ne vient qu'avec la structure. */}
+            {reason === "unknownRank" &&
+              board.configuration.value?.rankFieldId === null &&
+              ` ${t("Utilisez « Relire colonnes et types depuis Jira » pour lire le rang Jira.")}`}
+          </span>
+        )}
+      </button>
+    );
+  };
+
   const reasonId = `card-menu-reason-${issueKey}`;
   return (
     <div
@@ -195,6 +236,8 @@ function CardMenuPanel(props: { board: BoardModel; daily: boolean; menu: CardMen
           )}
         </div>
       )}
+      {rankItem("top", t("Mettre en top priorité"))}
+      {rankItem("bottom", t("Mettre en basse priorité"))}
     </div>
   );
 }
@@ -207,6 +250,14 @@ function reasonText(reason: CardMenuBlocked): string {
       return t("Pas de changement d'objectif pendant la daily");
     case "noGoal":
       return t("Aucun objectif où l'envoyer");
+    case "first":
+      return t("Déjà en tête de sa swimlane");
+    case "last":
+      return t("Déjà en fin de sa swimlane");
+    case "unknownRank":
+      return t("Ordre de rang Jira indisponible");
+    case "subtaskAlone":
+      return t("Aucune autre sous-tâche de son parent dans cette swimlane");
   }
 }
 
