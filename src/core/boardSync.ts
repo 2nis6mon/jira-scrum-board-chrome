@@ -226,8 +226,6 @@ export async function loadSnapshot(input: {
   const extraFieldIds = [
     configuration.goalsFieldId,
     configuration.flaggedFieldId,
-    // Rang Jira : classe un ticket en tête ou en fin de sa swimlane, tous sprints confondus.
-    configuration.rankFieldId,
     ...displayedCardFields(configuration).map(cardFieldJiraId),
   ].filter((id): id is string => id !== null);
 
@@ -449,8 +447,6 @@ async function loadKanbanSnapshot(input: {
   const extraFieldIds = [
     configuration.goalsFieldId,
     configuration.flaggedFieldId,
-    // Rang Jira : classe un ticket en tête ou en fin de sa swimlane, tous sprints confondus.
-    configuration.rankFieldId,
     ...displayedCardFields(configuration).map(cardFieldJiraId),
   ].filter((id): id is string => id !== null);
   // Jira applique le périmètre natif et ses statuts mappés. La structure locale peut dater :

@@ -79,6 +79,7 @@ context:
 
 ## Spec Change Log
 
+- 31/10/2026, après la rétrospective (Denis) : en Daily, tout reste actif. « Envoyer vers un goal » n'est plus désactivé, la raison `daily` et le paramètre `{ daily }` de `cardMenuOptions`/`sendToGoal` sont retirés (0.41.0). Présentation confirmée : rien de désactivé. La décision de délégation sur la Daily, dans le bloc figé, est caduque.
 ## Review Triage Log
 
 | # | Source | Constat | Verdict | Preuve / route |

@@ -86,6 +86,7 @@ context:
 
 ## Spec Change Log
 
+- 31/10/2026, après la rétrospective (Denis : « au plus simple ») : le champ de rang du board n'est plus lu (`rankFieldId`, `BoardIssue.rank`, compartiments LexoRank, raison `unknownRank` et phrase d'aide retirés). `edgeRank` suit l'ordre de lecture (`issueOrder`) parmi les tickets de la swimlane **du même sprint**, seul ordre affiché avec plusieurs sprints. Les décisions « Ordre de rang global » du bloc figé et les lignes « Deux sprints », « Rang inconnu… » de la matrice sont caduques ; sous-tâches et Daily (permis) confirmés. L'écart champ lu / champ écrit, reporté dans `deferred-work.md`, n'a plus d'objet (0.41.0).
 ## Review Triage Log
 
 | # | Source | Constat | Verdict | Preuve / route |

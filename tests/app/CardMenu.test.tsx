@@ -186,7 +186,7 @@ describe("menu d'une carte", () => {
     expect(writes()).toEqual([]);
   });
 
-  it("en daily : pas de changement d'objectif, la raison est affichée", async () => {
+  it("en daily : envoi vers un goal permis, les flèches restent au menu", async () => {
     const { model } = await connectedBoard();
     document.documentElement.requestFullscreen = vi.fn(() => Promise.resolve());
     document.querySelector<HTMLButtonElement>("button[aria-label='Lancer la daily']")?.click();
@@ -200,10 +200,9 @@ describe("menu d'une carte", () => {
     if (!shown) throw new Error("carte attendue");
     rightClick(shown);
     await settle();
-    expect(menu()?.querySelector("[aria-haspopup='menu']")?.getAttribute("aria-disabled")).toBe(
-      "true",
-    );
-    expect(menu()?.textContent).toContain("Pas de changement d'objectif pendant la daily");
+    expect(
+      menu()?.querySelector("[aria-haspopup='menu']")?.getAttribute("aria-disabled"),
+    ).toBeNull();
 
     // Les flèches restent au menu : l'étape de la daily ne change pas, le menu reste ouvert.
     const step = document.querySelector(".daily-step")?.textContent;
@@ -297,38 +296,5 @@ describe("menu d'une carte — top et basse priorité", () => {
     top?.click();
     await settle();
     expect(writes()).toEqual([]);
-  });
-  it("rang inconnu sans champ de rang lu (configuration ancienne) : la raison dit quoi faire", async () => {
-    const { board } = await connectedBoard();
-    const real = board.cardMenuOptions.bind(board);
-    vi.spyOn(board, "cardMenuOptions").mockImplementation((key, context) => {
-      const options = real(key, context);
-      return (
-        options && {
-          ...options,
-          top: { blocked: "unknownRank" },
-          bottom: { blocked: "unknownRank" },
-        }
-      );
-    });
-    expect(board.configuration.value?.rankFieldId).toBeNull();
-    rightClick(card("ABC-102"));
-    await settle();
-    const [, top] = rootItems();
-    expect(top?.textContent).toContain(
-      "Ordre de rang Jira indisponible Utilisez « Relire colonnes et types depuis Jira » pour lire le rang Jira.",
-    );
-    board.closeCardMenu();
-    await settle();
-
-    // Champ de rang connu : la raison seule, sans invitation à relire la structure.
-    const configuration = board.configuration.value;
-    if (!configuration) throw new Error("configuration attendue");
-    board.configuration.value = { ...configuration, rankFieldId: "customfield_10019" };
-    rightClick(card("ABC-102"));
-    await settle();
-    const [, known] = rootItems();
-    expect(known?.textContent).toContain("Ordre de rang Jira indisponible");
-    expect(known?.textContent).not.toContain("Relire colonnes et types");
   });
 });

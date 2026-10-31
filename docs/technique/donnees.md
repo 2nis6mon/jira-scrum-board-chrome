@@ -45,9 +45,6 @@ les anciennes affectations sont rétablies depuis `ticketSwimlanes.typeIds`, san
 publication automatique. Les types ignorés restent exclus. Les règles créées uniquement par JQL,
 sans type associé, ne deviennent pas des groupes ; la clé partagée `jqlSwimlanes` est préservée
 comme donnée inconnue, sans effet sur le classement.
-Depuis 0.40.0, la configuration locale du board porte `rankFieldId` (champ de rang déclaré par le
-board, à côté d'`estimationFieldId`) ; une configuration plus ancienne est relue avec `null`,
-complété à la relecture de structure.
 
 ## Stockage local Chrome
 

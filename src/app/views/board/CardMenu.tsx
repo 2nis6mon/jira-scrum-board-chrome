@@ -8,7 +8,7 @@ import { placeAtPoint } from "./floatingMenu";
  * appartient au board ; la vue ne garde que la sous-liste dépliée. Fermé par Échap, Tab, un clic
  * ailleurs, le défilement, le redimensionnement ou une action : le focus revient à la carte.
  */
-export function CardMenu(props: { board: BoardModel; daily: boolean }) {
+export function CardMenu(props: { board: BoardModel }) {
   const menu = props.board.cardMenu.value;
   // Une ouverture nouvelle (même carte rouverte) repart de la première liste.
   return menu ? (
@@ -16,11 +16,11 @@ export function CardMenu(props: { board: BoardModel; daily: boolean }) {
   ) : null;
 }
 
-function CardMenuPanel(props: { board: BoardModel; daily: boolean; menu: CardMenuState }) {
-  const { board, daily, menu } = props;
+function CardMenuPanel(props: { board: BoardModel; menu: CardMenuState }) {
+  const { board, menu } = props;
   const panel = useRef<HTMLDivElement>(null);
   const [goalsOpen, setGoalsOpen] = useState(false);
-  const options = board.cardMenuOptions(menu.issueKey, { daily });
+  const options = board.cardMenuOptions(menu.issueKey);
   const send = options?.sendToGoal;
   const blocked = send?.blocked ?? null;
   const issueKey = menu.issueKey;
@@ -75,7 +75,7 @@ function CardMenuPanel(props: { board: BoardModel; daily: boolean; menu: CardMen
   const choose = (goalId: string | null) => {
     close();
     void board
-      .sendToGoal(issueKey, goalId, { daily })
+      .sendToGoal(issueKey, goalId)
       .finally(() => {
         // La carte a pu changer de swimlane : elle retrouve le focus si personne ne l'a pris.
         if (document.activeElement === document.body)
@@ -135,7 +135,7 @@ function CardMenuPanel(props: { board: BoardModel; daily: boolean; menu: CardMen
   const rank = (edge: RankEdge) => {
     close();
     void board
-      .rankToEdge(issueKey, edge, { daily })
+      .rankToEdge(issueKey, edge)
       .finally(() => {
         if (document.activeElement === document.body)
           cardElement(issueKey)?.focus({ preventScroll: true });
@@ -163,10 +163,6 @@ function CardMenuPanel(props: { board: BoardModel; daily: boolean; menu: CardMen
         {reason && (
           <span class="card-menu-reason" id={id}>
             {reasonText(reason)}
-            {/* Configuration d'avant 0.40.0 : le champ de rang ne vient qu'avec la structure. */}
-            {reason === "unknownRank" &&
-              board.configuration.value?.rankFieldId === null &&
-              ` ${t("Utilisez « Relire colonnes et types depuis Jira » pour lire le rang Jira.")}`}
           </span>
         )}
       </button>
@@ -246,16 +242,12 @@ function reasonText(reason: CardMenuBlocked): string {
   switch (reason) {
     case "writing":
       return t("Une écriture est en cours");
-    case "daily":
-      return t("Pas de changement d'objectif pendant la daily");
     case "noGoal":
       return t("Aucun objectif où l'envoyer");
     case "first":
       return t("Déjà en tête de sa swimlane");
     case "last":
       return t("Déjà en fin de sa swimlane");
-    case "unknownRank":
-      return t("Ordre de rang Jira indisponible");
     case "subtaskAlone":
       return t("Aucune autre sous-tâche de son parent dans cette swimlane");
   }

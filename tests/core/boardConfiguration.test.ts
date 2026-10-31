@@ -31,7 +31,6 @@ const BOARD: DiscoveredBoard = {
     { name: "Orpheline", statusIds: [], max: null },
   ],
   estimationFieldId: "customfield_10016",
-  rankFieldId: "customfield_10019",
 };
 
 const STATUSES = [
@@ -86,7 +85,6 @@ describe("buildConfiguration", () => {
       "Terminé",
     ]);
     expect(config.estimationFieldId).toBe("customfield_10016");
-    expect(config.rankFieldId).toBe("customfield_10019");
     expect(config.projectKeys).toEqual(["ABC"]);
   });
 
@@ -254,28 +252,6 @@ describe("configuration Kanban enregistrée", () => {
     expect(stored?.goalSource).toBe("sprintText");
     expect(stored?.boardPinnedGoalIds).toEqual([]);
     expect(stored?.kanbanSubQuery).toBeNull();
-  });
-
-  it("une configuration d'avant 0.40.0, sans champ de rang : relue sans erreur, champ à null", () => {
-    const { rankFieldId: _rank, ...old } = makeConfiguration({ rankFieldId: "customfield_10019" });
-    const stored = decodeStoredConfiguration(old);
-    expect(stored).not.toBeNull();
-    expect(stored?.rankFieldId).toBeNull();
-    // La relecture de structure le complète : Jira fait foi pour la structure.
-    if (!stored) return;
-    const fresh = buildConfiguration({
-      board: { ...BOARD, boardId: stored.boardId },
-      siteOrigin: stored.siteOrigin,
-      statuses: STATUSES,
-      issueTypes: TYPES,
-      estimationFieldName: null,
-      goalsFieldId: null,
-      flaggedFieldId: null,
-    });
-    expect(mergeConfiguration(fresh, stored).rankFieldId).toBe("customfield_10019");
-    expect(
-      decodeStoredConfiguration({ ...old, rankFieldId: "customfield_10019" })?.rankFieldId,
-    ).toBe("customfield_10019");
   });
 });
 

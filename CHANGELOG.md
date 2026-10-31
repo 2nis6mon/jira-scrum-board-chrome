@@ -3,6 +3,16 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.41.0 — Menu de carte : décisions après la rétrospective de l'Epic 3
+
+- En Daily, toutes les actions du menu d'une carte sont permises, dont **Envoyer vers un goal**
+  (décision de Denis du 31/10/2026) ; seule une écriture en cours les désactive.
+- **Mettre en top / basse priorité** classe le ticket dans l'ordre de lecture de Jira, parmi les
+  tickets de son sprint quand plusieurs sont affichés (le board les montre l'un après l'autre). Le
+  champ de rang du board n'est plus lu : la configuration locale ne porte plus `rankFieldId`, la
+  raison « Ordre de rang Jira indisponible » disparaît, et l'écart entre champ lu et champ écrit
+  n'a plus lieu d'être.
+
 ## 0.40.0 — Mettre un ticket en top ou en basse priorité depuis son menu
 
 - Le menu d'une carte propose **Mettre en top priorité** et **Mettre en basse priorité** : une seule

@@ -151,7 +151,7 @@ Avec plusieurs sprints actifs, l'équipe épingle les Goals Atlassian du sprint 
 ### Epic 3: Agir vite sur un ticket
 Un clic droit sur une carte propose « Envoyer vers un goal », « Mettre en top priorité » et « Mettre en basse priorité ».
 **FRs covered:** FR18
-*Notes :* après l'Epic 1 (AD-2, AD-6). Top/basse priorité = tête/fin de la swimlane, tous sprints actifs confondus (Denis, 30/10/2026). Priorité = rang seulement, champ Priorité Jira non modifié (Denis, 30/10/2026).
+*Notes :* après l'Epic 1 (AD-2, AD-6). Top/basse priorité = tête/fin de la swimlane (Denis, 30/10/2026), dans le sprint du ticket quand plusieurs sont affichés (Denis, 31/10/2026). Priorité = rang seulement, champ Priorité Jira non modifié (Denis, 30/10/2026).
 
 ### Epic 4: Fiable sur un vrai Jira
 L'équipe peut se fier à l'extension sur des workflows réels (formulaires riches, plus de 100 liens Goals, deux postes, boards gérés par l'équipe) ; les endpoints « enhanced » sont étudiés avant décision.
@@ -442,9 +442,9 @@ So that je rattache un ticket sans le glisser à travers le board.
 **Then** la liste des objectifs visibles du board s'affiche, sans le goal actuel du ticket, avec « Retirer du goal » s'il en a un
 **And** le choix utilise la même fonction de rattachement que le glisser-déposer (story 1.3), par la porte d'écriture du board
 
-**Given** le board en Daily, en présentation ou avec une écriture en cours
+**Given** une écriture en cours
 **When** j'ouvre le menu d'une carte
-**Then** les actions impossibles sont désactivées avec leur raison ; en Daily, comme pour le glissé, pas de changement de goal
+**Then** les actions sont désactivées avec leur raison ; en Daily et en présentation, toutes restent permises (Denis, 31/10/2026)
 
 **Given** un échec ou un résultat incertain
 **When** le résultat arrive
@@ -461,11 +461,11 @@ So that je change sa priorité sans le glisser.
 
 **Given** le menu d'une carte ouvert
 **When** je choisis « Mettre en top priorité »
-**Then** une seule écriture E2 classe le ticket avant le premier ticket de sa swimlane (objectif ou swimlane par type), tous sprints actifs confondus, dans l'ordre de rang Jira
+**Then** une seule écriture E2 classe le ticket avant le premier ticket de sa swimlane (objectif ou swimlane par type), toutes colonnes confondues, dans l'ordre de rang Jira ; avec plusieurs sprints, parmi les tickets de son sprint, seul ordre affiché
 
 **Given** le menu d'une carte ouvert
 **When** je choisis « Mettre en basse priorité »
-**Then** une seule écriture E2 classe le ticket après le dernier ticket de sa swimlane, tous sprints actifs confondus
+**Then** une seule écriture E2 classe le ticket après le dernier ticket de sa swimlane, avec la même règle de sprint
 
 **Given** un ticket déjà premier, ou déjà dernier, de sa swimlane
 **When** j'ouvre son menu
@@ -477,6 +477,7 @@ So that je change sa priorité sans le glisser.
 **And** la réussite n'est annoncée qu'après confirmation de Jira ; un échec suit les règles de la story 3.1
 
 *Décision (Denis, 30/10/2026) :* la priorité est le rang seulement ; le champ Priorité de Jira n'est pas modifié.
+*Décisions (Denis, 31/10/2026) :* classement dans le sprint du ticket, au plus simple (ordre de lecture de Jira, sans lire le champ de rang) ; une sous-tâche se classe parmi les sous-tâches de son parent.
 
 ## Epic 4: Fiable sur un vrai Jira
 

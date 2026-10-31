@@ -114,11 +114,6 @@ export interface BoardIssue {
   readonly sprintId: number | null;
   /** Sous-tâches du ticket, dans l'ordre de Jira. Vide pour une sous-tâche. */
   readonly subtasks: readonly Subtask[];
-  /**
-   * Rang Jira du ticket (valeur du champ de rang du board, LexoRank comparé comme chaîne).
-   * `null` si le champ n'est pas connu ou n'a pas été rendu par Jira.
-   */
-  readonly rank: string | null;
 }
 
 export function isIssueDone(issue: BoardIssue): boolean {
@@ -515,17 +510,8 @@ export function assembleBoardIssues(input: {
       carriedOver,
       sprintId: sprint?.id ?? null,
       subtasks: subtasksOf(issue, subtaskIssues),
-      rank: rankOf(fields.customFields, configuration.rankFieldId),
     };
   });
-}
-
-function rankOf(
-  customFields: JiraIssue["fields"]["customFields"],
-  fieldId: string | null,
-): string | null {
-  const value = fieldId === null ? undefined : customFields[fieldId];
-  return typeof value === "string" && value !== "" ? value : null;
 }
 
 /**

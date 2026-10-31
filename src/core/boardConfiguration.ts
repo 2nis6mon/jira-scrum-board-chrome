@@ -81,11 +81,6 @@ export interface BoardConfiguration {
   /** Champ d'estimation déclaré par le board Jira (`estimation.field.fieldId`). */
   readonly estimationFieldId: string | null;
   readonly estimationFieldName: string | null;
-  /**
-   * Champ de rang du board Jira (`ranking.rankCustomFieldId`). `null` : inconnu (configuration
-   * enregistrée avant 0.40.0, complétée à la relecture de structure) ou non déclaré.
-   */
-  readonly rankFieldId: string | null;
   /** Champ Jira portant les Goals Atlassian rattachés à un ticket (le lien natif). */
   readonly goalsFieldId: string | null;
   /** Champ Jira « Flagged » (drapeau posé depuis le board Jira). Lu seulement. */
@@ -344,7 +339,6 @@ export function buildConfiguration(input: {
     siteOrigin: input.siteOrigin,
     estimationFieldId: input.board.estimationFieldId,
     estimationFieldName: input.estimationFieldName,
-    rankFieldId: input.board.rankFieldId,
     goalsFieldId: input.goalsFieldId,
     flaggedFieldId: input.flaggedFieldId,
     columns,
@@ -446,7 +440,6 @@ export function decodeStoredConfiguration(value: unknown): BoardConfiguration | 
     siteOrigin: value.siteOrigin,
     estimationFieldId: textOrNull(value.estimationFieldId),
     estimationFieldName: textOrNull(value.estimationFieldName),
-    rankFieldId: textOrNull(value.rankFieldId),
     goalsFieldId: textOrNull(value.goalsFieldId),
     flaggedFieldId: textOrNull(value.flaggedFieldId),
     columns,

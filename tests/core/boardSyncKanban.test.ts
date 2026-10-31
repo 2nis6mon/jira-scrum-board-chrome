@@ -116,7 +116,6 @@ describe("photographie Kanban", () => {
       kanbanSubQuery: query,
       goalsFieldId: "customfield_10100",
       flaggedFieldId: "customfield_10021",
-      rankFieldId: "customfield_10019",
       cardFields: [{ kind: "fixVersions" }],
     });
     const result = await sync(jira, configuration);
@@ -137,13 +136,7 @@ describe("photographie Kanban", () => {
     expect(jira.requests.map((r) => r.url.searchParams.get("jql"))).toEqual([query, query]);
     expect(jira.requests.map((r) => r.url.searchParams.get("startAt"))).toEqual(["0", "1"]);
     expect(jira.requests[0]?.url.searchParams.get("fields")?.split(",")).toEqual(
-      // Champ de rang du board : ordre de rang Jira pour « top / basse priorité ».
-      expect.arrayContaining([
-        "customfield_10100",
-        "customfield_10021",
-        "customfield_10019",
-        "fixVersions",
-      ]),
+      expect.arrayContaining(["customfield_10100", "customfield_10021", "fixVersions"]),
     );
     expect(jira.requests[0]?.url.searchParams.get("fields")?.split(",")).not.toContain(
       "closedSprints",

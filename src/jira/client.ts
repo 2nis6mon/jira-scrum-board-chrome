@@ -73,11 +73,6 @@ export interface JiraBoardStructure {
   }[];
   /** Champ d'estimation déclaré par le board (`estimation.field.fieldId`). */
   readonly estimationFieldId: string | null;
-  /**
-   * Champ de rang du board (`ranking.rankCustomFieldId`, nombre → `customfield_<n>`) : l'ordre de
-   * rang Jira, y compris entre sprints. `null` si Jira ne le déclare pas.
-   */
-  readonly rankFieldId: string | null;
 }
 
 export interface IssueQuery {
@@ -642,7 +637,6 @@ function decodeBoardStructure(
   const estimation = isRecord(configuration.estimation) ? configuration.estimation : {};
   const estimationField = isRecord(estimation.field) ? estimation.field : {};
   const subQuery = isRecord(configuration.subQuery) ? configuration.subQuery : {};
-  const ranking = isRecord(configuration.ranking) ? configuration.ranking : {};
   return {
     boardId,
     boardName: board.name,
@@ -654,12 +648,6 @@ function decodeBoardStructure(
     projectKey: typeof location.projectKey === "string" ? location.projectKey : null,
     columns,
     estimationFieldId: typeof estimationField.fieldId === "string" ? estimationField.fieldId : null,
-    rankFieldId:
-      typeof ranking.rankCustomFieldId === "number" &&
-      Number.isInteger(ranking.rankCustomFieldId) &&
-      ranking.rankCustomFieldId > 0
-        ? `customfield_${ranking.rankCustomFieldId}`
-        : null,
   };
 }
 

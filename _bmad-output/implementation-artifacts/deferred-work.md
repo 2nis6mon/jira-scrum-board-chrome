@@ -26,6 +26,3 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-2-tickets-reportes.md`
   summary: Vérifier si l'historique joint par `expand=changelog` aux tickets de sprint peut être tronqué (`total` > `maxResults`), ce qui fausserait `sprintScope` et `carriedOverInto`.
   evidence: maybe-false, gravité medium non vérifiée. Ni `total` ni `maxResults` ne sont décodés ; se règle par un essai réel sur un ticket à plus de 100 historiques (Epic 4).
-- source_spec: `_bmad-output/implementation-artifacts/spec-3-2-top-basse-priorite.md`
-  summary: Le classement top/basse lit l'ordre dans le champ de rang du board (`ranking.rankCustomFieldId`) mais E2 écrit sans `rankCustomFieldId`, donc dans le champ de rang par défaut de l'instance.
-  evidence: medium non vérifié — sans effet tant que le board utilise le champ Rank par défaut (cas ordinaire) ; à trancher par décision produit (transmettre `rankCustomFieldId` dans E2, ou désactiver l'action si les champs diffèrent) et à vérifier sur un vrai Jira.

@@ -118,18 +118,10 @@ export interface CardMenuState {
 }
 
 /**
- * Raison d'une action du menu de carte désactivée : une écriture est en cours, la daily ne change
- * pas d'objectif, aucun objectif où l'envoyer, ticket déjà en tête ou en fin de sa swimlane, ou
- * ordre de rang Jira indisponible entre sprints.
+ * Raison d'une action du menu de carte désactivée : une écriture est en cours, aucun objectif où
+ * l'envoyer, ticket déjà en tête ou en fin de sa swimlane, ou sous-tâche seule de son parent.
  */
-export type CardMenuBlocked =
-  | "writing"
-  | "daily"
-  | "noGoal"
-  | "first"
-  | "last"
-  | "unknownRank"
-  | "subtaskAlone";
+export type CardMenuBlocked = "writing" | "noGoal" | "first" | "last" | "subtaskAlone";
 
 /** Actions du menu d'une carte, sans écriture tant qu'aucune n'est choisie. */
 export interface CardMenuOptions {

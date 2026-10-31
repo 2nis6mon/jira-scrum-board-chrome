@@ -115,7 +115,6 @@ export function makeConfiguration(parts: Partial<BoardConfiguration> = {}): Boar
     siteOrigin: "https://acme.atlassian.net",
     estimationFieldId: "customfield_10016",
     estimationFieldName: "Story Points",
-    rankFieldId: null,
     goalsFieldId: null,
     flaggedFieldId: null,
     columns: [

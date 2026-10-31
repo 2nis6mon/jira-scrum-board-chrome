@@ -55,7 +55,7 @@ describe("menu d'une carte — ouverture", () => {
 describe("menu d'une carte — options", () => {
   it("ticket sous un objectif : les autres objectifs puis le retrait", async () => {
     const { board } = await boardWith();
-    expect(board.cardMenuOptions("ABC-102", { daily: false })).toEqual({
+    expect(board.cardMenuOptions("ABC-102")).toEqual({
       sendToGoal: {
         blocked: null,
         goals: [{ id: "g-stabilite", title: "Améliorer la stabilité", sprintName: null }],
@@ -67,18 +67,13 @@ describe("menu d'une carte — options", () => {
     });
   });
 
-  it("en daily : envoi désactivé, avec sa raison", async () => {
-    const { board } = await boardWith();
-    expect(board.cardMenuOptions("ABC-102", { daily: true })?.sendToGoal.blocked).toBe("daily");
-  });
-
   it("une écriture en cours désactive l'envoi, quelle qu'elle soit", async () => {
     const { board } = await boardWith();
     board.pendingKeys.value = new Set(["ABC-101"]);
-    expect(board.cardMenuOptions("ABC-102", { daily: true })?.sendToGoal.blocked).toBe("writing");
+    expect(board.cardMenuOptions("ABC-102")?.sendToGoal.blocked).toBe("writing");
     board.pendingKeys.value = new Set();
     board.nativeTransitionPending.value = true;
-    expect(board.cardMenuOptions("ABC-102", { daily: false })?.sendToGoal.blocked).toBe("writing");
+    expect(board.cardMenuOptions("ABC-102")?.sendToGoal.blocked).toBe("writing");
   });
 
   it("board sans objectif, ticket sans objectif : « Aucun objectif où l'envoyer »", async () => {
@@ -89,7 +84,7 @@ describe("menu d'une carte — options", () => {
     });
     const { board } = await boardWith(jira);
     expect(board.snapshot.value?.goals).toEqual([]);
-    expect(board.cardMenuOptions("ABC-105", { daily: false })?.sendToGoal).toEqual({
+    expect(board.cardMenuOptions("ABC-105")?.sendToGoal).toEqual({
       blocked: "noGoal",
       goals: [],
       canDetach: false,
@@ -112,7 +107,7 @@ describe("menu d'une carte — envoi vers un goal (texte du sprint)", () => {
     const syncs = jira.sent("GET", SPRINT_READ).length;
     board.openCardMenu("ABC-105", POINT);
 
-    await board.sendToGoal("ABC-105", "g-stabilite", { daily: false });
+    await board.sendToGoal("ABC-105", "g-stabilite");
 
     expect(board.cardMenu.value).toBeNull();
     expect(writes().map((request) => [request.method, request.path])).toEqual([["PUT", PROPERTY]]);
@@ -128,7 +123,7 @@ describe("menu d'une carte — envoi vers un goal (texte du sprint)", () => {
   it("« Retirer du goal » : détachement, retour dans la destination par défaut", async () => {
     const { board, jira, writes } = await boardWith();
     jira.on("PUT", PROPERTY, { status: 200 });
-    await board.sendToGoal("ABC-101", null, { daily: false });
+    await board.sendToGoal("ABC-101", null);
     expect(writes()).toHaveLength(1);
     const links = (writes()[0]?.body as { links?: Record<string, string> } | undefined)?.links;
     expect(links).not.toHaveProperty("ABC-101");
@@ -145,7 +140,7 @@ describe("menu d'une carte — envoi vers un goal (texte du sprint)", () => {
       });
     const { board, writes } = await boardWith(jira);
     expect(columnOf(board, "RUN-7")?.[0]).toBe("goal:g-paiement");
-    await board.sendToGoal("RUN-7", null, { daily: false });
+    await board.sendToGoal("RUN-7", null);
     expect(writes().map((request) => request.path)).toEqual([PROPERTY]);
     expect(columnOf(board, "RUN-7")?.[0]).toBe("swimlane:1");
   });
@@ -154,7 +149,7 @@ describe("menu d'une carte — envoi vers un goal (texte du sprint)", () => {
     const { board, jira, writes } = await boardWith();
     jira.on("PUT", PROPERTY, { status: 403, json: {} });
     const syncs = jira.sent("GET", SPRINT_READ).length;
-    await board.sendToGoal("ABC-105", "g-stabilite", { daily: false });
+    await board.sendToGoal("ABC-105", "g-stabilite");
     expect(writes()).toHaveLength(1);
     expect(board.writeNotice.value?.tone).toBe("error");
     expect(board.moveFeedback.value).toEqual({ issueKey: "ABC-105", kind: "warning" });
@@ -162,19 +157,10 @@ describe("menu d'une carte — envoi vers un goal (texte du sprint)", () => {
     board.dispose();
   });
 
-  it.each([
-    ["en daily", { daily: true }, () => {}],
-    [
-      "pendant une écriture",
-      { daily: false },
-      (board: BoardModel) => {
-        board.pendingKeys.value = new Set(["ABC-101"]);
-      },
-    ],
-  ])("aucune écriture %s", async (_, context, prepare) => {
+  it("aucune écriture pendant une écriture", async () => {
     const { board, writes } = await boardWith();
-    prepare(board);
-    await board.sendToGoal("ABC-105", "g-stabilite", context);
+    board.pendingKeys.value = new Set(["ABC-101"]);
+    await board.sendToGoal("ABC-105", "g-stabilite");
     expect(writes()).toEqual([]);
   });
 
@@ -184,13 +170,13 @@ describe("menu d'une carte — envoi vers un goal (texte du sprint)", () => {
     const configuration = board.configuration.value;
     if (!configuration) throw new Error("configuration attendue");
     board.configuration.value = { ...configuration, hiddenGoalIds: ["g-stabilite"] };
-    expect(board.cardMenuOptions("ABC-105", { daily: false })?.sendToGoal.goals).toEqual([
+    expect(board.cardMenuOptions("ABC-105")?.sendToGoal.goals).toEqual([
       { id: "g-paiement", title: "Finaliser le parcours de paiement", sprintName: null },
     ]);
-    await board.sendToGoal("ABC-105", "g-stabilite", { daily: false });
-    await board.sendToGoal("ABC-102", "g-paiement", { daily: false });
-    await board.sendToGoal("ABC-105", "g-inconnu", { daily: false });
-    await board.sendToGoal("ABC-105", null, { daily: false });
+    await board.sendToGoal("ABC-105", "g-stabilite");
+    await board.sendToGoal("ABC-102", "g-paiement");
+    await board.sendToGoal("ABC-105", "g-inconnu");
+    await board.sendToGoal("ABC-105", null);
     expect(writes()).toEqual([]);
   });
 
@@ -224,8 +210,8 @@ describe("menu d'une carte — envoi vers un goal (texte du sprint)", () => {
       beforeKey: null,
     });
     expect(board.transitionChoice.value).not.toBeNull();
-    expect(board.cardMenuOptions("ABC-105", { daily: false })?.sendToGoal.blocked).toBe("writing");
-    await board.sendToGoal("ABC-105", "g-stabilite", { daily: false });
+    expect(board.cardMenuOptions("ABC-105")?.sendToGoal.blocked).toBe("writing");
+    await board.sendToGoal("ABC-105", "g-stabilite");
     expect(writes()).toEqual([]);
     board.cancelTransitionChoice();
   });
@@ -265,7 +251,7 @@ describe("menu d'une carte — envoi vers un Goal Atlassian", () => {
     await board.detect(BOARD_URL);
     const before = jira.requests.length;
 
-    await board.sendToGoal("ABC-102", STABILITE, { daily: false });
+    await board.sendToGoal("ABC-102", STABILITE);
 
     expect(mutations).toEqual([
       `goals_unlinkWorkItem ${PAIEMENT}`,
@@ -278,48 +264,13 @@ describe("menu d'une carte — envoi vers un Goal Atlassian", () => {
 
 describe("menu d'une carte — top et basse priorité", () => {
   const RANK = "/rest/agile/1.0/issue/rank";
-  const RANK_FIELD = "customfield_10019";
-  // Rangs FICTIFS : l'ordre de rang Jira (ABC-102 avant ABC-101) diffère de l'ordre de lecture.
-  const RANKS: Record<string, string> = {
-    "ABC-101": "0|i0000c:",
-    "ABC-102": "0|i0000a:",
-    "ABC-103": "0|i0000b:",
-    "ABC-104": "0|i0000d:",
-    "ABC-105": "0|i0000e:",
-    "RUN-7": "0|i0000f:",
-  };
-  function rankedJira() {
-    const issues = SPRINT_ISSUES.map((raw) => {
-      const issue = raw as { key: string; fields: Record<string, unknown> };
-      return { ...issue, fields: { ...issue.fields, [RANK_FIELD]: RANKS[issue.key] } };
-    });
-    return boardSiteJira({ sprintIssues: issues }).on(
-      "GET",
-      "/rest/agile/1.0/board/7/configuration",
-      {
-        status: 200,
-        json: {
-          columnConfig: {
-            columns: [
-              { name: "À faire", statuses: [{ id: "1" }] },
-              { name: "En cours", statuses: [{ id: "3" }, { id: "4" }], max: 2 },
-              { name: "Terminé", statuses: [{ id: "6" }] },
-            ],
-          },
-          estimation: { field: { fieldId: "customfield_10016" } },
-          ranking: { rankCustomFieldId: 10019 },
-        },
-      },
-    );
-  }
-
   it("top : UNE écriture de rang avant le premier de la swimlane, board relu, journal", async () => {
     const { board, jira, writes } = await boardWith();
     jira.on("PUT", RANK, { status: 204 });
     const syncs = jira.sent("GET", SPRINT_READ).length;
     board.openCardMenu("ABC-102", POINT);
 
-    await board.rankToEdge("ABC-102", "top", { daily: false });
+    await board.rankToEdge("ABC-102", "top");
 
     expect(board.cardMenu.value).toBeNull();
     expect(writes().map((request) => [request.method, request.path, request.body])).toEqual([
@@ -336,29 +287,11 @@ describe("menu d'une carte — top et basse priorité", () => {
   it("basse : après le dernier ; déjà dernier : rien n'est écrit", async () => {
     const { board, jira, writes } = await boardWith();
     jira.on("PUT", RANK, { status: 204 });
-    await board.rankToEdge("ABC-102", "bottom", { daily: false });
+    await board.rankToEdge("ABC-102", "bottom");
     expect(writes()).toEqual([]);
-    await board.rankToEdge("ABC-101", "bottom", { daily: false });
+    await board.rankToEdge("ABC-101", "bottom");
     expect(writes().map((request) => request.body)).toEqual([
       { issues: ["ABC-101"], rankAfterIssue: "ABC-102" },
-    ]);
-  });
-
-  it("champ de rang du board lu avec les tickets ; l'ordre de rang Jira fait foi", async () => {
-    const jira = rankedJira();
-    const { board, writes } = await boardWith(jira);
-    expect(board.configuration.value?.rankFieldId).toBe(RANK_FIELD);
-    const read = jira.sent("GET", SPRINT_READ).at(-1);
-    expect(read?.url.searchParams.get("fields")?.split(",")).toContain(RANK_FIELD);
-    // Rang Jira : ABC-102 est en tête de « Finaliser le parcours de paiement ».
-    expect(board.cardMenuOptions("ABC-102", { daily: false })).toMatchObject({
-      top: { blocked: "first" },
-      bottom: { blocked: null },
-    });
-    jira.on("PUT", RANK, { status: 204 });
-    await board.rankToEdge("ABC-101", "top", { daily: false });
-    expect(writes().map((request) => request.body)).toEqual([
-      { issues: ["ABC-101"], rankBeforeIssue: "ABC-102" },
     ]);
   });
 
@@ -367,29 +300,21 @@ describe("menu d'une carte — top et basse priorité", () => {
     jira.on("PUT", RANK, { status: 204 });
     board.setSearch("ABC-102");
     expect(columnOf(board, "ABC-101")).toBeUndefined();
-    await board.rankToEdge("ABC-102", "top", { daily: false });
+    await board.rankToEdge("ABC-102", "top");
     expect(writes().map((request) => request.body)).toEqual([
       { issues: ["ABC-102"], rankBeforeIssue: "ABC-101" },
     ]);
     board.dispose();
   });
 
-  it("en daily : les deux actions restent permises", async () => {
-    const { board, jira, writes } = await boardWith();
-    jira.on("PUT", RANK, { status: 204 });
-    expect(board.cardMenuOptions("ABC-102", { daily: true })?.top.blocked).toBeNull();
-    await board.rankToEdge("ABC-102", "top", { daily: true });
-    expect(writes()).toHaveLength(1);
-  });
-
   it("écriture en cours : actions désactivées « writing », rien n'est écrit", async () => {
     const { board, writes } = await boardWith();
     board.pendingKeys.value = new Set(["ABC-105"]);
-    expect(board.cardMenuOptions("ABC-102", { daily: false })).toMatchObject({
+    expect(board.cardMenuOptions("ABC-102")).toMatchObject({
       top: { blocked: "writing" },
       bottom: { blocked: "writing" },
     });
-    await board.rankToEdge("ABC-102", "top", { daily: false });
+    await board.rankToEdge("ABC-102", "top");
     expect(writes()).toEqual([]);
   });
 
@@ -397,7 +322,7 @@ describe("menu d'une carte — top et basse priorité", () => {
     const { board, jira, writes } = await boardWith();
     jira.on("PUT", RANK, { status: 403, json: {} });
     const syncs = jira.sent("GET", SPRINT_READ).length;
-    await board.rankToEdge("ABC-102", "top", { daily: false });
+    await board.rankToEdge("ABC-102", "top");
     expect(writes()).toHaveLength(1);
     expect(board.writeNotice.value?.tone).toBe("error");
     expect(board.writeNotice.value?.suggestion).toContain("Planifier les tickets");
@@ -437,7 +362,7 @@ describe("menu d'une carte — top et basse priorité", () => {
             release = resolve;
           }),
       );
-      const ranking = board.rankToEdge(key, edge, { daily: false });
+      const ranking = board.rankToEdge(key, edge);
       await expect.poll(() => sync.mock.calls.length).toBe(1);
       expect(board.pendingKeys.value.has(key)).toBe(true);
       expect(cellKeys()).toEqual(during);

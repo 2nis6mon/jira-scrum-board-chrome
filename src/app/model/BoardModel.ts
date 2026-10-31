@@ -1110,10 +1110,10 @@ export class BoardModel {
   }
 
   /**
-   * Actions proposées sur un ticket affiché. Mêmes règles que le glissé : une écriture en cours
-   * désactive tout ; en daily, pas de changement d'objectif. Aucune écriture.
+   * Actions proposées sur un ticket affiché : une écriture en cours désactive tout. Toutes restent
+   * permises en daily et en présentation (décision de Denis du 31/10/2026). Aucune écriture.
    */
-  cardMenuOptions(issueKey: string, context: { daily: boolean }): CardMenuOptions | null {
+  cardMenuOptions(issueKey: string): CardMenuOptions | null {
     const snapshot = this.snapshot.value;
     const configuration = this.configuration.value;
     const issue = snapshot ? findIssue(snapshot, issueKey) : null;
@@ -1122,12 +1122,9 @@ export class BoardModel {
     const writing = this.#writing();
     const blocked = writing
       ? "writing"
-      : context.daily
-        ? "daily"
-        : targets.goals.length === 0 && !targets.canDetach
-          ? "noGoal"
-          : null;
-    // Le classement reste permis en daily, comme le glissé dans une case.
+      : targets.goals.length === 0 && !targets.canDetach
+        ? "noGoal"
+        : null;
     const edge = (side: RankEdge) => {
       if (writing) return { blocked: "writing" as const };
       const result = edgeRank(snapshot, configuration, issue, side);
@@ -1141,18 +1138,13 @@ export class BoardModel {
   }
 
   /**
-   * Classe le ticket en tête (`top`) ou en fin (`bottom`) de sa swimlane, tous sprints et toutes
-   * colonnes confondus, filtres ignorés : UNE écriture de rang, sans transition ni changement
+   * Classe le ticket en tête (`top`) ou en fin (`bottom`) de sa swimlane, toutes colonnes
+   * confondues, parmi les tickets de son sprint, filtres ignorés : UNE écriture de rang, sans transition ni changement
    * d'objectif. Même fin de chemin que le dépôt : une seule tentative, puis relecture du board.
    */
-  async rankToEdge(
-    issueKey: string,
-    edge: RankEdge,
-    // Obligatoire, comme pour `sendToGoal` : les options sont celles du contexte affiché.
-    context: { daily: boolean },
-  ): Promise<void> {
+  async rankToEdge(issueKey: string, edge: RankEdge): Promise<void> {
     this.closeCardMenu();
-    const options = this.cardMenuOptions(issueKey, context);
+    const options = this.cardMenuOptions(issueKey);
     const snapshot = this.snapshot.value;
     const configuration = this.configuration.value;
     const issue = snapshot ? findIssue(snapshot, issueKey) : null;
@@ -1188,14 +1180,9 @@ export class BoardModel {
    * Rattache le ticket à un objectif (`null` : le retire de son objectif, vers sa destination par
    * défaut), sans changer de colonne ni de rang. Même chemin que le dépôt : une seule tentative.
    */
-  async sendToGoal(
-    issueKey: string,
-    goalId: string | null,
-    // Obligatoire : la règle de la daily ne peut pas être oubliée par un appelant.
-    context: { daily: boolean },
-  ): Promise<void> {
+  async sendToGoal(issueKey: string, goalId: string | null): Promise<void> {
     this.closeCardMenu();
-    const options = this.cardMenuOptions(issueKey, context)?.sendToGoal;
+    const options = this.cardMenuOptions(issueKey)?.sendToGoal;
     const snapshot = this.snapshot.value;
     const issue = snapshot ? findIssue(snapshot, issueKey) : null;
     if (!options || options.blocked !== null || !issue || issue.columnId === null) return;

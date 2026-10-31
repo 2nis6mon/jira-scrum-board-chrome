@@ -1168,7 +1168,7 @@ function BoardGrid(props: {
         </Fragment>
       ))}
       {laneTarget === null && laneDropLine}
-      <CardMenu board={board} daily={daily} />
+      <CardMenu board={board} />
     </div>
   );
 }
