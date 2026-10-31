@@ -302,9 +302,12 @@ export async function loadSnapshot(input: {
     ? (document?.atlassianGoalIds ?? [])
     : null;
   const storedTextLinks: Record<number, Record<string, string>> = {};
+  const storedTextGoalIds: Record<number, string[]> = {};
   goalSprints.forEach((goalSprint, index) => {
     const entry = documents[index];
-    if (entry?.known) storedTextLinks[goalSprint.id] = { ...(entry.document?.links ?? {}) };
+    if (!entry?.known) return;
+    storedTextLinks[goalSprint.id] = { ...(entry.document?.links ?? {}) };
+    storedTextGoalIds[goalSprint.id] = (entry.document?.goals ?? []).map((goal) => goal.id);
   });
   const otherPins = documents.slice(1).flatMap((entry) => entry.document?.atlassianGoalIds ?? []);
   const sprintOfIssue = new Map(
@@ -387,6 +390,7 @@ export async function loadSnapshot(input: {
         goalSprintIds: goalSprints.map((goalSprint) => goalSprint.id),
         ...(goalSprintOf ? { goalSprintOf } : {}),
         storedTextLinks,
+        storedTextGoalIds,
         goalsOrigin,
         goalIssues,
         swimlaneIssues,

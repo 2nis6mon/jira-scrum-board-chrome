@@ -559,13 +559,15 @@ describe("loadSnapshot", () => {
       expect(goalOf("ABC-2")).toBe("g-pay");
       // Liens bruts de chaque sprint, sous son propre id : base du contrôle de conflit.
       expect(first.storedTextLinks).toEqual({ 42: {}, 43: {} });
+      // Objectifs bruts de chaque propriété : un sprint sans propriété n'en a aucun.
+      expect(first.storedTextGoalIds).toEqual({ 42: ["g-pay"], 43: [] });
       expect(second.storedTextLinks).toEqual({
         42: { "ABC-1": pixel?.id, "ABC-2": "g-pay" },
         43: {},
       });
     });
 
-    it("liens bruts : un sprint dont la propriété n'a pas pu être lue est absent", async () => {
+    it("liens et objectifs bruts : un sprint dont la propriété n'a pas pu être lue est absent", async () => {
       const jira = boardJira({
         sprints: [
           sprintJson(42, { goal: "Paiement" }),
@@ -575,11 +577,23 @@ describe("loadSnapshot", () => {
       })
         .on("GET", GOALS_PROPERTY(42), {
           status: 200,
-          json: { value: { version: 1, goals: [], links: { "ABC-1": "g-x" } } },
+          json: {
+            value: {
+              version: 1,
+              goals: [
+                { id: "g-pay", title: "Paiement" },
+                { id: "g-x", title: "Retiré du texte" },
+              ],
+              links: { "ABC-1": "g-x" },
+            },
+          },
         })
         .on("GET", GOALS_PROPERTY(43), { status: 500, json: {} });
       const { snapshot } = await sync(jira);
       expect(snapshot.storedTextLinks).toEqual({ 42: { "ABC-1": "g-x" } });
+      // Lus avant la réconciliation : l'objectif écarté par le texte y figure encore.
+      expect(snapshot.storedTextGoalIds).toEqual({ 42: ["g-pay", "g-x"] });
+      expect(snapshot.goals.map((goal) => goal.id)).not.toContain("g-x");
       expect(snapshot.goalsReadOnly).toBe(false);
     });
 

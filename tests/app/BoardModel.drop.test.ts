@@ -1099,3 +1099,125 @@ describe("glisser-déposer — rattachement texte sans conflit", () => {
     expect(board.writeNotice.value).toBeNull();
   });
 });
+
+describe("glisser-déposer — rattachement texte et objectifs absents du board", () => {
+  const drop = (board: BoardModel) =>
+    board.dropIssue({
+      issueKey: "ABC-105",
+      block: goalBlock("g-stabilite"),
+      columnId: TODO,
+      beforeKey: null,
+    });
+
+  it("objectif ajouté dans Jira entre le chargement et le dépôt : conservé avec ses liens", async () => {
+    const { board, jira, writes } = await boardWith();
+    // Un collègue (ou la publication du planning) ajoute un objectif pendant que le board est affiché.
+    const added = {
+      id: "g-ajoute",
+      title: "Objectif ajouté",
+      color: "goal3",
+      position: 2,
+      futur: { conserve: true },
+    };
+    jira
+      .on("GET", PROPERTY, {
+        status: 200,
+        json: {
+          value: {
+            ...GOALS_DOCUMENT,
+            goals: [...GOALS_DOCUMENT.goals, added],
+            links: { ...GOALS_DOCUMENT.links, "ABC-9": "g-ajoute" },
+          },
+        },
+      })
+      .on("PUT", PROPERTY, { status: 200 });
+
+    await drop(board);
+
+    expect(writes().map((r) => r.path)).toEqual([PROPERTY]);
+    expect(writes()[0]?.body).toMatchObject({
+      goals: [{ id: "g-paiement" }, { id: "g-stabilite" }, added],
+      links: { ...GOALS_DOCUMENT.links, "ABC-9": "g-ajoute", "ABC-105": "g-stabilite" },
+    });
+    expect(board.writeNotice.value).toBeNull();
+  });
+
+  it("objectif retiré du texte avant le chargement : retiré avec ses liens à l'écriture", async () => {
+    const stale = {
+      ...GOALS_DOCUMENT,
+      goals: [
+        ...GOALS_DOCUMENT.goals,
+        { id: "g-retire", title: "Objectif retiré", color: "goal3", position: 2 },
+      ],
+      links: { ...GOALS_DOCUMENT.links, "ABC-104": "g-retire" },
+    };
+    const jira = boardSiteJira()
+      .on("GET", PROPERTY, { status: 200, json: { value: stale } })
+      .on("PUT", PROPERTY, { status: 200 });
+    const { board, writes } = await boardWith(jira);
+    expect(board.snapshot.value?.goals.map((goal) => goal.id)).toEqual([
+      "g-paiement",
+      "g-stabilite",
+    ]);
+
+    await drop(board);
+
+    expect(writes().map((r) => r.path)).toEqual([PROPERTY]);
+    const body = writes()[0]?.body as { goals: { id: string }[]; links: unknown };
+    expect(body.goals.map((goal) => goal.id)).toEqual(["g-paiement", "g-stabilite"]);
+    expect(body.links).toEqual({ ...GOALS_DOCUMENT.links, "ABC-105": "g-stabilite" });
+  });
+
+  it("second sprint réuni : l'objectif écarté de son texte est retiré de sa propriété", async () => {
+    const PROPERTY_43 = `/rest/agile/1.0/sprint/43/properties/${SPRINT_PROPERTY_KEYS.goals}`;
+    const sprint = (id: number, startDate: string, goal: string) => ({
+      id,
+      name: `Sprint ${id}`,
+      state: "active",
+      originBoardId: 7,
+      startDate,
+      endDate: "2026-09-25T18:00:00.000+0200",
+      goal,
+    });
+    const jira = boardSiteJira()
+      .on("GET", "/rest/agile/1.0/board/7/sprint", {
+        status: 200,
+        json: {
+          isLast: true,
+          values: [
+            sprint(42, "2026-09-14T08:00:00.000+0200", SPRINT_GOAL_TEXT),
+            sprint(43, "2026-09-15T08:00:00.000+0200", "Pixel"),
+          ],
+        },
+      })
+      .on("GET", "/rest/agile/1.0/board/7/sprint/43/issue", {
+        status: 200,
+        json: { issues: [issueJson("ABC-301", { statusId: "1" })], total: 1 },
+      })
+      .on("GET", PROPERTY_43, {
+        status: 200,
+        json: {
+          value: {
+            version: 1,
+            goals: [{ id: "g-pixel-old", title: "Ancien", color: "goal1", position: 0 }],
+            links: { "ABC-302": "g-pixel-old" },
+          },
+        },
+      })
+      .on("PUT", PROPERTY_43, { status: 200 });
+    const { board, writes } = await boardWith(jira);
+
+    await board.dropIssue({
+      issueKey: "ABC-301",
+      block: goalBlock("g-stabilite"),
+      columnId: TODO,
+      beforeKey: null,
+    });
+
+    expect(writes().map((r) => r.path)).toEqual([PROPERTY_43]);
+    const body = writes()[0]?.body as { goals: { id: string; title: string }[]; links: unknown };
+    expect(body.goals.map((goal) => goal.id)).not.toContain("g-pixel-old");
+    expect(body.goals.map((goal) => goal.title)).toEqual(["Pixel"]);
+    expect(body.links).toEqual({ "ABC-301": "g-stabilite" });
+  });
+});

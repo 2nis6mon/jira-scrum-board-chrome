@@ -252,6 +252,12 @@ export interface BoardSnapshot {
    */
   readonly storedTextLinks?: Readonly<Record<number, Readonly<Record<string, string>>>>;
   /**
+   * Identifiants des objectifs lus dans la propriété de chaque sprint réuni, par sprint, avant
+   * toute réconciliation. Distingue, au rattachement, un objectif écarté par la réconciliation
+   * (connu au chargement) d'un objectif ajouté depuis. Un sprint non lu est absent.
+   */
+  readonly storedTextGoalIds?: Readonly<Record<number, readonly string[]>>;
+  /**
    * D'où viennent les objectifs AFFICHÉS : peut différer de la source configurée quand la
    * lecture des Goals Atlassian a échoué et que le board s'est rabattu sur le texte du sprint.
    * Un rattachement s'écrit là où l'objectif affiché existe.

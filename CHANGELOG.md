@@ -16,6 +16,8 @@ sont dans la [documentation technique](docs/technique/index.md).
   (« Rien n'a été envoyé à Jira : il faut pouvoir modifier le board. ») ; l'avis est inchangé.
 - Une étape de déplacement refusée avant l'envoi (board quitté ou rechargé) est journalisée
   « Rien n'a été envoyé à Jira : le board a changé avant l'envoi. » au lieu d'un échec ordinaire.
+- Rattacher un ticket à un objectif du texte du sprint ne retire plus un objectif ajouté dans Jira
+  depuis le chargement (par un collègue ou le Sprint Planning), ni les rattachements qui y mènent.
 
 ## 0.36.2 — Objectifs du sprint écrits sans perte
 

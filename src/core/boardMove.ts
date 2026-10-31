@@ -218,6 +218,10 @@ async function assignGoal(
       ...(snapshot.storedTextLinks?.[sprintId]
         ? { knownGoalId: snapshot.storedTextLinks[sprintId][issueKey] ?? null }
         : {}),
+      // Objectifs lus au chargement : ceux que le board n'affiche plus sont retirés, pas les autres.
+      ...(snapshot.storedTextGoalIds?.[sprintId]
+        ? { knownGoalIds: snapshot.storedTextGoalIds[sprintId] }
+        : {}),
       goals,
       linkableGoalIds: snapshot.goals
         .filter((goal) => !goals.some((own) => own.id === goal.id))

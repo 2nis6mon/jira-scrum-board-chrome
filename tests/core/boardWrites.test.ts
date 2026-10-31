@@ -8,7 +8,11 @@ import {
   withPinnedGoals,
   withTextGoalLink,
 } from "../../src/core/boardWrites";
-import { makeSprintGoal, makeSprintGoalDocument } from "../../src/core/sprintGoals";
+import {
+  makeSprintGoal,
+  makeSprintGoalDocument,
+  reconcileSprintGoals,
+} from "../../src/core/sprintGoals";
 import { JiraClient } from "../../src/jira/client";
 import { JiraError } from "../../src/jira/errors";
 import { JiraTransport } from "../../src/jira/transport";
@@ -757,6 +761,182 @@ describe("rattachement du texte : matrice de la propriété partagée", () => {
       }),
     );
     expect(await link(jira, "g1", "g1")).toEqual({ kind: "unchanged" });
+    expect(jira.sent("PUT")).toEqual([]);
+  });
+});
+
+describe("rattachement du texte : objectifs de Jira absents du board", () => {
+  const stored = (value: unknown) => ({ status: 200, json: { key: "k", value } });
+  const jiraGoal = (id: string, title: string, position: number, extra: object = {}) => ({
+    id,
+    title,
+    color: `goal${position + 1}`,
+    position,
+    ...extra,
+  });
+  const link = (
+    jira: FakeJira,
+    goals: readonly ReturnType<typeof makeSprintGoal>[],
+    knownGoalIds?: readonly string[],
+  ) => {
+    const { reader, writer } = setup(jira);
+    return linkToTextGoal(reader, writer, {
+      sprintId: 42,
+      issueKey: "ABC-1",
+      goalId: "g1",
+      knownGoalId: null,
+      ...(knownGoalIds ? { knownGoalIds } : {}),
+      goals,
+      accountId: "compte-1",
+      now: NOW,
+    });
+  };
+  const board = [
+    makeSprintGoal({ id: "g1", title: "Paiement", position: 0 }),
+    makeSprintGoal({ id: "g2", title: "Stabilité", position: 1 }),
+  ];
+
+  it("objectif ajouté depuis le chargement : conservé intact avec ses liens, après ceux du board", async () => {
+    const jira = new FakeJira()
+      .on(
+        "GET",
+        GOALS,
+        stored({
+          version: 1,
+          goals: [
+            jiraGoal("g10", "Planifié", 4, { extra: true }),
+            jiraGoal("g1", "Paiement", 0),
+            // Position déjà prise par g2 : renuméroté à la suite des objectifs du board.
+            jiraGoal("g9", "Ajouté", 1, { futur: { a: 1 } }),
+            jiraGoal("g2", "Stabilité", 1),
+          ],
+          links: { "ABC-9": "g9", "ABC-10": "g10" },
+        }),
+      )
+      .on("PUT", GOALS, { status: 200 });
+    expect(await link(jira, board, ["g1", "g2"])).toEqual({ kind: "linked" });
+    expect(jira.sent("PUT")).toHaveLength(1);
+    expect(jira.sent("PUT")[0]?.body).toMatchObject({
+      goals: [
+        { id: "g1", title: "Paiement", position: 0 },
+        { id: "g2", title: "Stabilité", position: 1 },
+        { id: "g9", title: "Ajouté", color: "goal2", position: 2, futur: { a: 1 } },
+        { id: "g10", title: "Planifié", color: "goal5", position: 3, extra: true },
+      ],
+      links: { "ABC-1": "g1", "ABC-9": "g9", "ABC-10": "g10" },
+    });
+  });
+
+  it("objectif retiré du texte avant le chargement : retiré avec ses liens", async () => {
+    const jira = new FakeJira()
+      .on(
+        "GET",
+        GOALS,
+        stored({
+          version: 1,
+          goals: [
+            jiraGoal("g1", "Paiement", 0),
+            jiraGoal("g2", "Stabilité", 1),
+            jiraGoal("g3", "Recherche", 2),
+          ],
+          links: { "ABC-3": "g3" },
+        }),
+      )
+      .on("PUT", GOALS, { status: 200 });
+    await link(jira, board, ["g1", "g2", "g3"]);
+    const body = jira.sent("PUT")[0]?.body as { goals: { id: string }[]; links: unknown };
+    expect(body.goals.map((goal) => goal.id)).toEqual(["g1", "g2"]);
+    expect(body.links).toEqual({ "ABC-1": "g1" });
+  });
+
+  it("objectif renommé dans le texte : le nouvel objectif est écrit, l'ancien et ses liens retirés", async () => {
+    const property = makeSprintGoalDocument({
+      goals: [
+        makeSprintGoal({ id: "g1", title: "Paiement", position: 0, color: "goal1" }),
+        makeSprintGoal({ id: "g2", title: "Ancienne stabilité", position: 1, color: "goal2" }),
+      ],
+      links: { "ABC-2": "g2" },
+    });
+    const reconciled = reconcileSprintGoals(
+      "Paiement\nStabilité",
+      property,
+      (title) => `text-42-${title}`,
+    );
+    expect(reconciled.goals.map((goal) => goal.id)).toEqual(["g1", "text-42-Stabilité"]);
+    const jira = new FakeJira()
+      .on(
+        "GET",
+        GOALS,
+        stored({
+          version: 1,
+          goals: [jiraGoal("g1", "Paiement", 0), jiraGoal("g2", "Ancienne stabilité", 1)],
+          links: { "ABC-2": "g2" },
+        }),
+      )
+      .on("PUT", GOALS, { status: 200 });
+    await link(
+      jira,
+      reconciled.goals,
+      property.goals.map((goal) => goal.id),
+    );
+    const body = jira.sent("PUT")[0]?.body as { goals: { id: string }[]; links: unknown };
+    expect(body.goals.map((goal) => goal.id)).toEqual(["g1", "text-42-Stabilité"]);
+    expect(body.links).toEqual({ "ABC-1": "g1" });
+  });
+
+  it("objectif réconcilié depuis le texte, absent de Jira : ajouté à la propriété", async () => {
+    const jira = new FakeJira()
+      .on("GET", GOALS, stored({ version: 1, goals: [jiraGoal("g1", "Paiement", 0)], links: {} }))
+      .on("PUT", GOALS, { status: 200 });
+    await link(
+      jira,
+      [
+        board[0] as (typeof board)[0],
+        makeSprintGoal({ id: "text-42-x", title: "Neuf", position: 1 }),
+      ],
+      ["g1"],
+    );
+    expect(jira.sent("PUT")[0]?.body).toMatchObject({
+      goals: [
+        { id: "g1", position: 0 },
+        { id: "text-42-x", title: "Neuf", color: "goal2", position: 1 },
+      ],
+    });
+  });
+
+  it("propriété non lue au chargement : aucun objectif de Jira n'est retiré", async () => {
+    const jira = new FakeJira()
+      .on(
+        "GET",
+        GOALS,
+        stored({
+          version: 1,
+          goals: [jiraGoal("g1", "Paiement", 0), jiraGoal("g9", "Ajouté", 1)],
+          links: { "ABC-9": "g9" },
+        }),
+      )
+      .on("PUT", GOALS, { status: 200 });
+    const { reader, writer } = setup(jira);
+    await linkToTextGoal(reader, writer, {
+      sprintId: 42,
+      issueKey: "ABC-1",
+      goalId: "g1",
+      goals: [board[0] as (typeof board)[0]],
+      accountId: "compte-1",
+      now: NOW,
+    });
+    const body = jira.sent("PUT")[0]?.body as { goals: { id: string }[]; links: unknown };
+    expect(body.goals.map((goal) => goal.id)).toEqual(["g1", "g9"]);
+    expect(body.links).toEqual({ "ABC-1": "g1", "ABC-9": "g9" });
+  });
+
+  it("conflit sur le lien du ticket : refus inchangé, même avec un objectif ajouté", async () => {
+    const jira = new FakeJira().on(
+      "GET",
+      GOALS,
+      stored({ version: 1, goals: [jiraGoal("g9", "Ajouté", 2)], links: { "ABC-1": "g9" } }),
+    );
+    expect(await link(jira, board, ["g1", "g2"])).toEqual({ kind: "conflict", current: "g9" });
     expect(jira.sent("PUT")).toEqual([]);
   });
 });

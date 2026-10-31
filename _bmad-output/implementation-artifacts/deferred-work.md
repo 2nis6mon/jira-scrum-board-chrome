@@ -1,9 +1,5 @@
 # Travail reporté
 
-- source_spec: `_bmad-output/implementation-artifacts/spec-1-1-sprintgoals-sans-perte.md`
-  summary: Le rattachement texte reconstruit la liste des objectifs depuis le chargement et retire, à l'écriture, les liens d'un collègue vers un objectif ajouté au texte du sprint depuis.
-  evidence: `withTextGoalLink` (src/core/boardWrites.ts) part de `input.goals` et filtre les liens frais par `validIds` ; comportement identique avant la story 1.1.
-
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-5-gardes-de-sources.md`
   summary: `src/jira/diagnostics.ts` importe `../i18n`, dépendance de la couche Jira hors du graphe AD-1 (un contenu Jira n'est jamais localisé) ; non couverte par les gardes de la story 1.5.
   evidence: import de `../i18n` dans src/jira/diagnostics.ts, antérieur à la story 1.5 ; `forbiddenImports` ne vise que `core`, `app` et `integration`.
@@ -23,3 +19,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-retro1-2-refus-de-la-porte-type.md`
   summary: Une publication du planning refusée par la porte (board périmé) avant toute écriture est journalisée « incertain / non confirmée » au lieu de « rien n'a été envoyé ».
   evidence: le `catch` des étapes de `publishSprintPlanning` (src/core/sprintPlanning.ts) transforme toute erreur du writer en `partial` / `unconfirmed` ; comportement antérieur, prudent, fonction expérimentale absente du paquet.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-retro1-3-rattachement-texte-sans-perte.md`
+  summary: Un lien écrit par un collègue dans la propriété d'un sprint vers un objectif ajouté depuis dans un AUTRE sprint réuni est encore retiré au rattachement suivant.
+  evidence: `withTextGoalLink` (src/core/boardWrites.ts) filtre les liens frais par `validIds`, qui ne connaît des autres sprints que `linkableGoalIds` calculé au chargement ; seule la propriété du sprint écrit est relue.

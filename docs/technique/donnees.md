@@ -19,6 +19,12 @@ illisibles jamais écrasées, clés inconnues conservées, limite client 32 Ko. 
 stricte (version inconnue refusée), refus si la zone modifiée a changé depuis le chargement (lien
 du ticket, Goals épinglés, document entier pour le planning), fusion sur Jira frais sinon, clés
 inconnues gardées à la racine et par objectif, `updatedAt` ISO à la seconde, une seule écriture.
+Un rattachement texte (`withTextGoalLink`) part des objectifs relus : ceux affichés gardent leurs
+champs de Jira avec le titre et la position du board, ceux réconciliés depuis le texte sont ajoutés ;
+un objectif absent du board mais lu au chargement (`storedTextGoalIds`, écarté par la
+réconciliation) est retiré avec ses liens ; un objectif apparu depuis (collègue, planning) est
+conservé (champs inconnus compris) avec ses liens, après ceux du board dans l'ordre de Jira et
+renuméroté à leur suite. Propriété non lue au chargement : aucun objectif de Jira n'est retiré.
 L'emplacement des Goals épinglés n'est choisi que par `pinnedGoalsStorage` (`pinnedGoals.ts`) :
 propriété du sprint de référence en Scrum, `boardPinnedGoalIds` en Kanban, indisponible en Scrum
 sans sprint actif ; services et vues consomment ce stockage sans tester le type du board.

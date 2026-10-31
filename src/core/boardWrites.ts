@@ -177,6 +177,11 @@ export async function linkToTextGoal(
      * `undefined` : base inconnue (propriété non lue), le lien est fusionné sans contrôle.
      */
     knownGoalId?: string | null;
+    /**
+     * Identifiants des objectifs lus dans la propriété de ce sprint au chargement. `undefined` :
+     * propriété non lue, aucun objectif de Jira n'est retiré faute de base.
+     */
+    knownGoalIds?: readonly string[];
     /** Objectifs de ce sprint, tels que réconciliés à la dernière synchronisation. */
     goals: readonly SprintGoal[];
     /** Objectifs des autres sprints réunis sur le board, auxquels le ticket peut aussi se rattacher. */
@@ -213,8 +218,18 @@ export async function linkToTextGoal(
 }
 
 /**
- * Document à écrire : le document lu dans Jira, avec les objectifs affichés (pour que leurs
- * identifiants restent stables) et le seul lien du ticket modifié.
+ * Document à écrire : le document relu dans Jira, avec le seul lien du ticket modifié.
+ *
+ * - Les objectifs affichés (`goals`) gardent leurs champs de Jira (identifiant stable, couleur,
+ *   champs inconnus) avec le titre et la position du board ; ceux que le board vient de
+ *   réconcilier depuis le texte du sprint sont ajoutés.
+ * - Un objectif de Jira que le board n'affiche pas et qui figurait déjà dans la propriété au
+ *   chargement (`knownGoalIds`) a été écarté par la réconciliation (retiré ou renommé dans le
+ *   texte) : il est retiré, avec ses liens.
+ * - Un objectif apparu dans Jira depuis le chargement (collègue, publication du planning) est
+ *   conservé (champs inconnus compris) avec ses liens, après ceux du board dans l'ordre de Jira,
+ *   renuméroté à leur suite. Sans base (`knownGoalIds` inconnu), aucun objectif de Jira n'est
+ *   retiré.
  *
  * La couleur écrite est celle déjà présente dans Jira, à défaut la couleur par défaut de sa
  * position — jamais la couleur choisie localement, qui reste un réglage de ce navigateur.
@@ -225,13 +240,15 @@ export function withTextGoalLink(
     issueKey: string;
     goalId: string | null;
     goals: readonly SprintGoal[];
+    knownGoalIds?: readonly string[];
     linkableGoalIds?: readonly string[];
     accountId: string | null;
     now: Date;
   },
 ): SprintGoalDocument {
-  const storedById = new Map((fresh?.goals ?? []).map((goal) => [goal.id, goal]));
-  const goals = [...input.goals]
+  const freshGoals = fresh?.goals ?? [];
+  const storedById = new Map(freshGoals.map((goal) => [goal.id, goal]));
+  const shown = [...input.goals]
     .sort((a, b) => a.position - b.position)
     .map((goal) => {
       const stored = storedById.get(goal.id);
@@ -244,11 +261,20 @@ export function withTextGoalLink(
             color: goalColorName(goal.position),
           });
     });
+  const shownIds = new Set(shown.map((goal) => goal.id));
+  const known = input.knownGoalIds ? new Set(input.knownGoalIds) : null;
+  // Objectifs ajoutés dans Jira depuis le chargement : conservés tels quels, dans l'ordre de Jira.
+  const added = freshGoals
+    .filter((goal) => !shownIds.has(goal.id) && !(known?.has(goal.id) ?? false))
+    .sort((a, b) => a.position - b.position)
+    // Numérotés à la suite de ceux du board : deux objectifs ne partagent jamais une position.
+    .map((goal, index) => ({ ...goal, position: shown.length + index }));
+  const goals = [...shown, ...added];
 
   const validIds = new Set([...goals.map((goal) => goal.id), ...(input.linkableGoalIds ?? [])]);
   const links: Record<string, string> = {};
   for (const [issueKey, goalId] of Object.entries(fresh?.links ?? {})) {
-    // Un lien vers un objectif disparu des sprints réunis ne mène plus nulle part.
+    // Un lien vers un objectif écarté des sprints réunis ne mène plus nulle part.
     if (validIds.has(goalId)) links[issueKey] = goalId;
   }
   if (input.goalId === null) delete links[input.issueKey];
