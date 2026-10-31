@@ -24,11 +24,25 @@ export interface BoardWriteAccess {
   readonly writer: JiraWriter;
   readonly goals: Pick<GoalsClient, "setLink">;
 }
-export interface BoardWriteOptions {
-  /** Message de refus, quand le board ou ses droits ont changé avant l'envoi. */
-  readonly refusal?: string;
+/**
+ * Raison d'un refus de la porte : `stale`, geste préparé pour un board quitté ou rechargé ;
+ * `cannotEdit`, propriété du board (E6) sans `canEdit`.
+ */
+export type BoardWriteRefusal = "stale" | "cannotEdit";
+/**
+ * Refus de la porte, levé AVANT tout envoi : rien n'est parti vers Jira. Les services le
+ * distinguent d'un refus de Jira ; son texte vient du catalogue (`model/coreText.ts`), le
+ * message de l'erreur n'est qu'une trace technique.
+ */
+export class BoardWriteRefused extends Error {
+  readonly reason: BoardWriteRefusal;
+  constructor(reason: BoardWriteRefusal) {
+    super(`Écriture refusée avant l'envoi (${reason})`);
+    this.name = "BoardWriteRefused";
+    this.reason = reason;
+  }
 }
 /** Porte unique d'écriture du board (AD-6) : un geste qui écrit attend la fin du précédent. */
 export interface BoardWriteGateway {
-  run<T>(task: (access: BoardWriteAccess) => Promise<T>, options?: BoardWriteOptions): Promise<T>;
+  run<T>(task: (access: BoardWriteAccess) => Promise<T>): Promise<T>;
 }

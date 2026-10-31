@@ -19,3 +19,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-retro1-1-deconnexion-en-plein-geste.md`
   summary: La boucle de stabilité de `BoardModel.settled()` (nouvel attente si une écriture locale ou un geste arrive pendant l'attente) n'est exercée par aucun test ; la réduire à une seule passe ne casse rien.
   evidence: mutation `while (false)` dans `settled()` : toute la suite `tests/app` passe ; aucun chemin actuel ne met en file une écriture dans cette fenêtre (revue du 31/10/2026).
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-retro1-2-refus-de-la-porte-type.md`
+  summary: Une publication du planning refusée par la porte (board périmé) avant toute écriture est journalisée « incertain / non confirmée » au lieu de « rien n'a été envoyé ».
+  evidence: le `catch` des étapes de `publishSprintPlanning` (src/core/sprintPlanning.ts) transforme toute erreur du writer en `partial` / `unconfirmed` ; comportement antérieur, prudent, fonction expérimentale absente du paquet.

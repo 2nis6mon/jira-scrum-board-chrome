@@ -467,8 +467,15 @@ export const businessMessagesEs = {
     "Estas reglas han cambiado en Jira mientras las editabas. No se ha sobrescrito nada.",
   "Votre brouillon est conservé. Copiez-le si nécessaire, puis rechargez les règles avant de les modifier.":
     "Tu borrador se ha conservado. Cópialo si es necesario y vuelve a cargar las reglas antes de editarlas.",
+  // Anciens refus de la porte (jusqu'à 0.36.2), avec « Le board ou vos droits ont changé : rien
+  // n'a été écrit. » : gardés car les entrées { text } du journal de ces versions sont traduites
+  // par `localize` seulement si leur phrase figure exactement au catalogue.
   "Le board ou ses droits ont changé avant l'enregistrement.":
     "El tablero o sus permisos han cambiado antes de guardar.",
+  "Rien n'a été envoyé à Jira : il faut pouvoir modifier le board.":
+    "No se ha enviado nada a Jira: necesitas permiso para editar el tablero.",
+  "Rien n'a été envoyé à Jira : le board a changé avant l'envoi.":
+    "No se ha enviado nada a Jira: el tablero ha cambiado antes del envío.",
   "réglages du board": "ajustes del tablero",
   enregistrement: "guardado",
   "Quelqu'un": "Alguien",

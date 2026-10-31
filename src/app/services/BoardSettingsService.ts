@@ -9,7 +9,9 @@ import {
   saveTeamSettings,
   type TeamDocument,
   type TeamReadOutcome,
+  type TeamSettings,
   teamDifferences,
+  teamSettingsOf,
   withTeamSettings,
 } from "../../core/teamSettings";
 import type { JiraClient } from "../../jira/client";
@@ -19,14 +21,15 @@ import { type AppMessage, message } from "../model/appMessage";
 import type { PinEditor, TeamNotice, TeamState } from "../model/BoardTypes";
 import { errorMessage, TEAM_FAMILY_LABEL } from "../model/coreText";
 import { toMessage } from "../model/messages";
-import type {
-  BoardScope,
-  BoardWriteAccess,
-  BoardWriteGateway,
-  ConfigurationChange,
-  ReadableValue,
-  RecordWrite,
-  StateValue,
+import {
+  type BoardScope,
+  type BoardWriteAccess,
+  type BoardWriteGateway,
+  BoardWriteRefused,
+  type ConfigurationChange,
+  type ReadableValue,
+  type RecordWrite,
+  type StateValue,
 } from "./ports";
 
 export interface BoardSettingsState {
@@ -144,6 +147,11 @@ export class BoardSettingsService {
           break;
       }
     } catch (error) {
+      // Board quitté ou rechargé pendant l'attente : rien n'est parti, rien à dire ni à journaliser.
+      if (isRefused(error, "stale")) {
+        settle(null);
+        return;
+      }
       const jiraError = error instanceof JiraError ? error : null;
       const uncertain = jiraError?.isOutcomeUnknown ?? false;
       const userMessage = toMessage(error);
@@ -230,85 +238,93 @@ export class BoardSettingsService {
     };
     this.#teamWrites += 1;
     this.#state.teamSaving.value += 1;
-    const task = this.#gate.run(
-      async ({ writer }) => {
+    const task = this.#gate.run(async ({ writer }) => {
+      if (stale()) return;
+      try {
+        // Droit perdu pendant l'attente : traité comme le refus de la porte, sans aucune lecture.
+        if (!this.#state.canEditSettings.value) throw new BoardWriteRefused("cannotEdit");
+        const user = this.#effects.currentUser();
+        const outcome = await saveBoardPinnedGoals(this.#reader, writer, {
+          boardId: storage.boardId,
+          base: editor.base,
+          selection: editor.selection,
+          configuration: () => this.#state.configuration.value ?? configuration,
+          publishedBy: {
+            accountId: user?.accountId ?? null,
+            displayName: user?.displayName ?? null,
+          },
+          now: this.#effects.now(),
+        });
         if (stale()) return;
-        if (!this.#state.canEditSettings.value) {
+        if (outcome.kind === "unreadable")
+          throw new Error("Les réglages du board sont illisibles : rien n'a été écrit.");
+        if (outcome.kind === "conflict") {
+          await conflict(outcome.current);
+          return;
+        }
+        if (outcome.kind === "unchanged") {
+          settle(null);
+          return;
+        }
+        this.#state.team.value = { kind: "published", document: outcome.document };
+        await this.#applyTeamDocument(outcome.document);
+        settle(null);
+        await this.#effects.record({
+          ...entry,
+          outcome: "réussi",
+          detail: null,
+          detailMessage: message("propriété du board Kanban"),
+        });
+      } catch (error) {
+        if (stale() || isRefused(error, "stale")) return;
+        if (isRefused(error, "cannotEdit")) {
+          // Rien n'est parti vers Jira : l'avis ne parle pas d'un refus de Jira.
+          this.#state.canEditBoard.value = false;
           settle({
             ...editor,
+            canKeepLocally: false,
             notice: {
               tone: "error",
               text: "Il faut pouvoir modifier le board pour y épingler des Goals.",
               suggestion: null,
             },
           });
-          return;
-        }
-        try {
-          const user = this.#effects.currentUser();
-          const outcome = await saveBoardPinnedGoals(this.#reader, writer, {
-            boardId: storage.boardId,
-            base: editor.base,
-            selection: editor.selection,
-            configuration: () => this.#state.configuration.value ?? configuration,
-            publishedBy: {
-              accountId: user?.accountId ?? null,
-              displayName: user?.displayName ?? null,
-            },
-            now: this.#effects.now(),
-          });
-          if (stale()) return;
-          if (outcome.kind === "unreadable")
-            throw new Error("Les réglages du board sont illisibles : rien n'a été écrit.");
-          if (outcome.kind === "conflict") {
-            await conflict(outcome.current);
-            return;
-          }
-          if (outcome.kind === "unchanged") {
-            settle(null);
-            return;
-          }
-          this.#state.team.value = { kind: "published", document: outcome.document };
-          await this.#applyTeamDocument(outcome.document);
-          settle(null);
           await this.#effects.record({
             ...entry,
-            outcome: "réussi",
-            detail: null,
-            detailMessage: message("propriété du board Kanban"),
-          });
-        } catch (error) {
-          if (stale()) return;
-          const jiraError = error instanceof JiraError ? error : null;
-          const uncertain = jiraError?.isOutcomeUnknown ?? false;
-          const forbidden = jiraError?.info.kind === "forbidden";
-          const userMessage = toMessage(error);
-          if (forbidden) this.#state.canEditBoard.value = false;
-          settle({
-            ...editor,
-            canKeepLocally: false,
-            notice: {
-              tone: uncertain ? "warning" : "error",
-              text: uncertain
-                ? `Jira n'a pas confirmé l'enregistrement (${userMessage.text.replace(/\.$/, "")}).`
-                : userMessage.text,
-              suggestion: uncertain
-                ? "Le board va être relu. Vérifiez sa sélection avant de recommencer ; l'extension ne rejoue jamais une écriture."
-                : forbidden
-                  ? "Il faut pouvoir modifier le board pour y épingler des Goals."
-                  : userMessage.suggestion,
-            },
-          });
-          await this.#effects.record({
-            ...entry,
-            outcome: uncertain ? "incertain" : "échec",
+            outcome: "échec",
             detail: null,
             detailMessage: errorMessage(error),
           });
+          return;
         }
-      },
-      { refusal: "Le board ou vos droits ont changé : rien n'a été écrit." },
-    );
+        const jiraError = error instanceof JiraError ? error : null;
+        const uncertain = jiraError?.isOutcomeUnknown ?? false;
+        const forbidden = jiraError?.info.kind === "forbidden";
+        const userMessage = toMessage(error);
+        if (forbidden) this.#state.canEditBoard.value = false;
+        settle({
+          ...editor,
+          canKeepLocally: false,
+          notice: {
+            tone: uncertain ? "warning" : "error",
+            text: uncertain
+              ? `Jira n'a pas confirmé l'enregistrement (${userMessage.text.replace(/\.$/, "")}).`
+              : userMessage.text,
+            suggestion: uncertain
+              ? "Le board va être relu. Vérifiez sa sélection avant de recommencer ; l'extension ne rejoue jamais une écriture."
+              : forbidden
+                ? "Il faut pouvoir modifier le board pour y épingler des Goals."
+                : userMessage.suggestion,
+          },
+        });
+        await this.#effects.record({
+          ...entry,
+          outcome: uncertain ? "incertain" : "échec",
+          detail: null,
+          detailMessage: errorMessage(error),
+        });
+      }
+    });
     try {
       await task;
     } finally {
@@ -333,7 +349,9 @@ export class BoardSettingsService {
     if (!shared) return;
     this.#teamWrites += 1;
     this.#state.teamSaving.value += 1;
-    const task = this.#gate.run((access) => this.#saveShared(access, change));
+    const task = this.#gate.run((access) =>
+      this.#saveShared(access, change, undefined, undefined, teamSettingsOf(before)),
+    );
     try {
       await task;
     } finally {
@@ -373,6 +391,8 @@ export class BoardSettingsService {
     change: (configuration: BoardConfiguration) => BoardConfiguration,
     confirmed?: BoardConfiguration,
     sameFamily?: (base: BoardConfiguration, latest: BoardConfiguration) => boolean,
+    /** Réglages partagés d'avant une modification appliquée localement par avance. */
+    undo?: TeamSettings,
   ): Promise<boolean> {
     const configuration = this.#state.configuration.value;
     if (!configuration) return false;
@@ -470,7 +490,29 @@ export class BoardSettingsService {
         });
       }
     } catch (error) {
-      if (stale()) return false;
+      if (stale() || isRefused(error, "stale")) return false;
+      if (isRefused(error, "cannotEdit")) {
+        // Droit perdu pendant l'attente : rien n'est parti. Comme un refus de Jira, lecture seule
+        // et relecture forcée, qui retire la modification locale jamais publiée ; sans version de
+        // Jira à réappliquer (aucune publiée, ou relecture impossible), elle est défaite ici.
+        this.#state.canEditBoard.value = false;
+        this.#state.teamNotice.value = {
+          tone: "error",
+          text: "Rien n'a été envoyé à Jira : il faut pouvoir modifier le board.",
+          suggestion:
+            "Les réglages du board sont maintenant en lecture seule ici ; ceux de l'équipe vont être rechargés.",
+        };
+        await this.#effects.record({
+          ...entry,
+          outcome: "échec",
+          detail: null,
+          detailMessage: errorMessage(error),
+        });
+        await this.refresh({ force: true });
+        if (undo && this.#state.team.value.kind !== "published" && !stale())
+          await this.#effects.updatePreferences((current) => withTeamSettings(current, undo));
+        return false;
+      }
       const jiraError = error instanceof JiraError ? error : null;
       const uncertain = jiraError?.isOutcomeUnknown ?? false;
       const forbidden = jiraError?.info.kind === "forbidden";
@@ -590,6 +632,11 @@ export class BoardSettingsService {
       },
     }));
   }
+}
+
+/** Refus de la porte du board pour cette raison : rien n'a été envoyé à Jira. */
+function isRefused(error: unknown, reason: BoardWriteRefused["reason"]): boolean {
+  return error instanceof BoardWriteRefused && error.reason === reason;
 }
 
 /** Nombre de Goals épinglés, pour le journal. */

@@ -3,11 +3,19 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
-## 0.36.3 — Déconnexion sans reste pendant un geste
+## 0.36.3 — Déconnexion sans reste et refus avant l'envoi nommés
 
 - Se déconnecter pendant un déplacement ou une modification de réglage n'y laisse plus de données
   locales du site : la déconnexion attend la fin de l'écriture déjà envoyée, n'envoie pas celles
   encore en attente, puis efface journal et board ; le board fermé n'écrit plus rien localement.
+- Si le droit de modifier le board se perd pendant qu'un réglage partagé attend son tour, rien
+  n'est envoyé : le board passe en lecture seule, les réglages de Jira sont relus et la
+  modification locale disparaît (elle est défaite si Jira n'en porte aucun), et le journal indique
+  que rien n'a été envoyé à Jira.
+- Un épinglage Kanban refusé faute de droit de modifier le board est désormais journalisé
+  (« Rien n'a été envoyé à Jira : il faut pouvoir modifier le board. ») ; l'avis est inchangé.
+- Une étape de déplacement refusée avant l'envoi (board quitté ou rechargé) est journalisée
+  « Rien n'a été envoyé à Jira : le board a changé avant l'envoi. » au lieu d'un échec ordinaire.
 
 ## 0.36.2 — Objectifs du sprint écrits sans perte
 

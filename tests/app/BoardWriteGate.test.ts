@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { BOARD_CHANGED_REFUSAL, BoardWriteGate } from "../../src/app/model/BoardWriteGate";
+import { BoardWriteGate } from "../../src/app/model/BoardWriteGate";
+import { BoardWriteRefused } from "../../src/app/services/ports";
 import type { JiraWrite } from "../../src/jira/writes";
 
 function deferred() {
@@ -59,6 +60,16 @@ const EVERY_WRITE: Record<JiraWrite["kind"], JiraWrite> = {
 };
 const TRANSITION: JiraWrite = { kind: "issue.transition", issueKey: "ABC-1", transitionId: "21" };
 
+/** Refus typé de la porte, levé avant l'envoi, avec sa raison. */
+async function refusal(pending: Promise<unknown>): Promise<BoardWriteRefused["reason"]> {
+  const error = await pending.then(
+    () => null,
+    (caught: unknown) => caught,
+  );
+  expect(error).toBeInstanceOf(BoardWriteRefused);
+  return (error as BoardWriteRefused).reason;
+}
+
 describe("porte d'écriture du board", () => {
   it("sérialise les gestes : le second attend la fin du premier, puis part", async () => {
     const test = gate();
@@ -101,8 +112,8 @@ describe("porte d'écriture du board", () => {
     const held = deferred();
     const first = test.subject.run(() => held.promise);
     const waiting = test.subject.run(async ({ writer, goals }) => {
-      await expect(writer.write(TRANSITION)).rejects.toThrow(BOARD_CHANGED_REFUSAL);
-      await expect(goals.setLink("goal.link", "g", "1")).rejects.toThrow(BOARD_CHANGED_REFUSAL);
+      expect(await refusal(writer.write(TRANSITION))).toBe("stale");
+      expect(await refusal(goals.setLink("goal.link", "g", "1"))).toBe("stale");
     });
     test.scope.generation += 1;
     held.resolve();
@@ -111,15 +122,14 @@ describe("porte d'écriture du board", () => {
     expect(test.goals.setLink).not.toHaveBeenCalled();
   });
 
-  it("refuse toute écriture après la fermeture du board, avec le message demandé", async () => {
-    const test = gate();
+  it("refuse toute écriture après la fermeture du board, comme périmée, même sans canEdit", async () => {
+    const test = gate({ canEdit: false });
     test.scope.disposed = true;
-    await test.subject.run(
-      async ({ writer }) => {
-        await expect(writer.write(TRANSITION)).rejects.toThrow("refus propre au geste");
-      },
-      { refusal: "refus propre au geste" },
-    );
+    await test.subject.run(async ({ writer }) => {
+      expect(await refusal(writer.write(TRANSITION))).toBe("stale");
+      // Board fermé : la péremption l'emporte sur le droit manquant.
+      expect(await refusal(writer.write(PUT))).toBe("stale");
+    });
     expect(test.writer.write).not.toHaveBeenCalled();
   });
 
@@ -129,7 +139,7 @@ describe("porte d'écriture du board", () => {
       const test = gate({ canEdit: false });
       await test.subject.run(async ({ writer, goals }) => {
         if (write.kind === "boardProperty.put")
-          await expect(writer.write(write)).rejects.toThrow(BOARD_CHANGED_REFUSAL);
+          expect(await refusal(writer.write(write))).toBe("cannotEdit");
         else await writer.write(write);
         await goals.setLink("goal.link", "g", "1");
       });

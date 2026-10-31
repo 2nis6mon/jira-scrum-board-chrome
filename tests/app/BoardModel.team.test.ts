@@ -208,6 +208,38 @@ describe("BoardModel — réglages du board partagés", () => {
     expect(puts()).toHaveLength(1);
   });
 
+  it("droit perdu pendant l'attente : rien n'est envoyé, Jira est relu et le journal le dit", async () => {
+    const { board, property, puts } = await boardWith();
+    await board.moveLane("build", -1);
+    expect(puts()).toHaveLength(1);
+    const before = property.stored;
+    // Jira dit, pendant la relecture qui précède l'écriture, que le compte ne peut plus modifier.
+    property.onRead = () => {
+      property.onRead = null;
+      board.canEditBoard.value = false;
+    };
+    await board.setGoalHidden("g-stabilite", true);
+    expect(puts()).toHaveLength(1);
+    expect(property.stored).toBe(before);
+    // La modification locale jamais publiée disparaît : la version de Jira est réappliquée.
+    expect(board.configuration.value?.hiddenGoalIds).not.toContain("g-stabilite");
+    expect(board.canEditSettings.value).toBe(false);
+    expect(board.teamNotice.value).toMatchObject({
+      tone: "error",
+      text: "Rien n'a été envoyé à Jira : il faut pouvoir modifier le board.",
+    });
+    expect(board.teamNotice.value?.text).not.toContain("Jira a refusé");
+    const [entry] = await board.audit.list(SITE.origin);
+    expect(entry).toMatchObject({
+      action: "réglages d'équipe",
+      outcome: "échec",
+      detailMessage: { key: "Rien n'a été envoyé à Jira : il faut pouvoir modifier le board." },
+    });
+    expect(entry && auditText(entry, "detail", "en")).toBe(
+      "Nothing was sent to Jira: you need permission to edit the board.",
+    );
+  });
+
   it("issue incertaine (réseau) : jamais rejouée, on le dit et on relit", async () => {
     const { board, property, puts } = await boardWith();
     property.unreachable = true;

@@ -341,7 +341,7 @@ export class BoardModel {
         this.transitionChoice.value === null,
       accountId: () => this.snapshot.value?.currentUser?.accountId ?? null,
       openIssue: (key) => this.nativeIssueHandler?.(key),
-      write: (task, options) => this.#gate.run(task, options),
+      write: (task) => this.#gate.run(task),
       record: (entry) => this.#record(entry),
     });
     this.images = new ImageCache((url) => transport.fetchImage(url));

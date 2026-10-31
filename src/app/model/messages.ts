@@ -1,6 +1,7 @@
 import { BoardSetupError } from "../../core/boardSync";
 import { CoreError } from "../../core/reasons";
 import { JiraError } from "../../jira/errors";
+import { BoardWriteRefused } from "../services/ports";
 import { sourceText } from "./appMessage";
 import { errorMessage, errorSuggestion } from "./coreText";
 
@@ -19,5 +20,7 @@ export function toMessage(error: unknown): UserMessage {
       suggestion: suggestion ? sourceText(suggestion) : null,
     };
   }
+  if (error instanceof BoardWriteRefused)
+    return { text: sourceText(errorMessage(error)), suggestion: null };
   return { text: error instanceof Error ? error.message : String(error), suggestion: null };
 }

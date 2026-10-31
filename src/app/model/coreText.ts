@@ -7,6 +7,7 @@ import type { PlanningReason, PlanningStep } from "../../core/sprintPlanning";
 import type { TeamFamily } from "../../core/teamSettings";
 import type { MessageKey } from "../../i18n";
 import { JiraError } from "../../jira/errors";
+import { BoardWriteRefused } from "../services/ports";
 import { type AppMessage, message } from "./appMessage";
 
 // Textes des résultats et erreurs typés de `core` : `core` nomme ce qui s'est passé, ce module en
@@ -16,6 +17,7 @@ import { type AppMessage, message } from "./appMessage";
 export function errorMessage(error: unknown): AppMessage {
   if (error instanceof CoreError) return reasonMessage(error.reason);
   if (error instanceof BoardSetupError) return boardSetupMessage(error);
+  if (error instanceof BoardWriteRefused) return refusalMessage(error);
   return { text: error instanceof Error ? error.message : String(error) };
 }
 
@@ -41,6 +43,13 @@ export function errorSuggestion(error: CoreError | BoardSetupError): AppMessage 
     default:
       return null;
   }
+}
+
+/** Refus de la porte du board : rien n'est parti vers Jira, et l'entrée de journal le dit. */
+function refusalMessage(error: BoardWriteRefused): AppMessage {
+  return error.reason === "cannotEdit"
+    ? message("Rien n'a été envoyé à Jira : il faut pouvoir modifier le board.")
+    : message("Rien n'a été envoyé à Jira : le board a changé avant l'envoi.");
 }
 
 function boardSetupMessage(error: BoardSetupError): AppMessage {

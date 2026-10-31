@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { PinEditor } from "../../../src/app/model/BoardTypes";
 import { BoardWriteGate } from "../../../src/app/model/BoardWriteGate";
 import { LoadDiagnostics } from "../../../src/app/model/LoadDiagnostics";
 import {
@@ -14,14 +15,18 @@ import {
   BoardSettingsService,
   type BoardSettingsState,
 } from "../../../src/app/services/BoardSettingsService";
-import type { StateValue } from "../../../src/app/services/ports";
+import { BoardWriteRefused, type StateValue } from "../../../src/app/services/ports";
 import type { BoardConfiguration } from "../../../src/core/boardConfiguration";
 import { assembleBoardIssues, type BoardSnapshot } from "../../../src/core/boardIssue";
 import type { BoardReader } from "../../../src/core/boardSync";
 import type { JiraWriter } from "../../../src/core/boardWrites";
 import { pinnedGoalsStorage } from "../../../src/core/pinnedGoals";
 import { makeSprintGoal } from "../../../src/core/sprintGoals";
-import { decodeTeamDocument } from "../../../src/core/teamSettings";
+import {
+  decodeTeamDocument,
+  encodeTeamDocument,
+  teamSettingsOf,
+} from "../../../src/core/teamSettings";
 import type { JiraClient } from "../../../src/jira/client";
 import { JiraError } from "../../../src/jira/errors";
 import type { JsonValue } from "../../../src/jira/json";
@@ -165,10 +170,33 @@ describe("service de commandes de déplacement", () => {
     expect(test.state.writeNotice.value?.text).toContain("Déjà effectué : statut modifié");
     expect(test.record).toHaveBeenCalledTimes(2);
   });
+
+  it("une étape refusée par la porte (board fermé) est journalisée « rien n'a été envoyé »", async () => {
+    const test = movement();
+    vi.mocked(test.writer.write).mockImplementation(async (write) => {
+      test.order.push(write.kind);
+      if (write.kind === "issue.rank") throw new BoardWriteRefused("stale");
+      return { status: 204, body: null };
+    });
+    await test.service.execute(test.command, { writer: test.writer, goals: test.goals });
+    expect(test.order).toEqual(["issue.transition", "goal.unlink", "goal.link", "issue.rank"]);
+    expect(test.state.writeNotice.value?.text).toContain(
+      "Rien n'a été envoyé à Jira : le board a changé avant l'envoi.",
+    );
+    expect(test.record).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        action: "classement",
+        outcome: "échec",
+        detailMessage: { key: "Rien n'a été envoyé à Jira : le board a changé avant l'envoi." },
+      }),
+    );
+  });
 });
 
-function settings() {
-  const configuration = cell<BoardConfiguration | null>(makeConfiguration());
+function settings(options: { kanban?: boolean } = {}) {
+  const configuration = cell<BoardConfiguration | null>(
+    makeConfiguration(options.kanban ? { boardType: "kanban" } : {}),
+  );
   let stored: JsonValue | null = null;
   const reader = {
     boardProperty: vi.fn(async () => stored),
@@ -196,27 +224,57 @@ function settings() {
     canEditSettings: cell(true),
     canPinGoals: cell(true),
   };
+  const puts = () =>
+    vi.mocked(writer.write).mock.calls.filter(([write]) => write.kind === "boardProperty.put");
+  // Génération du board vue par la porte et par le service (un rechargement l'incrémente).
+  const scope = { generation: 1 };
+  const boardScope = { generation: () => scope.generation, disposed: () => false };
   const gate = new BoardWriteGate({
     writer,
     goals: { setLink: async () => ({ success: true, messages: [] }) },
-    scope: { generation: () => 1, disposed: () => false },
+    scope: boardScope,
     canEditSettings: () => state.canEditSettings.value,
   });
+  const record = vi.fn(async (_entry: unknown) => {});
+  const sync = vi.fn(async () => {});
   const service = new BoardSettingsService(reader, gate, state, {
-    scope: { generation: () => 1, disposed: () => false },
+    scope: boardScope,
     currentUser: () => USER,
     now: () => NOW,
-    record: async () => {},
-    sync: async () => {},
+    record,
+    sync,
     updatePreferences: async (change) => {
       if (configuration.value) configuration.value = change(configuration.value);
     },
   });
+  /** Occupe la porte jusqu'à `release` : le geste suivant attend son tour. */
+  const hold = () => {
+    const held = deferred<void>();
+    const running = gate.run(() => held.promise);
+    return {
+      release: async () => {
+        held.resolve();
+        await running;
+      },
+    };
+  };
+  /** Droit de modifier le board perdu (réponse `canEdit` de Jira). */
+  const loseCanEdit = () => {
+    state.canEditBoard.value = false;
+    (state.canEditSettings as StateValue<boolean>).value = false;
+    (state.canPinGoals as StateValue<boolean>).value = false;
+  };
   return {
     service,
     state,
     reader,
     writer,
+    record,
+    sync,
+    scope,
+    hold,
+    loseCanEdit,
+    puts,
     stored: () => stored,
     setStored: (value: JsonValue) => {
       stored = value;
@@ -264,6 +322,161 @@ describe("service de réglages partagés", () => {
     expect(test.state.teamNotice.value?.tone).toBe("warning");
     expect(test.state.team.value.kind).toBe("none");
     expect(test.state.teamSaving.value).toBe(0);
+  });
+});
+
+/** Document publié par un collègue, à partir des réglages de la configuration donnée. */
+function publishedBy(configuration: BoardConfiguration | null): JsonValue {
+  if (!configuration) throw new Error("configuration attendue");
+  return encodeTeamDocument({
+    version: 1,
+    publishedAt: "2026-10-13T11:00:00Z",
+    publishedBy: { accountId: "u9", displayName: "Alex Martin" },
+    settings: teamSettingsOf(configuration),
+  }) as JsonValue;
+}
+
+function pinEditor(storage: PinEditor["storage"], selection: readonly string[]): PinEditor {
+  return {
+    storage,
+    sprintId: storage.kind === "sprint" ? storage.sprintId : null,
+    sprintName: storage.kind === "sprint" ? storage.sprintName : storage.boardName,
+    base: [],
+    selection,
+    saving: false,
+    notice: null,
+    fromLocal: false,
+    canKeepLocally: false,
+  };
+}
+
+describe("refus de la porte d'écriture dans les services", () => {
+  it("droit perdu pendant l'attente d'un réglage : aucun PUT, Jira relu, lecture seule, journal", async () => {
+    const test = settings();
+    test.setStored(publishedBy(test.state.configuration.value));
+    await test.service.refresh();
+    expect(test.state.team.value.kind).toBe("published");
+    const held = test.hold();
+    const change = test.service.changeShared((current) => ({ ...current, agingThresholdDays: 8 }));
+    // Modification locale optimiste, en attente de la porte.
+    await vi.waitFor(() => expect(test.state.configuration.value?.agingThresholdDays).toBe(8));
+    test.loseCanEdit();
+    await held.release();
+    await change;
+    expect(test.puts()).toEqual([]);
+    expect(test.state.configuration.value?.agingThresholdDays).not.toBe(8);
+    expect(test.state.canEditBoard.value).toBe(false);
+    expect(test.state.teamNotice.value).toEqual({
+      tone: "error",
+      text: "Rien n'a été envoyé à Jira : il faut pouvoir modifier le board.",
+      suggestion:
+        "Les réglages du board sont maintenant en lecture seule ici ; ceux de l'équipe vont être rechargés.",
+    });
+    expect(test.record).toHaveBeenCalledOnce();
+    expect(test.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "réglages d'équipe",
+        outcome: "échec",
+        detailMessage: { key: "Rien n'a été envoyé à Jira : il faut pouvoir modifier le board." },
+      }),
+    );
+  });
+
+  it("épinglage Kanban, droit perdu pendant l'attente : aucun PUT, avis actuel, journal", async () => {
+    const test = settings({ kanban: true });
+    const storage = test.state.pinStorage.value;
+    if (storage.kind !== "board") throw new Error("stockage Kanban attendu");
+    test.state.pinEditor.value = pinEditor(storage, ["g1"]);
+    const held = test.hold();
+    const saving = test.service.savePinnedGoals();
+    await vi.waitFor(() => expect(test.state.pinEditor.value?.saving).toBe(true));
+    test.loseCanEdit();
+    await held.release();
+    await saving;
+    expect(test.writer.write).not.toHaveBeenCalled();
+    expect(test.reader.boardProperty).not.toHaveBeenCalled();
+    expect(test.state.pinEditor.value).toMatchObject({
+      saving: false,
+      selection: ["g1"],
+      notice: {
+        tone: "error",
+        text: "Il faut pouvoir modifier le board pour y épingler des Goals.",
+        suggestion: null,
+      },
+    });
+    expect(test.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "épinglage",
+        outcome: "échec",
+        detailMessage: { key: "Rien n'a été envoyé à Jira : il faut pouvoir modifier le board." },
+      }),
+    );
+  });
+
+  it("sans réglages publiés, droit perdu pendant l'attente : la modification locale est défaite", async () => {
+    const test = settings();
+    await test.service.refresh();
+    expect(test.state.team.value.kind).toBe("none");
+    const initial = test.state.configuration.value?.agingThresholdDays;
+    const held = test.hold();
+    const change = test.service.changeShared((current) => ({ ...current, agingThresholdDays: 8 }));
+    await vi.waitFor(() => expect(test.state.configuration.value?.agingThresholdDays).toBe(8));
+    test.loseCanEdit();
+    await held.release();
+    await change;
+    expect(test.puts()).toEqual([]);
+    expect(test.state.configuration.value?.agingThresholdDays).toBe(initial);
+    expect(test.state.teamNotice.value?.text).toBe(
+      "Rien n'a été envoyé à Jira : il faut pouvoir modifier le board.",
+    );
+  });
+
+  it("board rechargé pendant l'attente d'un réglage : rien n'est envoyé, ni avis ni journal", async () => {
+    const test = settings();
+    const held = test.hold();
+    const change = test.service.changeShared((current) => ({ ...current, agingThresholdDays: 8 }));
+    await vi.waitFor(() => expect(test.state.teamSaving.value).toBe(1));
+    test.scope.generation += 1;
+    await held.release();
+    await change;
+    expect(test.writer.write).not.toHaveBeenCalled();
+    expect(test.state.teamNotice.value).toBeNull();
+    expect(test.record).not.toHaveBeenCalled();
+  });
+
+  it("épinglage au sprint, board rechargé pendant l'attente : rien n'est envoyé ni journalisé", async () => {
+    const test = settings();
+    const sprint = makeSprint(null);
+    test.state.pinEditor.value = pinEditor(
+      { kind: "sprint", sprintId: sprint.id, sprintName: sprint.name },
+      ["g1"],
+    );
+    const held = test.hold();
+    const saving = test.service.savePinnedGoals();
+    await vi.waitFor(() => expect(test.state.pinEditor.value?.saving).toBe(true));
+    test.scope.generation += 1;
+    await held.release();
+    await saving;
+    expect(test.writer.write).not.toHaveBeenCalled();
+    expect(test.record).not.toHaveBeenCalled();
+    expect(test.state.pinEditor.value).toBeNull();
+    expect(test.sync).not.toHaveBeenCalled();
+  });
+
+  it("refus de Jira (403) : comportement inchangé, le refus de Jira est nommé", async () => {
+    const test = settings();
+    // Droit déjà demandé à Jira : seule la réponse au PUT le change.
+    await test.service.refresh();
+    vi.mocked(test.writer.write).mockRejectedValueOnce(
+      new JiraError({ kind: "forbidden", detail: null, bodyExcerpt: "", responseHints: "" }),
+    );
+    await test.service.changeShared((current) => ({ ...current, agingThresholdDays: 8 }));
+    expect(test.writer.write).toHaveBeenCalledOnce();
+    expect(test.state.canEditBoard.value).toBe(false);
+    expect(test.state.teamNotice.value?.text).toBe(
+      "Jira a refusé d'enregistrer ce réglage : il faut pouvoir modifier le board.",
+    );
+    expect(test.record).toHaveBeenCalledWith(expect.objectContaining({ outcome: "échec" }));
   });
 });
 

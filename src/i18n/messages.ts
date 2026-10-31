@@ -449,8 +449,15 @@ export const businessMessages = {
     "These rules changed in Jira while you were editing them. Nothing was overwritten.",
   "Votre brouillon est conservé. Copiez-le si nécessaire, puis rechargez les règles avant de les modifier.":
     "Your draft has been kept. Copy it if needed, then reload the rules before editing them.",
+  // Anciens refus de la porte (jusqu'à 0.36.2), avec « Le board ou vos droits ont changé : rien
+  // n'a été écrit. » : gardés car les entrées { text } du journal de ces versions sont traduites
+  // par `localize` seulement si leur phrase figure exactement au catalogue.
   "Le board ou ses droits ont changé avant l'enregistrement.":
     "The board or its permissions changed before saving.",
+  "Rien n'a été envoyé à Jira : il faut pouvoir modifier le board.":
+    "Nothing was sent to Jira: you need permission to edit the board.",
+  "Rien n'a été envoyé à Jira : le board a changé avant l'envoi.":
+    "Nothing was sent to Jira: the board changed before sending.",
   "réglages du board": "board settings",
   enregistrement: "save",
   "Quelqu'un": "Someone",

@@ -1,15 +1,12 @@
 import { type ReadonlySignal, signal } from "@preact/signals";
 import type { JiraWriter } from "../../core/boardWrites";
 import type { GoalsClient } from "../../jira/goals";
-import type {
-  BoardScope,
-  BoardWriteAccess,
-  BoardWriteGateway,
-  BoardWriteOptions,
+import {
+  type BoardScope,
+  type BoardWriteAccess,
+  type BoardWriteGateway,
+  BoardWriteRefused,
 } from "../services/ports";
-
-/** Refus par défaut d'une écriture préparée pour un board quitté, ou d'E6 sans `canEdit`. */
-export const BOARD_CHANGED_REFUSAL = "Le board ou ses droits ont changé avant l'enregistrement.";
 
 export interface BoardWriteGateDependencies {
   /** Transport (ou décorateur) Jira : seule la porte le voit, jamais `core` ni les services. */
@@ -25,7 +22,8 @@ export interface BoardWriteGateDependencies {
  * réglages, épinglage, publication du planning) l'acquiert : il attend la fin du précédent, puis
  * reçoit un `JiraWriter` et un `setLink` décorés. Le décorateur refuse avant l'envoi une écriture
  * préparée pour une génération de board dépassée, et `boardProperty.put` (E6) quand `canEdit` est
- * faux ; les autres écritures restent aux droits Jira. Une seule tentative : rien n'est rejoué.
+ * faux ; les autres écritures restent aux droits Jira. Le refus est un `BoardWriteRefused`
+ * typé (`stale` ou `cannotEdit`) : rien n'a été envoyé. Une seule tentative : rien n'est rejoué.
  */
 export class BoardWriteGate implements BoardWriteGateway {
   readonly #dependencies: BoardWriteGateDependencies;
@@ -38,17 +36,13 @@ export class BoardWriteGate implements BoardWriteGateway {
     this.#dependencies = dependencies;
   }
 
-  run<T>(
-    task: (access: BoardWriteAccess) => Promise<T>,
-    options: BoardWriteOptions = {},
-  ): Promise<T> {
+  run<T>(task: (access: BoardWriteAccess) => Promise<T>): Promise<T> {
     const { scope } = this.#dependencies;
     // Le geste est préparé pour le board affiché maintenant : un changement pendant l'attente
     // le rend périmé.
     const generation = scope.generation();
-    const refusal = options.refusal ?? BOARD_CHANGED_REFUSAL;
     const stale = () => scope.disposed() || generation !== scope.generation();
-    const access = this.#access(stale, refusal);
+    const access = this.#access(stale);
     this.#busy.value += 1;
     const result = this.#queue.then(() => task(access));
     // Une tâche rejetée ne bloque pas la suivante.
@@ -70,19 +64,20 @@ export class BoardWriteGate implements BoardWriteGateway {
     while (this.#busy.peek() > 0) await this.#queue;
   }
 
-  #access(stale: () => boolean, refusal: string): BoardWriteAccess {
+  #access(stale: () => boolean): BoardWriteAccess {
     const { writer, goals, canEditSettings } = this.#dependencies;
     return {
       writer: {
         write: async (write, options) => {
-          if (stale() || (write.kind === "boardProperty.put" && !canEditSettings()))
-            throw new Error(refusal);
+          if (stale()) throw new BoardWriteRefused("stale");
+          if (write.kind === "boardProperty.put" && !canEditSettings())
+            throw new BoardWriteRefused("cannotEdit");
           return writer.write(write, options);
         },
       },
       goals: {
         setLink: async (kind, goalId, issueId) => {
-          if (stale()) throw new Error(refusal);
+          if (stale()) throw new BoardWriteRefused("stale");
           return goals.setLink(kind, goalId, issueId);
         },
       },

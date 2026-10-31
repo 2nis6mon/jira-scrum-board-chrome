@@ -255,6 +255,34 @@ describe("BoardModel — Kanban sans sprint", () => {
     expect(board.configuration.value?.localPinnedGoalIds).toEqual({});
   });
 
+  it("droit perdu pendant la relecture : rien n'est envoyé, l'avis le dit et le journal aussi", async () => {
+    const { board, jira, property } = await kanbanBoard();
+    board.openPinEditor();
+    board.togglePinned(SECURITE);
+    property.value = document(board, []);
+    // Jira dit, pendant la relecture qui précède l'écriture, que le compte ne peut plus modifier.
+    property.onRead = () => {
+      property.onRead = () => {};
+      board.canEditBoard.value = false;
+    };
+    await board.savePinnedGoals();
+    expect(jira.sent("PUT", PROPERTY)).toEqual([]);
+    expect(board.canEditSettings.value).toBe(false);
+    expect(board.pinEditor.value).toMatchObject({
+      selection: [SECURITE],
+      saving: false,
+      notice: {
+        tone: "error",
+        text: "Il faut pouvoir modifier le board pour y épingler des Goals.",
+      },
+    });
+    expect((await board.audit.list(SITE.origin))[0]).toMatchObject({
+      action: "épinglage",
+      outcome: "échec",
+      detailMessage: { key: "Rien n'a été envoyé à Jira : il faut pouvoir modifier le board." },
+    });
+  });
+
   it("droit déjà refusé ou propriété illisible : éditeur indisponible", async () => {
     for (const options of [{ canEdit: false }, { property: { version: 99 } }]) {
       const { board, jira } = await kanbanBoard(options);

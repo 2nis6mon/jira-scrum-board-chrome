@@ -124,7 +124,11 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   Déplacement, rattachement, réglages, épinglage et publication du planning passent par la seule
   porte d'écriture du board (`app/model/BoardWriteGate.ts`) : un geste attend la fin du précédent ;
   une écriture préparée pour un board quitté est refusée avant l'envoi ; `canEdit` ne refuse que
-  la propriété du board (E6).
+  la propriété du board (E6). Ces refus sont typés (`BoardWriteRefused`, raison `stale` ou
+  `cannotEdit`) : rien n'est parti vers Jira. `cannotEdit` met les réglages en lecture seule,
+  force la relecture des réglages partagés (la modification locale est défaite si Jira n'en porte
+  aucun) et journalise « rien n'a été envoyé à Jira ». `stale` est silencieux pour les réglages et
+  épinglages, et journalisé « rien n'a été envoyé à Jira » pour une étape de déplacement.
   La carte projetée est visuelle ; les compteurs restent ceux confirmés par Jira. Repère rouge
   pour les erreurs, aucune confirmation verte. Les formulaires suivent le parcours natif décrit dans
   l'[intégration Jira](integration-jira.md).
