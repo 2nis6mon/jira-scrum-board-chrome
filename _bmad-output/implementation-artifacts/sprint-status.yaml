@@ -1,0 +1,139 @@
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when its first story starts (via build's sprint sync)
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; the status view surfaces open ones
+generated: 10-31-2026 09:00
+last_updated: 10-31-2026 05:57
+project: Sprint Goals Board pour Jira
+project_key: NOKEY
+tracking_system: file-system
+story_location: 
+  C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts
+development_status:
+  epic-1: done
+  1-1-ne-jamais-perdre-de-données-en-écrivant-sprintgoals-v1: done
+  1-2-un-seul-endroit-décide-où-sont-stockés-les-goals-épinglés: done
+  1-3-une-seule-fonction-par-intention-d-écriture: done
+  1-4-une-seule-porte-d-écriture-par-board: done
+  1-5-les-gardes-de-sources-vérifient-le-sens-des-dépendances: done
+  1-6-les-messages-entre-jira-et-la-vue-sont-déclarés-une-seule-fo: done
+  1-7-la-déconnexion-efface-vraiment-toutes-les-données-du-site: done
+  1-8-le-journal-des-écritures-reste-lisible-dans-toutes-les-langu: done
+  1-9-tous-les-interrupteurs-de-fonction-au-même-endroit: done
+  epic-1-retrospective: done
+
+  epic-2: backlog
+  2-1-épingler-les-goals-du-sprint-de-mon-choix: backlog
+  2-2-voir-les-tickets-reportés-du-sprint-précédent: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog
+  3-1-ouvrir-le-menu-d-un-ticket-et-l-envoyer-vers-un-goal: backlog
+  3-2-mettre-un-ticket-en-top-ou-en-basse-priorité: backlog
+  epic-3-retrospective: optional
+
+  epic-4: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-choisir-le-canal-de-publication-et-de-mise-à-jour: backlog
+  5-2-renouveler-les-captures-du-store: backlog
+  5-3-revue-de-sécurité-indépendante-avant-diffusion-large: backlog
+  5-4-laisser-l-it-préconfigurer-l-extension: backlog
+  epic-5-retrospective: optional
+
+  epic-6: backlog
+  epic-6-retrospective: optional
+
+  epic-7: backlog
+  epic-7-retrospective: optional
+action_items:
+  - id: "epic-1-retro-item-1-faire-attendre-la-porte-d-écriture-et-la"
+    epic: 1
+    action: "Faire attendre la porte d'écriture et la file locale du board à la déconnexion,
+      ignorer #record/#persist après dispose (F1)"
+    owner: "dev"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-1-retro-2026-10-31.md"
+  - id: "epic-1-retro-item-2-typer-le-refus-de-la-porte-stale-cannote"
+    epic: 1
+    action: "Typer le refus de la porte (stale/cannotEdit), relecture forcée sur cannotEdit,
+      journal « non envoyé » (F2)"
+    owner: "dev"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-1-retro-2026-10-31.md"
+  - id: "epic-1-retro-item-3-rattachement-texte-partir-des-objectifs"
+    epic: 1
+    action: "Rattachement texte : partir des objectifs relus dans Jira, sans purger
+      les liens vers un objectif présent (F4)"
+    owner: "dev"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-1-retro-2026-10-31.md"
+  - id: "epic-1-retro-item-4-ad-1-décider-si-les-services-peuvent-imp"
+    epic: 1
+    action: "AD-1 : décider si les services peuvent importer appMessage/coreText,
+      puis amender la règle et garder les arêtes manquantes (F3)"
+    owner: "Denis"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-1-retro-2026-10-31.md"
+  - id: "epic-1-retro-item-5-consigner-dans-spec-md-le-refus-de-la-pu"
+    epic: 1
+    action: "Consigner dans SPEC.md le refus de la publication du planning sur tout
+      changement concurrent, ou demander la fusion (F5)"
+    owner: "Denis"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-1-retro-2026-10-31.md"
+  - id: "epic-1-retro-item-6-mener-l-essai-réel-sur-jira-du-success-s"
+    epic: 1
+    action: "Mener l'essai réel sur Jira du Success signal et fermer l'Open Question
+      de SPEC.md (F6)"
+    owner: "Denis"
+    status: done
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-1-retro-2026-10-31.md"
+  - id: "epic-1-retro-item-7-corriger-l-entrée-0-36-2-du-changelog-su"
+    epic: 1
+    action: "Corriger l'entrée 0.36.2 du CHANGELOG sur les changements visibles du
+      journal et du lanceur (F7)"
+    owner: "dev"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-1-retro-2026-10-31.md"
+  - id: "epic-1-retro-item-8-tenir-à-jour-implementation-notes-et-rés"
+    epic: 1
+    action: "Tenir à jour Implementation Notes et résultats de vérification de chaque
+      spec, créer sprint-status.yaml avant le premier build d'un epic"
+    owner: "dev"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-1-retro-2026-10-31.md"
+  - id: "epic-1-retro-item-9-ajouter-à-la-revue-de-chaque-story-une-p"
+    epic: 1
+    action: "Ajouter à la revue de chaque story une passe sur les frontières avec
+      les stories déjà livrées de l'epic"
+    owner: "dev"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-1-retro-2026-10-31.md"
