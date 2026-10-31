@@ -3,6 +3,12 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.36.3 — Déconnexion sans reste pendant un geste
+
+- Se déconnecter pendant un déplacement ou une modification de réglage n'y laisse plus de données
+  locales du site : la déconnexion attend la fin de l'écriture déjà envoyée, n'envoie pas celles
+  encore en attente, puis efface journal et board ; le board fermé n'écrit plus rien localement.
+
 ## 0.36.2 — Objectifs du sprint écrits sans perte
 
 - Rattacher un ticket à un objectif du texte du sprint ne réécrit plus une propriété d'une version

@@ -61,6 +61,15 @@ export class BoardWriteGate implements BoardWriteGateway {
     });
   }
 
+  /**
+   * Se résout quand aucun geste n'est plus acquis ni en attente, y compris ceux arrivés pendant
+   * l'attente. Jamais rejetée : une tâche en échec compte comme terminée.
+   */
+  async idle(): Promise<void> {
+    // `busy` baisse juste après la fin de la file : on attend de nouveau tant qu'il reste un geste.
+    while (this.#busy.peek() > 0) await this.#queue;
+  }
+
   #access(stale: () => boolean, refusal: string): BoardWriteAccess {
     const { writer, goals, canEditSettings } = this.#dependencies;
     return {

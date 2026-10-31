@@ -102,6 +102,7 @@ export class AppModel {
   #languageWrite: Promise<void> = Promise.resolve();
   #languageRevision = 0;
   #localeGeneration = 0;
+  #disconnecting = false;
 
   constructor(platform: Platform, hostBoardAddress?: string, hostLocale?: string | null) {
     this.#platform = platform;
@@ -244,11 +245,25 @@ export class AppModel {
     const current = this.connection.value;
     if (current.state !== "connected") return;
     if (current.board.planning.publishing.value) return;
+    // La déconnexion attend les gestes en cours : un second clic pendant l'attente est ignoré.
+    if (this.#disconnecting) return;
+    this.#disconnecting = true;
+    try {
+      await this.#disconnect(current);
+    } finally {
+      this.#disconnecting = false;
+    }
+  }
+
+  async #disconnect(current: Extract<Connection, { state: "connected" }>): Promise<void> {
     this.#localeGeneration++;
     await current.board.planning.flushDraft().catch(() => {});
     current.board.dispose();
     // Un brouillon mis en file pendant la fermeture est écrit avant l'effacement, jamais après.
     await current.board.planning.flushDraft().catch(() => {});
+    // Un geste en vol se termine, un geste en file est refusé par la porte, puis le board fermé
+    // n'écrit plus rien : rien du site ne réapparaît après l'effacement.
+    await current.board.settled().catch(() => {});
     // Liste unique des propriétaires de données du site (AD-4) : chacun efface les siennes, un
     // échec n'empêche ni les autres ni la déconnexion. Le journal passe par la file de ses ajouts.
     await forgetSiteData(this.#platform.store, current.site.origin);

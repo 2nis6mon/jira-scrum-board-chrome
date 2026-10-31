@@ -701,8 +701,14 @@ export class PlanningModel implements PlanningViewModel {
     };
   }
 
-  async #removeStored(boardId: number, sprintId: number): Promise<void> {
-    await this.#saveQueue;
+  /** Dans la file des brouillons : `flushDraft()` (déconnexion) attend aussi la suppression. */
+  #removeStored(boardId: number, sprintId: number): Promise<void> {
+    const removal = this.#saveQueue.then(() => this.#removeStoredNow(boardId, sprintId));
+    this.#saveQueue = removal.catch(() => {});
+    return removal;
+  }
+
+  async #removeStoredNow(boardId: number, sprintId: number): Promise<void> {
     const all = await this.platform.store.get(this.#storageKey());
     if (!isRecord(all)) {
       this.#memoryDrafts.delete(`${boardId}:${sprintId}`);

@@ -295,6 +295,8 @@ export class BoardModel {
   readonly #gate: BoardWriteGate;
   #generation = 0;
   #disposed = false;
+  /** Fermé par `settled()` : le board n'écrit plus rien dans ce navigateur (journal, boards). */
+  #closed = false;
   /** Enregistrements locaux enchaînés : le dernier demandé est le dernier écrit. */
   #saveQueue: Promise<unknown> = Promise.resolve();
   /** Board dont les filtres rapides ont été lus. */
@@ -504,11 +506,13 @@ export class BoardModel {
   async removeBoard(boardId: number): Promise<void> {
     if (!this.canSwitchBoard.value) return;
     const shown = this.configuration.value?.boardId === boardId;
-    const next = await this.#queued(() =>
-      removeBoard(this.#platform.store, this.site.origin, boardId),
-    );
-    await forgetDismissedNotices(this.#platform.store, this.site.origin, boardId).catch(() => {});
-    await this.planning.forgetBoard(boardId).catch(() => {});
+    // Bandeaux et brouillons du board sont oubliés dans la même file, que la déconnexion attend.
+    const next = await this.#queued(async () => {
+      const remaining = await removeBoard(this.#platform.store, this.site.origin, boardId);
+      await forgetDismissedNotices(this.#platform.store, this.site.origin, boardId).catch(() => {});
+      await this.planning.forgetBoard(boardId).catch(() => {});
+      return remaining;
+    });
     await this.#refreshBoards();
     if (!shown) return;
     const configuration =
@@ -1161,6 +1165,8 @@ export class BoardModel {
   }
 
   async #record(entry: Omit<AuditEntry, "at" | "site">): Promise<void> {
+    // Après la déconnexion, une promesse tardive ne recrée pas de journal pour le site.
+    if (this.#closed) return;
     try {
       await this.audit.append({ ...entry, at: this.#now().toISOString(), site: this.site.origin });
     } catch {
@@ -1191,6 +1197,23 @@ export class BoardModel {
     this.#generation += 1;
     this.#stopAutoRefresh();
     this.images.dispose();
+  }
+
+  /**
+   * Après `dispose()`, attend la fin des gestes de la porte (une écriture déjà envoyée se termine,
+   * une écriture en file est refusée) et des enregistrements locaux, puis ferme le board : plus
+   * rien n'est écrit dans ce navigateur. La déconnexion efface le site ensuite. Chaque requête
+   * reste bornée par le délai du transport (30 s) : l'attente a une fin. Jamais rejetée.
+   */
+  async settled(): Promise<void> {
+    let queue: Promise<unknown>;
+    do {
+      await this.#gate.idle();
+      queue = this.#saveQueue;
+      await queue.catch(() => {});
+      // Un geste terminé peut encore mettre en file un enregistrement, ou l'inverse.
+    } while (queue !== this.#saveQueue || this.#gate.busy.peek() > 0);
+    this.#closed = true;
   }
 
   // ─── Page Réglages (réglages locaux) ──────────────────────────────────────
@@ -1337,11 +1360,16 @@ export class BoardModel {
     configuration: BoardConfiguration,
     options: { activate: boolean } = { activate: false },
   ): Promise<void> {
+    if (this.#closed) return Promise.resolve();
     return this.#queued(() => saveBoard(this.#platform.store, configuration, options));
   }
 
-  /** Écritures locales enchaînées : la dernière demandée est la dernière faite. */
+  /**
+   * Écritures locales enchaînées : la dernière demandée est la dernière faite. Refusées une fois
+   * le board fermé par `settled()` : rien du site ne réapparaît après la déconnexion.
+   */
   #queued<T>(write: () => Promise<T>): Promise<T> {
+    if (this.#closed) return Promise.reject(new Error("Board fermé : rien n'est enregistré."));
     const next = this.#saveQueue.then(write);
     this.#saveQueue = next.catch(() => {});
     return next;
@@ -1364,11 +1392,8 @@ export class BoardModel {
     const configuration = this.configuration.value;
     if (!configuration) return;
     this.dismissedNotices.value = new Set([...(this.dismissedNotices.value ?? []), id]);
-    await saveDismissedNotice(
-      this.#platform.store,
-      this.site.origin,
-      configuration.boardId,
-      id,
+    await this.#queued(() =>
+      saveDismissedNotice(this.#platform.store, this.site.origin, configuration.boardId, id),
     ).catch(() => {});
   }
 

@@ -1,13 +1,17 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppModel } from "../../src/app/model/AppModel";
 import { type AuditEntry, AuditLog } from "../../src/app/model/auditLog";
 import { buttonPositionKey } from "../../src/app/model/buttonPosition";
 import { planningDraftKey } from "../../src/app/model/PlanningModel";
 import { NOT_SITE_DATA_KEYS, SITE_DATA_OWNERS } from "../../src/app/model/siteData";
-import { FakeJira } from "../support/fakeJira";
+import { goalBlock } from "../../src/core/boardBlocks";
+import { BOARD_PROPERTY_KEYS } from "../../src/jira/writes";
+import { BOARD_URL, boardSiteJira } from "../support/boardFixture";
+import { FakeJira, isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
+import { statusJson } from "../support/jiraFixtures";
 
 // Données fictives : deux sites Jira inventés, aucun navigateur ni serveur réel.
 const A = "https://acme.atlassian.net";
@@ -196,5 +200,219 @@ describe("déconnexion : données du site effacées, celles des autres sites gar
     expect(platform.stored.get("audit.v1")).toEqual([audit(B)]);
     expect(platform.stored.has(buttonPositionKey(A))).toBe(false);
     expect(platform.stored.has(planningDraftKey(A))).toBe(false);
+  });
+});
+
+const TRANSITION = "/rest/api/3/issue/ABC-102/transitions";
+const SETTINGS = `/rest/agile/1.0/board/7/properties/${BOARD_PROPERTY_KEYS.teamSettings}`;
+const DOING = "col-1-En cours";
+const DROP = {
+  issueKey: "ABC-102",
+  block: goalBlock("g-paiement"),
+  columnId: DOING,
+  beforeKey: null,
+} as const;
+
+function deferred() {
+  let resolve = () => {};
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+const releases: (() => void)[] = [];
+afterEach(() => {
+  for (const release of releases.splice(0)) release();
+});
+
+/** Board 7 ouvert sur le Jira fictif, avec des écritures que le test peut retenir. */
+async function boardOpen() {
+  const jira = boardSiteJira()
+    .on("GET", "/rest/api/3/issue/ABC-102", {
+      status: 200,
+      json: { fields: { status: statusJson("1", "À faire") } },
+    })
+    .on("GET", TRANSITION, {
+      status: 200,
+      json: {
+        transitions: [
+          { id: "21", name: "Démarrer", to: statusJson("3", "En cours"), isAvailable: true },
+        ],
+      },
+    })
+    .on("POST", TRANSITION, { status: 204 });
+  const base = fakePlatform(jira);
+  base.granted.add("https://acme.atlassian.net/*");
+  const pauses = new Map<string, { entered: () => void; held: Promise<void> }>();
+  const platform = {
+    ...base,
+    fetch: async (url: string, init: RequestInit) => {
+      const key = `${init.method ?? "GET"} ${new URL(url).pathname}`;
+      const pause = pauses.get(key);
+      if (pause) pauses.delete(key);
+      const response = await base.fetch(url, init);
+      if (pause) {
+        pause.entered();
+        await pause.held;
+      }
+      return response;
+    },
+  };
+  const model = new AppModel(platform, BOARD_URL);
+  await model.start();
+  const connection = model.connection.value;
+  if (connection.state !== "connected") throw new Error("board non ouvert");
+  return {
+    model,
+    board: connection.board,
+    jira,
+    platform: base,
+    stored: base.stored,
+    /** Retient la réponse de la prochaine requête `method path` jusqu'à `release()`. */
+    pauseNext(path: string, method: string) {
+      const entered = deferred();
+      const held = deferred();
+      pauses.set(`${method} ${path}`, { entered: entered.resolve, held: held.promise });
+      releases.push(held.resolve);
+      return { entered: entered.promise, release: held.resolve };
+    },
+  };
+}
+
+function expectNothingOfA(stored: Map<string, unknown>): void {
+  const entries = (stored.get("audit.v1") ?? []) as AuditEntry[];
+  expect(entries.filter((entry) => entry.site === A)).toEqual([]);
+  const boards = (stored.get("boards.v1") ?? {}) as Record<string, unknown>;
+  expect(boards[A]).toBeUndefined();
+  expect(stored.has("connection.v1")).toBe(false);
+  const notices = (stored.get("dismissedNotices.v1") ?? {}) as Record<string, unknown>;
+  expect(notices[A]).toBeUndefined();
+}
+
+describe("déconnexion pendant un geste : rien du site ne reste", () => {
+  it("un dépôt en vol se termine, puis son journal et son board sont effacés", async () => {
+    const { model, board, jira, stored, pauseNext } = await boardOpen();
+    expect((stored.get("boards.v1") as Record<string, unknown>)[A]).toBeDefined();
+    const append = vi.spyOn(board.audit, "append");
+    const transition = pauseNext(TRANSITION, "POST");
+    const dropping = board.dropIssue(DROP);
+    await transition.entered;
+
+    const disconnected = model.disconnect();
+    // La déconnexion attend le geste : le site n'est pas encore effacé.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(model.connection.value.state).toBe("connected");
+    transition.release();
+    await Promise.all([dropping, disconnected]);
+
+    expect(model.connection.value.state).toBe("disconnected");
+    expect(jira.sent("POST", TRANSITION)).toHaveLength(1);
+    // Le geste a bien été journalisé pour le site avant l'effacement.
+    expect(append).toHaveBeenCalledWith(expect.objectContaining({ site: A, issueKey: "ABC-102" }));
+    expectNothingOfA(stored);
+  });
+
+  it("un dépôt en vol en échec n'empêche pas la déconnexion", async () => {
+    const { model, board, jira, stored, pauseNext } = await boardOpen();
+    jira.on("POST", TRANSITION, { status: 500, json: { errorMessages: ["Erreur"] } });
+    const transition = pauseNext(TRANSITION, "POST");
+    const dropping = board.dropIssue(DROP);
+    await transition.entered;
+
+    const disconnected = model.disconnect();
+    transition.release();
+    await Promise.all([dropping, disconnected]);
+
+    expect(model.connection.value.state).toBe("disconnected");
+    expect(jira.sent("POST", TRANSITION)).toHaveLength(1);
+    expectNothingOfA(stored);
+  });
+
+  it("un second clic pendant l'attente ne relance pas la déconnexion", async () => {
+    const { model, board, platform, stored, pauseNext } = await boardOpen();
+    const remove = vi.spyOn(platform.permissions, "remove");
+    const transition = pauseNext(TRANSITION, "POST");
+    const dropping = board.dropIssue(DROP);
+    await transition.entered;
+
+    const rules = platform.appliedRules.length;
+    const first = model.disconnect();
+    const second = model.disconnect();
+    transition.release();
+    await Promise.all([dropping, first, second]);
+
+    expect(model.connection.value.state).toBe("disconnected");
+    expect(remove).toHaveBeenCalledOnce();
+    // Une seule séquence : la règle Origin n'est retirée qu'une fois.
+    expect(platform.appliedRules.slice(rules)).toEqual([null]);
+    expectNothingOfA(stored);
+  });
+
+  it("un bandeau fermé pendant l'attente ou après ne laisse rien du site", async () => {
+    const { model, board, stored, pauseNext } = await boardOpen();
+    const transition = pauseNext(TRANSITION, "POST");
+    const dropping = board.dropIssue(DROP);
+    await transition.entered;
+
+    const disconnected = model.disconnect();
+    const dismissing = board.dismissNotice("no-goals");
+    transition.release();
+    await Promise.all([dropping, dismissing, disconnected]);
+    await board.dismissNotice("no-goals");
+
+    expect(model.connection.value.state).toBe("disconnected");
+    expectNothingOfA(stored);
+  });
+
+  it("un dépôt en file derrière un réglage n'envoie rien à Jira", async () => {
+    const { model, board, jira, stored, pauseNext } = await boardOpen();
+    const put = pauseNext(SETTINGS, "PUT");
+    const saving = board.applySettings((current) => ({ ...current, agingThresholdDays: 9 }), {
+      resync: false,
+    });
+    await put.entered;
+    const dropping = board.dropIssue(DROP);
+    await vi.waitFor(() => expect(board.pendingKeys.value.has("ABC-102")).toBe(true));
+
+    const disconnected = model.disconnect();
+    put.release();
+    await Promise.all([saving, dropping, disconnected]);
+
+    expect(jira.sent("PUT", SETTINGS)).toHaveLength(1);
+    expect(jira.sent("POST", TRANSITION)).toHaveLength(0);
+    expectNothingOfA(stored);
+  });
+
+  it("un réglage en file derrière un dépôt n'envoie aucun PUT", async () => {
+    const { model, board, jira, stored, pauseNext } = await boardOpen();
+    const transition = pauseNext(TRANSITION, "POST");
+    const dropping = board.dropIssue(DROP);
+    await transition.entered;
+    const saving = board.applySettings((current) => ({ ...current, agingThresholdDays: 9 }), {
+      resync: false,
+    });
+    await vi.waitFor(() => expect(board.teamSaving.value).toBe(1));
+
+    const disconnected = model.disconnect();
+    transition.release();
+    await Promise.all([dropping, saving, disconnected]);
+
+    expect(jira.sent("PUT", SETTINGS)).toHaveLength(0);
+    expect(jira.sent("POST", TRANSITION)).toHaveLength(1);
+    expectNothingOfA(stored);
+  });
+
+  it("le board fermé n'écrit plus rien dans ce navigateur après l'effacement", async () => {
+    const { model, board, jira, stored } = await boardOpen();
+    await model.disconnect();
+    const writes = jira.requests.filter(isWriteRequest).length;
+
+    // Promesses tardives : un réglage local (#persist) et un dépôt refusé (#record).
+    await board.toggleLaneCollapsed(goalBlock("g-paiement"));
+    await board.dropIssue(DROP);
+
+    expect(jira.requests.filter(isWriteRequest)).toHaveLength(writes);
+    expectNothingOfA(stored);
   });
 });

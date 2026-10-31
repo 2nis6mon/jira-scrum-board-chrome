@@ -150,3 +150,56 @@ describe("porte d'écriture du board", () => {
     expect(test.writer.write).toHaveBeenCalledOnce();
   });
 });
+
+describe("BoardWriteGate — attente de la file (déconnexion)", () => {
+  it("se résout aussitôt quand rien n'est en cours", async () => {
+    const test = gate();
+    await test.subject.idle();
+    expect(test.subject.busy.value).toBe(0);
+  });
+
+  it("se résout après une tâche rejetée, sans être rejetée", async () => {
+    const test = gate();
+    const held = deferred();
+    const failing = test.subject.run(async () => {
+      await held.promise;
+      throw new Error("refus");
+    });
+    let idle = false;
+    const waiting = test.subject.idle().then(() => {
+      idle = true;
+    });
+    await Promise.resolve();
+    expect(idle).toBe(false);
+    held.resolve();
+    await expect(failing).rejects.toThrow("refus");
+    await waiting;
+    expect(idle).toBe(true);
+    expect(test.subject.busy.value).toBe(0);
+  });
+
+  it("attend aussi une tâche arrivée pendant l'attente", async () => {
+    const test = gate();
+    const first = deferred();
+    const second = deferred();
+    const order: string[] = [];
+    const running = test.subject.run(async () => {
+      await first.promise;
+      order.push("premier");
+    });
+    const waiting = test.subject.idle().then(() => {
+      order.push("vide");
+    });
+    const late = test.subject.run(async () => {
+      await second.promise;
+      order.push("second");
+    });
+    first.resolve();
+    await running;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(order).toEqual(["premier"]);
+    second.resolve();
+    await Promise.all([late, waiting]);
+    expect(order).toEqual(["premier", "second", "vide"]);
+  });
+});

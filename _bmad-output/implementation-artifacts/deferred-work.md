@@ -15,3 +15,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-8-journal-en-cles.md`
   summary: Les avis en direct (planning, Goals) restent des textes français relocalisés par motifs à l'affichage, y compris des messages imbriqués, sans test en anglais ni en espagnol.
   evidence: `PlanningModel` (`notice.value = sourceText(...)`) et `BoardLoadingService` (`goalsNotice`, `goalsWarnings`) ; mécanisme antérieur, conservé par la story 1.8.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-retro1-1-deconnexion-en-plein-geste.md`
+  summary: La boucle de stabilité de `BoardModel.settled()` (nouvel attente si une écriture locale ou un geste arrive pendant l'attente) n'est exercée par aucun test ; la réduire à une seule passe ne casse rien.
+  evidence: mutation `while (false)` dans `settled()` : toute la suite `tests/app` passe ; aucun chemin actuel ne met en file une écriture dans cette fenêtre (revue du 31/10/2026).

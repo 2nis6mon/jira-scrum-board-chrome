@@ -54,7 +54,9 @@ Chaque clé a un module propriétaire sous `src/app/model/` : `connectionStore.t
 `launcher.v1`), `boardStore.ts`, `noticeStore.ts`, `graphqlOrigin.ts`, `auditLog.ts`,
 `PlanningModel.ts` (brouillons), `buttonPosition.ts` (préfixe dupliqué et nommé dans `bootstrap.ts`,
 sans import), `AppModel.ts` (`interface.v1`) et `LoadDiagnostics.ts` ; la langue relève de
-`src/i18n/language.ts`. La déconnexion d'un site parcourt la liste unique `siteData.ts` : chaque
+`src/i18n/language.ts`. La déconnexion d'un site attend d'abord la porte d'écriture et la file
+locale du board (chaque requête reste bornée par le délai du transport, 30 s) ; ensuite le board
+fermé n'écrit plus rien localement. Elle parcourt alors la liste unique `siteData.ts` : chaque
 propriétaire efface les données de ce site, un échec n'arrête pas les autres ; celles des autres
 sites, la langue et l'interface restent ; les mesures de chargement, sans donnée de site, sont
 remises à zéro. `connection.v1` et `launcher.v1` ne sont effacés que s'ils désignent le site
