@@ -121,6 +121,12 @@ les objectifs restent affichés.
   Déposez-la dans la zone du statut voulu.
 - Glissez-la vers un objectif pour l'y rattacher, ou vers sa ligne par défaut pour la détacher.
 - Déplacez-la à la position voulue lorsque Jira autorise le changement de rang.
+- Sans glisser : faites un clic droit sur la carte (ou **Maj+F10**, ou la touche **Menu**, la carte
+  ayant le focus), puis **Envoyer vers un goal** et choisissez l'objectif, ou **Retirer du goal**
+  pour la renvoyer dans sa ligne par défaut. Colonne et rang ne changent pas. Le menu se parcourt
+  aux flèches et se ferme par **Échap**, **Tab** ou un clic ailleurs ; en plein écran (Daily),
+  **Échap** quitte d'abord le plein écran, que le navigateur se réserve. Une action indisponible
+  donne sa raison (écriture en cours, Daily, aucun objectif où l'envoyer).
 
 Si Jira ouvre un formulaire de transition, complétez-le et validez-le vous-même. Après une erreur,
 lisez le résultat et vérifiez le board actualisé avant de recommencer.
@@ -233,8 +239,9 @@ règles enregistrées, après évaluation. Les JQL servent aux couleurs, pas aux
 5. Cliquez sur **Terminer** pour revenir au board.
 
 La Daily fonctionne en Scrum et en Kanban. Elle parcourt les lignes contenant des tickets visibles ;
-les objectifs vides sont sautés. Les cartes restent consultables et déplaçables. Dans la première
-colonne, **+ N autres** révèle les cartes supplémentaires et **Afficher moins** les replie.
+les objectifs vides sont sautés. Les cartes restent consultables et déplaçables, sans changer
+d'objectif. Dans la première colonne, **+ N autres** révèle les cartes supplémentaires et
+**Afficher moins** les replie.
 
 ### Ajuster la présentation
 

@@ -109,3 +109,25 @@ export interface TeamNotice {
   readonly text: string;
   readonly suggestion: string | null;
 }
+
+/** Menu ouvert sur une carte : son ticket et le point d'ouverture, en pixels de la fenêtre. */
+export interface CardMenuState {
+  readonly issueKey: string;
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * Raison d'une action du menu de carte désactivée : une écriture est en cours, la daily ne change
+ * pas d'objectif, ou aucun objectif où l'envoyer.
+ */
+export type CardMenuBlocked = "writing" | "daily" | "noGoal";
+
+/** Actions du menu d'une carte, sans écriture tant qu'aucune n'est choisie. */
+export interface CardMenuOptions {
+  readonly sendToGoal: {
+    readonly blocked: CardMenuBlocked | null;
+    readonly goals: readonly { id: string; title: string; sprintName: string | null }[];
+    readonly canDetach: boolean;
+  };
+}

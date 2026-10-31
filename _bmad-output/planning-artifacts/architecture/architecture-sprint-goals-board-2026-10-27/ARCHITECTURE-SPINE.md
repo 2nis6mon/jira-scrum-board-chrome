@@ -130,7 +130,8 @@ par la façade pour conserver les imports existants. Les adaptateurs réels sont
 le constructeur du modèle ; les tests peuvent fournir des états ordinaires et des services fictifs.
 
 `boardSync` lit le périmètre, `boardIssue` assemble les cartes, `boardLayout`/`boardBlocks` les
-répartissent ; `pendingMove` projette les déplacements. `dropPlan` prépare l'intention,
+répartissent ; `pendingMove` projette les déplacements. `dropPlan` prépare l'intention
+(`cardMenu` donne les cibles du menu d'une carte, qui repasse par le même dépôt),
 `boardMove` l'exécute (transition → Goal → rang, détacher → lier) avec les primitives de `boardWrites`. `teamSettings` gère le partage, `pinnedGoals` résout le stockage des Goals épinglés (sprint, board ou
 indisponible), `boardStore` la copie locale
 et le board actif par origine, `auditLog` les écritures. `DiagnosticModel` teste les capacités Jira.

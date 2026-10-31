@@ -97,12 +97,6 @@ export function buildBoardLayout(
       ? filteredByLane
       : groupBy(applyFilters(withoutSprint, everything), (issue) => laneKey(configuration, issue));
   const goalFiltersActive = areFiltersActive(withoutSprint);
-  const sprintNames = new Map(snapshot.activeSprints.map((sprint) => [sprint.id, sprint.name]));
-  const prefixSprint = (snapshot.goalSprintIds?.length ?? 0) > 1;
-  const sprintNameOf = (goal: SprintGoal | null): string | null => {
-    const sprintId = goal && prefixSprint ? snapshot.goalSprintOf?.[goal.id] : undefined;
-    return sprintId === undefined ? null : (sprintNames.get(sprintId) ?? null);
-  };
   const shown = displayedBlocks({
     blocks,
     filtersActive,
@@ -137,7 +131,7 @@ export function buildBoardLayout(
       id: blockIdentifier(block),
       title: blockTitle(configuration, block, goal),
       goal,
-      sprintName: sprintNameOf(goal),
+      sprintName: sprintNameOf(snapshot, goal),
       // L'avancement d'un objectif compte ses tickets RATTACHÉS, même masqués ou filtrés.
       progress: goal
         ? goalProgress(
@@ -162,6 +156,17 @@ export function buildBoardLayout(
     totalCount: everything.length,
     unmappedCount,
   };
+}
+
+/**
+ * Sprint d'un objectif, affiché en préfixe (swimlane, menu d'une carte) quand plusieurs sprints du
+ * board sont réunis ; `null` sinon.
+ */
+export function sprintNameOf(snapshot: BoardSnapshot, goal: SprintGoal | null): string | null {
+  if (!goal || (snapshot.goalSprintIds?.length ?? 0) <= 1) return null;
+  const sprintId = snapshot.goalSprintOf?.[goal.id];
+  if (sprintId === undefined) return null;
+  return snapshot.activeSprints.find((sprint) => sprint.id === sprintId)?.name ?? null;
 }
 
 /**

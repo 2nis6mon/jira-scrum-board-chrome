@@ -264,4 +264,10 @@ export const boardMessagesEs = {
   "Tickets ajoutés au sprint après son démarrage":
     "Incidencias añadidas al sprint después de su inicio",
   Ajoutés: "Añadidas",
+  "Actions sur {key}": "Acciones sobre {key}",
+  "Envoyer vers un goal": "Enviar a un objetivo",
+  "Retirer du goal": "Quitar del objetivo",
+  "Une écriture est en cours": "Hay una escritura en curso",
+  "Pas de changement d'objectif pendant la daily": "No se cambia de objetivo durante la Daily",
+  "Aucun objectif où l'envoyer": "No hay ningún objetivo al que enviarla",
 } as const satisfies Record<keyof typeof boardMessages, string>;

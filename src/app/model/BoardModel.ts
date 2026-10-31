@@ -1,6 +1,12 @@
 import { batch, computed, signal } from "@preact/signals";
 import { loadAtlassianSprintGoals } from "../../core/atlassianGoals";
-import { type BoardBlock, blockIdentifier, moveBlock, shiftBlock } from "../../core/boardBlocks";
+import {
+  type BoardBlock,
+  blockIdentifier,
+  goalBlock,
+  moveBlock,
+  shiftBlock,
+} from "../../core/boardBlocks";
 import {
   type BoardConfiguration,
   colorRules,
@@ -22,6 +28,7 @@ import {
 import { customFieldChoices } from "../../core/boardSettings";
 import { detectBoard, refreshBoardStructure } from "../../core/boardSync";
 import { type CardColorRule, resolveCardColors } from "../../core/cardColors";
+import { defaultBlock, goalTargets } from "../../core/cardMenu";
 import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/dropPlan";
 import {
   type BoardFilters,
@@ -58,6 +65,8 @@ import { JqlService } from "../services/JqlService";
 import { type AuditEntry, AuditLog } from "./auditLog";
 import type {
   BoardSummary,
+  CardMenuOptions,
+  CardMenuState,
   DragState,
   DragTransitions,
   DropTarget,
@@ -93,6 +102,9 @@ import { PlanningModel } from "./PlanningModel";
 
 export type {
   BoardSummary,
+  CardMenuBlocked,
+  CardMenuOptions,
+  CardMenuState,
   DragState,
   DragTransitions,
   DropTarget,
@@ -185,6 +197,14 @@ export class BoardModel {
    * (`undefined`) quand le dépôt ne changerait rien.
    */
   readonly laneDropTarget = signal<string | null | undefined>(undefined);
+
+  /** Menu demandé sur une carte (clic droit, Maj+F10, touche Menu). */
+  readonly #cardMenuRequest = signal<CardMenuState | null>(null);
+  /** Menu ouvert sur une carte, tant que son ticket reste affiché sur le board. */
+  readonly cardMenu = computed((): CardMenuState | null => {
+    const request = this.#cardMenuRequest.value;
+    return request && this.#isShown(request.issueKey) ? request : null;
+  });
 
   readonly pinEditor = signal<PinEditor | null>(null);
   /** Goals du site, chargés à la première ouverture de la fenêtre d'épinglage. */
@@ -1082,6 +1102,81 @@ export class BoardModel {
     }
   }
 
+  // ─── Menu d'une carte ─────────────────────────────────────────────────────
+
+  /** Ouvre le menu de l'extension sur une carte affichée, au point donné (pixels de la fenêtre). */
+  openCardMenu(issueKey: string, point: { x: number; y: number }): void {
+    if (!this.#isShown(issueKey)) return;
+    this.#cardMenuRequest.value = { issueKey, x: point.x, y: point.y };
+  }
+
+  closeCardMenu(): void {
+    this.#cardMenuRequest.value = null;
+  }
+
+  /**
+   * Actions proposées sur un ticket affiché. Mêmes règles que le glissé : une écriture en cours
+   * désactive tout ; en daily, pas de changement d'objectif. Aucune écriture.
+   */
+  cardMenuOptions(issueKey: string, context: { daily: boolean }): CardMenuOptions | null {
+    const snapshot = this.snapshot.value;
+    const configuration = this.configuration.value;
+    const issue = snapshot ? findIssue(snapshot, issueKey) : null;
+    if (!snapshot || !configuration || !issue) return null;
+    const targets = goalTargets(snapshot, configuration, issue);
+    const blocked = this.#writing()
+      ? "writing"
+      : context.daily
+        ? "daily"
+        : targets.goals.length === 0 && !targets.canDetach
+          ? "noGoal"
+          : null;
+    return { sendToGoal: { blocked, goals: targets.goals, canDetach: targets.canDetach } };
+  }
+
+  /**
+   * Rattache le ticket à un objectif (`null` : le retire de son objectif, vers sa destination par
+   * défaut), sans changer de colonne ni de rang. Même chemin que le dépôt : une seule tentative.
+   */
+  async sendToGoal(
+    issueKey: string,
+    goalId: string | null,
+    // Obligatoire : la règle de la daily ne peut pas être oubliée par un appelant.
+    context: { daily: boolean },
+  ): Promise<void> {
+    this.closeCardMenu();
+    const options = this.cardMenuOptions(issueKey, context)?.sendToGoal;
+    const snapshot = this.snapshot.value;
+    const issue = snapshot ? findIssue(snapshot, issueKey) : null;
+    if (!options || options.blocked !== null || !issue || issue.columnId === null) return;
+    if (goalId === null ? !options.canDetach : !options.goals.some((goal) => goal.id === goalId))
+      return;
+    await this.dropIssue({
+      issueKey,
+      block: goalId === null ? defaultBlock(issue) : goalBlock(goalId),
+      columnId: issue.columnId,
+      beforeKey: null,
+    });
+  }
+
+  /** Une écriture est en cours : ticket en attente, choix de transition ou formulaire natif. */
+  #writing(): boolean {
+    return (
+      this.pendingKeys.value.size > 0 ||
+      this.transitionChoice.value !== null ||
+      this.nativeTransitionPending.value
+    );
+  }
+
+  /** Le ticket est affiché sur le board (filtres appliqués). */
+  #isShown(issueKey: string): boolean {
+    return (
+      this.layout.value?.lanes.some((lane) =>
+        lane.cells.some((cell) => cell.issues.some((issue) => issue.issue.key === issueKey)),
+      ) ?? false
+    );
+  }
+
   /** Revalide le choix dans Jira avant de reprendre le déplacement entier. */
   async chooseTransition(transition: JiraTransition): Promise<void> {
     const choice = this.transitionChoice.value;
@@ -1270,6 +1365,7 @@ export class BoardModel {
     this.#loading.cancel();
     this.#clearMoveFeedback();
     this.pendingMove.value = null;
+    this.#cardMenuRequest.value = null;
     this.nativeTransitionPending.value = false;
     this.#generation += 1;
     this.#stopAutoRefresh();
@@ -1515,6 +1611,7 @@ export class BoardModel {
       this.dropTarget.value = null;
       this.draggingLane.value = null;
       this.laneDropTarget.value = undefined;
+      this.#cardMenuRequest.value = null;
       this.pinEditor.value = null;
       this.pinSprintId.value = null;
       this.editingBoard.value = false;

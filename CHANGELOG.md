@@ -3,6 +3,21 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.39.0 — Envoyer un ticket vers un goal depuis son menu
+
+- Un clic droit sur une carte (ou **Maj+F10**, ou la touche **Menu**, la carte ayant le focus) ouvre
+  le menu de l'extension à la place de celui du navigateur, qui reste disponible hors des cartes.
+  **Envoyer vers un goal** liste les objectifs visibles du board, dans l'ordre des swimlanes et
+  préfixés de leur sprint comme elles, sans celui du ticket, puis **Retirer du goal** s'il en a un
+  (retour dans la swimlane de son type, sinon Build). Le rattachement suit exactement le chemin du
+  glisser-déposer : une seule écriture de rattachement (propriété du sprint en mode texte, lien
+  Goal Atlassian sinon), colonne et rang inchangés, board relu, repère **Déplacement à vérifier**
+  après un échec, sans nouvelle tentative. Aucune nouvelle écriture Jira.
+- L'action est désactivée, avec sa raison, pendant une écriture, en Daily ou faute d'objectif où
+  envoyer le ticket. Le menu se parcourt au clavier (flèches, Début/Fin, Entrée/Espace, flèche
+  droite/gauche pour la liste des objectifs) et se ferme par Échap, Tab, un clic ailleurs, le
+  défilement ou après une action, en rendant le focus à la carte. En présentation, il suit le zoom.
+
 ## 0.38.1 — Dépendances des services vérifiées
 
 - Les services n'importent plus des modèles que des types et `model/messages.ts`, comme le veut la

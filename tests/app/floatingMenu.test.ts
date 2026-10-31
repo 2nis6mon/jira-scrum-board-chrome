@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from "vitest";
-import { placeFloatingMenu } from "../../src/app/views/board/floatingMenu";
+import { placeAtPoint, placeFloatingMenu } from "../../src/app/views/board/floatingMenu";
 
 const VIEWPORT = { width: 1200, height: 800 };
 
@@ -83,5 +83,48 @@ describe("menu d'une swimlane placé dans la fenêtre", () => {
     details.open = true;
     window.dispatchEvent(new Event("resize"));
     expect(details.open).toBe(true);
+  });
+});
+
+/** Panneau du menu d'une carte, de `width` × `height` px à l'écran. */
+function cardPanel(width: number, height: number, zoom?: number) {
+  const panel = document.createElement("div");
+  document.body.append(panel);
+  panel.getBoundingClientRect = () => ({ top: 0, left: 0, width, height }) as DOMRect;
+  if (zoom !== undefined) Object.defineProperty(panel, "currentCSSZoom", { value: zoom });
+  return panel;
+}
+
+const at = (panel: HTMLElement) => [
+  panel.style.getPropertyValue("--menu-left"),
+  panel.style.getPropertyValue("--menu-top"),
+];
+
+describe("menu d'une carte placé au point demandé", () => {
+  it("coin supérieur gauche au pointeur quand la place suffit", () => {
+    const panel = cardPanel(240, 200);
+    placeAtPoint(panel, { x: 300, y: 100 }, VIEWPORT);
+    expect(at(panel)).toEqual(["300px", "100px"]);
+    expect(panel.style.getPropertyValue("--menu-max-height")).toBe("784px");
+    expect(panel.dataset.placed).toBe("");
+  });
+
+  it("à gauche du point près du bord droit, au-dessus près du bas", () => {
+    const panel = cardPanel(240, 200);
+    placeAtPoint(panel, { x: 1100, y: 700 }, VIEWPORT);
+    expect(at(panel)).toEqual(["860px", "500px"]);
+  });
+
+  it("jamais hors de la fenêtre", () => {
+    const panel = cardPanel(240, 790);
+    placeAtPoint(panel, { x: 2, y: 400 }, VIEWPORT);
+    expect(at(panel)).toEqual(["8px", "8px"]);
+  });
+
+  it("présentation : positions ramenées au zoom du panneau", () => {
+    const panel = cardPanel(240, 200, 1.25);
+    placeAtPoint(panel, { x: 300, y: 100 }, VIEWPORT);
+    expect(at(panel)).toEqual([`${Math.round(300 / 1.25)}px`, `${Math.round(100 / 1.25)}px`]);
+    expect(panel.style.getPropertyValue("--menu-max-height")).toBe(`${Math.floor(784 / 1.25)}px`);
   });
 });

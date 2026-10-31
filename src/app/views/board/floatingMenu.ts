@@ -65,3 +65,42 @@ function cssZoom(element: Element): number {
   const zoom = (element as Element & { currentCSSZoom?: unknown }).currentCSSZoom;
   return typeof zoom === "number" && Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
 }
+
+/**
+ * Menu d'une carte, ouvert au pointeur (clic droit) ou sous la carte (clavier) : son coin
+ * supérieur gauche au point donné, ramené dans la fenêtre s'il en déborderait — à gauche du point
+ * faute de place à droite, au-dessus faute de place en dessous. Même conversion qu'au-dessus pour
+ * le zoom de la présentation.
+ */
+export function placeAtPoint(
+  panel: HTMLElement,
+  point: { readonly x: number; readonly y: number },
+  viewport: Viewport = { width: window.innerWidth, height: window.innerHeight },
+): void {
+  const zoom = cssZoom(panel);
+  const box = panel.getBoundingClientRect();
+  const fitsRight = point.x + box.width <= viewport.width - MARGIN;
+  const fitsBelow = point.y + box.height <= viewport.height - MARGIN;
+  const left = clamp(
+    fitsRight ? point.x : point.x - box.width,
+    MARGIN,
+    viewport.width - MARGIN - box.width,
+  );
+  const top = clamp(
+    fitsBelow ? point.y : point.y - box.height,
+    MARGIN,
+    viewport.height - MARGIN - box.height,
+  );
+  panel.style.setProperty("--menu-left", `${Math.round(left / zoom)}px`);
+  panel.style.setProperty("--menu-top", `${Math.round(top / zoom)}px`);
+  panel.style.setProperty(
+    "--menu-max-height",
+    `${Math.floor((viewport.height - 2 * MARGIN) / zoom)}px`,
+  );
+  panel.dataset.placed = "";
+}
+
+/** `value` dans `[min, max]` ; `min` l'emporte si l'intervalle est vide (menu trop grand). */
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(value, max));
+}

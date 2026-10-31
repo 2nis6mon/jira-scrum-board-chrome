@@ -38,6 +38,11 @@ interface Props {
   dragging?: boolean;
   onDragStart?: (event: DragEvent) => void;
   onDragEnd?: () => void;
+  /**
+   * Menu de l'extension demandé sur la carte : clic droit (au pointeur), Maj+F10 ou touche Menu
+   * (sous la carte). Le menu du navigateur n'apparaît pas sur une carte qui en a un.
+   */
+  onContextMenu?: (point: { x: number; y: number }) => void;
 }
 
 /** Carte d'un ticket. Un clic ouvre le ticket dans Jira, dans un nouvel onglet. */
@@ -73,6 +78,26 @@ export function IssueCard(props: Props) {
       onDragEnd={props.onDragEnd}
       onMouseEnter={() => props.onHoverChange?.(true)}
       onMouseLeave={() => props.onHoverChange?.(false)}
+      onContextMenu={
+        props.onContextMenu &&
+        ((event) => {
+          event.preventDefault();
+          // Bouton droit, Ctrl+clic macOS, appui long ou stylet : au pointeur. Un menu demandé au
+          // clavier arrive sans bouton droit ni position : il s'ouvre sous la carte.
+          const pointer = event.button === 2 || event.clientX !== 0 || event.clientY !== 0;
+          props.onContextMenu?.(
+            pointer ? { x: event.clientX, y: event.clientY } : belowCard(event),
+          );
+        })
+      }
+      onKeyDown={
+        props.onContextMenu &&
+        ((event) => {
+          if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return;
+          event.preventDefault();
+          props.onContextMenu?.(belowCard(event));
+        })
+      }
       aria-busy={props.pending ? true : undefined}
     >
       {props.pending && <span class="card-pending-label">{t("Déplacement en cours…")}</span>}
@@ -224,6 +249,12 @@ export function IssueCard(props: Props) {
       </div>
     </a>
   );
+}
+
+/** Point d'ouverture d'un menu demandé au clavier : sous le coin gauche de la carte. */
+function belowCard(event: Event): { x: number; y: number } {
+  const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  return { x: box.left, y: box.bottom };
 }
 
 /** Ordre des segments : terminées, en cours, puis à faire ; la barre se remplit de gauche à droite. */

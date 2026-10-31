@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-31-2026 09:00
-last_updated: 10-31-2026 08:14
+last_updated: 10-31-2026 10:00
 project: Sprint Goals Board pour Jira
 project_key: NOKEY
 tracking_system: file-system
@@ -53,8 +53,8 @@ development_status:
   2-2-voir-les-tickets-reportés-du-sprint-précédent: done
   epic-2-retrospective: done
 
-  epic-3: backlog
-  3-1-ouvrir-le-menu-d-un-ticket-et-l-envoyer-vers-un-goal: backlog
+  epic-3: in-progress
+  3-1-ouvrir-le-menu-d-un-ticket-et-l-envoyer-vers-un-goal: review
   3-2-mettre-un-ticket-en-top-ou-en-basse-priorité: backlog
   epic-3-retrospective: optional
 

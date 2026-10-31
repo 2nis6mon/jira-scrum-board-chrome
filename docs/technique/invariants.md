@@ -73,6 +73,9 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
   Une carte peut rejoindre tout objectif ou revenir uniquement dans sa destination par défaut.
   Pendant le glissé, sa destination vide réapparaît temporairement en fin de board pour préserver
   la position de la carte source ; elle reprend l'ordre configuré après détachement.
+  Le menu d'une carte (clic droit, Maj+F10, touche Menu) repasse par `dropIssue`, colonne et rang
+  inchangés, avec les règles du glissé : aucun changement d'objectif en Daily, rien pendant une
+  écriture ; « Retirer du goal » exige que la destination par défaut soit affichée.
 - Les sous-tâches gardent leur carte et leurs compteurs ; sans Goal propre, elles héritent de celui
   du parent. Si celui-ci est présent, elles héritent de sa destination par défaut ; leur propre
   objectif reste prioritaire s'il existe.

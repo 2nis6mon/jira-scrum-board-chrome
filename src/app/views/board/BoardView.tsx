@@ -54,6 +54,7 @@ import { FullscreenButton, requestFullscreen, useFullscreen } from "../fullscree
 import { GoalMarker } from "../GoalMarker";
 import { HealthPanel } from "../health/HealthPanel";
 import { Icon, type IconName } from "../Icon";
+import { CardMenu } from "./CardMenu";
 import { FilterMenu } from "./FilterMenu";
 import { placeFloatingMenu } from "./floatingMenu";
 import { IssueCard } from "./IssueCard";
@@ -1167,6 +1168,7 @@ function BoardGrid(props: {
         </Fragment>
       ))}
       {laneTarget === null && laneDropLine}
+      <CardMenu board={board} daily={daily} />
     </div>
   );
 }
@@ -1498,6 +1500,7 @@ function LaneView(props: {
                             board.startDrag(key, issue.swimlaneId);
                           }}
                           onDragEnd={() => board.endDrag()}
+                          onContextMenu={(point) => board.openCardMenu(key, point)}
                         />
                       </li>
                     </Fragment>

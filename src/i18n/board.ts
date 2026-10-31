@@ -259,4 +259,10 @@ export const boardMessages = {
     "Issues blocked by a Jira ‘is blocked by’ link",
   "Tickets ajoutés au sprint après son démarrage": "Issues added to the sprint after it started",
   Ajoutés: "Added",
+  "Actions sur {key}": "Actions on {key}",
+  "Envoyer vers un goal": "Send to a goal",
+  "Retirer du goal": "Remove from goal",
+  "Une écriture est en cours": "A write is in progress",
+  "Pas de changement d'objectif pendant la daily": "No goal changes during the daily",
+  "Aucun objectif où l'envoyer": "No goal to send it to",
 } as const;
