@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-31-2026 09:00
-last_updated: 10-31-2026 05:57
+last_updated: 10-31-2026 06:58
 project: Sprint Goals Board pour Jira
 project_key: NOKEY
 tracking_system: file-system
@@ -79,21 +79,21 @@ action_items:
     action: "Faire attendre la porte d'écriture et la file locale du board à la déconnexion,
       ignorer #record/#persist après dispose (F1)"
     owner: "dev"
-    status: open
+    status: done
     ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-1-retro-2026-10-31.md"
   - id: "epic-1-retro-item-2-typer-le-refus-de-la-porte-stale-cannote"
     epic: 1
     action: "Typer le refus de la porte (stale/cannotEdit), relecture forcée sur cannotEdit,
       journal « non envoyé » (F2)"
     owner: "dev"
-    status: open
+    status: done
     ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-1-retro-2026-10-31.md"
   - id: "epic-1-retro-item-3-rattachement-texte-partir-des-objectifs"
     epic: 1
     action: "Rattachement texte : partir des objectifs relus dans Jira, sans purger
       les liens vers un objectif présent (F4)"
     owner: "dev"
-    status: open
+    status: done
     ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-1-retro-2026-10-31.md"
   - id: "epic-1-retro-item-4-ad-1-décider-si-les-services-peuvent-imp"
     epic: 1
