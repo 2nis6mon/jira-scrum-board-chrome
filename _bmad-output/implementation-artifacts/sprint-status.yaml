@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-31-2026 09:00
-last_updated: 10-31-2026 12:00
+last_updated: 10-31-2026 12:30
 project: Sprint Goals Board pour Jira
 project_key: NOKEY
 tracking_system: file-system
@@ -51,7 +51,7 @@ development_status:
   epic-2: done
   2-1-épingler-les-goals-du-sprint-de-mon-choix: done
   2-2-voir-les-tickets-reportés-du-sprint-précédent: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
   epic-3: backlog
   3-1-ouvrir-le-menu-d-un-ticket-et-l-envoyer-vers-un-goal: backlog
@@ -137,3 +137,57 @@ action_items:
     owner: "dev"
     status: open
     ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-1-retro-2026-10-31.md"
+  - id: "epic-2-retro-item-10-supprimer-sameidorder-et-utiliser-sameor"
+    epic: 2
+    action: "Supprimer sameIdOrder et utiliser sameOrder dans BoardModel.ts (A1)"
+    owner: "dev"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-2-retro-2026-10-31.md"
+  - id: "epic-2-retro-item-11-factoriser-la-lecture-des-entrées-sprint"
+    epic: 2
+    action: "Factoriser la lecture des entrées Sprint commune à sprintScope et carriedOverInto
+      (A2)"
+    owner: "dev"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-2-retro-2026-10-31.md"
+  - id: "epic-2-retro-item-12-aligner-epics-md-fr24-story-2-2-sur-clos"
+    epic: 2
+    action: "Aligner epics.md (FR24, story 2.2) sur closedSprints et la fenêtre de
+      10 min (A6)"
+    owner: "Denis"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-2-retro-2026-10-31.md"
+  - id: "epic-2-retro-item-13-inclure-dans-l-epic-4-un-essai-réel-clos"
+    epic: 2
+    action: "Inclure dans l Epic 4 un essai réel : closedSprints/originBoardId, choix
+      du sprint d épinglage, historique tronqué"
+    owner: "Denis"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-2-retro-2026-10-31.md"
+  - id: "epic-2-retro-item-14-noter-pour-l-epic-4-fr14-que-l-endpoint"
+    epic: 2
+    action: "Noter pour l Epic 4 (FR14) que l endpoint board/sprint/issue est marqué
+      deprecated"
+    owner: "dev"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-2-retro-2026-10-31.md"
+  - id: "epic-2-retro-item-15-matrice-i-o-réaliste-pour-les-règles-fon"
+    epic: 2
+    action: "Matrice I/O réaliste pour les règles fondées sur l historique Jira et
+      test de vue de chaque surface dès la première livraison"
+    owner: "dev"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-2-retro-2026-10-31.md"
+  - id: "epic-2-retro-item-16-reprendre-la-convention-story-n-m-dans-l"
+    epic: 2
+    action: "Reprendre la convention (story N.M) dans le sujet des commits"
+    owner: "dev"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-2-retro-2026-10-31.md"
+  - id: "epic-2-retro-item-17-décider-d-un-marqueur-de-carte-ou-d-une"
+    epic: 2
+    action: "Décider d un marqueur de carte ou d une règle de couleur pour les tickets
+      reportés"
+    owner: "Denis"
+    status: open
+    ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-2-retro-2026-10-31.md"
