@@ -87,6 +87,7 @@ it("affiche objectifs, Build, RUN et OPS sans sprint et garde Daily et présenta
   expect(document.querySelector(".sprint-dates")).toBeNull();
   expect(document.querySelector(".counter-added")).toBeNull();
   expect(document.querySelector(".chip-addedAfterStart")).toBeNull();
+  expect(document.querySelector(".chip-carriedOver")).toBeNull();
   expect(document.querySelector(".sprint-metrics")?.textContent).toContain("7 tickets");
   expect(document.querySelector(".sprint-metrics")?.textContent).toContain("2 terminés");
   expect(body()).not.toContain("Aucun sprint actif");

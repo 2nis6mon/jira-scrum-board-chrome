@@ -405,6 +405,25 @@ describe("BoardModel — Kanban sans sprint", () => {
     });
   });
 
+  it.each([[["addedAfterStart", "carriedOver", "blocked"]], [["carriedOver", "blocked"]]] as const)(
+    "passage Scrum → Kanban : filtres de sprint actifs %j retirés",
+    async (active) => {
+      const board = new BoardModel(SITE, fakePlatform(boardSiteJira()), {
+        now: () => new Date("2026-10-01T10:00:00Z"),
+      });
+      await board.load();
+      await board.detect(BOARD_URL);
+      expect(board.configuration.value?.boardType).toBe("scrum");
+      for (const filter of active) board.toggleQuickFilter(filter);
+      expect([...board.filters.value.quickFilters].sort()).toEqual([...active].sort());
+      const configuration = board.configuration.value;
+      if (!configuration) throw new Error("Configuration attendue");
+      board.configuration.value = { ...configuration, boardType: "kanban" };
+      await board.sync();
+      expect([...board.filters.value.quickFilters]).toEqual(["blocked"]);
+    },
+  );
+
   it("filtres rapides et couleurs s'évaluent malgré l'absence de sprint", async () => {
     const { board, jira } = await kanbanBoard();
     jira.on("POST", "/rest/api/3/jql/match", {
@@ -415,6 +434,8 @@ describe("BoardModel — Kanban sans sprint", () => {
     });
     board.toggleQuickFilter("addedAfterStart");
     expect(board.filters.value.quickFilters.has("addedAfterStart")).toBe(false);
+    board.toggleQuickFilter("carriedOver");
+    expect(board.filters.value.quickFilters.has("carriedOver")).toBe(false);
     await board.toggleJiraQuickFilter(1);
     expect(board.filters.value.jiraQuickFilterKeys).not.toBeNull();
     await board.applyColorRules([

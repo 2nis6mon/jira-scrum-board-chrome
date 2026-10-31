@@ -48,9 +48,9 @@ development_status:
   1-9-tous-les-interrupteurs-de-fonction-au-même-endroit: done
   epic-1-retrospective: done
 
-  epic-2: in-progress
+  epic-2: done
   2-1-épingler-les-goals-du-sprint-de-mon-choix: done
-  2-2-voir-les-tickets-reportés-du-sprint-précédent: backlog
+  2-2-voir-les-tickets-reportés-du-sprint-précédent: done
   epic-2-retrospective: optional
 
   epic-3: backlog

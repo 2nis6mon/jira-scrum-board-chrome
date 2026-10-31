@@ -317,6 +317,96 @@ describe("ajouté en cours de sprint", () => {
   });
 });
 
+describe("reporté du sprint précédent", () => {
+  const ACTIVATED = "2026-09-12T09:00:00.000+0200";
+  const sprint43 = (originBoardId: number | null = null) => ({
+    ...makeSprint(ACTIVATED),
+    id: 43,
+    name: "Sprint 43",
+    originBoardId,
+  });
+  // Les sprints de `from` sont clôturés à la date de l'entrée, sauf `closedAt` fourni ; `null` :
+  // Jira n'a pas renvoyé `closedSprints`.
+  const withEntry = (
+    key: string,
+    created: string,
+    from: string,
+    to: string,
+    closedAt: string | null = created,
+  ) =>
+    makeIssue(key, {
+      changelog: {
+        histories: [{ created, items: [{ field: "Sprint", from, to, toString: null }] }],
+      },
+      extraFields:
+        closedAt === null
+          ? {}
+          : {
+              closedSprints: from
+                .split(",")
+                .filter((id) => id !== "")
+                .map((id) => ({
+                  id: Number(id),
+                  name: `Sprint ${id}`,
+                  state: "closed",
+                  completeDate: closedAt,
+                  originBoardId: 1,
+                })),
+            },
+    });
+  const carried = (issue: JiraIssue, sprint: JiraSprint | null) =>
+    (assemble([issue], { sprint })[0] as BoardIssue).carriedOver;
+
+  it("report d'un sprint clos dans un sprint du board, avant ou après le démarrage", () => {
+    expect(
+      carried(withEntry("ABC-1", "2026-09-11T10:00:00.000+0200", "41", "41,43"), sprint43()),
+    ).toBe(true);
+    const late = assemble([withEntry("ABC-1", "2026-09-18T10:00:00.000+0200", "41", "41,43")], {
+      sprint: sprint43(1),
+    })[0] as BoardIssue;
+    expect(late.carriedOver).toBe(true);
+    // Les règles de « ajouté en cours de sprint » ne changent pas.
+    expect(late.addedAfterSprintStart).toBe(true);
+  });
+
+  it("ajout depuis le backlog ou déplacement d'un sprint ouvert : non reporté", () => {
+    expect(carried(withEntry("ABC-1", "2026-09-11T10:00:00.000+0200", "", "43"), sprint43())).toBe(
+      false,
+    );
+    expect(
+      carried(withEntry("ABC-1", "2026-09-11T10:00:00.000+0200", "44", "43"), sprint43()),
+    ).toBe(false);
+  });
+
+  it("remis depuis le backlog après un sprint clos, ou sans closedSprints : non reporté", () => {
+    const at = "2026-09-11T10:00:00.000+0200";
+    expect(
+      carried(withEntry("ABC-1", at, "41", "41,43", "2026-09-01T10:00:00.000+0200"), sprint43()),
+    ).toBe(false);
+    expect(carried(withEntry("ABC-1", at, "41", "41,43", null), sprint43())).toBe(false);
+  });
+
+  it("sprint étranger, sans sprint ou sans historique : non reporté", () => {
+    const issue = withEntry("ABC-1", "2026-09-11T10:00:00.000+0200", "41", "41,43");
+    expect(carried(issue, sprint43(77))).toBe(false);
+    expect(carried(issue, null)).toBe(false);
+    expect(carried(makeIssue("ABC-2"), sprint43())).toBe(false);
+  });
+
+  it("le compteur réunit les reportés de tous les sprints du board", () => {
+    const a = assemble([withEntry("ABC-1", "2026-09-11T10:00:00.000+0200", "41", "41,43")], {
+      sprint: sprint43(),
+    });
+    const b = assemble([withEntry("ABC-2", "2026-09-11T10:00:00.000+0200", "40", "40,42")], {
+      sprint: makeSprint(ACTIVATED),
+    });
+    const c = assemble([withEntry("ABC-3", "2026-09-11T10:00:00.000+0200", "", "43")], {
+      sprint: sprint43(),
+    });
+    expect(sprintMetrics(snapshot([...a, ...b, ...c]), 3).carriedOverCount).toBe(2);
+  });
+});
+
 // BlockerDetailsTests
 describe("bloquants", () => {
   it("le bloquant porte ce que Jira envoie dans le lien", () => {

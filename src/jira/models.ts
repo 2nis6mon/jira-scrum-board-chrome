@@ -224,6 +224,76 @@ export function sprintScope(input: {
   return { inSprintAtStart, enteredAt };
 }
 
+/**
+ * Écart admis entre la clôture d'un sprint et l'entrée de report qu'elle écrit dans l'historique
+ * d'un ticket, dans un sens ou dans l'autre. Une grosse clôture écrit son report en rafale au-delà
+ * des 2 min de `SPRINT_START_GRACE_MS` ; 10 min restent loin d'un retour manuel depuis le backlog.
+ */
+export const CARRY_OVER_WINDOW_MS = 10 * 60 * 1000;
+
+/**
+ * Le ticket est-il entré dans le sprint par report d'un sprint clos du board ? On lit la DERNIÈRE
+ * entrée de l'historique « Sprint » qui fait entrer le sprint (présent dans la nouvelle valeur,
+ * absent de l'ancienne). C'est un report si cette entrée ne retire aucun sprint et garde un autre
+ * sprint X, et si X figure parmi les sprints clos du ticket (`closedSprints`), clôturé à moins de
+ * `CARRY_OVER_WINDOW_MS` de l'entrée, sans être d'un autre board. L'historique seul ne suffit
+ * pas : un ticket remis depuis le backlog après un sprint clos y laisse la même entrée qu'un
+ * report. Un déplacement depuis un sprint ouvert retire ce sprint : ce n'est pas un report.
+ * Comme `sprintScope`, les identifiants (`from`/`to`) font foi ; les noms d'époque ne servent
+ * qu'à une entrée sans identifiants. `closedSprints` absent (`null`) : jamais reporté.
+ * Aucune lecture : seules les données déjà chargées avec le ticket sont consultées.
+ */
+export function carriedOverInto(input: {
+  changelog: JiraChangelog | null;
+  closedSprints: readonly JiraSprint[] | null;
+  sprintId?: number | null;
+  sprintName: string;
+  boardId: number;
+}): boolean {
+  if (input.changelog === null || input.closedSprints === null) return false;
+  const target = input.sprintName.trim();
+  const targetId = input.sprintId == null ? "" : String(input.sprintId);
+  if (target === "" && targetId === "") return false;
+  const entries = (list: string | null): string[] =>
+    (list ?? "")
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter((entry) => entry !== "");
+  const lists = (item: JiraChangelogItem) => {
+    const byId = targetId !== "" && (item.from !== null || item.to !== null);
+    return byId
+      ? { byId, wanted: targetId, from: entries(item.from), to: entries(item.to) }
+      : { byId, wanted: target, from: entries(item.fromString), to: entries(item.toString) };
+  };
+
+  const entrances = input.changelog.histories
+    .flatMap((history) => {
+      const item = history.items.find((candidate) => candidate.field.toLowerCase() === "sprint");
+      return history.created && item ? [{ at: history.created, item }] : [];
+    })
+    .filter((change) => {
+      const { wanted, from, to } = lists(change.item);
+      return wanted !== "" && to.includes(wanted) && !from.includes(wanted);
+    })
+    .sort((a, b) => a.at.getTime() - b.at.getTime());
+  const last = entrances.at(-1);
+  if (!last) return false;
+  const { byId, wanted, from, to } = lists(last.item);
+  // Un sprint retiré par l'entrée : déplacement depuis un sprint ouvert, pas un report.
+  if (from.some((sprint) => !to.includes(sprint))) return false;
+  const closedAt = (kept: string) =>
+    input.closedSprints?.find((sprint) =>
+      byId ? String(sprint.id) === kept : sprint.name.trim() === kept,
+    );
+  return to.some((kept) => {
+    if (kept === wanted || !from.includes(kept)) return false;
+    const closed = closedAt(kept);
+    if (!closed?.completeDate) return false;
+    if (closed.originBoardId !== null && closed.originBoardId !== input.boardId) return false;
+    return Math.abs(closed.completeDate.getTime() - last.at.getTime()) <= CARRY_OVER_WINDOW_MS;
+  });
+}
+
 // ─── Ticket ──────────────────────────────────────────────────────────────────
 
 export interface JiraIssueFields {
@@ -243,6 +313,11 @@ export interface JiraIssueFields {
   readonly fixVersions: readonly JiraVersion[];
   /** Versions affectées (champ Jira `versions`). Vide si le champ n'a pas été demandé. */
   readonly affectsVersions: readonly JiraVersion[];
+  /**
+   * Sprints clos du ticket (champ `closedSprints` de l'API Agile), demandé seulement pour les
+   * tickets des sprints Scrum. `null` : absent de la réponse ou illisible.
+   */
+  readonly closedSprints: readonly JiraSprint[] | null;
   readonly created: Date | null;
   readonly updated: Date | null;
   /**
@@ -632,6 +707,7 @@ export function decodeIssueFields(value: unknown, context = "ticket"): JiraIssue
     parent: decodeLinkedRef(value.parent),
     fixVersions: list(value.fixVersions, decodeVersion),
     affectsVersions: list(value.versions, decodeVersion),
+    closedSprints: decodeClosedSprints(value.closedSprints),
     created: parseJiraDate(value.created),
     updated: parseJiraDate(value.updated),
     customFields,
@@ -648,6 +724,18 @@ export function decodeIssue(value: unknown): JiraIssue {
     fields: decodeIssueFields(value.fields, `ticket ${value.key}`),
     changelog: decodeChangelog(value.changelog),
   };
+}
+
+/** Sprints clos d'un ticket : `null` si le champ manque ; les sprints illisibles sont ignorés. */
+function decodeClosedSprints(value: unknown): readonly JiraSprint[] | null {
+  if (!Array.isArray(value)) return null;
+  return value.flatMap((item) => {
+    try {
+      return [decodeSprint(item)];
+    } catch {
+      return [];
+    }
+  });
 }
 
 export function decodeSprint(value: unknown): JiraSprint {

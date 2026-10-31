@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { JiraError } from "../../src/jira/errors";
 import {
+  CARRY_OVER_WINDOW_MS,
+  carriedOverInto,
   decodeChangelog,
   decodeIssue,
   decodeIssueFields,
@@ -8,6 +10,7 @@ import {
   displayValues,
   isFlagged,
   type JiraChangelog,
+  type JiraSprint,
   lastStatusChange,
   linkedGoalIds,
   parseJiraDate,
@@ -328,6 +331,146 @@ describe("sprintScope — le ticket était-il dans le sprint à son démarrage ?
       ],
     }) as JiraChangelog;
     expect(lastStatusChange(log)).toEqual(parseJiraDate("2026-09-15T10:00:00.000+0200"));
+  });
+});
+
+describe("carriedOverInto — le ticket a-t-il été reporté d'un sprint clos du board ?", () => {
+  type Entry = [
+    created: string,
+    from: string | null,
+    to: string | null,
+    fromNames: string | null,
+    toNames: string | null,
+  ];
+  function changelog(entries: Entry[]) {
+    return decodeChangelog({
+      histories: entries.map(([created, from, to, fromNames, toNames]) => ({
+        created,
+        items: [{ field: "Sprint", from, to, fromString: fromNames, toString: toNames }],
+      })),
+    }) as JiraChangelog;
+  }
+  const BOARD = 7;
+  const closed = (id: number, completeDate: string, originBoardId: number | null = BOARD) =>
+    decodeSprint({ id, name: `Sprint ${id}`, state: "closed", completeDate, originBoardId });
+  // Sprint 41 clôturé le 20/10 à 10:00 ; la rafale de report suit de quelques secondes.
+  const CLOSED_41 = [closed(41, "2026-10-20T10:00:00.000Z")];
+  const REPORT = "2026-10-20T10:00:05.000Z";
+  const carried = (
+    entries: Entry[],
+    closedSprints: readonly JiraSprint[] | null = CLOSED_41,
+    sprintId: number | null = 43,
+    sprintName = "Sprint 43",
+  ) =>
+    carriedOverInto({
+      changelog: changelog(entries),
+      closedSprints,
+      sprintId,
+      sprintName,
+      boardId: BOARD,
+    });
+  const report: Entry = [REPORT, "41", "41, 43", "Sprint 41", "Sprint 41, Sprint 43"];
+
+  it("report classique, à la clôture du sprint précédent : reporté", () => {
+    expect(carried([report])).toBe(true);
+    // Jira peut écrire le report juste avant de dater la clôture.
+    expect(carried([["2026-10-20T09:59:30.000Z", "41", "41,43", null, null]])).toBe(true);
+  });
+
+  it("report après le démarrage du sprint (clôture tardive du précédent) : reporté", () => {
+    const late = [closed(41, "2026-10-28T10:00:00.000Z")];
+    expect(carried([["2026-10-28T10:00:03.000Z", "41", "41,43", null, null]], late)).toBe(true);
+  });
+
+  it("remis depuis le backlog après un sprint clos : non reporté", () => {
+    const early = [closed(41, "2026-10-01T10:00:00.000Z")];
+    expect(carried([["2026-10-10T10:00:00.000Z", "41", "41,43", null, null]], early)).toBe(false);
+  });
+
+  it("ajout depuis le backlog : non reporté", () => {
+    expect(carried([[REPORT, "", "43", null, "Sprint 43"]])).toBe(false);
+  });
+
+  it("déplacé d'un sprint ouvert, même avec un sprint clos conservé : non reporté", () => {
+    expect(carried([[REPORT, "41,44", "41,43", null, null]])).toBe(false);
+    expect(carried([[REPORT, "44", "43", null, null]])).toBe(false);
+  });
+
+  it("sprint clos d'un autre board : non reporté ; sans originBoardId : du board", () => {
+    expect(carried([report], [closed(41, "2026-10-20T10:00:00.000Z", 99)])).toBe(false);
+    expect(carried([report], [closed(41, "2026-10-20T10:00:00.000Z", null)])).toBe(true);
+  });
+
+  it("closedSprints absent, ou sprint conservé sans date de clôture : non reporté", () => {
+    expect(carried([report], null)).toBe(false);
+    expect(carried([report], [])).toBe(false);
+    expect(carried([report], [decodeSprint({ id: 41, name: "Sprint 41", state: "closed" })])).toBe(
+      false,
+    );
+  });
+
+  it("reporté, retiré puis remis depuis le backlog : la dernière entrée décide", () => {
+    expect(
+      carried([
+        report,
+        ["2026-10-22T10:00:00.000Z", "41, 43", "41", null, null],
+        ["2026-10-24T10:00:00.000Z", "41", "41, 43", null, null],
+      ]),
+    ).toBe(false);
+    expect(carried([["2026-10-24T10:00:00.000Z", "", "43", null, null], report])).toBe(false);
+  });
+
+  it("l'ordre de l'historique reçu n'y change rien", () => {
+    expect(carried([["2026-10-24T10:00:00.000Z", "", "43", null, null], report])).toBe(false);
+    expect(carried([report, ["2026-10-01T10:00:00.000Z", "", "41", null, null]])).toBe(true);
+  });
+
+  it("entrée sans identifiants : lue par les noms", () => {
+    expect(carried([[REPORT, null, null, "Sprint 41", "Sprint 41, Sprint 43"]])).toBe(true);
+    expect(carried([[REPORT, null, null, null, "Sprint 43"]])).toBe(false);
+  });
+
+  it("identifiants présents : les noms d'époque ne comptent pas", () => {
+    expect(
+      carried([[REPORT, "41", "41, 43", "Ancien", "Ancien, Ancien 43"]], CLOSED_41, 43, "Nouveau"),
+    ).toBe(true);
+  });
+
+  it("sans historique ni entrée Sprint : non reporté", () => {
+    expect(
+      carriedOverInto({
+        changelog: null,
+        closedSprints: CLOSED_41,
+        sprintId: 43,
+        sprintName: "Sprint 43",
+        boardId: BOARD,
+      }),
+    ).toBe(false);
+    expect(carried([])).toBe(false);
+  });
+
+  it("autre sprint de l'entrée : non reporté dans celui-ci", () => {
+    expect(carried([[REPORT, "41", "41, 42", null, null]])).toBe(false);
+  });
+
+  it("fenêtre clôture → entrée : 10 min exactement, dans les deux sens", () => {
+    const at = (ms: number) => new Date(Date.parse("2026-10-20T10:00:00.000Z") + ms).toISOString();
+    for (const sign of [1, -1]) {
+      const entry = (ms: number): Entry => [at(sign * ms), "41", "41,43", null, null];
+      expect(carried([entry(CARRY_OVER_WINDOW_MS)])).toBe(true);
+      expect(carried([entry(CARRY_OVER_WINDOW_MS + 1)])).toBe(false);
+    }
+  });
+
+  it("décodage : closedSprints lu avec le ticket, null s'il manque, sprints illisibles ignorés", () => {
+    const sprint = { id: 41, name: "Sprint 41", completeDate: REPORT, originBoardId: BOARD };
+    const decoded = (closedSprints: unknown) =>
+      fieldsWith(closedSprints === undefined ? {} : { closedSprints }).closedSprints;
+    expect(decoded([sprint])?.[0]).toMatchObject({ id: 41, originBoardId: BOARD });
+    expect(decoded(undefined)).toBeNull();
+    expect(decoded("illisible")).toBeNull();
+    expect(decoded([{ name: "sans identifiant" }, sprint])?.map((s) => s.id)).toEqual([41]);
+    expect(decoded([{ name: "sans identifiant" }])).toEqual([]);
   });
 });
 

@@ -23,3 +23,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-retro1-3-rattachement-texte-sans-perte.md`
   summary: Un lien écrit par un collègue dans la propriété d'un sprint vers un objectif ajouté depuis dans un AUTRE sprint réuni est encore retiré au rattachement suivant.
   evidence: `withTextGoalLink` (src/core/boardWrites.ts) filtre les liens frais par `validIds`, qui ne connaît des autres sprints que `linkableGoalIds` calculé au chargement ; seule la propriété du sprint écrit est relue.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-2-tickets-reportes.md`
+  summary: Vérifier si l'historique joint par `expand=changelog` aux tickets de sprint peut être tronqué (`total` > `maxResults`), ce qui fausserait `sprintScope` et `carriedOverInto`.
+  evidence: maybe-false, gravité medium non vérifiée. Ni `total` ni `maxResults` ne sont décodés ; se règle par un essai réel sur un ticket à plus de 100 historiques (Epic 4).

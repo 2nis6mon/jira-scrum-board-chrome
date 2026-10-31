@@ -138,6 +138,10 @@ describe("photographie Kanban", () => {
     expect(jira.requests[0]?.url.searchParams.get("fields")?.split(",")).toEqual(
       expect.arrayContaining(["customfield_10100", "customfield_10021", "fixVersions"]),
     );
+    expect(jira.requests[0]?.url.searchParams.get("fields")?.split(",")).not.toContain(
+      "closedSprints",
+    );
+    expect(result.snapshot.goalIssues.every((i) => !i.carriedOver)).toBe(true);
     expect(jira.requests[0]?.url.searchParams.get("expand")).toBe("changelog");
   });
 

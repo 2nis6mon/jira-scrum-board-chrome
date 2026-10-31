@@ -1,5 +1,6 @@
 import {
   blockingIssues,
+  carriedOverInto,
   estimate,
   isBlockedByLink,
   isDoneStatus,
@@ -104,6 +105,11 @@ export interface BoardIssue {
    * pas déterminable — on n'affiche alors rien.
    */
   readonly addedAfterSprintStart: boolean | null;
+  /**
+   * Vrai si le ticket est entré dans son sprint, un sprint du board, par report d'un sprint clos
+   * (`carriedOverInto`). Faux sans historique exploitable, en Kanban et pour un sprint étranger.
+   */
+  readonly carriedOver: boolean;
   /** Sprint actif auquel le ticket est rattaché sur le board ; `null` en Kanban. */
   readonly sprintId: number | null;
   /** Sous-tâches du ticket, dans l'ordre de Jira. Vide pour une sous-tâche. */
@@ -219,6 +225,8 @@ export interface SprintMetrics {
   readonly agingCount: number;
   readonly withoutGoalCount: number;
   readonly addedAfterStartCount: number;
+  /** Tickets reportés du sprint précédent, tous sprints du board réunis (filtre « Reportés »). */
+  readonly carriedOverCount: number;
   readonly totalPoints: number | null;
   readonly donePoints: number | null;
   readonly goalCount: number;
@@ -400,6 +408,7 @@ export function sprintMetrics(snapshot: BoardSnapshot, agingThresholdDays: numbe
     ).length,
     withoutGoalCount: issuesWithoutGoal(snapshot).length,
     addedAfterStartCount: everything.filter((issue) => issue.addedAfterSprintStart === true).length,
+    carriedOverCount: everything.filter((issue) => issue.carriedOver).length,
     totalPoints,
     donePoints: totalPoints === null ? null : (sumEstimates(scrum.filter(isIssueDone)) ?? 0),
     goalCount: snapshot.goals.length,
@@ -461,6 +470,18 @@ export function assembleBoardIssues(input: {
       addedToSprintAt = scope.enteredAt;
       addedAfterSprintStart = scope.inSprintAtStart === null ? null : !scope.inSprintAtStart;
     }
+    // Report : seulement dans un sprint du board, d'après l'historique et les sprints clos lus
+    // avec le ticket.
+    const carriedOver =
+      sprint !== null &&
+      !isForeignSprint(sprint, configuration.boardId) &&
+      carriedOverInto({
+        changelog: issue.changelog,
+        closedSprints: fields.closedSprints,
+        sprintId: sprint.id,
+        sprintName: sprint.name,
+        boardId: configuration.boardId,
+      });
 
     const swimlaneId =
       input.swimlaneId !== undefined
@@ -486,6 +507,7 @@ export function assembleBoardIssues(input: {
       daysInColumn,
       addedToSprintAt,
       addedAfterSprintStart,
+      carriedOver,
       sprintId: sprint?.id ?? null,
       subtasks: subtasksOf(issue, subtaskIssues),
     };

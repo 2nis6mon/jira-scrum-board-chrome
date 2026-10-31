@@ -95,6 +95,9 @@ export const businessMessagesEs = {
     "Incidencias bloqueadas por un vínculo de Jira «está bloqueada por»",
   "Tickets ajoutés au sprint après son démarrage":
     "Incidencias añadidas al sprint después de su inicio",
+  Reportés: "Arrastradas",
+  "Tickets reportés du sprint précédent du board":
+    "Incidencias arrastradas del sprint anterior del tablero",
   "Démarrage dans Jira": "Inicio en Jira",
   "Configuration du board": "Configuración del tablero",
   "Statuts Jira": "Estados de Jira",

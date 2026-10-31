@@ -8,6 +8,7 @@ import {
   filterAtlassianGoals,
   focusGoal,
   isGoalFocused,
+  isSprintQuickFilter,
   NO_FILTERS,
   QUICK_FILTERS,
 } from "../../src/core/filters";
@@ -58,8 +59,8 @@ describe("applyFilters", () => {
     expect(keys({ quickFilters: new Set(["blocked"]) }, issues)).toEqual(["BUG-3"]);
   });
 
-  it("il ne reste que deux filtres rapides", () => {
-    expect([...QUICK_FILTERS].sort()).toEqual(["addedAfterStart", "blocked"]);
+  it("il ne reste que trois filtres rapides", () => {
+    expect([...QUICK_FILTERS].sort()).toEqual(["addedAfterStart", "blocked", "carriedOver"]);
   });
 
   it("le filtre par assigné reste disponible par son menu", () => {
@@ -138,6 +139,32 @@ describe("filtre rapide « ajoutés »", () => {
 
   it("écarte les tickets dont l'historique est inconnu", () => {
     expect(keys(added, withFlag(null))).toEqual([]);
+  });
+});
+
+describe("filtre rapide « reportés »", () => {
+  const issues = assemble([makeIssue("ABC-1"), makeIssue("ABC-2"), makeIssue("ABC-3")]).map(
+    (issue, index): BoardIssue => ({
+      ...issue,
+      carriedOver: index !== 2,
+      sprintId: index === 0 ? 42 : 43,
+    }),
+  );
+  const carried = { quickFilters: new Set(["carriedOver"] as const) };
+
+  it("ne garde que les tickets reportés, de tous les sprints du board", () => {
+    expect(keys(carried, issues)).toEqual(["ABC-1", "ABC-2"]);
+  });
+
+  it("se combine avec le filtre Sprint", () => {
+    expect(keys({ ...carried, sprintIds: new Set(["43"]) }, issues)).toEqual(["ABC-2"]);
+  });
+
+  it("compte comme filtre actif et suit « Ajoutés »", () => {
+    expect(activeFilterCount({ ...NO_FILTERS, ...carried })).toBe(1);
+    expect(QUICK_FILTERS).toEqual(["blocked", "addedAfterStart", "carriedOver"]);
+    expect(isSprintQuickFilter("carriedOver")).toBe(true);
+    expect(isSprintQuickFilter("blocked")).toBe(false);
   });
 });
 

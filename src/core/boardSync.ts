@@ -241,7 +241,8 @@ export async function loadSnapshot(input: {
         reader.sprintIssues(configuration.boardId, candidate.id, {
           estimationFieldId: configuration.estimationFieldId,
           includeChangelog: true,
-          extraFieldIds,
+          // Sprints clos du ticket : distinguent un report d'un retour depuis le backlog.
+          extraFieldIds: [...extraFieldIds, "closedSprints"],
         }),
       ),
     });

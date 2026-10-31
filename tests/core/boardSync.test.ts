@@ -676,6 +676,49 @@ describe("loadSnapshot", () => {
     ]);
   });
 
+  it("reportés : historique et closedSprints de la réponse Jira, sans requête en plus", async () => {
+    // Sprint 41 du board (makeConfiguration : board 1), clôturé le 11/09 à 18:00.
+    const closed41 = {
+      id: 41,
+      name: "Sprint 41",
+      state: "closed",
+      completeDate: "2026-09-11T18:00:00.000+0200",
+      originBoardId: 1,
+    };
+    const entry = (created: string) => ({
+      histories: [
+        {
+          created,
+          items: [{ field: "Sprint", from: "41", to: "41, 42", fromString: null, toString: null }],
+        },
+      ],
+    });
+    const jira = boardJira({
+      issues: {
+        42: [
+          // Rafale de report écrite à la clôture du sprint 41.
+          issueJson("ABC-1", {
+            changelog: entry("2026-09-11T18:00:04.000+0200"),
+            extraFields: { closedSprints: [closed41] },
+          }),
+          // Même entrée, mais remis depuis le backlog des jours après la clôture.
+          issueJson("ABC-2", {
+            changelog: entry("2026-09-15T10:00:00.000+0200"),
+            extraFields: { closedSprints: [closed41] },
+          }),
+        ],
+      },
+    });
+    const { snapshot } = await sync(jira);
+
+    expect(snapshot.goalIssues.map((i) => [i.issue.key, i.carriedOver])).toEqual([
+      ["ABC-1", true],
+      ["ABC-2", false],
+    ]);
+    expect(sprintMetrics(snapshot, 3).carriedOverCount).toBe(1);
+    expect(jira.sent("GET", "/rest/agile/1.0/board/1/sprint/42/issue")).toHaveLength(1);
+  });
+
   it("demande à Jira les champs Goals, drapeau et champs de carte choisis", async () => {
     const configuration = makeConfiguration({
       goalsFieldId: "customfield_10100",
@@ -693,6 +736,8 @@ describe("loadSnapshot", () => {
         "customfield_10100",
         "customfield_10021",
         "fixVersions",
+        // Sprints clos du ticket, pour reconnaître un report : seul champ ajouté (story 2.2).
+        "closedSprints",
       ]),
     );
   });

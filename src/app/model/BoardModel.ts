@@ -23,7 +23,13 @@ import { customFieldChoices } from "../../core/boardSettings";
 import { detectBoard, refreshBoardStructure } from "../../core/boardSync";
 import { type CardColorRule, resolveCardColors } from "../../core/cardColors";
 import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/dropPlan";
-import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../../core/filters";
+import {
+  type BoardFilters,
+  focusGoal,
+  isSprintQuickFilter,
+  NO_FILTERS,
+  type QuickFilter,
+} from "../../core/filters";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
 import { parentColors } from "../../core/parentColors";
 import { type PendingMove, withPendingMove } from "../../core/pendingMove";
@@ -422,7 +428,7 @@ export class BoardModel {
         prepareFilters: (configuration) => {
           if (
             configuration.boardType === "kanban" &&
-            this.filters.value.quickFilters.has("addedAfterStart")
+            [...this.filters.value.quickFilters].some(isSprintQuickFilter)
           )
             this.setFilters(this.filters.value);
         },
@@ -685,7 +691,7 @@ export class BoardModel {
         ? {
             ...filters,
             quickFilters: new Set(
-              [...filters.quickFilters].filter((filter) => filter !== "addedAfterStart"),
+              [...filters.quickFilters].filter((filter) => !isSprintQuickFilter(filter)),
             ),
           }
         : filters;

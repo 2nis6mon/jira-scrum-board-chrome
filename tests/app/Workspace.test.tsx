@@ -410,6 +410,7 @@ describe("en-tête du sprint", () => {
         goalIssues: snapshot.goalIssues.map((issue) => ({
           ...issue,
           addedAfterSprintStart: issue.issue.key === "ABC-105",
+          carriedOver: boardType === "scrum" && ["ABC-101", "ABC-102"].includes(issue.issue.key),
         })),
       };
       await tick();
@@ -417,7 +418,7 @@ describe("en-tête du sprint", () => {
       // La fixture contient un ticket bloqué, un ajouté et deux dans Build : aucun compteur
       // ne réapparaît quand sa valeur est positive, en Scrum comme en Kanban.
       const header = document.querySelector(".sprint-header");
-      expect(header?.textContent).not.toMatch(/bloqué|ajouté|dans Build/i);
+      expect(header?.textContent).not.toMatch(/bloqué|ajouté|report|dans Build/i);
       expect(header?.querySelector(".counter-goals strong")?.textContent).toBe("1/2");
       expect(sidebarLink("Build")).not.toBeNull();
       if (boardType === "kanban") expect(header?.textContent).toContain("6 tickets · 1 terminé");
@@ -432,6 +433,30 @@ describe("en-tête du sprint", () => {
         button("Ajoutés").click();
         await tick();
         expect(cardKeys()).toEqual(["ABC-105"]);
+        button("Ajoutés").click();
+        await tick();
+        const carried = document.querySelector<HTMLButtonElement>(".chip-carriedOver");
+        expect(carried?.textContent?.trim()).toBe("Reportés (2)");
+        carried?.click();
+        await tick();
+        expect(carried?.getAttribute("aria-pressed")).toBe("true");
+        expect(cardKeys().sort()).toEqual(["ABC-101", "ABC-102"]);
+        // Le nombre réunit tous les reportés, quels que soient les autres filtres actifs.
+        button("Ajoutés").click();
+        await tick();
+        expect(cardKeys()).toEqual([]);
+        expect(carried?.textContent?.trim()).toBe("Reportés (2)");
+        button("Ajoutés").click();
+        board.setFilters({ ...board.filters.value, sprintIds: new Set(["999"]) });
+        await tick();
+        expect(cardKeys()).toEqual([]);
+        expect(carried?.textContent?.trim()).toBe("Reportés (2)");
+        button("Réinitialiser").click();
+        await tick();
+        expect(carried?.getAttribute("aria-pressed")).toBe("false");
+        expect(cardKeys()).toHaveLength(6);
+      } else {
+        expect(document.querySelector(".chip-carriedOver")).toBeNull();
       }
     },
   );

@@ -85,6 +85,14 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
   car Jira peut dater le démarrage du sprint suivant avant d'écrire le report des tickets non terminés.
   L'en-tête/filtres/colonnes restent fixes ; le Goal courant reste sous les colonnes, sur toute
   la largeur logique. Les Goals atteints sont verts ; le compteur porte sur les Goals visibles.
+- « Reporté » (`carriedOverInto`, champ `carriedOver`) : la dernière entrée de l'historique Sprint
+  qui fait entrer un sprint du board (`isForeignSprint` faux) ne retire aucun sprint et garde un
+  sprint X présent dans `closedSprints` du ticket, clôturé à moins de 10 min de l'entrée
+  (`CARRY_OVER_WINDOW_MS`) et du board (`originBoardId` absent ou égal). L'historique seul ne distingue pas un report d'un retour depuis
+  le backlog. Identifiants prioritaires, noms seulement sans identifiants ; `closedSprints` absent :
+  non reporté. Seul `closedSprints` s'ajoute aux champs des tickets de sprint, aucune requête en
+  plus ; filtre rapide « Reportés (N) », N tiré de `sprintMetrics` quels que soient les filtres,
+  absent en Kanban, sans compteur dans l'en-tête ; règles de « ajouté en cours de sprint » inchangées.
 
 ## Couleurs des cartes et saisie JQL
 

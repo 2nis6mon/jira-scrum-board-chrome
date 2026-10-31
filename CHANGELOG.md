@@ -3,6 +3,16 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.38.0 — Voir les tickets reportés du sprint précédent
+
+- En Scrum, le filtre rapide **Reportés (N)**, à côté de **Bloqués** et **Ajoutés**, ne garde que
+  les tickets que Jira a reportés dans un sprint du board à la clôture d'un sprint du board. Le
+  nombre réunit tous les sprints du board, quels que soient les filtres, et le filtre se combine
+  avec le filtre **Sprint**. Ajouts ou retours depuis le backlog, déplacements depuis un sprint
+  ouvert, sprints d'un autre board et tickets sans historique ne sont pas comptés. Calculé sur
+  l'historique Sprint et les sprints clos du ticket (`closedSprints`, ajouté aux champs déjà lus) :
+  aucune requête Jira en plus, aucun compteur dans l'en-tête, absent en Kanban.
+
 ## 0.37.0 — Épingler les Goals du sprint de mon choix
 
 - En Scrum « Goals Atlassian » avec au moins deux sprints actifs du board, l'onglet **Objectifs**

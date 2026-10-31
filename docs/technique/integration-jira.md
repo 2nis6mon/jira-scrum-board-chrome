@@ -84,7 +84,7 @@ sans jeton ni mot de passe.
 | Structure | `GET /rest/agile/1.0/board/{id}` et `/{id}/configuration` |
 | Sprints actifs/futurs | `GET /rest/agile/1.0/board/{id}/sprint`, filtre `state` ; `GET /rest/agile/1.0/sprint/{id}` pour relecture |
 | Backlog du planning | `GET /rest/software/1.0/board/{id}/backlog`, pagination `nextPageToken` et `isLast`, limite 5 000 |
-| Tickets Scrum | `GET /rest/agile/1.0/board/{board}/sprint/{sprint}/issue` ; jamais le sprint seul |
+| Tickets Scrum | `GET /rest/agile/1.0/board/{board}/sprint/{sprint}/issue`, `expand=changelog`, champs dont `closedSprints` (documenté par l'API Agile, sert aux reportés) ; jamais le sprint seul |
 | Tickets Kanban / filtres rapides Jira | `GET /rest/agile/1.0/board/{id}/issue` |
 | Validation JQL | `POST /rest/api/3/jql/parse?validation=strict` (lecture) |
 | Suggestions JQL | `GET /rest/api/3/jql/autocompletedata` et `/jql/autocompletedata/suggestions` |

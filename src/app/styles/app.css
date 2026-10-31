@@ -707,8 +707,23 @@ details.filter-menu > summary {
   color: var(--added);
 }
 
+.chip-carriedOver[aria-pressed="true"] {
+  border-color: #f5c99b;
+  background: #fdf1e4;
+  color: #b45309;
+}
+
 .chip[aria-pressed="true"] {
   --icon-color: currentColor;
+}
+
+.chip-count {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip[aria-pressed="true"] .chip-count {
+  color: inherit;
 }
 
 details.filter-menu > summary.active {

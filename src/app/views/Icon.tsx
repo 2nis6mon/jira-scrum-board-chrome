@@ -23,6 +23,7 @@ const PATHS = {
       <path d="M12 8v8M8 12h8" />
     </>
   ),
+  carriedOver: <path d="M4 12h12M12 7l5 5-5 5M20 5v14" />,
   jiraFilters: <path d="M4 7h16M7 12h10M10 17h4" />,
   done: (
     <>

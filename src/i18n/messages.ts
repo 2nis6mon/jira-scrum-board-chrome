@@ -88,6 +88,9 @@ export const businessMessages = {
   "Tickets bloqués par un lien Jira « est bloqué par »":
     "Issues blocked by a Jira ‘is blocked by’ link",
   "Tickets ajoutés au sprint après son démarrage": "Issues added to the sprint after it started",
+  Reportés: "Carried over",
+  "Tickets reportés du sprint précédent du board":
+    "Issues carried over from the board's previous sprint",
   "Démarrage dans Jira": "Startup in Jira",
   "Configuration du board": "Board configuration",
   "Statuts Jira": "Jira statuses",

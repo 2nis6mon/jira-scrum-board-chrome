@@ -33,7 +33,13 @@ import {
   toggleDailyPause,
   toggleStockExpanded,
 } from "../../../core/daily";
-import { activeFilterCount, isGoalFocused, QUICK_FILTERS } from "../../../core/filters";
+import {
+  activeFilterCount,
+  isGoalFocused,
+  isSprintQuickFilter,
+  QUICK_FILTERS,
+  type QuickFilter,
+} from "../../../core/filters";
 import { boardLocalPinnedGoalIds } from "../../../core/pinnedGoals";
 import { goalColorName } from "../../../core/sprintGoals";
 import { blockingRequiredFields } from "../../../jira/models";
@@ -47,7 +53,7 @@ import { formatDay, formatPoints, formatTime, plural, pluralWord, toggled } from
 import { FullscreenButton, requestFullscreen, useFullscreen } from "../fullscreen";
 import { GoalMarker } from "../GoalMarker";
 import { HealthPanel } from "../health/HealthPanel";
-import { Icon } from "../Icon";
+import { Icon, type IconName } from "../Icon";
 import { FilterMenu } from "./FilterMenu";
 import { placeFloatingMenu } from "./floatingMenu";
 import { IssueCard } from "./IssueCard";
@@ -640,6 +646,21 @@ function remainingLabel(days: number): string {
 
 // ─── Filtres ─────────────────────────────────────────────────────────────────
 
+const QUICK_FILTER_ICON = {
+  blocked: "blocked",
+  addedAfterStart: "added",
+  carriedOver: "carriedOver",
+} as const satisfies Record<QuickFilter, IconName>;
+
+/** Reportés de tous les sprints du board, quels que soient les filtres actifs. */
+function carriedOverCount(board: BoardModel): number {
+  const snapshot = board.snapshot.value;
+  const configuration = board.configuration.value;
+  return snapshot && configuration
+    ? sprintMetrics(snapshot, configuration.agingThresholdDays).carriedOverCount
+    : 0;
+}
+
 function FilterBar({ board, trailing }: { board: BoardModel; trailing?: ComponentChildren }) {
   const filters = board.filters.value;
   const options = board.options.value;
@@ -662,7 +683,7 @@ function FilterBar({ board, trailing }: { board: BoardModel; trailing?: Componen
       </label>
       <span class="filter-separator" aria-hidden="true" />
       {QUICK_FILTERS.filter(
-        (quick) => board.configuration.value?.boardType !== "kanban" || quick !== "addedAfterStart",
+        (quick) => board.configuration.value?.boardType !== "kanban" || !isSprintQuickFilter(quick),
       ).map((quick) => (
         <button
           key={quick}
@@ -672,8 +693,14 @@ function FilterBar({ board, trailing }: { board: BoardModel; trailing?: Componen
           title={localize(QUICK_FILTER_HELP[quick])}
           onClick={() => board.toggleQuickFilter(quick)}
         >
-          <Icon name={quick === "blocked" ? "blocked" : "added"} />
+          <Icon name={QUICK_FILTER_ICON[quick]} />
           {localize(QUICK_FILTER_LABEL[quick])}
+          {quick === "carriedOver" && (
+            <>
+              {" "}
+              <span class="chip-count">({carriedOverCount(board)})</span>
+            </>
+          )}
         </button>
       ))}
       <JiraQuickFilters board={board} />

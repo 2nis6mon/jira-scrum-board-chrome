@@ -3,12 +3,17 @@ import type { BoardIssue } from "./boardIssue";
 import { foldText } from "./text";
 
 /**
- * Filtres rapides, volontairement réduits aux deux qui ne sont couverts par aucun autre bloc de
+ * Filtres rapides, volontairement réduits à ceux qui ne sont couverts par aucun autre bloc de
  * filtres : les autres critères (personne, type, statut, objectif, label) ont leurs menus dédiés.
  */
-export type QuickFilter = "blocked" | "addedAfterStart";
+export type QuickFilter = "blocked" | "addedAfterStart" | "carriedOver";
 
-export const QUICK_FILTERS: readonly QuickFilter[] = ["blocked", "addedAfterStart"];
+export const QUICK_FILTERS: readonly QuickFilter[] = ["blocked", "addedAfterStart", "carriedOver"];
+
+/** Filtres rapides propres aux sprints : absents d'un board Kanban. */
+export function isSprintQuickFilter(filter: QuickFilter): boolean {
+  return filter === "addedAfterStart" || filter === "carriedOver";
+}
 
 /** Critères de filtrage. Combinables ; n'affectent jamais les données Jira. */
 export interface BoardFilters {
@@ -161,6 +166,7 @@ export function applyFilters(filters: BoardFilters, issues: readonly BoardIssue[
     if (filters.quickFilters.has("addedAfterStart") && issue.addedAfterSprintStart !== true) {
       return false;
     }
+    if (filters.quickFilters.has("carriedOver") && issue.carriedOver !== true) return false;
     return true;
   });
 }

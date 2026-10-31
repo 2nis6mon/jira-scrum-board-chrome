@@ -102,8 +102,12 @@ RUN. Les colonnes et leurs statuts viennent de Jira. Cliquez sur une ligne dans 
 latérale pour la rejoindre.
 
 Utilisez **Rechercher**, puis les filtres **Personne**, **Type**, **Parent**, **Statut** ou **Label**.
-Les filtres rapides viennent de Jira. **Réinitialiser (N)** retire
-les filtres ; **Actualiser** relit les données.
+En Scrum, **Bloqués**, **Ajoutés** et **Reportés** sont des filtres rapides de l'extension :
+**Reportés (N)** ne garde que les tickets reportés du sprint précédent du board (ceux que Jira y a
+déplacés à la clôture d'un sprint du board, pas ceux remis depuis le backlog), tous sprints du board
+réunis ; son nombre ne dépend pas des autres filtres, avec lesquels il se combine, dont **Sprint**.
+Les autres filtres rapides viennent de Jira. **Réinitialiser (N)** retire les filtres ;
+**Actualiser** relit les données.
 
 Avec plusieurs sprints actifs, le board réunit leurs tickets et les objectifs des sprints du board,
 chacun préfixé du nom de son sprint. Un sprint d'un autre board, remonté par un ticket partagé,
