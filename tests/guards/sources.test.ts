@@ -44,6 +44,25 @@ function forbiddenImports(files: Source[], from: RegExp, to: RegExp): string[] {
     );
 }
 
+// Imports de VALEUR des fichiers `from` vers une cible `to` : `import type` et `export type`
+// n'y comptent pas, un import mêlant types et valeurs (`{ type A, b }`) si. Couvre aussi les
+// réexportations, `import()` et l'import d'effet de bord. Chaque entrée est « fichier → cible ».
+function valueImports(files: Source[], from: RegExp, to: RegExp): string[] {
+  const statement =
+    /^\s*(?:import|export)\s+(type\s+)?(?:[^;'"]*?\s+from\s*)?["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']/gm;
+  return files
+    .filter(({ file }) => from.test(file))
+    .flatMap(({ file, code }) =>
+      [...code.matchAll(statement)]
+        .filter((match) => match[1] === undefined)
+        .map((match) =>
+          posix.normalize(posix.join(posix.dirname(file), match[2] ?? match[3] ?? "")),
+        )
+        .filter((target) => to.test(target))
+        .map((target) => `${file} → ${target}`),
+    );
+}
+
 // Racine de composition (AD-1) : seuls ces modèles construisent l'accès Jira et le journal ;
 // tout autre module les reçoit par injection.
 const COMPOSITION_ROOTS = [
@@ -392,5 +411,43 @@ describe("code de production", () => {
         expect(target, `${file} → ${target}`).not.toMatch(/\/views\/|\/BoardModel(?:\.|$)/);
       }
     }
+  });
+
+  it("signale un import de valeur interdit en nommant le fichier, pas un import de type", () => {
+    const fictive = [
+      { file: "src/app/services/A.ts", code: 'import { message } from "../model/appMessage";' },
+      { file: "src/app/services/B.ts", code: 'import type { X } from "../model/BoardTypes";' },
+      {
+        file: "src/app/services/C.ts",
+        code: 'import {\n  type Y,\n  z,\n} from "../model/coreText";',
+      },
+      { file: "src/app/services/D.ts", code: 'export { w } from "../model/LoadDiagnostics";' },
+    ];
+    expect(valueImports(fictive, /^src\/app\/services\//, /^src\/app\/model\//)).toEqual([
+      "src/app/services/A.ts → src/app/model/appMessage",
+      "src/app/services/C.ts → src/app/model/coreText",
+      "src/app/services/D.ts → src/app/model/LoadDiagnostics",
+    ]);
+  });
+
+  it("les services n'importent des modèles que des types et model/messages.ts (AD-1)", () => {
+    expect(
+      valueImports(sources, /^src\/app\/services\//, /^src\/app\/model\//).filter(
+        (entry) => !entry.endsWith("→ src/app/model/messages"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("les vues n'importent des services que des types (AD-1)", () => {
+    expect(valueImports(sources, /^src\/app\/views\//, /^src\/app\/services\//)).toEqual([]);
+  });
+
+  it("platform n'importe d'integration que des types (AD-1)", () => {
+    expect(valueImports(sources, /^src\/app\/platform\//, /^src\/integration\//)).toEqual([]);
+  });
+
+  it("i18n et featureFlags.ts n'importent rien de src hors d'eux-mêmes (AD-1)", () => {
+    expect(forbiddenImports(sources, /^src\/i18n\//, /^src\/(?!i18n\/)/)).toEqual([]);
+    expect(forbiddenImports(sources, /^src\/app\/featureFlags\.ts$/, /^src\//)).toEqual([]);
   });
 });

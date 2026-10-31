@@ -11,7 +11,6 @@ import type { WriteReader } from "../../core/boardWrites";
 import type { BoardDropPlan, RankChange } from "../../core/dropPlan";
 import { JiraError } from "../../jira/errors";
 import type { JiraTransition } from "../../jira/models";
-import { message } from "../model/appMessage";
 import type { AuditEntry } from "../model/auditLog";
 import type {
   IssueDrop,
@@ -19,8 +18,7 @@ import type {
   TransitionSelection,
   WriteNotice,
 } from "../model/BoardTypes";
-import { errorMessage } from "../model/coreText";
-import { toMessage } from "../model/messages";
+import { errorMessage, message, toMessage } from "../model/messages";
 import type { BoardWriteAccess, RecordWrite, StateValue } from "./ports";
 
 export interface BoardMovementState {

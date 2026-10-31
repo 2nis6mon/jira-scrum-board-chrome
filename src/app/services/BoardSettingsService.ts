@@ -17,10 +17,14 @@ import {
 import type { JiraClient } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import type { JiraUser } from "../../jira/models";
-import { type AppMessage, message } from "../model/appMessage";
 import type { PinEditor, TeamNotice, TeamState } from "../model/BoardTypes";
-import { errorMessage, TEAM_FAMILY_LABEL } from "../model/coreText";
-import { toMessage } from "../model/messages";
+import {
+  type AppMessage,
+  errorMessage,
+  message,
+  TEAM_FAMILY_LABEL,
+  toMessage,
+} from "../model/messages";
 import {
   type BoardScope,
   type BoardWriteAccess,

@@ -3,6 +3,15 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.38.1 — Dépendances des services vérifiées
+
+- Les services n'importent plus des modèles que des types et `model/messages.ts`, comme le veut la
+  règle de dépendances ; les tests vérifient aussi que les vues n'importent des services que des
+  types, `platform` d'`integration` que des types, et que `src/i18n/` et `featureFlags.ts`
+  n'importent rien d'autre de `src/`. Comportement inchangé.
+- L'entrée 0.36.2 décrit désormais exactement les changements visibles du journal et de la
+  déconnexion.
+
 ## 0.38.0 — Voir les tickets reportés du sprint précédent
 
 - En Scrum, le filtre rapide **Reportés (N)**, à côté de **Bloqués** et **Ajoutés**, ne garde que
@@ -67,13 +76,18 @@ sont dans la [documentation technique](docs/technique/index.md).
   ticket à ouvrir, qui doit désormais être une chaîne de caractères.
 - La déconnexion efface les données locales du site par une liste unique de propriétaires, comparée
   par les tests à la table des clés : un échec d'effacement n'empêche plus les autres. Le site
-  connecté et la dernière adresse du lanceur ne sont plus effacés s'ils désignent un autre site.
+  connecté et la dernière adresse du lanceur ne sont plus effacés s'ils désignent un autre site ;
+  en revanche, la dernière adresse du lanceur est désormais effacée quand elle désigne une page du
+  site déconnecté qui n'est pas un board.
   Langue, interface et données des autres sites restent ; noms et formats des clés inchangés.
 - Le journal des écritures (Diagnostic) garde désormais les textes de l'extension en clés du
   catalogue avec leurs paramètres : les nouvelles entrées suivent la langue choisie, y compris
   leur cible (« après ABC-1 ») et la cause d'une écriture en échec. Les anciennes entrées restent
-  affichées comme avant. Une version précédente accepte les nouvelles entrées, mais affiche vides
-  leurs colonnes Cible et Détail produites par l'extension. Le métier ne produit plus aucune
+  affichées comme avant, à deux exceptions près hors du français : les anciennes entrées
+  « Transition « X » » sont désormais traduites en anglais et en espagnol, et, en espagnol, les
+  étapes d'un Sprint Planning publié en partie sont traduites une à une (« texto de los
+  objetivos » au lieu de « texto de objetivos »). Une version précédente accepte les nouvelles
+  entrées, mais affiche vides leurs colonnes Cible et Détail produites par l'extension. Le métier ne produit plus aucune
   phrase (raisons typées, vérifiées par les tests) ; textes visibles en français inchangés.
 - Les interrupteurs de la santé du sprint (masquée) et du diagnostic (actif) rejoignent celui du
   Sprint Planning dans `src/app/featureFlags.ts`, fixés à la compilation et identiques dans `dist/`

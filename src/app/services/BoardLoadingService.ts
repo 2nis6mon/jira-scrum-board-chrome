@@ -7,11 +7,15 @@ import type { JiraClient } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import type { LoadTrace } from "../../jira/loadTrace";
 import type { JiraUser } from "../../jira/models";
-import { message, sourceText } from "../model/appMessage";
 import type { SyncProblem } from "../model/BoardTypes";
-import { goalsIssueMessage, goalsWarningMessage } from "../model/coreText";
 import type { LoadDiagnostics } from "../model/LoadDiagnostics";
-import { toMessage } from "../model/messages";
+import {
+  goalsIssueMessage,
+  goalsWarningMessage,
+  message,
+  sourceText,
+  toMessage,
+} from "../model/messages";
 import type { BoardScope, ConfigurationChange, ReadableValue, StateValue } from "./ports";
 
 export interface BoardLoadingState {
