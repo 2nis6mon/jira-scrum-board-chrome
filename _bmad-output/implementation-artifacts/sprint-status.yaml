@@ -73,6 +73,14 @@ development_status:
 
   epic-7: backlog
   epic-7-retrospective: optional
+
+  epic-8: backlog
+  8-1-publier-le-planning-sans-refuser-un-changement-sans-rapport: backlog
+  8-2-le-planning-attend-son-tour-au-lieu-d-être-refusé: backlog
+  8-3-avis-du-planning-traduits-dans-les-trois-langues: backlog
+  8-4-valider-le-sprint-planning-sur-un-vrai-jira: backlog
+  8-5-activer-le-sprint-planning-dans-le-paquet: backlog
+  epic-8-retrospective: optional
 action_items:
   - id: "epic-1-retro-item-1-faire-attendre-la-porte-d-écriture-et-la"
     epic: 1

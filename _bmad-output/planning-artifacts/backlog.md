@@ -28,8 +28,9 @@ engagée tant qu'elle n'est pas décidée. Mise en conformité d'architecture :
 
 ## Sprint Planning
 
-Sprint Planning est réservé au `dist/` local : valider ensuite les droits
-et volumes sur une instance réelle avant son activation dans le paquet.
+Sprint Planning est réservé au `dist/` local. Son amélioration, sa validation sur une instance
+réelle (droits, volumes) et son activation dans le paquet sont planifiées dans l'Epic 8 de
+[epics.md](epics.md).
 Le démarrage/création de sprint, le report automatique du RAF et la création de Goals restent hors périmètre.
 Contrats de publication et backlog vérifiés le 14/10/2026 dans les références officielles
 [Sprint](https://developer.atlassian.com/cloud/jira/software/rest/api-group-sprint/) et

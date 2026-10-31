@@ -17,6 +17,7 @@ decisions:
   - "Pas de PRD ni de conception UX : exigences tirées du backlog, de la spec de conformité, de la note d'architecture, d'AGENTS.md et de docs/technique/ (Denis, 30/10/2026)."
   - "Les pistes produit non décidées deviennent des epics, avec leurs questions ouvertes (Denis, 30/10/2026)."
   - "La mise en conformité d'architecture précède le menu contextuel, prochaine fonction qui écrit dans Jira (Denis, 30/10/2026)."
+  - "Sprint Planning, fonction cachée du paquet, a son propre epic (Epic 8) pour être retravaillé puis activé ; FR17 quitte l'Epic 4 et la question de concurrence de la publication (action 5 de la rétrospective de l'Epic 1) y est reprise (Denis, 31/10/2026)."
 ---
 
 # Sprint Goals Board pour Jira - Epic Breakdown
@@ -124,7 +125,7 @@ FR13: Epic 4 - Routes de boards et placement du bouton
 FR14: Epic 4 - Étude des endpoints « enhanced »
 FR15: Epic 5 - Canal de publication et de mise à jour
 FR16: Epic 5 - Captures Store et revue de sécurité indépendante
-FR17: Epic 4 - Sprint Planning validé sur instance réelle avant activation
+FR17: Epic 8 - Sprint Planning retravaillé, validé sur instance réelle, puis activé dans le paquet
 FR18: Epic 3 - Menu contextuel sur un ticket
 FR19: Epic 6 - Export/import JSON des réglages
 FR20: Epic 6 - Préférences personnelles entre postes
@@ -153,9 +154,9 @@ Un clic droit sur une carte propose « Envoyer vers un goal », « Mettre en top
 *Notes :* après l'Epic 1 (AD-2, AD-6). Top/basse priorité = tête/fin de la swimlane, tous sprints actifs confondus (Denis, 30/10/2026). Priorité = rang seulement, champ Priorité Jira non modifié (Denis, 30/10/2026).
 
 ### Epic 4: Fiable sur un vrai Jira
-L'équipe peut se fier à l'extension sur des workflows réels (formulaires riches, plus de 100 liens Goals, deux postes, boards gérés par l'équipe) et Sprint Planning est validé avant son activation dans le paquet ; les endpoints « enhanced » sont étudiés avant décision.
-**FRs covered:** FR10, FR11, FR12, FR13, FR14, FR17
-*Notes :* en attente (Denis, 30/10/2026). Chaque essai réel nécessite l'autorisation de Denis (NFR9) ; livrable = constat, et correctif si nécessaire.
+L'équipe peut se fier à l'extension sur des workflows réels (formulaires riches, plus de 100 liens Goals, deux postes, boards gérés par l'équipe) ; les endpoints « enhanced » sont étudiés avant décision.
+**FRs covered:** FR10, FR11, FR12, FR13, FR14
+*Notes :* en attente (Denis, 30/10/2026). Chaque essai réel nécessite l'autorisation de Denis (NFR9) ; livrable = constat, et correctif si nécessaire. FR17 (Sprint Planning) passe à l'Epic 8 (Denis, 31/10/2026).
 
 ### Epic 5: Diffuser plus largement
 L'extension est publiée et mise à jour par un canal confirmé, avec des captures Store à jour, une revue de sécurité indépendante et un déploiement IT possible via `storage.managed`.
@@ -171,6 +172,11 @@ Une équipe exporte et importe les réglages d'un board en JSON avec aperçu des
 L'équipe règle ses limites WIP en points et des minimums par colonne, et voit les sources de Goals selon les capacités de son site.
 **FRs covered:** FR21
 *Notes :* en attente (Denis, 30/10/2026).
+
+### Epic 8: Sprint Planning prêt à activer
+L'équipe prépare son prochain sprint dans l'extension et publie objectifs et tickets du backlog sans conflit inutile ni geste refusé, et la fonction, validée sur un vrai Jira, est activée dans le paquet distribué.
+**FRs covered:** FR17
+*Notes :* créé le 31/10/2026 (Denis) : Sprint Planning est aujourd'hui une fonction cachée (`dist/` local et tests seulement). Reprend l'action 5 de la rétrospective de l'Epic 1 et les écarts du planning relevés pendant l'Epic 1. Périmètre produit inchangé (décision du 14/10/2026) : ni démarrage ni création de sprint, ni retrait de ticket, ni création de Goal.
 
 ## Epic 1: Des écritures Jira sûres et cohérentes
 
@@ -474,7 +480,7 @@ So that je change sa priorité sans le glisser.
 
 ## Epic 4: Fiable sur un vrai Jira
 
-**En attente (Denis, 30/10/2026) :** stories à écrire à la reprise de cet epic. Pistes déjà esquissées, non validées : transitions sur workflows réels (FR10), Goals sur volumes réels (FR11), réglages sur deux postes (FR12), routes et bouton selon les dispositions Jira (FR13), note de décision sur les lectures « enhanced » (FR14), validation de Sprint Planning avant activation dans le paquet (FR17, en dernier). Chaque essai réel nécessite l'autorisation de Denis (NFR9).
+**En attente (Denis, 30/10/2026) :** stories à écrire à la reprise de cet epic. Pistes déjà esquissées, non validées : transitions sur workflows réels (FR10), Goals sur volumes réels (FR11), réglages sur deux postes (FR12), routes et bouton selon les dispositions Jira (FR13), note de décision sur les lectures « enhanced » (FR14). La validation de Sprint Planning (FR17) passe à l'Epic 8. Chaque essai réel nécessite l'autorisation de Denis (NFR9).
 
 
 ## Epic 5: Diffuser plus largement
@@ -541,3 +547,79 @@ So that je diffuse en connaissant les risques.
 
 **En attente (Denis, 30/10/2026) :** stories à écrire à la reprise de cet epic. Pistes : limites WIP exprimées en points, minimums de colonne, présentation des sources de Goals selon les capacités du site (FR21).
 
+
+## Epic 8: Sprint Planning prêt à activer
+
+L'équipe prépare son prochain sprint dans l'extension et publie objectifs et tickets du backlog sans conflit inutile ni geste refusé, puis la fonction, validée sur un vrai Jira, est activée dans le paquet distribué. Aujourd'hui, Sprint Planning n'existe que dans les builds locaux `dist/` et les tests (`SPRINT_PLANNING_ENABLED`, `vite.config.ts`). Périmètre produit inchangé (décision du 14/10/2026) : préparation locale, relecture avant écriture, publication explicite du texte `goal` et de l'ajout de tickets du backlog à un sprint futur ; ni démarrage ni création de sprint, ni retrait de ticket, ni création de Goal.
+
+**Proposé (31/10/2026), à valider par Denis :** stories issues de la rétrospective de l'Epic 1 (F5, partiel 1.4-a), du travail différé (`deferred-work.md`) et de FR17. Ordre : les corrections d'abord, l'essai réel ensuite, l'activation en dernier.
+
+### Story 8.1: Publier le planning sans refuser un changement sans rapport
+
+As a Scrum Master qui publie son planning,
+I want que la publication n'échoue pas parce qu'un collègue a rattaché un autre ticket entre-temps,
+So that je ne refais pas mon planning pour un changement qui ne le concerne pas.
+
+*Décision à prendre en ouvrant la story (action 5 de la rétrospective de l'Epic 1) :* aujourd'hui, tout changement de la propriété du sprint depuis le chargement refuse la publication (`src/core/sprintPlanning.ts`, comparaison du document entier). Option proposée : fusionner comme les autres écritures de `sprintgoals.v1` (FR1) les changements hors de la zone du planning, et refuser seulement si les objectifs ou les liens des tickets publiés ont changé. Option alternative : garder le refus et l'inscrire dans `SPEC.md` et la note d'architecture.
+
+**Acceptance Criteria (option proposée) :**
+
+**Given** un planning prêt et un autre ticket rattaché dans Jira depuis le chargement
+**When** je publie
+**Then** la publication part, et le rattachement du collègue est conservé
+
+**Given** un objectif du sprint ou le lien d'un ticket publié modifié dans Jira depuis le chargement
+**When** je publie
+**Then** rien n'est écrit, mon brouillon est conservé et le conflit est expliqué (NFR2)
+
+### Story 8.2: Le planning attend son tour au lieu d'être refusé
+
+As a membre de l'équipe qui publie le planning pendant qu'une autre écriture du board est en cours,
+I want que la publication attende la fin de l'écriture en cours,
+So that je n'ai pas à recommencer un geste refusé pour une simple simultanéité.
+
+**Acceptance Criteria:**
+
+**Given** une écriture du board en cours (déplacement, réglage, épinglage)
+**When** je publie le planning
+**Then** la publication attend la porte du board, puis part, une seule fois
+
+**Given** le board quitté ou rechargé avant l'envoi
+**When** la publication est abandonnée
+**Then** le journal indique « rien n'a été envoyé à Jira », et non un résultat incertain
+
+### Story 8.3: Avis du planning traduits dans les trois langues
+
+As a utilisateur anglophone ou hispanophone,
+I want que les avis du Sprint Planning soient dans ma langue,
+So that je comprends un conflit ou une publication partielle sans deviner.
+
+**Acceptance Criteria:**
+
+**Given** un avis du planning (conflit, publication partielle, refus)
+**When** l'interface est en anglais ou en espagnol
+**Then** l'avis est produit en clés du catalogue avec paramètres, comme le journal, et vérifié par des tests en/es (NFR10)
+
+### Story 8.4: Valider le Sprint Planning sur un vrai Jira
+
+As a Denis, responsable de la diffusion,
+I want un essai réel du Sprint Planning (droits, volumes),
+So that son activation repose sur un constat et non sur le seul Jira fictif.
+
+**Acceptance Criteria:**
+
+**Given** l'autorisation de Denis et un site Jira de test (NFR9)
+**When** le planning est préparé et publié avec et sans droit de gérer les sprints, sur un backlog volumineux
+**Then** le constat (réussites, refus, limites de volume) est consigné, et chaque défaut trouvé devient une story ou un correctif
+
+### Story 8.5: Activer le Sprint Planning dans le paquet
+
+As a équipe qui installe l'extension depuis le paquet distribué,
+I want trouver Sprint Planning,
+So that je prépare mes sprints sans build local.
+
+**Acceptance Criteria:**
+
+**Given** les stories 8.1 à 8.4 terminées et le constat de 8.4 favorable
+**When** le paquet est construit (`npm run package`)
+**Then** `SPRINT_PLANNING_ENABLED` vaut vrai dans le paquet, `npm run verify:planning:package` le vérifie, et AGENTS.md, le manuel, le CHANGELOG et les captures Store sont à jour
