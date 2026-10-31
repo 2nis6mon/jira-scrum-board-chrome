@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { auditText } from "../../src/app/model/auditLog";
 import { BoardModel } from "../../src/app/model/BoardModel";
 import { loadActiveBoard } from "../../src/app/model/boardStore";
+import { withLocalPins } from "../../src/core/boardPreferences";
+import { boardLocalPinnedGoalIds } from "../../src/core/pinnedGoals";
 import { localize } from "../../src/i18n";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
@@ -9,6 +11,7 @@ import { atlassianGoalsPlatform } from "../support/atlassianGoalsBoard";
 import { BOARD_URL, boardSiteJira, GOALS_DOCUMENT } from "../support/boardFixture";
 import { isWriteRequest, type RecordedRequest, type Reply } from "../support/fakeJira";
 import { type FakeGoal, goalsGateway } from "../support/goalsGateway";
+import { issueJson } from "../support/jiraFixtures";
 
 const SITE = normalizeSiteUrl("acme.atlassian.net");
 const PROPERTY = `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.goals}`;
@@ -344,5 +347,242 @@ describe("BoardModel — épinglage gardé dans ce navigateur quand Jira refuse"
     await board.keepPinnedLocally();
     expect(board.pinEditor.value).not.toBeNull();
     expect(board.snapshot.value?.localPinnedGoalIds).toBeNull();
+  });
+});
+
+describe("BoardModel — épinglage sur le sprint de mon choix", () => {
+  const SECOND = `/rest/agile/1.0/sprint/43/properties/${SPRINT_PROPERTY_KEYS.goals}`;
+  const sprintJson = (id: number, parts: Record<string, unknown> = {}) => ({
+    id,
+    name: `Sprint ${id}`,
+    state: "active",
+    startDate: "2026-09-14T08:00:00.000+0200",
+    endDate: "2026-09-25T18:00:00.000+0200",
+    ...parts,
+  });
+
+  /** Sprints du board 42 et 43, et un sprint étranger 77 remonté par un ticket partagé. */
+  async function twoSprintBoard(options: { second?: Reply; secondPut?: Reply } = {}) {
+    const main = sprintProperty({ ...GOALS_DOCUMENT });
+    const second = sprintProperty({ version: 1, goals: [], links: {} });
+    const jira = boardSiteJira({ graphql: goalsGateway({ goals: GOALS }) })
+      .on("GET", "/rest/agile/1.0/board/7/sprint", {
+        status: 200,
+        json: {
+          isLast: true,
+          values: [
+            sprintJson(42),
+            sprintJson(43, { startDate: "2026-09-15T08:00:00.000+0200" }),
+            sprintJson(77, { originBoardId: 99, startDate: "2026-09-10T08:00:00.000+0200" }),
+          ],
+        },
+      })
+      .on("GET", "/rest/agile/1.0/board/7/sprint/43/issue", {
+        status: 200,
+        json: { issues: [issueJson("ABC-201", { statusId: "1" })], total: 1 },
+      })
+      .on("GET", "/rest/agile/1.0/board/7/sprint/77/issue", {
+        status: 200,
+        json: { issues: [issueJson("ABC-301", { statusId: "1" })], total: 1 },
+      })
+      .on("GET", PROPERTY, () => main.get())
+      .on("PUT", PROPERTY, (request) => main.put(request))
+      .on("GET", SECOND, () => options.second ?? second.get())
+      .on("PUT", SECOND, (request) => options.secondPut ?? second.put(request));
+    const platform = await atlassianGoalsPlatform(jira);
+    const board = new BoardModel(SITE, platform, { now: () => new Date("2026-09-18T10:00:00Z") });
+    await board.load();
+    await board.detect(BOARD_URL);
+    return { board, jira, main, second, platform };
+  }
+
+  it("propose les sprints du board, le principal présélectionné, jamais l'étranger", async () => {
+    const { board } = await twoSprintBoard();
+    expect(board.snapshot.value?.activeSprints.map((sprint) => sprint.id)).toEqual([42, 43, 77]);
+    expect(board.pinnableSprints.value.map((sprint) => sprint.id)).toEqual([42, 43]);
+    expect(board.pinStorage.value).toMatchObject({ kind: "sprint", sprintId: 42 });
+    board.choosePinSprint(77);
+    expect(board.pinSprintId.value).toBeNull();
+  });
+
+  it("enregistrer sur le second sprint : une écriture sur 43, 42 inchangé, swimlane affichée", async () => {
+    const { board, jira, main } = await twoSprintBoard();
+    await openWithSiteGoals(board);
+    board.choosePinSprint(43);
+    expect(board.pinEditor.value).toMatchObject({ sprintId: 43, base: [], selection: [] });
+    board.togglePinned(SECURITE);
+    const before = jira.requests.length;
+
+    await board.savePinnedGoals();
+
+    const writes = jira.requests.slice(before).filter(isWriteRequest);
+    expect(writes.map((r) => `${r.method} ${r.path}`)).toEqual([`PUT ${SECOND}`]);
+    expect(writes[0]?.body).toMatchObject({ atlassianGoalIds: [SECURITE] });
+    expect(main.state.value).toEqual({ ...GOALS_DOCUMENT });
+    expect(board.snapshot.value?.sprintPinnedGoalIds).toEqual({ 42: [], 43: [SECURITE] });
+    expect(board.layout.value?.lanes.map((lane) => lane.title)).toContain("Sécurité des comptes");
+    const [entry] = await board.audit.list(SITE.origin);
+    expect(entry).toMatchObject({ action: "épinglage", outcome: "réussi" });
+    // Le journal nomme le sprint qui a reçu l'écriture.
+    expect(entry && auditText(entry, "detail", "fr")).toBe("propriété du sprint « Sprint 43 »");
+    expect(entry && auditText(entry, "detail", "en")).toBe("property of sprint ‘Sprint 43’");
+
+    // Après relecture, le brouillon non modifié se recale sur 43, pas sur le sprint principal.
+    await board.sync();
+    board.openPinEditor();
+    expect(board.pinEditor.value).toMatchObject({ sprintId: 43, base: [SECURITE] });
+  });
+
+  it("brouillon modifié ou en cours d'écriture : le choix du sprint est sans effet", async () => {
+    const { board } = await twoSprintBoard();
+    await openWithSiteGoals(board);
+    board.togglePinned(SECURITE);
+    expect(board.pinSprintLocked.value).toBe(true);
+    board.choosePinSprint(43);
+    expect(board.pinSprintId.value).toBeNull();
+    expect(board.pinEditor.value).toMatchObject({ sprintId: 42, selection: [SECURITE] });
+
+    // Annuler libère le choix.
+    board.openPinEditor();
+    expect(board.pinSprintLocked.value).toBe(false);
+    board.choosePinSprint(43);
+    expect(board.pinEditor.value?.sprintId).toBe(43);
+  });
+
+  it("brouillon parti du repli local : le choix du sprint reste libre sans modification", async () => {
+    const { board } = await twoSprintBoard();
+    await board.applySettings((current) => withLocalPins(current, 43, [SECURITE]), {
+      resync: true,
+    });
+    await openWithSiteGoals(board);
+    board.choosePinSprint(43);
+    expect(board.pinEditor.value).toMatchObject({
+      sprintId: 43,
+      base: [],
+      selection: [SECURITE],
+      fromLocal: true,
+    });
+    expect(board.pinSprintLocked.value).toBe(false);
+    board.togglePinned(PAIEMENT);
+    expect(board.pinSprintLocked.value).toBe(true);
+    // « Annuler » repart du repli local et libère le choix.
+    board.openPinEditor();
+    expect(board.pinSprintLocked.value).toBe(false);
+    board.choosePinSprint(42);
+    expect(board.pinEditor.value?.sprintId).toBe(42);
+  });
+
+  it("propriété du sprint choisi devenue illisible avec un brouillon modifié : choix libéré", async () => {
+    const options: { second?: Reply } = {};
+    const { board } = await twoSprintBoard(options);
+    await openWithSiteGoals(board);
+    board.choosePinSprint(43);
+    board.togglePinned(SECURITE);
+    expect(board.pinSprintLocked.value).toBe(true);
+
+    options.second = { status: 400, json: {} };
+    await board.sync();
+
+    expect(board.canPinGoals.value).toBe(false);
+    expect(board.pinSprintLocked.value).toBe(false);
+    board.choosePinSprint(42);
+    expect(board.pinEditor.value).toMatchObject({ sprintId: 42, base: [], selection: [] });
+  });
+
+  it("sprint choisi disparu avec un brouillon modifié : le brouillon de l'ancien sprint est fermé", async () => {
+    const { board, jira } = await twoSprintBoard();
+    await openWithSiteGoals(board);
+    board.choosePinSprint(43);
+    board.togglePinned(SECURITE);
+    jira.on("GET", "/rest/agile/1.0/board/7/sprint", {
+      status: 200,
+      json: { isLast: true, values: [sprintJson(42)] },
+    });
+
+    await board.sync();
+
+    expect(board.pinSprintId.value).toBeNull();
+    expect(board.pinEditor.value).toBeNull();
+    await board.savePinnedGoals();
+    expect(jira.sent("PUT", SECOND)).toEqual([]);
+  });
+
+  it("conflit sur le second sprint : rien d'écrit, brouillon recalé sur Jira", async () => {
+    const { board, jira, second } = await twoSprintBoard();
+    await openWithSiteGoals(board);
+    board.choosePinSprint(43);
+    board.togglePinned(SECURITE);
+    second.state.value = { version: 1, goals: [], links: {}, atlassianGoalIds: [STABILITE] };
+
+    await board.savePinnedGoals();
+
+    expect(jira.sent("PUT", SECOND)).toEqual([]);
+    expect(jira.sent("PUT", PROPERTY)).toEqual([]);
+    expect(board.pinEditor.value).toMatchObject({
+      sprintId: 43,
+      base: [STABILITE],
+      selection: [STABILITE],
+      notice: { tone: "warning" },
+    });
+  });
+
+  it("propriété du second sprint illisible : il n'est pas épinglable", async () => {
+    const { board } = await twoSprintBoard({ second: { status: 400, json: {} } });
+    expect(board.pinnableSprints.value.map((sprint) => sprint.id)).toEqual([42, 43]);
+    board.choosePinSprint(43);
+    expect(board.pinStorage.value).toMatchObject({ sprintId: 43 });
+    expect(board.canPinGoals.value).toBe(false);
+    board.openPinEditor();
+    expect(board.pinEditor.value).toBeNull();
+    // Retour au sprint principal possible.
+    board.choosePinSprint(42);
+    expect(board.canPinGoals.value).toBe(true);
+  });
+
+  it("sprint choisi disparu après relecture : retour au sprint principal", async () => {
+    const { board, jira } = await twoSprintBoard();
+    board.choosePinSprint(43);
+    expect(board.pinSprintId.value).toBe(43);
+    jira.on("GET", "/rest/agile/1.0/board/7/sprint", {
+      status: 200,
+      json: { isLast: true, values: [sprintJson(42)] },
+    });
+    await board.sync();
+    expect(board.pinSprintId.value).toBeNull();
+    expect(board.pinStorage.value).toMatchObject({ sprintId: 42 });
+  });
+
+  it("repli local par sprint : gardé pour 43, bannière cumulée, « Oublier » efface tout", async () => {
+    const { board, jira, platform } = await twoSprintBoard({
+      secondPut: { status: 403, json: { errorMessages: ["Manage Sprints requis"] } },
+    });
+    await openWithSiteGoals(board);
+    board.choosePinSprint(43);
+    board.togglePinned(SECURITE);
+    await board.savePinnedGoals();
+    expect(jira.sent("PUT", SECOND)).toHaveLength(1);
+    expect(board.pinEditor.value?.canKeepLocally).toBe(true);
+
+    await board.keepPinnedLocally();
+
+    expect((await loadActiveBoard(platform.store, SITE.origin))?.localPinnedGoalIds).toEqual({
+      "43": [SECURITE],
+    });
+    expect(board.snapshot.value?.sprintLocalPinnedGoalIds).toEqual({ 43: [SECURITE] });
+    expect(board.snapshot.value?.localPinnedGoalIds).toBeNull();
+    expect(board.layout.value?.lanes.map((lane) => lane.title)).toContain("Sécurité des comptes");
+    board.openPinEditor();
+    expect(board.pinEditor.value).toMatchObject({ sprintId: 43, fromLocal: true });
+
+    // Un repli aussi sur le sprint principal : la bannière les cumule.
+    await board.applySettings((current) => withLocalPins(current, 42, [PAIEMENT]), {
+      resync: true,
+    });
+    expect(boardLocalPinnedGoalIds(board.snapshot.value)).toEqual([PAIEMENT, SECURITE]);
+
+    await board.forgetLocalPins();
+    expect((await loadActiveBoard(platform.store, SITE.origin))?.localPinnedGoalIds).toEqual({});
+    expect(boardLocalPinnedGoalIds(board.snapshot.value)).toBeNull();
+    expect(board.snapshot.value?.sprintLocalPinnedGoalIds).toBeUndefined();
   });
 });

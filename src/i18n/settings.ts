@@ -225,6 +225,9 @@ export const settingsMessages = {
     "A pinned Goal keeps its swimlane even when empty; pins are shared for this board.",
   "Un Goal épinglé garde sa swimlane même sans ticket, pour CE sprint seulement : l'épinglage part dans une propriété du sprint.":
     "A pinned Goal keeps its swimlane even when empty, for THIS sprint only: pins are stored in a sprint property.",
+  "Sprint de l'épinglage": "Sprint for pinned Goals",
+  "Enregistrez ou annulez l'épinglage en cours pour changer de sprint.":
+    "Save or cancel the current pins to change sprint.",
   "Recharger les Goals du site": "Reload site Goals",
   "Filtrer les Goals": "Filter Goals",
   "Nom, clé ou responsable": "Name, key or owner",

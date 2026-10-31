@@ -36,10 +36,13 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
   Un sprint est **étranger** si `originBoardId` diffère du board (absent = du board) : il passe après
   ceux du board, seul son nom est coloré, ses tickets comptent comme les autres et ses objectifs ne
   sont pas lus. Un ticket présent dans deux sprints suit un sprint du board, puis le plus ancien démarré.
-- Le premier sprint du board porte titre, dates et fenêtre d'épinglage. Les objectifs de chaque
-  sprint du board (texte `goal` et propriété) sont réconciliés par sprint puis réunis, préfixés du
-  nom de leur sprint dès qu'il y en a plusieurs ; les épinglages de tous sont lus. Un objectif encore
-  absent de sa propriété reçoit un identifiant déduit du sprint et du libellé (`stableGoalIds`).
+- Le premier sprint du board porte titre et dates ; l'épinglage le présélectionne. Les objectifs de
+  chaque sprint du board (texte `goal` et propriété) sont réconciliés par sprint puis réunis,
+  préfixés du nom de leur sprint dès qu'il y en a plusieurs ; les épinglages de tous sont lus et
+  chacun se modifie dans l'onglet Objectifs (choix du sprint, bloqué tant que le brouillon est
+  modifié ou en cours d'écriture ; un sprint disparu ramène au premier). Le repli local après refus
+  de droits vaut par sprint : la bannière cumule ceux des sprints du board, « Oublier » les efface
+  tous. Un objectif encore absent de sa propriété reçoit un identifiant déduit du sprint et du libellé (`stableGoalIds`).
 - Rattachement libre à l'objectif de n'importe quel sprint du board. En mode texte, le lien s'écrit
   dans la seule propriété du sprint du ticket (sprint de référence pour un ticket étranger) ; pour un
   ticket noté dans deux propriétés, celle de son sprint fait foi. Le filtre **Sprint**, visible dès

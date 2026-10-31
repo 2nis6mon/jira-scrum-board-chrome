@@ -309,7 +309,12 @@ export async function loadSnapshot(input: {
     storedTextLinks[goalSprint.id] = { ...(entry.document?.links ?? {}) };
     storedTextGoalIds[goalSprint.id] = (entry.document?.goals ?? []).map((goal) => goal.id);
   });
-  const otherPins = documents.slice(1).flatMap((entry) => entry.document?.atlassianGoalIds ?? []);
+  // Épinglage lu de chaque sprint réuni : base de l'épinglage du sprint choisi.
+  const sprintPinnedGoalIds: Record<number, readonly string[]> = {};
+  goalSprints.forEach((goalSprint, index) => {
+    const entry = documents[index];
+    if (entry?.known) sprintPinnedGoalIds[goalSprint.id] = entry.document?.atlassianGoalIds ?? [];
+  });
   const sprintOfIssue = new Map(
     issuesBySprint.flatMap((entry) => entry.issues.map((issue) => [issue.key, entry.sprint.id])),
   );
@@ -332,18 +337,27 @@ export async function loadSnapshot(input: {
 
   // La sélection enregistrée dans Jira fait foi ; à défaut, celle gardée dans ce navigateur quand
   // Jira a refusé de l'enregistrer.
-  const localPins = configuration.localPinnedGoalIds[String(sprint.id)] ?? [];
-  const localPinnedGoalIds =
-    (pinnedGoalIds ?? []).length === 0 && localPins.length > 0 ? [...localPins] : null;
+  // Repli local par sprint réuni : affiché tant que Jira n'a aucune sélection pour ce sprint.
+  const sprintLocalPinnedGoalIds: Record<number, readonly string[]> = {};
+  for (const goalSprint of goalSprints) {
+    const localPins = configuration.localPinnedGoalIds[String(goalSprint.id)] ?? [];
+    if ((sprintPinnedGoalIds[goalSprint.id] ?? []).length === 0 && localPins.length > 0) {
+      sprintLocalPinnedGoalIds[goalSprint.id] = [...localPins];
+    }
+  }
+  const localPinnedGoalIds = sprintLocalPinnedGoalIds[sprint.id] ?? null;
+  // Épinglage effectif de chaque sprint : celui de Jira, à défaut celui de ce navigateur.
+  const effectivePins = goalSprints.flatMap(
+    (goalSprint) =>
+      sprintLocalPinnedGoalIds[goalSprint.id] ?? sprintPinnedGoalIds[goalSprint.id] ?? [],
+  );
 
   if (configuration.goalSource === "atlassianGoals" && input.goalsLoader) {
     const goalsLoader = input.goalsLoader;
     try {
       const resolved = await measure(trace, "goals", () =>
         goalsLoader.load({
-          pinnedGoalIds: [
-            ...new Set([...(localPinnedGoalIds ?? document?.atlassianGoalIds ?? []), ...otherPins]),
-          ],
+          pinnedGoalIds: [...new Set(effectivePins)],
           issues: sprintIssues,
           configuration,
         }),
@@ -400,6 +414,10 @@ export async function loadSnapshot(input: {
         goalsReadOnly,
         pinnedGoalIds,
         localPinnedGoalIds: goalsOrigin === "atlassianGoals" ? localPinnedGoalIds : null,
+        sprintPinnedGoalIds,
+        ...(goalsOrigin === "atlassianGoals" && Object.keys(sprintLocalPinnedGoalIds).length > 0
+          ? { sprintLocalPinnedGoalIds }
+          : {}),
       },
       discoveredIssueTypes,
       document,

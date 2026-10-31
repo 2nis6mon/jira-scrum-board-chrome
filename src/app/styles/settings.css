@@ -1566,3 +1566,32 @@ textarea.color-rule-jql:focus {
     width: 100%;
   }
 }
+
+/* Sprint de l'épinglage, quand le board a plusieurs sprints actifs. */
+.settings-pin-sprint {
+  margin-top: 8px;
+}
+
+.settings-pin-sprint label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.settings-pin-sprint select {
+  max-width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #d5d9e0;
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.settings-pin-sprint .settings-help {
+  margin-top: 4px;
+}

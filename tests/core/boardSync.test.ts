@@ -799,6 +799,73 @@ describe("loadSnapshot", () => {
       );
     });
 
+    it("plusieurs sprints du board : épinglage lu par sprint, repli local par sprint, sans l'étranger", async () => {
+      const pins = (ids: string[]) => ({
+        status: 200,
+        json: { value: { version: 1, goals: [], links: {}, atlassianGoalIds: ids } },
+      });
+      const jira = boardJira({
+        sprints: [
+          sprintJson(77, { originBoardId: 99, startDate: "2026-09-01T09:00:00.000+0200" }),
+          sprintJson(42, { originBoardId: 1 }),
+          sprintJson(43, { startDate: "2026-09-14T09:00:00.000+0200" }),
+          sprintJson(44, { startDate: "2026-09-15T09:00:00.000+0200" }),
+        ],
+        issues: {
+          77: [issueJson("ABC-9")],
+          42: [issueJson("ABC-1")],
+          43: [issueJson("ABC-2")],
+          44: [issueJson("ABC-3")],
+        },
+      })
+        .on("GET", GOALS_PROPERTY(42), pins(["ari:goal/1"]))
+        .on("GET", GOALS_PROPERTY(43), { status: 404 })
+        .on("GET", GOALS_PROPERTY(44), { status: 500, json: {} });
+      const calls: (readonly string[])[] = [];
+      const loader: AtlassianGoalsLoader = {
+        load: async (input) => {
+          calls.push(input.pinnedGoalIds);
+          return { goals: [], links: {} };
+        },
+      };
+      const withLocal = {
+        ...configuration,
+        // 42 a une sélection dans Jira : son repli local est ignoré.
+        localPinnedGoalIds: { "42": ["ari:goal/x"], "43": ["ari:goal/3"], "77": ["ari:goal/7"] },
+      };
+      const { snapshot } = await sync(jira, withLocal, loader);
+
+      expect(snapshot.goalSprintIds).toEqual([42, 43, 44]);
+      // 44 illisible : absent. L'étranger 77 n'est jamais lu.
+      expect(snapshot.sprintPinnedGoalIds).toEqual({ 42: ["ari:goal/1"], 43: [] });
+      expect(snapshot.pinnedGoalIds).toEqual(["ari:goal/1"]);
+      expect(snapshot.sprintLocalPinnedGoalIds).toEqual({ 43: ["ari:goal/3"] });
+      expect(snapshot.localPinnedGoalIds).toBeNull();
+      expect(jira.sent("GET", GOALS_PROPERTY(77))).toEqual([]);
+      // Le chargement des Goals reçoit l'épinglage effectif de chaque sprint.
+      expect(calls).toEqual([["ari:goal/1", "ari:goal/3"]]);
+    });
+
+    it("objectifs du texte du sprint : aucun repli local exposé, même gardé dans ce navigateur", async () => {
+      const jira = boardJira({
+        sprints: [
+          sprintJson(42, { goal: "A" }),
+          sprintJson(43, { startDate: "2026-09-14T09:00:00.000+0200", goal: "B" }),
+        ],
+        issues: { 42: [issueJson("ABC-1")], 43: [issueJson("ABC-2")] },
+      });
+      const local = { "42": ["ari:goal/1"], "43": ["ari:goal/3"] };
+      for (const [setup, loader] of [
+        [makeConfiguration({ localPinnedGoalIds: local }), null],
+        [{ ...configuration, localPinnedGoalIds: local }, null],
+      ] as const) {
+        const { snapshot } = await sync(jira, setup, loader);
+        expect(snapshot.goalsOrigin).toBe("sprintText");
+        expect(snapshot.sprintLocalPinnedGoalIds).toBeUndefined();
+        expect(snapshot.localPinnedGoalIds).toBeNull();
+      }
+    });
+
     it("sans lecteur de Goals : même repli, et il est signalé", async () => {
       const { snapshot, goalsIssue } = await sync(jiraWithPins(), configuration, null);
       expect(snapshot.goals.map((g) => g.title)).toEqual(["Texte du sprint"]);

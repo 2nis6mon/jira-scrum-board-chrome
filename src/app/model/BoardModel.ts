@@ -27,7 +27,12 @@ import { type BoardFilters, focusGoal, NO_FILTERS, type QuickFilter } from "../.
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
 import { parentColors } from "../../core/parentColors";
 import { type PendingMove, withPendingMove } from "../../core/pendingMove";
-import { pinnedGoalIdsIn, pinnedGoalsStorage } from "../../core/pinnedGoals";
+import {
+  localPinnedGoalIdsIn,
+  pinnableSprints,
+  pinnedGoalIdsIn,
+  pinnedGoalsStorage,
+} from "../../core/pinnedGoals";
 import { goalColorName, type SprintGoal } from "../../core/sprintGoals";
 import { sprintHealth } from "../../core/sprintHealth";
 import { JiraClient, type JiraField, type JiraQuickFilter } from "../../jira/client";
@@ -198,10 +203,37 @@ export class BoardModel {
   /** Tickets affichés retenus par chaque règle, à la dernière évaluation. */
   readonly colorRuleCounts = signal<Readonly<Record<string, number>>>({});
 
+  /**
+   * Sprint choisi pour l'épinglage (`null` : sprint principal). Le résolveur ne le retient que
+   * s'il est encore un sprint du board ; sinon l'épinglage revient au sprint principal.
+   */
+  readonly pinSprintId = signal<number | null>(null);
+
+  /** Sprints du board entre lesquels choisir l'épinglage ; vide sans choix à proposer. */
+  readonly pinnableSprints = computed(() =>
+    pinnableSprints(this.configuration.value, this.snapshot.value),
+  );
+
   /** Stockage des Goals épinglés : propriété du sprint, du board Kanban, ou indisponible. */
   readonly pinStorage = computed(() =>
-    pinnedGoalsStorage(this.configuration.value, this.snapshot.value),
+    pinnedGoalsStorage(this.configuration.value, this.snapshot.value, this.pinSprintId.value),
   );
+
+  /**
+   * Le sprint de l'épinglage ne change pas tant qu'une sélection n'est ni enregistrée ni annulée.
+   * La sélection se compare à celle d'ouverture (le repli local quand le brouillon en part) ; un
+   * sprint devenu non épinglable ne retient jamais le choix.
+   */
+  readonly pinSprintLocked = computed(() => {
+    const editor = this.pinEditor.value;
+    if (editor === null) return false;
+    if (editor.saving) return true;
+    if (!this.canPinGoals.value) return false;
+    const opening = editor.fromLocal
+      ? (localPinnedGoalIdsIn(editor.storage, this.snapshot.value) ?? editor.base)
+      : editor.base;
+    return !sameIdOrder(editor.selection, opening);
+  });
 
   /** L'épinglage exige des Goals Atlassian et une propriété Jira relue. */
   readonly canPinGoals = computed(() => {
@@ -218,7 +250,7 @@ export class BoardModel {
         return (
           snapshot !== null &&
           snapshot.goalsOrigin === "atlassianGoals" &&
-          snapshot.pinnedGoalIds !== null
+          pinnedGoalIdsIn(this.pinStorage.value, this.configuration.value, snapshot) !== null
         );
       case "unavailable":
         return false;
@@ -609,8 +641,26 @@ export class BoardModel {
    * Relit le board dans Jira. Une demande faite pendant une synchronisation en relance une après
    * elle, plutôt que d'en lancer deux en parallèle. Aucune écriture.
    */
-  sync(preparedRunId?: string): Promise<void> {
-    return this.#loading.sync(preparedRunId);
+  async sync(preparedRunId?: string): Promise<void> {
+    try {
+      await this.#loading.sync(preparedRunId);
+    } finally {
+      // Un sprint choisi qui n'est plus un sprint du board ramène l'épinglage au sprint principal ;
+      // le brouillon qui le visait est fermé (jamais pendant une écriture), la vue le rouvre.
+      const chosen = this.pinSprintId.value;
+      if (chosen !== null && !this.pinnableSprints.value.some((sprint) => sprint.id === chosen)) {
+        this.pinSprintId.value = null;
+        const editor = this.pinEditor.value;
+        if (
+          editor &&
+          !editor.saving &&
+          editor.storage.kind === "sprint" &&
+          editor.storage.sprintId === chosen
+        ) {
+          this.pinEditor.value = null;
+        }
+      }
+    }
   }
 
   /**
@@ -1055,7 +1105,7 @@ export class BoardModel {
     if (!this.canPinGoals.value || !configuration || storage.kind === "unavailable") return;
     if (pinned === null) return;
     // Le repli local n'existe que pour la propriété du sprint.
-    const local = storage.kind === "sprint" ? (snapshot?.localPinnedGoalIds ?? null) : null;
+    const local = localPinnedGoalIdsIn(storage, snapshot);
     this.pinEditor.value = {
       storage,
       sprintId: storage.kind === "sprint" ? storage.sprintId : null,
@@ -1087,11 +1137,32 @@ export class BoardModel {
     });
   }
 
-  /** Oublie la sélection gardée dans ce navigateur pour le sprint affiché. */
+  /**
+   * Choisit le sprint de l'épinglage parmi ceux du board (`null` : sprint principal). Sans effet
+   * tant que la sélection en cours n'est ni enregistrée ni annulée, ou pour un sprint non proposé.
+   * Le brouillon repart de l'épinglage lu de ce sprint.
+   */
+  choosePinSprint(sprintId: number | null): void {
+    if (this.pinSprintLocked.value) return;
+    const sprints = this.pinnableSprints.value;
+    if (sprintId !== null && !sprints.some((sprint) => sprint.id === sprintId)) return;
+    const main = this.snapshot.value?.sprint?.id ?? null;
+    const next = sprintId === main ? null : sprintId;
+    if (next === this.pinSprintId.value) return;
+    this.pinSprintId.value = next;
+    if (this.pinEditor.value !== null) {
+      this.pinEditor.value = null;
+      this.openPinEditor();
+    }
+  }
+
+  /** Oublie la sélection gardée dans ce navigateur pour chaque sprint du board. */
   async forgetLocalPins(): Promise<void> {
-    const sprint = this.snapshot.value?.sprint;
+    const snapshot = this.snapshot.value;
+    const sprint = snapshot?.sprint;
     if (!sprint) return;
-    await this.#settings.forgetLocalPins(sprint.id);
+    const sprintIds = snapshot.goalSprintIds?.length ? snapshot.goalSprintIds : [sprint.id];
+    for (const sprintId of sprintIds) await this.#settings.forgetLocalPins(sprintId);
     await this.sync();
   }
 
@@ -1439,6 +1510,7 @@ export class BoardModel {
       this.draggingLane.value = null;
       this.laneDropTarget.value = undefined;
       this.pinEditor.value = null;
+      this.pinSprintId.value = null;
       this.editingBoard.value = false;
       this.team.value = { kind: "unknown" };
       this.teamNotice.value = null;
@@ -1496,4 +1568,8 @@ function sameOrder(a: readonly string[], b: readonly string[]): boolean {
 
 function sameIds(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
   return a.size === b.size && [...a].every((id) => b.has(id));
+}
+
+function sameIdOrder(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id, index) => id === b[index]);
 }

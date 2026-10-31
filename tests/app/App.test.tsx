@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/app/App";
 import { DIAGNOSTIC_ENABLED } from "../../src/app/featureFlags";
 import { AppModel } from "../../src/app/model/AppModel";
+import { withLocalPins } from "../../src/core/boardPreferences";
 import { atlassianGoalsPlatform } from "../support/atlassianGoalsBoard";
 import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
 import { FakeJira, isWriteRequest } from "../support/fakeJira";
@@ -499,6 +500,100 @@ describe("App", () => {
     expect(document.querySelector(".goal-pinned")).toBeNull();
     expect(document.querySelector(".goal-status")).toBeNull();
     expect(document.querySelector(".goal-link")).toBeNull();
+  });
+
+  it("deux sprints du board : choix du sprint de l'épinglage, jamais l'étranger", async () => {
+    const securite = "ari:cloud:townsquare:c:goal/securite";
+    const second = "/rest/agile/1.0/sprint/43/properties/com.scrumboardmac.sprintgoals.v1";
+    const sprint = (id: number, startDate: string, parts: Record<string, unknown> = {}) => ({
+      id,
+      name: `Sprint ${id}`,
+      state: "active",
+      startDate,
+      endDate: "2026-09-25T18:00:00.000+0200",
+      ...parts,
+    });
+    let secondReply: { status: number; json: unknown } = {
+      status: 200,
+      json: { value: { atlassianGoalIds: [] } },
+    };
+    const jira = boardSiteJira({
+      graphql: goalsGateway({
+        goals: [
+          { id: "ari:cloud:townsquare:c:goal/paiement", name: "Paiement", workItems: ["ABC-101"] },
+          { id: securite, key: "GOAL-3", name: "Sécurité des comptes" },
+        ],
+      }),
+    })
+      .on("GET", "/rest/agile/1.0/board/7/sprint", {
+        status: 200,
+        json: {
+          isLast: true,
+          values: [
+            sprint(42, "2026-09-14T08:00:00.000+0200"),
+            sprint(43, "2026-09-15T08:00:00.000+0200"),
+            sprint(77, "2026-09-10T08:00:00.000+0200", { originBoardId: 99 }),
+          ],
+        },
+      })
+      .on("GET", "/rest/agile/1.0/board/7/sprint/43/issue", {
+        status: 200,
+        json: { issues: [issueJson("ABC-201", { statusId: "1" })], total: 1 },
+      })
+      .on("GET", "/rest/agile/1.0/board/7/sprint/77/issue", {
+        status: 200,
+        json: { issues: [issueJson("ABC-301", { statusId: "1" })], total: 1 },
+      })
+      .on("GET", "/rest/agile/1.0/sprint/42/properties/com.scrumboardmac.sprintgoals.v1", {
+        status: 200,
+        json: { value: { atlassianGoalIds: [] } },
+      })
+      .on("GET", second, () => secondReply);
+    const { model, board } = await connectedBoard(jira, await atlassianGoalsPlatform(jira));
+
+    // Repli local sur 43 seul : la bannière du board l'annonce, « Oublier » l'efface.
+    await board.applySettings((current) => withLocalPins(current, 43, [securite]), {
+      resync: true,
+    });
+    await tick();
+    expect(text()).toContain("1 Goal épinglé dans ce navigateur seulement.");
+    button("Oublier cette sélection").click();
+    await expect.poll(() => text()).not.toContain("dans ce navigateur seulement");
+
+    model.showSettings("goals");
+    await expect.poll(() => document.querySelectorAll(".pin-option").length).toBe(2);
+    const choice = () => {
+      const found = document.querySelector<HTMLSelectElement>(".settings-pin-sprint select");
+      if (!found) throw new Error("choix du sprint de l'épinglage attendu");
+      return found;
+    };
+    expect([...choice().options].map((option) => option.value)).toEqual(["42", "43"]);
+    expect(choice().value).toBe("42");
+
+    // Une coche bloque le choix, avec l'aide ; annuler le libère.
+    document.querySelector<HTMLInputElement>(".pin-option input")?.click();
+    await tick();
+    expect(choice().disabled).toBe(true);
+    expect(text()).toContain("Enregistrez ou annulez l'épinglage en cours pour changer de sprint.");
+    board.openPinEditor();
+    await tick();
+    expect(choice().disabled).toBe(false);
+
+    choice().value = "43";
+    choice().dispatchEvent(new Event("change", { bubbles: true }));
+    await tick();
+    expect(board.pinEditor.value?.sprintId).toBe(43);
+    expect(choice().value).toBe("43");
+
+    // Propriété de 43 illisible : le choix reste affiché, le retour à 42 est possible.
+    secondReply = { status: 400, json: {} };
+    await board.sync();
+    await tick();
+    expect(text()).toContain("La propriété du sprint n'a pas pu être lue");
+    choice().value = "42";
+    choice().dispatchEvent(new Event("change", { bubbles: true }));
+    await expect.poll(() => board.pinEditor.value?.sprintId).toBe(42);
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
   });
 
   it("menu d'une swimlane : descendre et masquer partagés, replier personnel", async () => {

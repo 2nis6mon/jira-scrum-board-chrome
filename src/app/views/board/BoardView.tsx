@@ -34,6 +34,7 @@ import {
   toggleStockExpanded,
 } from "../../../core/daily";
 import { activeFilterCount, isGoalFocused, QUICK_FILTERS } from "../../../core/filters";
+import { boardLocalPinnedGoalIds } from "../../../core/pinnedGoals";
 import { goalColorName } from "../../../core/sprintGoals";
 import { blockingRequiredFields } from "../../../jira/models";
 import { SPRINT_HEALTH_ENABLED } from "../../featureFlags";
@@ -813,6 +814,8 @@ function Notices(props: {
   const problem = board.syncProblem.value;
   const writeNotice = board.writeNotice.value;
   const teamNotice = board.teamNotice.value;
+  // Repli local de tous les sprints du board, réunis dans une seule bannière.
+  const localPins = boardLocalPinnedGoalIds(snapshot);
   return (
     <>
       {teamNotice && (
@@ -880,14 +883,14 @@ function Notices(props: {
       {board.goalsNotice.value && (
         <p class="notice notice-info">{localize(board.goalsNotice.value)}</p>
       )}
-      {snapshot?.localPinnedGoalIds && (
+      {localPins && (
         <div class="notice notice-info">
           <p>
-            {snapshot.localPinnedGoalIds.length > 1 ? (
+            {localPins.length > 1 ? (
               <>
                 <strong>
                   {t("{count} Goals épinglés dans ce navigateur seulement.", {
-                    count: snapshot.localPinnedGoalIds.length,
+                    count: localPins.length,
                   })}
                 </strong>{" "}
                 {t(

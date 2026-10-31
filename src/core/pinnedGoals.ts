@@ -25,10 +25,18 @@ export type WritablePinnedGoalsStorage = Exclude<PinnedGoalsStorage, { kind: "un
 
 const UNAVAILABLE: PinnedGoalsStorage = { kind: "unavailable" };
 
-/** Résolveur unique : choisit le stockage d'après le type du board et le sprint de référence. */
+type PinSnapshot = Pick<BoardSnapshot, "sprint"> &
+  Partial<Pick<BoardSnapshot, "activeSprints" | "goalSprintIds">>;
+
+/**
+ * Résolveur unique : choisit le stockage d'après le type du board et le sprint de l'épinglage.
+ * `sprintId` (choix de l'utilisateur) n'est retenu que s'il est un sprint réuni du board
+ * (`goalSprintIds`) ; sinon, ou sans choix, le sprint de référence porte l'épinglage.
+ */
 export function pinnedGoalsStorage(
   configuration: BoardConfiguration | null,
-  snapshot: Pick<BoardSnapshot, "sprint"> | null,
+  snapshot: PinSnapshot | null,
+  sprintId?: number | null,
 ): PinnedGoalsStorage {
   if (!configuration) return UNAVAILABLE;
   if (configuration.boardType === "kanban") {
@@ -40,23 +48,87 @@ export function pinnedGoalsStorage(
   }
   const sprint = snapshot?.sprint ?? null;
   if (!sprint) return UNAVAILABLE;
-  return { kind: "sprint", sprintId: sprint.id, sprintName: sprint.name };
+  const chosen =
+    sprintId != null && sprintId !== sprint.id
+      ? pinnableSprints(configuration, snapshot).find((candidate) => candidate.id === sprintId)
+      : undefined;
+  const target = chosen ?? sprint;
+  return { kind: "sprint", sprintId: target.id, sprintName: target.name };
 }
+
+/** Sprint proposé pour l'épinglage. */
+export interface PinnableSprint {
+  readonly id: number;
+  readonly name: string;
+}
+
+/**
+ * Sprints entre lesquels choisir l'épinglage : ceux du board (`goalSprintIds`), dans l'ordre
+ * d'affichage, en Scrum avec au moins deux sprints du board. Sinon aucun choix (liste vide).
+ * Jamais de sprint d'un autre board : `goalSprintIds` n'en contient pas dès qu'il y en a deux.
+ */
+export function pinnableSprints(
+  configuration: Pick<BoardConfiguration, "boardType"> | null,
+  snapshot: PinSnapshot | null,
+): readonly PinnableSprint[] {
+  if (configuration?.boardType !== "scrum" || !snapshot?.sprint) return [];
+  const ids = snapshot.goalSprintIds ?? [];
+  if (ids.length < 2) return [];
+  const byId = new Map((snapshot.activeSprints ?? []).map((sprint) => [sprint.id, sprint]));
+  const sprints = ids.flatMap((id) => {
+    const sprint = byId.get(id);
+    return sprint ? [{ id: sprint.id, name: sprint.name }] : [];
+  });
+  return sprints.length >= 2 ? sprints : [];
+}
+
+type PinIdsSnapshot = Pick<BoardSnapshot, "pinnedGoalIds"> &
+  Partial<Pick<BoardSnapshot, "sprint" | "sprintPinnedGoalIds">>;
 
 /** Sélection affichée pour ce stockage ; `null` si elle n'est pas connue (propriété illisible). */
 export function pinnedGoalIdsIn(
   storage: PinnedGoalsStorage,
   configuration: Pick<BoardConfiguration, "boardPinnedGoalIds"> | null,
-  snapshot: Pick<BoardSnapshot, "pinnedGoalIds"> | null,
+  snapshot: PinIdsSnapshot | null,
 ): readonly string[] | null {
   switch (storage.kind) {
     case "sprint":
-      return snapshot?.pinnedGoalIds ?? null;
+      if (!snapshot) return null;
+      if (snapshot.sprintPinnedGoalIds)
+        return snapshot.sprintPinnedGoalIds[storage.sprintId] ?? null;
+      // Sans épinglage par sprint, seul le sprint de référence est connu.
+      return snapshot.sprint == null || snapshot.sprint.id === storage.sprintId
+        ? snapshot.pinnedGoalIds
+        : null;
     case "board":
       return configuration?.boardPinnedGoalIds ?? null;
     case "unavailable":
       return null;
   }
+}
+
+/** Sélection gardée dans ce navigateur pour le sprint du stockage ; `null` sans repli local. */
+export function localPinnedGoalIdsIn(
+  storage: PinnedGoalsStorage,
+  snapshot: Pick<
+    BoardSnapshot,
+    "sprint" | "localPinnedGoalIds" | "sprintLocalPinnedGoalIds"
+  > | null,
+): readonly string[] | null {
+  if (storage.kind !== "sprint" || !snapshot) return null;
+  if (snapshot.sprintLocalPinnedGoalIds)
+    return snapshot.sprintLocalPinnedGoalIds[storage.sprintId] ?? null;
+  return snapshot.sprint?.id === storage.sprintId ? snapshot.localPinnedGoalIds : null;
+}
+
+/** Goals gardés dans ce navigateur, tous sprints du board réunis ; `null` s'il n'y en a aucun. */
+export function boardLocalPinnedGoalIds(
+  snapshot: Pick<BoardSnapshot, "localPinnedGoalIds" | "sprintLocalPinnedGoalIds"> | null,
+): readonly string[] | null {
+  if (!snapshot) return null;
+  if (!snapshot.sprintLocalPinnedGoalIds) return snapshot.localPinnedGoalIds;
+  const ids = [...new Set(Object.values(snapshot.sprintLocalPinnedGoalIds).flat())];
+  return ids.length > 0 ? ids : null;
 }
 
 export type BoardPinOutcome =

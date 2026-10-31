@@ -369,6 +369,7 @@ export const businessMessages = {
   échec: "failed",
   incertain: "uncertain",
   "propriété du sprint": "sprint property",
+  "propriété du sprint « {p0} »": "property of sprint ‘{p0}’",
   "Rattacher un ticket à un objectif du sprint exige en général la permission Jira de gérer les sprints.":
     "Linking an issue to a sprint goal usually requires the Jira Manage sprints permission.",
   "aucun détail fourni par Atlassian": "no details provided by Atlassian",

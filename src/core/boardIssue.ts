@@ -283,6 +283,17 @@ export interface BoardSnapshot {
    * `null` : la sélection affichée est celle de Jira (ou il n'y en a aucune).
    */
   readonly localPinnedGoalIds: readonly string[] | null;
+  /**
+   * Goals Atlassian épinglés à chaque sprint réuni (`goalSprintIds`), tels que lus dans sa
+   * propriété : base de l'épinglage du sprint choisi. Un sprint dont la propriété n'a pas pu être
+   * lue est absent. Absent : seul le sprint de référence est connu (`pinnedGoalIds`).
+   */
+  readonly sprintPinnedGoalIds?: Readonly<Record<number, readonly string[]>>;
+  /**
+   * Goals épinglés gardés dans ce navigateur pour chaque sprint réuni, affichés faute de
+   * sélection dans Jira pour ce sprint. Un sprint sans repli local est absent.
+   */
+  readonly sprintLocalPinnedGoalIds?: Readonly<Record<number, readonly string[]>>;
 }
 
 /**

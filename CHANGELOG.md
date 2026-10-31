@@ -3,6 +3,18 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.37.0 — Épingler les Goals du sprint de mon choix
+
+- En Scrum « Goals Atlassian » avec au moins deux sprints actifs du board, l'onglet **Objectifs**
+  propose le **Sprint de l'épinglage** (premier sprint présélectionné, jamais un sprint d'un autre
+  board). L'enregistrement écrit la seule propriété du sprint choisi ; le brouillon non modifié se
+  recale sur l'épinglage de ce sprint après relecture. Changer de sprint est bloqué tant que la
+  sélection n'est ni enregistrée ni annulée ; un sprint disparu ramène au premier, et une sélection
+  en cours pour lui est abandonnée sans rien écrire. Le journal nomme le sprint épinglé.
+- La sélection gardée dans ce navigateur après un refus de droits vaut pour chaque sprint du board :
+  la bannière réunit leurs Goals et **Oublier cette sélection** les efface tous.
+- Un seul sprint, Kanban ou Scrum sans sprint actif : comportement inchangé.
+
 ## 0.36.3 — Déconnexion sans reste et refus avant l'envoi nommés
 
 - Se déconnecter pendant un déplacement ou une modification de réglage n'y laisse plus de données

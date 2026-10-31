@@ -115,7 +115,10 @@ export class BoardSettingsService {
             ...entry,
             outcome: "réussi",
             detail: null,
-            detailMessage: message("propriété du sprint"),
+            // Le sprint qui a reçu l'écriture, dès qu'on peut en choisir un parmi plusieurs.
+            detailMessage: message("propriété du sprint « {p0} »", {
+              p0: editor.storage.sprintName,
+            }),
           });
           // Enregistré dans Jira : la copie locale de repli devient inutile.
           await this.forgetLocalPins(sprintId);

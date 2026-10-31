@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  boardLocalPinnedGoalIds,
+  localPinnedGoalIdsIn,
+  pinnableSprints,
   pinnedGoalIdsIn,
   pinnedGoalsStorage,
   saveBoardPinnedGoals,
@@ -49,6 +52,76 @@ describe("stockage des Goals épinglés", () => {
     expect(pinnedGoalIdsIn(storage, scrum, { pinnedGoalIds: ["g"] })).toBeNull();
     expect(pinnedGoalsStorage(scrum, null)).toEqual({ kind: "unavailable" });
     expect(pinnedGoalsStorage(null, { sprint })).toEqual({ kind: "unavailable" });
+  });
+});
+
+describe("sprint de l'épinglage, avec plusieurs sprints actifs", () => {
+  const second = { ...sprint, id: 43, name: "Sprint 43" };
+  const foreign = { ...sprint, id: 77, name: "Sprint d'une autre équipe", originBoardId: 99 };
+  // Sprints du board 42 et 43, plus un sprint étranger 77 remonté par un ticket partagé.
+  const snapshot = {
+    sprint,
+    activeSprints: [sprint, second, foreign],
+    goalSprintIds: [42, 43],
+    pinnedGoalIds: ["g-42"],
+    sprintPinnedGoalIds: { 42: ["g-42"], 43: ["g-43"] },
+    localPinnedGoalIds: null,
+    sprintLocalPinnedGoalIds: { 43: ["g-local"] },
+  };
+
+  it("propose les sprints du board dans l'ordre d'affichage, jamais l'étranger", () => {
+    expect(pinnableSprints(scrum, snapshot)).toEqual([
+      { id: 42, name: "Sprint 42" },
+      { id: 43, name: "Sprint 43" },
+    ]);
+  });
+
+  it("aucun choix avec un seul sprint du board, en Kanban ou sans sprint actif", () => {
+    expect(pinnableSprints(scrum, { ...snapshot, goalSprintIds: [42] })).toEqual([]);
+    expect(pinnableSprints(scrum, { sprint, activeSprints: [sprint, foreign] })).toEqual([]);
+    expect(pinnableSprints(kanban, snapshot)).toEqual([]);
+    expect(pinnableSprints(scrum, { ...snapshot, sprint: null })).toEqual([]);
+    expect(pinnableSprints(null, snapshot)).toEqual([]);
+  });
+
+  it("le sprint choisi porte l'épinglage ; sans choix, le sprint principal", () => {
+    const chosen = pinnedGoalsStorage(scrum, snapshot, 43);
+    expect(chosen).toEqual({ kind: "sprint", sprintId: 43, sprintName: "Sprint 43" });
+    expect(pinnedGoalIdsIn(chosen, scrum, snapshot)).toEqual(["g-43"]);
+    expect(localPinnedGoalIdsIn(chosen, snapshot)).toEqual(["g-local"]);
+    const main = pinnedGoalsStorage(scrum, snapshot);
+    expect(main).toEqual({ kind: "sprint", sprintId: 42, sprintName: "Sprint 42" });
+    expect(pinnedGoalsStorage(scrum, snapshot, null)).toEqual(main);
+    expect(pinnedGoalIdsIn(main, scrum, snapshot)).toEqual(["g-42"]);
+    expect(localPinnedGoalIdsIn(main, snapshot)).toBeNull();
+  });
+
+  it("un sprint étranger ou disparu ramène au sprint principal ; Kanban ignore le choix", () => {
+    expect(pinnedGoalsStorage(scrum, snapshot, 77)).toMatchObject({ sprintId: 42 });
+    expect(pinnedGoalsStorage(scrum, { ...snapshot, goalSprintIds: [42] }, 43)).toMatchObject({
+      sprintId: 42,
+    });
+    expect(pinnedGoalsStorage(kanban, snapshot, 43)).toMatchObject({ kind: "board" });
+  });
+
+  it("propriété du sprint choisi illisible : sélection inconnue", () => {
+    const chosen = pinnedGoalsStorage(scrum, snapshot, 43);
+    expect(
+      pinnedGoalIdsIn(chosen, scrum, { ...snapshot, sprintPinnedGoalIds: { 42: [] } }),
+    ).toBeNull();
+  });
+
+  it("la bannière du repli local cumule les sprints du board", () => {
+    expect(
+      boardLocalPinnedGoalIds({
+        localPinnedGoalIds: ["a"],
+        sprintLocalPinnedGoalIds: { 42: ["a", "b"], 43: ["b", "c"] },
+      }),
+    ).toEqual(["a", "b", "c"]);
+    expect(boardLocalPinnedGoalIds({ localPinnedGoalIds: ["a"] })).toEqual(["a"]);
+    expect(
+      boardLocalPinnedGoalIds({ localPinnedGoalIds: null, sprintLocalPinnedGoalIds: {} }),
+    ).toBeNull();
   });
 });
 

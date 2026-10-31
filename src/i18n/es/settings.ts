@@ -231,6 +231,9 @@ export const settingsMessagesEs = {
     "Un Goal fijado conserva su carril aunque esté vacío; esta selección se comparte para este tablero.",
   "Un Goal épinglé garde sa swimlane même sans ticket, pour CE sprint seulement : l'épinglage part dans une propriété du sprint.":
     "Un Goal fijado conserva su carril aunque esté vacío, solo para ESTE sprint: la selección se guarda en una propiedad del sprint.",
+  "Sprint de l'épinglage": "Sprint de los Goals fijados",
+  "Enregistrez ou annulez l'épinglage en cours pour changer de sprint.":
+    "Guarda o cancela la selección fijada en curso para cambiar de sprint.",
   "Recharger les Goals du site": "Volver a cargar los Goals del sitio",
   "Filtrer les Goals": "Filtrar los Goals",
   "Nom, clé ou responsable": "Nombre, clave o responsable",

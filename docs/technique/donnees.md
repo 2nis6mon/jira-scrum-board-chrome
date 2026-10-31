@@ -26,8 +26,11 @@ réconciliation) est retiré avec ses liens ; un objectif apparu depuis (collèg
 conservé (champs inconnus compris) avec ses liens, après ceux du board dans l'ordre de Jira et
 renuméroté à leur suite. Propriété non lue au chargement : aucun objectif de Jira n'est retiré.
 L'emplacement des Goals épinglés n'est choisi que par `pinnedGoalsStorage` (`pinnedGoals.ts`) :
-propriété du sprint de référence en Scrum, `boardPinnedGoalIds` en Kanban, indisponible en Scrum
-sans sprint actif ; services et vues consomment ce stockage sans tester le type du board.
+propriété du sprint de référence en Scrum, ou du sprint du board choisi (`goalSprintIds`, proposé par
+`pinnableSprints` dès deux sprints du board), `boardPinnedGoalIds` en Kanban, indisponible en Scrum
+sans sprint actif ; services et vues consomment ce stockage sans tester le type du board. Le snapshot
+porte l'épinglage lu de chaque sprint (`sprintPinnedGoalIds`) et le repli local par sprint
+(`localPinnedGoalIds[sprintId]` de la configuration locale, `sprintLocalPinnedGoalIds`) ; formats inchangés.
 Les anciennes valeurs `SCRUM`/`KANBAN`, `showKanbanSection`, `kanbanSectionLabel`,
 `dailyKanbanStockLimit` restent compatibles ; retrait seulement avec migration et décision sur les
 anciennes installations. Valeurs absentes : défauts compatibles, pas de perte des données.

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { filterAtlassianGoals } from "../../../core/filters";
-import { pinnedGoalIdsIn } from "../../../core/pinnedGoals";
+import { localPinnedGoalIdsIn, pinnedGoalIdsIn } from "../../../core/pinnedGoals";
 import { goalColorName, type SprintGoal } from "../../../core/sprintGoals";
 import { type AtlassianGoal, goalDisplayName } from "../../../jira/models";
 import { localize, t } from "../../i18n";
@@ -39,9 +39,11 @@ export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinnin
   const [saved, setSaved] = useState(false);
   const wasSaving = useRef(false);
 
-  const sprintId = snapshot?.sprint?.id ?? null;
+  // Sprint du stockage : le sprint choisi pour l'épinglage, ou le sprint principal.
+  const sprintId = storage.kind === "sprint" ? storage.sprintId : null;
   const pinned = pinnedGoalIdsIn(storage, configuration, snapshot);
-  const pinnedKey = JSON.stringify([pinned, snapshot?.localPinnedGoalIds ?? null]);
+  const local = localPinnedGoalIdsIn(storage, snapshot);
+  const pinnedKey = JSON.stringify([pinned, local]);
 
   // Brouillon d'épinglage ouvert d'office, et recalé sur Jira tant qu'il n'a pas été touché.
   useEffect(() => {
@@ -54,7 +56,7 @@ export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinnin
       !isChanged(current) &&
       (current.sprintId !== sprintId ||
         !sameIds(current.base, pinned) ||
-        current.fromLocal !== (snapshot?.localPinnedGoalIds != null));
+        current.fromLocal !== (local !== null));
     if (current === null || stale) board.openPinEditor();
   }, [board, canPin, sprintId, pinnedKey, board.pinEditor.value === null]);
 
@@ -216,6 +218,8 @@ export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinnin
                   : t("Aucun sprint actif : l'épinglage porte sur le sprint affiché.")}
             </p>
           )}
+          {/* Sans brouillon (propriété illisible), le choix reste offert pour changer de sprint. */}
+          {pinning && !editor && <PinSprintChoice board={board} />}
           {editor?.fromLocal && (
             <p class="notice notice-info">
               {t(
@@ -276,6 +280,7 @@ export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinnin
                         "Un Goal épinglé garde sa swimlane même sans ticket, pour CE sprint seulement : l'épinglage part dans une propriété du sprint.",
                       )}
                 </p>
+                <PinSprintChoice board={board} />
               </div>
               <button
                 type="button"
@@ -380,6 +385,40 @@ export function SprintGoalsPanel({ board, pinning }: { board: BoardModel; pinnin
         />
       )}
     </>
+  );
+}
+
+/**
+ * Sprint de l'épinglage, proposé seulement quand le modèle en offre plusieurs (sprints du board).
+ * Bloqué tant que la sélection n'est ni enregistrée ni annulée.
+ */
+function PinSprintChoice({ board }: { board: BoardModel }) {
+  const sprints = board.pinnableSprints.value;
+  const storage = board.pinStorage.value;
+  if (sprints.length < 2 || storage.kind !== "sprint") return null;
+  const locked = board.pinSprintLocked.value;
+  return (
+    <div class="settings-pin-sprint">
+      <label>
+        <span>{t("Sprint de l'épinglage")}</span>
+        <select
+          value={String(storage.sprintId)}
+          disabled={locked}
+          onChange={(event) => board.choosePinSprint(Number(event.currentTarget.value))}
+        >
+          {sprints.map((sprint) => (
+            <option key={sprint.id} value={String(sprint.id)}>
+              {sprint.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {locked && (
+        <p class="settings-help">
+          {t("Enregistrez ou annulez l'épinglage en cours pour changer de sprint.")}
+        </p>
+      )}
+    </div>
   );
 }
 

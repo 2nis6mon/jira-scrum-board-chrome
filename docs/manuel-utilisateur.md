@@ -156,6 +156,9 @@ vert quand tous ses tickets sont dans la dernière colonne visible, sans modifie
 
 Dans **Épingler un Goal du site**, recherchez par **Nom, clé ou responsable**, sélectionnez
 les Goals et cliquez sur **Enregistrer dans Jira** pour conserver leurs lignes même vides.
+En Scrum avec plusieurs sprints actifs du board, choisissez d'abord le **Sprint de l'épinglage**
+(le premier sprint est proposé) : l'épinglage ne vaut que pour ce sprint. Le choix reste bloqué tant
+qu'une sélection n'est ni enregistrée ni annulée.
 
 Masquer un objectif conserve ses liens et renvoie ses tickets vers leur ligne par défaut.
 La rubrique **Masqués du board** permet de le réafficher.
