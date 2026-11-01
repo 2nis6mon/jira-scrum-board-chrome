@@ -3,15 +3,16 @@ Organisez vos boards Scrum et Kanban par objectif, directement dans Jira Cloud.
 Sprint Goals Board donne une place centrale aux résultats attendus. Chaque objectif possède sa swimlane et sa progression. Un ticket rattaché à un objectif visible y apparaît en priorité ; les autres rejoignent Build ou une swimlane par type, comme RUN ou OPS.
 
 VOTRE BOARD, ORGANISÉ PAR OBJECTIF
-• Scrum : retrouvez les tickets des sprints actifs et les objectifs issus du texte Sprint Goal ou des Goals Atlassian.
+• Scrum : retrouvez les tickets des sprints actifs et les objectifs issus du texte Sprint Goal ou des Goals Atlassian. Avec plusieurs sprints actifs, chaque objectif porte le nom de son sprint et un filtre Sprint les sépare.
 • Kanban : retrouvez les tickets du filtre et du sous-filtre du board, avec leurs Goals Atlassian.
 • Gardez visibles les Goals épinglés même sans ticket. Les lignes Build, RUN et OPS vides disparaissent.
 • Personnalisez les swimlanes par type : nom, ordre et visibilité. Dans les réglages, répartissez les types du groupe Default vers leurs swimlanes.
 
 TRAVAILLEZ AVEC VOTRE ÉQUIPE
 • Déplacez les cartes pour changer leur statut, leur rang ou leur objectif. Si plusieurs transitions mènent au même statut, l'extension utilise la première disponible dans l'ordre Jira.
+• Clic droit sur une carte : envoyez-la vers un objectif ou placez-la en tête ou en fin de sa swimlane, sans modifier le champ Priorité de Jira.
 • Ouvrez les fiches et formulaires de transition natifs Jira. Vous gardez la main sur les champs et leur validation.
-• Retrouvez les sous-tâches avec leur parent. Recherchez et filtrez par personne, type, parent, statut ou label, avec les filtres rapides Jira.
+• Retrouvez les sous-tâches avec leur parent. Recherchez et filtrez par personne, type, parent, statut ou label, avec les filtres rapides Jira. Le filtre Reportés montre les tickets reportés d'un sprint précédent.
 • Ajoutez des couleurs de cartes à partir de règles JQL : suggestions issues de Jira, validation et aperçu avant application.
 • Animez la Daily en plein écran, une swimlane à la fois, avec minuteur réglable et cartes déplaçables.
 • Partagez les réglages du board dans Jira. Leur modification exige le droit de modifier le board ; les préférences personnelles restent locales.

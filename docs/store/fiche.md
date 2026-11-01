@@ -1,6 +1,6 @@
-# Publication Chrome Web Store — version multilingue 0.35.2
+# Publication Chrome Web Store — version 0.41.1
 
-Dossier préparé le **15 octobre 2026** pour mettre à jour l'article existant
+Dossier préparé le **1er novembre 2026** pour mettre à jour l'article existant, publié en **0.35.2**,
 [Sprint Goals Board](https://chromewebstore.google.com/detail/sprint-goals-board-pour-j/pepbknjnielcbfcoefcdmadmomapicgp?hl=fr),
 identifiant `pepbknjnielcbfcoefcdmadmomapicgp`. Rien n'est soumis au Store par la préparation de ce dossier.
 
@@ -46,7 +46,7 @@ Les contenus Jira ne sont pas traduits.
 Les **cinq captures du board restent celles de la version 0.34.9**, avec leurs textes en français,
 conformément au choix de conserver les images. Le [manifeste des captures](captures/captures.json)
 garde leur provenance réelle. Elles montrent l'interface sur des données fictives en mode `package`,
-avec Sprint Planning désactivé. Elles ne sont pas présentées comme de nouvelles captures 0.35.2.
+avec Sprint Planning désactivé. Elles ne sont pas présentées comme de nouvelles captures 0.41.1 et ne montrent ni le menu des cartes ni plusieurs sprints.
 
 | Fichier | Sujet FR | English caption |
 | --- | --- | --- |
@@ -124,7 +124,7 @@ jamais dans la description publique. Les coordonnées réelles sont à compléte
 Texte anglais à copier dans cet onglet après avoir complété l'environnement :
 
 ```text
-This update adds Spanish alongside English and French. It uses the same Jira integration and Chrome permissions.
+This update (0.35.2 to 0.41.1) shows several active sprints together, adds a "Carried over" quick filter and a right-click menu on cards. It uses the same Jira integration and Chrome permissions, and no new kind of Jira write.
 
 Test site, Scrum board, Kanban board and test account access: provided separately in this private field by the publisher.
 
@@ -132,12 +132,13 @@ Test site, Scrum board, Kanban board and test account access: provided separatel
 2. Install the submitted package, authorize the test site and open the provided Scrum board.
 3. Click Sprint Goals in Jira or the extension icon. The view opens inside Jira. Opening board.html outside an authorized Jira page is intentionally refused.
 4. Check goals, issues, search and filters. Open an issue and close its native Jira dialog to return to the refreshed board.
-5. Move a test issue to another column. A transition without a form uses the account's Jira permissions. If a form is required, fill it in and submit it yourself; the extension does not do this automatically.
-6. Open Board settings from the board-name menu. Check issue-type swimlanes, card fields and card colors. Try JQL suggestions, validation and preview before applying a valid color rule.
-7. Open Personal preferences from the Jira site menu. Select English, then Français, then Español. Labels change immediately, while Jira issue content, names and native dialogs keep their original language. The preference is personal and does not change shared settings.
-8. Select Auto. With Jira in French the extension is French; with Jira in Spanish it is Spanish; with Jira in English or another language it is English. Reload the Jira page after changing Jira's own language. An unavailable Jira language falls back to English.
-9. Run Daily, move between swimlanes, then finish the Daily. Open the provided Kanban board and check its goals and issues without a sprint.
-10. Sprint Planning is disabled in the distributed package and cannot be enabled through the interface. Back to Jira returns to the native board; it is hidden while the extension sidebar is collapsed.
+5. Right-click a test issue card. Hover "Send to a goal" and pick another goal: the card moves to that goal's swimlane, without changing column. Right-click it again and choose "Move to top priority". If the board has two active sprints, each goal shows its sprint name and the Sprint filter keeps one sprint.
+6. Move a test issue to another column. A transition without a form uses the account's Jira permissions. If a form is required, fill it in and submit it yourself; the extension does not do this automatically.
+7. Open Board settings from the board-name menu. Check issue-type swimlanes, card fields and card colors. Try JQL suggestions, validation and preview before applying a valid color rule.
+8. Open Personal preferences from the Jira site menu. Select English, then Français, then Español. Labels change immediately, while Jira issue content, names and native dialogs keep their original language. The preference is personal and does not change shared settings.
+9. Select Auto. With Jira in French the extension is French; with Jira in Spanish it is Spanish; with Jira in English or another language it is English. Reload the Jira page after changing Jira's own language. An unavailable Jira language falls back to English.
+10. Run Daily, move between swimlanes, then finish the Daily. Open the provided Kanban board and check its goals and issues without a sprint.
+11. Sprint Planning is disabled in the distributed package and cannot be enabled through the interface. Back to Jira returns to the native board; it is hidden while the extension sidebar is collapsed.
 ```
 
 ## Mettre à jour l'article existant, pas à pas
@@ -145,7 +146,7 @@ Test site, Scrum board, Kanban board and test account access: provided separatel
 1. Publier le site multilingue et vérifier les liens publics du site, du manuel et de la confidentialité dans les trois langues.
 2. Dans le [Developer Dashboard](https://chrome.google.com/webstore/devconsole), ouvrir l'article
    `pepbknjnielcbfcoefcdmadmomapicgp` avec le compte éditeur habituel.
-3. Dans **Package → Upload New Package**, envoyer **`release/sprint-goals-board-0.35.2.zip`**.
+3. Dans **Package → Upload New Package**, envoyer **`release/sprint-goals-board-0.41.1.zip`**.
    La version doit être supérieure à celle déjà publiée. Utiliser ce paquet produit par
    `npm run package`, jamais un ZIP manuel de `dist/` qui active Sprint Planning.
 4. Dans **Store listing**, sélectionner **Français** puis coller [listing-fr.txt](listing-fr.txt).
@@ -159,9 +160,9 @@ Test site, Scrum board, Kanban board and test account access: provided separatel
 7. Enregistrer et choisir **Submit for Review**. Choisir la publication automatique après validation
    ou la publication différée. La version installable ne change qu'après publication.
 
-Le dossier **`release/chrome-store-multilingual-0.35.2/`** regroupe le paquet de l'extension,
+Le dossier **`release/chrome-store-multilingual-0.41.1/`** regroupe le paquet de l'extension,
 les textes et les images. Choisir chaque ressource dans son champ : seul le ZIP
-`sprint-goals-board-0.35.2.zip` est destiné au champ **Package**.
+`sprint-goals-board-0.41.1.zip` est destiné au champ **Package**.
 
 Procédures officielles vérifiées le 15 octobre 2026 :
 [localiser la fiche](https://developer.chrome.com/docs/webstore/cws-dashboard-listing#localize-your-listing),

@@ -1,8 +1,10 @@
-Versión 0.35.2 — Español, francés e inglés
+Versión 0.41.1 — Varios sprints activos y menú de las tarjetas
 
-• Interfaz en español cuando Jira está en español, en francés cuando está en francés y en inglés para los demás idiomas.
-• Preferencia personal Auto / Français / English / Español para todos los tableros de este navegador, con cambios inmediatos que conservan lo que estás editando.
-• Sitio web, guía de usuario y política de privacidad en español, francés e inglés, con navegación entre los tres idiomas.
-• Los contenidos de Jira y las capturas del tablero mantienen su idioma original.
+• Varios sprints activos: sus objetivos se muestran juntos, precedidos del nombre de su sprint, con un filtro Sprint. Un sprint de otro tablero, traído por una incidencia compartida, aparece señalado.
+• Goals de Atlassian fijados para el sprint que elijas cuando el tablero tiene varios sprints activos.
+• Nuevo filtro rápido «Arrastradas»: las incidencias arrastradas desde un sprint anterior del tablero.
+• Clic derecho en una tarjeta (o Mayús+F10): «Enviar a un objetivo», cuya lista se abre al pasar el puntero, «Quitar del objetivo», «Poner en prioridad máxima» y «Poner en prioridad baja». El campo Prioridad de Jira no se modifica.
+• Escrituras más seguras: vincular una incidencia ya no elimina lo que un compañero añadió en Jira mientras tanto, dos acciones en el mismo tablero se ejecutan una tras otra y cerrar la sesión borra todos los datos locales del sitio.
+• Las incidencias arrastradas al empezar un sprint ya no se marcan como añadidas por error. El registro de cambios sigue el idioma elegido.
 
-Sin nuevos permisos de Chrome. Las preferencias de idioma permanecen en tu navegador.
+Ningún permiso nuevo de Chrome.

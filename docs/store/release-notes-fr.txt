@@ -1,8 +1,10 @@
-Version 0.35.2 — Français, anglais et espagnol
+Version 0.41.1 — Plusieurs sprints actifs et menu des cartes
 
-• Interface en français lorsque Jira est en français, en espagnol lorsque Jira est en espagnol et en anglais pour les autres langues.
-• Préférence personnelle Auto / Français / English / Español, commune aux boards de ce navigateur, modifiable immédiatement sans perdre les saisies.
-• Site, manuel d'utilisation et confidentialité disponibles en français, en anglais et en espagnol, avec navigation entre les trois langues.
-• Les contenus Jira et les captures du board conservent leur langue d'origine.
+• Plusieurs sprints actifs : leurs objectifs s'affichent ensemble, préfixés du nom de leur sprint, avec un filtre Sprint. Un sprint d'un autre board, remonté par un ticket partagé, est signalé.
+• Goals Atlassian épinglés pour le sprint de votre choix lorsque le board a plusieurs sprints actifs.
+• Nouveau filtre rapide « Reportés » : les tickets reportés depuis un sprint précédent du board.
+• Clic droit sur une carte (ou Maj+F10) : « Envoyer vers un goal », dont la liste s'ouvre au survol, « Retirer du goal », « Mettre en top priorité » et « Mettre en basse priorité ». Le champ Priorité de Jira n'est pas modifié.
+• Écritures plus sûres : un rattachement ne retire plus ce qu'un collègue a ajouté dans Jira entre-temps, deux gestes sur un même board passent l'un après l'autre, et la déconnexion efface toutes les données locales du site.
+• Les tickets reportés à l'ouverture d'un sprint ne sont plus marqués « ajout » à tort. Le journal des modifications suit la langue choisie.
 
-Aucune nouvelle autorisation Chrome. Les préférences de langue restent dans votre navigateur.
+Aucune nouvelle autorisation Chrome.

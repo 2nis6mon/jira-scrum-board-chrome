@@ -1,8 +1,10 @@
-Version 0.35.2 — English, French and Spanish
+Version 0.41.1 — Multiple active sprints and card menu
 
-• Interface in French when Jira is in French, Spanish when Jira is in Spanish, and English for other languages.
-• Personal Auto / Français / English / Español preference across boards in this browser, with immediate changes that preserve work in progress.
-• Website, user guide and privacy policy available in English, French and Spanish, with navigation between languages.
-• Jira content and board screenshots keep their original language.
+• Multiple active sprints: their goals are shown together, prefixed with their sprint name, with a Sprint filter. A sprint from another board, brought in by a shared issue, is flagged.
+• Atlassian Goals pinned for the sprint of your choice when the board has several active sprints.
+• New "Carried over" quick filter: issues carried over from a previous sprint of the board.
+• Right-click a card (or Shift+F10): "Send to a goal", whose list opens on hover, "Remove from goal", "Move to top priority" and "Move to low priority". Jira's Priority field is not changed.
+• Safer writes: linking an issue no longer removes what a teammate added in Jira in the meantime, two actions on the same board run one after the other, and signing out clears all local data for the site.
+• Issues carried over when a sprint starts are no longer wrongly marked as added. The change log follows the chosen language.
 
-No new Chrome permissions. Language preferences stay in your browser.
+No new Chrome permission.
