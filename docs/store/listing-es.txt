@@ -27,7 +27,7 @@ La extensión utiliza tu sesión de Jira. No hay servidor de recopilación del e
 
 Requiere Chrome 116 o posterior, una sesión iniciada en Jira Cloud y acceso a un tablero Scrum o Kanban en un dominio *.atlassian.net. Los Goals disponibles dependen de los permisos y las funciones que exponga tu sitio Atlassian. La extensión no crea sprints ni Goals de Atlassian.
 
-Guía de usuario: https://2nis6mon.github.io/jira-scrum-board-chrome/es/guide.html
+Guía de usuario: https://sprintgoals.soneira.es/es/guide.html
 Asistencia: denis.simon.consulting@gmail.com
 
 Jira y Atlassian son marcas de Atlassian. Esta extensión no está desarrollada ni avalada por Atlassian.

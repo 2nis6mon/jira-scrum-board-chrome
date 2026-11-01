@@ -141,11 +141,11 @@ Ce dossier complet n’est pas une archive d’extension à téléverser.
 5. Vérifier les liens publics, Privacy practices et les instructions de revue de fiche.md.
 6. Relire les trois fiches avant de soumettre la mise à jour à Google.
 
-Site : https://2nis6mon.github.io/jira-scrum-board-chrome/
-Guide FR : https://2nis6mon.github.io/jira-scrum-board-chrome/guide.html
-Guide EN : https://2nis6mon.github.io/jira-scrum-board-chrome/en/guide.html
-Guide ES : https://2nis6mon.github.io/jira-scrum-board-chrome/es/guide.html
-Confidentialité : https://2nis6mon.github.io/jira-scrum-board-chrome/confidentialite.html
+Site : https://sprintgoals.soneira.es/
+Guide FR : https://sprintgoals.soneira.es/guide.html
+Guide EN : https://sprintgoals.soneira.es/en/guide.html
+Guide ES : https://sprintgoals.soneira.es/es/guide.html
+Confidentialité : https://sprintgoals.soneira.es/confidentialite.html
 
 L’interface suit Jira (français pour fr, espagnol pour es, anglais sinon), avec choix personnel.
 Sprint Planning est désactivé dans ce paquet de distribution.

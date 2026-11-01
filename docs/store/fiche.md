@@ -24,13 +24,13 @@ chercher un champ « nouveautés » obligatoire distinct. Les descriptions propo
 
 - **Catégorie** : Productivité → Workflow et planification, selon les choix proposés par le tableau de bord.
 - **Contact** : `denis.simon.consulting@gmail.com`.
-- **Site public** : <https://2nis6mon.github.io/jira-scrum-board-chrome/>.
-- **Manuel français** : <https://2nis6mon.github.io/jira-scrum-board-chrome/guide.html>.
-- **English guide** : <https://2nis6mon.github.io/jira-scrum-board-chrome/en/guide.html>.
-- **Guía en español** : <https://2nis6mon.github.io/jira-scrum-board-chrome/es/guide.html>.
-- **Politique de confidentialité proposée** : <https://2nis6mon.github.io/jira-scrum-board-chrome/confidentialite.html>, avec liens vers ses versions anglaise et espagnole.
-- **English privacy policy** : <https://2nis6mon.github.io/jira-scrum-board-chrome/en/privacy.html>.
-- **Política de privacidad en español** : <https://2nis6mon.github.io/jira-scrum-board-chrome/es/privacidad.html>.
+- **Site public** : <https://sprintgoals.soneira.es/>.
+- **Manuel français** : <https://sprintgoals.soneira.es/guide.html>.
+- **English guide** : <https://sprintgoals.soneira.es/en/guide.html>.
+- **Guía en español** : <https://sprintgoals.soneira.es/es/guide.html>.
+- **Politique de confidentialité proposée** : <https://sprintgoals.soneira.es/confidentialite.html>, avec liens vers ses versions anglaise et espagnole.
+- **English privacy policy** : <https://sprintgoals.soneira.es/en/privacy.html>.
+- **Política de privacidad en español** : <https://sprintgoals.soneira.es/es/privacidad.html>.
 
 Ces nouvelles pages doivent être publiées et accessibles avant de changer les URL du Store.
 La politique historique <https://2nis6mon.github.io/sprint-goals-privacy/> reste une adresse distincte :
