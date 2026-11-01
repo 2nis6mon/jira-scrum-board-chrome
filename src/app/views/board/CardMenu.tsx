@@ -1,12 +1,21 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { t } from "../../i18n";
 import type { BoardModel, CardMenuBlocked, CardMenuState, RankEdge } from "../../model/BoardModel";
-import { placeAtPoint } from "./floatingMenu";
+import { inCorridor, type Point, placeAtPoint, placeBeside } from "./floatingMenu";
+
+/** Arrêt du pointeur sur « Envoyer vers un goal » avant d'ouvrir la liste des objectifs. */
+const OPEN_DELAY = 150;
+/** Au plus tard après que le pointeur a quitté la ligne et la liste, celle-ci se referme. */
+const CLOSE_DELAY = 300;
 
 /**
  * Menu de l'extension sur une carte (clic droit, Maj+F10, touche Menu). Son état d'ouverture
  * appartient au board ; la vue ne garde que la sous-liste dépliée. Fermé par Échap, Tab, un clic
  * ailleurs, le défilement, le redimensionnement ou une action : le focus revient à la carte.
+ *
+ * La liste des objectifs est un sous-menu placé à côté du menu : ouverte par un arrêt du pointeur
+ * sur sa ligne (sans prendre le focus), par un clic ou au clavier (focus sur son premier objectif).
+ * Elle se referme quand le pointeur quitte la ligne et la liste, sauf s'il se dirige vers elle.
  */
 export function CardMenu(props: { board: BoardModel }) {
   const menu = props.board.cardMenu.value;
@@ -19,7 +28,18 @@ export function CardMenu(props: { board: BoardModel }) {
 function CardMenuPanel(props: { board: BoardModel; menu: CardMenuState }) {
   const { board, menu } = props;
   const panel = useRef<HTMLDivElement>(null);
-  const [goalsOpen, setGoalsOpen] = useState(false);
+  const row = useRef<HTMLButtonElement>(null);
+  const goalList = useRef<HTMLDivElement>(null);
+  // « hover » : ouverte au survol, le focus reste où il est ; « focus » : il va à la liste.
+  const [goals, setGoals] = useState<"hover" | "focus" | null>(null);
+  const goalsOpen = goals !== null;
+  const timers = useRef<{ open: number | undefined; close: number | undefined; closeAt: number }>({
+    open: undefined,
+    close: undefined,
+    closeAt: 0,
+  });
+  // Point où le pointeur a quitté la ligne : sommet de la zone de tolérance vers la liste.
+  const exit = useRef<Point | null>(null);
   const options = board.cardMenuOptions(menu.issueKey);
   const send = options?.sendToGoal;
   const blocked = send?.blocked ?? null;
@@ -31,20 +51,88 @@ function CardMenuPanel(props: { board: BoardModel; menu: CardMenuState }) {
     cardElement(issueKey)?.focus({ preventScroll: true });
   };
 
-  // Placé avant d'être montré, et replacé quand la liste des objectifs se déplie ou se replie.
+  // Placé avant d'être montré. La liste des objectifs, à côté, ne change pas sa taille.
   useLayoutEffect(() => {
     if (panel.current) placeAtPoint(panel.current, menu);
-  }, [menu, goalsOpen]);
+  }, [menu]);
+
+  useLayoutEffect(() => {
+    if (goalsOpen && goalList.current && panel.current && row.current)
+      placeBeside(goalList.current, panel.current, row.current);
+  }, [goalsOpen]);
 
   // À l'ouverture, focus sur le premier élément actif.
   useLayoutEffect(() => {
     if (panel.current) focusItem(items(panel.current));
   }, [menu]);
 
-  // La sous-liste dépliée prend le focus sur son premier objectif.
+  // Ouverte par un clic ou au clavier, la liste prend le focus sur son premier objectif.
   useEffect(() => {
-    const list = goalsOpen ? panel.current?.querySelector<HTMLElement>(".card-menu-goals") : null;
-    if (list) focusItem(items(list));
+    if (goals === "focus" && goalList.current) focusItem(items(goalList.current));
+  }, [goals]);
+
+  const cancelOpen = () => {
+    clearTimeout(timers.current.open);
+    timers.current.open = undefined;
+  };
+  const cancelClose = () => {
+    clearTimeout(timers.current.close);
+    timers.current.close = undefined;
+  };
+  const closeGoals = () => {
+    cancelClose();
+    exit.current = null;
+    // Le focus ne disparaît pas avec la liste : il revient à sa ligne.
+    const focused = document.activeElement;
+    if (focused instanceof Node && goalList.current?.contains(focused)) row.current?.focus();
+    setGoals(null);
+  };
+  // Fermeture dans `delay` ms. Hors de la zone de tolérance, une suite de mouvements ne la repousse
+  // pas (`extend` faux) : sinon le pointeur qui bouge sur une autre action garderait la liste.
+  const closeWithin = (delay: number, extend: boolean) => {
+    const at = Date.now() + delay;
+    if (timers.current.close !== undefined && !extend && timers.current.closeAt <= at) return;
+    clearTimeout(timers.current.close);
+    timers.current.closeAt = at;
+    timers.current.close = window.setTimeout(() => {
+      timers.current.close = undefined;
+      closeGoals();
+    }, delay);
+  };
+
+  useEffect(
+    () => () => {
+      clearTimeout(timers.current.open);
+      clearTimeout(timers.current.close);
+    },
+    [],
+  );
+
+  // Liste ouverte : un mouvement du pointeur hors de la ligne et de la liste annonce sa fermeture,
+  // repoussée seulement tant qu'il se dirige vers elle.
+  useEffect(() => {
+    if (!goalsOpen) return;
+    const controller = new AbortController();
+    const move = (event: PointerEvent) => {
+      if (event.pointerType === "touch") return;
+      const list = goalList.current;
+      if (!list || !row.current) return;
+      const target = event.target;
+      if (target instanceof Node && (row.current.contains(target) || list.contains(target))) {
+        cancelClose();
+        return;
+      }
+      // Liste ouverte au clavier ou au clic, pointeur pas encore passé par la ligne ou revenu de
+      // la liste : un mouvement ailleurs ne la ferme pas.
+      if (exit.current === null) return;
+      const point = { x: event.clientX, y: event.clientY };
+      const toward = inCorridor(exit.current, point, list.getBoundingClientRect());
+      // Le sommet suit le pointeur tant qu'il se rapproche : un va-et-vient sort vite de la zone.
+      if (toward) exit.current = point;
+      closeWithin(CLOSE_DELAY, toward);
+    };
+    document.addEventListener("pointermove", move, { signal: controller.signal });
+    return () => controller.abort();
   }, [goalsOpen]);
 
   // La carte n'est plus affichée (étape de daily, relecture) : le menu n'a plus d'objet.
@@ -67,9 +155,45 @@ function CardMenuPanel(props: { board: BoardModel; menu: CardMenuState }) {
 
   if (!send) return null;
 
-  const openGoals = () => {
+  const openGoals = (withFocus: boolean) => {
     if (blocked !== null) return;
-    setGoalsOpen(true);
+    cancelOpen();
+    cancelClose();
+    if (withFocus) exit.current = null;
+    if (withFocus && goalList.current) focusItem(items(goalList.current));
+    setGoals((current) => (withFocus ? "focus" : (current ?? "hover")));
+  };
+
+  const hoverRow = (event: PointerEvent) => {
+    if (event.pointerType === "touch") return;
+    cancelClose();
+    if (goalsOpen || blocked !== null) return;
+    cancelOpen();
+    timers.current.open = window.setTimeout(() => {
+      timers.current.open = undefined;
+      openGoals(false);
+    }, OPEN_DELAY);
+  };
+
+  // Le toucher déclenche aussi `pointerleave` (après le doigt levé, au défilement) : ignoré.
+  const leaveRow = (event: PointerEvent) => {
+    if (event.pointerType === "touch") return;
+    cancelOpen();
+    exit.current = { x: event.clientX, y: event.clientY };
+    if (goalsOpen && !goalList.current?.contains(event.relatedTarget as Node | null))
+      closeWithin(CLOSE_DELAY, false);
+  };
+
+  const enterGoals = (event: PointerEvent) => {
+    if (event.pointerType === "touch") return;
+    cancelClose();
+    exit.current = null;
+  };
+
+  const leaveGoals = (event: PointerEvent) => {
+    if (event.pointerType === "touch") return;
+    if (row.current?.contains(event.relatedTarget as Node | null)) return;
+    closeWithin(CLOSE_DELAY, false);
   };
 
   const choose = (goalId: string | null) => {
@@ -112,13 +236,12 @@ function CardMenuPanel(props: { board: BoardModel; menu: CardMenuState }) {
         list.at(-1)?.focus();
         break;
       case "ArrowRight":
-        if (current.getAttribute("aria-haspopup") === "menu") openGoals();
+        if (current.getAttribute("aria-haspopup") === "menu") openGoals(true);
         break;
       case "ArrowLeft":
         // Au premier niveau, rien à faire, mais la touche ne va pas à la daily (étape précédente).
         if (!inGoals) break;
-        setGoalsOpen(false);
-        root.querySelector<HTMLElement>("[aria-haspopup='menu']")?.focus();
+        closeGoals();
         break;
       case "Enter":
       case " ":
@@ -181,6 +304,7 @@ function CardMenuPanel(props: { board: BoardModel; menu: CardMenuState }) {
       onContextMenu={(event) => event.preventDefault()}
     >
       <button
+        ref={row}
         type="button"
         role="menuitem"
         class="card-menu-item card-menu-parent"
@@ -189,7 +313,10 @@ function CardMenuPanel(props: { board: BoardModel; menu: CardMenuState }) {
         aria-disabled={blocked !== null || undefined}
         aria-describedby={blocked ? reasonId : undefined}
         tabIndex={-1}
-        onClick={() => (goalsOpen ? setGoalsOpen(false) : openGoals())}
+        // Un clic ouvre toujours : survolée puis cliquée, la liste ne se referme pas.
+        onClick={() => openGoals(true)}
+        onPointerEnter={hoverRow}
+        onPointerLeave={leaveRow}
       >
         {t("Envoyer vers un goal")}
         <span class="card-menu-arrow" aria-hidden="true">
@@ -202,7 +329,14 @@ function CardMenuPanel(props: { board: BoardModel; menu: CardMenuState }) {
         )}
       </button>
       {goalsOpen && blocked === null && (
-        <div class="card-menu-goals" role="menu" aria-label={t("Envoyer vers un goal")}>
+        <div
+          ref={goalList}
+          class="card-menu-goals"
+          role="menu"
+          aria-label={t("Envoyer vers un goal")}
+          onPointerEnter={enterGoals}
+          onPointerLeave={leaveGoals}
+        >
           {send.goals.map((goal) => (
             <button
               key={goal.id}

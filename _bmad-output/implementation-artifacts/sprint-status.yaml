@@ -218,7 +218,7 @@ action_items:
     action: "Ajouter le menu de carte à scripts/verify-drag.mjs (Chrome réel, Jira
       fictif)"
     owner: "dev"
-    status: open
+    status: done
     ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-3-retro-2026-10-31.md"
   - id: "epic-3-retro-item-21-extraire-l-état-et-les-options-du-menu-d"
     epic: 3

@@ -100,6 +100,81 @@ export function placeAtPoint(
   panel.dataset.placed = "";
 }
 
+/** Écart entre un menu et son sous-menu. */
+const SUBMENU_GAP = 2;
+
+/**
+ * Sous-menu d'un menu de carte, à côté de lui : à droite, sa première ligne alignée sur la ligne
+ * qui l'ouvre ; à gauche faute de place à droite ; remonté s'il déborderait en bas. Même
+ * conversion qu'au-dessus pour le zoom de la présentation.
+ */
+export function placeBeside(
+  panel: HTMLElement,
+  menu: Element,
+  row: Element,
+  viewport: Viewport = { width: window.innerWidth, height: window.innerHeight },
+): void {
+  const zoom = cssZoom(panel);
+  // Mesuré au coin de la fenêtre, où toute la largeur est disponible : mesuré près du bord droit,
+  // il serait rétréci, puis s'élargirait une fois placé à gauche, par-dessus le menu.
+  panel.style.setProperty("--menu-left", "0px");
+  panel.style.setProperty("--menu-top", "0px");
+  const box = panel.getBoundingClientRect();
+  const parent = menu.getBoundingClientRect();
+  // Marge intérieure et bord du sous-menu, mesurés : sa première ligne face à celle qui l'ouvre.
+  const first = panel.querySelector("[role='menuitem']");
+  const inset = first ? first.getBoundingClientRect().top - box.top : 0;
+  const fitsRight = parent.right + SUBMENU_GAP + box.width <= viewport.width - MARGIN;
+  const left = fitsRight
+    ? parent.right + SUBMENU_GAP
+    : Math.max(MARGIN, parent.left - SUBMENU_GAP - box.width);
+  const top = clamp(
+    row.getBoundingClientRect().top - inset,
+    MARGIN,
+    viewport.height - MARGIN - box.height,
+  );
+  panel.style.setProperty("--menu-left", `${Math.round(left / zoom)}px`);
+  panel.style.setProperty("--menu-top", `${Math.round(top / zoom)}px`);
+  panel.style.setProperty(
+    "--menu-max-height",
+    `${Math.floor((viewport.height - 2 * MARGIN) / zoom)}px`,
+  );
+  panel.dataset.side = fitsRight ? "right" : "left";
+  panel.dataset.placed = "";
+}
+
+export interface Point {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * Le pointeur se dirige-t-il vers le sous-menu ? Vrai s'il est dans le triangle formé par le point
+ * où il a quitté la ligne (`apex`) et les deux coins du bord du sous-menu tourné vers ce point.
+ */
+export function inCorridor(
+  apex: Point,
+  point: Point,
+  box: {
+    readonly left: number;
+    readonly right: number;
+    readonly top: number;
+    readonly bottom: number;
+  },
+): boolean {
+  const x = apex.x <= box.left ? box.left : box.right;
+  const corners: readonly [Point, Point, Point] = [apex, { x, y: box.top }, { x, y: box.bottom }];
+  const side = (p: Point, q: Point) =>
+    (point.x - q.x) * (p.y - q.y) - (p.x - q.x) * (point.y - q.y);
+  const [a, b, c] = corners;
+  const d1 = side(a, b);
+  const d2 = side(b, c);
+  const d3 = side(c, a);
+  const negative = d1 < 0 || d2 < 0 || d3 < 0;
+  const positive = d1 > 0 || d2 > 0 || d3 > 0;
+  return !(negative && positive);
+}
+
 /** `value` dans `[min, max]` ; `min` l'emporte si l'intervalle est vide (menu trop grand). */
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, max));

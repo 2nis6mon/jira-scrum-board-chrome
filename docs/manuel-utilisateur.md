@@ -122,8 +122,9 @@ les objectifs restent affichés.
 - Glissez-la vers un objectif pour l'y rattacher, ou vers sa ligne par défaut pour la détacher.
 - Déplacez-la à la position voulue lorsque Jira autorise le changement de rang.
 - Sans glisser : faites un clic droit sur la carte (ou **Maj+F10**, ou la touche **Menu**, la carte
-  ayant le focus), puis **Envoyer vers un goal** et choisissez l'objectif, ou **Retirer du goal**
-  pour la renvoyer dans sa ligne par défaut. Colonne et rang ne changent pas. Le menu se parcourt
+  ayant le focus), puis passez sur **Envoyer vers un goal** : la liste des objectifs s'ouvre à
+  côté du menu (ou cliquez), et se referme quand le pointeur s'en va. Choisissez l'objectif, ou
+  **Retirer du goal** pour la renvoyer dans sa ligne par défaut. Colonne et rang ne changent pas. Le menu se parcourt
   aux flèches et se ferme par **Échap**, **Tab** ou un clic ailleurs ; en plein écran (Daily),
   **Échap** quitte d'abord le plein écran, que le navigateur se réserve. Une action indisponible
   donne sa raison (écriture en cours, aucun objectif où l'envoyer).

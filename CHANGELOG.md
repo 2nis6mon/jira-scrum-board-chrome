@@ -3,6 +3,17 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.41.1 — Menu de carte : liste des objectifs ouverte au survol
+
+- Dans le menu d'une carte, la liste de **Envoyer vers un goal** devient un sous-menu à côté du
+  menu, à droite ou à gauche faute de place, au lieu de se déplier dessous après un clic. Elle
+  s'ouvre après 150 ms de survol, sans prendre le focus, et se referme au plus tard 300 ms après
+  que le pointeur a quitté la ligne et la liste ; un trajet en diagonale vers elle la garde
+  ouverte. Un clic sur la ligne l'ouvre et y met le focus, sans la refermer ; le clavier ne change
+  pas. Aucune écriture nouvelle.
+- `npm run verify:drag` contrôle aussi le menu de carte dans Chrome : clic droit, survol, trajet
+  en diagonale, envoi vers un goal (une écriture), côté gauche près du bord et fermeture.
+
 ## 0.41.0 — Menu de carte : décisions après la rétrospective de l'Epic 3
 
 - En Daily, toutes les actions du menu d'une carte sont permises, dont **Envoyer vers un goal**

@@ -1,6 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from "vitest";
-import { placeAtPoint, placeFloatingMenu } from "../../src/app/views/board/floatingMenu";
+import {
+  inCorridor,
+  placeAtPoint,
+  placeBeside,
+  placeFloatingMenu,
+} from "../../src/app/views/board/floatingMenu";
 
 const VIEWPORT = { width: 1200, height: 800 };
 
@@ -126,5 +131,100 @@ describe("menu d'une carte placé au point demandé", () => {
     placeAtPoint(panel, { x: 300, y: 100 }, VIEWPORT);
     expect(at(panel)).toEqual([`${Math.round(300 / 1.25)}px`, `${Math.round(100 / 1.25)}px`]);
     expect(panel.style.getPropertyValue("--menu-max-height")).toBe(`${Math.floor(784 / 1.25)}px`);
+  });
+});
+
+/** Boîte à l'écran, de `left`, `top` à `left + width`, `top + height`. */
+function boxed(left: number, top: number, width: number, height: number): Element {
+  const element = document.createElement("div");
+  element.getBoundingClientRect = () =>
+    ({ left, top, right: left + width, bottom: top + height, width, height }) as DOMRect;
+  return element;
+}
+
+/**
+ * Sous-menu de `width` × `height` px, dont la première ligne est à 7 px de son bord haut. Sans
+ * `narrowed`, sa largeur ne dépend pas de sa position ; sinon il rétrécit à `narrowed` px quand il
+ * n'est pas posé au coin de la fenêtre (place limitée près du bord droit).
+ */
+function goalPanel(width: number, height: number, zoom?: number, narrowed?: number) {
+  const panel = cardPanel(width, height, zoom);
+  panel.getBoundingClientRect = () => {
+    const atCorner = panel.style.getPropertyValue("--menu-left") === "0px";
+    const shown = narrowed !== undefined && !atCorner ? narrowed : width;
+    return { top: 0, left: 0, width: shown, height } as DOMRect;
+  };
+  const item = document.createElement("button");
+  item.setAttribute("role", "menuitem");
+  item.getBoundingClientRect = () => ({ top: 7 }) as DOMRect;
+  panel.append(item);
+  return panel;
+}
+
+describe("sous-menu d'un menu de carte placé à côté de lui", () => {
+  // Menu de 240 px de large à x = 300 ; la ligne qui ouvre le sous-menu est à y = 120.
+  const parent = boxed(300, 100, 240, 120);
+  const row = boxed(306, 120, 228, 32);
+
+  it("à droite du menu, première ligne alignée sur sa ligne", () => {
+    const panel = goalPanel(260, 150);
+    placeBeside(panel, parent, row, VIEWPORT);
+    expect(at(panel)).toEqual(["542px", "113px"]);
+    expect(panel.dataset.side).toBe("right");
+    expect(panel.dataset.placed).toBe("");
+  });
+
+  it("à gauche faute de place à droite", () => {
+    const panel = goalPanel(260, 150);
+    placeBeside(panel, boxed(900, 100, 240, 120), boxed(906, 120, 228, 32), VIEWPORT);
+    expect(at(panel)).toEqual(["638px", "113px"]);
+    expect(panel.dataset.side).toBe("left");
+  });
+
+  it("mesuré au coin de la fenêtre : près du bord, sa largeur réduite ne compte pas", () => {
+    // Laissé près du bord droit, il ne mesurerait que 220 px et chevaucherait le menu une fois
+    // élargi à gauche.
+    const sized = goalPanel(340, 150, undefined, 220);
+    sized.style.setProperty("--menu-left", "900px");
+    placeBeside(sized, boxed(900, 100, 240, 120), boxed(906, 120, 228, 32), VIEWPORT);
+    expect(at(sized)).toEqual(["558px", "113px"]);
+  });
+
+  it("remonté s'il déborderait en bas, borné à la fenêtre s'il est trop haut", () => {
+    const low = goalPanel(260, 300);
+    placeBeside(low, boxed(300, 600, 240, 120), boxed(306, 700, 228, 32), VIEWPORT);
+    expect(at(low)).toEqual(["542px", "492px"]);
+    const tall = goalPanel(260, 900);
+    placeBeside(tall, parent, row, VIEWPORT);
+    expect(at(tall)[1]).toBe("8px");
+    expect(tall.style.getPropertyValue("--menu-max-height")).toBe("784px");
+  });
+
+  it("présentation : positions ramenées au zoom du panneau", () => {
+    const panel = goalPanel(260, 150, 1.25);
+    placeBeside(panel, parent, row, VIEWPORT);
+    expect(at(panel)).toEqual([`${Math.round(542 / 1.25)}px`, `${Math.round(113 / 1.25)}px`]);
+  });
+});
+
+describe("zone de tolérance vers un sous-menu", () => {
+  const right = { left: 542, right: 802, top: 113, bottom: 263 };
+  const exit = { x: 534, y: 136 };
+
+  it("vers le sous-menu, même en passant sous la ligne : dans la zone", () => {
+    expect(inCorridor(exit, { x: 538, y: 140 }, right)).toBe(true);
+    expect(inCorridor(exit, { x: 540, y: 200 }, right)).toBe(true);
+  });
+
+  it("vers le bas du menu ou à l'opposé : hors de la zone", () => {
+    expect(inCorridor(exit, { x: 500, y: 170 }, right)).toBe(false);
+    expect(inCorridor(exit, { x: 536, y: 280 }, right)).toBe(false);
+  });
+
+  it("sous-menu à gauche : le bord tourné vers le point de sortie compte", () => {
+    const left = { left: 38, right: 298, top: 113, bottom: 263 };
+    const leftExit = { x: 306, y: 136 };
+    expect(inCorridor(leftExit, { x: 302, y: 150 }, left)).toBe(true);
+    expect(inCorridor(leftExit, { x: 320, y: 150 }, left)).toBe(false);
   });
 });

@@ -241,6 +241,200 @@ describe("menu d'une carte", () => {
   });
 });
 
+describe("menu d'une carte — liste des objectifs ouverte au survol", () => {
+  // Délais simulés après la connexion (qui, elle, attend de vrais `setTimeout`).
+  const wait = (ms: number) => vi.advanceTimersByTimeAsync(ms);
+  const fakeTime = () => vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  const row = () => menu()?.querySelector<HTMLElement>("[aria-haspopup='menu']") ?? null;
+  const goals = () => menu()?.querySelector<HTMLElement>(".card-menu-goals") ?? null;
+  function pointer(type: string, target: Element, init: PointerEventInit = {}) {
+    target.dispatchEvent(
+      new PointerEvent(type, { bubbles: type === "pointermove", pointerType: "mouse", ...init }),
+    );
+  }
+  async function openMenu(key = "ABC-101") {
+    const context = await connectedBoard();
+    rightClick(card(key));
+    await settle();
+    const parent = row();
+    if (!parent) throw new Error("ligne « Envoyer vers un goal » attendue");
+    fakeTime();
+    return { ...context, parent };
+  }
+  async function hoverOpen() {
+    const context = await openMenu();
+    pointer("pointerenter", context.parent);
+    await wait(160);
+    return context;
+  }
+  // Liste placée à droite du menu, à l'écran (happy-dom ne calcule pas de mise en page).
+  function measured(list: HTMLElement) {
+    list.getBoundingClientRect = () =>
+      ({ left: 542, right: 802, top: 113, bottom: 263, width: 260, height: 150 }) as DOMRect;
+  }
+  const action = (label: string) => {
+    const found = [...(menu()?.querySelectorAll<HTMLElement>("[role='menuitem']") ?? [])].find(
+      (item) => item.textContent?.startsWith(label),
+    );
+    if (!found) throw new Error(`action « ${label} » attendue`);
+    return found;
+  };
+
+  it("un arrêt de 150 ms sur la ligne ouvre la liste, sans y mettre le focus", async () => {
+    const { parent } = await openMenu();
+    pointer("pointerenter", parent);
+    await wait(140);
+    expect(goals()).toBeNull();
+    await wait(20);
+    expect(goals()).not.toBeNull();
+    expect(parent.getAttribute("aria-expanded")).toBe("true");
+    expect(goals()?.dataset.placed).toBe("");
+    expect(goals()?.contains(document.activeElement)).toBe(false);
+  });
+
+  it("un simple passage sur la ligne ne l'ouvre pas ; le tactile non plus", async () => {
+    const { parent } = await openMenu();
+    pointer("pointerenter", parent);
+    await wait(100);
+    pointer("pointerleave", parent);
+    await wait(300);
+    expect(goals()).toBeNull();
+    pointer("pointerenter", parent, { pointerType: "touch" });
+    await wait(300);
+    expect(goals()).toBeNull();
+  });
+
+  it("le pointeur quitte la ligne et la liste, hors de la zone : refermée en 300 ms au plus", async () => {
+    const { parent } = await hoverOpen();
+    pointer("pointerleave", parent, { clientX: 100, clientY: 100 });
+    // Des mouvements continus hors de la zone ne repoussent pas la fermeture.
+    for (let step = 0; step < 5; step += 1) {
+      pointer("pointermove", document.body, { clientX: 100, clientY: 100 + step });
+      await wait(50);
+    }
+    expect(goals()).not.toBeNull();
+    pointer("pointermove", document.body, { clientX: 100, clientY: 106 });
+    await wait(60);
+    expect(goals()).toBeNull();
+    expect(parent.getAttribute("aria-expanded")).toBe("false");
+    expect(menu()).not.toBeNull();
+  });
+
+  it("en diagonale vers la liste, par-dessus une autre action : liste conservée", async () => {
+    const { parent, writes, links } = await hoverOpen();
+    const list = goals();
+    if (!list) throw new Error("liste attendue");
+    measured(list);
+    const top = action("Mettre en top priorité");
+    pointer("pointerleave", parent, { clientX: 534, clientY: 136 });
+    for (let step = 1; step <= 8; step += 1) {
+      pointer("pointermove", top, { clientX: 534 + step / 2, clientY: 136 + step * 4 });
+      await wait(50);
+    }
+    expect(goals()).toBe(list);
+    pointer("pointerenter", list);
+    pointer("pointermove", list.querySelector("[role='menuitem']") ?? list);
+    await wait(400);
+    expect(goals()).toBe(list);
+
+    vi.useRealTimers();
+    list.querySelector<HTMLElement>("[role='menuitem']")?.click();
+    await settle();
+    expect(menu()).toBeNull();
+    expect(writes().map((request) => request.path)).toEqual([PROPERTY]);
+    expect(links()).toHaveProperty("ABC-101", "g-stabilite");
+  });
+
+  it("un va-et-vient sur une autre action ne garde pas la liste ouverte", async () => {
+    const { parent } = await hoverOpen();
+    const list = goals();
+    if (!list) throw new Error("liste attendue");
+    measured(list);
+    const top = action("Mettre en top priorité");
+    pointer("pointerleave", parent, { clientX: 534, clientY: 136 });
+    for (let step = 0; step < 8; step += 1) {
+      const x = step % 2 === 0 ? 536 : 530;
+      pointer("pointermove", top, { clientX: x, clientY: 145 + step });
+      await wait(50);
+    }
+    expect(goals()).toBeNull();
+  });
+
+  it("un clic sur la ligne, liste déjà ouverte au survol : elle reste ouverte et prend le focus", async () => {
+    const { parent } = await hoverOpen();
+    parent.click();
+    await wait(0);
+    expect(goals()).not.toBeNull();
+    expect(document.activeElement?.textContent).toBe("Améliorer la stabilité");
+  });
+
+  it("ouverte au clavier : un mouvement de la souris ailleurs ne la ferme pas", async () => {
+    const { parent } = await openMenu();
+    parent.focus();
+    press("ArrowRight");
+    await wait(120);
+    expect(goals()?.contains(document.activeElement)).toBe(true);
+    for (let step = 0; step < 8; step += 1) {
+      pointer("pointermove", document.body, { clientX: 900, clientY: 700 + step });
+      await wait(50);
+    }
+    expect(goals()?.contains(document.activeElement)).toBe(true);
+  });
+
+  it("ouverte au toucher : faire défiler la liste au doigt ne la ferme pas", async () => {
+    const { parent } = await openMenu();
+    parent.click();
+    await wait(0);
+    const list = goals();
+    if (!list) throw new Error("liste attendue");
+    pointer("pointerleave", list, { pointerType: "touch" });
+    pointer("pointerleave", parent, { pointerType: "touch" });
+    await wait(400);
+    expect(goals()).toBe(list);
+  });
+
+  it("une écriture en cours : le survol n'ouvre rien", async () => {
+    const { board } = await connectedBoard();
+    board.pendingKeys.value = new Set(["ABC-105"]);
+    rightClick(card("ABC-101"));
+    await settle();
+    const parent = row();
+    if (!parent) throw new Error("ligne attendue");
+    fakeTime();
+    pointer("pointerenter", parent);
+    await wait(200);
+    expect(goals()).toBeNull();
+    expect(menu()?.textContent).toContain("Une écriture est en cours");
+  });
+
+  it("menu fermé pendant l'attente du survol : rien ne s'ouvre ensuite", async () => {
+    const { parent } = await openMenu();
+    pointer("pointerenter", parent);
+    await wait(50);
+    press("Escape");
+    await wait(300);
+    expect(menu()).toBeNull();
+  });
+
+  it("refermée par le pointeur alors que le focus y est : le focus revient à la ligne", async () => {
+    const { parent } = await openMenu();
+    parent.focus();
+    press("ArrowRight");
+    await wait(120);
+    expect(goals()?.contains(document.activeElement)).toBe(true);
+    const list = goals();
+    if (!list) throw new Error("liste attendue");
+    pointer("pointerenter", list);
+    pointer("pointerleave", list);
+    await wait(350);
+    expect(goals()).toBeNull();
+    expect(document.activeElement).toBe(row());
+  });
+});
+
 describe("menu d'une carte — top et basse priorité", () => {
   const RANK = "/rest/agile/1.0/issue/rank";
   const rootItems = () => [

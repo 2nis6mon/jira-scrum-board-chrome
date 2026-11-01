@@ -49,7 +49,7 @@ Ce flag ne provient ni de `.env`, ni d'un paramètre d'URL, ni d'une préférenc
 | `npm run harness` | Banc fictif, port 5199 |
 | `npm run verify:load` | Chargement, bienvenue, permissions, lanceur |
 | `npm run verify:jira` / `verify:transition` | Hébergement, messages forgés, navigation, fiche native (en-tête, colonnes, redimensionnement, menus, remplacement), formulaires longs modernes/classiques (défilement, en-tête, boutons, menus), ambiguïté, absence de validation automatique, fermeture |
-| `npm run verify:drag` / `verify:button` | Gestes ; bouton et stockage Chrome, zoom/redimensionnement/plein écran |
+| `npm run verify:drag` / `verify:button` | Gestes, menu de carte au survol ; bouton et stockage Chrome, zoom/redimensionnement/plein écran |
 | `npm run verify:settings` | Glissés des réglages : swimlanes, types, champs et règles de couleur |
 | `npm run verify:i18n` | Rendu FR/EN/ES et préférence de langue (voir [invariants](invariants.md#langue-de-linterface)) |
 | `npm run verify:planning` | Atelier, glissés/affectations, brouillon, publication, RAF consultatif et petit écran |

@@ -387,6 +387,157 @@ try {
       `✓ Statut ${test.status} : zone unique, ${test.native ? "premier chemin avec formulaire conservé dans Jira, aucune écriture" : `transition ${test.transition} choisie automatiquement, une seule écriture`}`,
     );
   }
+  // Menu d'une carte : clic droit réel, liste des objectifs ouverte au survol à côté du menu,
+  // conservée sur un trajet en diagonale, envoi vers un goal, puis à gauche près du bord droit et
+  // refermée quand le pointeur s'en va.
+  await send(
+    "Emulation.setDeviceMetricsOverride",
+    { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false },
+    sessionId,
+  );
+  await navigateToHarness(sessionId, "http://127.0.0.1:5201/?scenario=board-drag-goal-priority");
+  await waitFor(
+    sessionId,
+    "window.__goalPriority?.ready && document.querySelector('[data-issue-key=\"RUN-7\"]')",
+    "Le scénario du menu de carte n'est pas prêt",
+  );
+  const mouse = (type, x, y, extra = {}) =>
+    send("Input.dispatchMouseEvent", { type, x, y, ...extra }, sessionId);
+  const geometry = () =>
+    evaluate(
+      sessionId,
+      `(() => {
+        const menu = document.querySelector('.card-menu');
+        const row = menu?.querySelector('[aria-haspopup="menu"]');
+        const goals = menu?.querySelector('.card-menu-goals[data-placed]');
+        const box = (element) => {
+          if (!element) return null;
+          const { left, right, top, bottom } = element.getBoundingClientRect();
+          return { left, right, top, bottom };
+        };
+        return { menu: box(menu), row: box(row), goals: box(goals), side: goals?.dataset.side ?? null,
+          firstGoal: box(goals?.querySelector('[role="menuitem"]')),
+          focusInGoals: Boolean(goals?.contains(document.activeElement)) };
+      })()`,
+    );
+  const run7 = await evaluate(
+    sessionId,
+    `(() => {
+      const card = document.querySelector('[data-issue-key="RUN-7"]');
+      card.scrollIntoView({block: 'center'});
+      const rect = card.getBoundingClientRect();
+      return {x: rect.x + 35, y: rect.y + 20};
+    })()`,
+  );
+  await mouse("mouseMoved", run7.x, run7.y);
+  await mouse("mousePressed", run7.x, run7.y, { button: "right", buttons: 2, clickCount: 1 });
+  await mouse("mouseReleased", run7.x, run7.y, { button: "right", buttons: 0, clickCount: 1 });
+  await waitFor(
+    sessionId,
+    "Boolean(document.querySelector('.card-menu[data-placed]'))",
+    "Le clic droit sur RUN-7 n'a pas ouvert le menu de l'extension",
+  );
+  const opened = await geometry();
+  const rowCenter = {
+    x: (opened.row.left + opened.row.right) / 2,
+    y: (opened.row.top + opened.row.bottom) / 2,
+  };
+  await mouse("mouseMoved", rowCenter.x, rowCenter.y);
+  await sleep(60);
+  assert(!(await geometry()).goals, "La liste des objectifs s'est ouverte sans arrêt du pointeur");
+  await sleep(250);
+  const hovered = await geometry();
+  assert(
+    hovered.goals &&
+      hovered.side === "right" &&
+      hovered.goals.left >= hovered.menu.right &&
+      Math.abs(hovered.firstGoal.top - hovered.row.top) <= 1 &&
+      !hovered.focusInGoals &&
+      JSON.stringify(hovered.menu) === JSON.stringify(opened.menu),
+    `Liste des objectifs mal ouverte au survol : ${JSON.stringify(hovered)}`,
+  );
+  const target = await evaluate(
+    sessionId,
+    `(() => {
+      const item = [...document.querySelectorAll('.card-menu-goals [role="menuitem"]')]
+        .find((element) => element.textContent === 'Améliorer la stabilité');
+      const rect = item.getBoundingClientRect();
+      return {x: rect.left + 30, y: rect.top + rect.height / 2};
+    })()`,
+  );
+  // Départ du côté gauche de la ligne, arrivée sur le second objectif : le trajet descend et
+  // passe sur « Mettre en top priorité » avant d'atteindre la liste.
+  const start = { x: hovered.row.left + 20, y: rowCenter.y };
+  await mouse("mouseMoved", start.x, start.y);
+  let crossed = false;
+  for (let step = 1; step <= 8; step += 1) {
+    const x = start.x + ((target.x - start.x) * step) / 8;
+    const y = start.y + ((target.y - start.y) * step) / 8;
+    await mouse("mouseMoved", x, y);
+    crossed ||= await evaluate(
+      sessionId,
+      `Boolean(document.elementFromPoint(${x}, ${y})?.closest('[role="menuitem"]')?.textContent?.startsWith('Mettre en top priorité'))`,
+    );
+    await sleep(60);
+  }
+  assert(crossed, "Le trajet en diagonale ne passe pas sur une autre action du menu");
+  assert((await geometry()).goals, "La liste s'est refermée pendant le trajet vers elle");
+  await mouse("mousePressed", target.x, target.y, { button: "left", buttons: 1, clickCount: 1 });
+  await mouse("mouseReleased", target.x, target.y, { button: "left", buttons: 0, clickCount: 1 });
+  await waitFor(
+    sessionId,
+    `window.__goalPriority.writes() === 1 && !document.querySelector('.card-menu') &&
+      document.querySelector('[data-issue-key="RUN-7"]')?.getAttribute('aria-busy') !== 'true'`,
+    "L'envoi de RUN-7 vers un goal depuis le menu n'est pas confirmé",
+  );
+  const sent = await evaluate(
+    sessionId,
+    `({ goal: window.__goalPriority.document().links['RUN-7'] ?? null,
+      otherWrites: window.__goalPriority.otherWrites() })`,
+  );
+  assert(
+    sent.goal === "g-stabilite" && sent.otherWrites === 0,
+    `Envoi vers un goal incorrect : ${JSON.stringify(sent)}`,
+  );
+  // Près du bord droit : menu ouvert au point demandé, liste à gauche.
+  await evaluate(
+    sessionId,
+    `(() => {
+      const card = document.querySelector('[data-issue-key="RUN-7"]');
+      const rect = card.getBoundingClientRect();
+      card.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2,
+        clientX: innerWidth - 20, clientY: rect.top + 20 }));
+    })()`,
+  );
+  await waitFor(
+    sessionId,
+    "Boolean(document.querySelector('.card-menu[data-placed]'))",
+    "Le menu ne s'est pas rouvert près du bord droit",
+  );
+  const edge = await geometry();
+  await mouse(
+    "mouseMoved",
+    (edge.row.left + edge.row.right) / 2,
+    (edge.row.top + edge.row.bottom) / 2,
+  );
+  await sleep(250);
+  const left = await geometry();
+  assert(
+    left.goals && left.side === "left" && left.goals.right <= left.menu.left,
+    `Près du bord droit, la liste devait s'ouvrir à gauche : ${JSON.stringify(left)}`,
+  );
+  for (let step = 0; step < 6; step += 1) {
+    await mouse("mouseMoved", 120 + step * 4, 900);
+    await sleep(70);
+  }
+  const away = await geometry();
+  assert(
+    away.menu && !away.goals,
+    `La liste ne s'est pas refermée quand le pointeur est parti : ${JSON.stringify(away)}`,
+  );
+  console.log(
+    "✓ Menu de carte : liste ouverte au survol à droite, gardée en diagonale, envoi vers un goal (une écriture), à gauche près du bord, refermée en partant",
+  );
 } finally {
   await browser.close();
   await server.close();

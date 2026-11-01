@@ -2746,7 +2746,11 @@ details.lane-menu:not([data-placed]) .menu-panel {
 
 /* Menu d'une carte (CardMenu.tsx), sur le modèle de .menu-panel : ouvert au point demandé, placé
    par rapport à la fenêtre (floatingMenu.ts), caché le temps d'être placé. */
-.card-menu {
+/* Menu d'une carte et sa liste des objectifs (sous-menu à côté, placé par placeBeside, imbriqué
+   dans son DOM pour le clavier et le clic ailleurs ; en position fixe, son défilement ne la rogne
+   pas). */
+.card-menu,
+.card-menu-goals {
   position: fixed;
   z-index: 40;
   top: var(--menu-top, 0);
@@ -2764,7 +2768,12 @@ details.lane-menu:not([data-placed]) .menu-panel {
   box-shadow: 0 8px 24px rgb(21 24 29 / 12%);
 }
 
-.card-menu:not([data-placed]) {
+.card-menu-goals {
+  z-index: 41;
+}
+
+.card-menu:not([data-placed]),
+.card-menu-goals:not([data-placed]) {
   visibility: hidden;
 }
 
@@ -2772,12 +2781,8 @@ details.lane-menu:not([data-placed]) .menu-panel {
   outline: none;
 }
 
-.card-menu-goals {
-  display: flex;
-  flex-direction: column;
-  margin: 2px 0 0 10px;
-  padding-left: 6px;
-  border-left: 1px solid var(--line);
+.card-menu-parent[aria-expanded="true"] {
+  background: var(--sidebar);
 }
 
 .card-menu-item {
