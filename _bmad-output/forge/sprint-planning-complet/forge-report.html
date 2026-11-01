@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forge — Sprint Planning complet</title>
+<style>
+  :root { --ink:#15181d; --ink-2:#3f444d; --ink-3:#636a76; --line:#e2e5ea; --bg:#f7f8fa; --surface:#fff; --blue:#2563eb; --wax:#9f1d2c; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 -apple-system, "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 48px 24px 64px; }
+  header { display:grid; grid-template-columns: 1fr auto; gap: 24px; align-items:center; border-bottom:1px solid var(--line); padding-bottom: 28px; }
+  h1 { font-size: 30px; line-height:1.2; margin: 0 0 8px; letter-spacing:-.01em; }
+  header p { margin: 0; color: var(--ink-3); max-width: 56ch; }
+  h2 { font-size: 17px; margin: 36px 0 12px; }
+  ul { margin: 0; padding-left: 20px; }
+  li { margin: 6px 0; max-width: 75ch; }
+  li strong { color: var(--ink); }
+  .muted { color: var(--ink-3); }
+  .cols { display:grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .panel { background: var(--surface); border:1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
+  .panel h2 { margin-top: 0; }
+  .voices { display:grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap: 10px; }
+  .voice { background: var(--surface); border:1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .voice b { display:block; } .voice span { color: var(--ink-3); font-size: 13px; }
+  .voice q { display:block; margin-top: 6px; font-size: 13.5px; color: var(--ink-2); }
+  footer { margin-top: 40px; color: var(--ink-3); font-size: 13px; }
+  a { color: var(--blue); }
+  @media (max-width: 700px) { header, .cols { grid-template-columns: 1fr; } .seal { justify-self: start; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Sprint Planning complet</h1>
+      <p>Préparer les objectifs, rattacher les tickets, clôturer puis démarrer le sprint depuis l'extension.
+        Session du 01/11/2026 avec Denis, reprise d'une session du matin.</p>
+    </div>
+    <svg class="seal" width="150" height="150" viewBox="0 0 150 150" role="img" aria-label="Sceau : HARDENED">
+      <defs><path id="arc" d="M75 75 m-50 0 a50 50 0 1 1 100 0 a50 50 0 1 1 -100 0"/></defs>
+      <path d="M75 6 l9 8 12-3 5 11 12 2 1 12 10 7-4 11 6 10-8 9 2 12-11 5-2 12-12 1-7 10-11-4-10 6-9-8-12 2-5-11-12-2-1-12-10-7 4-11-6-10 8-9-2-12 11-5 2-12 12-1 7-10 11 4z" fill="#9f1d2c"/>
+      <circle cx="75" cy="75" r="56" fill="none" stroke="#f3d6d9" stroke-width="1.5" stroke-dasharray="3 3"/>
+      <text font-size="10" font-weight="700" letter-spacing="2" fill="#f3d6d9"><textPath href="#arc">SPRINT GOALS BOARD · FORGE · 01-11-2026 ·</textPath></text>
+      <text x="75" y="80" text-anchor="middle" font-size="17" font-weight="800" fill="#fff" letter-spacing="1">HARDENED</text>
+    </svg>
+  </header>
+
+  <h2>Ce qui a été gravé</h2>
+  <ul>
+    <li><strong>Jira est la seule source, chaque geste écrit tout de suite.</strong> Plus de brouillon ni de « Relire et publier » ; la page se reconstruit depuis Jira à l'entrée.</li>
+    <li><strong>Objectifs selon la source du board.</strong> Texte : écriture du texte du sprint puis de la propriété, renommage à la validation. Goals Atlassian : créés en amont, ajoutés par recherche par nom, épinglés sur le sprint.</li>
+    <li><strong>Tickets.</strong> Poser un ticket sur un objectif l'ajoute aussitôt au sprint. On les trouve dans le backlog et tous les sprints futurs, sans alerte quand ils changent de sprint.</li>
+    <li><strong>Retrait limité</strong> au sprint en préparation, vers le backlog ou un autre sprint futur.</li>
+    <li><strong>Deux gestes séparés.</strong> « Clôturer » en début de séance ouvre la fenêtre native de Jira, puis l'extension reporte les objectifs non atteints. « Démarrer » en fin de séance ouvre la fenêtre native de Jira.</li>
+    <li><strong>Vélocité partagée</strong> dans la propriété du sprint, champ visible dans l'en-tête.</li>
+    <li><strong>Conflit bloqué</strong> : relire avant d'écrire le texte des objectifs, refuser s'il a changé.</li>
+    <li><strong>Écran</strong> dans la grammaire de la page du sprint, barre latérale conservée (<a href="maquette-sprint-planning-v2.html">maquette v2</a>).</li>
+  </ul>
+
+  <div class="cols">
+    <section class="panel">
+      <h2>Écarté, et pourquoi</h2>
+      <ul>
+        <li>Mode « Animer la séance » : un seul écran suffit.</li>
+        <li>Clôture et démarrage écrits par l'extension : les fenêtres natives le font, sans nouvelle écriture.</li>
+        <li>Choisir où va le reste à faire dans l'extension : la fenêtre native s'en charge.</li>
+        <li>Créer des Goals depuis le planning : ils existent avant la séance.</li>
+        <li>Vélocité locale : elle doit être la même pour toute l'équipe.</li>
+      </ul>
+    </section>
+    <section class="panel">
+      <h2>Points faibles qui restent</h2>
+      <ul>
+        <li>Droits : lecture seule annoncée à l'ouverture ou découverte au premier refus, en attente.</li>
+        <li>Contrats Atlassian à vérifier : retour au backlog, ajout depuis un autre sprint, fenêtres natives.</li>
+        <li>Les fenêtres natives dépendent de la structure du DOM de Jira.</li>
+        <li>Une clôture faite directement dans Jira ne reporte pas les objectifs.</li>
+        <li>La décision du 14/10 est renversée : Epic 8, AGENTS.md et docs à mettre à jour.</li>
+      </ul>
+    </section>
+  </div>
+
+  <h2>Les voix qui ont mis l'idée à l'épreuve</h2>
+  <div class="voices">
+    <div class="voice"><b>📋 John</b><span>Product Manager</span><q>La recherche dans tous les sprints n'a de sens que si on peut prendre le ticket.</q></div>
+    <div class="voice"><b>🏗️ Winston</b><span>Architecte</span><q>Si l'extension ouvre la fenêtre native, elle sait que la clôture vient d'avoir lieu.</q></div>
+    <div class="voice"><b>🎨 Sally</b><span>UX</span><q>Un bouton qui fait trois choses irréversibles, on n'ose pas cliquer.</q></div>
+    <div class="voice"><b>🔒 Vex</b><span>Sécurité</span><q>Un nouvel endpoint d'écriture, c'est une décision, pas un détail.</q></div>
+    <div class="voice"><b>😤 Grumbal</b><span>L'adversaire</span><q>Une écriture qui efface celle d'un collègue sans bruit : le pire bug.</q></div>
+    <div class="voice"><b>🧭 Inès</b><span>RTE d'un train SAFe, voix invitée</span><q>Si je retape mes Goals du PI Planning en texte, ils divergent au premier sprint.</q></div>
+    <div class="voice"><b>🗂️ Karim</b><span>Scrum Master d'une autre équipe, voix invitée</span><q>Je ne veux pas qu'un bouton du planning fasse ma clôture en douce.</q></div>
+    <div class="voice"><b>📝 Léa</b><span>PO en séance, voix invitée</span><q>Si je dois quitter l'écran pour réparer, je perds la salle.</q></div>
+  </div>
+
+  <footer>Résumé des décisions : <a href="forged-idea.md">forged-idea.md</a>. Journal complet : .memlog.md.</footer>
+</main>
+</body>
+</html>

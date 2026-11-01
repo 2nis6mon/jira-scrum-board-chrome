@@ -49,7 +49,8 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
   deux sprints affichés, ne retient que des tickets : il ne masque aucun objectif.
 - Le texte `sprint.goal` est la source par défaut d'un nouveau Scrum ; les choix existants ou
   partagés sont conservés. Les Goals Atlassian sont optionnels ; leur échec permet un repli texte explicite.
-  **Seule la publication explicite du Sprint Planning peut modifier le champ natif d'un sprint futur.**
+  **Seuls les gestes du Sprint Planning modifient le champ natif d'un sprint futur ; le texte est relu avant chaque écriture.**
+  (Décision du 01/11/2026, mise en œuvre par l'Epic 8 ; jusque-là, seule la publication explicite le modifie.)
 - Kanban utilise le périmètre du board et `subQuery.query`, avec ses statuts mappés : aucun faux
   sprint, lecture séparée du backlog ou âge limite local des tickets terminés. `snapshot.sprint=null`
   et `activeSprints=[]` n'indiquent pas un board vide. Filtres rapides et couleurs JQL gardent ce

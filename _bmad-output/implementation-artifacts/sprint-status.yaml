@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-31-2026 09:00
-last_updated: 10-31-2026 09:09
+last_updated: 11-01-2026 20:30
 project: Sprint Goals Board pour Jira
 project_key: NOKEY
 tracking_system: file-system
@@ -75,11 +75,17 @@ development_status:
   epic-7-retrospective: optional
 
   epic-8: backlog
-  8-1-publier-le-planning-sans-refuser-un-changement-sans-rapport: backlog
-  8-2-le-planning-attend-son-tour-au-lieu-d-être-refusé: backlog
-  8-3-avis-du-planning-traduits-dans-les-trois-langues: backlog
-  8-4-valider-le-sprint-planning-sur-un-vrai-jira: backlog
-  8-5-activer-le-sprint-planning-dans-le-paquet: backlog
+  8-1-verifier-les-contrats-atlassian-du-planning-en-direct: backlog
+  8-2-l-ecran-du-planning-parle-comme-la-page-du-sprint: backlog
+  8-3-ecrire-les-objectifs-texte-au-fil-de-la-seance: backlog
+  8-4-poser-un-ticket-sur-un-objectif-l-ajoute-au-sprint: backlog
+  8-5-preparer-le-sprint-avec-les-goals-atlassian: backlog
+  8-6-velocite-partagee-du-sprint: backlog
+  8-7-cloturer-le-sprint-actif-et-reporter-ses-objectifs: backlog
+  8-8-demarrer-le-sprint-prepare: backlog
+  8-9-avis-du-planning-dans-les-trois-langues: backlog
+  8-10-valider-le-sprint-planning-sur-un-vrai-jira: backlog
+  8-11-activer-le-sprint-planning-dans-le-paquet: backlog
   epic-8-retrospective: optional
 action_items:
   - id: "epic-1-retro-item-1-faire-attendre-la-porte-d-écriture-et-la"

@@ -14,14 +14,16 @@ projet : [README](README.md). Éviter les copies entre documents. L'historique d
 ## Règles produit et sécurité
 
 - Écritures métier limitées aux transitions, rang, liens ticket ↔ Goal, propriétés de sprint/board
-  et publication explicite du Sprint Planning (texte `goal` et ajout de tickets du backlog à un sprint futur).
+  et gestes du Sprint Planning (texte `goal`, ajout de tickets au sprint en préparation, retour au backlog).
   Le diagnostic peut écrire puis supprimer sa propriété technique. Aucun nouvel endpoint
   d'écriture, hôte, droit Chrome ou assouplissement de CSP sans décision produit explicite et
   vérification du contrat Atlassian. Ne pas inventer d'API.
-- Décision produit du 14/10/2026 : Sprint Planning prépare des objectifs texte, sans Goals Atlassian.
-  Seule sa confirmation de publication peut modifier le texte natif et ajouter des tickets du backlog
-  à un sprint futur ; RAF actif consultatif. Aucun démarrage/création de sprint, retrait de ticket,
-  ni création de Goal. Préparation locale, relecture avant écriture, conflit conservant le brouillon.
+- Décision produit du 01/11/2026 (remplace celle du 14/10) : Sprint Planning écrit chaque geste
+  aussitôt dans Jira, seule source. Objectifs selon la source du board (texte, ou Goals Atlassian
+  épinglés, jamais créés). Tickets ajoutés depuis le backlog ou un sprint futur du board, retirés
+  seulement du sprint en préparation. Clôture et démarrage par les fenêtres natives Jira, puis report
+  des objectifs non atteints. Création de sprint exclue. Relecture du texte des objectifs avant écriture.
+  Mise en œuvre : Epic 8 ; le code actuel suit encore l'ancienne décision.
 - Sprint Planning est expérimental : actif dans les builds locaux `dist/` et les tests uniquement,
   désactivé à la compilation dans le paquet de distribution (`npm run package`).
 - Réglages partagés relus à chaque chargement, écrits seulement sur modification explicite.
@@ -29,7 +31,8 @@ projet : [README](README.md). Éviter les copies entre documents. L'historique d
   les préférences personnelles restent locales.
 - Une seule tentative par écriture. Après un résultat incertain, relire Jira sans rejouer ;
   ne pas annoncer de réussite avant confirmation.
-- Fiches et formulaires de transition natifs Jira. L'extension ne remplit ni ne valide les champs ;
+- Fiches, formulaires de transition et fenêtres de clôture/démarrage de sprint natifs Jira.
+  L'extension ne remplit ni ne valide les champs ;
   les transitions sans formulaire passent par l'inventaire REST.
 - Préserver clés `com.scrumboardmac.*`, formats et identifiants persistés, lecture des anciennes
   données et clé publique du manifest. Ne jamais committer `.secrets/extension-key.pem`.

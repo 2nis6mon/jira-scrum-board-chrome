@@ -18,6 +18,7 @@ decisions:
   - "Les pistes produit non décidées deviennent des epics, avec leurs questions ouvertes (Denis, 30/10/2026)."
   - "La mise en conformité d'architecture précède le menu contextuel, prochaine fonction qui écrit dans Jira (Denis, 30/10/2026)."
   - "Sprint Planning, fonction cachée du paquet, a son propre epic (Epic 8) pour être retravaillé puis activé ; FR17 quitte l'Epic 4 et la question de concurrence de la publication (action 5 de la rétrospective de l'Epic 1) y est reprise (Denis, 31/10/2026)."
+  - "Sprint Planning en direct (Denis, 01/11/2026) : remplace la décision produit du 14/10/2026 ; Epic 8 redéfinie depuis _bmad-output/forge/sprint-planning-complet/forged-idea.md (proposition sprint-change-proposal-2026-11-01.md)."
 ---
 
 # Sprint Goals Board pour Jira - Epic Breakdown
@@ -55,7 +56,7 @@ FR13: Les routes des boards gérés par l'équipe, le changement de board et le 
 FR14: Les lectures Software « enhanced » sont étudiées avant de remplacer les endpoints Agile, en préservant filtre, sprints et pagination.
 FR15: Le canal de publication et de mise à jour est confirmé (fiche, empaquetage et politique existent déjà).
 FR16: Les captures du Store sont renouvelées après chaque évolution visuelle, et une revue de sécurité indépendante a lieu avant une diffusion large.
-FR17: Sprint Planning est validé sur une instance réelle (droits, volumes) avant son activation dans le paquet ; démarrage/création de sprint, report automatique du RAF et création de Goals restent hors périmètre.
+FR17: Sprint Planning planifie le prochain sprint en direct dans Jira : chaque geste écrit aussitôt ; objectifs selon la source du board (texte, ou Goals Atlassian cherchés et épinglés) ; tickets pris dans le backlog et les sprints futurs du board, retirés seulement du sprint en préparation ; clôture et démarrage par les fenêtres natives Jira, avec report des objectifs non atteints ; vélocité partagée. Il est validé sur une instance réelle avant son activation dans le paquet ; création de sprint et création de Goals restent hors périmètre.
 
 Pistes produit (backlog, à décider) :
 
@@ -72,7 +73,7 @@ FR24: Le board montre les tickets reportés depuis le sprint précédent du boar
 
 ### NonFunctional Requirements
 
-NFR1: Écritures métier limitées à l'inventaire fermé E1–E9 de `src/jira/writes.ts` ; aucun nouvel endpoint d'écriture, hôte, droit Chrome ni assouplissement de CSP sans décision produit explicite et vérification du contrat Atlassian ; ne pas inventer d'API.
+NFR1: Écritures métier limitées à l'inventaire fermé E1–E9 de `src/jira/writes.ts` ; aucun nouvel endpoint d'écriture, hôte, droit Chrome ni assouplissement de CSP sans décision produit explicite et vérification du contrat Atlassian ; ne pas inventer d'API. Exception décidée le 01/11/2026 : retour d'un ticket au backlog depuis le sprint en préparation (E10), sous réserve de la vérification du contrat (story 8.1).
 NFR2: Une seule tentative par écriture ; après un résultat incertain, relire Jira sans rejouer et ne pas annoncer de réussite avant confirmation.
 NFR3: Préserver les clés `com.scrumboardmac.*`, formats et identifiants persistés, la lecture des anciennes données et la clé publique du manifest ; données illisibles ou de version inconnue jamais écrasées, clés inconnues conservées, limite client de 32 Ko par propriété.
 NFR4: Réglages partagés relus à chaque chargement et écrits seulement sur modification explicite ; aucun calcul automatique ne publie dans Jira ; sans `canEdit`, lecture seule ; préférences personnelles locales.
@@ -125,7 +126,7 @@ FR13: Epic 4 - Routes de boards et placement du bouton
 FR14: Epic 4 - Étude des endpoints « enhanced »
 FR15: Epic 5 - Canal de publication et de mise à jour
 FR16: Epic 5 - Captures Store et revue de sécurité indépendante
-FR17: Epic 8 - Sprint Planning retravaillé, validé sur instance réelle, puis activé dans le paquet
+FR17: Epic 8 - Sprint Planning en direct dans Jira, validé sur instance réelle, puis activé dans le paquet
 FR18: Epic 3 - Menu contextuel sur un ticket
 FR19: Epic 6 - Export/import JSON des réglages
 FR20: Epic 6 - Préférences personnelles entre postes
@@ -173,10 +174,10 @@ L'équipe règle ses limites WIP en points et des minimums par colonne, et voit 
 **FRs covered:** FR21
 *Notes :* en attente (Denis, 30/10/2026).
 
-### Epic 8: Sprint Planning prêt à activer
-L'équipe prépare son prochain sprint dans l'extension et publie objectifs et tickets du backlog sans conflit inutile ni geste refusé, et la fonction, validée sur un vrai Jira, est activée dans le paquet distribué.
+### Epic 8: Sprint Planning en direct dans Jira
+L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre, sans quitter l'extension ; chaque geste est aussitôt dans Jira, et la fonction, validée sur un vrai Jira, est activée dans le paquet distribué.
 **FRs covered:** FR17
-*Notes :* créé le 31/10/2026 (Denis) : Sprint Planning est aujourd'hui une fonction cachée (`dist/` local et tests seulement). Reprend l'action 5 de la rétrospective de l'Epic 1 et les écarts du planning relevés pendant l'Epic 1. Périmètre produit inchangé (décision du 14/10/2026) : ni démarrage ni création de sprint, ni retrait de ticket, ni création de Goal.
+*Notes :* créé le 31/10/2026, redéfini le 01/11/2026 (Denis) depuis [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md), qui remplace la décision du 14/10/2026. Création de sprint et de Goals hors périmètre. Droits (lecture seule annoncée ou découverte au premier refus) : décision en attente. Écran de référence : maquette v2.
 
 ## Epic 1: Des écritures Jira sûres et cohérentes
 
@@ -549,78 +550,184 @@ So that je diffuse en connaissant les risques.
 **En attente (Denis, 30/10/2026) :** stories à écrire à la reprise de cet epic. Pistes : limites WIP exprimées en points, minimums de colonne, présentation des sources de Goals selon les capacités du site (FR21).
 
 
-## Epic 8: Sprint Planning prêt à activer
+## Epic 8: Sprint Planning en direct dans Jira
 
-L'équipe prépare son prochain sprint dans l'extension et publie objectifs et tickets du backlog sans conflit inutile ni geste refusé, puis la fonction, validée sur un vrai Jira, est activée dans le paquet distribué. Aujourd'hui, Sprint Planning n'existe que dans les builds locaux `dist/` et les tests (`SPRINT_PLANNING_ENABLED`, `vite.config.ts`). Périmètre produit inchangé (décision du 14/10/2026) : préparation locale, relecture avant écriture, publication explicite du texte `goal` et de l'ajout de tickets du backlog à un sprint futur ; ni démarrage ni création de sprint, ni retrait de ticket, ni création de Goal.
+L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre. Chaque geste écrit aussitôt dans Jira, qui reste la seule source : la page se reconstruit à l'entrée depuis le texte de l'objectif du sprint, la propriété `sprintgoals.v1` et les tickets du sprint. Aujourd'hui, Sprint Planning n'existe que dans les builds locaux `dist/` et les tests (`SPRINT_PLANNING_ENABLED`) ; il le reste jusqu'à la story 8.11. Décisions : [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md) ; écran : maquette v2.
 
-**Proposé (31/10/2026), à valider par Denis :** stories issues de la rétrospective de l'Epic 1 (F5, partiel 1.4-a), du travail différé (`deferred-work.md`) et de FR17. Ordre : les corrections d'abord, l'essai réel ensuite, l'activation en dernier.
+Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis essai réel et activation.
 
-### Story 8.1: Publier le planning sans refuser un changement sans rapport
+### Story 8.1: Vérifier les contrats Atlassian du planning en direct
 
-As a Scrum Master qui publie son planning,
-I want que la publication n'échoue pas parce qu'un collègue a rattaché un autre ticket entre-temps,
-So that je ne refais pas mon planning pour un changement qui ne le concerne pas.
-
-*Décision à prendre en ouvrant la story (action 5 de la rétrospective de l'Epic 1) :* aujourd'hui, tout changement de la propriété du sprint depuis le chargement refuse la publication (`src/core/sprintPlanning.ts`, comparaison du document entier). Option proposée : fusionner comme les autres écritures de `sprintgoals.v1` (FR1) les changements hors de la zone du planning, et refuser seulement si les objectifs ou les liens des tickets publiés ont changé. Option alternative : garder le refus et l'inscrire dans `SPEC.md` et la note d'architecture.
-
-**Acceptance Criteria (option proposée) :**
-
-**Given** un planning prêt et un autre ticket rattaché dans Jira depuis le chargement
-**When** je publie
-**Then** la publication part, et le rattachement du collègue est conservé
-
-**Given** un objectif du sprint ou le lien d'un ticket publié modifié dans Jira depuis le chargement
-**When** je publie
-**Then** rien n'est écrit, mon brouillon est conservé et le conflit est expliqué (NFR2)
-
-### Story 8.2: Le planning attend son tour au lieu d'être refusé
-
-As a membre de l'équipe qui publie le planning pendant qu'une autre écriture du board est en cours,
-I want que la publication attende la fin de l'écriture en cours,
-So that je n'ai pas à recommencer un geste refusé pour une simple simultanéité.
+As a Denis, responsable des écritures autorisées,
+I want que chaque nouvel usage d'une API Jira soit vérifié dans la documentation officielle avant d'être codé,
+So that le planning n'invente aucune API.
 
 **Acceptance Criteria:**
 
-**Given** une écriture du board en cours (déplacement, réglage, épinglage)
-**When** je publie le planning
-**Then** la publication attend la porte du board, puis part, une seule fois
+**Given** les références officielles Jira Software Cloud (Sprint, Board, Backlog)
+**When** les usages suivants sont vérifiés : retour au backlog (`POST /rest/agile/1.0/backlog/issue`), ajout à un sprint futur d'un ticket venant d'un autre sprint (E9), fenêtres natives « Terminer le sprint » et « Démarrer le sprint » atteignables depuis le backlog Jira, droits Jira requis par E5, E8, E9 et E10
+**Then** le constat (contrat, limites, droits) est consigné dans `docs/technique/`, E10 est ajouté à l'inventaire de `securite.md` si le contrat le permet, et tout usage non confirmé devient une décision à reprendre avec Denis
 
-**Given** le board quitté ou rechargé avant l'envoi
-**When** la publication est abandonnée
-**Then** le journal indique « rien n'a été envoyé à Jira », et non un résultat incertain
+### Story 8.2: L'écran du planning parle comme la page du sprint
 
-### Story 8.3: Avis du planning traduits dans les trois langues
+As a Scrum Master,
+I want un planning qui reprend la barre latérale, l'en-tête, les filtres, les swimlanes et les cartes de la page du sprint,
+So that je n'apprends pas un second écran.
+
+**Acceptance Criteria:**
+
+**Given** un board Scrum avec des sprints futurs
+**When** j'ouvre Sprint Planning
+**Then** la barre latérale garde le choix du board et liste les objectifs prévus, le sprint préparé est le titre de l'en-tête avec le menu des sprints futurs, et la page est lue dans Jira (objectifs, tickets, propriété), sans brouillon local
+
+**Given** la colonne de gauche
+**When** je cherche un ticket
+**Then** les sprints futurs du board, le backlog et le reste à faire du sprint actif (consultation) sont regroupés, filtrés par les mêmes filtres que la page du sprint, sans le sprint en préparation dont les tickets sont dans la zone principale
+
+**Given** des tickets du sprint sans objectif
+**When** la page s'affiche
+**Then** ils apparaissent après les swimlanes d'objectifs
+
+**Given** d'anciens brouillons `sprint-planning.v1`
+**When** le planning en direct s'ouvre
+**Then** ils ne sont plus appliqués ; leur sort (synthèse copiable une fois puis effacement, ou effacement) suit la décision de Denis prise en ouvrant la story
+
+### Story 8.3: Écrire les objectifs texte du sprint au fil de la séance
+
+As a Scrum Master sur un board en « Texte du sprint »,
+I want que l'ajout, le renommage, la suppression et le déplacement d'un objectif soient aussitôt dans Jira,
+So that l'équipe voit le même sprint que moi.
+
+**Acceptance Criteria:**
+
+**Given** un objectif ajouté, supprimé ou déplacé
+**When** le geste est fait
+**Then** le texte de l'objectif du sprint (E8) puis la propriété (E5) sont écrits, une seule fois chacun, par la porte du board
+
+**Given** un objectif renommé
+**When** je valide le champ (Entrée ou sortie du champ)
+**Then** E8 puis E5 sont écrits en gardant l'identifiant de l'objectif et ses tickets ; Échap annule sans écriture
+
+**Given** le texte de l'objectif du sprint modifié dans Jira depuis l'affichage
+**When** je fais un geste sur les objectifs
+**Then** rien n'est écrit, la page est mise à jour depuis Jira et l'avis demande de refaire la modification
+
+**Given** E8 confirmé puis E5 en échec
+**When** le geste se termine
+**Then** l'étape confirmée est indiquée, sans nouvelle tentative ni annonce de réussite
+
+### Story 8.4: Poser un ticket sur un objectif l'ajoute au sprint
+
+As a PO qui a réparti ses tickets sur plusieurs sprints au PI Planning,
+I want prendre un ticket du backlog ou d'un autre sprint futur et le poser sur un objectif,
+So that il entre dans le sprint en préparation d'un seul geste.
+
+**Acceptance Criteria:**
+
+**Given** un ticket du backlog ou d'un autre sprint futur du board
+**When** je le pose sur un objectif (glisser-déposer ou menu ⋯)
+**Then** il est ajouté au sprint en préparation (E9) puis rattaché (E5 en texte, E3 en Goals Atlassian), sans alerte, et sa carte indique d'où il vient
+
+**Given** un ticket du sprint en préparation
+**When** je le renvoie au backlog ou vers un autre sprint futur
+**Then** il en sort (E10 ou E9) ; aucun retrait n'est possible depuis un autre sprint, depuis le sprint actif, ni une fois le sprint démarré
+
+**Given** un ticket du reste à faire du sprint actif
+**When** il est affiché à gauche
+**Then** il est en consultation seulement
+
+### Story 8.5: Préparer le sprint avec les Goals Atlassian
+
+As a Scrum Master sur un board en Goals Atlassian,
+I want chercher par nom les Goals créés en amont et les ajouter au sprint,
+So that le planning et le board montrent les mêmes objectifs.
+
+**Acceptance Criteria:**
+
+**Given** un board en Goals Atlassian
+**When** je cherche un Goal par son nom et l'ajoute
+**Then** il est épinglé sur le sprint en préparation (E5), et ses tickets s'y rattachent par E3/E4 ; le planning ne crée aucun Goal
+
+### Story 8.6: Vélocité partagée du sprint
+
+As a équipe qui prépare son sprint sur plusieurs postes,
+I want une vélocité visible et identique pour tous,
+So that la charge se lit pareil chez chacun.
+
+**Acceptance Criteria:**
+
+**Given** le champ « Vélocité de l'équipe » de l'en-tête
+**When** je valide une valeur
+**Then** elle est écrite dans `sprintgoals.v1` (E5) et la charge du sprint s'y compare ; une propriété sans ce champ reste lisible et n'affiche pas de vélocité
+
+### Story 8.7: Clôturer le sprint actif et reporter ses objectifs non atteints
+
+As a Scrum Master en début de séance,
+I want clôturer le sprint actif depuis le planning,
+So that son reste à faire et ses objectifs non atteints arrivent dans le sprint que je prépare.
+
+**Acceptance Criteria:**
+
+**Given** un sprint actif sur le board
+**When** je clique « Clôturer le Sprint N »
+**Then** la fenêtre native « Terminer le sprint » de Jira s'ouvre ; l'utilisateur seul la remplit et valide
+
+**Given** la fenêtre fermée et le sprint relu clos
+**When** l'extension relit Jira
+**Then** chaque objectif non atteint (tickets pas tous dans la dernière colonne) est reporté dans le sprint en préparation : texte et propriété avec les liens de ses tickets en mode texte, épinglage en Goals Atlassian ; un ticket envoyé ailleurs par la fenêtre native est respecté
+
+**Given** la fenêtre annulée
+**When** l'extension relit Jira
+**Then** rien n'est reporté
+
+### Story 8.8: Démarrer le sprint préparé
+
+As a Scrum Master en fin de séance,
+I want démarrer le sprint préparé depuis le planning,
+So that la séance se termine sans quitter l'extension.
+
+**Acceptance Criteria:**
+
+**Given** aucun sprint actif
+**When** je clique « Démarrer le Sprint N »
+**Then** la fenêtre native « Démarrer le sprint » de Jira s'ouvre ; l'extension n'écrit rien et relit l'état du sprint à la fermeture
+
+**Given** un sprint encore actif
+**When** l'en-tête s'affiche
+**Then** « Démarrer » est désactivé avec sa raison
+
+### Story 8.9: Avis du planning dans les trois langues
 
 As a utilisateur anglophone ou hispanophone,
 I want que les avis du Sprint Planning soient dans ma langue,
-So that je comprends un conflit ou une publication partielle sans deviner.
+So that je comprends un conflit ou une écriture partielle sans deviner.
 
 **Acceptance Criteria:**
 
-**Given** un avis du planning (conflit, publication partielle, refus)
+**Given** un avis du planning (conflit, écriture partielle, refus, fenêtre native)
 **When** l'interface est en anglais ou en espagnol
-**Then** l'avis est produit en clés du catalogue avec paramètres, comme le journal, et vérifié par des tests en/es (NFR10)
+**Then** l'avis est produit en clés du catalogue avec paramètres et vérifié par des tests en/es (NFR10)
 
-### Story 8.4: Valider le Sprint Planning sur un vrai Jira
+### Story 8.10: Valider le Sprint Planning sur un vrai Jira
 
 As a Denis, responsable de la diffusion,
-I want un essai réel du Sprint Planning (droits, volumes),
-So that son activation repose sur un constat et non sur le seul Jira fictif.
+I want un essai réel du planning en direct (droits, volumes, fenêtres natives),
+So that son activation repose sur un constat.
 
 **Acceptance Criteria:**
 
 **Given** l'autorisation de Denis et un site Jira de test (NFR9)
-**When** le planning est préparé et publié avec et sans droit de gérer les sprints, sur un backlog volumineux
-**Then** le constat (réussites, refus, limites de volume) est consigné, et chaque défaut trouvé devient une story ou un correctif
+**When** un cycle complet est joué (clôture, report, objectifs, tickets venant de plusieurs sprints, retrait, vélocité, démarrage), avec et sans droit de gérer les sprints, sur un backlog volumineux
+**Then** le constat est consigné, et chaque défaut devient une story ou un correctif ; la décision sur les droits est prise à partir de ce constat
 
-### Story 8.5: Activer le Sprint Planning dans le paquet
+### Story 8.11: Activer le Sprint Planning dans le paquet
 
 As a équipe qui installe l'extension depuis le paquet distribué,
 I want trouver Sprint Planning,
-So that je prépare mes sprints sans build local.
+So that je planifie mes sprints sans build local.
 
 **Acceptance Criteria:**
 
-**Given** les stories 8.1 à 8.4 terminées et le constat de 8.4 favorable
+**Given** les stories 8.1 à 8.10 terminées et le constat de 8.10 favorable
 **When** le paquet est construit (`npm run package`)
 **Then** `SPRINT_PLANNING_ENABLED` vaut vrai dans le paquet, `npm run verify:planning:package` le vérifie, et AGENTS.md, le manuel, le CHANGELOG et les captures Store sont à jour

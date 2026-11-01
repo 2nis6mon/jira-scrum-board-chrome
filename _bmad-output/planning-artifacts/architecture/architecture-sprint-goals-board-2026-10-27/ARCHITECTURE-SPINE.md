@@ -7,7 +7,7 @@ paradigm: 'architecture en couches à noyau lié à Jira (hexagonal différé)'
 scope: 'Extension Chrome MV3 intégrée à Jira Cloud : tout src/, public/, board.html, launcher.html'
 status: final
 created: '2026-10-27'
-updated: '2026-10-30'
+updated: '2026-11-01'
 binds: [all]
 sources: [AGENTS.md, docs/technique/, src/, tests/guards/sources.test.ts]
 companions: [.memlog.md]
@@ -72,9 +72,9 @@ graph TD
 
 ### AD-2 — Écritures Jira : inventaire, une fonction core par intention [ADOPTED]
 
-- **Binds:** E1–E9, `core`, `app/services`, `app/model`
+- **Binds:** E1–E10, `core`, `app/services`, `app/model`
 - **Prevents:** deux ordres d'opérations pour la même intention ; orchestration dispersée hors de `core` ; inventaire contourné ; écriture sans relecture.
-- **Rule:** Une écriture n'existe que comme valeur `JiraWrite`/`GraphqlWrite` de `jira/writes.ts`, exécutée uniquement par un `JiraWriter` (`Pick<JiraTransport, "write">`) ou `goals.setLink`. Chaque intention métier (déplacer, rattacher à un objectif quel que soit `goalsOrigin`, classer, épingler, publier les réglages, publier le planning, tester le diagnostic) a **une seule** fonction de `core`, qui porte séquence, relecture conditionnant l'écriture, arrêt au premier échec et résultat partiel, et renvoie un résultat typé. Un nouveau geste réutilise cette fonction, sans en créer de variante. Un service déclenche sur geste explicite, gère file, droits et journal, traduit le résultat en avis, et peut seulement décorer le `JiraWriter` (garde de péremption ou de droits). Vues et `platform` n'écrivent jamais. Seule exception : E7, interne à `jira/diagnostics.ts`.
+- **Rule:** Une écriture n'existe que comme valeur `JiraWrite`/`GraphqlWrite` de `jira/writes.ts`, exécutée uniquement par un `JiraWriter` (`Pick<JiraTransport, "write">`) ou `goals.setLink`. Chaque intention métier (déplacer, rattacher à un objectif quel que soit `goalsOrigin`, classer, épingler, publier les réglages, écrire les objectifs du planning, placer un ticket dans le sprint en préparation, l'en retirer, reporter les objectifs non atteints, enregistrer la vélocité, tester le diagnostic) a **une seule** fonction de `core`, qui porte séquence, relecture conditionnant l'écriture, arrêt au premier échec et résultat partiel, et renvoie un résultat typé. Un nouveau geste réutilise cette fonction, sans en créer de variante. Un service déclenche sur geste explicite, gère file, droits et journal, traduit le résultat en avis, et peut seulement décorer le `JiraWriter` (garde de péremption ou de droits). Vues et `platform` n'écrivent jamais. Seule exception : E7, interne à `jira/diagnostics.ts`.
 
 ### AD-3 — État réactif détenu par les modèles [ADOPTED]
 
@@ -98,15 +98,15 @@ graph TD
 
 ### AD-6 — Porte d'écriture unique par board [ADOPTED]
 
-- **Binds:** tout geste qui écrit dans Jira depuis la vue d'un board (E1–E6, E8, E9)
+- **Binds:** tout geste qui écrit dans Jira depuis la vue d'un board (E1–E6, E8–E10)
 - **Prevents:** deux gestes écrivant en parallèle sur le même ticket ou la même propriété ; projection `pendingMove` contournée ; une même écriture autorisée ou refusée selon le geste.
-- **Rule:** `BoardModel` détient la seule file d'écritures Jira du board. Tout geste l'acquiert avant d'écrire ; aucun service ni modèle ne crée sa propre file. Le `JiraWriter` remis à `core` est toujours le décorateur fourni par cette porte (péremption de génération, droits), jamais le `JiraTransport` brut. Droits : `canEdit` pour E6 uniquement ; E1–E5, E8 et E9 sont laissés aux droits Jira. E7 (diagnostic) reste hors du board.
+- **Rule:** `BoardModel` détient la seule file d'écritures Jira du board. Tout geste l'acquiert avant d'écrire ; aucun service ni modèle ne crée sa propre file. Le `JiraWriter` remis à `core` est toujours le décorateur fourni par cette porte (péremption de génération, droits), jamais le `JiraTransport` brut. Droits : `canEdit` pour E6 uniquement ; E1–E5 et E8–E10 sont laissés aux droits Jira (droits du Sprint Planning : décision en attente, Epic 8). E7 (diagnostic) reste hors du board.
 
 ### AD-7 — Protocole hôte ↔ vue déclaré une seule fois [ADOPTED]
 
 - **Binds:** `src/integration/`, `app/platform/launcherChrome.ts`, messages `sprint-goals:*`
 - **Prevents:** un message étendu côté vue et rejeté silencieusement côté hôte ; types de message ajoutés sans validation.
-- **Rule:** Les types `sprint-goals:*` (canal `postMessage` ou `chrome.runtime`, sens, schéma de charge utile, validation) sont déclarés dans une liste unique `src/integration/messages.ts`, utilisée par tout module qui peut importer. Doublons nommés, imposés par l'absence d'import ou par AD-1, chacun entre les marqueurs `<protocole sprint-goals>` : copie complète dans `injectBoard.ts` (copié par `executeScript`), avec le même bloc `<validation sprint-goals>` que `messages.ts` ; `launch` dans `bootstrap.ts` ; `prepareLaunch` dans `app/platform/launcherChrome.ts`. `tests/integration/messages.test.ts` compare chaque copie et le code de validation, et refuse tout littéral `sprint-goals:` hors de ces blocs. Origine et fenêtre source restent vérifiées dans les deux sens.
+- **Rule:** Les types `sprint-goals:*` (canal `postMessage` ou `chrome.runtime`, sens, schéma de charge utile, validation) sont déclarés dans une liste unique `src/integration/messages.ts`, utilisée par tout module qui peut importer. Doublons nommés, imposés par l'absence d'import ou par AD-1, chacun entre les marqueurs `<protocole sprint-goals>` : copie complète dans `injectBoard.ts` (copié par `executeScript`), avec le même bloc `<validation sprint-goals>` que `messages.ts` ; `launch` dans `bootstrap.ts` ; `prepareLaunch` dans `app/platform/launcherChrome.ts`. `tests/integration/messages.test.ts` compare chaque copie et le code de validation, et refuse tout littéral `sprint-goals:` hors de ces blocs. Origine et fenêtre source restent vérifiées dans les deux sens. Les messages d'ouverture et de fermeture des fenêtres natives de sprint (« Terminer le sprint », « Démarrer le sprint ») suivent la même règle.
 
 ## Modules et flux
 
@@ -122,7 +122,7 @@ filtres et méthodes publiques. Trois services dans `src/app/services/` portent 
 
 Toute écriture Jira du board passe par [`BoardWriteGate`](../../../../src/app/model/BoardWriteGate.ts),
 détenue par `BoardModel` : file unique des gestes (déplacement, rattachement, réglages, épinglage,
-publication du planning) et décorateur remis à `core` (péremption de génération, `canEdit` pour E6).
+gestes du planning) et décorateur remis à `core` (péremption de génération, `canEdit` pour E6).
 
 Leurs ports décrivent les seuls états et effets nécessaires ; ils n'importent ni `BoardModel`,
 ni les vues, ni Preact, ni le DOM ou Chrome. Les types communs sont dans `BoardTypes.ts`, réexportés
