@@ -43,6 +43,7 @@ const PUT: JiraWrite = {
 const EVERY_WRITE: Record<JiraWrite["kind"], JiraWrite> = {
   "sprint.goal": { kind: "sprint.goal", sprintId: 43, goal: "Objectif" },
   "sprint.issues.add": { kind: "sprint.issues.add", sprintId: 43, issueKeys: ["ABC-1"] },
+  "backlog.issues.move": { kind: "backlog.issues.move", issueKeys: ["ABC-1"] },
   "sprintProperty.put": {
     kind: "sprintProperty.put",
     sprintId: 42,

@@ -118,3 +118,18 @@ Références : [boards](https://developer.atlassian.com/cloud/jira/software/rest
 [tickets/transitions](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/),
 [validation et suggestions JQL](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-jql/),
 [correspondance JQL](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-jql-match-post).
+### Contrats du planning en direct (vérifiés le 01/11/2026)
+
+Relevés dans les spécifications OpenAPI officielles de Jira Software Cloud et de la plateforme
+(`swagger.v3.json`, opérations `moveIssuesToBacklog`, `moveIssuesToSprintAndRank`,
+`partiallyUpdateSprint`, `setProperty`, `getMyPermissions`), sans essai réel ; l'essai sur un vrai Jira (story 8.10) reste à faire.
+
+| Usage | Contrat documenté | Droits et limites |
+|---|---|---|
+| Retour au backlog (E10) | `POST /rest/agile/1.0/backlog/issue`, corps `{"issues": [...]}` (clés uniques), 204 | « équivalent au retrait des sprints futurs et actifs », 50 tickets au plus ; 403 sans droit « d'affecter les tickets » au sprint, soit *Schedule issues* (`SCHEDULE_ISSUES`). Le ticket quitte aussi un sprint actif : son appartenance au sprint en préparation est relue juste avant. Variante `backlog/{boardId}/issue` écartée : elle sert à classer, inutile ici |
+| Ajout au sprint (E9) | `POST /rest/agile/1.0/sprint/{id}/issue`, 204 | « déplace » les tickets vers un sprint ouvert ou actif, 50 au plus ; un ticket d'un autre sprint futur en sort (un seul sprint ouvert par ticket, à confirmer en 8.10) ; 403 sans droit d'affecter les tickets au sprint (*Schedule issues*) |
+| Texte des objectifs (E8) | `POST /rest/agile/1.0/sprint/{id}`, mise à jour partielle | Les champs absents ne changent pas ; démarrer ou clore passerait par `state`, jamais envoyé ; 403 sans licence, droit de gestion des sprints attendu côté Jira |
+| Propriété `sprintgoals.v1` (E5) | `PUT/GET /rest/agile/1.0/sprint/{id}/properties/{clé}` | Écriture : « droit de modifier le sprint », 403 sinon ; lecture : droit de voir le sprint |
+| Droits de l'utilisateur | `GET /rest/api/3/mypermissions?projectKey=…&permissions=MANAGE_SPRINTS_PERMISSION,SCHEDULE_ISSUES,EDIT_ISSUES` | Lecture existante dans Jira mais non utilisée : un board peut couvrir plusieurs projets. Décision des droits reportée au constat de 8.10 ; d'ici là, un refus 403 s'affiche au premier geste, sans nouvelle tentative |
+| Clôture et démarrage | Fenêtres natives « Terminer le sprint » et « Démarrer le sprint » de la page backlog du board | Aucune API appelée par l'extension : l'hôte ouvre la page backlog du board dans sa popin, clique le bouton natif reconnu par son libellé (fr, en, es), isole la fenêtre et relit Jira à sa fermeture ; à défaut de bouton reconnu, la page reste à l'utilisateur. Dépendance au DOM de Jira, comme les transitions |
+

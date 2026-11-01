@@ -12,6 +12,7 @@ import {
 const EVERY_WRITE: Record<JiraWrite["kind"], JiraWrite> = {
   "sprint.goal": { kind: "sprint.goal", sprintId: 42, goal: "Livrer le parcours" },
   "sprint.issues.add": { kind: "sprint.issues.add", sprintId: 42, issueKeys: ["ABC-1"] },
+  "backlog.issues.move": { kind: "backlog.issues.move", issueKeys: ["ABC-1"] },
   "sprintProperty.put": {
     kind: "sprintProperty.put",
     sprintId: 42,
@@ -37,6 +38,7 @@ const EVERY_WRITE: Record<JiraWrite["kind"], JiraWrite> = {
 const ALLOWED_PATHS = [
   /^\/rest\/agile\/1\.0\/sprint\/\d+$/,
   /^\/rest\/agile\/1\.0\/sprint\/\d+\/issue$/,
+  /^\/rest\/agile\/1\.0\/backlog\/issue$/,
   /^\/rest\/agile\/1\.0\/sprint\/\d+\/properties\/com\.scrumboardmac\.[a-z0-9.]+$/,
   /^\/rest\/agile\/1\.0\/board\/\d+\/properties\/com\.scrumboardmac\.[a-z0-9.]+$/,
   /^\/rest\/api\/3\/issue\/[A-Z][A-Z0-9_]*-\d+\/transitions$/,
@@ -79,6 +81,33 @@ describe("inventaire des écritures", () => {
       expect(() =>
         buildWriteRequest({ kind: "sprint.issues.add", sprintId: 42, issueKeys }),
       ).toThrowError(JiraError);
+    }
+  });
+
+  it("renvoie 1 à 50 clés distinctes au backlog, sans rang, sprint ni board", () => {
+    const request = buildWriteRequest({
+      kind: "backlog.issues.move",
+      issueKeys: ["ABC-1", "ABC-2"],
+    });
+    expect(request.method).toBe("POST");
+    expect(request.path).toBe("/rest/agile/1.0/backlog/issue");
+    expect(JSON.parse(request.body ?? "")).toEqual({ issues: ["ABC-1", "ABC-2"] });
+    const fifty = Array.from({ length: 50 }, (_, index) => `ABC-${index + 1}`);
+    expect(() =>
+      buildWriteRequest({ kind: "backlog.issues.move", issueKeys: fifty }),
+    ).not.toThrow();
+    expect(() =>
+      buildWriteRequest({ kind: "sprint.issues.add", sprintId: 42, issueKeys: fifty }),
+    ).not.toThrow();
+    for (const issueKeys of [
+      [],
+      ["ABC-1", "ABC-1"],
+      ["ABC-1/../x"],
+      Array.from({ length: 51 }, (_, index) => `ABC-${index + 1}`),
+    ]) {
+      expect(() => buildWriteRequest({ kind: "backlog.issues.move", issueKeys })).toThrowError(
+        JiraError,
+      );
     }
   });
 

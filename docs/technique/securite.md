@@ -33,8 +33,11 @@ Toute évolution de permission, hôte, écriture ou CSP, soumise à décision pr
 | E5 | `PUT /rest/agile/1.0/sprint/{id}/properties/com.scrumboardmac.sprintgoals.v1` | Épinglage Scrum / lien en mode texte |
 | E6 | `PUT /rest/agile/1.0/board/{id}/properties/com.scrumboardmac.boardsettings.v1` | Réglage explicite, dont épinglage Kanban |
 | E7 | `PUT` puis `DELETE /rest/agile/1.0/sprint/{id}/properties/com.scrumboardmac.diagnostic` | Test demandé dans Diagnostic |
-| E8 | `POST /rest/agile/1.0/sprint/{id}`, seul champ `goal` | Confirmation du planning, sprint futur relu, sans dates/état/nom |
-| E9 | `POST /rest/agile/1.0/sprint/{id}/issue`, seul tableau `issues`, au plus 50 | Confirmation du planning, tickets du backlog relus, jamais du RAF actif |
+| E8 | `POST /rest/agile/1.0/sprint/{id}`, seul champ `goal` | Geste sur un objectif texte du planning, sprint futur et texte relus, sans dates/état/nom |
+| E9 | `POST /rest/agile/1.0/sprint/{id}/issue`, seul tableau `issues`, au plus 50 | Ticket du backlog ou d'un autre sprint futur posé dans le sprint en préparation, ou renvoyé de celui-ci vers un autre sprint futur ; jamais du RAF actif |
+| E10 | `POST /rest/agile/1.0/backlog/issue`, seul tableau `issues`, au plus 50 | Ticket du sprint en préparation renvoyé au backlog. Jira le retire aussi d'un sprint actif : juste avant, le sprint futur et sa présence dans ce sprint sont relus et un ticket d'un sprint actif est refusé ; relecture du sprint pour confirmer |
+
+E8 à E10 décrivent le planning en direct de l'Epic 8, livré story par story sur la branche de l'epic.
 
 Une tentative par écriture POST/PUT/DELETE ; relecture après résultat incertain, jamais de succès
 avant confirmation. Lectures rejouables seulement sur erreur transitoire. E1 relit statut/transitions ;
@@ -42,7 +45,8 @@ E3/E4 s'arrêtent si le détachement échoue, annoncent le succès partiel si se
 sans rollback. E5/E6 appliquent les protections des [données persistantes](donnees.md) et les droits Jira.
 Les réglages partagés, IDs de Goals et métadonnées d'auteur (nom/compte) sont visibles aux lecteurs
 Jira de l'entité ; préférences personnelles exclues. Hors texte `goal` de E8, aucun champ natif de sprint/board n'est écrit ;
-aucune création/suppression de ticket, modification de workflow, création de Goal ou démarrage de sprint.
+aucune création/suppression de ticket, modification de workflow, création de Goal, création, démarrage ou clôture
+de sprint : clôture et démarrage passent par les fenêtres natives de Jira (voir [intégration](integration-jira.md)).
 Les formulaires et fiches **Jira natifs** gardent les droits et actions de Jira : leurs requêtes et
 saisies sont hors du transport et du journal de l'extension, qui ne les remplit ni ne les valide.
 
@@ -62,3 +66,4 @@ saisies sont hors du transport et du journal de l'extension, qui ne les remplit 
 | S10 | Transition voisine cliquée : correspondance unique nom/statut, sinon fiche rendue sans clic |
 | S11 | Dépendance au DOM Jira : risque structurel, délais/repli visible/fixtures ; validation réelle nécessaire |
 | S12 | Navigation étrangère/forgée : origine/source et identifiants contrôlés ; URL construite par l'hôte |
+| S13 | Fenêtres natives de clôture/démarrage (Epic 8) : page backlog du board courant, adresse construite par l'hôte depuis sa propre page ; clic sur le seul bouton « Terminer/Démarrer le sprint » reconnu par son libellé fr/en/es, qui ouvre une fenêtre sans rien écrire ; autre langue ou bouton ambigu : page rendue à l'utilisateur. Validation réelle en 8.10 |

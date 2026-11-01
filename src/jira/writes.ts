@@ -5,10 +5,13 @@ import type { JsonObject } from "./json";
  * INVENTAIRE EXHAUSTIF des écritures REST de l'extension dans Jira.
  *
  * Le transport n'accepte d'écrire que ce que ce type sait exprimer : une écriture absente
- * d'ici est impossible à émettre. Le Sprint Planning autorise uniquement le texte `goal`
- * et l'ajout de tickets : ni création, démarrage, clôture, dates ou nom de sprint.
+ * d'ici est impossible à émettre. Le Sprint Planning autorise uniquement le texte `goal`,
+ * l'ajout de tickets à un sprint futur et leur retour au backlog (décision du 01/11/2026). Ni
+ * dates, nom ou état de sprint ; aucune création de sprint ; démarrage et clôture passent par les
+ * fenêtres natives de Jira, hors de cet inventaire.
  *
- * Catégories validées : propriété de sprint, lien ticket↔Goal, transition, rang, et (validée par
+ * Catégories validées : propriété de sprint, lien ticket↔Goal, transition, rang, gestes du Sprint
+ * Planning (texte `goal`, ajout au sprint, retour au backlog), et (validée par
  * Denis le 19/09/2026) propriété du board pour les réglages d'équipe, publiés sur un geste
  * explicite. Le lien
  * ticket↔Goal Atlassian passe par deux mutations GraphQL : elles forment l'inventaire
@@ -17,6 +20,11 @@ import type { JsonObject } from "./json";
 export type JiraWrite =
   | { kind: "sprint.goal"; sprintId: number; goal: string }
   | { kind: "sprint.issues.add"; sprintId: number; issueKeys: readonly string[] }
+  /**
+   * Retour au backlog (E10) : Jira retire les tickets de leurs sprints futurs et actifs. Le planning
+   * ne l'emploie que pour un ticket du sprint en préparation. Jira répond 204.
+   */
+  | { kind: "backlog.issues.move"; issueKeys: readonly string[] }
   | { kind: "sprintProperty.put"; sprintId: number; key: SprintPropertyKey; value: JsonObject }
   | { kind: "sprintProperty.delete"; sprintId: number; key: SprintPropertyKey }
   /** Réglages d'équipe du board, enregistrés sur chaque modification explicite. Jira répond 200 ou 201. */
@@ -94,23 +102,20 @@ export function buildWriteRequest(write: JiraWrite): WriteRequest {
       };
     case "sprint.issues.add":
       assertEntityId(write.sprintId, "sprint");
-      if (
-        write.issueKeys.length < 1 ||
-        write.issueKeys.length > 50 ||
-        new Set(write.issueKeys).size !== write.issueKeys.length
-      ) {
-        throw new JiraError({
-          kind: "decoding",
-          context: "ajout au sprint",
-          detail: "1 à 50 tickets distincts attendus",
-        });
-      }
-      for (const key of write.issueKeys) assertIssueKey(key);
+      assertIssueBatch(write.issueKeys, "ajout au sprint");
       return {
         method: "POST",
         path: `/rest/agile/1.0/sprint/${write.sprintId}/issue`,
         body: JSON.stringify({ issues: [...write.issueKeys] }),
         resource: `les tickets du sprint ${write.sprintId}`,
+      };
+    case "backlog.issues.move":
+      assertIssueBatch(write.issueKeys, "retour au backlog");
+      return {
+        method: "POST",
+        path: "/rest/agile/1.0/backlog/issue",
+        body: JSON.stringify({ issues: [...write.issueKeys] }),
+        resource: "le retour des tickets au backlog",
       };
     case "sprintProperty.put":
       return {
@@ -174,6 +179,18 @@ export function buildWriteRequest(write: JiraWrite): WriteRequest {
       };
     }
   }
+}
+
+/** Lot documenté par Atlassian : 1 à 50 clés distinctes, sans rang ni autre champ. */
+function assertIssueBatch(issueKeys: readonly string[], context: string): void {
+  if (
+    issueKeys.length < 1 ||
+    issueKeys.length > 50 ||
+    new Set(issueKeys).size !== issueKeys.length
+  ) {
+    throw new JiraError({ kind: "decoding", context, detail: "1 à 50 tickets distincts attendus" });
+  }
+  for (const key of issueKeys) assertIssueKey(key);
 }
 
 /** Clé Jira (`ABC-123`) : seule forme admise dans un chemin ou un corps d'écriture. */

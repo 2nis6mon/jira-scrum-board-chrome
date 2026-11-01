@@ -6,7 +6,7 @@
 Extension Chrome pour Jira Cloud, uniquement dans une page Jira autorisée, en Scrum ou Kanban
 (TypeScript, Preact + signals, Vite, Vitest, Biome). Le mode autonome et l'application macOS sont
 abandonnés. Référence technique : [docs/technique/](docs/technique/index.md) (invariants, intégration et API,
-données, sécurité E1–E9/S1–S12, contrôles et livraison) et la [note d'architecture](_bmad-output/planning-artifacts/architecture/architecture-sprint-goals-board-2026-10-27/ARCHITECTURE-SPINE.md)
+données, sécurité E1–E10/S1–S12, contrôles et livraison) et la [note d'architecture](_bmad-output/planning-artifacts/architecture/architecture-sprint-goals-board-2026-10-27/ARCHITECTURE-SPINE.md)
 (couches, modules, règles AD-1 à AD-7) ; travaux restants : [backlog](_bmad-output/planning-artifacts/backlog.md) ; utilisation :
 [manuel](docs/manuel-utilisateur.md) ; versions livrées : [historique](CHANGELOG.md) ; entrée du
 projet : [README](README.md). Éviter les copies entre documents. L'historique détaillé reste dans Git.

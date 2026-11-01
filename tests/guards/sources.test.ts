@@ -318,6 +318,12 @@ describe("code de production", () => {
     );
   });
 
+  it("limite le backlog au seul retour sans board ni rang (E10)", () => {
+    const writes = sources.find(({ file }) => file === "src/jira/writes.ts");
+    const backlogPaths = writes?.code.match(/\/rest\/agile\/1\.0\/backlog[^`"']*/g) ?? [];
+    expect(backlogPaths).toEqual(["/rest/agile/1.0/backlog/issue"]);
+  });
+
   it("ne déclare de mutation GraphQL que dans l'inventaire, et seulement les deux de rattachement", () => {
     expect(filesMatching(/\bmutation\s+\w*\s*[({]/)).toEqual(["src/jira/writes.ts"]);
     const writes = sources.find(({ file }) => file === "src/jira/writes.ts")?.code ?? "";
