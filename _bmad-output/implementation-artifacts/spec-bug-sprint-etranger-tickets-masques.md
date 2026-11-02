@@ -23,7 +23,7 @@ context:
 
 ## Implementation Notes
 
-- `src/core/sprintPlanning.ts` : `withoutEmptyForeignSprints` reçoit les colonnes du board ; un prédicat commun `isRemaining(states)` sert au filtre `remaining` (8.22), au filtre `shown` des sprints étrangers et au menu.
+- `src/core/sprintPlanning.ts` : `withoutEmptyForeignSprints` reçoit les colonnes du board ; un prédicat commun `remainingIssue(columns)` sert au filtre `remaining` (8.22), au filtre `shown` des sprints étrangers et au menu.
 - `src/app/model/PlanningModel.ts` : passe `configuration.columns`.
 - Sprint actif étranger dont tous les tickets du board sont terminés : ni section ni clôture (même règle que les futurs ; clore depuis ce board un sprint d’une autre équipe n’a pas de sens ici).
 - Tests : core (menu et snapshot, ticket terminé et ticket sans colonne) ; banc `planningFixture` : `foreignFutureSprint: "done"`.
