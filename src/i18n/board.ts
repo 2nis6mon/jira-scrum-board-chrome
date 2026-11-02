@@ -270,4 +270,57 @@ export const boardMessages = {
   "Déjà en fin de sa swimlane": "Already at the bottom of its swimlane",
   "Aucune autre sous-tâche de son parent dans cette swimlane":
     "No other subtask of its parent in this swimlane",
+  // ─── Sprint Planning en direct : écran ───
+  "Clé ou résumé, dans le sprint et ailleurs…": "Key or summary, in the sprint and elsewhere…",
+  Raccourci: "Shortcut",
+  "Écriture dans Jira…": "Writing to Jira…",
+  "Clôture en cours dans Jira…": "Completing in Jira…",
+  futur: "future",
+  "Ouvre la fenêtre de Jira ; vous seul la remplissez et la validez.":
+    "Opens the Jira dialog; only you fill it in and confirm it.",
+  "Clôturer {name}": "Complete {name}",
+  "Démarrer {name}": "Start {name}",
+  "Partagée avec l'équipe dans les données du sprint, écrite quand vous validez.":
+    "Shared with the team in the sprint data, written when you confirm.",
+  "Vélocité de l'équipe": "Team velocity",
+  "Charge du sprint comparée à la vélocité de l'équipe": "Sprint load compared with team velocity",
+  "vélocité non renseignée": "velocity not set",
+  "Où sont les tickets": "Where the issues are",
+  "Déposez ici un ticket du sprint en préparation pour le renvoyer au backlog.":
+    "Drop an issue from the sprint being prepared here to send it back to the backlog.",
+  "Reste à faire du sprint actif, en consultation : la fenêtre de clôture de Jira décide où il va.":
+    "Remaining work of the active sprint, read-only: the Jira completion dialog decides where it goes.",
+  "Aucun ticket.": "No issues.",
+  "{name} par objectifs": "{name} by goal",
+  "Chaque geste est écrit aussitôt dans Jira, puis relu.":
+    "Each action is written to Jira straight away, then read back.",
+  "Supprimer l'objectif ; ses tickets restent dans le sprint, sans objectif":
+    "Delete the goal; its issues stay in the sprint, without a goal",
+  "Retirer l'épinglage de {name}": "Unpin {name}",
+  "Retirer l'épinglage du sprint ; le Goal reste dans Atlassian":
+    "Unpin from the sprint; the Goal stays in Atlassian",
+  "Aucun ticket de cet objectif ne correspond à la recherche.":
+    "No issue in this goal matches the search.",
+  "Déposez ici les tickets qui rendent ce résultat possible : ils rejoignent le sprint.":
+    "Drop the issues that make this outcome possible here: they join the sprint.",
+  "Nouvel objectif : le résultat attendu à la fin du sprint":
+    "New goal: the outcome expected at the end of the sprint",
+  "Chercher un Goal à épingler": "Search for a Goal to pin",
+  "Chercher un Goal Atlassian par son nom…": "Search for an Atlassian Goal by name…",
+  "Recherche des Goals…": "Searching Goals…",
+  "Goals à épingler": "Goals to pin",
+  "Épingler {name}": "Pin {name}",
+  "Aucun Goal ne correspond à cette recherche.": "No Goal matches this search.",
+  "Les Goals se créent dans Atlassian ; le planning épingle les Goals existants.":
+    "Goals are created in Atlassian; planning pins existing Goals.",
+  "Sans objectif": "No goal",
+  "Dans le sprint, rattachés à aucun objectif": "In the sprint, not linked to any goal",
+  "Tous les tickets du sprint servent un objectif.": "Every issue in the sprint serves a goal.",
+  "Vient du backlog": "From the backlog",
+  "Vient de {name}": "From {name}",
+  "Actions sur {p0}": "Actions on {p0}",
+  Actions: "Actions",
+  "Ajouter au sprint": "Add to the sprint",
+  "Renvoyer au backlog": "Send back to the backlog",
+  "Vers {name}": "To {name}",
 } as const;

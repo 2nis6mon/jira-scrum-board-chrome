@@ -112,6 +112,11 @@ export interface SprintGoalDocument {
    * et un Goal : cette sélection est la seule donnée applicative du dispositif.
    */
   readonly atlassianGoalIds: readonly string[];
+  /**
+   * Vélocité de l'équipe pour ce sprint, saisie dans Sprint Planning (story 8.6) ; `null` : non
+   * renseignée. Une propriété plus ancienne, sans ce champ, reste lisible.
+   */
+  readonly velocity: number | null;
   readonly updatedAt: string | null;
   readonly updatedBy: string | null;
 }
@@ -126,6 +131,7 @@ export function makeSprintGoalDocument(
     goals: [],
     links: {},
     atlassianGoalIds: [],
+    velocity: null,
     updatedAt: null,
     updatedBy: null,
     ...parts,
@@ -170,6 +176,7 @@ export function decodeSprintGoalDocument(value: unknown): SprintGoalDocument {
     atlassianGoalIds: Array.isArray(value.atlassianGoalIds)
       ? value.atlassianGoalIds.filter((id): id is string => typeof id === "string")
       : [],
+    velocity: isVelocity(value.velocity) ? value.velocity : null,
     updatedAt: optionalText(value.updatedAt),
     updatedBy: optionalText(value.updatedBy),
   };
@@ -195,9 +202,15 @@ export function encodeSprintGoalDocument(document: SprintGoalDocument): JsonObje
     links: { ...document.links },
     atlassianGoalIds: [...document.atlassianGoalIds],
   };
+  if (document.velocity !== null) encoded.velocity = document.velocity;
   if (document.updatedAt !== null) encoded.updatedAt = document.updatedAt;
   if (document.updatedBy !== null) encoded.updatedBy = document.updatedBy;
   return encoded;
+}
+
+/** Vélocité admise : un nombre fini, positif ou nul, d'au plus 100 000 (points ou tickets). */
+export function isVelocity(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100_000;
 }
 
 function optionalText(value: unknown): string | null {
@@ -217,6 +230,7 @@ const DOCUMENT_KEYS = new Set([
   "goals",
   "links",
   "atlassianGoalIds",
+  "velocity",
   "updatedAt",
   "updatedBy",
 ]);
@@ -260,6 +274,7 @@ export function readSprintGoalProperty(raw: unknown): StrictSprintGoalRead {
           (goal) =>
             !isRecord(goal) || typeof goal.id !== "string" || typeof goal.title !== "string",
         ))) ||
+    (raw.velocity !== undefined && !isVelocity(raw.velocity)) ||
     (raw.links !== undefined &&
       (!isRecord(raw.links) || Object.values(raw.links).some((id) => typeof id !== "string")));
   if (malformed) {

@@ -61,6 +61,15 @@ export const PROTOCOL = {
       },
     },
   },
+  sprintDialog: {
+    type: "sprint-goals:sprint-dialog",
+    channel: "postMessage",
+    direction: "view-to-host",
+    fields: {
+      action: { kind: "enum", values: ["complete", "start"] },
+      sprintName: { kind: "string", maxLength: 199 },
+    },
+  },
   launch: {
     type: "sprint-goals:launch",
     channel: "runtime",

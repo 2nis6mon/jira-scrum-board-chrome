@@ -682,3 +682,171 @@ describe("hôte Jira — parcours natif autonome", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+/** Ligne de sprint de la page backlog fictive : titre, compteur et bouton natif. */
+function sprintRow(doc: Document, name: string, button: string) {
+  const row = doc.createElement("div");
+  row.innerHTML = `<h3>${name}</h3><span>3 tickets</span><button>${button}</button>`;
+  doc.body.append(row);
+  const element = row.querySelector("button") as HTMLButtonElement;
+  const clicked = vi.fn();
+  element.addEventListener("click", clicked);
+  return { row, element, clicked };
+}
+
+/** Fenêtre native de Jira ouverte par le bouton : champs requis, jamais remplis ici. */
+function sprintWindow(doc: Document, title: string) {
+  const element = doc.createElement("section");
+  element.setAttribute("role", "dialog");
+  element.innerHTML = `<h2>${title}</h2><form><input name="goal"><button>${title}</button></form>`;
+  bounds(element, 600, 420);
+  doc.body.append(element);
+  return element;
+}
+
+describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => {
+  const BACKLOG = `${SITE}/jira/software/c/projects/ABC/boards/7/backlog`;
+  const request = (
+    send: ReturnType<typeof mount>["send"],
+    action: "complete" | "start",
+    sprintName: string,
+  ) => {
+    send({ type: "sprint-goals:sprint-dialog", action, sprintName });
+    const dialog = document.querySelector("dialog") as HTMLDialogElement;
+    const backlog = dialog.querySelector("iframe") as HTMLIFrameElement;
+    return { dialog, backlog, ...page(backlog) };
+  };
+
+  it("démarre par le seul bouton de la ligne du sprint, isole la fenêtre et relit à sa fermeture", async () => {
+    const { send, board } = mount();
+    const current = request(send, "start", "Sprint 13");
+    expect(current.dialog.getAttribute("aria-label")).toBe("Démarrer le sprint « Sprint 13 »");
+    expect(current.win.location.href).toBe(BACKLOG);
+    expect(current.backlog.style.visibility).toBe("hidden");
+    // « Sprint 1 » ne doit pas désigner la ligne de « Sprint 13 », ni l'inverse.
+    const other = sprintRow(current.doc, "Sprint 1", "Démarrer le sprint");
+    const target = sprintRow(current.doc, "Sprint 13", "Démarrer le sprint");
+    const opened: HTMLElement[] = [];
+    target.element.addEventListener("click", () => {
+      opened.push(sprintWindow(current.doc, "Démarrer le sprint"));
+    });
+    const submitted = vi.fn();
+    current.doc.addEventListener("submit", submitted);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(target.clicked).toHaveBeenCalledTimes(1);
+    expect(other.clicked).not.toHaveBeenCalled();
+    expect(current.backlog.style.visibility).toBe("hidden");
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(current.backlog.style.visibility).toBe("visible");
+    expect(opened).toHaveLength(1);
+    expect(opened[0]?.hasAttribute("data-sprint-goals-sprint-dialog")).toBe(true);
+    expect(
+      current.doc.querySelector("style[data-sprint-goals-sprint-dialog-style]"),
+    ).not.toBeNull();
+    expect(current.doc.querySelector("input")?.value).toBe("");
+    expect(board.postMessage).not.toHaveBeenCalled();
+
+    opened[0]?.remove();
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(current.dialog.isConnected).toBe(false);
+    expect(board.postMessage).toHaveBeenCalledExactlyOnceWith(
+      { type: "sprint-goals:refresh" },
+      EXTENSION,
+    );
+    expect(target.clicked).toHaveBeenCalledTimes(1);
+    expect(submitted).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("reconnaît le nom entier du sprint, sans le confondre avec un nom qui le prolonge", async () => {
+    const { send } = mount();
+    const current = request(send, "start", "Sprint 1");
+    const longer = sprintRow(current.doc, "Sprint 13", "Démarrer le sprint");
+    const target = sprintRow(current.doc, "Sprint 1", "Démarrer le sprint");
+    await vi.advanceTimersByTimeAsync(600);
+    expect(target.clicked).toHaveBeenCalledTimes(1);
+    expect(longer.clicked).not.toHaveBeenCalled();
+  });
+
+  it("termine par le bouton anglais unique du sprint actif", async () => {
+    document.documentElement.lang = "en";
+    const { send } = mount("en");
+    const current = request(send, "complete", "Sprint 12");
+    expect(current.dialog.getAttribute("aria-label")).toBe("Complete sprint “Sprint 12”");
+    const active = sprintRow(current.doc, "Sprint 12", "Complete sprint");
+    const future = sprintRow(current.doc, "Sprint 13", "Start sprint");
+    active.element.addEventListener("click", () => sprintWindow(current.doc, "Complete sprint"));
+    await vi.advanceTimersByTimeAsync(2100);
+    expect(active.clicked).toHaveBeenCalledTimes(1);
+    expect(future.clicked).not.toHaveBeenCalled();
+    expect(current.backlog.style.visibility).toBe("visible");
+    expect(current.doc.querySelector("[data-sprint-goals-sprint-dialog] h2")?.textContent).toBe(
+      "Complete sprint",
+    );
+  });
+
+  it("rend la page sans rien cliquer si le bouton est ambigu, inexact ou dans une autre langue", async () => {
+    const { send, board } = mount();
+    const current = request(send, "start", "Sprint 13");
+    const rows = [
+      sprintRow(current.doc, "Sprint 13", "Démarrer le sprint"),
+      sprintRow(current.doc, "Sprint 13", "Démarrer le sprint"),
+      sprintRow(current.doc, "Sprint 14", "Sprint starten"),
+      sprintRow(current.doc, "Sprint 15", "Démarrer le sprint maintenant"),
+    ];
+    await vi.advanceTimersByTimeAsync(9900);
+    expect(current.backlog.style.visibility).toBe("hidden");
+    await vi.advanceTimersByTimeAsync(300);
+    expect(current.backlog.style.visibility).toBe("visible");
+    for (const row of rows) expect(row.clicked).not.toHaveBeenCalled();
+
+    // Page rendue : la fenêtre que l'utilisateur ouvre lui-même referme la popin à sa fermeture.
+    const opened = sprintWindow(current.doc, "Démarrer le sprint");
+    await vi.advanceTimersByTimeAsync(300);
+    opened.remove();
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(current.dialog.isConnected).toBe(false);
+    expect(board.postMessage).toHaveBeenCalledExactlyOnceWith(
+      { type: "sprint-goals:refresh" },
+      EXTENSION,
+    );
+    for (const row of rows) expect(row.clicked).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("referme la page rendue par Échap dans Jira ou sur la popin, avec une seule relecture", async () => {
+    const { send, board } = mount();
+    let current = request(send, "complete", "Sprint 12");
+    await vi.advanceTimersByTimeAsync(10500);
+    expect(current.backlog.style.visibility).toBe("visible");
+    current.doc.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(current.dialog.isConnected).toBe(false);
+    expect(board.postMessage).toHaveBeenCalledTimes(1);
+
+    current = request(send, "complete", "Sprint 12");
+    current.dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
+    expect(current.dialog.isConnected).toBe(false);
+    expect(board.postMessage).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("refuse une page hôte qui n'est pas un board et ignore une demande d'une autre fenêtre", () => {
+    const { send, host } = mount();
+    const valid = { type: "sprint-goals:sprint-dialog", action: "start", sprintName: "Sprint 13" };
+    send(valid, "https://evil.example");
+    send(valid, EXTENSION, window);
+    send({ ...valid, action: "create" });
+    expect(document.querySelector("dialog")).toBeNull();
+
+    (window as unknown as { happyDOM: { setURL(url: string): void } }).happyDOM.setURL(
+      `${SITE}/jira/software/c/projects/ABC/boards/7/timeline?sprintGoals=1`,
+    );
+    send(valid);
+    expect(document.querySelector("dialog")).toBeNull();
+    expect(host.hasAttribute("data-error")).toBe(true);
+    expect(host.shadowRoot?.textContent).toContain(
+      "Jira n'a pas permis d'ouvrir la fenêtre du sprint ici.",
+    );
+  });
+});

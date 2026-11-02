@@ -46,8 +46,14 @@ const ALREADY_PLANNED = issueJson("ABC-210", {
   points: 2,
 });
 
-/** Installe les routes après celles du board, pour préserver les lectures du sprint actif 42. */
-export function planningFixture(jira: FakeJira = boardSiteJira()) {
+/**
+ * Installe les routes après celles du board, pour préserver les lectures du sprint actif 42.
+ * `issueFields` ajoute des champs à des tickets (par clé), sur une copie.
+ */
+export function planningFixture(
+  jira: FakeJira = boardSiteJira(),
+  options: { issueFields?: Readonly<Record<string, Record<string, unknown>>> } = {},
+) {
   const sprint = {
     id: 43,
     name: "Sprint 43 — Paiement sans friction",
@@ -65,7 +71,12 @@ export function planningFixture(jira: FakeJira = boardSiteJira()) {
     goal: SPRINT_GOAL_TEXT,
   };
   const selected = new Set(["ABC-210"]);
-  const catalog = [ALREADY_PLANNED, ...PLANNING_BACKLOG];
+  const catalog = [ALREADY_PLANNED, ...PLANNING_BACKLOG].map((issue) => {
+    const extra = options.issueFields?.[String(issue.key)];
+    if (!extra) return issue;
+    const fields = issue.fields as Record<string, unknown>;
+    return { ...issue, fields: { ...fields, ...extra } };
+  });
   let document: unknown = null;
   const property = `/rest/agile/1.0/sprint/43/properties/${SPRINT_PROPERTY_KEYS.goals}`;
 
@@ -85,7 +96,8 @@ export function planningFixture(jira: FakeJira = boardSiteJira()) {
     .on("GET", "/rest/agile/1.0/sprint/43", () => ({ status: 200, json: sprint }))
     .on("GET", "/rest/agile/1.0/sprint/42", { status: 200, json: activeSprint })
     .on("GET", "/rest/software/1.0/board/7/backlog", (request) => {
-      const available = PLANNING_BACKLOG.filter((issue) => !selected.has(String(issue.key)));
+      // Un ticket renvoyé au backlog (E10) y réapparaît.
+      const available = catalog.filter((issue) => !selected.has(String(issue.key)));
       const secondPage = request.url.searchParams.get("nextPageToken") === "planning-page-2";
       const issues = secondPage ? available.slice(2) : available.slice(0, 2);
       const isLast = secondPage || available.length <= 2;
@@ -114,11 +126,18 @@ export function planningFixture(jira: FakeJira = boardSiteJira()) {
         body.issues.length === 0 ||
         body.issues.length > 50 ||
         Object.keys(body).length !== 1 ||
-        body.issues.some((key) => !PLANNING_BACKLOG.some((issue) => issue.key === key))
+        body.issues.some((key) => !catalog.some((issue) => issue.key === key))
       ) {
         return { status: 400, json: { errorMessages: ["Tickets hors du backlog de test"] } };
       }
       for (const key of body.issues) selected.add(String(key));
+      return { status: 204 };
+    })
+    .on("POST", "/rest/agile/1.0/backlog/issue", (request) => {
+      const body = request.body as { issues?: unknown } | null;
+      if (!body || !Array.isArray(body.issues) || Object.keys(body).length !== 1)
+        return { status: 400, json: { errorMessages: ["Seule la liste des tickets est permise"] } };
+      for (const key of body.issues) selected.delete(String(key));
       return { status: 204 };
     })
     .on("GET", property, () =>
@@ -131,6 +150,8 @@ export function planningFixture(jira: FakeJira = boardSiteJira()) {
 
   return {
     jira,
+    /** Sprint actif 42, que la fenêtre native de clôture fictive peut clore. */
+    activeSprint,
     inspect: () => ({
       sprint,
       issueKeys: [...selected],

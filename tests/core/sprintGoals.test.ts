@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { toMessage } from "../../src/app/model/messages";
+import { withPinnedGoals, withTextGoalLink } from "../../src/core/boardWrites";
 import * as sprintGoals from "../../src/core/sprintGoals";
 import {
   assignGoalColors,
@@ -431,5 +432,76 @@ describe("mise à jour de la propriété du sprint (seul écrivain)", () => {
     ).toBe(true);
     expect(sprintGoals.sameSprintGoalContent({ links: { a: "g1" } }, { links: {} })).toBe(false);
     expect(sprintGoals.sameSprintGoalContent({ version: 2 }, { version: 2 })).toBe(false);
+  });
+});
+
+describe("vélocité de l'équipe dans la propriété du sprint", () => {
+  const NOW = new Date("2026-11-02T10:00:00Z");
+
+  it("aller-retour encodage / décodage ; absente : null et omise à l'écriture", () => {
+    const document = makeSprintGoalDocument({ velocity: 21.5 });
+    expect(encodeSprintGoalDocument(document).velocity).toBe(21.5);
+    expect(decodeSprintGoalDocument(encodeSprintGoalDocument(document)).velocity).toBe(21.5);
+    expect(decodeSprintGoalDocument({ version: 1, goals: [], links: {} }).velocity).toBeNull();
+    expect(encodeSprintGoalDocument(makeSprintGoalDocument())).not.toHaveProperty("velocity");
+  });
+
+  it.each([[0], [21.5], [100_000]])("lecture stricte : %s est une vélocité lisible", (velocity) => {
+    const read = sprintGoals.readSprintGoalProperty({ version: 1, velocity });
+    expect(read.kind).toBe("document");
+    if (read.kind === "document") expect(read.document.velocity).toBe(velocity);
+  });
+
+  it.each([[-1], ["21"], [null], [100_001], [Number.NaN]])(
+    "lecture stricte : %j rend la propriété illisible, jamais écrasée",
+    (velocity) => {
+      expect(sprintGoals.readSprintGoalProperty({ version: 1, velocity }).kind).toBe("unreadable");
+    },
+  );
+
+  it("propriété ancienne sans vélocité : lisible, sans vélocité", () => {
+    const read = sprintGoals.readSprintGoalProperty({ version: 1, goals: [], links: {} });
+    expect(read).toMatchObject({ kind: "document", document: { velocity: null } });
+  });
+
+  it("isVelocity : nombre fini, positif ou nul, d'au plus 100 000", () => {
+    expect(sprintGoals.isVelocity(0)).toBe(true);
+    expect(sprintGoals.isVelocity(42)).toBe(true);
+    expect(sprintGoals.isVelocity(-0.5)).toBe(false);
+    expect(sprintGoals.isVelocity(Number.POSITIVE_INFINITY)).toBe(false);
+    expect(sprintGoals.isVelocity("12")).toBe(false);
+  });
+
+  it("une autre mise à jour de la propriété conserve la vélocité", () => {
+    const prepared = sprintGoals.prepareSprintGoalUpdate(
+      { version: 1, goals: [], links: {}, velocity: 30 },
+      {
+        sprintId: 43,
+        unchangedSince: () => true,
+        mutate: (fresh) => ({
+          ...(fresh ?? makeSprintGoalDocument()),
+          links: { "ABC-1": "g1" },
+        }),
+        accountId: "compte-1",
+        now: NOW,
+      },
+    );
+    expect(prepared).toMatchObject({ kind: "ready", value: { velocity: 30 } });
+  });
+
+  it("rattachement d'un ticket et épinglage conservent la vélocité", () => {
+    const fresh = makeSprintGoalDocument({ velocity: 18 });
+    const linked = withTextGoalLink(fresh, {
+      issueKey: "ABC-1",
+      goalId: null,
+      goals: [],
+      accountId: null,
+      now: NOW,
+    });
+    expect(linked.velocity).toBe(18);
+    expect(withPinnedGoals(fresh, { goalIds: ["ari-1"], accountId: null, now: NOW }).velocity).toBe(
+      18,
+    );
+    expect(withPinnedGoals(null, { goalIds: [], accountId: null, now: NOW }).velocity).toBeNull();
   });
 });

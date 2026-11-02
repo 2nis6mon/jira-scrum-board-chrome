@@ -43,6 +43,7 @@ Les messages sont déclarés une seule fois dans [`messages.ts`](../../src/integ
 | `sprint-goals:open-issue` | Vue → hôte : fiche complète ou formulaire de transition |
 | `sprint-goals:open-board` | Vue → hôte : navigation construite, aucune URL arbitraire acceptée |
 | `sprint-goals:close` | Vue → hôte : retour à Jira |
+| `sprint-goals:sprint-dialog` | Vue → hôte : fenêtre native de clôture ou de démarrage (action et nom du sprint) |
 | `sprint-goals:refresh` | Hôte → vue : fermeture, déblocage et relecture |
 | `sprint-goals:language` | Vue → hôte : langue des textes affichés par l'hôte |
 | `sprint-goals:launch` | Script de contenu → service worker : injection dans l'onglet marqué |
@@ -69,6 +70,13 @@ vérifié de fermeture. Choix ambigu : fiche montrée sans clic ; non reconnue �
 tel quel ; cadre inaccessible à 20 s : fermeture et erreur. Traces console préfixées « Sprint Goals ».
 Aucun formulaire local de secours ; ne pas réintroduire `/secure/CommentAssignIssue!default.jspa`,
 inutilisable lors de l'essai réel. Le DOM et la politique d'iframe de Jira restent des dépendances.
+
+Fenêtres natives de clôture et de démarrage (S13) : l'hôte charge, cachée dans la même popin, la page
+`…/boards/<id>/backlog` construite depuis sa propre adresse, puis clique le seul bouton visible au
+libellé exact « Terminer/Démarrer le sprint » (fr/en/es) ; pour démarrer, la ligne qui ne contient que
+ce bouton doit nommer le sprint. La fenêtre de Jira est isolée comme un formulaire de transition et sa
+disparition referme la popin (`refresh`) ; bouton absent, ambigu ou autre langue : backlog montré tel
+quel au bout de 10 s, sans clic. Rien n'est rempli ni validé par l'extension.
 
 ## Contrats API
 

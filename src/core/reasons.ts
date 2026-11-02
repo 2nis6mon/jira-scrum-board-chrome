@@ -37,18 +37,34 @@ export type CoreReason =
   // ─── Sprint Planning ──────────────────────────────────────────────────────
   | { readonly code: "planningOtherSprint" }
   | { readonly code: "planningUnreadableProperty" }
-  | { readonly code: "planningDuplicateSelection" }
-  | { readonly code: "planningExistingIssuesKept" }
-  | { readonly code: "planningIssueUnavailable"; readonly issueKey: string }
+  /** Le texte des objectifs écrit n'a pas été relu tel quel dans Jira. */
   | { readonly code: "planningGoalTextUnconfirmed" }
-  | { readonly code: "planningIssueLeftBacklog" }
-  | { readonly code: "planningAdditionsUnconfirmed" }
-  | { readonly code: "planningLinksChanged" }
-  | { readonly code: "planningLinksUnconfirmed" }
-  | { readonly code: "planningFinalCheckChanged" }
-  | { readonly code: "planningSprintChanged" }
-  | { readonly code: "planningInvalidGoals" }
-  | { readonly code: "planningLinkMismatch" };
+  /** La propriété du sprint écrite n'a pas été relue telle quelle dans Jira. */
+  | { readonly code: "planningPropertyUnconfirmed" }
+  /** Le ticket n'a pas été relu à sa nouvelle place après son ajout ou son retrait. */
+  | { readonly code: "planningIssueUnconfirmed"; readonly issueKey: string }
+  /** Atlassian a refusé le lien ticket ↔ Goal demandé par le planning. */
+  | { readonly code: "planningGoalLinkRefused"; readonly messages: readonly string[] }
+  /** Refus constaté par une relecture, après une première écriture confirmée. */
+  | { readonly code: "planningRefused"; readonly refusal: PlanningRefusal };
+
+/**
+ * Pourquoi un geste du Sprint Planning n'écrit rien. `failed` : relecture impossible, propriété
+ * illisible ou requête refusée avant l'envoi (taille, valeur).
+ */
+export type PlanningRefusal =
+  | { readonly reason: "notFuture" }
+  | { readonly reason: "goalTextChanged" }
+  | { readonly reason: "goalsChanged" }
+  | { readonly reason: "invalidGoals" }
+  | { readonly reason: "issueUnavailable"; readonly issueKey: string }
+  | { readonly reason: "issueInActiveSprint"; readonly issueKey: string }
+  | { readonly reason: "issueNotInSprint"; readonly issueKey: string }
+  | { readonly reason: "linkChanged"; readonly issueKey: string }
+  | { readonly reason: "velocityChanged" }
+  | { readonly reason: "invalidVelocity" }
+  | { readonly reason: "sprintNotClosed" }
+  | { readonly reason: "failed"; readonly error: unknown };
 
 /** Erreur typée de `core` : son `message` est le code, jamais une phrase. */
 export class CoreError extends Error {

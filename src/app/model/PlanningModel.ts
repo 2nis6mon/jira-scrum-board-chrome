@@ -1,49 +1,81 @@
 import { batch, computed, signal } from "@preact/signals";
-import type { BoardConfiguration } from "../../core/boardConfiguration";
 import {
+  type AtlassianSprintGoals,
+  type GoalsReader,
+  loadAtlassianSprintGoals,
+} from "../../core/atlassianGoals";
+import { type BoardConfiguration, visibleColumns } from "../../core/boardConfiguration";
+import {
+  GOAL_COLOR_COUNT,
   goalColorName,
   makeSprintGoal,
-  parseSprintGoalText,
   type SprintGoal,
 } from "../../core/sprintGoals";
 import {
+  type CarryOverMode,
+  carryOverGoals,
   loadSprintPlanning,
+  type PlanningDestination,
+  type PlanningOutcome,
   type PlanningSnapshot,
-  planningRevision,
-  publishSprintPlanning,
+  type PlanningTarget,
+  pinPlanningGoals,
+  placePlanningIssue,
+  removePlanningIssue,
+  savePlanningVelocity,
+  writeTextGoals,
 } from "../../core/sprintPlanning";
-import { languageLocale, localize, t } from "../../i18n";
-import type { JiraClient } from "../../jira/client";
-import { isRecord } from "../../jira/json";
-import { estimate, isDoneStatus, type JiraSprint } from "../../jira/models";
+import type { IssueQuery, JiraClient } from "../../jira/client";
+import { JiraError } from "../../jira/errors";
+import {
+  type AtlassianGoal,
+  estimate,
+  goalDisplayName,
+  type JiraIssue,
+  type JiraSprint,
+  linkedGoalIds,
+} from "../../jira/models";
 import { isIssueKey } from "../../jira/writes";
 import { SPRINT_PLANNING_ENABLED } from "../featureFlags";
 import type { LocalStore, Platform } from "../platform/types";
-import type { BoardWriteGateway, RecordWrite } from "../services/ports";
-import { message, sourceText } from "./appMessage";
-import { planningMessage } from "./coreText";
+import type { BoardWriteAccess, BoardWriteGateway, RecordWrite } from "../services/ports";
+import { type AppMessage, message } from "./appMessage";
+import {
+  goalsFailureMessage,
+  goalsWarningMessage,
+  planningCarryOverMessage,
+  planningOutcomeMessage,
+} from "./coreText";
 import { toMessage, type UserMessage } from "./messages";
-import type { PlanningDraft, PlanningIssue, PlanningViewModel } from "./PlanningTypes";
+import type {
+  PendingClosure,
+  PlanningGoalSearch,
+  PlanningIssue,
+  PlanningLane,
+  PlanningLoad,
+  PlanningOrigin,
+  PlanningSection,
+  PlanningViewModel,
+  SprintDialogAction,
+} from "./PlanningTypes";
 
-interface StoredDraft {
-  readonly version: 1;
-  readonly revision: string;
-  readonly draft: PlanningDraft;
-  readonly originalContent: string;
-}
-
-interface PlanningContext {
+export interface PlanningContext {
   configuration(): BoardConfiguration | null;
+  /** Aucune autre écriture du board en cours ni en préparation. */
   canWrite(): boolean;
   accountId(): string | null;
   openIssue(key: string): void;
-  /** Porte d'écriture du board : la publication attend les autres gestes qui écrivent. */
+  /** Demande à la page hôte la fenêtre native ; `false` : aucune page hôte pour l'ouvrir. */
+  openSprintDialog(action: SprintDialogAction, sprint: JiraSprint): boolean;
+  /** Lectures des Goals Atlassian du board (mode « Goals Atlassian »). */
+  readonly goals: GoalsReader;
+  /** Porte d'écriture du board : chaque geste attend les autres gestes qui écrivent. */
   readonly write: BoardWriteGateway["run"];
   /** Journal du board. */
   readonly record: RecordWrite;
 }
 
-/** Brouillons du Sprint Planning d'un site, par board et sprint : une clé par site. */
+/** Anciens brouillons du Sprint Planning d'un site (décision du 14/10) : une clé par site. */
 const PLANNING_DRAFT_PREFIX = "sprint-planning.v1:";
 export const PLANNING_DRAFT_KEYS = [`${PLANNING_DRAFT_PREFIX}<origine Jira>`] as const;
 
@@ -52,34 +84,44 @@ export function planningDraftKey(origin: string): string {
 }
 
 /**
- * Oublie les brouillons d'un site (liste de la déconnexion). Indépendant de l'interrupteur du
- * planning : un brouillon d'un build local reste effacé par le paquet.
+ * Oublie les anciens brouillons d'un site (liste de la déconnexion). Indépendant de
+ * l'interrupteur du planning : un brouillon d'un build local reste effacé par le paquet.
  */
 export function forgetPlanningDrafts(store: LocalStore, origin: string): Promise<void> {
   return store.remove(planningDraftKey(origin));
 }
 
-/** Atelier à la demande : toutes les modifications restent locales jusqu'à Publier. */
+/** Goals proposés à l'épinglage pour une recherche. */
+const GOAL_SEARCH_LIMIT = 20;
+
+/**
+ * Sprint Planning en direct (décision du 01/11/2026) : aucun brouillon, Jira est la seule source.
+ * Chaque geste passe par la porte du board, une intention de `core`, le journal, puis une relecture
+ * du sprint en préparation.
+ */
 export class PlanningModel implements PlanningViewModel {
   readonly sprints = signal<readonly JiraSprint[]>([]);
   readonly selectedSprintId = signal<number | null>(null);
-  readonly loading = signal(false);
-  readonly publishing = signal(false);
-  /** Empêche une navigation hôte de détruire l'iframe avant la dernière sauvegarde locale. */
-  readonly saving = signal(0);
-  readonly error = signal<UserMessage | null>(null);
-  readonly notice = signal<string | null>(null);
-  readonly draft = signal<PlanningDraft | null>(null);
   readonly snapshot = signal<PlanningSnapshot | null>(null);
-  readonly #reviewRequired = signal<string | null>(null);
-  readonly #originalContent = signal("");
-  #revision = "";
+  readonly loading = signal(false);
+  readonly #busyCount = signal(0);
+  readonly busy = computed(() => this.#busyCount.value > 0);
+  readonly notice = signal<AppMessage | null>(null);
+  readonly error = signal<UserMessage | null>(null);
+  readonly goalsWarning = signal<AppMessage | null>(null);
+  readonly search = signal("");
+  readonly pendingClosure = signal<PendingClosure | null>(null);
+  readonly goalSearch = signal<PlanningGoalSearch | null>(null);
+  /** Goals Atlassian du sprint en préparation (épinglés et rattachés à ses tickets). */
+  readonly atlassianGoals = signal<AtlassianSprintGoals | null>(null);
+  /** Provenance des tickets arrivés pendant la séance, pour le sprint affiché. */
+  readonly #origins = signal<Readonly<Record<string, PlanningOrigin>>>({});
   #boardId: number | null = null;
   #generation = 0;
   #disposed = false;
-  #saveQueue: Promise<unknown> = Promise.resolve();
-  #storageFailed = false;
-  readonly #memoryDrafts = new Map<string, StoredDraft>();
+  #draftsErased = false;
+  #siteGoals: Promise<AtlassianGoal[]> | null = null;
+  #goalSearchRun = 0;
 
   constructor(
     readonly client: JiraClient,
@@ -87,128 +129,190 @@ export class PlanningModel implements PlanningViewModel {
     readonly context: PlanningContext,
   ) {}
 
-  get estimationLabel(): string {
-    return this.context.configuration()?.estimationFieldId ? "pts" : "tickets";
-  }
+  readonly goalMode = computed((): "text" | "atlassian" =>
+    this.context.configuration()?.goalSource === "atlassianGoals" ? "atlassian" : "text",
+  );
 
-  readonly issues = computed((): readonly PlanningIssue[] => {
-    if (!SPRINT_PLANNING_ENABLED) return [];
+  readonly activeSprint = computed(
+    () => (SPRINT_PLANNING_ENABLED && this.snapshot.value?.activeSprints[0]?.sprint) || null,
+  );
+
+  readonly gesturesDisabled = computed(() => {
+    if (!SPRINT_PLANNING_ENABLED) return true;
     const snapshot = this.snapshot.value;
-    if (!snapshot) return [];
-    const fieldId = this.context.configuration()?.estimationFieldId ?? null;
-    const seen = new Set<string>();
-    const issues: PlanningIssue[] = [];
-    for (const [source, sourceIssues] of [
-      ["sprint", snapshot.sprintIssues],
-      ["remaining", snapshot.remainingIssues],
-      ["backlog", snapshot.backlogIssues],
-    ] as const) {
-      for (const issue of sourceIssues) {
-        if (seen.has(issue.key)) continue;
-        seen.add(issue.key);
-        issues.push({ issue, source, estimate: fieldId ? estimate(issue.fields, fieldId) : 1 });
-      }
-    }
-    return issues;
-  });
-
-  readonly dirty = computed(() => {
-    if (!SPRINT_PLANNING_ENABLED) return false;
-    const current = this.draft.value;
-    return current !== null && draftContent(current) !== this.#originalContent.value;
-  });
-
-  readonly validation = computed((): string | null => {
-    if (!SPRINT_PLANNING_ENABLED) return "Sprint Planning est désactivé dans cette version.";
-    if (this.#reviewRequired.value) return this.#reviewRequired.value;
-    const draft = this.draft.value;
-    if (!draft) return "Choisissez un sprint futur à préparer.";
-    if (this.snapshot.value?.sprint.state !== "future")
-      return "Ce sprint n'est plus un sprint futur.";
-    const titles = draft.goals.map((goal) => goal.title.trim());
-    if (titles.some((title) => !title || /[\r\n\u2028\u2029]/u.test(title)))
-      return "Chaque objectif doit avoir un titre sur une seule ligne.";
-    if (titles.some((title) => parseSprintGoalText(title)[0] !== title))
-      return "Saisissez les titres sans puce ni numéro au début : la mise en forme est automatique.";
-    if (new Set(titles.map((title) => title.toLocaleLowerCase("fr"))).size !== titles.length)
-      return "Donnez un titre différent à chaque objectif.";
-    const selectable = new Set(
-      this.issues.value.filter((item) => item.source !== "remaining").map((item) => item.issue.key),
+    return (
+      this.loading.value ||
+      this.busy.value ||
+      snapshot === null ||
+      snapshot.sprint.state !== "future" ||
+      !this.context.canWrite()
     );
-    if (draft.selectedIssueKeys.some((key) => !selectable.has(key)))
-      return "Certains tickets du brouillon ne sont plus disponibles. Retirez-les du plan avant de publier.";
-    if (!this.context.canWrite()) return "Attendez la fin de l'opération en cours sur le board.";
+  });
+
+  readonly startDisabledReason = computed((): AppMessage | null => {
+    if (!SPRINT_PLANNING_ENABLED)
+      return message("Sprint Planning est désactivé dans cette version.");
+    const snapshot = this.snapshot.value;
+    if (!snapshot) return message("Choisissez un sprint futur à préparer.");
+    if (snapshot.sprint.state !== "future") return message("Ce sprint n'est plus un sprint futur.");
+    if (this.activeSprint.value)
+      return message("Un sprint est actif : clôturez-le avant de démarrer celui-ci.");
     return null;
   });
 
-  readonly canPublish = computed(
-    () =>
-      SPRINT_PLANNING_ENABLED &&
-      this.dirty.value &&
-      this.error.value === null &&
-      !this.loading.value &&
-      !this.publishing.value &&
-      this.validation.value === null,
+  /** Objectifs et liens affichés, selon la source des objectifs du board. */
+  readonly #goalView = computed(() => {
+    const snapshot = this.snapshot.value;
+    if (!SPRINT_PLANNING_ENABLED || !snapshot) return { goals: [], links: {} };
+    if (this.goalMode.value === "text") return { goals: snapshot.goals, links: snapshot.links };
+    const loaded = this.atlassianGoals.value;
+    return { goals: loaded?.goals ?? [], links: loaded?.links ?? {} };
+  });
+
+  readonly #matches = computed(() => {
+    const query = this.search.value.trim().toLocaleLowerCase();
+    return (issue: JiraIssue) =>
+      !query ||
+      issue.key.toLocaleLowerCase().includes(query) ||
+      issue.fields.summary.toLocaleLowerCase().includes(query);
+  });
+
+  #item(issue: JiraIssue): PlanningIssue {
+    const fieldId = this.context.configuration()?.estimationFieldId ?? null;
+    return {
+      issue,
+      estimate: fieldId ? estimate(issue.fields, fieldId) : 1,
+      origin: this.#origins.value[issue.key] ?? null,
+    };
+  }
+
+  readonly #sprintItems = computed((): readonly PlanningIssue[] =>
+    SPRINT_PLANNING_ENABLED
+      ? (this.snapshot.value?.sprintIssues ?? []).map((issue) => this.#item(issue))
+      : [],
   );
 
-  /** Aucune lecture du backlog à l'ouverture ordinaire du board. */
+  readonly lanes = computed((): readonly PlanningLane[] => {
+    const { goals, links } = this.#goalView.value;
+    const matches = this.#matches.value;
+    return goals.map((goal) => {
+      const all = this.#sprintItems.value.filter((item) => links[item.issue.key] === goal.id);
+      return {
+        goal,
+        issues: all.filter((item) => matches(item.issue)),
+        issueCount: all.length,
+        points: all.reduce((sum, item) => sum + (item.estimate ?? 0), 0),
+        unestimated: all.filter((item) => item.estimate === null).length,
+      };
+    });
+  });
+
+  readonly unassigned = computed((): readonly PlanningIssue[] => {
+    const { goals, links } = this.#goalView.value;
+    const ids = new Set(goals.map((goal) => goal.id));
+    const matches = this.#matches.value;
+    return this.#sprintItems.value.filter((item) => {
+      const goalId = links[item.issue.key];
+      return (goalId === undefined || !ids.has(goalId)) && matches(item.issue);
+    });
+  });
+
+  readonly sections = computed((): readonly PlanningSection[] => {
+    const snapshot = this.snapshot.value;
+    if (!SPRINT_PLANNING_ENABLED || !snapshot) return [];
+    const matches = this.#matches.value;
+    const items = (issues: readonly JiraIssue[]) =>
+      issues.filter(matches).map((issue) => this.#item(issue));
+    return [
+      ...snapshot.futureSprints.map(({ sprint, issues }) => ({
+        kind: "sprint" as const,
+        sprint,
+        issues: items(issues),
+      })),
+      { kind: "backlog" as const, issues: items(snapshot.backlogIssues) },
+      ...snapshot.activeSprints.map(({ sprint, issues }) => ({
+        kind: "active" as const,
+        sprint,
+        issues: items(issues),
+      })),
+    ];
+  });
+
+  readonly sprintLoad = computed((): PlanningLoad | null => {
+    const snapshot = this.snapshot.value;
+    if (!SPRINT_PLANNING_ENABLED || !snapshot) return null;
+    const items = this.#sprintItems.value;
+    return {
+      total: items.reduce((sum, item) => sum + (item.estimate ?? 0), 0),
+      unestimated: items.filter((item) => item.estimate === null).length,
+      velocity: snapshot.velocity,
+      unit: this.context.configuration()?.estimationFieldId ? "pts" : "tickets",
+    };
+  });
+
+  // ─── Lecture ─────────────────────────────────────────────────────────────────
+
+  /** Aucune lecture du backlog à l'ouverture ordinaire du board : seulement à la demande. */
   async load(): Promise<void> {
     if (!SPRINT_PLANNING_ENABLED) return;
     const configuration = this.context.configuration();
-    if (configuration?.boardType !== "scrum" || this.publishing.value || this.#disposed) return;
+    if (configuration?.boardType !== "scrum" || this.#disposed) return;
     if (this.#boardId === configuration.boardId && (this.loading.value || this.snapshot.value))
       return;
     if (this.#boardId !== configuration.boardId) this.reset();
     this.#boardId = configuration.boardId;
+    this.#eraseDrafts();
     await this.#loadSprintsAndSelection();
+  }
+
+  /** Les brouillons de la décision du 14/10 ne sont plus appliqués : effacés une fois. */
+  #eraseDrafts(): void {
+    if (this.#draftsErased) return;
+    this.#draftsErased = true;
+    void forgetPlanningDrafts(this.platform.store, this.client.site.origin).catch(() => {});
   }
 
   async #loadSprintsAndSelection(): Promise<void> {
     const configuration = this.context.configuration();
     if (configuration?.boardType !== "scrum") return;
     const generation = ++this.#generation;
-    this.loading.value = true;
-    this.error.value = null;
+    batch(() => {
+      this.loading.value = true;
+      this.error.value = null;
+    });
     try {
       const sprints = await this.client.sprints(configuration.boardId, ["future"]);
       if (this.#stale(generation)) return;
       const futures = sprints.filter((sprint) => sprint.state === "future");
-      const savedIds = await this.#draftSprintIds(configuration.boardId);
-      const current = this.selectedSprintId.value;
-      if (current !== null && this.draft.value) savedIds.add(current);
-      const futureIds = new Set(futures.map((sprint) => sprint.id));
-      const retained = await Promise.all(
-        [...savedIds]
-          .filter((id) => !futureIds.has(id))
-          .map(async (id) => {
-            try {
-              return await this.client.sprint(id);
-            } catch {
-              return this.snapshot.value?.sprint.id === id ? this.snapshot.value.sprint : null;
-            }
-          }),
-      );
-      if (this.#stale(generation)) return;
-      this.sprints.value = [
-        ...futures,
-        ...retained.filter((sprint): sprint is JiraSprint => sprint !== null),
-      ];
+      this.sprints.value = futures;
       const selected =
-        this.sprints.value.find((sprint) => sprint.id === this.selectedSprintId.value) ??
-        this.sprints.value[0];
-      if (selected) {
-        this.loading.value = false;
-        await this.selectSprint(selected.id);
-      } else {
-        this.selectedSprintId.value = null;
-        this.snapshot.value = null;
-        this.draft.value = null;
+        futures.find((sprint) => sprint.id === this.selectedSprintId.value) ?? futures[0];
+      if (!selected) {
+        batch(() => {
+          this.selectedSprintId.value = null;
+          this.snapshot.value = null;
+          this.atlassianGoals.value = null;
+        });
+        return;
       }
+      if (selected.id !== this.selectedSprintId.value) this.#select(selected.id);
+      await this.#read(generation);
     } catch (error) {
       if (!this.#stale(generation)) this.error.value = toMessage(error);
     } finally {
       if (!this.#stale(generation)) this.loading.value = false;
     }
+  }
+
+  #select(id: number): void {
+    batch(() => {
+      this.selectedSprintId.value = id;
+      this.snapshot.value = null;
+      this.atlassianGoals.value = null;
+      this.goalsWarning.value = null;
+      this.#origins.value = {};
+      this.notice.value = null;
+    });
   }
 
   async selectSprint(id: number): Promise<void> {
@@ -216,56 +320,20 @@ export class PlanningModel implements PlanningViewModel {
     const configuration = this.context.configuration();
     if (
       !configuration ||
-      this.publishing.value ||
+      this.busy.value ||
       this.#disposed ||
       !this.sprints.value.some((sprint) => sprint.id === id)
     )
       return;
     const generation = ++this.#generation;
-    await this.#saveQueue;
-    if (this.#stale(generation) || this.context.configuration()?.boardId !== configuration.boardId)
-      return;
     this.#boardId = configuration.boardId;
-    const sameSprint = this.selectedSprintId.value === id;
+    if (id !== this.selectedSprintId.value) this.#select(id);
     batch(() => {
-      this.selectedSprintId.value = id;
       this.loading.value = true;
       this.error.value = null;
-      this.notice.value = null;
-      if (!sameSprint) {
-        this.snapshot.value = null;
-        this.draft.value = null;
-        this.#reviewRequired.value = null;
-      }
     });
     try {
-      const [snapshot, saved] = await Promise.all([
-        loadSprintPlanning(this.client, {
-          boardId: configuration.boardId,
-          sprintId: id,
-          query: this.#query(),
-        }),
-        this.#readStored(configuration.boardId, id).catch(() => {
-          if (!this.#stale(generation))
-            this.notice.value =
-              "Le brouillon local n'a pas pu être relu. Les données Jira restent disponibles.";
-          return null;
-        }),
-      ]);
-      if (this.#stale(generation)) return;
-      this.#acceptSnapshot(snapshot);
-      if (saved) {
-        this.draft.value = saved.draft;
-        this.#originalContent.value = saved.originalContent;
-        this.#revision = saved.revision;
-        if (saved.revision !== planningRevision(snapshot)) {
-          this.#reviewRequired.value =
-            "Jira a changé depuis ce brouillon. Copiez la synthèse pour le conserver, puis repartez de Jira avant de publier.";
-        }
-        this.notice.value = this.#storageFailed
-          ? "Brouillon conservé en mémoire, mais sa sauvegarde locale a échoué. Copiez la synthèse avant de fermer."
-          : "Votre brouillon a été retrouvé dans ce navigateur.";
-      }
+      await this.#read(generation);
     } catch (error) {
       if (!this.#stale(generation)) this.error.value = toMessage(error);
     } finally {
@@ -273,258 +341,487 @@ export class PlanningModel implements PlanningViewModel {
     }
   }
 
-  /** Relire conserve le brouillon ; un changement concurrent exige une décision explicite. */
+  /** Relit les sprints futurs et le sprint en préparation. */
   async refresh(): Promise<void> {
     if (!SPRINT_PLANNING_ENABLED) return;
-    if (this.publishing.value || this.loading.value || this.#disposed) return;
-    await this.#saveQueue;
+    if (this.busy.value || this.loading.value || this.#disposed) return;
     await this.#loadSprintsAndSelection();
   }
 
-  addGoal(title: string): void {
-    const draft = this.draft.value;
-    if (!draft) return;
-    this.#change({
-      ...draft,
-      goals: [
-        ...draft.goals,
-        makeSprintGoal({
-          id: crypto.randomUUID(),
-          title: title.trim(),
-          color: goalColorName(draft.goals.length),
-          position: draft.goals.length,
-        }),
-      ],
-    });
-  }
-
-  renameGoal(id: string, title: string): void {
-    const draft = this.draft.value;
-    if (draft)
-      this.#change({
-        ...draft,
-        goals: draft.goals.map((goal) => (goal.id === id ? { ...goal, title } : goal)),
-      });
-  }
-
-  removeGoal(id: string): void {
-    const draft = this.draft.value;
-    if (!draft) return;
-    this.#change({
-      ...draft,
-      goals: draft.goals
-        .filter((goal) => goal.id !== id)
-        .map((goal, position) => ({ ...goal, position })),
-      links: Object.fromEntries(Object.entries(draft.links).filter(([, value]) => value !== id)),
-    });
-  }
-
-  moveGoal(id: string, delta: -1 | 1): void {
-    const draft = this.draft.value;
-    if (!draft) return;
-    const index = draft.goals.findIndex((goal) => goal.id === id);
-    const target = index + delta;
-    if (index < 0 || target < 0 || target >= draft.goals.length) return;
-    const goals = [...draft.goals];
-    const current = goals[index];
-    const neighbor = goals[target];
-    if (!current || !neighbor) return;
-    [goals[index], goals[target]] = [neighbor, current];
-    this.#change({ ...draft, goals: goals.map((goal, position) => ({ ...goal, position })) });
-  }
-
-  assignIssue(key: string, goalId: string | null): void {
-    const draft = this.draft.value;
-    const item = this.issues.value.find((candidate) => candidate.issue.key === key);
-    if (
-      !draft ||
-      !item ||
-      item.source === "remaining" ||
-      (item.source === "backlog" &&
-        (item.issue.fields.issuetype.subtask || isDoneStatus(item.issue.fields.status))) ||
-      (goalId !== null && !draft.goals.some((goal) => goal.id === goalId))
-    )
-      return;
-    const links = { ...draft.links };
-    if (goalId === null) delete links[key];
-    else links[key] = goalId;
-    this.#change({
-      ...draft,
-      links,
-      selectedIssueKeys: [...new Set([...draft.selectedIssueKeys, key])],
-    });
-  }
-
-  removeIssue(key: string): void {
-    const draft = this.draft.value;
-    if (!draft || this.snapshot.value?.sprintIssues.some((issue) => issue.key === key)) return;
-    const links = { ...draft.links };
-    delete links[key];
-    this.#change({
-      ...draft,
-      links,
-      selectedIssueKeys: draft.selectedIssueKeys.filter((selected) => selected !== key),
-    });
-  }
-
-  setCapacity(capacity: number | null): void {
-    const draft = this.draft.value;
-    if (!draft || (capacity !== null && (!Number.isFinite(capacity) || capacity < 0))) return;
-    this.#change({ ...draft, capacity });
-  }
-
-  async publish(): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return;
-    const snapshot = this.snapshot.value;
-    const draft = this.draft.value;
+  /** Lit le sprint sélectionné et, en Goals Atlassian, ses Goals. Lève une erreur de lecture. */
+  async #read(generation: number): Promise<void> {
     const configuration = this.context.configuration();
-    if (!snapshot || !draft || !configuration || !this.canPublish.value) return;
-    this.publishing.value = true;
-    this.error.value = null;
-    this.notice.value = null;
-    const generation = this.#generation;
-    try {
-      // La porte est demandée avant d'attendre les brouillons : un changement de board pendant
-      // cette attente rend la publication périmée.
-      const result = await this.context.write(async ({ writer }) => {
-        await this.#saveQueue;
-        return publishSprintPlanning(this.client, writer, {
-          snapshot,
-          goals: draft.goals.map((goal) => ({ ...goal, title: goal.title.trim() })),
-          links: draft.links,
-          selectedIssueKeys: draft.selectedIssueKeys,
-          accountId: this.context.accountId(),
-          now: new Date(),
+    const sprintId = this.selectedSprintId.value;
+    if (!configuration || sprintId === null) return;
+    const snapshot = await loadSprintPlanning(this.client, {
+      boardId: configuration.boardId,
+      sprintId,
+      query: planningQuery(configuration),
+    });
+    if (this.#stale(generation)) return;
+    let goals: AtlassianSprintGoals | null = null;
+    let warning: AppMessage | null = null;
+    if (configuration.goalSource === "atlassianGoals") {
+      try {
+        goals = await loadAtlassianSprintGoals({
+          reader: this.context.goals,
+          pinnedGoalIds: snapshot.pinnedGoalIds,
+          issues: snapshot.sprintIssues,
+          configuration,
         });
-      });
-      const outcome = planningMessage(result.reason);
-      await this.context.record({
+        const first = goals.warnings[0];
+        if (first) warning = goalsWarningMessage(first);
+      } catch (error) {
+        warning = goalsFailureMessage(error);
+      }
+      if (this.#stale(generation)) return;
+    }
+    batch(() => {
+      this.snapshot.value = snapshot;
+      this.atlassianGoals.value = goals;
+      this.goalsWarning.value = warning;
+    });
+  }
+
+  setSearch(text: string): void {
+    if (!SPRINT_PLANNING_ENABLED) return;
+    this.search.value = text;
+  }
+
+  // ─── Gestes ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Déroule un geste : porte du board, intention de `core`, journal, avis, puis relecture du
+   * sprint. Un refus de la porte avant l'appel n'a rien envoyé.
+   */
+  async #gesture(
+    entry: { issueKey: string | null },
+    intention: (access: BoardWriteAccess, snapshot: PlanningSnapshot) => Promise<PlanningOutcome>,
+    after?: (outcome: PlanningOutcome) => void,
+  ): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED || this.gesturesDisabled.value) return;
+    const snapshot = this.snapshot.value;
+    if (!snapshot) return;
+    await this.#busyWhile(async (generation) => {
+      let outcome: PlanningOutcome;
+      try {
+        outcome = await this.context.write((access) => intention(access, snapshot));
+      } catch (error) {
+        outcome = { kind: "refused", reason: { reason: "failed", error } };
+      }
+      await this.#journal(entry.issueKey, snapshot.sprint.name, outcome);
+      if (this.#stale(generation)) return;
+      after?.(outcome);
+      this.notice.value = outcome.kind === "done" ? null : planningOutcomeMessage(outcome);
+      await this.#reread(generation);
+    });
+  }
+
+  async #busyWhile(task: (generation: number) => Promise<void>): Promise<void> {
+    const generation = this.#generation;
+    batch(() => {
+      this.#busyCount.value += 1;
+      this.notice.value = null;
+      this.error.value = null;
+    });
+    try {
+      await task(generation);
+    } finally {
+      this.#busyCount.value -= 1;
+    }
+  }
+
+  async #reread(generation: number): Promise<void> {
+    try {
+      await this.#read(generation);
+    } catch (error) {
+      if (!this.#stale(generation)) this.error.value = toMessage(error);
+    }
+  }
+
+  async #journal(issueKey: string | null, to: string, outcome: PlanningOutcome): Promise<void> {
+    if (outcome.kind === "unchanged") return;
+    await this.context
+      .record({
         action: "sprint planning",
-        issueKey: null,
+        issueKey,
         from: null,
-        to: String(draft.sprintId),
+        to,
         outcome:
-          result.kind === "confirmed"
+          outcome.kind === "done"
             ? "réussi"
-            : result.kind === "partial"
+            : outcome.kind === "partial" &&
+                outcome.error instanceof JiraError &&
+                outcome.error.isOutcomeUnknown
               ? "incertain"
               : "échec",
         detail: null,
-        detailMessage: outcome,
-      });
-      if (this.#stale(generation)) return;
-      this.notice.value = sourceText(outcome);
-      if (result.kind === "confirmed" && result.snapshot) {
-        this.#acceptSnapshot(result.snapshot, draft.capacity);
-        await this.#removeStored(configuration.boardId, draft.sprintId).catch(() => {
-          this.notice.value = sourceText(
-            message("{p0} L'ancien brouillon local n'a pas pu être effacé.", { p0: outcome }),
-          );
-        });
-      } else {
-        this.#reviewRequired.value =
-          "La publication doit être réexaminée. Votre brouillon reste disponible : copiez sa synthèse, puis repartez de Jira pour voir le résultat confirmé.";
-      }
+        detailMessage: planningOutcomeMessage(outcome),
+      })
+      .catch(() => {});
+  }
+
+  #textGoals(
+    goals: (current: readonly SprintGoal[]) => readonly SprintGoal[] | null,
+  ): Promise<void> {
+    const snapshot = this.snapshot.value;
+    if (!snapshot || this.goalMode.value !== "text") return Promise.resolve();
+    const next = goals(snapshot.goals);
+    if (next === null) return Promise.resolve();
+    return this.#gesture({ issueKey: null }, ({ writer }, base) =>
+      writeTextGoals(this.client, writer, {
+        sprintId: base.sprint.id,
+        baseText: base.nativeGoalText,
+        baseProperty: base.rawGoalProperty,
+        goals: next.map((goal, position) => ({ ...goal, position })),
+        accountId: this.context.accountId(),
+        now: new Date(),
+      }),
+    );
+  }
+
+  addGoal(title: string): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
+    return this.#textGoals((goals) => [
+      ...goals,
+      makeSprintGoal({
+        id: crypto.randomUUID(),
+        title: title.trim(),
+        color: freeColor(goals),
+        position: goals.length,
+      }),
+    ]);
+  }
+
+  /** Renommage validé (Entrée ou sortie du champ) : même identifiant, ses tickets le suivent. */
+  renameGoal(id: string, title: string): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
+    return this.#textGoals((goals) => {
+      const goal = goals.find((candidate) => candidate.id === id);
+      if (!goal || goal.title === title.trim()) return null;
+      return goals.map((candidate) =>
+        candidate.id === id ? { ...candidate, title: title.trim() } : candidate,
+      );
+    });
+  }
+
+  removeGoal(id: string): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
+    if (this.goalMode.value === "atlassian") return this.unpinGoal(id);
+    return this.#textGoals((goals) =>
+      goals.some((goal) => goal.id === id) ? goals.filter((goal) => goal.id !== id) : null,
+    );
+  }
+
+  moveGoal(id: string, delta: -1 | 1): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
+    return this.#textGoals((goals) => {
+      const index = goals.findIndex((goal) => goal.id === id);
+      const current = goals[index];
+      const neighbor = goals[index + delta];
+      if (index < 0 || !current || !neighbor) return null;
+      const next = [...goals];
+      next[index] = neighbor;
+      next[index + delta] = current;
+      return next;
+    });
+  }
+
+  /**
+   * Pose un ticket sur un objectif du sprint en préparation (`null` : « Sans objectif »). Venu du
+   * backlog ou d'un autre sprint futur, il y est d'abord ajouté ; le reste à faire d'un sprint
+   * actif reste en consultation.
+   */
+  placeIssue(key: string, goalId: string | null): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
+    const snapshot = this.snapshot.value;
+    if (!snapshot) return Promise.resolve();
+    const { goals, links } = this.#goalView.value;
+    if (goalId !== null && !goals.some((goal) => goal.id === goalId)) return Promise.resolve();
+    const located = locate(snapshot, key);
+    if (!located) return Promise.resolve();
+    const { issue, origin } = located;
+    const current = links[key] ?? null;
+    if (origin === null && current === goalId) return Promise.resolve();
+    let target: PlanningTarget = null;
+    if (origin === null || goalId !== null) {
+      target =
+        this.goalMode.value === "text"
+          ? {
+              kind: "text",
+              goalId,
+              knownGoalId: snapshot.storedLinks[key] ?? null,
+              knownGoalIds: snapshot.storedGoalIds,
+              goals: snapshot.goals,
+            }
+          : {
+              kind: "atlassian",
+              goalId,
+              // Un ticket qui arrive quitte d'abord le Goal de son champ natif (E4 puis E3).
+              previousGoalId:
+                origin === null
+                  ? current
+                  : (linkedGoalIds(
+                      issue.fields,
+                      this.context.configuration()?.goalsFieldId ?? null,
+                    )[0] ?? null),
+            };
+    }
+    return this.#gesture(
+      { issueKey: key },
+      ({ writer, goals: links }, base) =>
+        placePlanningIssue(this.client, writer, links, {
+          boardId: base.boardId,
+          sprintId: base.sprint.id,
+          query: base.query,
+          issue,
+          target,
+          accountId: this.context.accountId(),
+          now: new Date(),
+        }),
+      (outcome) => {
+        if (origin === null || outcome.kind === "refused" || outcome.kind === "unchanged") return;
+        if (!outcome.confirmed.includes("issueAdded")) return;
+        this.#origins.value = { ...this.#origins.value, [key]: origin };
+      },
+    );
+  }
+
+  /** Retire un ticket du sprint en préparation, vers le backlog ou un autre sprint futur. */
+  removeIssue(key: string, destination: PlanningDestination): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
+    const snapshot = this.snapshot.value;
+    if (!snapshot?.sprintIssues.some((issue) => issue.key === key)) return Promise.resolve();
+    if (
+      destination.kind === "sprint" &&
+      !snapshot.futureSprints.some(({ sprint }) => sprint.id === destination.sprintId)
+    )
+      return Promise.resolve();
+    return this.#gesture(
+      { issueKey: key },
+      ({ writer }, base) =>
+        removePlanningIssue(this.client, writer, {
+          boardId: base.boardId,
+          sprintId: base.sprint.id,
+          query: base.query,
+          issueKey: key,
+          destination,
+        }),
+      (outcome) => {
+        if (outcome.kind !== "done") return;
+        const { [key]: _left, ...rest } = this.#origins.value;
+        this.#origins.value = rest;
+      },
+    );
+  }
+
+  /** Vélocité partagée de l'équipe, validée par le champ (Entrée ou sortie). */
+  saveVelocity(velocity: number | null): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
+    const snapshot = this.snapshot.value;
+    if (!snapshot || snapshot.velocity === velocity) return Promise.resolve();
+    return this.#gesture({ issueKey: null }, ({ writer }, base) =>
+      savePlanningVelocity(this.client, writer, {
+        sprintId: base.sprint.id,
+        base: base.velocity,
+        velocity,
+        accountId: this.context.accountId(),
+        now: new Date(),
+      }),
+    );
+  }
+
+  // ─── Goals Atlassian ─────────────────────────────────────────────────────────
+
+  /** Cherche par nom des Goals existants à épingler. Aucun Goal n'est jamais créé. */
+  async searchGoals(query: string): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED || this.goalMode.value !== "atlassian" || this.#disposed) return;
+    const run = ++this.#goalSearchRun;
+    const generation = this.#generation;
+    this.goalSearch.value = {
+      query,
+      loading: true,
+      results: this.goalSearch.value?.results ?? [],
+      error: null,
+    };
+    try {
+      this.#siteGoals ??= this.context.goals.searchGoals({ limit: 100, loadAll: true });
+      const site = await this.#siteGoals;
+      if (run !== this.#goalSearchRun || this.#stale(generation)) return;
+      const shown = new Set(this.#goalView.value.goals.map((goal) => goal.id));
+      const folded = query.trim().toLocaleLowerCase();
+      this.goalSearch.value = {
+        query,
+        loading: false,
+        results: site
+          .filter(
+            (goal) =>
+              !goal.isArchived &&
+              !shown.has(goal.id) &&
+              goalDisplayName(goal).toLocaleLowerCase().includes(folded),
+          )
+          .slice(0, GOAL_SEARCH_LIMIT),
+        error: null,
+      };
     } catch (error) {
-      if (!this.#stale(generation)) {
-        this.error.value = toMessage(error);
-        this.#reviewRequired.value =
-          "Publication non confirmée. Copiez votre brouillon puis repartez de Jira avant toute nouvelle publication.";
-      }
-    } finally {
-      if (!this.#stale(generation)) this.publishing.value = false;
+      this.#siteGoals = null;
+      if (run !== this.#goalSearchRun || this.#stale(generation)) return;
+      this.goalSearch.value = { query, loading: false, results: [], error: toMessage(error) };
     }
   }
 
-  async discardDraft(): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return;
-    const id = this.selectedSprintId.value;
-    if (id === null || this.#boardId === null || this.publishing.value || this.loading.value)
-      return;
-    try {
-      await this.#removeStored(this.#boardId, id);
-      await this.selectSprint(id);
-    } catch (error) {
-      this.error.value = toMessage(error);
+  pinGoal(goalId: string): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
+    const snapshot = this.snapshot.value;
+    if (!snapshot || this.goalMode.value !== "atlassian") return Promise.resolve();
+    if (snapshot.pinnedGoalIds.includes(goalId)) return Promise.resolve();
+    return this.#pin([...snapshot.pinnedGoalIds, goalId]).then(() => {
+      this.goalSearch.value = null;
+    });
+  }
+
+  unpinGoal(goalId: string): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
+    const snapshot = this.snapshot.value;
+    if (!snapshot || this.goalMode.value !== "atlassian") return Promise.resolve();
+    if (!snapshot.pinnedGoalIds.includes(goalId)) return Promise.resolve();
+    return this.#pin(snapshot.pinnedGoalIds.filter((id) => id !== goalId));
+  }
+
+  #pin(goalIds: readonly string[]): Promise<void> {
+    return this.#gesture({ issueKey: null }, ({ writer }, base) =>
+      pinPlanningGoals(this.client, writer, {
+        sprintId: base.sprint.id,
+        shownGoalIds: base.pinnedGoalIds,
+        goalIds,
+        accountId: this.context.accountId(),
+        now: new Date(),
+      }),
+    );
+  }
+
+  // ─── Fenêtres natives : clôture et démarrage ─────────────────────────────────
+
+  /** Ouvre la fenêtre native « Terminer le sprint » ; le report attend sa fermeture. */
+  closeActiveSprint(): void {
+    if (!SPRINT_PLANNING_ENABLED || this.gesturesDisabled.value) return;
+    const snapshot = this.snapshot.value;
+    const active = this.activeSprint.value;
+    if (!snapshot || !active) return;
+    this.notice.value = null;
+    this.pendingClosure.value = { closedSprintId: active.id, targetSprintId: snapshot.sprint.id };
+    if (!this.context.openSprintDialog("complete", active)) {
+      batch(() => {
+        this.pendingClosure.value = null;
+        this.notice.value = message(
+          "La fenêtre de Jira ne s'ouvre que depuis le board Jira qui héberge Sprint Goals Board.",
+        );
+      });
     }
+  }
+
+  /** Ouvre la fenêtre native « Démarrer le sprint », que l'utilisateur seul remplit. */
+  startSprint(): void {
+    if (!SPRINT_PLANNING_ENABLED || this.gesturesDisabled.value) return;
+    const snapshot = this.snapshot.value;
+    if (!snapshot || this.startDisabledReason.value !== null) return;
+    this.notice.value = null;
+    if (!this.context.openSprintDialog("start", snapshot.sprint))
+      this.notice.value = message(
+        "La fenêtre de Jira ne s'ouvre que depuis le board Jira qui héberge Sprint Goals Board.",
+      );
+  }
+
+  /**
+   * Après la fermeture d'une fenêtre native (message `refresh` de la page hôte) : une clôture
+   * demandée reporte les objectifs non atteints seulement si le sprint relu est clos ; encore
+   * actif, la fenêtre a été annulée et rien n'est écrit. Puis tout est relu.
+   */
+  async afterNativeDialog(): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED || this.#disposed) return;
+    const pending = this.pendingClosure.value;
+    const configuration = this.context.configuration();
+    this.pendingClosure.value = null;
+    if (pending && configuration?.boardId === this.#boardId && configuration) {
+      await this.#busyWhile(async (generation) => {
+        try {
+          const closed = await this.client.sprint(pending.closedSprintId);
+          if (this.#stale(generation)) return;
+          if (closed.state !== "closed") {
+            this.notice.value = message("Le sprint est toujours actif : rien n'a été reporté.");
+            return;
+          }
+          await this.#carryOver(pending, configuration, generation);
+        } catch (error) {
+          if (!this.#stale(generation)) this.error.value = toMessage(error);
+        }
+      });
+    }
+    if (this.snapshot.value || this.selectedSprintId.value !== null) await this.refresh();
+  }
+
+  async #carryOver(
+    pending: PendingClosure,
+    configuration: BoardConfiguration,
+    generation: number,
+  ): Promise<void> {
+    const last = visibleColumns(configuration.columns).at(-1) ?? null;
+    const isDone = (issue: JiraIssue) =>
+      last?.statusIds.includes(issue.fields.status?.id ?? "") === true;
+    const mode: CarryOverMode =
+      configuration.goalSource === "atlassianGoals"
+        ? { kind: "atlassian", goals: this.context.goals, configuration }
+        : { kind: "text" };
+    let outcome: PlanningOutcome;
+    try {
+      outcome = await this.context.write(({ writer }) =>
+        carryOverGoals(this.client, writer, {
+          boardId: configuration.boardId,
+          closedSprintId: pending.closedSprintId,
+          targetSprintId: pending.targetSprintId,
+          query: planningQuery(configuration),
+          isDone,
+          mode,
+          accountId: this.context.accountId(),
+          now: new Date(),
+        }),
+      );
+    } catch (error) {
+      outcome = { kind: "refused", reason: { reason: "failed", error } };
+    }
+    const target =
+      this.sprints.value.find((sprint) => sprint.id === pending.targetSprintId)?.name ??
+      String(pending.targetSprintId);
+    await this.#journal(null, target, outcome);
+    if (!this.#stale(generation)) this.notice.value = planningCarryOverMessage(outcome, target);
   }
 
   openIssue(key: string): void {
     if (!SPRINT_PLANNING_ENABLED) return;
-    if (
-      !this.publishing.value &&
-      isIssueKey(key) &&
-      (this.issues.value.some((item) => item.issue.key === key) ||
-        this.draft.value?.selectedIssueKeys.includes(key))
-    )
-      this.context.openIssue(key);
+    const snapshot = this.snapshot.value;
+    if (!snapshot || this.busy.value || !isIssueKey(key) || !locate(snapshot, key, true)) return;
+    this.context.openIssue(key);
   }
 
-  async copySummary(): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return;
-    const draft = this.draft.value;
-    if (!draft) return;
-    this.notice.value = null;
-    const selected = new Set(draft.selectedIssueKeys);
-    const issues = this.issues.value.filter((item) => selected.has(item.issue.key));
-    const numbers = new Intl.NumberFormat(languageLocale());
-    const units = localize(this.estimationLabel);
-    const blocks = [
-      ...draft.goals.map((goal) => ({ id: goal.id, title: goal.title })),
-      { id: null, title: t("À organiser") },
-    ];
-    const lines = [
-      `Sprint Planning — ${this.snapshot.value?.sprint.name ?? draft.sprintId}`,
-      t("Proposition de préparation"),
-      "",
-    ];
-    for (const block of blocks) {
-      const matching = issues.filter((item) => (draft.links[item.issue.key] ?? null) === block.id);
-      if (block.id === null && !matching.length) continue;
-      lines.push(
-        block.title,
-        ...matching.map(
-          (item) =>
-            `- ${item.issue.key} — ${item.issue.fields.summary} (${item.estimate === null ? "?" : numbers.format(item.estimate)} ${units})`,
-        ),
-        "",
-      );
-    }
-    if (draft.capacity !== null)
-      lines.push(
-        t("Capacité envisagée : {p0} {p1}", { p0: numbers.format(draft.capacity), p1: units }),
-      );
-    const known = new Set(issues.map((item) => item.issue.key));
-    const unavailable = draft.selectedIssueKeys.filter((key) => !known.has(key));
-    if (unavailable.length)
-      lines.push(
-        t("Tickets à réexaminer :"),
-        ...unavailable.map(
-          (key) =>
-            `- ${key} — ${draft.goals.find((goal) => goal.id === draft.links[key])?.title ?? t("À organiser")}`,
-        ),
-      );
-    try {
-      await this.platform.copyText(lines.join("\n"));
-      this.notice.value = "Synthèse copiée.";
-    } catch (error) {
-      this.error.value = toMessage(error);
-    }
-  }
+  // ─── Cycle de vie ────────────────────────────────────────────────────────────
 
   reset(): void {
     this.#generation += 1;
     this.#boardId = null;
+    this.#siteGoals = null;
     batch(() => {
       this.snapshot.value = null;
-      this.draft.value = null;
-      this.#originalContent.value = "";
+      this.atlassianGoals.value = null;
       this.selectedSprintId.value = null;
       this.sprints.value = [];
       this.loading.value = false;
       this.error.value = null;
       this.notice.value = null;
-      this.#reviewRequired.value = null;
+      this.goalsWarning.value = null;
+      this.pendingClosure.value = null;
+      this.goalSearch.value = null;
+      this.search.value = "";
+      this.#origins.value = {};
     });
   }
 
@@ -533,198 +830,56 @@ export class PlanningModel implements PlanningViewModel {
     this.#disposed = true;
   }
 
-  async flushDraft(): Promise<void> {
-    await this.#saveQueue;
-  }
-
-  async #draftSprintIds(boardId: number): Promise<Set<number>> {
-    const all = await this.platform.store.get(this.#storageKey()).catch(() => null);
-    const ids = new Set<number>();
-    const entries = [
-      ...(isRecord(all) ? Object.entries(all) : []),
-      ...this.#memoryDrafts.entries(),
-    ];
-    for (const [key, value] of entries) {
-      if (
-        !key.startsWith(`${boardId}:`) ||
-        !isRecord(value) ||
-        value.version !== 1 ||
-        !isRecord(value.draft)
-      )
-        continue;
-      const id = value.draft.sprintId;
-      if (typeof id === "number" && Number.isSafeInteger(id) && id > 0) ids.add(id);
-    }
-    return ids;
-  }
-
-  async forgetBoard(boardId: number): Promise<void> {
-    await this.#saveQueue;
-    for (const key of this.#memoryDrafts.keys())
-      if (key.startsWith(`${boardId}:`)) this.#memoryDrafts.delete(key);
-    const all = await this.platform.store.get(this.#storageKey());
-    if (!isRecord(all)) return;
-    const kept = Object.fromEntries(
-      Object.entries(all).filter(([key]) => !key.startsWith(`${boardId}:`)),
-    );
-    await this.platform.store.set(this.#storageKey(), kept);
-  }
-
-  #query() {
-    return {
-      estimationFieldId: this.context.configuration()?.estimationFieldId ?? null,
-      includeChangelog: false,
-    };
-  }
   #stale(generation: number): boolean {
     return this.#disposed || generation !== this.#generation;
   }
-  #storageKey(): string {
-    return planningDraftKey(this.client.site.origin);
-  }
-
-  #acceptSnapshot(snapshot: PlanningSnapshot, capacity: number | null = null): void {
-    const selectedIssueKeys = snapshot.sprintIssues.map((issue) => issue.key);
-    const selected = new Set(selectedIssueKeys);
-    const draft: PlanningDraft = {
-      sprintId: snapshot.sprint.id,
-      goals: snapshot.goals,
-      links: Object.fromEntries(
-        Object.entries(snapshot.links).filter(([key]) => selected.has(key)),
-      ),
-      selectedIssueKeys,
-      capacity,
-    };
-    batch(() => {
-      this.snapshot.value = snapshot;
-      this.draft.value = draft;
-      this.#originalContent.value = draftContent(draft);
-      this.#reviewRequired.value = null;
-    });
-    this.#revision = planningRevision(snapshot);
-  }
-
-  #change(draft: PlanningDraft): void {
-    if (!SPRINT_PLANNING_ENABLED) return;
-    if (this.loading.value || this.publishing.value || this.#disposed || this.#boardId === null)
-      return;
-    this.draft.value = draft;
-    this.notice.value = null;
-    const boardId = this.#boardId;
-    const saved: StoredDraft = {
-      version: 1,
-      revision: this.#revision,
-      originalContent: this.#originalContent.value,
-      draft,
-    };
-    this.#memoryDrafts.set(`${boardId}:${draft.sprintId}`, saved);
-    this.saving.value += 1;
-    this.#saveQueue = this.#saveQueue
-      .then(async () => {
-        const all = await this.platform.store.get(this.#storageKey());
-        await this.platform.store.set(this.#storageKey(), {
-          ...(isRecord(all) ? all : {}),
-          [`${boardId}:${draft.sprintId}`]: saved,
-        });
-        this.#storageFailed = false;
-      })
-      .catch(() => {
-        this.#storageFailed = true;
-        this.notice.value =
-          "Le brouillon reste affiché mais sa sauvegarde locale a échoué. Copiez la synthèse avant de fermer.";
-      })
-      .finally(() => {
-        this.saving.value -= 1;
-      });
-  }
-
-  async #readStored(boardId: number, sprintId: number): Promise<StoredDraft | null> {
-    const memory = this.#memoryDrafts.get(`${boardId}:${sprintId}`);
-    if (memory) return memory;
-    const all = await this.platform.store.get(this.#storageKey());
-    const saved = isRecord(all) ? all[`${boardId}:${sprintId}`] : null;
-    if (
-      !isRecord(saved) ||
-      saved.version !== 1 ||
-      typeof saved.revision !== "string" ||
-      typeof saved.originalContent !== "string" ||
-      !isRecord(saved.draft)
-    )
-      return null;
-    const value = saved.draft;
-    if (
-      value.sprintId !== sprintId ||
-      !Array.isArray(value.goals) ||
-      !isRecord(value.links) ||
-      !Array.isArray(value.selectedIssueKeys)
-    )
-      return null;
-    const goals: SprintGoal[] = [];
-    for (const goal of value.goals) {
-      if (!isRecord(goal) || typeof goal.id !== "string" || typeof goal.title !== "string")
-        return null;
-      goals.push(
-        makeSprintGoal({
-          id: goal.id,
-          title: goal.title,
-          color: typeof goal.color === "string" ? goal.color : goalColorName(goals.length),
-          position: goals.length,
-        }),
-      );
-    }
-    const selectedIssueKeys = value.selectedIssueKeys.filter(
-      (key): key is string => typeof key === "string" && isIssueKey(key),
-    );
-    const ids = new Set(goals.map((goal) => goal.id));
-    const links = Object.fromEntries(
-      Object.entries(value.links).filter(
-        (entry): entry is [string, string] =>
-          isIssueKey(entry[0]) && typeof entry[1] === "string" && ids.has(entry[1]),
-      ),
-    );
-    return {
-      version: 1,
-      revision: saved.revision,
-      originalContent: saved.originalContent,
-      draft: {
-        sprintId,
-        goals,
-        links,
-        selectedIssueKeys: [...new Set(selectedIssueKeys)],
-        capacity:
-          typeof value.capacity === "number" &&
-          Number.isFinite(value.capacity) &&
-          value.capacity >= 0
-            ? value.capacity
-            : null,
-      },
-    };
-  }
-
-  /** Dans la file des brouillons : `flushDraft()` (déconnexion) attend aussi la suppression. */
-  #removeStored(boardId: number, sprintId: number): Promise<void> {
-    const removal = this.#saveQueue.then(() => this.#removeStoredNow(boardId, sprintId));
-    this.#saveQueue = removal.catch(() => {});
-    return removal;
-  }
-
-  async #removeStoredNow(boardId: number, sprintId: number): Promise<void> {
-    const all = await this.platform.store.get(this.#storageKey());
-    if (!isRecord(all)) {
-      this.#memoryDrafts.delete(`${boardId}:${sprintId}`);
-      return;
-    }
-    const kept = { ...all };
-    delete kept[`${boardId}:${sprintId}`];
-    await this.platform.store.set(this.#storageKey(), kept);
-    this.#memoryDrafts.delete(`${boardId}:${sprintId}`);
-  }
 }
 
-function draftContent(draft: PlanningDraft): string {
-  return JSON.stringify({
-    goals: draft.goals.map((goal) => [goal.id, goal.title.trim()]),
-    selected: [...draft.selectedIssueKeys].sort(),
-    links: Object.entries(draft.links).sort(([a], [b]) => a.localeCompare(b)),
-  });
+/** Lecture des tickets du planning : estimation et, en Goals Atlassian, le champ natif Goals. */
+function planningQuery(configuration: BoardConfiguration): IssueQuery {
+  return {
+    estimationFieldId: configuration.estimationFieldId ?? null,
+    includeChangelog: false,
+    ...(configuration.goalsFieldId ? { extraFieldIds: [configuration.goalsFieldId] } : {}),
+  };
+}
+
+/** Première couleur de la palette qu'aucun objectif n'utilise encore. */
+function freeColor(goals: readonly SprintGoal[]): string {
+  const used = new Set(goals.map((goal) => goal.color));
+  for (let index = 0; index < GOAL_COLOR_COUNT; index++) {
+    const color = goalColorName(index);
+    if (!used.has(color)) return color;
+  }
+  return goalColorName(goals.length);
+}
+
+/**
+ * Ticket du board visible dans le planning et sa provenance : `origin` à `null` s'il est déjà
+ * dans le sprint en préparation. Le reste à faire d'un sprint actif n'est trouvé qu'en
+ * consultation (`readOnly`).
+ */
+function locate(
+  snapshot: PlanningSnapshot,
+  key: string,
+  readOnly = false,
+): { issue: JiraIssue; origin: PlanningOrigin | null } | null {
+  const inSprint = snapshot.sprintIssues.find((issue) => issue.key === key);
+  if (inSprint) return { issue: inSprint, origin: null };
+  const inBacklog = snapshot.backlogIssues.find((issue) => issue.key === key);
+  if (inBacklog) return { issue: inBacklog, origin: { kind: "backlog" } };
+  for (const { sprint, issues } of snapshot.futureSprints) {
+    const found = issues.find((issue) => issue.key === key);
+    if (found)
+      return {
+        issue: found,
+        origin: { kind: "sprint", sprintId: sprint.id, sprintName: sprint.name },
+      };
+  }
+  if (!readOnly) return null;
+  for (const { issues } of snapshot.activeSprints) {
+    const found = issues.find((issue) => issue.key === key);
+    if (found) return { issue: found, origin: null };
+  }
+  return null;
 }

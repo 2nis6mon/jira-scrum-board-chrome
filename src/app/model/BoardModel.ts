@@ -51,7 +51,12 @@ import { sprintHealth } from "../../core/sprintHealth";
 import { JiraClient, type JiraField, type JiraQuickFilter } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import { GoalsClient } from "../../jira/goals";
-import { type AtlassianGoal, blockingRequiredFields, type JiraTransition } from "../../jira/models";
+import {
+  type AtlassianGoal,
+  blockingRequiredFields,
+  type JiraSprint,
+  type JiraTransition,
+} from "../../jira/models";
 import { type JiraSite, parseBoardUrl } from "../../jira/site";
 import { defaultTransitions } from "../../jira/transitionPlanner";
 import { JiraTransport } from "../../jira/transport";
@@ -99,6 +104,7 @@ import {
   saveDismissedNotice,
 } from "./noticeStore";
 import { PlanningModel } from "./PlanningModel";
+import type { SprintDialogAction } from "./PlanningTypes";
 
 export type { RankEdge } from "../../core/cardMenu";
 export type {
@@ -132,6 +138,12 @@ export class BoardModel {
   nativeTransitionHandler: ((key: string, transition: JiraTransition) => boolean) | null = null;
   /** Fiche Jira native ouverte depuis le vivier du planning. */
   nativeIssueHandler: ((key: string) => void) | null = null;
+  /**
+   * Fenêtre native « Terminer le sprint » ou « Démarrer le sprint » demandée à la page Jira hôte ;
+   * `false` : aucune page hôte pour l'ouvrir. La fermeture revient par le message `refresh`.
+   */
+  nativeSprintDialogHandler: ((action: SprintDialogAction, sprint: JiraSprint) => boolean) | null =
+    null;
   /**
    * Page Jira hôte : un autre board s'ouvre en changeant de page (`leaving`), pour que l'adresse
    * et le board Jira derrière la vue suivent. `current` : c'est déjà le board de la page.
@@ -391,8 +403,7 @@ export class BoardModel {
     this.planning = new PlanningModel(this.#client, platform, {
       configuration: () => this.configuration.value,
       canWrite: () =>
-        // La publication du planning tient elle-même la porte : elle ne s'attend pas.
-        (this.#gate.busy.value === 0 || this.planning.publishing.value) &&
+        this.#gate.busy.value === 0 &&
         this.pendingKeys.value.size === 0 &&
         this.teamSaving.value === 0 &&
         !this.setupBusy.value &&
@@ -400,6 +411,9 @@ export class BoardModel {
         this.transitionChoice.value === null,
       accountId: () => this.snapshot.value?.currentUser?.accountId ?? null,
       openIssue: (key) => this.nativeIssueHandler?.(key),
+      openSprintDialog: (action, sprint) =>
+        this.nativeSprintDialogHandler?.(action, sprint) ?? false,
+      goals: this.#goals,
       write: (task) => this.#gate.run(task),
       record: (entry) => this.#record(entry),
     });
@@ -513,8 +527,7 @@ export class BoardModel {
       !this.setupBusy.value &&
       this.pendingKeys.value.size === 0 &&
       this.pinEditor.value?.saving !== true &&
-      !this.planning.publishing.value &&
-      this.planning.saving.value === 0 &&
+      !this.planning.busy.value &&
       this.teamSaving.value === 0 &&
       this.#gate.busy.value === 0,
   );
@@ -565,11 +578,10 @@ export class BoardModel {
   async removeBoard(boardId: number): Promise<void> {
     if (!this.canSwitchBoard.value) return;
     const shown = this.configuration.value?.boardId === boardId;
-    // Bandeaux et brouillons du board sont oubliés dans la même file, que la déconnexion attend.
+    // Bandeaux du board oubliés dans la même file, que la déconnexion attend.
     const next = await this.#queued(async () => {
       const remaining = await removeBoard(this.#platform.store, this.site.origin, boardId);
       await forgetDismissedNotices(this.#platform.store, this.site.origin, boardId).catch(() => {});
-      await this.planning.forgetBoard(boardId).catch(() => {});
       return remaining;
     });
     await this.#refreshBoards();
@@ -1546,7 +1558,7 @@ export class BoardModel {
     if (seconds === null) return;
     this.#autoRefreshTimer = setInterval(() => {
       const busy =
-        this.planning.publishing.value ||
+        this.planning.busy.value ||
         this.transitionChoice.value !== null ||
         this.nativeTransitionPending.value ||
         this.dragging.value !== null ||

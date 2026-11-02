@@ -1,11 +1,13 @@
 import { signal } from "@preact/signals";
 import { describe, expect, it, vi } from "vitest";
+import { sourceText } from "../../src/app/model/appMessage";
 import { AuditLog } from "../../src/app/model/auditLog";
 import { BoardWriteGate } from "../../src/app/model/BoardWriteGate";
 import { forgetPlanningDrafts, PlanningModel } from "../../src/app/model/PlanningModel";
-import { setLanguage } from "../../src/i18n";
+import type { BoardConfiguration } from "../../src/core/boardConfiguration";
 import { JiraClient } from "../../src/jira/client";
 import { GoalsClient } from "../../src/jira/goals";
+import type { AtlassianGoal } from "../../src/jira/models";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { JiraTransport } from "../../src/jira/transport";
 import { isWriteRequest } from "../support/fakeJira";
@@ -13,32 +15,77 @@ import { fakePlatform } from "../support/fakePlatform";
 import { makeConfiguration } from "../support/jiraFixtures";
 import { planningFixture } from "../support/planningFixture";
 
-function context() {
-  const fixture = planningFixture();
+const DRAFT_KEY = "sprint-planning.v1:https://acme.atlassian.net";
+const PREPARED = "Sprint 43 — Paiement sans friction";
+
+/** Goals Atlassian fictifs : lectures et liens E3/E4 en mémoire. */
+function fakeGoals(input: { workItems: Record<string, string[]>; names: Record<string, string> }) {
+  const setLink = vi.fn(async (_kind: string, _goalId: string, _issueId: string) => ({
+    success: true,
+    messages: [] as string[],
+  }));
+  const goal = (id: string): AtlassianGoal => ({
+    id,
+    key: null,
+    name: input.names[id] ?? null,
+    statusLabel: null,
+    ownerName: null,
+    targetDate: null,
+    url: null,
+    isArchived: false,
+  });
+  return {
+    setLink,
+    cloudId: async () => "cloud-1",
+    searchGoals: async () => Object.keys(input.names).map(goal),
+    workItemKeys: async (ids: readonly string[]) =>
+      Object.fromEntries(ids.map((id) => [id, input.workItems[id] ?? []])),
+    goalsByIds: async (ids: readonly string[]) => ids.map(goal),
+    lastWorkItemsIssue: null,
+  };
+}
+
+function context(
+  options: {
+    configuration?: Partial<BoardConfiguration>;
+    goals?: ReturnType<typeof fakeGoals>;
+    issueFields?: Record<string, Record<string, unknown>>;
+  } = {},
+) {
+  const fixture = planningFixture(undefined, { issueFields: options.issueFields ?? {} });
   const platform = fakePlatform(fixture.jira);
   const transport = new JiraTransport({
     site: normalizeSiteUrl("acme.atlassian.net"),
     fetch: platform.fetch,
   });
   const client = new JiraClient(transport);
+  const goals = options.goals ?? new GoalsClient(transport);
   const audit = new AuditLog(platform.store);
+  let generation = 0;
   const gate = new BoardWriteGate({
     writer: transport,
-    goals: new GoalsClient(transport),
-    scope: { generation: () => 0, disposed: () => false },
+    goals,
+    scope: { generation: () => generation, disposed: () => false },
     canEditSettings: () => true,
   });
   const configuration = signal(
-    makeConfiguration({ boardId: 7, estimationFieldId: "customfield_10016" }),
+    makeConfiguration({
+      boardId: 7,
+      estimationFieldId: "customfield_10016",
+      ...options.configuration,
+    }),
   );
   const canWrite = signal(true);
   const openIssue = vi.fn();
+  const openSprintDialog = vi.fn(() => true);
   const create = () =>
     new PlanningModel(client, platform, {
       configuration: () => configuration.value,
       canWrite: () => canWrite.value,
       accountId: () => "u1",
       openIssue,
+      openSprintDialog,
+      goals,
       write: (task) => gate.run(task),
       record: (entry) =>
         audit.append({ ...entry, at: new Date().toISOString(), site: client.site.origin }),
@@ -49,299 +96,432 @@ function context() {
     configuration,
     canWrite,
     openIssue,
+    openSprintDialog,
     create,
     gate,
     audit,
-    transport,
+    /** Le board a changé : un geste préparé avant est refusé par la porte. */
+    staleBoard: () => {
+      generation += 1;
+    },
     planning: create(),
   };
 }
 
-describe("atelier Sprint Planning", () => {
-  it("copie la synthèse dans la langue courante tout en préservant le contenu du brouillon", async () => {
-    const { planning, platform, jira } = context();
-    await planning.load();
-    planning.assignIssue("ABC-201", null);
-    planning.setCapacity(12.5);
-    const before = JSON.stringify(planning.draft.value);
-    setLanguage("en");
-    await planning.copySummary();
-    expect(platform.copied.at(-1)).toContain("Planning proposal");
-    expect(platform.copied.at(-1)).toContain("Proposed capacity: 12.5 pts");
-    expect(platform.copied.at(-1)).toContain("To organise");
-    expect(platform.copied.at(-1)).toContain("Simplifier le paiement");
-    expect(JSON.stringify(planning.draft.value)).toBe(before);
-    setLanguage("fr");
-    await planning.copySummary();
-    expect(platform.copied.at(-1)).toContain("Proposition de préparation");
-    expect(platform.copied.at(-1)).toContain("Capacité envisagée : 12,5 pts");
-    expect(jira.requests.filter(isWriteRequest)).toHaveLength(0);
+/** Retient la porte du board jusqu'à `release()`. */
+function holdGate(gate: BoardWriteGate) {
+  let release = () => {};
+  // Promesse créée tout de suite : la tâche de la porte ne démarre qu'au tour suivant.
+  const done = new Promise<void>((resolve) => {
+    release = resolve;
   });
+  const held = gate.run(() => done);
+  return { held, release: () => release() };
+}
 
-  it("charge seulement à la demande, depuis le backlog paginé et les sprints, sans écrire ni lire les Goals", async () => {
+const goalTitles = (planning: PlanningModel) => planning.lanes.value.map((lane) => lane.goal.title);
+const notice = (planning: PlanningModel) =>
+  planning.notice.value ? sourceText(planning.notice.value) : null;
+
+describe("Sprint Planning en direct : lecture", () => {
+  it("lit à la demande sprint préparé, backlog, autres sprints et RAF actif, sans écrire ni lire les Goals", async () => {
     const { planning, jira } = context();
     expect(jira.requests).toHaveLength(0);
     await planning.load();
     expect(planning.error.value).toBeNull();
     expect(planning.selectedSprintId.value).toBe(43);
-    expect(planning.issues.value.filter((item) => item.source === "backlog")).toHaveLength(4);
-    expect(
-      planning.issues.value
-        .filter((item) => item.source === "remaining")
-        .map((item) => item.issue.key),
-    ).not.toContain("ABC-103");
-    expect(planning.draft.value?.goals.map((goal) => goal.title)).toEqual([
+    expect(planning.sprints.value.map((sprint) => sprint.id)).toEqual([43]);
+    expect(goalTitles(planning)).toEqual([
       "Simplifier le paiement",
       "Rendre le panier plus rapide",
     ]);
-    expect(planning.dirty.value).toBe(false);
+    expect(planning.unassigned.value.map((item) => item.issue.key)).toEqual(["ABC-210"]);
+    const [backlog, active] = planning.sections.value;
+    expect(backlog?.kind).toBe("backlog");
+    expect(backlog?.issues).toHaveLength(4);
+    expect(active).toMatchObject({ kind: "active", sprint: { id: 42 } });
+    // Reste à faire : les tickets terminés du sprint actif n'y figurent pas.
+    expect(active?.issues.map((item) => item.issue.key)).not.toContain("ABC-103");
+    expect(planning.sprintLoad.value).toEqual({
+      total: 2,
+      unestimated: 0,
+      velocity: null,
+      unit: "pts",
+    });
+    expect(planning.activeSprint.value?.id).toBe(42);
     expect(jira.requests.filter(isWriteRequest)).toHaveLength(0);
     expect(jira.requests.some((request) => request.path.includes("graphql"))).toBe(false);
   });
 
-  it("conserve sélection, objectifs renommés et capacité après réouverture sans publier", async () => {
-    const { planning, create, jira } = context();
-    await planning.load();
-    const goal = planning.draft.value?.goals[0];
-    if (!goal) throw new Error("objectif attendu");
-    planning.renameGoal(goal.id, "Fluidifier la commande");
-    planning.assignIssue("ABC-201", goal.id);
-    planning.setCapacity(21);
-    await planning.refresh();
-    planning.dispose();
-    const reopened = create();
-    await reopened.load();
-    expect(reopened.draft.value?.selectedIssueKeys).toEqual(["ABC-210", "ABC-201"]);
-    expect(reopened.draft.value?.links["ABC-201"]).toBe(goal.id);
-    expect(reopened.draft.value?.goals[0]?.title).toBe("Fluidifier la commande");
-    expect(reopened.draft.value?.capacity).toBe(21);
-    expect(reopened.canPublish.value).toBe(true);
-    expect(jira.requests.filter(isWriteRequest)).toHaveLength(0);
-  });
-
-  it("la capacité seule ne transforme pas un plan inchangé en publication Jira", async () => {
-    const { planning } = context();
-    await planning.load();
-    planning.setCapacity(30);
-    await planning.refresh();
-    expect(planning.draft.value?.capacity).toBe(30);
-    expect(planning.dirty.value).toBe(false);
-    expect(planning.canPublish.value).toBe(false);
-  });
-
-  it("une panne de stockage ne perd pas le brouillon lors d'une actualisation", async () => {
+  it("efface une fois l'ancien brouillon local, sans jamais en écrire", async () => {
     const { planning, platform } = context();
+    platform.stored.set(DRAFT_KEY, { "7:43": { version: 1 } });
+    const set = vi.spyOn(platform.store, "set");
     await planning.load();
-    platform.store.set = async () => {
-      throw new Error("Stockage indisponible");
-    };
-    planning.addGoal("Ne pas perdre notre proposition");
-    await planning.refresh();
-    expect(planning.draft.value?.goals.at(-1)?.title).toBe("Ne pas perdre notre proposition");
-    expect(planning.dirty.value).toBe(true);
+    await vi.waitFor(() => expect(platform.stored.has(DRAFT_KEY)).toBe(false));
+    await planning.addGoal("Un objectif");
+    expect(set.mock.calls.some(([key]) => key.startsWith("sprint-planning."))).toBe(false);
   });
 
-  it("un échec de relecture Jira conserve le brouillon visible et copiable", async () => {
-    const { planning, jira, platform } = context();
-    await planning.load();
-    planning.addGoal("Notre travail doit rester visible");
-    jira.on("GET", "/rest/software/1.0/board/7/backlog", { status: 403 });
-    await planning.refresh();
-    expect(planning.error.value).not.toBeNull();
-    expect(planning.draft.value?.goals.at(-1)?.title).toBe("Notre travail doit rester visible");
-    expect(planning.canPublish.value).toBe(false);
-    await planning.copySummary();
-    expect(platform.copied[0]).toContain("Notre travail doit rester visible");
-    expect(planning.canPublish.value).toBe(false);
-  });
-
-  it("un sprint démarré ailleurs garde son brouillon accessible après actualisation et réouverture", async () => {
-    const { planning, inspect, create } = context();
-    await planning.load();
-    planning.addGoal("Proposition à conserver");
-    inspect().sprint.state = "active";
-    await planning.refresh();
-    expect(planning.selectedSprintId.value).toBe(43);
-    expect(planning.draft.value?.goals.at(-1)?.title).toBe("Proposition à conserver");
-    expect(planning.validation.value).toContain("plus un sprint futur");
-    expect(planning.canPublish.value).toBe(false);
-    const reopened = create();
-    await reopened.load();
-    expect(reopened.selectedSprintId.value).toBe(43);
-    expect(reopened.draft.value?.goals.at(-1)?.title).toBe("Proposition à conserver");
-    expect(reopened.canPublish.value).toBe(false);
-  });
-
-  it("un changement de board pendant une sauvegarde lente ne réinstalle pas l'ancien planning", async () => {
-    const { planning, platform } = context();
-    await planning.load();
-    const original = platform.store.set;
-    let release = () => {};
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    platform.store.set = async (key, value) => {
-      await gate;
-      await original(key, value);
-    };
-    planning.addGoal("Dernière saisie");
-    expect(planning.saving.value).toBe(1);
-    const selection = planning.selectSprint(43);
-    planning.reset();
-    release();
-    await selection;
-    await planning.flushDraft();
-    expect(planning.saving.value).toBe(0);
-    expect(planning.snapshot.value).toBeNull();
-    expect(planning.draft.value).toBeNull();
-  });
-
-  it("le RAF reste consultatif et un ticket déjà dans le sprint ne peut être retiré", async () => {
+  it("la recherche filtre la colonne de gauche et les swimlanes", async () => {
     const { planning } = context();
     await planning.load();
-    const id = planning.draft.value?.goals[0]?.id ?? null;
-    planning.assignIssue("ABC-101", id);
-    planning.removeIssue("ABC-210");
-    expect(planning.draft.value?.selectedIssueKeys).toEqual(["ABC-210"]);
-    planning.assignIssue("ABC-201", id);
-    planning.removeGoal(id ?? "");
-    expect(planning.draft.value?.selectedIssueKeys).toContain("ABC-201");
-    expect(planning.draft.value?.links["ABC-201"]).toBeUndefined();
-    planning.removeIssue("ABC-201");
-    expect(planning.draft.value?.selectedIssueKeys).toEqual(["ABC-210"]);
+    planning.setSearch("panier");
+    const backlog = planning.sections.value.find((section) => section.kind === "backlog");
+    expect(backlog?.issues.map((item) => item.issue.key)).toEqual(["ABC-202", "ABC-204"]);
+    expect(planning.unassigned.value.map((item) => item.issue.key)).toEqual(["ABC-210"]);
+    planning.setSearch("introuvable");
+    expect(planning.unassigned.value).toEqual([]);
+    // La charge ignore la recherche.
+    expect(planning.sprintLoad.value?.total).toBe(2);
   });
 
-  it("copie une synthèse et ouvre la fiche native sans publier", async () => {
-    const { planning, platform, openIssue, jira } = context();
+  it("reste absent en Kanban et ignore les lectures d'un board quitté", async () => {
+    const { planning, configuration, jira } = context();
+    configuration.value = { ...configuration.value, boardType: "kanban" };
     await planning.load();
-    planning.assignIssue("ABC-201", planning.draft.value?.goals[0]?.id ?? null);
-    await planning.copySummary();
-    expect(platform.copied[0]).toContain("ABC-201");
-    expect(platform.copied[0]).toContain("Simplifier le paiement");
-    planning.openIssue("ABC-201");
-    planning.openIssue("FOREIGN-1");
-    expect(openIssue).toHaveBeenCalledExactlyOnceWith("ABC-201");
-    expect(jira.requests.filter(isWriteRequest)).toHaveLength(0);
-  });
-
-  it("publie une seule fois, relit le résultat et repart d'un plan propre", async () => {
-    const { planning, inspect } = context();
-    await planning.load();
-    planning.assignIssue("ABC-201", planning.draft.value?.goals[0]?.id ?? null);
-    planning.addGoal("Améliorer la compréhension des erreurs");
-    await Promise.all([planning.publish(), planning.publish()]);
-    expect(planning.error.value).toBeNull();
-    expect(planning.notice.value).toContain("publié et vérifié");
-    expect(inspect().issueKeys).toContain("ABC-201");
-    expect(inspect().writes.filter((write) => write.path.endsWith("/43/issue"))).toHaveLength(1);
-    expect(planning.dirty.value).toBe(false);
-    expect(planning.canPublish.value).toBe(false);
-    expect(planning.publishing.value).toBe(false);
-  });
-
-  it("publie par la porte du board : attend le geste en cours, journal du board inchangé", async () => {
-    const { planning, gate, audit, inspect } = context();
-    await planning.load();
-    planning.addGoal("Attendre son tour");
-    let release = () => {};
-    const held = gate.run(
-      () =>
-        new Promise<void>((resolve) => {
-          release = resolve;
-        }),
-    );
-    const publishing = planning.publish();
-    await vi.waitFor(() => expect(gate.busy.value).toBe(2));
-    expect(inspect().writes).toHaveLength(0);
-    release();
-    await Promise.all([held, publishing]);
-    expect(planning.notice.value).toContain("publié et vérifié");
-    expect(inspect().writes.length).toBeGreaterThan(0);
-    const [entry] = await audit.list("https://acme.atlassian.net");
-    expect(entry).toMatchObject({
-      action: "sprint planning",
-      issueKey: null,
-      from: null,
-      to: "43",
-      outcome: "réussi",
-      site: "https://acme.atlassian.net",
-      // Résultat gardé en clé du catalogue, traduit à l'affichage.
-      detail: null,
-      detailMessage: {
-        key: "Planning publié et vérifié dans Jira. Le sprint reste à démarrer dans Jira.",
-      },
-    });
-  });
-
-  it("protège une publication contre les écritures déjà en cours", async () => {
-    const { planning, canWrite, inspect } = context();
-    await planning.load();
-    planning.addGoal("Sécuriser le parcours");
-    canWrite.value = false;
-    expect(planning.canPublish.value).toBe(false);
-    await planning.publish();
-    expect(inspect().writes).toHaveLength(0);
-    canWrite.value = true;
-    expect(planning.canPublish.value).toBe(true);
-  });
-
-  it("une modification concurrente garde le brouillon copiable mais bloque la publication", async () => {
-    const { planning, inspect, platform } = context();
-    await planning.load();
-    planning.addGoal("Notre proposition");
-    inspect().sprint.goal = "Objectif modifié par un collègue";
-    await planning.refresh();
-    expect(planning.canPublish.value).toBe(false);
-    expect(planning.validation.value).toContain("Jira a changé");
-    expect(planning.draft.value?.goals.at(-1)?.title).toBe("Notre proposition");
-    await planning.copySummary();
-    expect(platform.copied[0]).toContain("Notre proposition");
-    await planning.discardDraft();
-    expect(planning.draft.value?.goals.map((goal) => goal.title)).toEqual([
-      "Objectif modifié par un collègue",
-    ]);
-    expect(planning.dirty.value).toBe(false);
-    expect(inspect().writes).toHaveLength(0);
-  });
-
-  it("un refus de publication conserve le brouillon, sans nouvelle tentative automatique", async () => {
-    const { planning, jira } = context();
-    await planning.load();
-    planning.addGoal("Un nouvel objectif");
-    jira.on("POST", "/rest/agile/1.0/sprint/43", { status: 403 });
-    await planning.publish();
-    await planning.publish();
-    expect(planning.canPublish.value).toBe(false);
-    expect(planning.draft.value?.goals.at(-1)?.title).toBe("Un nouvel objectif");
-    expect(jira.requests.filter((request) => request.method === "POST")).toHaveLength(1);
-  });
-
-  it("un changement de board ou une fermeture ignore les anciennes lectures", async () => {
-    const { planning } = context();
+    expect(jira.requests).toHaveLength(0);
+    configuration.value = { ...configuration.value, boardType: "scrum" };
     const pending = planning.load();
     planning.reset();
     await pending;
     expect(planning.snapshot.value).toBeNull();
     expect(planning.loading.value).toBe(false);
-    await planning.load();
     planning.dispose();
     await planning.load();
     expect(planning.snapshot.value).toBeNull();
   });
 
-  it("reste absent en Kanban et efface les brouillons lors de l'oubli du site", async () => {
-    const { planning, configuration, platform, jira } = context();
-    configuration.value = { ...configuration.value, boardType: "kanban" };
-    await planning.load();
-    expect(jira.requests).toHaveLength(0);
-    configuration.value = { ...configuration.value, boardType: "scrum" };
-    await planning.load();
-    planning.addGoal("À préparer");
-    planning.dispose();
-    await planning.flushDraft();
+  it("la déconnexion efface les anciens brouillons du site", async () => {
+    const { platform } = context();
+    platform.stored.set(DRAFT_KEY, {});
     await forgetPlanningDrafts(platform.store, "https://acme.atlassian.net");
-    expect([...platform.stored.keys()].some((key) => key.startsWith("sprint-planning.v1:"))).toBe(
-      false,
+    expect(platform.stored.has(DRAFT_KEY)).toBe(false);
+  });
+});
+
+describe("Sprint Planning en direct : objectifs texte", () => {
+  it("ajouter un objectif écrit E8 puis E5 une fois, relit le sprint et le journalise", async () => {
+    const { planning, inspect, audit } = context();
+    await planning.load();
+    await planning.addGoal("Améliorer la compréhension des erreurs");
+    expect(planning.error.value).toBeNull();
+    expect(planning.notice.value).toBeNull();
+    expect(inspect().writes.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      "POST /rest/agile/1.0/sprint/43",
+      "PUT /rest/agile/1.0/sprint/43/properties/com.scrumboardmac.sprintgoals.v1",
+    ]);
+    expect(goalTitles(planning)).toEqual([
+      "Simplifier le paiement",
+      "Rendre le panier plus rapide",
+      "Améliorer la compréhension des erreurs",
+    ]);
+    expect(planning.busy.value).toBe(false);
+    const [entry] = await audit.list("https://acme.atlassian.net");
+    expect(entry).toMatchObject({
+      action: "sprint planning",
+      issueKey: null,
+      to: PREPARED,
+      outcome: "réussi",
+      detail: null,
+      detailMessage: { key: "Enregistré et vérifié dans Jira." },
+    });
+  });
+
+  it("renommer garde l'identifiant : le ticket posé reste sur son objectif", async () => {
+    const { planning, inspect } = context();
+    await planning.load();
+    const goal = planning.lanes.value[0]?.goal;
+    if (!goal) throw new Error("objectif attendu");
+    await planning.placeIssue("ABC-201", goal.id);
+    expect(planning.lanes.value[0]?.issues.map((item) => item.issue.key)).toEqual(["ABC-201"]);
+    expect(inspect().issueKeys).toContain("ABC-201");
+    await planning.renameGoal(goal.id, "Fluidifier la commande");
+    expect(planning.lanes.value[0]?.goal).toMatchObject({
+      id: goal.id,
+      title: "Fluidifier la commande",
+    });
+    expect(planning.lanes.value[0]?.issues.map((item) => item.issue.key)).toEqual(["ABC-201"]);
+    // Titre inchangé : rien n'est écrit.
+    const writes = inspect().writes.length;
+    await planning.renameGoal(goal.id, " Fluidifier la commande ");
+    expect(inspect().writes).toHaveLength(writes);
+  });
+
+  it("déplacer et supprimer réécrivent l'ordre et le texte", async () => {
+    const { planning, inspect } = context();
+    await planning.load();
+    const [first, second] = planning.lanes.value.map((lane) => lane.goal.id);
+    await planning.moveGoal(second ?? "", -1);
+    expect(goalTitles(planning)).toEqual([
+      "Rendre le panier plus rapide",
+      "Simplifier le paiement",
+    ]);
+    await planning.removeGoal(first ?? "");
+    expect(goalTitles(planning)).toEqual(["Rendre le panier plus rapide"]);
+    expect(inspect().sprint.goal).toBe("Rendre le panier plus rapide");
+  });
+
+  it("texte changé dans Jira depuis l'affichage : rien n'est écrit, la page est relue", async () => {
+    const { planning, inspect, audit } = context();
+    await planning.load();
+    inspect().sprint.goal = "Objectif modifié par un collègue";
+    await planning.addGoal("Notre proposition");
+    expect(inspect().writes).toHaveLength(0);
+    expect(notice(planning)).toBe(
+      "Le texte des objectifs a changé dans Jira depuis son affichage. Rien n’a été écrit : la page a été relue, refaites votre modification.",
+    );
+    expect(goalTitles(planning)).toEqual(["Objectif modifié par un collègue"]);
+    const [entry] = await audit.list("https://acme.atlassian.net");
+    expect(entry?.outcome).toBe("échec");
+  });
+
+  it("E8 confirmé puis E5 refusé : avis partiel, aucune écriture rejouée", async () => {
+    const { planning, jira, inspect } = context();
+    await planning.load();
+    jira.on("PUT", "/rest/agile/1.0/sprint/43/properties/com.scrumboardmac.sprintgoals.v1", {
+      status: 403,
+    });
+    await planning.addGoal("Un nouvel objectif");
+    expect(notice(planning)).toMatch(/^Étapes confirmées : texte des objectifs\. /);
+    expect(notice(planning)).toContain("Aucune écriture n’a été rejouée");
+    expect(jira.requests.filter(isWriteRequest)).toHaveLength(2);
+    expect(inspect().sprint.goal).toContain("Un nouvel objectif");
+    // La page relue montre le texte confirmé.
+    expect(goalTitles(planning)).toContain("Un nouvel objectif");
+  });
+
+  it("un refus de la porte avant l'envoi se lit « rien n'a été envoyé »", async () => {
+    const { planning, gate, staleBoard, inspect, audit } = context();
+    await planning.load();
+    const hold = holdGate(gate);
+    const adding = planning.addGoal("Trop tard");
+    staleBoard();
+    hold.release();
+    await Promise.all([hold.held, adding]);
+    expect(inspect().writes).toHaveLength(0);
+    expect(notice(planning)).toBe("Rien n'a été envoyé à Jira : le board a changé avant l'envoi.");
+    const [entry] = await audit.list("https://acme.atlassian.net");
+    expect(entry).toMatchObject({
+      outcome: "échec",
+      detailMessage: { key: "Rien n'a été envoyé à Jira : le board a changé avant l'envoi." },
+    });
+  });
+});
+
+describe("Sprint Planning en direct : tickets", () => {
+  it("un ticket du backlog posé sur un objectif rejoint le sprint, avec sa provenance", async () => {
+    const { planning, inspect } = context();
+    await planning.load();
+    const goal = planning.lanes.value[1]?.goal;
+    await planning.placeIssue("ABC-202", goal?.id ?? null);
+    expect(inspect().writes.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      "POST /rest/agile/1.0/sprint/43/issue",
+      "PUT /rest/agile/1.0/sprint/43/properties/com.scrumboardmac.sprintgoals.v1",
+    ]);
+    const [item] = planning.lanes.value[1]?.issues ?? [];
+    expect(item).toMatchObject({ issue: { key: "ABC-202" }, origin: { kind: "backlog" } });
+    expect(planning.lanes.value[1]).toMatchObject({ issueCount: 1, points: 3 });
+    expect(planning.sprintLoad.value?.total).toBe(5);
+  });
+
+  it("« Sans objectif » depuis le backlog : E9 seulement", async () => {
+    const { planning, inspect } = context();
+    await planning.load();
+    await planning.placeIssue("ABC-204", null);
+    expect(inspect().writes.map(({ path }) => path)).toEqual(["/rest/agile/1.0/sprint/43/issue"]);
+    expect(planning.unassigned.value.map((item) => item.issue.key)).toEqual(["ABC-210", "ABC-204"]);
+  });
+
+  it("Goals Atlassian : un ticket du backlog est détaché du Goal de son champ natif, puis lié", async () => {
+    const GOAL_A = "ari:cloud:townsquare:site:goal/a";
+    const GOAL_OLD = "ari:cloud:townsquare:site:goal/old";
+    const goals = fakeGoals({
+      workItems: { [GOAL_A]: ["ABC-210"] },
+      names: { [GOAL_A]: "Paiement", [GOAL_OLD]: "Ancien" },
+    });
+    const { planning, inspect } = context({
+      configuration: { goalSource: "atlassianGoals", goalsFieldId: "customfield_10500" },
+      goals,
+      issueFields: { "ABC-202": { customfield_10500: [{ id: GOAL_OLD }] } },
+    });
+    await planning.load();
+    expect(planning.lanes.value.map((lane) => lane.goal.id)).toEqual([GOAL_A]);
+    const issueId = planning.sections.value
+      .find((section) => section.kind === "backlog")
+      ?.issues.find((item) => item.issue.key === "ABC-202")?.issue.id;
+    await planning.placeIssue("ABC-202", GOAL_A);
+    expect(inspect().writes.map(({ path }) => path)).toEqual(["/rest/agile/1.0/sprint/43/issue"]);
+    expect(goals.setLink.mock.calls).toEqual([
+      ["goal.unlink", GOAL_OLD, issueId],
+      ["goal.link", GOAL_A, issueId],
+    ]);
+  });
+
+  it("le reste à faire du sprint actif et un objectif inconnu ne déclenchent rien", async () => {
+    const { planning, jira } = context();
+    await planning.load();
+    const before = jira.requests.length;
+    await planning.placeIssue("ABC-101", planning.lanes.value[0]?.goal.id ?? null);
+    await planning.placeIssue("ABC-201", "objectif-inconnu");
+    await planning.placeIssue("FOREIGN-1", null);
+    expect(jira.requests).toHaveLength(before);
+  });
+
+  it("renvoyer au backlog écrit E10 puis relit : le ticket quitte le sprint", async () => {
+    const { planning, inspect } = context();
+    await planning.load();
+    await planning.removeIssue("ABC-210", { kind: "backlog" });
+    expect(inspect().writes.map(({ method, path, body }) => ({ method, path, body }))).toEqual([
+      { method: "POST", path: "/rest/agile/1.0/backlog/issue", body: { issues: ["ABC-210"] } },
+    ]);
+    expect(planning.unassigned.value).toEqual([]);
+    const backlog = planning.sections.value.find((section) => section.kind === "backlog");
+    expect(backlog?.issues.map((item) => item.issue.key)).toContain("ABC-210");
+  });
+
+  it("aucun retrait d'un ticket hors du sprint ni vers un sprint inconnu", async () => {
+    const { planning, jira } = context();
+    await planning.load();
+    const before = jira.requests.length;
+    await planning.removeIssue("ABC-201", { kind: "backlog" });
+    await planning.removeIssue("ABC-210", { kind: "sprint", sprintId: 42 });
+    expect(jira.requests).toHaveLength(before);
+  });
+
+  it("ouvre la fiche native d'un ticket connu du planning seulement", async () => {
+    const { planning, openIssue } = context();
+    await planning.load();
+    planning.openIssue("ABC-201");
+    planning.openIssue("ABC-101");
+    planning.openIssue("FOREIGN-1");
+    expect(openIssue.mock.calls).toEqual([["ABC-201"], ["ABC-101"]]);
+  });
+});
+
+describe("Sprint Planning en direct : vélocité", () => {
+  it("vélocité validée : E5 relu, comparée à la charge", async () => {
+    const { planning, inspect } = context();
+    await planning.load();
+    await planning.saveVelocity(20);
+    expect(inspect().writes.map(({ method }) => method)).toEqual(["PUT"]);
+    expect(inspect().document).toMatchObject({ velocity: 20 });
+    expect(planning.sprintLoad.value).toMatchObject({ total: 2, velocity: 20 });
+    await planning.saveVelocity(20);
+    expect(inspect().writes).toHaveLength(1);
+  });
+
+  it("vélocité invalide : refusée sans écriture", async () => {
+    const { planning, inspect } = context();
+    await planning.load();
+    await planning.saveVelocity(-1);
+    expect(inspect().writes).toHaveLength(0);
+    expect(notice(planning)).toBe(
+      "La vélocité doit être un nombre positif ou nul. Rien n’a été écrit.",
+    );
+  });
+});
+
+describe("Sprint Planning en direct : un geste à la fois", () => {
+  it("un geste attend la porte du board ; pendant ce temps, les autres sont ignorés", async () => {
+    const { planning, gate, inspect } = context();
+    await planning.load();
+    const hold = holdGate(gate);
+    const adding = planning.addGoal("Attendre son tour");
+    expect(planning.busy.value).toBe(true);
+    expect(planning.gesturesDisabled.value).toBe(true);
+    await planning.addGoal("Geste ignoré");
+    await planning.saveVelocity(12);
+    await planning.selectSprint(43);
+    await planning.refresh();
+    expect(inspect().writes).toHaveLength(0);
+    hold.release();
+    await Promise.all([hold.held, adding]);
+    expect(planning.busy.value).toBe(false);
+    expect(goalTitles(planning)).toContain("Attendre son tour");
+    expect(goalTitles(planning)).not.toContain("Geste ignoré");
+    expect(inspect().writes.filter(({ method }) => method === "POST")).toHaveLength(1);
+  });
+
+  it("une autre écriture du board en cours désactive les gestes", async () => {
+    const { planning, canWrite, inspect } = context();
+    await planning.load();
+    canWrite.value = false;
+    expect(planning.gesturesDisabled.value).toBe(true);
+    await planning.addGoal("Sécuriser le parcours");
+    planning.closeActiveSprint();
+    expect(inspect().writes).toHaveLength(0);
+    expect(planning.pendingClosure.value).toBeNull();
+    canWrite.value = true;
+    expect(planning.gesturesDisabled.value).toBe(false);
+  });
+});
+
+describe("Sprint Planning en direct : fenêtres natives", () => {
+  it("clôture native fermée, sprint relu clos : les objectifs non atteints sont reportés", async () => {
+    const { planning, openSprintDialog, activeSprint, inspect } = context();
+    await planning.load();
+    planning.closeActiveSprint();
+    expect(openSprintDialog).toHaveBeenCalledExactlyOnceWith(
+      "complete",
+      expect.objectContaining({ id: 42 }),
+    );
+    expect(planning.pendingClosure.value).toEqual({ closedSprintId: 42, targetSprintId: 43 });
+    activeSprint.state = "closed";
+    await planning.afterNativeDialog();
+    expect(planning.pendingClosure.value).toBeNull();
+    // « Améliorer la stabilité » est atteint : son seul ticket est dans la dernière colonne.
+    expect(goalTitles(planning)).toEqual([
+      "Simplifier le paiement",
+      "Rendre le panier plus rapide",
+      "Finaliser le parcours de paiement",
+    ]);
+    expect(notice(planning)).toBe(`Objectifs non atteints reportés dans ${PREPARED}.`);
+    expect(inspect().writes.map(({ method }) => method)).toEqual(["POST", "PUT"]);
+    // Plus aucun sprint actif : démarrer devient possible.
+    expect(planning.activeSprint.value).toBeNull();
+    expect(planning.startDisabledReason.value).toBeNull();
+    planning.startSprint();
+    expect(openSprintDialog).toHaveBeenLastCalledWith("start", expect.objectContaining({ id: 43 }));
+  });
+
+  it("fenêtre de clôture annulée : sprint encore actif, rien n'est reporté", async () => {
+    const { planning, inspect } = context();
+    await planning.load();
+    planning.closeActiveSprint();
+    await planning.afterNativeDialog();
+    expect(planning.pendingClosure.value).toBeNull();
+    expect(inspect().writes).toHaveLength(0);
+    expect(notice(planning)).toBe("Le sprint est toujours actif : rien n'a été reporté.");
+  });
+
+  it("une relecture sans clôture demandée ne reporte rien", async () => {
+    const { planning, activeSprint, inspect } = context();
+    await planning.load();
+    activeSprint.state = "closed";
+    await planning.afterNativeDialog();
+    expect(inspect().writes).toHaveLength(0);
+    expect(planning.activeSprint.value).toBeNull();
+  });
+
+  it("démarrer reste désactivé, avec sa raison, tant qu'un sprint est actif", async () => {
+    const { planning, openSprintDialog } = context();
+    await planning.load();
+    expect(planning.startDisabledReason.value).toEqual({
+      key: "Un sprint est actif : clôturez-le avant de démarrer celui-ci.",
+    });
+    planning.startSprint();
+    expect(openSprintDialog).not.toHaveBeenCalled();
+  });
+
+  it("sans page Jira hôte : la fenêtre n'est pas ouverte et aucune clôture n'attend", async () => {
+    const { planning, openSprintDialog } = context();
+    openSprintDialog.mockReturnValue(false);
+    await planning.load();
+    planning.closeActiveSprint();
+    expect(planning.pendingClosure.value).toBeNull();
+    expect(notice(planning)).toBe(
+      "La fenêtre de Jira ne s'ouvre que depuis le board Jira qui héberge Sprint Goals Board.",
     );
   });
 });

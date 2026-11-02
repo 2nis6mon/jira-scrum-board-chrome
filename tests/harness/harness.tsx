@@ -667,11 +667,21 @@ if (scenario.startsWith("board")) {
           await current.board.planning.load();
           await current.board.planning.refresh();
           await current.board.planning.selectSprint(43);
-          await current.board.planning.publish();
+          const planningModel = current.board.planning;
+          await planningModel.addGoal("Objectif du paquet");
+          await planningModel.placeIssue("ABC-201", null);
+          await planningModel.removeIssue("ABC-210", { kind: "backlog" });
+          await planningModel.saveVelocity(20);
+          await planningModel.searchGoals("");
+          await planningModel.pinGoal("ari-paquet");
+          planningModel.closeActiveSprint();
+          planningModel.startSprint();
+          await planningModel.afterNativeDialog();
           model.view.value = "planning";
+          // Noms gardés pour `verify:planning:package` : aucune lecture, aucun geste possible.
           return {
-            draft: current.board.planning.draft.value,
-            canPublish: current.board.planning.canPublish.value,
+            draft: planningModel.snapshot.value,
+            canPublish: !planningModel.gesturesDisabled.value,
           };
         },
       },

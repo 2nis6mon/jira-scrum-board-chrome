@@ -41,17 +41,20 @@ function setup() {
     canEditSettings: () => true,
   });
   const openIssue = vi.fn();
+  const openSprintDialog = vi.fn(() => true);
   const create = () =>
     new PlanningModel(client, platform, {
       configuration: () => makeConfiguration({ boardId: 7 }),
       canWrite: () => true,
       accountId: () => "u1",
       openIssue,
+      openSprintDialog,
+      goals: new GoalsClient(transport),
       write: (task) => gate.run(task),
       record: (entry) =>
         audit.append({ ...entry, at: new Date().toISOString(), site: client.site.origin }),
     });
-  return { jira, platform, openIssue, create, planning: create() };
+  return { jira, platform, openIssue, openSprintDialog, create, planning: create() };
 }
 
 afterEach(() => render(null, document.body));
@@ -93,79 +96,76 @@ describe("Sprint Planning désactivé à la compilation", () => {
     await planning.refresh();
     planning.sprints.value = [decodeSprint({ id: 43, state: "future", name: "Sprint futur" })];
     await planning.selectSprint(43);
-    await planning.discardDraft();
-    await planning.flushDraft();
+    await planning.afterNativeDialog();
+    await planning.searchGoals("Paiement");
     expect(jira.requests).toEqual([]);
     expect(get).not.toHaveBeenCalled();
     expect(set).not.toHaveBeenCalled();
     expect(remove).not.toHaveBeenCalled();
     expect(planning.snapshot.value).toBeNull();
-    expect(planning.draft.value).toBeNull();
     expect(platform.stored.get(STORAGE_KEY)).toBe(stored);
   });
 
-  it("bloque la publication et les effets locaux même avec un état de planning déjà présent", async () => {
-    const { planning, jira, platform, openIssue } = setup();
+  it("bloque chaque geste, fenêtre native et dérivé même avec un état de planning déjà présent", async () => {
+    const { planning, jira, platform, openIssue, openSprintDialog } = setup();
     const goal = makeSprintGoal({ id: "g1", title: "Objectif préparé", position: 0 });
     const sprint = decodeSprint({ id: 43, state: "future", name: "Sprint futur" });
+    const active = decodeSprint({ id: 42, state: "active", name: "Sprint actif" });
     planning.snapshot.value = {
       boardId: 7,
       query: { estimationFieldId: "customfield_10016", includeChangelog: false },
       sprint,
-      nativeGoalText: "",
+      nativeGoalText: "Objectif préparé",
       rawGoalProperty: null,
-      goals: [],
-      links: {},
-      sprintIssues: [],
-      backlogIssues: [makeIssue("ABC-201")],
-      remainingIssues: [],
-    };
-    planning.draft.value = {
-      sprintId: 43,
       goals: [goal],
-      links: { "ABC-201": "g1" },
-      selectedIssueKeys: ["ABC-201"],
-      capacity: 8,
+      links: { "ABC-210": "g1" },
+      storedLinks: {},
+      storedGoalIds: [],
+      velocity: null,
+      pinnedGoalIds: [],
+      sprintIssues: [makeIssue("ABC-210")],
+      backlogIssues: [makeIssue("ABC-201")],
+      futureSprints: [],
+      activeSprints: [{ sprint: active, issues: [] }],
     };
     planning.selectedSprintId.value = 43;
-    const draft = planning.draft.value;
+    planning.pendingClosure.value = { closedSprintId: 42, targetSprintId: 43 };
     const set = vi.spyOn(platform.store, "set");
-    planning.addGoal("Un autre objectif");
-    planning.renameGoal("g1", "Titre modifié");
-    planning.removeGoal("g1");
-    planning.moveGoal("g1", 1);
-    planning.assignIssue("ABC-201", null);
-    planning.removeIssue("ABC-201");
-    planning.setCapacity(21);
+    await planning.addGoal("Un autre objectif");
+    await planning.renameGoal("g1", "Titre modifié");
+    await planning.removeGoal("g1");
+    await planning.moveGoal("g1", 1);
+    await planning.placeIssue("ABC-201", "g1");
+    await planning.removeIssue("ABC-210", { kind: "backlog" });
+    await planning.saveVelocity(21);
+    await planning.pinGoal("ari-1");
+    await planning.unpinGoal("ari-1");
+    planning.closeActiveSprint();
+    planning.startSprint();
+    await planning.afterNativeDialog();
     planning.openIssue("ABC-201");
-    await planning.copySummary();
-    await planning.publish();
-    await planning.flushDraft();
-    expect(planning.draft.value).toBe(draft);
-    expect(planning.issues.value).toEqual([]);
-    expect(planning.canPublish.value).toBe(false);
-    expect(planning.dirty.value).toBe(false);
-    expect(planning.publishing.value).toBe(false);
+    expect(planning.lanes.value).toEqual([]);
+    expect(planning.unassigned.value).toEqual([]);
+    expect(planning.sections.value).toEqual([]);
+    expect(planning.sprintLoad.value).toBeNull();
+    expect(planning.activeSprint.value).toBeNull();
+    expect(planning.gesturesDisabled.value).toBe(true);
+    expect(planning.busy.value).toBe(false);
     expect(jira.requests).toEqual([]);
-    expect(platform.copied).toEqual([]);
     expect(set).not.toHaveBeenCalled();
     expect(openIssue).not.toHaveBeenCalled();
+    expect(openSprintDialog).not.toHaveBeenCalled();
   });
 
-  it("préserve les brouillons en réinitialisant la vue mais respecte les oublis explicitement demandés", async () => {
+  it("garde les anciens brouillons en réinitialisant la vue, mais la déconnexion les efface", async () => {
     const { planning, platform, create } = setup();
-    const saved = {
-      "7:43": { version: 1, draft: { sprintId: 43 } },
-      "8:44": { version: 1, draft: { sprintId: 44 } },
-    };
+    const saved = { "7:43": { version: 1, draft: { sprintId: 43 } } };
     platform.stored.set(STORAGE_KEY, saved);
     planning.reset();
     planning.dispose();
     const reopened = create();
     await reopened.load();
     expect(platform.stored.get(STORAGE_KEY)).toBe(saved);
-    await reopened.forgetBoard(7);
-    expect(platform.stored.get(STORAGE_KEY)).toEqual({ "8:44": saved["8:44"] });
     await forgetPlanningDrafts(platform.store, "https://acme.atlassian.net");
     expect(platform.stored.has(STORAGE_KEY)).toBe(false);
   });

@@ -596,131 +596,76 @@ export const businessMessagesEs = {
     "La publicación debe revisarse. Tu borrador sigue disponible: copia su resumen y vuelve a empezar desde Jira para ver el resultado confirmado.",
   "Publication non confirmée. Copiez votre brouillon puis repartez de Jira avant toute nouvelle publication.":
     "Publicación sin confirmar. Copia tu borrador y vuelve a empezar desde Jira antes de publicar de nuevo.",
-  "À organiser": "Por organizar",
-  "Proposition de préparation": "Propuesta de planificación",
-  "Capacité envisagée : {p0} {p1}": "Capacidad propuesta: {p0} {p1}",
-  "Tickets à réexaminer :": "Incidencias por revisar:",
-  "Synthèse copiée.": "Resumen copiado.",
-  "Le brouillon reste affiché mais sa sauvegarde locale a échoué. Copiez la synthèse avant de fermer.":
-    "El borrador sigue visible, pero no se ha podido guardar localmente. Copia el resumen antes de cerrar.",
-  "ATELIER PRODUIT": "TALLER DE PRODUCTO",
   "Afficher la barre latérale": "Mostrar la barra lateral",
   "Masquer la barre latérale": "Ocultar la barra lateral",
   "Retour au board": "Volver al tablero",
-  "Copier la synthèse": "Copiar el resumen",
-  "Publier dans Jira": "Publicar en Jira",
   "Sprint à préparer": "Sprint por preparar",
   "Aucun sprint futur": "Ningún sprint futuro",
-  " — brouillon à réexaminer": " — borrador por revisar",
-  "Publication en cours…": "Publicando…",
   "Lecture de Jira…": "Cargando desde Jira…",
-  "Brouillon local": "Borrador local",
-  "Version Jira": "Versión de Jira",
   "Relire les tickets depuis Jira": "Volver a cargar las incidencias desde Jira",
   Actualiser: "Actualizar",
-  "Repartir de Jira": "Volver a empezar desde Jira",
-  "Préparons votre prochain sprint": "Preparemos tu próximo sprint",
-  "Un sprint à construire ensemble": "Construyamos un sprint juntos",
-  "Lecture du backlog, du sprint futur et du reste à faire.":
-    "Cargando el backlog, el sprint futuro y el trabajo restante.",
   "Créez un sprint futur dans le backlog Jira, puis actualisez pour préparer ses objectifs et ses stories ici.":
     "Crea un sprint futuro en el backlog de Jira y actualiza para preparar aquí sus objetivos e historias.",
-  "Synthèse du sprint proposé": "Resumen del sprint propuesto",
-  objectif: "objetivo",
-  objectifs: "objetivos",
-  "ticket prévu": "incidencia planificada",
-  "tickets prévus": "incidencias planificadas",
-  "Ajoutez des tickets pour composer le sprint": "Añade incidencias para construir el sprint",
   "{p0} sans estimation": "{p0} sin estimación",
-  "Tous les tickets prévus sont estimés": "Todas las incidencias planificadas tienen estimación",
-  "Capacité cible": "Capacidad objetivo",
-  facultative: "opcional",
-  "Capacité cible en {p0}": "Capacidad objetivo en {p0}",
-  "Capacité utilisée": "Capacidad utilizada",
-  "{p0} au-dessus de la cible": "{p0} por encima del objetivo",
-  "{p0} disponibles": "{p0} disponibles",
-  " · estimation partielle": " · estimación parcial",
-  "Tickets à examiner": "Incidencias por explorar",
-  Explorer: "Explorar",
-  "Choisir ce qui sert vos objectifs.": "Elige lo que contribuya a tus objetivos.",
-  "Source des tickets": "Origen de las incidencias",
-  "Reste à faire": "Trabajo restante",
   "Rechercher un ticket à planifier": "Buscar una incidencia para planificar",
-  "Rechercher une story, un epic…": "Buscar una historia, un epic…",
-  "Tickets non terminés du sprint actif, à réexaminer avant la clôture. Leur présence ici ne les déplace pas.":
-    "Incidencias sin terminar del sprint activo, para revisarlas antes de cerrarlo. Mostrarlas aquí no las mueve.",
   "Aucun ticket ne correspond à cette recherche.": "Ninguna incidencia coincide con esta búsqueda.",
-  "Aucun reste à faire dans le sprint actif.": "No queda trabajo pendiente en el sprint activo.",
-  "Tous les tickets disponibles sont déjà dans votre proposition.":
-    "Todas las incidencias disponibles ya están en tu propuesta.",
-  "Glissez un ticket vers un objectif ou utilisez « Affecter à ».":
-    "Arrastra una incidencia a un objetivo o usa «Asignar a».",
-  "Proposition de sprint": "Propuesta de sprint",
-  "Construire par objectifs": "Organiza el sprint por objetivos",
-  "Décrivez le résultat attendu, puis réunissez les stories qui le rendent possible.":
-    "Describe el resultado esperado y reúne las historias que lo harán posible.",
-  "Tous les objectifs": "Todos los objetivos",
-  "Tickets à vérifier": "Incidencias por comprobar",
-  "Ces tickets ne sont plus disponibles dans le backlog ou le sprint choisi. Retirez-les de la proposition pour pouvoir publier.":
-    "Estas incidencias ya no están disponibles en el backlog o en el sprint seleccionado. Quítalas de la propuesta antes de publicar.",
-  "Retirer {p0} de la proposition": "Quitar {p0} de la propuesta",
-  "Retirer de la proposition": "Quitar de la propuesta",
-  "Quel résultat voulez-vous obtenir ?": "¿Qué resultado quieres conseguir?",
-  "Commencez par un objectif concret. Les tickets viennent ensuite.":
-    "Empieza con un objetivo concreto. Las incidencias vienen después.",
   "Objectif {p0} : {p1}": "Objetivo {p0}: {p1}",
-  OBJECTIF: "OBJETIVO",
   "Titre de l’objectif {p0}": "Título del objetivo {p0}",
-  "Un résultat concret pour vos utilisateurs": "Un resultado concreto para tus usuarios",
-  "Se concentrer sur cet objectif": "Centrarse en este objetivo",
-  "Isoler l’objectif {p0}": "Centrarse en el objetivo {p0}",
   "Monter l’objectif {p0}": "Subir el objetivo {p0}",
   "Descendre l’objectif {p0}": "Bajar el objetivo {p0}",
   "Supprimer l’objectif {p0}": "Eliminar el objetivo {p0}",
-  "Retirer cet objectif ; ses tickets restent à organiser":
-    "Quitar este objetivo; sus incidencias quedan por organizar",
-  "Déposez ici les stories qui contribuent à cet objectif.":
-    "Suelta aquí las historias que contribuyen a este objetivo.",
   "Nouvel objectif du sprint": "Nuevo objetivo del sprint",
-  "Ajouter un résultat attendu pour ce sprint…": "Añadir un resultado esperado para este sprint…",
   "Ajouter l’objectif": "Añadir el objetivo",
-  "Tickets à organiser": "Incidencias por organizar",
-  "Dans le sprint proposé, encore sans objectif.": "En el sprint propuesto, aún sin objetivo.",
-  "Un ticket à discuter ? Gardez-le ici avant de choisir son objectif.":
-    "¿Hay una incidencia que debatir? Déjala aquí antes de elegir su objetivo.",
-  "Votre proposition reste un brouillon dans ce navigateur. Publiez quand l’équipe est prête.":
-    "Tu propuesta sigue siendo un borrador en este navegador. Publica cuando el equipo esté listo.",
-  "Publier la proposition de sprint": "Publicar la propuesta de sprint",
-  "Abandonner le brouillon ?": "¿Descartar el borrador?",
-  "Le sprint": "El sprint",
-  "recevra les objectifs ci-dessous et les rattachements de vos tickets.":
-    "recibirá los siguientes objetivos y los vínculos de tus incidencias.",
-  "Texte du sprint dans Jira · un objectif par ligne":
-    "Texto del sprint en Jira · un objetivo por línea",
-  "{p0} restera sans objectif.": "{p0} quedará sin objetivo.",
-  "{p0} resteront sans objectif.": "{p0} quedarán sin objetivo.",
-  "Le sprint restera futur. Le reste à faire du sprint actif ne sera pas déplacé.":
-    "El sprint seguirá siendo futuro. El trabajo restante del sprint activo no se moverá.",
-  "Continuer la préparation": "Seguir preparando",
-  "Confirmer la publication": "Confirmar la publicación",
-  "Les objectifs et choix de tickets non publiés seront remplacés par la version actuelle de Jira. La capacité cible sera également réinitialisée.":
-    "Los objetivos y las selecciones de incidencias sin publicar se sustituirán por la versión actual de Jira. La capacidad objetivo también se restablecerá.",
-  "Garder le brouillon": "Conservar el borrador",
-  "Reprendre depuis Jira": "Volver a empezar desde Jira",
-  "{p0} à ajouter au sprint": "{p0} por añadir al sprint",
-  "Les tickets de la proposition sont déjà dans ce sprint.":
-    "Las incidencias de la propuesta ya están en este sprint.",
   "Ouvrir {p0} dans Jira": "Abrir {p0} en Jira",
   "Sans estimation": "Sin estimación",
   "Estimation Jira": "Estimación de Jira",
-  "Déjà dans le sprint": "Ya está en el sprint",
-  "Sprint actif": "Sprint activo",
-  "Consultation uniquement": "Solo lectura",
-  " · sous-tâche": " · subtarea",
-  " · terminé": " · completada",
-  "Affecter {p0} à un objectif": "Asignar {p0} a un objetivo",
-  "Affecter à…": "Asignar a…",
-  "Objectif à nommer": "Objetivo sin título",
-  "Remettre dans le backlog": "Volver al backlog",
-  "Fermer la confirmation": "Cerrar la confirmación",
+  // ─── Sprint Planning en direct ───
+  "Jira n'a pas relu la propriété des objectifs du sprint telle qu'elle a été écrite.":
+    "Jira no ha vuelto a leer la propiedad de objetivos del sprint tal como se escribió.",
+  "Jira n'a pas relu {p0} à sa nouvelle place.": "Jira no ha vuelto a leer {p0} en su nuevo lugar.",
+  "Atlassian a refusé le rattachement au Goal : {p0}":
+    "Atlassian ha rechazado la vinculación con el Goal: {p0}",
+  "Atlassian a refusé le rattachement au Goal.":
+    "Atlassian ha rechazado la vinculación con el Goal.",
+  "propriété des objectifs du sprint": "propiedad de objetivos del sprint",
+  "ticket ajouté au sprint": "incidencia añadida al sprint",
+  "ticket rattaché à son objectif": "incidencia vinculada a su objetivo",
+  "ancien Goal retiré du ticket": "Goal anterior retirado de la incidencia",
+  "ticket retiré du sprint": "incidencia retirada del sprint",
+  "Goals épinglés au sprint": "Goals fijados en el sprint",
+  "vélocité de l'équipe": "velocidad del equipo",
+  "Le texte des objectifs a changé dans Jira depuis son affichage.":
+    "El texto de los objetivos ha cambiado en Jira desde que se mostró.",
+  "Les objectifs du sprint ont changé dans Jira depuis leur affichage.":
+    "Los objetivos del sprint han cambiado en Jira desde que se mostraron.",
+  "{p0} ne peut pas rejoindre le sprint : c'est une sous-tâche ou il est terminé.":
+    "{p0} no puede unirse al sprint: es una subtarea o ya está completada.",
+  "{p0} est dans le sprint actif : il y reste en consultation.":
+    "{p0} está en el sprint activo: permanece allí en solo lectura.",
+  "{p0} n'est plus dans le sprint en préparation.": "{p0} ya no está en el sprint en preparación.",
+  "Le rattachement de {p0} a changé dans Jira depuis son affichage.":
+    "La vinculación de {p0} ha cambiado en Jira desde que se mostró.",
+  "La vélocité a changé dans Jira depuis son affichage.":
+    "La velocidad ha cambiado en Jira desde que se mostró.",
+  "La vélocité doit être un nombre positif ou nul.":
+    "La velocidad debe ser cero o un número positivo.",
+  "Le sprint n'est pas clos dans Jira.": "El sprint no está cerrado en Jira.",
+  "{p0} Rien n’a été écrit : la page a été relue, refaites votre modification.":
+    "{p0} No se ha escrito nada: la página se ha vuelto a cargar, repite tu cambio.",
+  "Enregistré et vérifié dans Jira.": "Guardado y verificado en Jira.",
+  "Jira porte déjà cette modification : rien n'a été écrit.":
+    "Jira ya tiene este cambio: no se ha escrito nada.",
+  "{p0} Aucune écriture n’a été rejouée ; la page a été relue dans Jira.":
+    "{p0} No se ha repetido ninguna escritura; la página se ha vuelto a cargar desde Jira.",
+  "Écriture non confirmée. {p0}": "Escritura no confirmada. {p0}",
+  "Objectifs non atteints reportés dans {p0}.": "Objetivos no alcanzados trasladados a {p0}.",
+  "Sprint clos : aucun objectif non atteint à reporter.":
+    "Sprint cerrado: no hay objetivos no alcanzados que trasladar.",
+  "Report des objectifs non atteints : {p0}": "Traslado de objetivos no alcanzados: {p0}",
+  "Un sprint est actif : clôturez-le avant de démarrer celui-ci.":
+    "Hay un sprint activo: complétalo antes de iniciar este.",
+  "La fenêtre de Jira ne s'ouvre que depuis le board Jira qui héberge Sprint Goals Board.":
+    "La ventana de Jira solo se abre desde el tablero de Jira que aloja Sprint Goals Board.",
+  "Le sprint est toujours actif : rien n'a été reporté.":
+    "El sprint sigue activo: no se ha trasladado nada.",
 } as const satisfies Record<keyof typeof businessMessages, string>;

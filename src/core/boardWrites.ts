@@ -285,6 +285,7 @@ export function withTextGoalLink(
     goals,
     links,
     atlassianGoalIds: [...(fresh?.atlassianGoalIds ?? [])],
+    velocity: fresh?.velocity ?? null,
     updatedAt: sprintGoalTimestamp(input.now),
     updatedBy: input.accountId,
   };
@@ -351,6 +352,7 @@ export function withPinnedGoals(
     goals: [...(fresh?.goals ?? [])],
     links: { ...(fresh?.links ?? {}) },
     atlassianGoalIds: normalizedGoalIds(input.goalIds),
+    velocity: fresh?.velocity ?? null,
     updatedAt: sprintGoalTimestamp(input.now),
     updatedBy: input.accountId,
   };

@@ -54,4 +54,9 @@ export const integrationMessagesEs = {
     "Jira no ha permitido mostrar esta incidencia aquí. Vuelve a cargar la vista e inténtalo de nuevo.",
   "Retour à Jira…": "Volviendo a Jira…",
   "Ouverture du board dans Jira…": "Abriendo el tablero en Jira…",
+  "Terminer le sprint « {name} »": "Completar el sprint «{name}»",
+  "Démarrer le sprint « {name} »": "Iniciar el sprint «{name}»",
+  "Ouverture de la fenêtre de Jira…": "Abriendo la ventana de Jira…",
+  "Jira n'a pas permis d'ouvrir la fenêtre du sprint ici. Ouvrez le backlog du board dans Jira.":
+    "Jira no ha permitido abrir aquí la ventana del sprint. Abre el backlog del tablero en Jira.",
 } as const satisfies Record<keyof typeof integrationMessages, string>;

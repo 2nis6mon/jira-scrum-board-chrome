@@ -256,6 +256,41 @@ describe("lecture des messages reçus", () => {
     }
   });
 
+  it("lit une demande de fenêtre de sprint seulement avec une action connue et un nom borné", () => {
+    const dialog = (fields: Record<string, unknown>) =>
+      readMessage({ type: "sprint-goals:sprint-dialog", ...fields }, "view-to-host");
+    expect(dialog({ action: "complete", sprintName: "Sprint 12", url: "https://x" })).toEqual({
+      type: "sprint-goals:sprint-dialog",
+      action: "complete",
+      sprintName: "Sprint 12",
+    });
+    expect(dialog({ action: "start", sprintName: "x".repeat(199) })).toEqual({
+      type: "sprint-goals:sprint-dialog",
+      action: "start",
+      sprintName: "x".repeat(199),
+    });
+    for (const fields of [
+      { action: "create", sprintName: "Sprint 12" },
+      { action: "start", sprintName: "x".repeat(200) },
+      { action: "start", sprintName: 12 },
+      { action: "start" },
+      { sprintName: "Sprint 12" },
+    ]) {
+      expect(dialog(fields), JSON.stringify(fields)).toBeNull();
+    }
+    expect(
+      readMessage(
+        { type: "sprint-goals:sprint-dialog", action: "start", sprintName: "Sprint 12" },
+        "host-to-view",
+      ),
+    ).toBeNull();
+    expect(message("sprintDialog", { action: "start", sprintName: "Sprint 12" })).toEqual({
+      type: "sprint-goals:sprint-dialog",
+      action: "start",
+      sprintName: "Sprint 12",
+    });
+  });
+
   it("construit les messages avec le type déclaré", () => {
     expect(message("close")).toEqual({ type: "sprint-goals:close" });
     expect(message("openIssue", { key: "ABC-1" })).toEqual({

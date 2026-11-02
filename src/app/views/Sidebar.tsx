@@ -53,7 +53,7 @@ export function Sidebar({
           icon="board"
           label={kanban ? "Kanban" : "Sprint"}
           current={view === "board"}
-          disabled={board.planning.publishing.value}
+          disabled={board.planning.busy.value}
           onClick={() => model.showBoard()}
         />
         {SPRINT_PLANNING_ENABLED && configuration?.boardType === "scrum" && (

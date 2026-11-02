@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppModel } from "../../src/app/model/AppModel";
 import { installEmbeddedLinks } from "../../src/integration/embedded";
+import type { JiraSprint } from "../../src/jira/models";
 import {
   BOARD_URL,
   boardSiteJira,
@@ -125,22 +126,53 @@ describe("changement de board demandé à la page Jira hôte", () => {
     board.dispose();
   });
 
-  it("le retour attend la sauvegarde du brouillon et refuse de quitter pendant une publication", async () => {
+  it("le retour refuse de quitter pendant un geste en cours, puis le permet", async () => {
     const board = await hosted();
-    let release = () => {};
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    vi.spyOn(board.planning, "flushDraft").mockImplementation(() => gate);
-    const leaving = board.app.hostReturn.value?.();
-    expect(postMessage).not.toHaveBeenCalled();
-    release();
-    await leaving;
-    expect(postMessage).toHaveBeenCalledExactlyOnceWith({ type: "sprint-goals:close" }, SITE);
-    postMessage.mockClear();
-    board.planning.publishing.value = true;
+    board.pendingKeys.value = new Set(["ABC-101"]);
     await board.app.hostReturn.value?.();
     expect(postMessage).not.toHaveBeenCalled();
+    board.pendingKeys.value = new Set();
+    await board.app.hostReturn.value?.();
+    expect(postMessage).toHaveBeenCalledExactlyOnceWith({ type: "sprint-goals:close" }, SITE);
+    board.dispose();
+  });
+
+  it("la fenêtre native de sprint part vers l'hôte par l'action et le nom, puis la fermeture relit le planning", async () => {
+    const board = await hosted();
+    const sprint = (name: string) => ({ id: 31, name, state: "future" }) as unknown as JiraSprint;
+    board.app.presenting.value = true;
+    expect(board.nativeSprintDialogHandler?.("start", sprint("Sprint 13"))).toBe(true);
+    expect(postMessage).toHaveBeenCalledExactlyOnceWith(
+      { type: "sprint-goals:sprint-dialog", action: "start", sprintName: "Sprint 13" },
+      SITE,
+    );
+    expect(board.app.presenting.value).toBe(false);
+    postMessage.mockClear();
+    // Un nom trop long part tronqué : l'hôte refuserait le message entier.
+    board.nativeSprintDialogHandler?.("complete", sprint("x".repeat(250)));
+    expect(postMessage).toHaveBeenCalledExactlyOnceWith(
+      { type: "sprint-goals:sprint-dialog", action: "complete", sprintName: "x".repeat(199) },
+      SITE,
+    );
+
+    vi.spyOn(board, "sync").mockResolvedValue();
+    const after = vi.spyOn(board.planning, "afterNativeDialog").mockResolvedValue();
+    board.planning.pendingClosure.value = { closedSprintId: 30, targetSprintId: 31 };
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        origin: SITE,
+        source: window.parent,
+        data: { type: "sprint-goals:refresh" },
+      }),
+    );
+    expect(after).toHaveBeenCalledTimes(1);
+    board.dispose();
+  });
+
+  it("sans page hôte, aucune fenêtre native de sprint n'est demandée", async () => {
+    const board = await hosted();
+    for (const cleanup of cleanups.splice(0)) cleanup();
+    expect(board.nativeSprintDialogHandler).toBeNull();
     board.dispose();
   });
 

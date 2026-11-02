@@ -2,8 +2,13 @@ import type { SettingError } from "../../core/boardSettings";
 import { BoardSetupError, type GoalsIssue } from "../../core/boardSync";
 import type { CardField } from "../../core/cardFields";
 import type { QuickFilter } from "../../core/filters";
-import { CoreError, type CoreReason, type GoalsWarning } from "../../core/reasons";
-import type { PlanningReason, PlanningStep } from "../../core/sprintPlanning";
+import {
+  CoreError,
+  type CoreReason,
+  type GoalsWarning,
+  type PlanningRefusal,
+} from "../../core/reasons";
+import type { PlanningOutcome, PlanningStep } from "../../core/sprintPlanning";
 import type { TeamFamily } from "../../core/teamSettings";
 import type { MessageKey } from "../../i18n";
 import { JiraError } from "../../jira/errors";
@@ -71,17 +76,8 @@ type PlainReason = Extract<
       | "kanbanGoalsUnavailable"
       | "planningOtherSprint"
       | "planningUnreadableProperty"
-      | "planningDuplicateSelection"
-      | "planningExistingIssuesKept"
       | "planningGoalTextUnconfirmed"
-      | "planningIssueLeftBacklog"
-      | "planningAdditionsUnconfirmed"
-      | "planningLinksChanged"
-      | "planningLinksUnconfirmed"
-      | "planningFinalCheckChanged"
-      | "planningSprintChanged"
-      | "planningInvalidGoals"
-      | "planningLinkMismatch";
+      | "planningPropertyUnconfirmed";
   }
 >;
 
@@ -92,19 +88,9 @@ const PLAIN_REASONS: Record<PlainReason["code"], MessageKey> = {
   planningOtherSprint: "Jira a renvoyé un autre sprint.",
   planningUnreadableProperty:
     "La propriété des objectifs du sprint est illisible ou utilise une version inconnue. Elle ne sera pas écrasée.",
-  planningDuplicateSelection: "La sélection contient des doublons.",
-  planningExistingIssuesKept: "Les tickets déjà présents dans le sprint doivent être conservés.",
   planningGoalTextUnconfirmed: "Le texte des objectifs n’a pas été confirmé par Jira.",
-  planningIssueLeftBacklog: "Un ticket retenu a quitté le backlog pendant la publication.",
-  planningAdditionsUnconfirmed: "Jira n’a pas confirmé tous les ajouts au sprint.",
-  planningLinksChanged:
-    "Les rattachements ont été modifiés par un collègue pendant la publication.",
-  planningLinksUnconfirmed: "Les rattachements n’ont pas été confirmés par Jira.",
-  planningFinalCheckChanged: "Le sprint a changé pendant la vérification finale.",
-  planningSprintChanged: "Le sprint ou ses objectifs ont changé pendant la publication.",
-  planningInvalidGoals:
-    "Chaque objectif doit avoir un titre non vide sur une ligne, sans préfixe de liste.",
-  planningLinkMismatch: "Un rattachement ne correspond plus à la sélection ou aux objectifs.",
+  planningPropertyUnconfirmed:
+    "Jira n'a pas relu la propriété des objectifs du sprint telle qu'elle a été écrite.",
 };
 
 function isPlainReason(reason: CoreReason): reason is PlainReason {
@@ -151,11 +137,16 @@ export function reasonMessage(reason: CoreReason): AppMessage {
       return message("Objectifs du board Kanban indisponibles : {p0}", {
         p0: goalsFailureMessage(reason.error),
       });
-    case "planningIssueUnavailable":
-      return message(
-        "{p0} n’est plus un ticket du backlog disponible. Les tickets actifs et sous-tâches ne sont pas déplacés.",
-        { p0: reason.issueKey },
-      );
+    case "planningIssueUnconfirmed":
+      return message("Jira n'a pas relu {p0} à sa nouvelle place.", { p0: reason.issueKey });
+    case "planningGoalLinkRefused":
+      return reason.messages.length > 0
+        ? message("Atlassian a refusé le rattachement au Goal : {p0}", {
+            p0: reason.messages.join(" ; "),
+          })
+        : message("Atlassian a refusé le rattachement au Goal.");
+    case "planningRefused":
+      return planningRefusalCause(reason.refusal);
     default:
       return unhandled(reason);
   }
@@ -202,14 +193,61 @@ export function goalsIssueMessage(issue: GoalsIssue): AppMessage {
 
 // ─── Sprint Planning ────────────────────────────────────────────────────────
 
-function planningStepMessage(step: PlanningStep): AppMessage {
-  switch (step.kind) {
-    case "goalText":
-      return message("texte des objectifs");
-    case "issuesAdded":
-      return message("{p0} ticket(s) ajouté(s)", { p0: step.count });
-    case "links":
-      return message("rattachements aux objectifs");
+const PLANNING_STEPS = {
+  goalText: "texte des objectifs",
+  goalProperty: "propriété des objectifs du sprint",
+  issueAdded: "ticket ajouté au sprint",
+  issueLinked: "ticket rattaché à son objectif",
+  goalUnlinked: "ancien Goal retiré du ticket",
+  issueMoved: "ticket retiré du sprint",
+  pinned: "Goals épinglés au sprint",
+  velocity: "vélocité de l'équipe",
+} as const satisfies Record<PlanningStep, MessageKey>;
+
+/** Refus suivis d'une relecture : la page est à jour, l'utilisateur refait son geste. */
+const PLANNING_CONFLICTS: ReadonlySet<PlanningRefusal["reason"]> = new Set([
+  "goalTextChanged",
+  "goalsChanged",
+  "linkChanged",
+  "velocityChanged",
+]);
+
+/** Ce qu'une relecture a constaté, sans dire ce qui a été écrit. */
+export function planningRefusalCause(refusal: PlanningRefusal): AppMessage {
+  switch (refusal.reason) {
+    case "notFuture":
+      return message("Ce sprint n'est plus un sprint futur.");
+    case "goalTextChanged":
+      return message("Le texte des objectifs a changé dans Jira depuis son affichage.");
+    case "goalsChanged":
+      return message("Les objectifs du sprint ont changé dans Jira depuis leur affichage.");
+    case "invalidGoals":
+      return message(
+        "Chaque objectif doit avoir un titre non vide sur une ligne, sans préfixe de liste.",
+      );
+    case "issueUnavailable":
+      return message(
+        "{p0} ne peut pas rejoindre le sprint : c'est une sous-tâche ou il est terminé.",
+        { p0: refusal.issueKey },
+      );
+    case "issueInActiveSprint":
+      return message("{p0} est dans le sprint actif : il y reste en consultation.", {
+        p0: refusal.issueKey,
+      });
+    case "issueNotInSprint":
+      return message("{p0} n'est plus dans le sprint en préparation.", { p0: refusal.issueKey });
+    case "linkChanged":
+      return message("Le rattachement de {p0} a changé dans Jira depuis son affichage.", {
+        p0: refusal.issueKey,
+      });
+    case "velocityChanged":
+      return message("La vélocité a changé dans Jira depuis son affichage.");
+    case "invalidVelocity":
+      return message("La vélocité doit être un nombre positif ou nul.");
+    case "sprintNotClosed":
+      return message("Le sprint n'est pas clos dans Jira.");
+    case "failed":
+      return planningCause(refusal.error);
   }
 }
 
@@ -217,33 +255,61 @@ function planningCause(error: unknown): AppMessage {
   return error instanceof Error ? errorMessage(error) : message("La vérification Jira a échoué.");
 }
 
-/** Résultat d'une publication du Sprint Planning. */
-export function planningMessage(reason: PlanningReason): AppMessage {
-  switch (reason.code) {
-    case "published":
-      return message("Planning publié et vérifié dans Jira. Le sprint reste à démarrer dans Jira.");
-    case "suspended":
-      return message("Publication suspendue : {p0}", { p0: planningCause(reason.error) });
-    case "notFuture":
-      return message("Ce sprint n’est plus futur. Rien n’a été écrit.");
-    case "sprintChanged":
-      return message(
-        "Le sprint a changé dans Jira. Rechargez ses données avant de publier ; votre brouillon est conservé.",
-      );
+/** Refus d'un geste du planning : rien n'a été écrit. */
+export function planningRefusalMessage(refusal: PlanningRefusal): AppMessage {
+  // Refus de la porte du board : son message dit déjà que rien n'est parti.
+  if (refusal.reason === "failed" && refusal.error instanceof BoardWriteRefused)
+    return refusalMessage(refusal.error);
+  return message(
+    PLANNING_CONFLICTS.has(refusal.reason)
+      ? "{p0} Rien n’a été écrit : la page a été relue, refaites votre modification."
+      : "{p0} Rien n’a été écrit.",
+    { p0: planningRefusalCause(refusal) },
+  );
+}
+
+/** Résultat d'un geste du Sprint Planning, pour l'avis et le journal. */
+export function planningOutcomeMessage(outcome: PlanningOutcome): AppMessage {
+  switch (outcome.kind) {
+    case "done":
+      return message("Enregistré et vérifié dans Jira.");
+    case "unchanged":
+      return message("Jira porte déjà cette modification : rien n'a été écrit.");
     case "refused":
-      return message("{p0} Rien n’a été écrit.", { p0: planningCause(reason.error) });
-    case "unconfirmed": {
+      return planningRefusalMessage(outcome.reason);
+    case "partial": {
+      // La porte a refusé la première écriture avant son envoi : rien n'est parti.
+      if (outcome.confirmed.length === 0 && outcome.error instanceof BoardWriteRefused)
+        return refusalMessage(outcome.error);
       const rest = message(
-        "{p0} Aucune écriture n’a été rejouée. Vérifiez Jira avant de reprendre ; votre brouillon est conservé.",
-        { p0: planningCause(reason.error) },
+        "{p0} Aucune écriture n’a été rejouée ; la page a été relue dans Jira.",
+        { p0: planningCause(outcome.error) },
       );
-      return reason.confirmed.length > 0
+      return outcome.confirmed.length > 0
         ? message("Étapes confirmées : {p0}. {p1}", {
-            p0: { list: reason.confirmed.map(planningStepMessage), separator: ", " },
+            p0: {
+              list: outcome.confirmed.map((step) => message(PLANNING_STEPS[step])),
+              separator: ", ",
+            },
             p1: rest,
           })
-        : message("Publication non confirmée. {p0}", { p0: rest });
+        : message("Écriture non confirmée. {p0}", { p0: rest });
     }
+  }
+}
+
+/** Report des objectifs non atteints après la clôture native, vers le sprint `target`. */
+export function planningCarryOverMessage(outcome: PlanningOutcome, target: string): AppMessage {
+  switch (outcome.kind) {
+    case "done":
+      return message("Objectifs non atteints reportés dans {p0}.", { p0: target });
+    case "unchanged":
+      return message("Sprint clos : aucun objectif non atteint à reporter.");
+    case "refused":
+    case "partial":
+      return message("Report des objectifs non atteints : {p0}", {
+        p0: planningOutcomeMessage(outcome),
+      });
   }
 }
 

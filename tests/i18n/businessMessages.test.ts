@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderMessage, sourceText } from "../../src/app/model/appMessage";
-import { planningMessage } from "../../src/app/model/coreText";
+import { planningCarryOverMessage, planningOutcomeMessage } from "../../src/app/model/coreText";
+import { BoardWriteRefused } from "../../src/app/services/ports";
 import { CoreError } from "../../src/core/reasons";
 import { localize } from "../../src/i18n";
 
@@ -64,20 +65,65 @@ describe("messages métier bilingues", () => {
     expect(localize(historical, "fr")).toBe(historical);
   });
 
-  it("produit le même texte depuis le résultat typé du planning, puis le traduit sans motifs", () => {
-    const historical =
-      "Étapes confirmées : texte des objectifs, 2 ticket(s) ajouté(s). Les rattachements n’ont pas été confirmés par Jira. Aucune écriture n’a été rejouée. Vérifiez Jira avant de reprendre ; votre brouillon est conservé.";
-    const typed = planningMessage({
-      code: "unconfirmed",
-      confirmed: [{ kind: "goalText" }, { kind: "issuesAdded", count: 2 }],
-      error: new CoreError({ code: "planningLinksUnconfirmed" }),
+  it("traduit les avis du planning en direct en anglais et en espagnol", () => {
+    const partial = planningOutcomeMessage({
+      kind: "partial",
+      confirmed: ["goalText"],
+      error: new CoreError({ code: "planningPropertyUnconfirmed" }),
     });
-    expect(sourceText(typed)).toBe(historical);
-    expect(renderMessage(typed, "en")).toBe(localize(historical, "en"));
-    // Chaque étape est traduite seule : en espagnol, son libellé est celui de l'étape isolée.
-    expect(renderMessage(typed, "es")).toMatch(
-      /^Etapas confirmadas: texto de los objetivos, 2 incidencia\(s\) añadida\(s\)\. /,
+    expect(sourceText(partial)).toBe(
+      "Étapes confirmées : texte des objectifs. Jira n'a pas relu la propriété des objectifs du sprint telle qu'elle a été écrite. Aucune écriture n’a été rejouée ; la page a été relue dans Jira.",
     );
+    expect(renderMessage(partial, "en")).toBe(
+      "Confirmed steps: goal text. Jira did not read the sprint goals property back as it was written. No write was retried; the page was reloaded from Jira.",
+    );
+    expect(renderMessage(partial, "es")).toBe(
+      "Etapas confirmadas: texto de los objetivos. Jira no ha vuelto a leer la propiedad de objetivos del sprint tal como se escribió. No se ha repetido ninguna escritura; la página se ha vuelto a cargar desde Jira.",
+    );
+
+    const conflict = planningOutcomeMessage({
+      kind: "refused",
+      reason: { reason: "goalTextChanged" },
+    });
+    expect(renderMessage(conflict, "en")).toBe(
+      "The goal text changed in Jira after it was displayed. Nothing was written: the page was reloaded, make your change again.",
+    );
+    expect(renderMessage(conflict, "es")).toBe(
+      "El texto de los objetivos ha cambiado en Jira desde que se mostró. No se ha escrito nada: la página se ha vuelto a cargar, repite tu cambio.",
+    );
+
+    const active = planningOutcomeMessage({
+      kind: "refused",
+      reason: { reason: "issueInActiveSprint", issueKey: "ABC-12" },
+    });
+    expect(renderMessage(active, "en")).toBe(
+      "ABC-12 is in the active sprint: it stays there, read-only. Nothing was written.",
+    );
+    expect(renderMessage(active, "es")).toBe(
+      "ABC-12 está en el sprint activo: permanece allí en solo lectura. No se ha escrito nada.",
+    );
+
+    const linkRefused = planningOutcomeMessage({
+      kind: "partial",
+      confirmed: ["issueAdded"],
+      error: new CoreError({ code: "planningGoalLinkRefused", messages: ["Goal archivé"] }),
+    });
+    // Le message d'Atlassian est un contenu Jira : jamais traduit.
+    expect(renderMessage(linkRefused, "en")).toBe(
+      "Confirmed steps: issue added to the sprint. Atlassian refused the link to the Goal: Goal archivé No write was retried; the page was reloaded from Jira.",
+    );
+
+    const gate = planningOutcomeMessage({
+      kind: "partial",
+      confirmed: [],
+      error: new BoardWriteRefused("stale"),
+    });
+    expect(renderMessage(gate, "en")).not.toMatch(/confirm/i);
+    expect(renderMessage(gate, "es")).not.toMatch(/confirm/i);
+
+    const carried = planningCarryOverMessage({ kind: "done", confirmed: ["pinned"] }, "Sprint 43");
+    expect(renderMessage(carried, "en")).toBe("Unmet goals carried over to Sprint 43.");
+    expect(renderMessage(carried, "es")).toBe("Objetivos no alcanzados trasladados a Sprint 43.");
   });
 
   it("traduit une sonde composée sans interpréter le corps de réponse Jira", () => {

@@ -1,17 +1,31 @@
 import type { ComponentChildren } from "preact";
-import { useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { SprintGoal } from "../../../core/sprintGoals";
-import { isDoneStatus } from "../../../jira/models";
-import { language, localize, t } from "../../i18n";
-import type { PlanningIssue, PlanningViewModel } from "../../model/PlanningTypes";
-import { formatDay, formatPoints, plural } from "../format";
+import { goalDisplayName, isDoneStatus, type JiraSprint } from "../../../jira/models";
+import { language, t } from "../../i18n";
+import { type AppMessage, renderMessage } from "../../model/appMessage";
+import type {
+  PlanningIssue,
+  PlanningLane,
+  PlanningLoad,
+  PlanningSection,
+  PlanningViewModel,
+} from "../../model/PlanningTypes";
+import { placeFloatingMenu } from "../board/floatingMenu";
+import { formatDay, formatPoints, initials, plural, pluralWord } from "../format";
 import { Icon } from "../Icon";
 import { ErrorMessage } from "../Message";
 import "../../styles/planning.css";
 
+/** Ticket glissé dans le planning : sa clé. */
 export const PLANNING_DRAG_TYPE = "application/x-sprint-goals-planning-issue";
+/** Ticket glissé depuis le sprint en préparation : seul lui peut en être retiré. */
+export const PLANNING_SPRINT_DRAG_TYPE = "application/x-sprint-goals-planning-sprint-issue";
 
-/** Atelier local : les gestes de préparation ne publient jamais dans Jira. */
+/**
+ * Sprint Planning en direct, dans la grammaire de la page du sprint : chaque geste écrit aussitôt
+ * dans Jira par le modèle, puis relit le sprint. La vue n'affecte aucun signal.
+ */
 export function PlanningView({
   planning,
   sidebarCollapsed,
@@ -23,937 +37,1088 @@ export function PlanningView({
   onToggleSidebar(): void;
   onBack(): void;
 }) {
-  const [search, setSearch] = useState("");
-  const [source, setSource] = useState<"backlog" | "remaining">("backlog");
-  const [newGoal, setNewGoal] = useState("");
-  const [focusedGoal, setFocusedGoal] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<"publish" | "discard" | null>(null);
-  const goalInput = useRef<HTMLInputElement>(null);
-  const draft = planning.draft.value;
-  const busy = planning.loading.value || planning.publishing.value;
-  const issues = planning.issues.value;
-  const selected = new Set(draft?.selectedIssueKeys ?? []);
-  const planned = issues.filter(
-    (item) => selected.has(item.issue.key) && item.source !== "remaining",
-  );
-  const unavailableKeys = [...selected].filter(
-    (key) => !issues.some((item) => item.issue.key === key && item.source !== "remaining"),
-  );
-  const backlog = issues.filter(
-    (item) => item.source === "backlog" && !selected.has(item.issue.key),
-  );
-  const remaining = issues.filter((item) => item.source === "remaining");
-  const query = search.trim().toLocaleLowerCase(language.value);
-  const candidates = (source === "backlog" ? backlog : remaining).filter((item) =>
-    `${item.issue.key} ${item.issue.fields.summary} ${item.issue.fields.issuetype.name} ${item.issue.fields.parent?.summary ?? ""}`
-      .toLocaleLowerCase(language.value)
-      .includes(query),
-  );
-  const sprint = planning.sprints.value.find((item) => item.id === planning.selectedSprintId.value);
-  const goals = draft?.goals ?? [];
-  const goalIds = new Set(goals.map((goal) => goal.id));
-  const unassigned = planned.filter((item) => !goalIds.has(draft?.links[item.issue.key] ?? ""));
-  const activeFocusedGoal = goals.some((goal) => goal.id === focusedGoal) ? focusedGoal : null;
-  const shownGoals = activeFocusedGoal
-    ? goals.filter((goal) => goal.id === activeFocusedGoal)
-    : goals;
-  const points = planned.reduce((total, item) => total + (item.estimate ?? 0), 0);
-  const missingEstimates = planned.filter((item) => item.estimate === null).length;
-  const capacity = draft?.capacity ?? null;
-  const overCapacity = capacity !== null && points > capacity;
+  const snapshot = planning.snapshot.value;
+  const busy = planning.loading.value || planning.busy.value;
+  const search = useRef<HTMLInputElement>(null);
 
-  useLayoutEffect(() => {
-    setFocusedGoal(null);
-    setDialog(null);
-    setNewGoal("");
-  }, [planning.selectedSprintId.value]);
-
-  const assign = (key: string, goalId: string | null) => {
-    if (busy || !draft || !issues.some((item) => item.issue.key === key && isAssignable(item)))
-      return;
-    planning.assignIssue(key, goalId);
-  };
+  // « / » place le curseur dans la recherche, hors d'un champ de saisie ou d'une fenêtre ouverte.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.defaultPrevented) return;
+      if (event.altKey || event.ctrlKey || event.metaKey || isTyping(event.target)) return;
+      if (document.querySelector('[role="dialog"], dialog[open]')) return;
+      event.preventDefault();
+      search.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <main class="planning-screen" aria-label="Sprint Planning" aria-busy={busy}>
-      <header class="planning-header">
-        <div class="planning-heading">
-          <button
-            type="button"
-            class="icon-button"
-            aria-label={
-              sidebarCollapsed ? t("Afficher la barre latérale") : t("Masquer la barre latérale")
-            }
-            onClick={onToggleSidebar}
-          >
-            <Icon name="sidebar" size={18} />
-          </button>
-          <div>
-            <span class="planning-eyebrow">{t("ATELIER PRODUIT")}</span>
-            <h1>Sprint Planning</h1>
-          </div>
-        </div>
-        <div class="planning-header-actions">
-          <button type="button" disabled={busy} onClick={onBack}>
-            <Icon name="arrowLeft" /> {t("Retour au board")}
-          </button>
-          <button
-            type="button"
-            disabled={!draft || busy}
-            onClick={() => void planning.copySummary()}
-          >
-            {t("Copier la synthèse")}
-          </button>
-          <button
-            type="button"
-            class="primary"
-            disabled={!planning.canPublish.value || busy}
-            onClick={() => setDialog("publish")}
-          >
-            {t("Publier dans Jira")} <Icon name="chevronRight" />
-          </button>
-        </div>
-      </header>
-
-      <div class="planning-context">
-        <label class="planning-sprint-picker">
-          <span>{t("Sprint à préparer")}</span>
-          <select
-            aria-label={t("Sprint à préparer")}
-            value={planning.selectedSprintId.value ?? ""}
-            disabled={busy || planning.sprints.value.length === 0}
-            onChange={(event) => void planning.selectSprint(Number(event.currentTarget.value))}
-          >
-            {planning.sprints.value.length === 0 && (
-              <option value="">{t("Aucun sprint futur")}</option>
-            )}
-            {planning.sprints.value.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-                {item.state !== "future" && t(" — brouillon à réexaminer")}
-              </option>
-            ))}
-          </select>
+      <PlanningHeader
+        planning={planning}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={onToggleSidebar}
+        onBack={onBack}
+      />
+      <div class="filter-bar planning-filter-bar">
+        <label class="filter-search">
+          <Icon name="search" />
+          <input
+            ref={search}
+            type="search"
+            aria-label={t("Rechercher un ticket à planifier")}
+            placeholder={t("Clé ou résumé, dans le sprint et ailleurs…")}
+            value={planning.search.value}
+            onInput={(event) => planning.setSearch(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && event.currentTarget.value !== "") {
+                event.preventDefault();
+                planning.setSearch("");
+              }
+            }}
+          />
+          <kbd title={t("Raccourci")}>/</kbd>
         </label>
-        {sprint?.startDate && (
-          <span class="planning-dates">
-            {formatDay(sprint.startDate)}
-            {sprint.endDate && ` → ${formatDay(sprint.endDate)}`}
-          </span>
-        )}
-        <span
-          class={`planning-draft-state${planning.dirty.value ? " planning-draft-changed" : ""}`}
-          role="status"
-        >
-          <span aria-hidden="true" />
-          {planning.publishing.value
-            ? t("Publication en cours…")
-            : planning.loading.value
-              ? t("Lecture de Jira…")
-              : planning.dirty.value
-                ? t("Brouillon local")
-                : t("Version Jira")}
-        </span>
-        <div class="planning-context-actions">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void planning.refresh()}
-            title={t("Relire les tickets depuis Jira")}
-          >
-            <Icon name="refresh" /> {t("Actualiser")}
-          </button>
-          {draft && (planning.dirty.value || planning.validation.value) && (
-            <button type="button" disabled={busy} onClick={() => setDialog("discard")}>
-              {t("Repartir de Jira")}
-            </button>
-          )}
-        </div>
       </div>
-
-      {(planning.error.value || planning.notice.value || planning.validation.value) && (
-        <div class="planning-messages" aria-live="polite">
-          <ErrorMessage message={planning.error.value} />
-          {planning.notice.value && <p>{localize(planning.notice.value)}</p>}
-          {planning.validation.value && (
-            <p class="planning-validation">{localize(planning.validation.value)}</p>
-          )}
-        </div>
-      )}
-
-      {!draft ? (
-        <div class="planning-start">
-          <span class="planning-start-icon">
-            <Icon name="goal" size={28} />
-          </span>
-          <h2>
-            {planning.loading.value
-              ? t("Préparons votre prochain sprint")
-              : t("Un sprint à construire ensemble")}
-          </h2>
-          <p>
-            {planning.loading.value
-              ? t("Lecture du backlog, du sprint futur et du reste à faire.")
-              : t(
-                  "Créez un sprint futur dans le backlog Jira, puis actualisez pour préparer ses objectifs et ses stories ici.",
-                )}
-          </p>
+      <PlanningMessages planning={planning} />
+      {snapshot ? (
+        <div class="planning-body">
+          <SourcesColumn planning={planning} />
+          <LanesColumn planning={planning} sprintName={snapshot.sprint.name} />
         </div>
       ) : (
-        <>
-          <section class="planning-summary" aria-label={t("Synthèse du sprint proposé")}>
-            <div class="planning-metric">
-              <strong>{goals.length}</strong>
-              <span>
-                {t(
-                  new Intl.PluralRules(language.value).select(goals.length) === "one"
-                    ? "objectif"
-                    : "objectifs",
-                )}
-              </span>
-            </div>
-            <div class="planning-metric">
-              <strong>{planned.length}</strong>
-              <span>
-                {t(
-                  new Intl.PluralRules(language.value).select(planned.length) === "one"
-                    ? "ticket prévu"
-                    : "tickets prévus",
-                )}
-              </span>
-            </div>
-            <div class="planning-metric">
-              <strong>{formatPoints(points)}</strong>
-              <span>{localize(planning.estimationLabel)}</span>
-            </div>
-            <div
-              class={`planning-estimate-note${missingEstimates > 0 ? " planning-attention" : ""}`}
-            >
-              <Icon name={missingEstimates > 0 ? "points" : "check"} size={16} />
-              {planned.length === 0
-                ? t("Ajoutez des tickets pour composer le sprint")
-                : missingEstimates > 0
-                  ? t("{p0} sans estimation", { p0: plural(missingEstimates, "ticket") })
-                  : t("Tous les tickets prévus sont estimés")}
-            </div>
-            <label class="planning-capacity">
-              <span>
-                {t("Capacité cible")} <small>{t("facultative")}</small>
-              </span>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                placeholder="—"
-                aria-label={t("Capacité cible en {p0}", { p0: localize(planning.estimationLabel) })}
-                value={capacity ?? ""}
-                disabled={busy}
-                onInput={(event) =>
-                  planning.setCapacity(
-                    event.currentTarget.value === "" ? null : event.currentTarget.valueAsNumber,
-                  )
-                }
-              />
-            </label>
-            {capacity !== null && (
-              <div
-                class={`planning-capacity-progress${overCapacity ? " planning-capacity-over" : ""}`}
-              >
-                <progress
-                  aria-label={t("Capacité utilisée")}
-                  value={Math.min(points, capacity)}
-                  max={capacity || 1}
-                />
-                <span>
-                  {overCapacity
-                    ? t("{p0} au-dessus de la cible", { p0: formatPoints(points - capacity) })
-                    : t("{p0} disponibles", { p0: formatPoints(Math.max(0, capacity - points)) })}
-                  {missingEstimates > 0 ? t(" · estimation partielle") : ""}
-                </span>
-              </div>
-            )}
-          </section>
-
-          <div class="planning-stage">
-            <aside class="planning-pool" aria-label={t("Tickets à examiner")}>
-              <div class="planning-pool-heading">
-                <span class="planning-step">01</span>
-                <div>
-                  <h2>{t("Explorer")}</h2>
-                  <p>{t("Choisir ce qui sert vos objectifs.")}</p>
-                </div>
-              </div>
-              <fieldset class="planning-source-tabs" aria-label={t("Source des tickets")}>
-                <button
-                  type="button"
-                  aria-pressed={source === "backlog"}
-                  onClick={() => setSource("backlog")}
-                >
-                  Backlog <span>{backlog.length}</span>
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={source === "remaining"}
-                  onClick={() => setSource("remaining")}
-                >
-                  {t("Reste à faire")} <span>{remaining.length}</span>
-                </button>
-              </fieldset>
-              <label class="planning-search">
-                <Icon name="search" size={16} />
-                <input
-                  type="search"
-                  aria-label={t("Rechercher un ticket à planifier")}
-                  placeholder={t("Rechercher une story, un epic…")}
-                  value={search}
-                  onInput={(event) => setSearch(event.currentTarget.value)}
-                />
-              </label>
-              {source === "remaining" && (
-                <p class="planning-pool-note">
-                  {t(
-                    "Tickets non terminés du sprint actif, à réexaminer avant la clôture. Leur présence ici ne les déplace pas.",
-                  )}
-                </p>
-              )}
-              <div class="planning-pool-list" aria-live="polite">
-                {candidates.map((item) => (
-                  <PlanningCard
-                    key={item.issue.key}
-                    item={item}
-                    goals={goals}
-                    goalId={null}
-                    selected={false}
-                    disabled={busy}
-                    onAssign={assign}
-                    onRemove={(key) => planning.removeIssue(key)}
-                    onOpen={(key) => planning.openIssue(key)}
-                  />
-                ))}
-                {candidates.length === 0 && (
-                  <p class="planning-empty">
-                    {query
-                      ? t("Aucun ticket ne correspond à cette recherche.")
-                      : source === "remaining"
-                        ? t("Aucun reste à faire dans le sprint actif.")
-                        : t("Tous les tickets disponibles sont déjà dans votre proposition.")}
-                  </p>
-                )}
-              </div>
-              <p class="planning-pool-footer">
-                {t("Glissez un ticket vers un objectif ou utilisez « Affecter à ».")}
-              </p>
-            </aside>
-
-            <section class="planning-canvas" aria-label={t("Proposition de sprint")}>
-              <div class="planning-canvas-heading">
-                <span class="planning-step">02</span>
-                <div>
-                  <h2>{t("Construire par objectifs")}</h2>
-                  <p>
-                    {t(
-                      "Décrivez le résultat attendu, puis réunissez les stories qui le rendent possible.",
-                    )}
-                  </p>
-                </div>
-                {activeFocusedGoal && (
-                  <button type="button" onClick={() => setFocusedGoal(null)}>
-                    {t("Tous les objectifs")}
-                  </button>
-                )}
-              </div>
-              {unavailableKeys.length > 0 && (
-                <div class="planning-unavailable">
-                  <h3>{t("Tickets à vérifier")}</h3>
-                  <p>
-                    {t(
-                      "Ces tickets ne sont plus disponibles dans le backlog ou le sprint choisi. Retirez-les de la proposition pour pouvoir publier.",
-                    )}
-                  </p>
-                  {unavailableKeys.map((key) => (
-                    <div key={key}>
-                      <button type="button" onClick={() => planning.openIssue(key)}>
-                        {key}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => planning.removeIssue(key)}
-                        aria-label={t("Retirer {p0} de la proposition", { p0: key })}
-                      >
-                        {t("Retirer de la proposition")}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {goals.length === 0 && (
-                <div class="planning-first-goal">
-                  <Icon name="goal" size={26} />
-                  <h3>{t("Quel résultat voulez-vous obtenir ?")}</h3>
-                  <p>{t("Commencez par un objectif concret. Les tickets viennent ensuite.")}</p>
-                </div>
-              )}
-              <div class="planning-goal-grid">
-                {shownGoals.map((goal) => {
-                  const items = planned.filter((item) => draft.links[item.issue.key] === goal.id);
-                  const index = goals.findIndex((item) => item.id === goal.id);
-                  return (
-                    <DropZone
-                      key={goal.id}
-                      goalId={goal.id}
-                      disabled={busy}
-                      onAssign={assign}
-                      className="planning-goal"
-                      label={t("Objectif {p0} : {p1}", { p0: index + 1, p1: goal.title })}
-                      color={goal.color}
-                    >
-                      <div class="planning-goal-top">
-                        <span class="planning-goal-label">
-                          {t("OBJECTIF")} {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <span>
-                          {plural(items.length, "ticket")} ·{" "}
-                          {formatPoints(items.reduce((sum, item) => sum + (item.estimate ?? 0), 0))}{" "}
-                          {localize(planning.estimationLabel)}
-                        </span>
-                      </div>
-                      <input
-                        class="planning-goal-title"
-                        type="text"
-                        aria-label={t("Titre de l’objectif {p0}", { p0: index + 1 })}
-                        title={goal.title}
-                        placeholder={t("Un résultat concret pour vos utilisateurs")}
-                        value={goal.title}
-                        disabled={busy}
-                        maxLength={500}
-                        onInput={(event) => planning.renameGoal(goal.id, event.currentTarget.value)}
-                      />
-                      <div class="planning-goal-actions">
-                        <button
-                          type="button"
-                          title={t("Se concentrer sur cet objectif")}
-                          aria-label={t("Isoler l’objectif {p0}", { p0: index + 1 })}
-                          aria-pressed={activeFocusedGoal === goal.id}
-                          onClick={() =>
-                            setFocusedGoal(activeFocusedGoal === goal.id ? null : goal.id)
-                          }
-                        >
-                          <Icon name="eye" /> Focus
-                        </button>
-                        <span />
-                        <button
-                          type="button"
-                          aria-label={t("Monter l’objectif {p0}", { p0: index + 1 })}
-                          disabled={busy || index === 0}
-                          onClick={() => planning.moveGoal(goal.id, -1)}
-                        >
-                          <Icon name="chevronUp" />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={t("Descendre l’objectif {p0}", { p0: index + 1 })}
-                          disabled={busy || index === goals.length - 1}
-                          onClick={() => planning.moveGoal(goal.id, 1)}
-                        >
-                          <Icon name="chevronDown" />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={t("Supprimer l’objectif {p0}", { p0: index + 1 })}
-                          title={t("Retirer cet objectif ; ses tickets restent à organiser")}
-                          disabled={busy}
-                          onClick={() => {
-                            planning.removeGoal(goal.id);
-                            if (focusedGoal === goal.id) setFocusedGoal(null);
-                          }}
-                        >
-                          <Icon name="trash" />
-                        </button>
-                      </div>
-                      <div class="planning-goal-tickets">
-                        {items.map((item) => (
-                          <PlanningCard
-                            key={item.issue.key}
-                            item={item}
-                            goals={goals}
-                            goalId={goal.id}
-                            selected
-                            disabled={busy}
-                            onAssign={assign}
-                            onRemove={(key) => planning.removeIssue(key)}
-                            onOpen={(key) => planning.openIssue(key)}
-                          />
-                        ))}
-                        {items.length === 0 && (
-                          <p class="planning-drop-hint">
-                            {t("Déposez ici les stories qui contribuent à cet objectif.")}
-                          </p>
-                        )}
-                      </div>
-                    </DropZone>
-                  );
-                })}
-              </div>
-
-              {!activeFocusedGoal && (
-                <form
-                  class="planning-add-goal"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!busy && newGoal.trim()) {
-                      planning.addGoal(newGoal.trim());
-                      setNewGoal("");
-                      goalInput.current?.focus();
-                    }
-                  }}
-                >
-                  <Icon name="plus" size={18} />
-                  <input
-                    ref={goalInput}
-                    type="text"
-                    aria-label={t("Nouvel objectif du sprint")}
-                    placeholder={t("Ajouter un résultat attendu pour ce sprint…")}
-                    value={newGoal}
-                    maxLength={500}
-                    disabled={busy}
-                    onInput={(event) => setNewGoal(event.currentTarget.value)}
-                  />
-                  <button type="submit" disabled={busy || !newGoal.trim()}>
-                    {t("Ajouter l’objectif")}
-                  </button>
-                </form>
-              )}
-
-              {!activeFocusedGoal && (
-                <DropZone
-                  goalId={null}
-                  disabled={busy}
-                  onAssign={assign}
-                  className="planning-unassigned"
-                  label={t("Tickets à organiser")}
-                >
-                  <div class="planning-unassigned-heading">
-                    <h3>
-                      {t("À organiser")} <span>{unassigned.length}</span>
-                    </h3>
-                    <p>{t("Dans le sprint proposé, encore sans objectif.")}</p>
-                  </div>
-                  <div class="planning-unassigned-list">
-                    {unassigned.map((item) => (
-                      <PlanningCard
-                        key={item.issue.key}
-                        item={item}
-                        goals={goals}
-                        goalId={null}
-                        selected
-                        disabled={busy}
-                        onAssign={assign}
-                        onRemove={(key) => planning.removeIssue(key)}
-                        onOpen={(key) => planning.openIssue(key)}
-                      />
-                    ))}
-                  </div>
-                  {unassigned.length === 0 && (
-                    <p class="planning-drop-hint">
-                      {t("Un ticket à discuter ? Gardez-le ici avant de choisir son objectif.")}
-                    </p>
-                  )}
-                </DropZone>
-              )}
-              <p class="planning-local-note">
-                <Icon name="lock" />{" "}
-                {t(
-                  "Votre proposition reste un brouillon dans ce navigateur. Publiez quand l’équipe est prête.",
-                )}
-              </p>
-            </section>
-          </div>
-        </>
-      )}
-
-      {dialog && draft && (
-        <PlanningDialog
-          busy={planning.publishing.value}
-          title={
-            dialog === "publish"
-              ? t("Publier la proposition de sprint")
-              : t("Abandonner le brouillon ?")
-          }
-          onClose={() => setDialog(null)}
-        >
-          {dialog === "publish" ? (
-            <>
-              <p>
-                {t("Le sprint")} <strong>{sprint?.name}</strong>{" "}
-                {t("recevra les objectifs ci-dessous et les rattachements de vos tickets.")}
-              </p>
-              <label class="planning-publication-label" htmlFor="planning-goal-preview">
-                {t("Texte du sprint dans Jira · un objectif par ligne")}
-              </label>
-              <textarea
-                id="planning-goal-preview"
-                class="planning-goal-preview"
-                readOnly
-                value={draft.goals.map((goal) => goal.title.trim()).join("\n")}
-                rows={Math.min(8, Math.max(3, draft.goals.length))}
-              />
-              <PublicationTickets planned={planned} />
-              {unassigned.length > 0 && (
-                <p class="planning-publication-note">
-                  {t(
-                    unassigned.length > 1
-                      ? "{p0} resteront sans objectif."
-                      : "{p0} restera sans objectif.",
-                    { p0: plural(unassigned.length, "ticket") },
-                  )}
-                </p>
-              )}
-              <p class="planning-publication-note">
-                {t(
-                  "Le sprint restera futur. Le reste à faire du sprint actif ne sera pas déplacé.",
-                )}
-              </p>
-              <ErrorMessage message={planning.error.value} />
-              <div class="planning-dialog-actions">
-                <button
-                  type="button"
-                  disabled={planning.publishing.value}
-                  onClick={() => setDialog(null)}
-                >
-                  {t("Continuer la préparation")}
-                </button>
-                <button
-                  type="button"
-                  class="primary"
-                  disabled={planning.publishing.value || !planning.canPublish.value}
-                  onClick={async () => {
-                    await planning.publish();
-                    if (!planning.error.value) setDialog(null);
-                  }}
-                >
-                  {planning.publishing.value
-                    ? t("Publication en cours…")
-                    : t("Confirmer la publication")}
-                </button>
-              </div>
-            </>
+        <div class="board-empty planning-empty">
+          <Icon name="goal" size={26} />
+          {planning.loading.value ? (
+            <p>{t("Lecture de Jira…")}</p>
           ) : (
-            <>
-              <p>
-                {t(
-                  "Les objectifs et choix de tickets non publiés seront remplacés par la version actuelle de Jira. La capacité cible sera également réinitialisée.",
-                )}
-              </p>
-              <div class="planning-dialog-actions">
-                <button type="button" onClick={() => setDialog(null)}>
-                  {t("Garder le brouillon")}
-                </button>
-                <button
-                  type="button"
-                  class="danger"
-                  onClick={async () => {
-                    setDialog(null);
-                    await planning.discardDraft();
-                  }}
-                >
-                  {t("Reprendre depuis Jira")}
-                </button>
-              </div>
-            </>
+            planning.sprints.value.length === 0 && (
+              <>
+                <h2>{t("Aucun sprint futur")}</h2>
+                <p>
+                  {t(
+                    "Créez un sprint futur dans le backlog Jira, puis actualisez pour préparer ses objectifs et ses stories ici.",
+                  )}
+                </p>
+              </>
+            )
           )}
-        </PlanningDialog>
+        </div>
       )}
     </main>
   );
 }
 
-function PublicationTickets({ planned }: { planned: readonly PlanningIssue[] }) {
-  const additions = planned.filter((item) => item.source === "backlog");
+/** Texte d'un avis du modèle dans la langue affichée. */
+function text(message: AppMessage): string {
+  return renderMessage(message, language.value);
+}
+
+function isTyping(target: EventTarget | null): boolean {
   return (
-    <div class="planning-publication-tickets">
-      <h3>{t("{p0} à ajouter au sprint", { p0: plural(additions.length, "ticket") })}</h3>
-      {additions.length > 0 ? (
-        <ul>
-          {additions.map((item) => (
-            <li key={item.issue.key}>
-              <strong>{item.issue.key}</strong> {item.issue.fields.summary}
-            </li>
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
+}
+
+// ─── En-tête ─────────────────────────────────────────────────────────────────
+
+function PlanningHeader({
+  planning,
+  sidebarCollapsed,
+  onToggleSidebar,
+  onBack,
+}: {
+  planning: PlanningViewModel;
+  sidebarCollapsed: boolean;
+  onToggleSidebar(): void;
+  onBack(): void;
+}) {
+  const snapshot = planning.snapshot.value;
+  const sprints = planning.sprints.value;
+  const sprint =
+    snapshot?.sprint ??
+    sprints.find((candidate) => candidate.id === planning.selectedSprintId.value) ??
+    null;
+  const busy = planning.loading.value || planning.busy.value;
+  const disabled = planning.gesturesDisabled.value;
+  const active = planning.activeSprint.value;
+  const startReason = planning.startDisabledReason.value;
+  const status = planning.loading.value
+    ? t("Lecture de Jira…")
+    : planning.busy.value
+      ? t("Écriture dans Jira…")
+      : planning.pendingClosure.value
+        ? t("Clôture en cours dans Jira…")
+        : null;
+  const sidebarLabel = sidebarCollapsed
+    ? t("Afficher la barre latérale")
+    : t("Masquer la barre latérale");
+
+  return (
+    <header class="sprint-header planning-header">
+      <button
+        type="button"
+        class="icon-button sidebar-toggle"
+        aria-label={sidebarLabel}
+        title={sidebarLabel}
+        onClick={onToggleSidebar}
+      >
+        <Icon name="sidebar" size={17} />
+      </button>
+      <div class="sprint-title">
+        <div class="sprint-name">
+          <h2>{sprint?.name ?? "Sprint Planning"}</h2>
+          {sprint?.state === "future" && <span class="sprint-future">{t("futur")}</span>}
+        </div>
+        <SprintDates sprint={sprint} />
+      </div>
+      {sprints.length > 0 && (
+        <select
+          class="planning-sprint-select"
+          aria-label={t("Sprint à préparer")}
+          title={t("Sprint à préparer")}
+          value={planning.selectedSprintId.value ?? ""}
+          disabled={busy}
+          onChange={(event) => void planning.selectSprint(Number(event.currentTarget.value))}
+        >
+          {sprints.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
           ))}
-        </ul>
-      ) : (
-        <p>{t("Les tickets de la proposition sont déjà dans ce sprint.")}</p>
+        </select>
+      )}
+
+      {snapshot && (
+        <div class="sprint-metrics">
+          <VelocityField planning={planning} />
+          <SprintLoad load={planning.sprintLoad.value} />
+        </div>
+      )}
+
+      <div class="sprint-actions">
+        {status && (
+          <span class="sync-status" aria-live="polite">
+            {status}
+          </span>
+        )}
+        <button
+          type="button"
+          class={`icon-button${busy ? " icon-button-busy" : ""}`}
+          aria-label={t("Actualiser")}
+          title={t("Relire les tickets depuis Jira")}
+          disabled={busy}
+          onClick={() => void planning.refresh()}
+        >
+          <Icon name="refresh" size={17} />
+        </button>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label={t("Retour au board")}
+          title={t("Retour au board")}
+          onClick={onBack}
+        >
+          <Icon name="arrowLeft" size={17} />
+        </button>
+        {active && (
+          <button
+            type="button"
+            class="planning-close-sprint"
+            disabled={disabled}
+            title={t("Ouvre la fenêtre de Jira ; vous seul la remplissez et la validez.")}
+            onClick={() => planning.closeActiveSprint()}
+          >
+            {t("Clôturer {name}", { name: active.name })}
+          </button>
+        )}
+        {snapshot && (
+          <span class="planning-start">
+            <button
+              type="button"
+              class="primary planning-start-sprint"
+              disabled={disabled || startReason !== null}
+              aria-describedby={startReason ? "planning-start-reason" : undefined}
+              title={
+                startReason
+                  ? text(startReason)
+                  : t("Ouvre la fenêtre de Jira ; vous seul la remplissez et la validez.")
+              }
+              onClick={() => planning.startSprint()}
+            >
+              <Icon name="play" size={15} />
+              {t("Démarrer {name}", { name: snapshot.sprint.name })}
+            </button>
+            {startReason && (
+              <small id="planning-start-reason" class="planning-start-reason">
+                {text(startReason)}
+              </small>
+            )}
+          </span>
+        )}
+      </div>
+    </header>
+  );
+}
+
+function SprintDates({ sprint }: { sprint: JiraSprint | null }) {
+  if (!sprint?.startDate && !sprint?.endDate) return null;
+  return (
+    <span class="sprint-dates">
+      {sprint.startDate && formatDay(sprint.startDate)}
+      {sprint.endDate && ` → ${formatDay(sprint.endDate)}`}
+    </span>
+  );
+}
+
+function velocityText(velocity: number | null): string {
+  return velocity === null ? "" : String(velocity);
+}
+
+/**
+ * Vélocité partagée : écrite quand le champ est validé (Entrée ou sortie), jamais à la frappe.
+ * Échap rend la valeur de Jira ; une valeur inchangée n'écrit rien.
+ */
+function VelocityField({ planning }: { planning: PlanningViewModel }) {
+  const velocity = planning.snapshot.value?.velocity ?? null;
+  const unit = planning.sprintLoad.value?.unit ?? "pts";
+  const [value, setValue] = useState(velocityText(velocity));
+  // Dernière valeur envoyée : la sortie du champ juste après Entrée ne la renvoie pas.
+  const sent = useRef<string | null>(null);
+
+  // Avant l'affichage : une relecture remplace la saisie sans effacer une frappe qui suit.
+  useLayoutEffect(() => {
+    setValue(velocityText(velocity));
+    sent.current = null;
+  }, [velocity]);
+
+  const restore = (input: HTMLInputElement) => {
+    input.value = velocityText(velocity);
+    setValue(velocityText(velocity));
+  };
+  const commit = (input: HTMLInputElement) => {
+    const raw = input.value.trim();
+    if (input.validity?.badInput) {
+      restore(input);
+      return;
+    }
+    const next = raw === "" ? null : Number(raw);
+    if (next !== null && !Number.isFinite(next)) {
+      restore(input);
+      return;
+    }
+    if (next === velocity || raw === sent.current) return;
+    sent.current = raw;
+    void planning.saveVelocity(next);
+  };
+
+  return (
+    <label
+      class="planning-velocity"
+      title={t("Partagée avec l'équipe dans les données du sprint, écrite quand vous validez.")}
+    >
+      <span>{t("Vélocité de l'équipe")}</span>
+      <input
+        type="number"
+        min="0"
+        step="any"
+        inputMode="decimal"
+        placeholder="—"
+        value={value}
+        disabled={planning.gesturesDisabled.value}
+        onInput={(event) => setValue(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commit(event.currentTarget);
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            restore(event.currentTarget);
+          }
+        }}
+        onBlur={(event) => commit(event.currentTarget)}
+      />
+      <small>{unit === "pts" ? "pts" : pluralWord(2, "ticket")}</small>
+    </label>
+  );
+}
+
+/** Charge du sprint en préparation comparée à la vélocité, dans la grammaire de l'avancement. */
+function SprintLoad({ load }: { load: PlanningLoad | null }) {
+  if (!load) return null;
+  const unit = load.unit === "pts" ? "pts" : pluralWord(load.total, "ticket");
+  const velocity = load.velocity;
+  const over = velocity !== null && load.total > velocity;
+  return (
+    <div
+      class={`sprint-progress planning-load${over ? " planning-load-over" : ""}`}
+      title={t("Charge du sprint comparée à la vélocité de l'équipe")}
+    >
+      <strong>
+        {formatPoints(load.total)}
+        {velocity !== null && ` / ${formatPoints(velocity)}`} {unit}
+      </strong>
+      {velocity !== null && velocity > 0 && (
+        <progress
+          max={1}
+          value={Math.min(1, load.total / velocity)}
+          aria-label={t("Charge du sprint comparée à la vélocité de l'équipe")}
+        />
+      )}
+      <span class="sprint-percent">
+        {velocity === null
+          ? t("vélocité non renseignée")
+          : velocity > 0
+            ? `${Math.round((load.total / velocity) * 100)} %`
+            : ""}
+      </span>
+      {load.unestimated > 0 && (
+        <span class="counter planning-unestimated">
+          {t("{p0} sans estimation", { p0: plural(load.unestimated, "ticket") })}
+        </span>
       )}
     </div>
   );
 }
 
-function PlanningCard({
-  item,
-  goals,
-  goalId,
-  selected,
-  disabled,
-  onAssign,
-  onRemove,
-  onOpen,
+function PlanningMessages({ planning }: { planning: PlanningViewModel }) {
+  const notice = planning.notice.value;
+  const warning = planning.goalsWarning.value;
+  const error = planning.error.value;
+  if (!notice && !warning && !error) return null;
+  return (
+    <div class="planning-messages" aria-live="polite">
+      <ErrorMessage message={error} />
+      {notice && <p class="notice notice-info planning-notice">{text(notice)}</p>}
+      {warning && <p class="notice notice-warning planning-goals-warning">{text(warning)}</p>}
+    </div>
+  );
+}
+
+// ─── Glisser-déposer ─────────────────────────────────────────────────────────
+
+/** Zone de dépôt d'un ticket glissé portant `type` ; `over` pendant le survol. */
+function useDrop(options: { type: string; disabled: boolean; onDrop(key: string): void }) {
+  const [over, setOver] = useState(false);
+  const accepts = (transfer: DataTransfer | null) =>
+    !options.disabled && Boolean(transfer?.types.includes(options.type));
+  return {
+    over: over && !options.disabled,
+    handlers: {
+      onDragOver: (event: DragEvent) => {
+        if (!accepts(event.dataTransfer)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+        setOver(true);
+      },
+      onDragLeave: (event: DragEvent) => {
+        const current = event.currentTarget;
+        if (
+          !(event.relatedTarget instanceof Node) ||
+          !(current instanceof Node) ||
+          !current.contains(event.relatedTarget)
+        )
+          setOver(false);
+      },
+      onDrop: (event: DragEvent) => {
+        setOver(false);
+        if (!accepts(event.dataTransfer)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const key = event.dataTransfer?.getData(options.type);
+        if (key) options.onDrop(key);
+      },
+    },
+  };
+}
+
+// ─── Colonne « Où sont les tickets » ─────────────────────────────────────────
+
+function sectionId(section: PlanningSection): string {
+  return section.kind === "backlog" ? "backlog" : `${section.kind}-${section.sprint.id}`;
+}
+
+/**
+ * Autres sprints futurs, backlog et reste à faire du sprint actif (consultation). Un ticket du
+ * sprint en préparation déposé sur la colonne retourne au backlog ; sur un sprint futur, il y va.
+ */
+function SourcesColumn({ planning }: { planning: PlanningViewModel }) {
+  const disabled = planning.gesturesDisabled.value;
+  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
+  const drop = useDrop({
+    type: PLANNING_SPRINT_DRAG_TYPE,
+    disabled,
+    onDrop: (key) => void planning.removeIssue(key, { kind: "backlog" }),
+  });
+  const toggle = (id: string) => {
+    const next = new Set(folded);
+    if (!next.delete(id)) next.add(id);
+    setFolded(next);
+  };
+  return (
+    <aside
+      class={`planning-sources${drop.over ? " planning-drop-active" : ""}`}
+      aria-label={t("Où sont les tickets")}
+      data-planning-drop="backlog"
+      {...drop.handlers}
+    >
+      <h2 class="planning-sources-title">{t("Où sont les tickets")}</h2>
+      {planning.sections.value.map((section) => (
+        <SourceSection
+          key={sectionId(section)}
+          planning={planning}
+          section={section}
+          folded={folded.has(sectionId(section))}
+          onToggle={() => toggle(sectionId(section))}
+        />
+      ))}
+      <p class="planning-sources-hint">
+        {t("Déposez ici un ticket du sprint en préparation pour le renvoyer au backlog.")}
+      </p>
+    </aside>
+  );
+}
+
+function SourceSection({
+  planning,
+  section,
+  folded,
+  onToggle,
 }: {
-  item: PlanningIssue;
-  goals: readonly SprintGoal[];
-  goalId: string | null;
-  selected: boolean;
-  disabled: boolean;
-  onAssign(key: string, goalId: string | null): void;
-  onRemove(key: string): void;
-  onOpen(key: string): void;
+  planning: PlanningViewModel;
+  section: PlanningSection;
+  folded: boolean;
+  onToggle(): void;
 }) {
-  const { issue } = item;
-  const remaining = item.source === "remaining";
-  const assignable = isAssignable(item);
+  const disabled = planning.gesturesDisabled.value;
+  const id = sectionId(section);
+  const name = section.kind === "backlog" ? "Backlog" : section.sprint.name;
+  const drop = useDrop({
+    type: PLANNING_SPRINT_DRAG_TYPE,
+    // Le reste à faire du sprint actif ne reçoit rien ; le backlog est la colonne entière.
+    disabled: disabled || section.kind !== "sprint",
+    onDrop: (key) => {
+      if (section.kind === "sprint")
+        void planning.removeIssue(key, { kind: "sprint", sprintId: section.sprint.id });
+    },
+  });
+  const readOnlySection = section.kind === "active";
+  return (
+    <section
+      class={`planning-source planning-source-${section.kind}${drop.over ? " planning-drop-active" : ""}`}
+      data-planning-section={id}
+      aria-label={name}
+      {...drop.handlers}
+      // Un dépôt sur le reste à faire du sprint actif n'est pas un retour au backlog.
+      {...(readOnlySection && {
+        onDragOver: (event: DragEvent) => event.stopPropagation(),
+        onDrop: (event: DragEvent) => event.stopPropagation(),
+      })}
+    >
+      <button
+        type="button"
+        class="planning-source-head"
+        aria-expanded={!folded}
+        aria-controls={`planning-source-${id}`}
+        onClick={onToggle}
+      >
+        <Icon name="chevronDown" size={13} />
+        <span class="planning-source-name">{name}</span>
+        {section.kind === "sprint" && (
+          <span class="planning-state planning-state-future">{t("futur")}</span>
+        )}
+        {section.kind === "active" && (
+          <span class="planning-state planning-state-active">{t("actif")}</span>
+        )}
+        <span class="planning-source-meta">{plural(section.issues.length, "ticket")}</span>
+      </button>
+      {!folded && (
+        <div class="planning-source-body" id={`planning-source-${id}`}>
+          {readOnlySection && (
+            <p class="planning-source-note">
+              {t(
+                "Reste à faire du sprint actif, en consultation : la fenêtre de clôture de Jira décide où il va.",
+              )}
+            </p>
+          )}
+          {section.issues.map((item) => (
+            <PlanningCard
+              key={item.issue.key}
+              planning={planning}
+              item={item}
+              place={
+                readOnlySection || !canJoinSprint(item) ? { kind: "readOnly" } : { kind: "source" }
+              }
+              compact
+            />
+          ))}
+          {section.issues.length === 0 && (
+            <p class="planning-source-empty">
+              {planning.search.value.trim()
+                ? t("Aucun ticket ne correspond à cette recherche.")
+                : t("Aucun ticket.")}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Jira refuse d'ajouter au sprint une sous-tâche ou un ticket terminé : consultation. */
+function canJoinSprint(item: PlanningIssue): boolean {
+  return item.issue.fields.issuetype.subtask !== true && !isDoneStatus(item.issue.fields.status);
+}
+
+// ─── Swimlanes du sprint en préparation ──────────────────────────────────────
+
+function LanesColumn({
+  planning,
+  sprintName,
+}: {
+  planning: PlanningViewModel;
+  sprintName: string;
+}) {
+  const lanes = planning.lanes.value;
+  const textMode = planning.goalMode.value === "text";
+  return (
+    <section class="planning-lanes" aria-label={t("{name} par objectifs", { name: sprintName })}>
+      {lanes.map((lane, index) => (
+        <GoalLane
+          key={lane.goal.id}
+          planning={planning}
+          lane={lane}
+          index={index}
+          count={lanes.length}
+        />
+      ))}
+      {textMode ? <AddGoal planning={planning} /> : <PinGoal planning={planning} />}
+      <UnassignedLane planning={planning} />
+      <p class="planning-live-note">
+        <Icon name="check" />
+        {t("Chaque geste est écrit aussitôt dans Jira, puis relu.")}
+      </p>
+    </section>
+  );
+}
+
+function LaneCards({
+  planning,
+  issues,
+  goalId,
+  empty,
+}: {
+  planning: PlanningViewModel;
+  issues: readonly PlanningIssue[];
+  goalId: string | null;
+  empty: ComponentChildren;
+}) {
+  return (
+    <div class="lane-cell planning-lane-cell">
+      {issues.map((item) => (
+        <PlanningCard
+          key={item.issue.key}
+          planning={planning}
+          item={item}
+          place={{ kind: "sprint", goalId }}
+        />
+      ))}
+      {issues.length === 0 && <p class="planning-lane-hint">{empty}</p>}
+    </div>
+  );
+}
+
+function GoalLane({
+  planning,
+  lane,
+  index,
+  count,
+}: {
+  planning: PlanningViewModel;
+  lane: PlanningLane;
+  index: number;
+  count: number;
+}) {
+  const { goal } = lane;
+  const disabled = planning.gesturesDisabled.value;
+  const textMode = planning.goalMode.value === "text";
+  const points = planning.sprintLoad.value?.unit === "pts";
+  const drop = useDrop({
+    type: PLANNING_DRAG_TYPE,
+    disabled,
+    onDrop: (key) => void planning.placeIssue(key, goal.id),
+  });
+  return (
+    <section
+      class={`lane planning-lane${drop.over ? " planning-drop-active" : ""}`}
+      data-goal-color={goal.color}
+      data-planning-goal={goal.id}
+      aria-label={t("Objectif {p0} : {p1}", { p0: index + 1, p1: goal.title })}
+      {...drop.handlers}
+    >
+      <header class="lane-header">
+        <span class="goal-ring" aria-hidden="true" />
+        {textMode ? (
+          <GoalTitle
+            goal={goal}
+            index={index}
+            disabled={disabled}
+            onRename={(title) => planning.renameGoal(goal.id, title)}
+          />
+        ) : (
+          <span class="lane-title planning-goal-name">{goal.title}</span>
+        )}
+        <span class="lane-count">
+          {plural(lane.issueCount, "ticket")}
+          {points && ` · ${formatPoints(lane.points)} pts`}
+        </span>
+        <span class="planning-lane-actions">
+          {textMode ? (
+            <>
+              <button
+                type="button"
+                class="icon-button"
+                aria-label={t("Monter l’objectif {p0}", { p0: index + 1 })}
+                title={t("Monter")}
+                disabled={disabled || index === 0}
+                onClick={() => void planning.moveGoal(goal.id, -1)}
+              >
+                <Icon name="chevronUp" />
+              </button>
+              <button
+                type="button"
+                class="icon-button"
+                aria-label={t("Descendre l’objectif {p0}", { p0: index + 1 })}
+                title={t("Descendre")}
+                disabled={disabled || index === count - 1}
+                onClick={() => void planning.moveGoal(goal.id, 1)}
+              >
+                <Icon name="chevronDown" />
+              </button>
+              <button
+                type="button"
+                class="icon-button"
+                aria-label={t("Supprimer l’objectif {p0}", { p0: index + 1 })}
+                title={t(
+                  "Supprimer l'objectif ; ses tickets restent dans le sprint, sans objectif",
+                )}
+                disabled={disabled}
+                onClick={() => void planning.removeGoal(goal.id)}
+              >
+                <Icon name="trash" />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              class="icon-button"
+              aria-label={t("Retirer l'épinglage de {name}", { name: goal.title })}
+              title={t("Retirer l'épinglage du sprint ; le Goal reste dans Atlassian")}
+              disabled={disabled}
+              onClick={() => void planning.unpinGoal(goal.id)}
+            >
+              <Icon name="close" />
+            </button>
+          )}
+        </span>
+      </header>
+      <LaneCards
+        planning={planning}
+        issues={lane.issues}
+        goalId={goal.id}
+        empty={
+          lane.issueCount > 0
+            ? t("Aucun ticket de cet objectif ne correspond à la recherche.")
+            : t(
+                "Déposez ici les tickets qui rendent ce résultat possible : ils rejoignent le sprint.",
+              )
+        }
+      />
+    </section>
+  );
+}
+
+/**
+ * Titre modifiable sur place : écrit dans Jira quand il est validé (Entrée ou sortie du champ),
+ * Échap rend le titre de Jira. Un titre vide ou inchangé n'écrit rien.
+ */
+function GoalTitle({
+  goal,
+  index,
+  disabled,
+  onRename,
+}: {
+  goal: SprintGoal;
+  index: number;
+  disabled: boolean;
+  onRename(title: string): Promise<void>;
+}) {
+  const [value, setValue] = useState(goal.title);
+  // Dernier titre envoyé : la sortie du champ juste après Entrée ne le renvoie pas.
+  const sent = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    setValue(goal.title);
+    sent.current = null;
+  }, [goal.title]);
+
+  const restore = (input: HTMLInputElement) => {
+    input.value = goal.title;
+    setValue(goal.title);
+  };
+  const commit = (input: HTMLInputElement) => {
+    const title = input.value.trim();
+    if (!title) {
+      restore(input);
+      return;
+    }
+    if (title === goal.title || title === sent.current) return;
+    sent.current = title;
+    void onRename(title);
+  };
+
+  return (
+    <input
+      class="lane-title planning-goal-title"
+      type="text"
+      aria-label={t("Titre de l’objectif {p0}", { p0: index + 1 })}
+      title={goal.title}
+      value={value}
+      maxLength={500}
+      disabled={disabled}
+      onInput={(event) => setValue(event.currentTarget.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commit(event.currentTarget);
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          restore(event.currentTarget);
+        }
+      }}
+      onBlur={(event) => commit(event.currentTarget)}
+    />
+  );
+}
+
+/** Objectifs texte : la ligne « Ajouter l'objectif » ferme la liste. */
+function AddGoal({ planning }: { planning: PlanningViewModel }) {
+  const [title, setTitle] = useState("");
+  const disabled = planning.gesturesDisabled.value;
+  return (
+    <form
+      class="planning-add-goal"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        const trimmed = title.trim();
+        if (disabled || !trimmed) return;
+        await planning.addGoal(trimmed);
+        // Refusé (texte changé dans Jira, titre en double) : la saisie reste, à reprendre.
+        if (planning.lanes.value.some((lane) => lane.goal.title === trimmed)) setTitle("");
+      }}
+    >
+      <Icon name="plus" size={16} />
+      <input
+        type="text"
+        aria-label={t("Nouvel objectif du sprint")}
+        placeholder={t("Nouvel objectif : le résultat attendu à la fin du sprint")}
+        value={title}
+        maxLength={500}
+        disabled={disabled}
+        onInput={(event) => setTitle(event.currentTarget.value)}
+      />
+      <button type="submit" disabled={disabled || !title.trim()}>
+        {t("Ajouter l’objectif")}
+      </button>
+    </form>
+  );
+}
+
+/** Goals Atlassian : recherche par nom des Goals existants, puis épinglage. Aucune création. */
+function PinGoal({ planning }: { planning: PlanningViewModel }) {
+  const [query, setQuery] = useState("");
+  const disabled = planning.gesturesDisabled.value;
+  const search = planning.goalSearch.value;
+  return (
+    <div class="planning-pin-goal">
+      <label class="planning-add-goal">
+        <Icon name="search" size={16} />
+        <input
+          type="search"
+          aria-label={t("Chercher un Goal à épingler")}
+          placeholder={t("Chercher un Goal Atlassian par son nom…")}
+          value={query}
+          onInput={(event) => {
+            setQuery(event.currentTarget.value);
+            void planning.searchGoals(event.currentTarget.value);
+          }}
+          onFocus={() => {
+            if (!search) void planning.searchGoals(query);
+          }}
+        />
+      </label>
+      {search?.loading && <p class="planning-pin-status">{t("Recherche des Goals…")}</p>}
+      <ErrorMessage message={search?.error ?? null} />
+      {search && !search.loading && !search.error && (
+        <ul class="planning-pin-results" aria-label={t("Goals à épingler")}>
+          {search.results.map((goal) => (
+            <li key={goal.id}>
+              <button
+                type="button"
+                disabled={disabled}
+                aria-label={t("Épingler {name}", { name: goalDisplayName(goal) })}
+                onClick={() => void planning.pinGoal(goal.id)}
+              >
+                <Icon name="pin" />
+                <span>{goalDisplayName(goal)}</span>
+                {goal.key && <small>{goal.key}</small>}
+              </button>
+            </li>
+          ))}
+          {search.results.length === 0 && (
+            <li class="planning-pin-status">{t("Aucun Goal ne correspond à cette recherche.")}</li>
+          )}
+        </ul>
+      )}
+      <p class="planning-pin-note">
+        {t("Les Goals se créent dans Atlassian ; le planning épingle les Goals existants.")}
+      </p>
+    </div>
+  );
+}
+
+function UnassignedLane({ planning }: { planning: PlanningViewModel }) {
+  const issues = planning.unassigned.value;
+  const drop = useDrop({
+    type: PLANNING_DRAG_TYPE,
+    disabled: planning.gesturesDisabled.value,
+    onDrop: (key) => void planning.placeIssue(key, null),
+  });
+  return (
+    <section
+      class={`lane planning-lane planning-unassigned${drop.over ? " planning-drop-active" : ""}`}
+      data-planning-goal="unassigned"
+      aria-label={t("Sans objectif")}
+      {...drop.handlers}
+    >
+      <header class="lane-header">
+        <span class="lane-title">{t("Sans objectif")}</span>
+        <span class="lane-count">{plural(issues.length, "ticket")}</span>
+        <span class="planning-lane-sub">{t("Dans le sprint, rattachés à aucun objectif")}</span>
+      </header>
+      <LaneCards
+        planning={planning}
+        issues={issues}
+        goalId={null}
+        empty={t("Tous les tickets du sprint servent un objectif.")}
+      />
+    </section>
+  );
+}
+
+// ─── Cartes ──────────────────────────────────────────────────────────────────
+
+/**
+ * Place d'une carte : dans le sprint en préparation (sur un objectif ou sans), dans une source où
+ * on peut la prendre (backlog, autre sprint futur), ou en consultation (reste à faire du sprint
+ * actif, sous-tâche, ticket terminé).
+ */
+type CardPlace =
+  | { readonly kind: "sprint"; readonly goalId: string | null }
+  | { readonly kind: "source" }
+  | { readonly kind: "readOnly" };
+
+function PlanningCard({
+  planning,
+  item,
+  place,
+  compact = false,
+}: {
+  planning: PlanningViewModel;
+  item: PlanningIssue;
+  place: CardPlace;
+  compact?: boolean;
+}) {
+  const { issue, origin } = item;
+  const { fields } = issue;
+  const readOnly = place.kind === "readOnly";
+  const draggable = !readOnly && !planning.gesturesDisabled.value;
+  const points = planning.sprintLoad.value?.unit !== "tickets";
+  const type = fields.issuetype.name;
   return (
     <article
-      class={`planning-card${remaining ? " planning-card-remaining" : ""}`}
+      class={`card planning-card${compact ? " planning-card-compact" : ""}${readOnly ? " planning-card-readonly" : ""}${origin ? " planning-card-arrived" : ""}`}
       data-planning-issue={issue.key}
-      draggable={!disabled && assignable}
+      draggable={draggable}
       onDragStart={(event) => {
-        if (disabled || !assignable || !event.dataTransfer) {
+        if (!draggable || !event.dataTransfer) {
           event.preventDefault();
           return;
         }
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData(PLANNING_DRAG_TYPE, issue.key);
+        if (place.kind === "sprint")
+          event.dataTransfer.setData(PLANNING_SPRINT_DRAG_TYPE, issue.key);
       }}
     >
-      <div class="planning-card-meta">
+      <div class="card-top">
+        <span class="jira-icon jira-icon-fallback" role="img" aria-label={type} title={type}>
+          {[...type][0]?.toUpperCase() ?? "?"}
+        </span>
         <button
           type="button"
-          class="planning-issue-link"
-          onClick={() => onOpen(issue.key)}
+          class="card-key planning-issue-link"
           aria-label={t("Ouvrir {p0} dans Jira", { p0: issue.key })}
+          title={t("Ouvrir {p0} dans Jira", { p0: issue.key })}
+          onClick={() => planning.openIssue(issue.key)}
         >
           {issue.key}
         </button>
-        <span>{issue.fields.issuetype.name}</span>
-        <span
-          class={`planning-card-estimate${item.estimate === null ? " planning-card-unestimated" : ""}`}
-          title={item.estimate === null ? t("Sans estimation") : t("Estimation Jira")}
-        >
-          {item.estimate === null ? "?" : formatPoints(item.estimate)}
-        </span>
-      </div>
-      <p class="planning-card-title">{issue.fields.summary}</p>
-      {issue.fields.parent?.summary && (
-        <p class="planning-card-parent">
-          <Icon name="parent" size={12} />
-          {issue.fields.parent.summary}
-        </p>
-      )}
-      <div class="planning-card-details">
-        <span>{issue.fields.status.name}</span>
-        {item.source === "sprint" && (
-          <span class="planning-already-in">{t("Déjà dans le sprint")}</span>
-        )}
-        {remaining && <span>{item.sprintName ?? t("Sprint actif")}</span>}
-        {!remaining && !assignable && (
-          <span>
-            {t("Consultation uniquement")}
-            {issue.fields.issuetype.subtask === true ? t(" · sous-tâche") : t(" · terminé")}
+        {!readOnly && (
+          <span class="card-marks">
+            <CardMenu planning={planning} issueKey={issue.key} place={place} />
           </span>
         )}
       </div>
-      {(assignable || (selected && item.source === "backlog")) && (
-        <div class="planning-card-actions">
-          {assignable && (
-            <select
-              aria-label={t("Affecter {p0} à un objectif", { p0: issue.key })}
-              value={selected ? (goalId ?? "") : "__pool"}
-              disabled={disabled}
-              onChange={(event) => {
-                const value = event.currentTarget.value;
-                if (value !== "__pool") onAssign(issue.key, value || null);
-              }}
+      <p class="card-summary planning-card-title">{fields.summary}</p>
+      {(fields.parent || origin || readOnly) && (
+        <div class="card-badges">
+          {fields.parent && (
+            <span
+              class="badge badge-field planning-card-parent"
+              title={fields.parent.summary ?? ""}
             >
-              {!selected && (
-                <option value="__pool" disabled>
-                  {t("Affecter à…")}
-                </option>
-              )}
-              <option value="">{t("À organiser")}</option>
-              {goals.map((goal, index) => (
-                <option key={goal.id} value={goal.id}>
-                  {index + 1}. {goal.title || t("Objectif à nommer")}
-                </option>
-              ))}
-            </select>
+              {fields.parent.summary ?? fields.parent.key}
+            </span>
           )}
-          {selected && item.source === "backlog" && (
-            <button
-              type="button"
-              aria-label={t("Retirer {p0} de la proposition", { p0: issue.key })}
-              title={t("Remettre dans le backlog")}
-              disabled={disabled}
-              onClick={() => onRemove(issue.key)}
-            >
-              <Icon name="close" size={13} />
-            </button>
+          {origin && (
+            <span class="badge badge-added planning-origin">
+              {origin.kind === "backlog"
+                ? t("Vient du backlog")
+                : t("Vient de {name}", { name: origin.sprintName })}
+            </span>
           )}
+          {readOnly && <span class="badge badge-field">{fields.status.name}</span>}
         </div>
       )}
+      <div class="card-bottom">
+        <span class="card-alerts" />
+        <span class="card-owner">
+          {points && (
+            <span
+              class={`card-points${item.estimate === null ? " planning-card-unestimated" : ""}`}
+              title={item.estimate === null ? t("Sans estimation") : t("Estimation Jira")}
+            >
+              {item.estimate === null ? "?" : formatPoints(item.estimate)}
+            </span>
+          )}
+          {fields.assignee ? (
+            <span class="avatar" title={fields.assignee.displayName}>
+              {initials(fields.assignee.displayName)}
+            </span>
+          ) : (
+            <span class="avatar avatar-empty" title={t("Non assigné")} />
+          )}
+        </span>
+      </div>
     </article>
   );
 }
 
-function isAssignable(item: PlanningIssue): boolean {
-  return (
-    item.source !== "remaining" &&
-    !(
-      item.source === "backlog" &&
-      (item.issue.fields.issuetype.subtask === true || isDoneStatus(item.issue.fields.status))
-    )
-  );
-}
-
-function DropZone({
-  goalId,
-  disabled,
-  onAssign,
-  className,
-  label,
-  color,
-  children,
+/**
+ * Menu ⋯ d'une carte. Dans le sprint en préparation : objectifs, « Sans objectif », retour au
+ * backlog ou vers un autre sprint futur. Ailleurs : poser le ticket sur un objectif, ce qui
+ * l'ajoute au sprint. Échap le referme et rend le focus à son bouton.
+ */
+function CardMenu({
+  planning,
+  issueKey,
+  place,
 }: {
-  goalId: string | null;
-  disabled: boolean;
-  onAssign(key: string, goalId: string | null): void;
-  className: string;
-  label: string;
-  color?: string;
-  children: ComponentChildren;
+  planning: PlanningViewModel;
+  issueKey: string;
+  place: CardPlace;
 }) {
-  const [over, setOver] = useState(false);
-  const accepts = (transfer: DataTransfer | null) =>
-    !disabled && Boolean(transfer?.types.includes(PLANNING_DRAG_TYPE));
+  const details = useRef<HTMLDetailsElement>(null);
+  const disabled = planning.gesturesDisabled.value;
+  const inSprint = place.kind === "sprint";
+  const current = place.kind === "sprint" ? place.goalId : undefined;
+  const others = planning.snapshot.value?.futureSprints.map((entry) => entry.sprint) ?? [];
+  const act = (action: () => Promise<void>) => {
+    if (details.current) details.current.open = false;
+    void action();
+  };
   return (
-    <section
-      class={`${className}${over ? " planning-drop-active" : ""}`}
-      data-planning-goal={goalId ?? "unassigned"}
-      data-goal-color={color}
-      aria-label={label}
-      onDragOver={(event) => {
-        if (accepts(event.dataTransfer)) {
-          event.preventDefault();
-          if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-          setOver(true);
-        }
-      }}
-      onDragLeave={(event) => {
-        if (
-          !(event.relatedTarget instanceof Node) ||
-          !event.currentTarget.contains(event.relatedTarget)
-        )
-          setOver(false);
-      }}
-      onDrop={(event) => {
-        setOver(false);
-        if (!accepts(event.dataTransfer)) return;
+    <details
+      ref={details}
+      class="menu lane-menu planning-card-menu"
+      onToggle={(event) => placeFloatingMenu(event.currentTarget)}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || !details.current?.open) return;
         event.preventDefault();
         event.stopPropagation();
-        const key = event.dataTransfer?.getData(PLANNING_DRAG_TYPE);
-        if (key) onAssign(key, goalId);
+        details.current.open = false;
+        details.current.querySelector("summary")?.focus();
       }}
     >
-      {children}
-    </section>
-  );
-}
-
-function PlanningDialog({
-  title,
-  busy,
-  onClose,
-  children,
-}: {
-  title: string;
-  busy: boolean;
-  onClose(): void;
-  children: ComponentChildren;
-}) {
-  const dialog = useRef<HTMLDivElement>(null);
-  const close = useRef<HTMLButtonElement>(null);
-  const busyRef = useRef(busy);
-  busyRef.current = busy;
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-  useLayoutEffect(() => {
-    const previous = document.activeElement;
-    close.current?.focus();
-    const keydown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        if (!busyRef.current) closeRef.current();
-      }
-      if (event.key !== "Tab") return;
-      const elements = [
-        ...(dialog.current?.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), textarea, input:not(:disabled), select:not(:disabled), [tabindex="0"]',
-        ) ?? []),
-      ];
-      const first = elements[0];
-      const last = elements.at(-1);
-      if (
-        event.shiftKey &&
-        (document.activeElement === first || !dialog.current?.contains(document.activeElement))
-      ) {
-        event.preventDefault();
-        last?.focus();
-      } else if (
-        !event.shiftKey &&
-        (document.activeElement === last || !dialog.current?.contains(document.activeElement))
-      ) {
-        event.preventDefault();
-        first?.focus();
-      }
-    };
-    const focus = (event: FocusEvent) => {
-      if (event.target instanceof Node && !dialog.current?.contains(event.target)) {
-        if (busyRef.current) dialog.current?.focus();
-        else close.current?.focus();
-      }
-    };
-    document.addEventListener("keydown", keydown, true);
-    document.addEventListener("focusin", focus);
-    return () => {
-      document.removeEventListener("keydown", keydown, true);
-      document.removeEventListener("focusin", focus);
-      if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
-    };
-  }, []);
-  return (
-    <div class="planning-dialog-backdrop">
-      <div
-        ref={dialog}
-        class="planning-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="planning-dialog-title"
-        aria-busy={busy}
-        tabIndex={-1}
-      >
-        <header>
-          <h2 id="planning-dialog-title">{title}</h2>
+      <summary aria-label={t("Actions sur {p0}", { p0: issueKey })} title={t("Actions")}>
+        ⋯
+      </summary>
+      <div class="menu-panel">
+        <p class="menu-section">{inSprint ? t("Objectif") : t("Ajouter au sprint")}</p>
+        {planning.lanes.value.map((lane) => (
           <button
-            ref={close}
+            key={lane.goal.id}
             type="button"
-            aria-label={t("Fermer la confirmation")}
-            disabled={busy}
-            onClick={onClose}
+            class="planning-menu-goal"
+            data-goal-color={lane.goal.color}
+            aria-current={current === lane.goal.id ? "true" : undefined}
+            disabled={disabled || current === lane.goal.id}
+            onClick={() => act(() => planning.placeIssue(issueKey, lane.goal.id))}
           >
-            <Icon name="close" size={18} />
+            <span class="goal-ring" aria-hidden="true" />
+            {lane.goal.title}
           </button>
-        </header>
-        <div class="planning-dialog-body">{children}</div>
+        ))}
+        <button
+          type="button"
+          aria-current={current === null ? "true" : undefined}
+          disabled={disabled || current === null}
+          onClick={() => act(() => planning.placeIssue(issueKey, null))}
+        >
+          {t("Sans objectif")}
+        </button>
+        {inSprint && (
+          <>
+            <hr class="menu-separator" />
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => act(() => planning.removeIssue(issueKey, { kind: "backlog" }))}
+            >
+              {t("Renvoyer au backlog")}
+            </button>
+            {others.map((sprint) => (
+              <button
+                key={sprint.id}
+                type="button"
+                disabled={disabled}
+                onClick={() =>
+                  act(() => planning.removeIssue(issueKey, { kind: "sprint", sprintId: sprint.id }))
+                }
+              >
+                {t("Vers {name}", { name: sprint.name })}
+              </button>
+            ))}
+          </>
+        )}
       </div>
-    </div>
+    </details>
   );
 }

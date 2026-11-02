@@ -235,7 +235,7 @@ describe("BoardModel — porte d'écriture unique (AD-6)", () => {
     expect(jira.sent("PUT", SETTINGS)).toHaveLength(0);
   });
 
-  it("la publication du planning ne s'attend pas elle-même et se journalise par le board", async () => {
+  it("un geste du planning tient la porte du board, bloque le changement de board et se journalise", async () => {
     const { jira } = planningFixture();
     const base = fakePlatform(jira);
     const held = deferred();
@@ -258,24 +258,33 @@ describe("BoardModel — porte d'écriture unique (AD-6)", () => {
     });
     await board.load(BOARD_URL);
     await board.planning.load();
-    board.planning.addGoal("Attendre son tour");
-    expect(board.planning.canPublish.value).toBe(true);
+    expect(board.planning.gesturesDisabled.value).toBe(false);
 
-    const publishing = board.planning.publish();
+    const adding = board.planning.addGoal("Attendre son tour");
     await entered.promise;
-    expect(board.planning.publishing.value).toBe(true);
-    expect(board.planning.validation.value).not.toBe(
-      "Attendez la fin de l'opération en cours sur le board.",
-    );
+    expect(board.planning.busy.value).toBe(true);
+    expect(board.canSwitchBoard.value).toBe(false);
+    // Un second geste pendant le premier est ignoré : rien n'est mis en file.
+    await board.planning.addGoal("Geste ignoré");
     held.resolve();
-    await publishing;
+    await adding;
 
-    expect(board.planning.notice.value).toContain("publié et vérifié");
+    expect(board.planning.busy.value).toBe(false);
+    expect(board.planning.notice.value).toBeNull();
+    expect(board.planning.snapshot.value?.goals.map((goal) => goal.title)).toContain(
+      "Attendre son tour",
+    );
+    expect(
+      jira.requests.filter(
+        (request) => request.path === "/rest/agile/1.0/sprint/43" && request.method === "POST",
+      ),
+    ).toHaveLength(1);
     const entries = await board.audit.list(ACME.origin);
     expect(entries.find((entry) => entry.action === "sprint planning")).toMatchObject({
-      to: "43",
+      to: "Sprint 43 — Paiement sans friction",
       outcome: "réussi",
       site: ACME.origin,
+      detailMessage: { key: "Enregistré et vérifié dans Jira." },
     });
   });
 });

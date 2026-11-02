@@ -52,4 +52,9 @@ export const integrationMessages = {
     "Jira could not display this issue here. Reload the view and try again.",
   "Retour à Jira…": "Returning to Jira…",
   "Ouverture du board dans Jira…": "Opening the board in Jira…",
+  "Terminer le sprint « {name} »": "Complete sprint “{name}”",
+  "Démarrer le sprint « {name} »": "Start sprint “{name}”",
+  "Ouverture de la fenêtre de Jira…": "Opening the Jira window…",
+  "Jira n'a pas permis d'ouvrir la fenêtre du sprint ici. Ouvrez le backlog du board dans Jira.":
+    "Jira could not open the sprint window here. Open the board backlog in Jira.",
 } as const;

@@ -76,14 +76,14 @@ development_status:
 
   epic-8: in-progress
   8-1-verifier-les-contrats-atlassian-du-planning-en-direct: done
-  8-2-l-ecran-du-planning-parle-comme-la-page-du-sprint: backlog
-  8-3-ecrire-les-objectifs-texte-au-fil-de-la-seance: backlog
-  8-4-poser-un-ticket-sur-un-objectif-l-ajoute-au-sprint: backlog
-  8-5-preparer-le-sprint-avec-les-goals-atlassian: backlog
-  8-6-velocite-partagee-du-sprint: backlog
-  8-7-cloturer-le-sprint-actif-et-reporter-ses-objectifs: backlog
-  8-8-demarrer-le-sprint-prepare: backlog
-  8-9-avis-du-planning-dans-les-trois-langues: backlog
+  8-2-l-ecran-du-planning-parle-comme-la-page-du-sprint: in-progress
+  8-3-ecrire-les-objectifs-texte-au-fil-de-la-seance: in-progress
+  8-4-poser-un-ticket-sur-un-objectif-l-ajoute-au-sprint: in-progress
+  8-5-preparer-le-sprint-avec-les-goals-atlassian: in-progress
+  8-6-velocite-partagee-du-sprint: in-progress
+  8-7-cloturer-le-sprint-actif-et-reporter-ses-objectifs: in-progress
+  8-8-demarrer-le-sprint-prepare: in-progress
+  8-9-avis-du-planning-dans-les-trois-langues: in-progress
   8-10-valider-le-sprint-planning-sur-un-vrai-jira: backlog
   8-11-activer-le-sprint-planning-dans-le-paquet: backlog
   epic-8-retrospective: optional

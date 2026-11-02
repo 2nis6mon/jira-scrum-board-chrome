@@ -575,132 +575,77 @@ export const businessMessages = {
     "The publication needs review. Your draft is still available: copy its summary, then start again from Jira to see the confirmed result.",
   "Publication non confirmée. Copiez votre brouillon puis repartez de Jira avant toute nouvelle publication.":
     "Publication not confirmed. Copy your draft, then start again from Jira before publishing again.",
-  "À organiser": "To organise",
-  "Proposition de préparation": "Planning proposal",
-  "Capacité envisagée : {p0} {p1}": "Proposed capacity: {p0} {p1}",
-  "Tickets à réexaminer :": "Issues to review:",
-  "Synthèse copiée.": "Summary copied.",
-  "Le brouillon reste affiché mais sa sauvegarde locale a échoué. Copiez la synthèse avant de fermer.":
-    "The draft is still displayed but could not be saved locally. Copy the summary before closing.",
-  "ATELIER PRODUIT": "PRODUCT WORKSHOP",
   "Afficher la barre latérale": "Show sidebar",
   "Masquer la barre latérale": "Hide sidebar",
   "Retour au board": "Back to board",
-  "Copier la synthèse": "Copy summary",
-  "Publier dans Jira": "Publish to Jira",
   "Sprint à préparer": "Sprint to prepare",
   "Aucun sprint futur": "No future sprint",
-  " — brouillon à réexaminer": " — draft to review",
-  "Publication en cours…": "Publishing…",
   "Lecture de Jira…": "Loading from Jira…",
-  "Brouillon local": "Local draft",
-  "Version Jira": "Jira version",
   "Relire les tickets depuis Jira": "Reload issues from Jira",
   Actualiser: "Refresh",
-  "Repartir de Jira": "Start again from Jira",
-  "Préparons votre prochain sprint": "Let's prepare your next sprint",
-  "Un sprint à construire ensemble": "Build a sprint together",
-  "Lecture du backlog, du sprint futur et du reste à faire.":
-    "Loading the backlog, future sprint and remaining work.",
   "Créez un sprint futur dans le backlog Jira, puis actualisez pour préparer ses objectifs et ses stories ici.":
     "Create a future sprint in the Jira backlog, then refresh to prepare its goals and stories here.",
-  "Synthèse du sprint proposé": "Proposed sprint summary",
-  objectif: "goal",
-  objectifs: "goals",
-  "ticket prévu": "planned issue",
-  "tickets prévus": "planned issues",
-  "Ajoutez des tickets pour composer le sprint": "Add issues to build the sprint",
   "{p0} sans estimation": "{p0} without estimates",
-  "Tous les tickets prévus sont estimés": "All planned issues have estimates",
-  "Capacité cible": "Target capacity",
-  facultative: "optional",
-  "Capacité cible en {p0}": "Target capacity in {p0}",
-  "Capacité utilisée": "Used capacity",
-  "{p0} au-dessus de la cible": "{p0} above target",
-  "{p0} disponibles": "{p0} available",
-  " · estimation partielle": " · partial estimate",
-  "Tickets à examiner": "Issues to explore",
-  Explorer: "Explore",
-  "Choisir ce qui sert vos objectifs.": "Choose what supports your goals.",
-  "Source des tickets": "Issue source",
-  "Reste à faire": "Remaining work",
   "Rechercher un ticket à planifier": "Search for an issue to plan",
-  "Rechercher une story, un epic…": "Search for a story, an epic…",
-  "Tickets non terminés du sprint actif, à réexaminer avant la clôture. Leur présence ici ne les déplace pas.":
-    "Unfinished issues from the active sprint, to review before closing it. Showing them here does not move them.",
   "Aucun ticket ne correspond à cette recherche.": "No issues match this search.",
-  "Aucun reste à faire dans le sprint actif.": "No remaining work in the active sprint.",
-  "Tous les tickets disponibles sont déjà dans votre proposition.":
-    "All available issues are already in your proposal.",
-  "Glissez un ticket vers un objectif ou utilisez « Affecter à ».":
-    "Drag an issue to a goal or use ‘Assign to’.",
-  "Proposition de sprint": "Sprint proposal",
-  "Construire par objectifs": "Build around goals",
-  "Décrivez le résultat attendu, puis réunissez les stories qui le rendent possible.":
-    "Describe the expected outcome, then gather the stories that make it possible.",
-  "Tous les objectifs": "All goals",
-  "Tickets à vérifier": "Issues to check",
-  "Ces tickets ne sont plus disponibles dans le backlog ou le sprint choisi. Retirez-les de la proposition pour pouvoir publier.":
-    "These issues are no longer available in the backlog or selected sprint. Remove them from the proposal before publishing.",
-  "Retirer {p0} de la proposition": "Remove {p0} from the proposal",
-  "Retirer de la proposition": "Remove from proposal",
-  "Quel résultat voulez-vous obtenir ?": "What outcome do you want to achieve?",
-  "Commencez par un objectif concret. Les tickets viennent ensuite.":
-    "Start with a concrete goal. The issues come next.",
   "Objectif {p0} : {p1}": "Goal {p0}: {p1}",
-  OBJECTIF: "GOAL",
   "Titre de l’objectif {p0}": "Title of goal {p0}",
-  "Un résultat concret pour vos utilisateurs": "A concrete outcome for your users",
-  "Se concentrer sur cet objectif": "Focus on this goal",
-  "Isoler l’objectif {p0}": "Focus on goal {p0}",
   "Monter l’objectif {p0}": "Move goal {p0} up",
   "Descendre l’objectif {p0}": "Move goal {p0} down",
   "Supprimer l’objectif {p0}": "Delete goal {p0}",
-  "Retirer cet objectif ; ses tickets restent à organiser":
-    "Remove this goal; its issues remain to be organised",
-  "Déposez ici les stories qui contribuent à cet objectif.":
-    "Drop stories that contribute to this goal here.",
   "Nouvel objectif du sprint": "New sprint goal",
-  "Ajouter un résultat attendu pour ce sprint…": "Add an expected outcome for this sprint…",
   "Ajouter l’objectif": "Add goal",
-  "Tickets à organiser": "Issues to organise",
-  "Dans le sprint proposé, encore sans objectif.": "In the proposed sprint, without a goal yet.",
-  "Un ticket à discuter ? Gardez-le ici avant de choisir son objectif.":
-    "An issue to discuss? Keep it here before choosing its goal.",
-  "Votre proposition reste un brouillon dans ce navigateur. Publiez quand l’équipe est prête.":
-    "Your proposal stays as a draft in this browser. Publish when the team is ready.",
-  "Publier la proposition de sprint": "Publish sprint proposal",
-  "Abandonner le brouillon ?": "Discard the draft?",
-  "Le sprint": "Sprint",
-  "recevra les objectifs ci-dessous et les rattachements de vos tickets.":
-    "will receive the goals below and your issue links.",
-  "Texte du sprint dans Jira · un objectif par ligne": "Sprint text in Jira · one goal per line",
-  "{p0} restera sans objectif.": "{p0} will remain without a goal.",
-  "{p0} resteront sans objectif.": "{p0} will remain without a goal.",
-  "Le sprint restera futur. Le reste à faire du sprint actif ne sera pas déplacé.":
-    "The sprint will remain a future sprint. Remaining work in the active sprint will not be moved.",
-  "Continuer la préparation": "Continue preparing",
-  "Confirmer la publication": "Confirm publication",
-  "Les objectifs et choix de tickets non publiés seront remplacés par la version actuelle de Jira. La capacité cible sera également réinitialisée.":
-    "Unpublished goals and issue selections will be replaced with the current Jira version. Target capacity will also be reset.",
-  "Garder le brouillon": "Keep draft",
-  "Reprendre depuis Jira": "Start again from Jira",
-  "{p0} à ajouter au sprint": "{p0} to add to the sprint",
-  "Les tickets de la proposition sont déjà dans ce sprint.":
-    "The issues in the proposal are already in this sprint.",
   "Ouvrir {p0} dans Jira": "Open {p0} in Jira",
   "Sans estimation": "No estimate",
   "Estimation Jira": "Jira estimate",
-  "Déjà dans le sprint": "Already in the sprint",
-  "Sprint actif": "Active sprint",
-  "Consultation uniquement": "Read-only",
-  " · sous-tâche": " · subtask",
-  " · terminé": " · done",
-  "Affecter {p0} à un objectif": "Assign {p0} to a goal",
-  "Affecter à…": "Assign to…",
-  "Objectif à nommer": "Untitled goal",
-  "Remettre dans le backlog": "Return to backlog",
-  "Fermer la confirmation": "Close confirmation",
+  // ─── Sprint Planning en direct ───
+  "Jira n'a pas relu la propriété des objectifs du sprint telle qu'elle a été écrite.":
+    "Jira did not read the sprint goals property back as it was written.",
+  "Jira n'a pas relu {p0} à sa nouvelle place.": "Jira did not read {p0} back in its new place.",
+  "Atlassian a refusé le rattachement au Goal : {p0}":
+    "Atlassian refused the link to the Goal: {p0}",
+  "Atlassian a refusé le rattachement au Goal.": "Atlassian refused the link to the Goal.",
+  "propriété des objectifs du sprint": "sprint goals property",
+  "ticket ajouté au sprint": "issue added to the sprint",
+  "ticket rattaché à son objectif": "issue linked to its goal",
+  "ancien Goal retiré du ticket": "previous Goal removed from the issue",
+  "ticket retiré du sprint": "issue removed from the sprint",
+  "Goals épinglés au sprint": "Goals pinned to the sprint",
+  "vélocité de l'équipe": "team velocity",
+  "Le texte des objectifs a changé dans Jira depuis son affichage.":
+    "The goal text changed in Jira after it was displayed.",
+  "Les objectifs du sprint ont changé dans Jira depuis leur affichage.":
+    "The sprint goals changed in Jira after they were displayed.",
+  "{p0} ne peut pas rejoindre le sprint : c'est une sous-tâche ou il est terminé.":
+    "{p0} cannot join the sprint: it is a subtask or it is done.",
+  "{p0} est dans le sprint actif : il y reste en consultation.":
+    "{p0} is in the active sprint: it stays there, read-only.",
+  "{p0} n'est plus dans le sprint en préparation.":
+    "{p0} is no longer in the sprint being prepared.",
+  "Le rattachement de {p0} a changé dans Jira depuis son affichage.":
+    "The goal link of {p0} changed in Jira after it was displayed.",
+  "La vélocité a changé dans Jira depuis son affichage.":
+    "The velocity changed in Jira after it was displayed.",
+  "La vélocité doit être un nombre positif ou nul.": "Velocity must be zero or a positive number.",
+  "Le sprint n'est pas clos dans Jira.": "The sprint is not closed in Jira.",
+  "{p0} Rien n’a été écrit : la page a été relue, refaites votre modification.":
+    "{p0} Nothing was written: the page was reloaded, make your change again.",
+  "Enregistré et vérifié dans Jira.": "Saved and verified in Jira.",
+  "Jira porte déjà cette modification : rien n'a été écrit.":
+    "Jira already has this change: nothing was written.",
+  "{p0} Aucune écriture n’a été rejouée ; la page a été relue dans Jira.":
+    "{p0} No write was retried; the page was reloaded from Jira.",
+  "Écriture non confirmée. {p0}": "Write not confirmed. {p0}",
+  "Objectifs non atteints reportés dans {p0}.": "Unmet goals carried over to {p0}.",
+  "Sprint clos : aucun objectif non atteint à reporter.":
+    "Sprint closed: no unmet goals to carry over.",
+  "Report des objectifs non atteints : {p0}": "Carrying over unmet goals: {p0}",
+  "Un sprint est actif : clôturez-le avant de démarrer celui-ci.":
+    "A sprint is active: complete it before starting this one.",
+  "La fenêtre de Jira ne s'ouvre que depuis le board Jira qui héberge Sprint Goals Board.":
+    "The Jira dialog only opens from the Jira board that hosts Sprint Goals Board.",
+  "Le sprint est toujours actif : rien n'a été reporté.":
+    "The sprint is still active: nothing was carried over.",
 } as const;
 
 /** Seuls ces paramètres sont des messages de l'application, jamais des noms ou contenus Jira. */
@@ -708,6 +653,10 @@ export const businessMessageParameters: Partial<
   Record<keyof typeof businessMessages, readonly string[]>
 > = {
   "Publication suspendue : {p0}": ["p0"],
+  "{p0} Rien n’a été écrit : la page a été relue, refaites votre modification.": ["p0"],
+  "{p0} Aucune écriture n’a été rejouée ; la page a été relue dans Jira.": ["p0"],
+  "Écriture non confirmée. {p0}": ["p0"],
+  "Report des objectifs non atteints : {p0}": ["p0"],
   "Lecture GraphQL par POST, {p0}": ["p0"],
   "Filtre rapide Jira inapplicable : {p0}": ["p0"],
   "Recherche des objectifs du board : {p0}": ["p0"],

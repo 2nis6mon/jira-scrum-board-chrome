@@ -145,7 +145,7 @@ export class AppModel {
 
   /** Les préférences personnelles n'exigent aucun droit d'administration Jira. */
   showPreferences(): void {
-    if (this.#planningPublishing()) return;
+    if (this.#planningBusy()) return;
     this.#leaveDiagnostic();
     this.presenting.value = false;
     this.view.value = "preferences";
@@ -244,7 +244,7 @@ export class AppModel {
   async disconnect(): Promise<void> {
     const current = this.connection.value;
     if (current.state !== "connected") return;
-    if (current.board.planning.publishing.value) return;
+    if (current.board.planning.busy.value) return;
     // La déconnexion attend les gestes en cours : un second clic pendant l'attente est ignoré.
     if (this.#disconnecting) return;
     this.#disconnecting = true;
@@ -257,10 +257,7 @@ export class AppModel {
 
   async #disconnect(current: Extract<Connection, { state: "connected" }>): Promise<void> {
     this.#localeGeneration++;
-    await current.board.planning.flushDraft().catch(() => {});
     current.board.dispose();
-    // Un brouillon mis en file pendant la fermeture est écrit avant l'effacement, jamais après.
-    await current.board.planning.flushDraft().catch(() => {});
     // Un geste en vol se termine, un geste en file est refusé par la porte, puis le board fermé
     // n'écrit plus rien : rien du site ne réapparaît après l'effacement.
     await current.board.settled().catch(() => {});
@@ -280,7 +277,7 @@ export class AppModel {
   }
 
   showBoard(): void {
-    if (this.#planningPublishing()) return;
+    if (this.#planningBusy()) return;
     this.#leaveDiagnostic();
     this.view.value = "board";
   }
@@ -302,12 +299,10 @@ export class AppModel {
     void current.board.planning.load();
   }
 
-  #planningPublishing(): boolean {
+  #planningBusy(): boolean {
     const current = this.connection.value;
     return (
-      SPRINT_PLANNING_ENABLED &&
-      current.state === "connected" &&
-      current.board.planning.publishing.value
+      SPRINT_PLANNING_ENABLED && current.state === "connected" && current.board.planning.busy.value
     );
   }
 
@@ -329,7 +324,7 @@ export class AppModel {
 
   /** Mode présentation, sur la vue du sprint. La barre latérale retrouve ensuite son état. */
   enterPresentation(): void {
-    if (this.#planningPublishing()) return;
+    if (this.#planningBusy()) return;
     this.#leaveDiagnostic();
     this.view.value = "board";
     this.presenting.value = true;
@@ -341,7 +336,7 @@ export class AppModel {
 
   /** Lance la daily sur la vue du sprint ; elle remplace le mode présentation. */
   startDaily(durationMinutes: number, firstStepId: string | null, now = Date.now()): void {
-    if (this.#planningPublishing()) return;
+    if (this.#planningBusy()) return;
     this.#leaveDiagnostic();
     this.view.value = "board";
     this.presenting.value = false;
@@ -363,7 +358,7 @@ export class AppModel {
    * dans la page ; la barre latérale reste.
    */
   showSettings(section: SettingsSection = this.settingsSection.value): void {
-    if (this.#planningPublishing()) return;
+    if (this.#planningBusy()) return;
     this.#leaveDiagnostic();
     this.presenting.value = false;
     this.daily.value = null;
@@ -383,7 +378,7 @@ export class AppModel {
 
   /** Ouvre le diagnostic ; ses lectures sont lancées à la première ouverture. */
   showDiagnostic(): void {
-    if (!DIAGNOSTIC_ENABLED || this.#planningPublishing()) return;
+    if (!DIAGNOSTIC_ENABLED || this.#planningBusy()) return;
     this.presenting.value = false;
     this.daily.value = null;
     this.siteMenuOpen.value = true;

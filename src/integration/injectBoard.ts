@@ -83,6 +83,15 @@ export function injectBoard(
         },
       },
     },
+    sprintDialog: {
+      type: "sprint-goals:sprint-dialog",
+      channel: "postMessage",
+      direction: "view-to-host",
+      fields: {
+        action: { kind: "enum", values: ["complete", "start"] },
+        sprintName: { kind: "string", maxLength: 199 },
+      },
+    },
     launch: {
       type: "sprint-goals:launch",
       channel: "runtime",
@@ -598,6 +607,277 @@ export function injectBoard(
     };
   };
 
+  type SprintAction = "complete" | "start";
+  /** Libellés exacts, normalisés, du bouton natif de la page backlog en fr/en/es. */
+  const sprintButtonLabels: Readonly<Record<SprintAction, readonly string[]>> = {
+    complete: ["complete sprint", "terminer le sprint", "completar sprint"],
+    start: ["start sprint", "demarrer le sprint", "iniciar sprint"],
+  };
+  const sprintError = () => {
+    closeTicket();
+    host.setAttribute("data-error", "");
+    status.textContent = t(
+      "Jira n'a pas permis d'ouvrir la fenêtre du sprint ici. Ouvrez le backlog du board dans Jira.",
+    );
+  };
+
+  /** Fenêtre réellement nouvelle et affichée, apparue après `previous`. */
+  const freshDialogs = (doc: Document, previous: Set<Element>) =>
+    [...doc.querySelectorAll<HTMLElement>('[role="dialog"]')].filter(
+      (element) => !previous.has(element) && visible(element),
+    );
+
+  /**
+   * Bouton « Terminer/Démarrer le sprint » à cliquer, seulement s'il est unique. Pour démarrer,
+   * le plus grand conteneur qui ne contient que ce bouton (la ligne du sprint) doit nommer le
+   * sprint ; pour terminer, ce nom départage plusieurs sprints actifs.
+   */
+  const sprintButtonChoice = (doc: Document, action: SprintAction, sprintName: string) => {
+    const wanted = sprintButtonLabels[action];
+    const matches = (element: HTMLElement) =>
+      [element.getAttribute("aria-label"), element.textContent].some(
+        (text) => text !== null && wanted.includes(normalized(text)),
+      );
+    const all = [...doc.querySelectorAll<HTMLElement>('button,[role="button"]')].filter(matches);
+    const candidates = all.filter(visible);
+    // Nom entier, délimité : « Sprint 1 » ne désigne pas la ligne de « Sprint 13 ».
+    const name = normalized(sprintName);
+    const wordCharacter = /[\p{L}\p{N}]/u;
+    const mentions = (value: string) => {
+      if (!name) return false;
+      for (let at = value.indexOf(name); at >= 0; at = value.indexOf(name, at + 1))
+        if (
+          !wordCharacter.test(value[at - 1] ?? "") &&
+          !wordCharacter.test(value[at + name.length] ?? "")
+        )
+          return true;
+      return false;
+    };
+    // Textes séparés par une espace : un titre et un compteur voisins ne se collent pas.
+    const text = (element: HTMLElement) => {
+      const parts: string[] = [];
+      const walker = doc.createTreeWalker(element, 4 /* NodeFilter.SHOW_TEXT */);
+      for (let node = walker.nextNode(); node; node = walker.nextNode())
+        parts.push(node.nodeValue ?? "");
+      return normalized(parts.join(" "));
+    };
+    const named = candidates.filter((button) => {
+      let row: HTMLElement = button;
+      for (
+        let parent = button.parentElement;
+        parent &&
+        parent !== doc.body &&
+        all.filter((other) => parent?.contains(other)).length === 1;
+        parent = parent.parentElement
+      )
+        row = parent;
+      return mentions(text(row));
+    });
+    const choice =
+      named.length === 1
+        ? named[0]
+        : action === "complete" && candidates.length === 1
+          ? candidates[0]
+          : null;
+    return { choice: choice ?? null, candidates: candidates.length, named: named.length };
+  };
+
+  const isolateSprintDialog = (doc: Document, dialog: HTMLElement) => {
+    const css = doc.createElement("style");
+    css.setAttribute("data-sprint-goals-sprint-dialog-style", "");
+    // La fenêtre garde son viewport et ses dimensions natifs ; le backlog derrière est masqué.
+    // Ses listes et menus, ouverts dans des portails de Jira, restent visibles.
+    css.textContent =
+      'html,body{background:transparent!important}body *{visibility:hidden!important}[data-sprint-goals-sprint-dialog],[data-sprint-goals-sprint-dialog] *{visibility:visible!important}[role="dialog"],[role="dialog"] *,[role="menu"],[role="menu"] *,[role="listbox"],[role="listbox"] *{visibility:visible!important}';
+    doc.head.append(css);
+    dialog.setAttribute("data-sprint-goals-sprint-dialog", "");
+  };
+
+  /**
+   * Clôture ou démarrage par la fenêtre native de Jira (S13) : la page backlog du board de cet
+   * onglet est chargée cachée dans la popin, son unique bouton reconnu est cliqué, ce qui ouvre
+   * la fenêtre de Jira sans rien écrire, et cette fenêtre seule est montrée. Elle n'est jamais
+   * remplie ni validée ici. Bouton absent ou ambigu : la page est rendue à l'utilisateur.
+   */
+  const openSprintDialog = (action: SprintAction, sprintName: string) => {
+    const address = new URL(location.href);
+    const board = /^(.*\/boards\/\d+)\/?$/.exec(address.pathname);
+    if (!board) {
+      trace("page hôte sans adresse de board, fenêtre du sprint impossible", address.pathname);
+      sprintError();
+      return;
+    }
+    address.pathname = `${board[1]}/backlog`;
+    address.searchParams.delete("sprintGoals");
+    const title =
+      action === "complete"
+        ? t("Terminer le sprint « {name} »", { name: sprintName })
+        : t("Démarrer le sprint « {name} »", { name: sprintName });
+    const { hint, page: backlog, session, reveal } = popin(title);
+    hint.textContent = t("Ouverture de la fenêtre de Jira…");
+    backlog.src = address.href;
+
+    type SprintStep =
+      | { kind: "searching"; deadline: number; last: HTMLElement | null; traced: string }
+      | {
+          kind: "waiting-dialog";
+          deadline: number;
+          dialogsBefore: Set<Element>;
+          lastSize: string;
+          stableTicks: number;
+        }
+      | { kind: "dialog-visible"; dialog: HTMLElement; missingSince: number | null }
+      | {
+          kind: "manual";
+          dialogsBefore: Set<Element>;
+          dialog: HTMLElement | null;
+          missingSince: number | null;
+        }
+      | { kind: "closed" };
+    let step: SprintStep = {
+      kind: "searching",
+      deadline: Date.now() + 10000,
+      last: null,
+      traced: "",
+    };
+    let reachable = false;
+    const expires = Date.now() + 20000;
+    const escapeWatched = new WeakSet<Document>();
+
+    /** Page montrée telle quelle ; la prochaine fenêtre de Jira refermée referme aussi la popin. */
+    const handOver = (doc: Document, why: string, detail: unknown) => {
+      trace(why, detail);
+      step = {
+        kind: "manual",
+        dialogsBefore: new Set(doc.querySelectorAll('[role="dialog"]')),
+        dialog: null,
+        missingSince: null,
+      };
+      reveal();
+    };
+
+    const search = (current: Extract<SprintStep, { kind: "searching" }>, doc: Document) => {
+      const { choice, candidates, named } = sprintButtonChoice(doc, action, sprintName);
+      const seen = `${candidates}/${named}`;
+      if (seen !== current.traced) {
+        current.traced = seen;
+        trace("boutons de sprint reconnus (tous/nommés)", seen);
+      }
+      // Même bouton sur deux passages : la page backlog a fini de dessiner ses sprints.
+      if (choice && choice === current.last) {
+        if (choice.hasAttribute("disabled") || choice.getAttribute("aria-disabled") === "true") {
+          handOver(doc, "bouton de sprint désactivé dans Jira", label(choice));
+          return;
+        }
+        // Avant le seul clic : mémoriser les fenêtres existantes et interdire un second clic.
+        step = {
+          kind: "waiting-dialog",
+          deadline: Date.now() + 10000,
+          dialogsBefore: new Set(doc.querySelectorAll('[role="dialog"]')),
+          lastSize: "",
+          stableTicks: 0,
+        };
+        trace("bouton de sprint cliqué", label(choice));
+        choice.click();
+        return;
+      }
+      current.last = choice;
+      if (Date.now() > current.deadline)
+        handOver(doc, "aucun bouton de sprint sûr, page rendue à l'utilisateur", {
+          action,
+          candidats: candidates,
+          nommés: named,
+        });
+    };
+
+    const recognizeDialog = (
+      current: Extract<SprintStep, { kind: "waiting-dialog" }>,
+      doc: Document,
+    ) => {
+      // Une fenêtre peut en imbriquer une autre (calendrier) : seule compte la plus extérieure.
+      const fresh = freshDialogs(doc, current.dialogsBefore).filter(
+        (element, _, all) => !all.some((other) => other !== element && other.contains(element)),
+      );
+      const candidate = fresh.length === 1 ? fresh[0] : null;
+      const box = candidate?.getBoundingClientRect();
+      const size = box ? `${Math.round(box.width)}x${Math.round(box.height)}` : "";
+      current.stableTicks = candidate && size === current.lastSize ? current.stableTicks + 1 : 0;
+      current.lastSize = size;
+      if (candidate && current.stableTicks >= 3) {
+        trace("fenêtre de sprint de Jira isolée", size);
+        step = { kind: "dialog-visible", dialog: candidate, missingSince: null };
+        reveal();
+        isolateSprintDialog(doc, candidate);
+      } else if (Date.now() > current.deadline) {
+        handOver(doc, "fenêtre de sprint non reconnue, page rendue à l'utilisateur", fresh.length);
+      }
+    };
+
+    /** Fenêtre disparue plus de 600 ms : fermée par Jira, la vue relit le board. */
+    const monitorClosure = (current: {
+      dialog: HTMLElement | null;
+      missingSince: number | null;
+    }) => {
+      if (!current.dialog) return;
+      if (current.dialog.isConnected && visible(current.dialog)) {
+        current.missingSince = null;
+      } else if (current.missingSince === null) {
+        current.missingSince = Date.now();
+      } else if (Date.now() - current.missingSince > 600) {
+        closeTicket();
+      }
+    };
+
+    const watchManual = (current: Extract<SprintStep, { kind: "manual" }>, doc: Document) => {
+      if (!escapeWatched.has(doc)) {
+        escapeWatched.add(doc);
+        // Page rendue : Échap dans Jira, hors de ses fenêtres, referme aussi la popin.
+        doc.addEventListener("keydown", (event) => {
+          if (
+            event.key === "Escape" &&
+            step === current &&
+            current.dialog === null &&
+            freshDialogs(doc, current.dialogsBefore).length === 0
+          )
+            closeTicket();
+        });
+      }
+      if (current.dialog === null) {
+        const fresh = freshDialogs(doc, current.dialogsBefore);
+        if (fresh.length === 1) current.dialog = fresh[0] ?? null;
+      }
+      monitorClosure(current);
+    };
+
+    const tick = () => {
+      if (step.kind === "closed") return;
+      if (!host.isConnected) {
+        closeTicket();
+        return;
+      }
+      try {
+        const doc = backlog.contentDocument;
+        if (!doc || !backlog.contentWindow) throw new Error("frame inaccessible");
+        reachable = true;
+        if (step.kind === "searching") search(step, doc);
+        if (step.kind === "waiting-dialog") recognizeDialog(step, doc);
+        else if (step.kind === "dialog-visible") monitorClosure(step);
+        else if (step.kind === "manual") watchManual(step, doc);
+      } catch {
+        // Jira peut momentanément reconstruire sa page pendant son chargement.
+      }
+      if (!reachable && Date.now() > expires) {
+        trace("page backlog inaccessible dans un cadre");
+        sprintError();
+      }
+    };
+    const timer = setInterval(tick, 300);
+    session.stop = () => {
+      step = { kind: "closed" };
+      clearInterval(timer);
+    };
+  };
+
   const onMessage = (event: MessageEvent) => {
     if (event.source !== frame.contentWindow || event.origin !== url.origin) return;
     // Champs relus selon la copie du protocole : jamais d'adresse ni de valeur non déclarée.
@@ -628,6 +908,11 @@ export function injectBoard(
       host.setAttribute("data-leaving", "");
       status.textContent = t("Ouverture du board dans Jira…");
       location.assign(board.href);
+      return;
+    }
+    if (data.type === PROTOCOL.sprintDialog.type) {
+      host.removeAttribute("data-error");
+      openSprintDialog(data.action as SprintAction, data.sprintName as string);
       return;
     }
     if (data.type !== PROTOCOL.openIssue.type) return;

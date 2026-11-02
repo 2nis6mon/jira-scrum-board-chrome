@@ -39,9 +39,7 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
   // « Retour à Jira » : la page hôte retire elle-même le marqueur de sa propre adresse.
   model.hostReturn.value = async () => {
     const current = model.connection.peek();
-    if (current.state !== "connected" || current.board.planning.publishing.value) return;
-    await current.board.planning.flushDraft();
-    if (model.connection.peek() !== current || !current.board.canSwitchBoard.value) return;
+    if (current.state !== "connected" || !current.board.canSwitchBoard.value) return;
     model.exitPresentation();
     window.parent.postMessage(message("close"), origin);
   };
@@ -51,7 +49,7 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
     if (connection.state !== "connected") return;
     const board = connection.board;
     board.nativeIssueHandler = (key) => {
-      if (board.site.origin !== origin || board.planning.publishing.value) return;
+      if (board.site.origin !== origin || board.planning.busy.value) return;
       window.parent.postMessage(message("openIssue", { key }), origin);
     };
     board.nativeTransitionHandler = (key, transition) => {
@@ -63,6 +61,21 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
           // Identifiant, nom et statut d'arrivée de la transition : la page hôte ouvre le menu de
           // statut de Jira et n'y clique que l'élément qui désigne à coup sûr CETTE transition.
           transition: { id: transition.id, name: transition.name, to: transition.to.name },
+        }),
+        origin,
+      );
+      return true;
+    };
+    // Clôture ou démarrage par la fenêtre native de Jira : seuls l'action et le nom du sprint
+    // partent, la page hôte forme elle-même l'adresse de son backlog et n'y clique qu'un bouton.
+    board.nativeSprintDialogHandler = (action, sprint) => {
+      if (board.site.origin !== origin) return false;
+      model.exitPresentation();
+      window.parent.postMessage(
+        message("sprintDialog", {
+          action,
+          // Un préfixe suffit à l'hôte pour reconnaître la ligne du sprint.
+          sprintName: sprint.name.slice(0, PROTOCOL.sprintDialog.fields.sprintName.maxLength),
         }),
         origin,
       );
@@ -85,6 +98,7 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
     return () => {
       board.nativeTransitionHandler = null;
       board.nativeIssueHandler = null;
+      board.nativeSprintDialogHandler = null;
       board.hostBoardNavigator = null;
     };
   });
@@ -101,7 +115,11 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
     connection.board.nativeTransitionPending.value = false;
     connection.board.writeNotice.value = null;
     void connection.board.sync();
-    if (model.view.peek() === "planning") void connection.board.planning.refresh();
+    // Fenêtre native fermée : la clôture demandée par le planning reporte ses objectifs non
+    // atteints si le sprint relu est clos, puis le planning est relu.
+    const planning = connection.board.planning;
+    if (model.view.peek() === "planning" || planning.pendingClosure.peek())
+      void planning.afterNativeDialog();
   };
   window.addEventListener("message", onMessage);
 

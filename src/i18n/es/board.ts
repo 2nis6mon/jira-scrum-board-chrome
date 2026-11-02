@@ -275,4 +275,59 @@ export const boardMessagesEs = {
   "Déjà en fin de sa swimlane": "Ya está al final de su carril",
   "Aucune autre sous-tâche de son parent dans cette swimlane":
     "Ninguna otra subtarea de su padre en este carril",
+  // ─── Sprint Planning en direct : écran ───
+  "Clé ou résumé, dans le sprint et ailleurs…": "Clave o resumen, en el sprint y fuera de él…",
+  Raccourci: "Atajo",
+  "Écriture dans Jira…": "Escribiendo en Jira…",
+  "Clôture en cours dans Jira…": "Cierre en curso en Jira…",
+  futur: "futuro",
+  "Ouvre la fenêtre de Jira ; vous seul la remplissez et la validez.":
+    "Abre la ventana de Jira; solo usted la rellena y la confirma.",
+  "Clôturer {name}": "Cerrar {name}",
+  "Démarrer {name}": "Iniciar {name}",
+  "Partagée avec l'équipe dans les données du sprint, écrite quand vous validez.":
+    "Compartida con el equipo en los datos del sprint, se escribe al confirmar.",
+  "Vélocité de l'équipe": "Velocidad del equipo",
+  "Charge du sprint comparée à la vélocité de l'équipe":
+    "Carga del sprint comparada con la velocidad del equipo",
+  "vélocité non renseignée": "velocidad sin indicar",
+  "Où sont les tickets": "Dónde están las incidencias",
+  "Déposez ici un ticket du sprint en préparation pour le renvoyer au backlog.":
+    "Suelte aquí una incidencia del sprint en preparación para devolverla al backlog.",
+  "Reste à faire du sprint actif, en consultation : la fenêtre de clôture de Jira décide où il va.":
+    "Trabajo pendiente del sprint activo, solo lectura: la ventana de cierre de Jira decide adónde va.",
+  "Aucun ticket.": "Ninguna incidencia.",
+  "{name} par objectifs": "{name} por objetivos",
+  "Chaque geste est écrit aussitôt dans Jira, puis relu.":
+    "Cada gesto se escribe de inmediato en Jira y se vuelve a leer.",
+  "Supprimer l'objectif ; ses tickets restent dans le sprint, sans objectif":
+    "Eliminar el objetivo; sus incidencias siguen en el sprint, sin objetivo",
+  "Retirer l'épinglage de {name}": "Dejar de fijar {name}",
+  "Retirer l'épinglage du sprint ; le Goal reste dans Atlassian":
+    "Dejar de fijarlo en el sprint; el Goal sigue en Atlassian",
+  "Aucun ticket de cet objectif ne correspond à la recherche.":
+    "Ninguna incidencia de este objetivo coincide con la búsqueda.",
+  "Déposez ici les tickets qui rendent ce résultat possible : ils rejoignent le sprint.":
+    "Suelte aquí las incidencias que hacen posible este resultado: se unen al sprint.",
+  "Nouvel objectif : le résultat attendu à la fin du sprint":
+    "Nuevo objetivo: el resultado esperado al final del sprint",
+  "Chercher un Goal à épingler": "Buscar un Goal para fijar",
+  "Chercher un Goal Atlassian par son nom…": "Buscar un Goal de Atlassian por su nombre…",
+  "Recherche des Goals…": "Buscando Goals…",
+  "Goals à épingler": "Goals para fijar",
+  "Épingler {name}": "Fijar {name}",
+  "Aucun Goal ne correspond à cette recherche.": "Ningún Goal coincide con esta búsqueda.",
+  "Les Goals se créent dans Atlassian ; le planning épingle les Goals existants.":
+    "Los Goals se crean en Atlassian; la planificación fija los Goals existentes.",
+  "Sans objectif": "Sin objetivo",
+  "Dans le sprint, rattachés à aucun objectif": "En el sprint, sin vínculo con ningún objetivo",
+  "Tous les tickets du sprint servent un objectif.":
+    "Todas las incidencias del sprint sirven a un objetivo.",
+  "Vient du backlog": "Viene del backlog",
+  "Vient de {name}": "Viene de {name}",
+  "Actions sur {p0}": "Acciones sobre {p0}",
+  Actions: "Acciones",
+  "Ajouter au sprint": "Añadir al sprint",
+  "Renvoyer au backlog": "Devolver al backlog",
+  "Vers {name}": "A {name}",
 } as const satisfies Record<keyof typeof boardMessages, string>;
