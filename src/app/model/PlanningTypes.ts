@@ -44,6 +44,21 @@ export interface PlanningLane {
   /** Somme des estimations connues, recherche et filtres ignorés. */
   readonly points: number;
   readonly unestimated: number;
+  /**
+   * Répartition de ses tickets dans le sprint en préparation selon la catégorie de leur statut
+   * Jira (à faire, en cours, terminé), filtres ignorés.
+   */
+  readonly progress: Readonly<Record<"todo" | "inProgress" | "done", PlanningTally>>;
+  /** Tickets déjà terminés avant ce sprint (sprints clos ou Goal), hors charge ; `null` : aucun. */
+  readonly delivered: PlanningTally | null;
+  /** Lecture du déjà livré incomplète : il peut en manquer. */
+  readonly deliveredIncomplete: boolean;
+}
+
+/** Tickets et somme de leurs estimations connues. */
+export interface PlanningTally {
+  readonly count: number;
+  readonly points: number;
 }
 
 /** Section de la colonne « Où sont les tickets » (recherche et filtres appliqués). */

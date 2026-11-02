@@ -15,6 +15,7 @@ import type {
   PlanningLane,
   PlanningLoad,
   PlanningSection,
+  PlanningTally,
   PlanningViewModel,
 } from "../../model/PlanningTypes";
 import { FilterMenu } from "../board/FilterMenu";
@@ -886,6 +887,11 @@ function LanesColumn({
           count={lanes.length}
         />
       ))}
+      {lanes.some((lane) => lane.deliveredIncomplete) && (
+        <p class="notice notice-warning planning-history-incomplete">
+          {t("Lecture incomplète de ce qui a déjà été livré : il peut en manquer.")}
+        </p>
+      )}
       {textMode ? <AddGoal planning={planning} /> : <PinGoal planning={planning} />}
       <UnassignedLane planning={planning} images={images} />
       <p class="planning-live-note">
@@ -1041,6 +1047,7 @@ function GoalLane({
           {plural(lane.issueCount, "ticket")}
           {points && ` · ${formatPoints(lane.points)} pts`}
         </span>
+        <LaneProgress lane={lane} points={points} />
         <span class="planning-lane-actions">
           {textMode ? (
             <>
@@ -1109,6 +1116,73 @@ function GoalLane({
         }
       />
     </section>
+  );
+}
+
+/** « 3 tickets · 5 pts », ou le seul nombre de tickets sans champ d'estimation. */
+function tallyText(tally: PlanningTally, points: boolean): string {
+  const tickets = plural(tally.count, "ticket");
+  return points ? `${tickets} · ${formatPoints(tally.points)} pts` : tickets;
+}
+
+const PROGRESS_PARTS = [
+  { category: "todo", status: "new", label: "À faire : {p0}" },
+  { category: "inProgress", status: "indeterminate", label: "En cours : {p0}" },
+  { category: "done", status: "done", label: "Terminé : {p0}" },
+] as const;
+
+/**
+ * Avancement d'un objectif dans la grammaire de la page du sprint : « n/N terminés » et sa barre,
+ * puis la répartition à faire, en cours, terminé (tickets et points) ; à part, ce qui a déjà été
+ * livré avant ce sprint, jamais compté dans la charge.
+ */
+function LaneProgress({ lane, points }: { lane: PlanningLane; points: boolean }) {
+  const { progress, delivered } = lane;
+  const total = lane.issueCount;
+  return (
+    <>
+      {total > 0 && (
+        <span class="lane-progress planning-lane-progress">
+          <span>
+            {t("{done}/{total} terminés", { done: progress.done.count, total })}
+            {points && ` · ${formatPoints(progress.done.points)}/${formatPoints(lane.points)} pts`}
+          </span>
+          <progress
+            max={1}
+            value={progress.done.count / total}
+            aria-label={t("Avancement de {name}", { name: lane.goal.title })}
+          />
+          <span class="planning-progress-parts">
+            {PROGRESS_PARTS.map((part) => {
+              const tally = progress[part.category];
+              const label = t(part.label, { p0: tallyText(tally, points) });
+              return (
+                <span
+                  key={part.category}
+                  class="planning-progress-part"
+                  data-status-category={part.status}
+                  title={label}
+                >
+                  <span aria-hidden="true">
+                    {points ? formatPoints(tally.points) : tally.count}
+                  </span>
+                  <span class="visually-hidden">{label}</span>
+                </span>
+              );
+            })}
+          </span>
+        </span>
+      )}
+      {delivered && (
+        <span
+          class="planning-lane-delivered"
+          title={t("Tickets terminés avant ce sprint, hors de sa charge")}
+        >
+          <Icon name="check" size={13} />
+          {t("Déjà livré : {p0}", { p0: tallyText(delivered, points) })}
+        </span>
+      )}
+    </>
   );
 }
 

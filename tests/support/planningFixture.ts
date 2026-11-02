@@ -79,6 +79,11 @@ export function planningFixture(
     issueFields?: Readonly<Record<string, Record<string, unknown>>>;
     otherFutureSprint?: boolean;
     secondActiveSprint?: boolean;
+    /**
+     * Sprints clos 41 et 40, dont l'objectif « Simplifier le paiement » (`g-pay`) a été reporté
+     * jusqu'au sprint 43 ; sa propriété porte alors les identifiants `g-pay` et `g-cart`.
+     */
+    closedSprints?: boolean;
     /** Sprint futur 46 d'un autre board (origine 9, projet XYZ), remonté par le filtre. */
     foreignFutureSprint?: boolean;
     /**
@@ -143,7 +148,66 @@ export function planningFixture(
     const fields = issue.fields as Record<string, unknown>;
     return { ...issue, fields: { ...fields, ...extra } };
   });
-  let document: unknown = null;
+  let document: unknown = options.closedSprints
+    ? {
+        version: 1,
+        goals: [
+          { id: "g-pay", title: "Simplifier le paiement", color: "goal1", position: 0 },
+          { id: "g-cart", title: "Rendre le panier plus rapide", color: "goal2", position: 1 },
+        ],
+        links: {},
+        atlassianGoalIds: [],
+      }
+    : null;
+  const closedSprints = options.closedSprints
+    ? [
+        {
+          sprint: {
+            id: 41,
+            name: "Sprint 41",
+            state: "closed",
+            originBoardId: 7,
+            completeDate: "2026-09-11T18:00:00.000+0200",
+            goal: "🎯 Simplifier le paiement",
+          },
+          links: { "ABC-150": "g-pay", "ABC-151": "g-pay" },
+          issues: [
+            issueJson("ABC-150", {
+              summary: "Payer en un clic",
+              category: "done",
+              statusName: "Terminé",
+              statusId: "5",
+              points: 3,
+            }),
+            issueJson("ABC-151", {
+              summary: "Afficher le total",
+              category: "indeterminate",
+              points: 2,
+            }),
+          ],
+        },
+        {
+          sprint: {
+            id: 40,
+            name: "Sprint 40",
+            state: "closed",
+            originBoardId: 7,
+            completeDate: "2026-08-28T18:00:00.000+0200",
+            goal: "🎯 Simplifier le paiement",
+          },
+          links: { "ABC-140": "g-pay" },
+          issues: [
+            issueJson("ABC-140", {
+              summary: "Choisir sa carte",
+              category: "done",
+              statusName: "Terminé",
+              statusId: "5",
+              points: 5,
+            }),
+          ],
+        },
+      ]
+    : [];
   const property = `/rest/agile/1.0/sprint/43/properties/${SPRINT_PROPERTY_KEYS.goals}`;
   /** E9 : les tickets rejoignent `target` et quittent `source`, comme un déplacement Jira. */
   const addToSprint =
@@ -180,6 +244,7 @@ export function planningFixture(
             sprint,
             ...(otherSprint ? [otherSprint] : []),
             ...(foreign ? [foreign] : []),
+            ...closedSprints.map((closed) => closed.sprint),
           ].filter((item) => states.length === 0 || states.includes(item.state)),
         },
       };
@@ -264,6 +329,31 @@ export function planningFixture(
         },
       };
     });
+  for (const closed of closedSprints) {
+    jira
+      .on(
+        "GET",
+        `/rest/agile/1.0/sprint/${closed.sprint.id}/properties/${SPRINT_PROPERTY_KEYS.goals}`,
+        {
+          status: 200,
+          json: {
+            key: SPRINT_PROPERTY_KEYS.goals,
+            value: {
+              version: 1,
+              goals: [
+                { id: "g-pay", title: "Simplifier le paiement", color: "goal1", position: 0 },
+              ],
+              links: closed.links,
+              atlassianGoalIds: [],
+            },
+          },
+        },
+      )
+      .on("GET", `/rest/agile/1.0/board/7/sprint/${closed.sprint.id}/issue`, {
+        status: 200,
+        json: { issues: closed.issues, total: closed.issues.length },
+      });
+  }
   if (foreign) {
     jira
       .on("GET", "/rest/agile/1.0/sprint/46", () => ({ status: 200, json: foreign }))

@@ -3,6 +3,18 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.44.0 — Sprint Planning : avancement de chaque objectif (builds locaux)
+
+- Essai du 02/11/2026 (story 8.16) : un objectif reporté ou un Goal suivi sur plusieurs sprints ne
+  disait ni où il en était ni ce qui avait déjà été livré.
+- L'en-tête de chaque objectif montre « n/N terminés » et sa barre, comme la page du sprint, puis
+  la répartition **à faire**, **en cours**, **terminé** en points (ou en tickets sans champ
+  d'estimation), selon la catégorie du statut Jira.
+- **Déjà livré** s'affiche à part, jamais compté dans la charge : pour un objectif texte reporté,
+  les tickets terminés qui lui étaient rattachés dans les sprints clos, en remontant ses reports
+  (10 sprints au plus) ; pour un Goal Atlassian, ses tickets terminés hors du sprint, lus par
+  Jira. Une lecture incomplète est signalée. Lectures seules, faites quand les objectifs changent.
+
 ## 0.43.1 — Sprint Planning : seulement les sprints que vous pouvez modifier (builds locaux)
 
 - Essai du 02/11/2026 : le menu des sprints à préparer proposait un sprint d'un autre board,

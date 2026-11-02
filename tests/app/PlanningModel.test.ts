@@ -43,7 +43,7 @@ function fakeGoals(input: { workItems: Record<string, string[]>; names: Record<s
     workItemKeys: async (ids: readonly string[]) =>
       Object.fromEntries(ids.map((id) => [id, input.workItems[id] ?? []])),
     goalsByIds: async (ids: readonly string[]) => ids.map(goal),
-    lastWorkItemsIssue: null,
+    lastWorkItemsIssue: null as string | null,
   };
 }
 
@@ -60,6 +60,8 @@ function context(
     secondActiveSprint?: boolean;
     /** Sprint futur 44 du board. */
     otherFutureSprint?: boolean;
+    /** Sprints clos 41 et 40, d'où l'objectif `g-pay` a été reporté. */
+    closedSprints?: boolean;
     /** Sprint futur 46 d'un autre board, que l'utilisateur ne peut pas modifier par défaut. */
     foreignFutureSprint?: boolean;
     permissions?: Parameters<typeof planningFixture>[1] extends infer O
@@ -74,6 +76,7 @@ function context(
     secondActiveSprint: options.secondActiveSprint ?? false,
     otherFutureSprint: options.otherFutureSprint ?? false,
     foreignFutureSprint: options.foreignFutureSprint ?? false,
+    closedSprints: options.closedSprints ?? false,
     ...(options.permissions && { permissions: options.permissions }),
   });
   const platform = fakePlatform(fixture.jira);
@@ -1296,5 +1299,94 @@ describe("Sprint Planning : seuls les sprints que l'utilisateur peut modifier", 
     const first = reads();
     await planning.refresh();
     expect(reads()).toBeGreaterThan(first);
+  });
+});
+
+describe("Sprint Planning : avancement de chaque objectif (8.16)", () => {
+  const lane = (planning: PlanningModel, id: string) =>
+    planning.lanes.value.find((candidate) => candidate.goal.id === id);
+
+  it("répartit les tickets d'un objectif en à faire, en cours, terminé, en tickets et en points", async () => {
+    const { planning } = context({
+      closedSprints: true,
+      issueFields: {
+        "ABC-201": { status: statusJson("3", "En cours", "indeterminate") },
+      },
+    });
+    await planning.load();
+    await planning.placeIssue("ABC-201", "g-pay");
+    await planning.placeIssue("ABC-202", "g-pay");
+    expect(lane(planning, "g-pay")?.progress).toEqual({
+      todo: { count: 1, points: 3 },
+      inProgress: { count: 1, points: 5 },
+      done: { count: 0, points: 0 },
+    });
+  });
+
+  it("objectif texte reporté : indique le déjà livré des sprints clos, hors charge du sprint", async () => {
+    const { planning, jira } = context({ closedSprints: true });
+    await planning.load();
+    await vi.waitFor(() => expect(planning.goalHistory.value).not.toBeNull());
+    // ABC-150 (3 pts, sprint 41) et ABC-140 (5 pts, sprint 40) ; ABC-151 n'est pas terminé.
+    expect(lane(planning, "g-pay")?.delivered).toEqual({ count: 2, points: 8 });
+    expect(lane(planning, "g-cart")?.delivered).toBeNull();
+    expect(lane(planning, "g-pay")?.deliveredIncomplete).toBe(false);
+    expect(planning.sprintLoad.value?.total).toBe(2);
+    expect(jira.requests.filter(isWriteRequest)).toHaveLength(0);
+  });
+
+  it("ne relit pas les sprints clos après un geste qui ne change pas les objectifs", async () => {
+    const { planning, jira } = context({ closedSprints: true });
+    await planning.load();
+    await vi.waitFor(() => expect(planning.goalHistory.value).not.toBeNull());
+    const closedReads = () =>
+      jira.requests.filter((request) => /\/sprint\/4[01]\//.test(request.path)).length;
+    const before = closedReads();
+    await planning.placeIssue("ABC-202", "g-pay");
+    expect(closedReads()).toBe(before);
+    expect(lane(planning, "g-pay")?.delivered).toEqual({ count: 2, points: 8 });
+  });
+
+  it("Goals Atlassian : les tickets terminés hors du sprint, lus par JQL dans les workItems", async () => {
+    const GOAL_A = "ari:cloud:townsquare:site:goal/a";
+    const goals = fakeGoals({
+      workItems: { [GOAL_A]: ["ABC-210", "ABC-160"] },
+      names: { [GOAL_A]: "Paiement" },
+    });
+    const { planning, jira } = context({
+      configuration: { goalSource: "atlassianGoals", goalsFieldId: "customfield_10500" },
+      goals,
+    });
+    jira.on("GET", "/rest/agile/1.0/board/7/issue", {
+      status: 200,
+      json: {
+        issues: [issueJson("ABC-160", { category: "done", statusName: "Terminé", points: 8 })],
+        total: 1,
+      },
+    });
+    await planning.load();
+    await vi.waitFor(() => expect(planning.goalHistory.value).not.toBeNull());
+    expect(lane(planning, GOAL_A)?.delivered).toEqual({ count: 1, points: 8 });
+    const read = jira.requests.find((request) => request.path === "/rest/agile/1.0/board/7/issue");
+    expect(read?.url.searchParams.get("jql")).toContain(
+      "key in (ABC-160) AND statusCategory = Done",
+    );
+    expect(planning.sprintLoad.value?.total).toBe(2);
+  });
+
+  it("Goals Atlassian : workItems illisibles, l'historique est signalé incomplet", async () => {
+    const GOAL_A = "ari:cloud:townsquare:site:goal/a";
+    const goals = fakeGoals({
+      workItems: { [GOAL_A]: ["ABC-210"] },
+      names: { [GOAL_A]: "Paiement" },
+    });
+    goals.lastWorkItemsIssue = "un objectif ne fournit pas ses liens vers les tickets";
+    const { planning } = context({
+      configuration: { goalSource: "atlassianGoals", goalsFieldId: "customfield_10500" },
+      goals,
+    });
+    await planning.load();
+    await vi.waitFor(() => expect(planning.goalHistory.value).not.toBeNull());
+    expect(lane(planning, GOAL_A)?.deliveredIncomplete).toBe(true);
   });
 });

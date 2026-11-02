@@ -17,6 +17,11 @@ export interface AtlassianSprintGoals {
   readonly links: Record<string, string>;
   /** Lectures partielles : le board s'affiche, mais il manque quelque chose — et on le dit. */
   readonly warnings: GoalsWarning[];
+  /**
+   * Tickets de chaque Goal lus dans `workItems`, y compris hors du sprint (avancement du
+   * planning) ; absent si aucun Goal n'a été lu.
+   */
+  readonly workItems?: Readonly<Record<string, readonly string[]>>;
 }
 
 /**
@@ -136,7 +141,7 @@ export async function loadAtlassianSprintGoals(input: {
 
   // Objectifs retenus : les épinglés, puis ceux qui portent des tickets du sprint.
   const retained = unique([...input.pinnedGoalIds, ...linksByGoal.keys()]);
-  if (retained.length === 0) return { goals: [], links: {}, warnings };
+  if (retained.length === 0) return { goals: [], links: {}, warnings, workItems };
 
   const resolved = new Map<
     string,
@@ -176,7 +181,7 @@ export async function loadAtlassianSprintGoals(input: {
   for (const goal of goals) {
     for (const key of linksByGoal.get(goal.id) ?? []) links[key] ??= goal.id;
   }
-  return { goals, links, warnings };
+  return { goals, links, warnings, workItems };
 }
 
 function unique(values: readonly string[]): string[] {

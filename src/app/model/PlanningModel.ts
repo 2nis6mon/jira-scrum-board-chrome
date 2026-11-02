@@ -16,6 +16,15 @@ import {
 } from "../../core/filters";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
 import {
+  atlassianGoalHistory,
+  type ClosedSprintCache,
+  closedSprintCache,
+  type GoalHistory,
+  type ProgressCategory,
+  progressCategory,
+  textGoalHistory,
+} from "../../core/planningProgress";
+import {
   GOAL_COLOR_COUNT,
   goalColorName,
   makeSprintGoal,
@@ -73,6 +82,7 @@ import type {
   PlanningLoad,
   PlanningOrigin,
   PlanningSection,
+  PlanningTally,
   PlanningViewModel,
   SprintDialogAction,
 } from "./PlanningTypes";
@@ -154,6 +164,13 @@ export class PlanningModel implements PlanningViewModel {
   readonly noEditableSprint = signal(false);
   /** Droits lus pendant ce chargement ; vidés à l'actualisation et au changement de board. */
   #permissions: SprintPermissionCache = sprintPermissionCache();
+  /** Déjà livré avant le sprint en préparation, par objectif (lectures seules, hors charge). */
+  readonly goalHistory = signal<GoalHistory | null>(null);
+  /** Sprints clos relus pour l'historique ; vidés à l'actualisation et au changement de board. */
+  #closedSprints: ClosedSprintCache = closedSprintCache();
+  /** Objectifs et liens pour lesquels l'historique a été lu ou est en cours de lecture. */
+  #historyKey: string | null = null;
+  #historyRun = 0;
   #boardId: number | null = null;
   #generation = 0;
   #disposed = false;
@@ -260,14 +277,25 @@ export class PlanningModel implements PlanningViewModel {
   readonly lanes = computed((): readonly PlanningLane[] => {
     const { goals, links } = this.#goalView.value;
     const matches = this.#matches.value;
+    const history = this.goalHistory.value;
     return goals.map((goal) => {
       const all = this.#sprintItems.value.filter((item) => links[item.issue.key] === goal.id);
+      const byCategory = (category: ProgressCategory) =>
+        tally(all.filter((item) => progressCategory(item.issue) === category));
+      const delivered = history?.delivered[goal.id] ?? [];
       return {
         goal,
         issues: all.filter((item) => matches(item.issue)),
         issueCount: all.length,
         points: all.reduce((sum, item) => sum + (item.estimate ?? 0), 0),
         unestimated: all.filter((item) => item.estimate === null).length,
+        progress: {
+          todo: byCategory("todo"),
+          inProgress: byCategory("inProgress"),
+          done: byCategory("done"),
+        },
+        delivered: delivered.length > 0 ? tally(delivered.map((issue) => this.#item(issue))) : null,
+        deliveredIncomplete: history?.incomplete ?? false,
       };
     });
   });
@@ -386,7 +414,9 @@ export class PlanningModel implements PlanningViewModel {
       this.goalsWarning.value = null;
       this.#origins.value = {};
       this.notice.value = null;
+      this.goalHistory.value = null;
     });
+    this.#historyKey = null;
   }
 
   async selectSprint(id: number): Promise<void> {
@@ -421,6 +451,8 @@ export class PlanningModel implements PlanningViewModel {
     if (!SPRINT_PLANNING_ENABLED) return;
     if (this.busy.value || this.loading.value || this.#disposed) return;
     this.#permissions = sprintPermissionCache();
+    this.#closedSprints = closedSprintCache();
+    this.#historyKey = null;
     await this.#loadSprintsAndSelection();
   }
 
@@ -459,6 +491,66 @@ export class PlanningModel implements PlanningViewModel {
       this.atlassianGoals.value = goals;
       this.goalsWarning.value = warning;
     });
+    void this.#readHistory(generation, configuration, snapshot, goals);
+  }
+
+  /**
+   * Déjà livré avant ce sprint, objectif par objectif : lu seulement quand les objectifs (et, en
+   * Goals Atlassian, leurs `workItems`) ont changé depuis la dernière lecture. Une lecture qui
+   * échoue rend l'historique incomplet, jamais une erreur du planning.
+   */
+  async #readHistory(
+    generation: number,
+    configuration: BoardConfiguration,
+    snapshot: PlanningSnapshot,
+    atlassian: AtlassianSprintGoals | null,
+  ): Promise<void> {
+    const text = configuration.goalSource !== "atlassianGoals";
+    const goalIds = (text ? snapshot.goals : (atlassian?.goals ?? [])).map((goal) => goal.id);
+    const workItems = atlassian?.workItems ?? {};
+    const key = JSON.stringify([
+      snapshot.sprint.id,
+      text,
+      goalIds,
+      text ? null : goalIds.map((id) => workItems[id] ?? []),
+    ]);
+    if (key === this.#historyKey) return;
+    this.#historyKey = key;
+    const run = ++this.#historyRun;
+    const sprintKeys = new Set(snapshot.sprintIssues.map((issue) => issue.key));
+    let history: GoalHistory;
+    try {
+      history = text
+        ? await textGoalHistory(
+            this.client,
+            {
+              boardId: snapshot.boardId,
+              sprintId: snapshot.sprint.id,
+              goalIds,
+              sprintKeys,
+              query: snapshot.query,
+            },
+            this.#closedSprints,
+          )
+        : await atlassianGoalHistory(this.client, {
+            boardId: snapshot.boardId,
+            goalIds,
+            workItems,
+            workItemsComplete:
+              atlassian !== null &&
+              !atlassian.warnings.some(
+                (warning) =>
+                  warning.kind === "workItemsIssue" ||
+                  (warning.kind === "failed" && warning.operation === "workItems"),
+              ),
+            sprintKeys,
+            query: snapshot.query,
+          });
+    } catch {
+      history = { delivered: {}, incomplete: true };
+    }
+    if (run !== this.#historyRun || this.#stale(generation)) return;
+    this.goalHistory.value = history;
   }
 
   setSearch(text: string): void {
@@ -1125,7 +1217,11 @@ export class PlanningModel implements PlanningViewModel {
     this.#closureCheck = null;
     this.#quickFilterRun += 1;
     this.#permissions = sprintPermissionCache();
+    this.#closedSprints = closedSprintCache();
+    this.#historyKey = null;
+    this.#historyRun += 1;
     batch(() => {
+      this.goalHistory.value = null;
       this.noEditableSprint.value = false;
       this.snapshot.value = null;
       this.atlassianGoals.value = null;
@@ -1176,6 +1272,14 @@ function planningIssues(snapshot: PlanningSnapshot): JiraIssue[] {
 
 function sameIds(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
   return a.size === b.size && [...a].every((id) => b.has(id));
+}
+
+/** Nombre de tickets et somme des estimations connues. */
+function tally(items: readonly PlanningIssue[]): PlanningTally {
+  return {
+    count: items.length,
+    points: items.reduce((sum, item) => sum + (item.estimate ?? 0), 0),
+  };
 }
 
 /** Première couleur de la palette qu'aucun objectif n'utilise encore. */

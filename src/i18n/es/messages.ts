@@ -602,6 +602,14 @@ export const businessMessagesEs = {
   "Sprint à préparer": "Sprint por preparar",
   "Aucun sprint futur": "Ningún sprint futuro",
   "Aucun sprint futur que vous pouvez modifier": "Ningún sprint futuro que puedas modificar",
+  "À faire : {p0}": "Por hacer: {p0}",
+  "En cours : {p0}": "En curso: {p0}",
+  "Terminé : {p0}": "Terminado: {p0}",
+  "Déjà livré : {p0}": "Ya entregado: {p0}",
+  "Tickets terminés avant ce sprint, hors de sa charge":
+    "Tickets terminados antes de este sprint, fuera de su carga",
+  "Lecture incomplète de ce qui a déjà été livré : il peut en manquer.":
+    "No se pudo leer por completo lo ya entregado: puede faltar algo.",
   "Jira demande le droit « Gérer les sprints » sur les projets du board de chaque sprint. Demandez-le à un administrateur, puis actualisez.":
     "Jira exige el permiso «Gestionar sprints» en los proyectos del board de cada sprint. Pídeselo a un administrador y actualiza.",
   "Lecture de Jira…": "Cargando desde Jira…",

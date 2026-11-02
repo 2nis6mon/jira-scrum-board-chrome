@@ -581,6 +581,14 @@ export const businessMessages = {
   "Sprint à préparer": "Sprint to prepare",
   "Aucun sprint futur": "No future sprint",
   "Aucun sprint futur que vous pouvez modifier": "No future sprint you can edit",
+  "À faire : {p0}": "To do: {p0}",
+  "En cours : {p0}": "In progress: {p0}",
+  "Terminé : {p0}": "Done: {p0}",
+  "Déjà livré : {p0}": "Already delivered: {p0}",
+  "Tickets terminés avant ce sprint, hors de sa charge":
+    "Issues done before this sprint, not counted in its load",
+  "Lecture incomplète de ce qui a déjà été livré : il peut en manquer.":
+    "What was already delivered could not be read in full: some may be missing.",
   "Jira demande le droit « Gérer les sprints » sur les projets du board de chaque sprint. Demandez-le à un administrateur, puis actualisez.":
     "Jira requires the Manage sprints permission on the projects of each sprint's board. Ask an administrator for it, then refresh.",
   "Lecture de Jira…": "Loading from Jira…",

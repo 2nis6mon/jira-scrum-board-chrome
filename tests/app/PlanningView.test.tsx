@@ -92,6 +92,16 @@ function lane(index: 0 | 1, issues: readonly PlanningIssue[]): PlanningLane {
     issueCount: issues.length,
     points: issues.reduce((sum, entry) => sum + (entry.estimate ?? 0), 0),
     unestimated: 0,
+    progress: {
+      todo: {
+        count: issues.length,
+        points: issues.reduce((sum, entry) => sum + (entry.estimate ?? 0), 0),
+      },
+      inProgress: { count: 0, points: 0 },
+      done: { count: 0, points: 0 },
+    },
+    delivered: null,
+    deliveredIncomplete: false,
   };
 }
 
@@ -744,6 +754,44 @@ describe("Sprint Planning en direct : écran", () => {
     expect(text()).toContain("Aucun sprint futur");
     expect(document.querySelector(".planning-body")).toBeNull();
     expect(document.querySelector(".planning-velocity")).toBeNull();
+  });
+
+  it("avancement d'un objectif : n/N terminés, à faire, en cours, terminé, et déjà livré à part", async () => {
+    const { planning } = setup();
+    const first = lane(0, [IN_G1]);
+    planning.lanes.value = [
+      {
+        ...first,
+        issueCount: 3,
+        points: 10,
+        progress: {
+          todo: { count: 1, points: 5 },
+          inProgress: { count: 1, points: 3 },
+          done: { count: 1, points: 2 },
+        },
+        delivered: { count: 2, points: 8 },
+        deliveredIncomplete: true,
+      },
+      lane(1, [ARRIVED]),
+    ];
+    await tick();
+    const header = find('[data-planning-goal="g1"] .lane-header');
+    expect(header.textContent).toContain("1/3 terminés · 2/10 pts");
+    const parts = [...header.querySelectorAll(".planning-progress-part")].map(
+      (part) => part.querySelector(".visually-hidden")?.textContent,
+    );
+    expect(parts).toEqual([
+      "À faire : 1 ticket · 5 pts",
+      "En cours : 1 ticket · 3 pts",
+      "Terminé : 1 ticket · 2 pts",
+    ]);
+    expect(header.querySelector(".planning-lane-delivered")?.textContent).toContain(
+      "Déjà livré : 2 tickets · 8 pts",
+    );
+    expect(
+      find('[data-planning-goal="g2"] .lane-header').querySelector(".planning-lane-delivered"),
+    ).toBeNull();
+    expect(text()).toContain("Lecture incomplète de ce qui a déjà été livré");
   });
 
   it("aucun sprint futur modifiable : le dit, sans inviter à en créer un", async () => {
