@@ -56,3 +56,13 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   neuf, les objectifs reportés gardent le leur et restent visibles. Ne masquer que les Goals
   introduits par un ticket seulement, jamais les objectifs du texte d'un sprint ni les Goals épinglés ;
   test de régression sur un démarrage de sprint.
+- [ ] À investiguer (essai du 02/11/2026) : la colonne « Où sont les tickets » montre des tickets
+  fermés, alors que Denis ne les voit pas dans le backlog Jira. Constat dans le code : `sections`
+  (`PlanningModel.ts`) affiche tout ce que renvoient la lecture du backlog
+  (`GET /rest/software/1.0/board/{id}/backlog`) et celle des autres sprints futurs, sans filtre sur
+  le statut. Les tickets terminés y sont seulement en consultation (`canJoinSprint`, `PlanningView.tsx`).
+  À vérifier dans la documentation Atlassian et sur un vrai Jira : le backlog Jira masque-t-il les
+  tickets dont le statut est dans la dernière colonne du board (règle à confirmer), et l'endpoint les
+  renvoie-t-il quand même ? Si oui, appliquer la même règle (statuts de la dernière colonne visible,
+  comme `isDone` du report) au backlog et aux sprints futurs, puis vérifier le cas des sous-tâches et
+  du reste à faire du sprint actif. Aucune écriture.
