@@ -979,3 +979,37 @@ So that l'avancement réel de l'objectif se lit d'un seul coup, sans mention à 
 **Then** elle reste signalée, comme dans la story 8.16
 
 *Notes :* demande de Denis du 02/11/2026 (backlog). Dépend de la story 8.20. Planning seulement : le board n'affiche pas de déjà livré. Lectures seulement, aucune écriture.
+
+### Story 8.22: Ne plus voir les tickets terminés dans « Où sont les tickets »
+
+As a Scrum Master qui prépare son sprint,
+I want ne voir, dans le backlog et les autres sprints du planning, que les tickets encore à faire,
+So that la colonne « Où sont les tickets » ressemble au backlog de Jira et ne m'encombre pas de tickets terminés ou annulés.
+
+**Acceptance Criteria:**
+
+**Given** la décision de Denis du 02/11/2026 (« terminé » = statut dans la dernière colonne visible du board, story 8.20) et la règle du backlog Jira (les statuts de la colonne la plus à droite y sont masqués)
+**When** la colonne « Où sont les tickets » s'affiche
+**Then** le backlog et les autres sprints futurs n'y montrent aucun ticket dont le statut est dans la dernière colonne visible du board, quelle que soit sa catégorie de statut ou sa résolution
+
+**Given** le reste à faire d'un sprint actif dans la même colonne
+**When** il s'affiche
+**Then** il suit la même règle (aujourd'hui, il retire les tickets de catégorie « terminé »), pour qu'un seul critère décide de ce qui est terminé dans tout le planning
+
+**Given** un ticket dont le statut n'est dans aucune colonne visible du board (statut « Annulé » non rattaché, par exemple)
+**When** la colonne s'affiche
+**Then** il est masqué aussi, comme sur le board Jira ; ce comportement est confirmé sur le board de Denis lors de l'essai 8.10
+
+**Given** un ticket masqué par cette règle et déjà sélectionné (story 8.15), ou un ticket qui passe dans la dernière colonne pendant la séance
+**When** le planning est relu
+**Then** il disparaît de la colonne et de la sélection, sans avis
+
+**Given** les tickets du sprint en préparation
+**When** ses swimlanes s'affichent
+**Then** rien ne change : un ticket terminé du sprint reste visible et compté, comme dans la page du sprint
+
+**Given** les données déjà lues (configuration des colonnes, statut de chaque ticket)
+**When** la règle s'applique
+**Then** aucune lecture ni écriture n'est ajoutée ; les compteurs de section et le résultat des filtres (8.14) ne comptent que les tickets affichés
+
+*Notes :* retour d'essai du 02/11/2026 (backlog « À investiguer »). Cause : `GET /rest/software/1.0/board/{id}/backlog` renvoie aussi les tickets de la dernière colonne, que l'écran de Jira masque ([base de connaissances Atlassian](https://support.atlassian.com/jira/kb/done-or-resolved-issues-appear-in-a-scrum-board-backlog/)) ; `sections` (`PlanningModel.ts`) n'avait aucun filtre. Règle à réutiliser : `visibleColumns(configuration.columns).at(-1)`, déjà employée par le report (8.7). `canJoinSprint` (refus de Jira pour les tickets résolus et les sous-tâches) reste inchangé pour les tickets encore affichés.

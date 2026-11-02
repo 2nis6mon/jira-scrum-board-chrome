@@ -141,3 +141,6 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   renvoie-t-il quand même ? Si oui, appliquer la même règle (statuts de la dernière colonne visible,
   comme `isDone` du report) au backlog et aux sprints futurs, puis vérifier le cas des sous-tâches et
   du reste à faire du sprint actif. Aucune écriture.
+  Investigué le 02/11/2026 : la base de connaissances Atlassian confirme que le backlog Jira masque
+  les statuts de la colonne la plus à droite (filtre de l'écran, pas de la lecture). Décision de Denis :
+  ne plus voir ces tickets, backlog et sprints futurs compris. Planifié : story 8.22 (epics.md).
