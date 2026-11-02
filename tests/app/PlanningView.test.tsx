@@ -3,6 +3,7 @@ import { signal } from "@preact/signals";
 import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type AppMessage, message } from "../../src/app/model/appMessage";
+import { ImageCache } from "../../src/app/model/ImageCache";
 import type { UserMessage } from "../../src/app/model/messages";
 import type {
   PendingClosure,
@@ -23,7 +24,7 @@ import { makeSprintGoal } from "../../src/core/sprintGoals";
 import type { PlanningSnapshot } from "../../src/core/sprintPlanning";
 import { setLanguage } from "../../src/i18n";
 import { type AtlassianGoal, decodeSprint, type JiraSprint } from "../../src/jira/models";
-import { makeIssue } from "../support/jiraFixtures";
+import { type IssueOptions, makeIssue } from "../support/jiraFixtures";
 
 // Données FICTIVES : un sprint futur préparé, un autre sprint futur, le backlog et un sprint actif.
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -49,13 +50,30 @@ const item = (
   summary: string,
   estimate: number | null,
   origin: PlanningIssue["origin"] = null,
-): PlanningIssue => ({ issue: makeIssue(key, { summary }), estimate, origin });
+  options: IssueOptions = {},
+): PlanningIssue => ({ issue: makeIssue(key, { summary, ...options }), estimate, origin });
 
-const IN_G1 = item("ABC-10", "Panier existant", 5);
+// Icônes FICTIVES : l'adresse ne sert que de clé au cache d'images du test.
+const STORY_ICON = "https://acme.atlassian.net/images/icons/issuetypes/story.svg";
+const HIGH_ICON = "https://acme.atlassian.net/images/icons/priorities/high.svg";
+
+const IN_G1 = item("ABC-10", "Panier existant", 5, null, {
+  statusName: "En cours",
+  extraFields: {
+    issuetype: { id: "10001", name: "Story", subtask: false, iconUrl: STORY_ICON },
+    priority: { id: "2", name: "High", iconUrl: HIGH_ICON },
+  },
+});
 const ARRIVED = item("ABC-14", "Paiement fractionné", 3, { kind: "backlog" });
-const UNASSIGNED = item("ABC-12", "Recherche rapide", null);
+const UNASSIGNED = item("ABC-12", "Recherche rapide", null, null, {
+  statusName: "À faire",
+  category: "new",
+  priority: "Medium",
+});
 const BACKLOG = item("ABC-11", "Paiement en ligne", 5);
-const OTHER_SPRINT = item("ABC-15", "Suivi de colis", 2);
+const OTHER_SPRINT = item("ABC-15", "Suivi de colis", 2, null, {
+  extraFields: { status: { id: "9", name: "Bloqué" } },
+});
 const REMAINING = item("ABC-13", "Ancienne story inachevée", 8);
 const GOALS = [
   makeSprintGoal({ id: "g1", title: "Simplifier les achats", position: 0 }),
@@ -74,8 +92,15 @@ function lane(index: 0 | 1, issues: readonly PlanningIssue[]): PlanningLane {
   };
 }
 
+/** Cache sans téléchargement : chaque icône garde la lettre de son libellé. */
+const noImages = () => new ImageCache(() => Promise.reject(new Error("aucun téléchargement")));
+
 function setup(
-  options: { goalMode?: "text" | "atlassian"; pinnedGoalIds?: readonly string[] } = {},
+  options: {
+    goalMode?: "text" | "atlassian";
+    pinnedGoalIds?: readonly string[];
+    images?: ImageCache;
+  } = {},
 ) {
   const snapshot = {
     boardId: 7,
@@ -154,6 +179,7 @@ function setup(
   render(
     <PlanningView
       planning={planning}
+      images={options.images ?? noImages()}
       sidebarCollapsed={false}
       onBack={onBack}
       onToggleSidebar={onToggleSidebar}
@@ -686,5 +712,295 @@ describe("Sprint Planning en direct : écran", () => {
     expect(text()).toContain("Aucun sprint futur");
     expect(document.querySelector(".planning-body")).toBeNull();
     expect(document.querySelector(".planning-velocity")).toBeNull();
+  });
+});
+
+describe("Sprint Planning en direct : carte (type, priorité, statut) et menu au clic droit", () => {
+  /** Clic droit au pointeur ; sans bouton ni position, c'est le menu demandé au clavier. */
+  function contextMenu(target: Element, init: MouseEventInit = {}) {
+    const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, ...init });
+    target.dispatchEvent(event);
+    return event;
+  }
+  function shiftF10(target: Element) {
+    const event = new KeyboardEvent("keydown", {
+      key: "F10",
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    target.dispatchEvent(event);
+    return event;
+  }
+  const detailsOf = (issueKey: string) => {
+    const details = cardOf(issueKey).querySelector<HTMLDetailsElement>("details");
+    if (!details) throw new Error(`Menu attendu : ${issueKey}`);
+    return details;
+  };
+  const panelOf = (issueKey: string) =>
+    find<HTMLElement>(`[data-planning-issue="${issueKey}"] .menu-panel`);
+
+  it("icônes du type et de la priorité téléchargées avec la session, à gauche de la clé et dans les marques", async () => {
+    const urls: string[] = [];
+    const images = new ImageCache(async (url) => {
+      urls.push(url);
+      return new Blob(["<svg/>"], { type: "image/svg+xml" });
+    });
+    setup({ images });
+    await tick();
+    await tick();
+    const top = cardOf("ABC-10").querySelector(".card-top");
+    const icons = [...(top?.querySelectorAll<HTMLImageElement>("img.jira-icon") ?? [])];
+    expect(icons.map((icon) => icon.alt)).toEqual(["Story", "High"]);
+    expect(icons.every((icon) => icon.src.startsWith("blob:"))).toBe(true);
+    // Le type précède la clé ; la priorité est dans les marques, avant le menu ⋯.
+    expect(top?.firstElementChild).toBe(icons[0]);
+    expect(icons[1]?.parentElement?.classList.contains("card-marks")).toBe(true);
+    expect(urls).toEqual([STORY_ICON, HIGH_ICON]);
+    images.dispose();
+  });
+
+  it("image absente ou non téléchargée : lettre du libellé ; sans priorité, aucune icône", async () => {
+    setup();
+    await tick();
+    // ABC-10 : adresses connues, téléchargement refusé.
+    const failed = cardOf("ABC-10");
+    expect(failed.querySelector("img")).toBeNull();
+    expect(
+      [...failed.querySelectorAll(".jira-icon-fallback")].map((icon) => [
+        icon.textContent,
+        icon.getAttribute("aria-label"),
+      ]),
+    ).toEqual([
+      ["S", "Story"],
+      ["H", "High"],
+    ]);
+    // ABC-12 : priorité sans adresse d'icône.
+    expect(cardOf("ABC-12").querySelector(".card-marks .jira-icon")?.textContent).toBe("M");
+    // ABC-11 : sans priorité, seule l'icône du type reste.
+    const backlog = cardOf("ABC-11");
+    expect(backlog.querySelectorAll(".jira-icon")).toHaveLength(1);
+    expect(backlog.querySelector(".card-marks .jira-icon")).toBeNull();
+    // En consultation, sans priorité : aucune marque du tout.
+    expect(cardOf("ABC-13").querySelector(".card-marks")).toBeNull();
+  });
+
+  it("statut sur toutes les cartes, teinté selon sa catégorie", async () => {
+    const { planning } = setup();
+    const done = item("ABC-16", "Bannière terminée", 1, null, {
+      statusName: "Terminé",
+      category: "done",
+    });
+    planning.unassigned.value = [UNASSIGNED, done];
+    await tick();
+    const status = (issueKey: string) => {
+      const element = cardOf(issueKey).querySelector<HTMLElement>(".planning-status");
+      return [element?.textContent, element?.dataset.statusCategory, element?.title];
+    };
+    expect(status("ABC-12")).toEqual(["À faire", "new", "Statut Jira : À faire"]);
+    expect(status("ABC-10")).toEqual(["En cours", "indeterminate", "Statut Jira : En cours"]);
+    expect(status("ABC-16")).toEqual(["Terminé", "done", "Statut Jira : Terminé"]);
+    expect(status("ABC-15")).toEqual(["Bloqué", "unknown", "Statut Jira : Bloqué"]);
+    // Sprint, autre sprint futur, backlog et consultation : une pastille par carte.
+    const cards = [...document.querySelectorAll("article.planning-card")];
+    expect(cards.length).toBe(7);
+    expect(cards.every((card) => card.querySelectorAll(".planning-status").length === 1)).toBe(
+      true,
+    );
+    expect(cardOf("ABC-13").querySelector(".planning-status")?.textContent).toBe("In Progress");
+    setLanguage("en");
+    await tick();
+    expect(status("ABC-12")).toEqual(["À faire", "new", "Jira status: À faire"]);
+  });
+
+  it("clic droit sur une carte du sprint : menu ⋯ au point du pointeur, mêmes écritures", async () => {
+    const { planning } = setup();
+    await tick();
+    const event = contextMenu(find('[data-planning-issue="ABC-10"] .planning-card-title'), {
+      button: 2,
+      clientX: 300,
+      clientY: 200,
+    });
+    expect(event.defaultPrevented).toBe(true);
+    const details = detailsOf("ABC-10");
+    const panel = panelOf("ABC-10");
+    expect(details.open).toBe(true);
+    expect(details.hasAttribute("data-placed")).toBe(true);
+    expect(panel.hasAttribute("data-at-point")).toBe(true);
+    expect(panel.style.getPropertyValue("--menu-left")).toBe("300px");
+    expect(panel.style.getPropertyValue("--menu-top")).toBe("200px");
+    // Le focus va à la première entrée active : l'objectif courant est désactivé.
+    expect(document.activeElement).toBe(button("Sécuriser le paiement", details));
+    button("Sécuriser le paiement", details).click();
+    expect(details.open).toBe(false);
+    // Aucun élément de la carte n'avait le focus : il revient au ⋯.
+    expect(document.activeElement).toBe(details.querySelector("summary"));
+
+    contextMenu(cardOf("ABC-10"), { button: 2, clientX: 40, clientY: 60 });
+    button("Renvoyer au backlog", detailsOf("ABC-10")).click();
+    contextMenu(cardOf("ABC-11"), { button: 2, clientX: 40, clientY: 60 });
+    expect(detailsOf("ABC-11").textContent).toContain("Ajouter au sprint");
+    button("Simplifier les achats", detailsOf("ABC-11")).click();
+    expect(planning.placeIssue.mock.calls).toEqual([
+      ["ABC-10", "g2"],
+      ["ABC-11", "g1"],
+    ]);
+    expect(planning.removeIssue.mock.calls).toEqual([["ABC-10", { kind: "backlog" }]]);
+  });
+
+  it("clic droit près du bord : le menu reste dans la fenêtre", async () => {
+    setup();
+    await tick();
+    const panel = panelOf("ABC-12");
+    panel.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 240, bottom: 160, width: 240, height: 160 }) as DOMRect;
+    contextMenu(cardOf("ABC-12"), {
+      button: 2,
+      clientX: window.innerWidth - 20,
+      clientY: window.innerHeight - 20,
+    });
+    // Faute de place à droite et en dessous : à gauche du point et au-dessus de lui.
+    expect(panel.style.getPropertyValue("--menu-left")).toBe(`${window.innerWidth - 260}px`);
+    expect(panel.style.getPropertyValue("--menu-top")).toBe(`${window.innerHeight - 180}px`);
+  });
+
+  it("Maj+F10 et touche Menu : même menu sous la carte ; Échap le referme et rend le focus", async () => {
+    setup();
+    await tick();
+    const card = cardOf("ABC-12");
+    card.getBoundingClientRect = () =>
+      ({ left: 120, right: 320, top: 80, bottom: 180, width: 200, height: 100 }) as DOMRect;
+    const link = button("Ouvrir ABC-12 dans Jira");
+    link.focus();
+    expect(shiftF10(link).defaultPrevented).toBe(true);
+    const details = detailsOf("ABC-12");
+    const panel = panelOf("ABC-12");
+    expect(details.open).toBe(true);
+    expect(panel.style.getPropertyValue("--menu-left")).toBe("120px");
+    expect(panel.style.getPropertyValue("--menu-top")).toBe("180px");
+    expect(panel.contains(document.activeElement)).toBe(true);
+    key(document.activeElement as Element, "Escape");
+    expect(details.open).toBe(false);
+    expect(document.activeElement).toBe(link);
+
+    // Touche Menu depuis le ⋯ : le focus lui revient.
+    const summary = details.querySelector("summary") as HTMLElement;
+    summary.focus();
+    key(summary, "ContextMenu");
+    expect(details.open).toBe(true);
+    expect(panel.hasAttribute("data-at-point")).toBe(true);
+    key(document.activeElement as Element, "Escape");
+    expect(document.activeElement).toBe(summary);
+
+    // Menu du clavier transmis comme `contextmenu` sans bouton droit ni position : sous la carte.
+    link.focus();
+    expect(contextMenu(card).defaultPrevented).toBe(true);
+    expect(panel.style.getPropertyValue("--menu-top")).toBe("180px");
+    button("Renvoyer au backlog", details).click();
+    expect(document.activeElement).toBe(link);
+  });
+
+  it("rouvert par son bouton après un clic droit : le menu retrouve sa place sous le ⋯", async () => {
+    setup();
+    await tick();
+    contextMenu(cardOf("ABC-10"), { button: 2, clientX: 300, clientY: 200 });
+    key(document.activeElement as Element, "Escape");
+    const details = menuOf("ABC-10");
+    expect(details.open).toBe(true);
+    expect(panelOf("ABC-10").hasAttribute("data-at-point")).toBe(false);
+  });
+
+  /** Carte ABC-12 posée à un endroit connu et son lien, qui a le focus. */
+  function focusedCard() {
+    const card = cardOf("ABC-12");
+    card.getBoundingClientRect = () =>
+      ({ left: 120, right: 320, top: 80, bottom: 180, width: 200, height: 100 }) as DOMRect;
+    const link = button("Ouvrir ABC-12 dans Jira");
+    link.focus();
+    return { card, link };
+  }
+
+  it("menu déjà ouvert : Maj+F10 ou clic droit sur une entrée ne le rouvre pas ailleurs", async () => {
+    setup();
+    await tick();
+    const { link } = focusedCard();
+    shiftF10(link);
+    const panel = panelOf("ABC-12");
+    const entry = document.activeElement as Element;
+    expect(panel.contains(entry)).toBe(true);
+    expect(shiftF10(entry).defaultPrevented).toBe(true);
+    expect(contextMenu(entry, { button: 2, clientX: 500, clientY: 400 }).defaultPrevented).toBe(
+      true,
+    );
+    expect(panel.style.getPropertyValue("--menu-left")).toBe("120px");
+    expect(panel.style.getPropertyValue("--menu-top")).toBe("180px");
+    expect(document.activeElement).toBe(entry);
+    key(entry, "Escape");
+    expect(document.activeElement).toBe(link);
+  });
+
+  it("pendant un geste, le `contextmenu` de la touche Menu reçu par ⋯ ne rouvre pas le menu", async () => {
+    const { planning } = setup();
+    planning.gesturesDisabled.value = true;
+    await tick();
+    const { link } = focusedCard();
+    shiftF10(link);
+    const details = detailsOf("ABC-12");
+    const summary = details.querySelector("summary") as HTMLElement;
+    expect(document.activeElement).toBe(summary);
+    // Blink envoie `contextmenu` au relâchement de la touche Menu, à la position de l'élément.
+    expect(contextMenu(summary, { clientX: 700, clientY: 30 }).defaultPrevented).toBe(true);
+    expect(details.open).toBe(true);
+    expect(panelOf("ABC-12").style.getPropertyValue("--menu-left")).toBe("120px");
+    key(summary, "Escape");
+    expect(document.activeElement).toBe(link);
+  });
+
+  it("refermé par un défilement : le focus revient à l'élément de la carte, sinon au ⋯", async () => {
+    setup();
+    await tick();
+    const { link } = focusedCard();
+    shiftF10(link);
+    const details = detailsOf("ABC-12");
+    window.dispatchEvent(new Event("scroll"));
+    expect(details.open).toBe(false);
+    expect(document.activeElement).toBe(link);
+
+    link.blur();
+    contextMenu(cardOf("ABC-12"), { button: 2, clientX: 300, clientY: 200 });
+    expect(details.open).toBe(true);
+    window.dispatchEvent(new Event("scroll"));
+    expect(details.open).toBe(false);
+    expect(document.activeElement).toBe(details.querySelector("summary"));
+  });
+
+  it("carte en consultation : ni menu de l'extension, ni menu du navigateur empêché", async () => {
+    setup();
+    await tick();
+    const remaining = cardOf("ABC-13");
+    expect(contextMenu(remaining, { button: 2, clientX: 30, clientY: 30 }).defaultPrevented).toBe(
+      false,
+    );
+    expect(shiftF10(remaining).defaultPrevented).toBe(false);
+    expect(remaining.querySelector("details")).toBeNull();
+    expect(document.querySelector("details[open]")).toBeNull();
+  });
+
+  it("pendant un geste, le menu ouvert au clic droit a ses entrées désactivées", async () => {
+    const { planning } = setup();
+    planning.gesturesDisabled.value = true;
+    await tick();
+    contextMenu(cardOf("ABC-10"), { button: 2, clientX: 50, clientY: 50 });
+    const details = detailsOf("ABC-10");
+    expect(details.open).toBe(true);
+    const entries = [...details.querySelectorAll<HTMLButtonElement>(".menu-panel button")];
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries.every((entry) => entry.disabled)).toBe(true);
+    // Aucune entrée active : le focus va au ⋯, dans le menu, pour qu'Échap le referme.
+    expect(document.activeElement).toBe(details.querySelector("summary"));
+    key(document.activeElement as Element, "Escape");
+    expect(details.open).toBe(false);
+    expect(planning.placeIssue).not.toHaveBeenCalled();
+    expect(planning.removeIssue).not.toHaveBeenCalled();
   });
 });

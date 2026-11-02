@@ -85,8 +85,8 @@ try {
       field.dispatchEvent(new Event('input', { bubbles: true }));
     })()`);
   };
-  /** Touche réelle sur l'élément qui a le focus. */
-  const press = async (key, code = key, keyCode = 13) => {
+  /** Touche réelle sur l'élément qui a le focus ; `modifiers` : 8 pour Maj. */
+  const press = async (key, code = key, keyCode = 13, modifiers = 0) => {
     for (const type of ["keyDown", "keyUp"]) {
       await send(
         "Input.dispatchKeyEvent",
@@ -94,6 +94,7 @@ try {
           type,
           key,
           code,
+          modifiers,
           windowsVirtualKeyCode: keyCode,
           ...(type === "keyDown" && key === "Enter" ? { text: "\r", unmodifiedText: "\r" } : {}),
         },
@@ -258,6 +259,119 @@ try {
     await setValue('[aria-label="Rechercher un ticket à planifier"]', "");
     console.log(
       "✓ Sprint actif en consultation ; « Démarrer » désactivé avec sa raison ; recherche partagée",
+    );
+
+    // Clic droit réel : le menu ⋯ d'une carte du sprint s'ouvre au pointeur, à l'écran ; une carte
+    // en consultation garde le menu du navigateur.
+    await run(`(() => {
+      window.__contextMenus = [];
+      window.addEventListener('contextmenu', event => window.__contextMenus.push(event.defaultPrevented));
+    })()`);
+    const rightClick = async (at) => {
+      await send("Input.dispatchMouseEvent", { type: "mouseMoved", ...at }, sessionId);
+      for (const [type, buttons] of [
+        ["mousePressed", 2],
+        ["mouseReleased", 0],
+      ]) {
+        await send(
+          "Input.dispatchMouseEvent",
+          { type, ...at, button: "right", buttons, clickCount: 1 },
+          sessionId,
+        );
+      }
+    };
+    const beforeMenu = await writes();
+    const sprintCard = await point('[data-planning-issue="ABC-210"] .planning-card-title');
+    assert(sprintCard, "La carte ABC-210 du sprint n'est pas accessible au clic droit");
+    await rightClick(sprintCard);
+    await wait(
+      `Boolean(document.querySelector('[data-planning-issue="ABC-210"] details.planning-card-menu[open][data-placed] .menu-panel[data-at-point]'))`,
+      "Le clic droit sur ABC-210 n'a pas ouvert le menu de la carte",
+    );
+    const opened = await run(`(() => {
+      const panel = document.querySelector('[data-planning-issue="ABC-210"] .menu-panel');
+      const r = panel.getBoundingClientRect();
+      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width,
+        focusInside: panel.contains(document.activeElement),
+        hit: panel.contains(document.elementFromPoint(r.left + r.width / 2, r.top + 12)) };
+    })()`);
+    assert(
+      opened.width > 0 &&
+        opened.left >= 0 &&
+        opened.top >= 0 &&
+        opened.right <= 1441 &&
+        opened.bottom <= 961 &&
+        Math.abs(opened.left - sprintCard.x) <= 1 &&
+        Math.abs(opened.top - sprintCard.y) <= 1 &&
+        opened.focusInside &&
+        opened.hit,
+      `Menu du clic droit mal placé ou recouvert : ${JSON.stringify({ opened, sprintCard })}`,
+    );
+    assert(
+      JSON.stringify(await run("window.__contextMenus")) === JSON.stringify([true]),
+      "Le clic droit sur une carte du sprint doit remplacer le menu du navigateur",
+    );
+    await capture("planning-menu-clic-droit");
+    await press("Escape", "Escape", 27);
+    await wait(
+      `!document.querySelector('[data-planning-issue="ABC-210"] details[open]')
+        && document.activeElement?.matches('[data-planning-issue="ABC-210"] summary')`,
+      "Échap ne referme pas le menu du clic droit ou ne rend pas le focus au ⋯",
+    );
+    // Au clavier : Maj+F10 puis la touche Menu, depuis le lien de la carte ; un seul menu, sous la
+    // carte, le focus dedans, rendu au lien par Échap.
+    const link210 = `document.querySelector('[data-planning-issue="ABC-210"] .planning-issue-link')`;
+    for (const [label, key, keyCode, modifiers] of [
+      ["Maj+F10", "F10", 121, 8],
+      ["Touche Menu", "ContextMenu", 93, 0],
+    ]) {
+      await run(`${link210}.focus()`);
+      await press(key, key, keyCode, modifiers);
+      await wait(
+        `Boolean(document.querySelector('[data-planning-issue="ABC-210"] details.planning-card-menu[open][data-placed] .menu-panel[data-at-point]'))`,
+        `${label} n'a pas ouvert le menu de ABC-210`,
+      );
+      // Le « contextmenu » que Chrome envoie ensuite ne doit ni rouvrir ni déplacer le menu.
+      await sleep(150);
+      const below = await run(`(() => {
+        const card = document.querySelector('[data-planning-issue="ABC-210"]').getBoundingClientRect();
+        const panel = document.querySelector('[data-planning-issue="ABC-210"] .menu-panel');
+        const r = panel.getBoundingClientRect();
+        return { open: document.querySelectorAll('details[open]').length,
+          dx: r.left - card.left, dy: r.top - card.bottom, width: r.width,
+          focusInside: panel.contains(document.activeElement) };
+      })()`);
+      assert(
+        below.open === 1 &&
+          below.width > 0 &&
+          Math.abs(below.dx) <= 1 &&
+          Math.abs(below.dy) <= 1 &&
+          below.focusInside,
+        `${label} : menu absent, en double, mal placé sous la carte ou sans le focus : ${JSON.stringify(below)}`,
+      );
+      await press("Escape", "Escape", 27);
+      await wait(
+        `!document.querySelector('details[open]') && document.activeElement === ${link210}`,
+        `${label} : Échap ne referme pas le menu ou ne rend pas le focus au lien`,
+      );
+    }
+    const readOnlyCard = await point('[data-planning-section="active-42"] .planning-card-title');
+    assert(readOnlyCard, "Aucune carte du sprint actif n'est accessible au clic droit");
+    // Les touches du clavier ont pu envoyer leurs propres « contextmenu » : seul ce clic compte.
+    await run("window.__contextMenus = []");
+    await rightClick(readOnlyCard);
+    await wait("window.__contextMenus.length === 1", "Le clic droit en consultation est absent");
+    assert(
+      JSON.stringify(await run("window.__contextMenus")) === JSON.stringify([false]) &&
+        !(await run("Boolean(document.querySelector('details[open]'))")),
+      "Une carte en consultation ne doit ouvrir aucun menu de l'extension",
+    );
+    assert(
+      JSON.stringify(await writes()) === JSON.stringify(beforeMenu),
+      "Ouvrir et refermer un menu de carte a écrit dans Jira",
+    );
+    console.log(
+      "✓ Clic droit, Maj+F10 et touche Menu réels : un seul menu, au pointeur ou sous la carte, Échap rend le focus ; consultation sans menu",
     );
 
     const lane = (index) =>

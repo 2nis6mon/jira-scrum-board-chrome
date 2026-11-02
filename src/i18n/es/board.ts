@@ -336,4 +336,5 @@ export const boardMessagesEs = {
   "Ajouter au sprint": "Añadir al sprint",
   "Renvoyer au backlog": "Devolver al backlog",
   "Vers {name}": "A {name}",
+  "Statut Jira : {name}": "Estado de Jira: {name}",
 } as const satisfies Record<keyof typeof boardMessages, string>;

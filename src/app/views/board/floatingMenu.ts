@@ -28,9 +28,11 @@ export function placeFloatingMenu(
   closers.get(details)?.abort();
   closers.delete(details);
   delete details.dataset.placed;
+  const panel = details.querySelector<HTMLElement>(".menu-panel");
+  // Rouvert par son bouton après un clic droit : il retrouve sa place sous le bouton.
+  if (panel) delete panel.dataset.atPoint;
   if (!details.open) return;
   const summary = details.querySelector("summary");
-  const panel = details.querySelector<HTMLElement>(".menu-panel");
   if (!summary || !panel) return;
 
   // Tout en pixels de la fenêtre, puis ramené aux longueurs CSS du panneau.
@@ -48,7 +50,35 @@ export function placeFloatingMenu(
     `${Math.floor((viewport.height - 2 * MARGIN) / zoom)}px`,
   );
   details.dataset.placed = "";
+  closeOnMove(details, panel);
+}
 
+/**
+ * Menu `<details>` ouvert au pointeur (clic droit) ou sous sa carte (clavier) plutôt que sous son
+ * bouton : le panneau, marqué `data-at-point`, est placé par `placeAtPoint` et se referme comme
+ * au-dessus si la page défile ou si la fenêtre change de taille.
+ */
+export function placeDetailsAtPoint(
+  details: HTMLDetailsElement,
+  point: Point,
+  viewport: Viewport = { width: window.innerWidth, height: window.innerHeight },
+): void {
+  closers.get(details)?.abort();
+  closers.delete(details);
+  delete details.dataset.placed;
+  const panel = details.querySelector<HTMLElement>(".menu-panel");
+  if (!details.open || !panel) return;
+  // Ancré à gauche et mesuré au coin de la fenêtre : une place précédente ne le rétrécit pas.
+  panel.dataset.atPoint = "";
+  panel.style.setProperty("--menu-left", "0px");
+  panel.style.setProperty("--menu-top", "0px");
+  placeAtPoint(panel, point, viewport);
+  details.dataset.placed = "";
+  closeOnMove(details, panel);
+}
+
+/** Referme le menu si la page ou le board défile, ou si la fenêtre change de taille. */
+function closeOnMove(details: HTMLDetailsElement, panel: HTMLElement): void {
   const controller = new AbortController();
   closers.set(details, controller);
   const close = (event: Event) => {

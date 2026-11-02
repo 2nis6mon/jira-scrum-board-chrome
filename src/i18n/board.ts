@@ -329,4 +329,5 @@ export const boardMessages = {
   "Ajouter au sprint": "Add to the sprint",
   "Renvoyer au backlog": "Send back to the backlog",
   "Vers {name}": "To {name}",
+  "Statut Jira : {name}": "Jira status: {name}",
 } as const;

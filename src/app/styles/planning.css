@@ -604,6 +604,50 @@ details.planning-card-menu > summary {
   font-weight: 600;
 }
 
+/* Ouvert au clic droit ou au clavier (floatingMenu.ts, placeDetailsAtPoint) : son coin supérieur
+   gauche au point demandé, et non plus aligné à droite sous le bouton ⋯. */
+details.planning-card-menu .menu-panel[data-at-point] {
+  left: var(--menu-left, 0);
+  right: auto;
+}
+
+/* Statut Jira, teinté selon sa catégorie comme les pastilles de Jira : à faire en gris, en cours
+   en bleu, terminé en vert ; une catégorie inconnue reste neutre. Le nom du statut est toujours
+   écrit. */
+.planning-status {
+  display: inline-block;
+  max-width: 100%;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: #e9ebef;
+  color: var(--ink-2);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planning-status[data-status-category="indeterminate"] {
+  background: #e7eefd;
+  color: #1d4ed8;
+}
+
+.planning-status[data-status-category="done"] {
+  background: #e3f4e8;
+  color: #166534;
+}
+
+.planning-status[data-status-category="unknown"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink-3);
+}
+
 /* ─── Fenêtre étroite : les sources passent au-dessus du sprint ───────────── */
 
 @media (max-width: 820px) {

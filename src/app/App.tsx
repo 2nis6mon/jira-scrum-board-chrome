@@ -176,6 +176,7 @@ function Workspace({
         {SPRINT_PLANNING_ENABLED && view === "planning" && configuration?.boardType === "scrum" && (
           <PlanningView
             planning={board.planning}
+            images={board.images}
             sidebarCollapsed={sidebarCollapsed}
             onToggleSidebar={() => model.toggleSidebar()}
             onBack={() => model.showBoard()}

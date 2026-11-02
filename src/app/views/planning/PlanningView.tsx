@@ -5,6 +5,7 @@ import { goalDisplayName, isDoneStatus, type JiraSprint } from "../../../jira/mo
 import { language, t } from "../../i18n";
 import { type AppMessage, renderMessage } from "../../model/appMessage";
 import { planningCarryOverGoalMessage } from "../../model/coreText";
+import type { ImageCache } from "../../model/ImageCache";
 import type {
   PlanningIssue,
   PlanningLane,
@@ -12,7 +13,8 @@ import type {
   PlanningSection,
   PlanningViewModel,
 } from "../../model/PlanningTypes";
-import { placeFloatingMenu } from "../board/floatingMenu";
+import { type Point, placeDetailsAtPoint, placeFloatingMenu } from "../board/floatingMenu";
+import { JiraIcon } from "../board/JiraIcon";
 import { formatDay, formatPoints, initials, plural, pluralWord } from "../format";
 import { Icon } from "../Icon";
 import { ErrorMessage } from "../Message";
@@ -29,11 +31,14 @@ export const PLANNING_SPRINT_DRAG_TYPE = "application/x-sprint-goals-planning-sp
  */
 export function PlanningView({
   planning,
+  images,
   sidebarCollapsed,
   onToggleSidebar,
   onBack,
 }: {
   planning: PlanningViewModel;
+  /** Icônes Jira (type, priorité) du board, téléchargées une fois avec la session. */
+  images: ImageCache;
   sidebarCollapsed: boolean;
   onToggleSidebar(): void;
   onBack(): void;
@@ -86,8 +91,8 @@ export function PlanningView({
       <PlanningMessages planning={planning} />
       {snapshot ? (
         <div class="planning-body">
-          <SourcesColumn planning={planning} />
-          <LanesColumn planning={planning} sprintName={snapshot.sprint.name} />
+          <SourcesColumn planning={planning} images={images} />
+          <LanesColumn planning={planning} images={images} sprintName={snapshot.sprint.name} />
         </div>
       ) : (
         <div class="board-empty planning-empty">
@@ -523,7 +528,7 @@ function sectionId(section: PlanningSection): string {
  * Autres sprints futurs, backlog et reste à faire du sprint actif (consultation). Un ticket du
  * sprint en préparation déposé sur la colonne retourne au backlog ; sur un sprint futur, il y va.
  */
-function SourcesColumn({ planning }: { planning: PlanningViewModel }) {
+function SourcesColumn({ planning, images }: { planning: PlanningViewModel; images: ImageCache }) {
   const disabled = planning.gesturesDisabled.value;
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const drop = useDrop({
@@ -548,6 +553,7 @@ function SourcesColumn({ planning }: { planning: PlanningViewModel }) {
         <SourceSection
           key={sectionId(section)}
           planning={planning}
+          images={images}
           section={section}
           folded={folded.has(sectionId(section))}
           onToggle={() => toggle(sectionId(section))}
@@ -562,11 +568,13 @@ function SourcesColumn({ planning }: { planning: PlanningViewModel }) {
 
 function SourceSection({
   planning,
+  images,
   section,
   folded,
   onToggle,
 }: {
   planning: PlanningViewModel;
+  images: ImageCache;
   section: PlanningSection;
   folded: boolean;
   onToggle(): void;
@@ -626,6 +634,7 @@ function SourceSection({
             <PlanningCard
               key={item.issue.key}
               planning={planning}
+              images={images}
               item={item}
               place={
                 readOnlySection || !canJoinSprint(item) ? { kind: "readOnly" } : { kind: "source" }
@@ -655,9 +664,11 @@ function canJoinSprint(item: PlanningIssue): boolean {
 
 function LanesColumn({
   planning,
+  images,
   sprintName,
 }: {
   planning: PlanningViewModel;
+  images: ImageCache;
   sprintName: string;
 }) {
   const lanes = planning.lanes.value;
@@ -669,13 +680,14 @@ function LanesColumn({
         <GoalLane
           key={lane.goal.id}
           planning={planning}
+          images={images}
           lane={lane}
           index={index}
           count={lanes.length}
         />
       ))}
       {textMode ? <AddGoal planning={planning} /> : <PinGoal planning={planning} />}
-      <UnassignedLane planning={planning} />
+      <UnassignedLane planning={planning} images={images} />
       <p class="planning-live-note">
         <Icon name="check" />
         {t("Chaque geste est écrit aussitôt dans Jira, puis relu.")}
@@ -748,11 +760,13 @@ function CarryOverReportPanel({ planning }: { planning: PlanningViewModel }) {
 
 function LaneCards({
   planning,
+  images,
   issues,
   goalId,
   empty,
 }: {
   planning: PlanningViewModel;
+  images: ImageCache;
   issues: readonly PlanningIssue[];
   goalId: string | null;
   empty: ComponentChildren;
@@ -763,6 +777,7 @@ function LaneCards({
         <PlanningCard
           key={item.issue.key}
           planning={planning}
+          images={images}
           item={item}
           place={{ kind: "sprint", goalId }}
         />
@@ -774,11 +789,13 @@ function LaneCards({
 
 function GoalLane({
   planning,
+  images,
   lane,
   index,
   count,
 }: {
   planning: PlanningViewModel;
+  images: ImageCache;
   lane: PlanningLane;
   index: number;
   count: number;
@@ -880,6 +897,7 @@ function GoalLane({
       </header>
       <LaneCards
         planning={planning}
+        images={images}
         issues={lane.issues}
         goalId={goal.id}
         empty={
@@ -1051,7 +1069,7 @@ function PinGoal({ planning }: { planning: PlanningViewModel }) {
   );
 }
 
-function UnassignedLane({ planning }: { planning: PlanningViewModel }) {
+function UnassignedLane({ planning, images }: { planning: PlanningViewModel; images: ImageCache }) {
   const issues = planning.unassigned.value;
   const drop = useDrop({
     type: PLANNING_DRAG_TYPE,
@@ -1072,6 +1090,7 @@ function UnassignedLane({ planning }: { planning: PlanningViewModel }) {
       </header>
       <LaneCards
         planning={planning}
+        images={images}
         issues={issues}
         goalId={null}
         empty={t("Tous les tickets du sprint servent un objectif.")}
@@ -1092,13 +1111,30 @@ type CardPlace =
   | { readonly kind: "source" }
   | { readonly kind: "readOnly" };
 
+/** Ouverture du menu d'une carte ailleurs que sous son bouton ⋯ : clic droit ou clavier. */
+interface MenuRequest {
+  /** Coin supérieur gauche du panneau, en pixels de la fenêtre. */
+  readonly point: Point;
+  /** Élément de la carte qui avait le focus, rendu à la fermeture ; à défaut, le bouton ⋯. */
+  readonly returnFocus: HTMLElement | null;
+}
+
+interface CardMenuHandle {
+  openAt(request: MenuRequest): void;
+}
+
+/** Catégories de statut d'Atlassian ; toute autre valeur reçoit la teinte neutre. */
+const STATUS_CATEGORIES = new Set(["new", "indeterminate", "done"]);
+
 function PlanningCard({
   planning,
+  images,
   item,
   place,
   compact = false,
 }: {
   planning: PlanningViewModel;
+  images: ImageCache;
   item: PlanningIssue;
   place: CardPlace;
   compact?: boolean;
@@ -1108,7 +1144,19 @@ function PlanningCard({
   const readOnly = place.kind === "readOnly";
   const draggable = !readOnly && !planning.gesturesDisabled.value;
   const points = planning.sprintLoad.value?.unit !== "tickets";
-  const type = fields.issuetype.name;
+  const menu = useRef<CardMenuHandle | null>(null);
+  const category = fields.status.statusCategory?.key;
+
+  /** Menu demandé sur la carte : le focus qu'elle avait lui sera rendu à la fermeture. */
+  const requestMenu = (event: Event, point: Point) => {
+    const card = event.currentTarget as HTMLElement;
+    const focused = document.activeElement;
+    menu.current?.openAt({
+      point,
+      returnFocus: focused instanceof HTMLElement && card.contains(focused) ? focused : null,
+    });
+  };
+
   return (
     <article
       class={`card planning-card${compact ? " planning-card-compact" : ""}${readOnly ? " planning-card-readonly" : ""}${origin ? " planning-card-arrived" : ""}`}
@@ -1124,11 +1172,37 @@ function PlanningCard({
         if (place.kind === "sprint")
           event.dataTransfer.setData(PLANNING_SPRINT_DRAG_TYPE, issue.key);
       }}
+      // En consultation, aucun menu de l'extension : celui du navigateur reste.
+      onContextMenu={
+        readOnly
+          ? undefined
+          : (event) => {
+              event.preventDefault();
+              // Dans le menu déjà ouvert (⋯ compris) : ni second menu, ni menu du navigateur
+              // par-dessus. La touche Menu envoie aussi `contextmenu` au relâchement.
+              if (inOpenMenu(event.target)) return;
+              // Bouton droit, Ctrl+clic macOS, appui long ou stylet : au pointeur. Un menu demandé
+              // au clavier arrive sans bouton droit ni position : il s'ouvre sous la carte.
+              const pointer = event.button === 2 || event.clientX !== 0 || event.clientY !== 0;
+              requestMenu(
+                event,
+                pointer ? { x: event.clientX, y: event.clientY } : belowCard(event),
+              );
+            }
+      }
+      onKeyDown={
+        readOnly
+          ? undefined
+          : (event) => {
+              if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return;
+              event.preventDefault();
+              if (inOpenMenu(event.target)) return;
+              requestMenu(event, belowCard(event));
+            }
+      }
     >
       <div class="card-top">
-        <span class="jira-icon jira-icon-fallback" role="img" aria-label={type} title={type}>
-          {[...type][0]?.toUpperCase() ?? "?"}
-        </span>
+        <JiraIcon url={fields.issuetype.iconUrl} label={fields.issuetype.name} images={images} />
         <button
           type="button"
           class="card-key planning-issue-link"
@@ -1138,14 +1212,23 @@ function PlanningCard({
         >
           {issue.key}
         </button>
-        {!readOnly && (
+        {(fields.priority || !readOnly) && (
           <span class="card-marks">
-            <CardMenu planning={planning} issueKey={issue.key} place={place} />
+            {fields.priority && (
+              <JiraIcon
+                url={fields.priority.iconUrl}
+                label={fields.priority.name}
+                images={images}
+              />
+            )}
+            {!readOnly && (
+              <CardMenu planning={planning} issueKey={issue.key} place={place} handle={menu} />
+            )}
           </span>
         )}
       </div>
       <p class="card-summary planning-card-title">{fields.summary}</p>
-      {(fields.parent || origin || readOnly) && (
+      {(fields.parent || origin) && (
         <div class="card-badges">
           {fields.parent && (
             <span
@@ -1162,11 +1245,20 @@ function PlanningCard({
                 : t("Vient de {name}", { name: origin.sprintName })}
             </span>
           )}
-          {readOnly && <span class="badge badge-field">{fields.status.name}</span>}
         </div>
       )}
       <div class="card-bottom">
-        <span class="card-alerts" />
+        <span class="card-alerts">
+          <span
+            class="planning-status"
+            data-status-category={
+              category && STATUS_CATEGORIES.has(category) ? category : "unknown"
+            }
+            title={t("Statut Jira : {name}", { name: fields.status.name })}
+          >
+            {fields.status.name}
+          </span>
+        </span>
         <span class="card-owner">
           {points && (
             <span
@@ -1189,40 +1281,103 @@ function PlanningCard({
   );
 }
 
+/** Point d'ouverture d'un menu demandé au clavier : sous le coin gauche de la carte. */
+function belowCard(event: Event): Point {
+  const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  return { x: box.left, y: box.bottom };
+}
+
+function inOpenMenu(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest("details[open]") !== null;
+}
+
 /**
  * Menu ⋯ d'une carte. Dans le sprint en préparation : objectifs, « Sans objectif », retour au
  * backlog ou vers un autre sprint futur. Ailleurs : poser le ticket sur un objectif, ce qui
  * l'ajoute au sprint. Échap le referme et rend le focus à son bouton.
+ *
+ * La carte peut aussi l'ouvrir au point d'un clic droit, ou sous elle au clavier (`handle`) : le
+ * focus va alors à la première entrée active, puis revient, à la fermeture, à l'élément de la
+ * carte qui l'avait.
  */
 function CardMenu({
   planning,
   issueKey,
   place,
+  handle,
 }: {
   planning: PlanningViewModel;
   issueKey: string;
   place: CardPlace;
+  handle: { current: CardMenuHandle | null };
 }) {
   const details = useRef<HTMLDetailsElement>(null);
+  // Ouverture en cours au point demandé ; `null` quand le menu s'ouvre sous son bouton.
+  const atPoint = useRef<MenuRequest | null>(null);
   const disabled = planning.gesturesDisabled.value;
   const inSprint = place.kind === "sprint";
   const current = place.kind === "sprint" ? place.goalId : undefined;
   const others = planning.snapshot.value?.futureSprints.map((entry) => entry.sprint) ?? [];
+
+  handle.current = {
+    openAt(request) {
+      const menu = details.current;
+      if (!menu) return;
+      atPoint.current = request;
+      menu.open = true;
+      // Placé tout de suite : l'événement `toggle` arrive plus tard, ou pas du tout si le menu
+      // était déjà ouvert par son bouton.
+      placeDetailsAtPoint(menu, request.point);
+      const first = menu.querySelector<HTMLElement>(".menu-panel button:not(:disabled)");
+      // Sans défilement : un ⋯ à demi caché ferait défiler la colonne, ce qui referme le menu.
+      (first ?? menu.querySelector("summary"))?.focus({ preventScroll: true });
+    },
+  };
+
+  /** Referme le menu et rend le focus à l'élément qui l'avait. */
+  const close = () => {
+    const menu = details.current;
+    if (!menu) return;
+    const target = atPoint.current?.returnFocus ?? menu.querySelector("summary");
+    atPoint.current = null;
+    menu.open = false;
+    if (target?.isConnected) target.focus();
+  };
   const act = (action: () => Promise<void>) => {
-    if (details.current) details.current.open = false;
+    close();
     void action();
   };
   return (
     <details
       ref={details}
       class="menu lane-menu planning-card-menu"
-      onToggle={(event) => placeFloatingMenu(event.currentTarget)}
+      onToggle={(event) => {
+        const menu = event.currentTarget;
+        const request = atPoint.current;
+        if (!menu.open) {
+          placeFloatingMenu(menu);
+          atPoint.current = null;
+          // Refermé autrement (défilement, clic sur ⋯) : le focus, perdu ou resté sur une entrée
+          // cachée, revient à l'élément qui l'avait, sinon au ⋯.
+          const focused = document.activeElement;
+          const panel = menu.querySelector(".menu-panel");
+          const target = request?.returnFocus?.isConnected
+            ? request.returnFocus
+            : menu.querySelector("summary");
+          if (!focused || focused === document.body || panel?.contains(focused))
+            target?.focus({ preventScroll: true });
+        } else if (request) {
+          // Déjà placé par `openAt` : le replacer ferait perdre son focus à l'entrée choisie.
+          if (!("placed" in menu.dataset)) placeDetailsAtPoint(menu, request.point);
+        } else {
+          placeFloatingMenu(menu);
+        }
+      }}
       onKeyDown={(event) => {
         if (event.key !== "Escape" || !details.current?.open) return;
         event.preventDefault();
         event.stopPropagation();
-        details.current.open = false;
-        details.current.querySelector("summary")?.focus();
+        close();
       }}
     >
       <summary aria-label={t("Actions sur {p0}", { p0: issueKey })} title={t("Actions")}>

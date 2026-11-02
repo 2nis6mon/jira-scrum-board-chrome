@@ -3,6 +3,21 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.42.2 — Sprint Planning : type, priorité et statut sur la carte, menu au clic droit (builds locaux)
+
+- Essai du 02/11/2026 (stories 8.12 et 8.13) : la carte du planning ne montrait que la lettre du
+  type, son statut seulement en consultation, et son menu ne s'ouvrait que par ⋯.
+- Carte : icônes Jira du type, à gauche de la clé, et de la priorité, comme sur le board (lettre du
+  libellé si l'image manque) ; pastille du statut sur toutes les cartes, teintée selon sa catégorie
+  (à faire en gris, en cours en bleu, terminé en vert, autre neutre), son nom complet en info-bulle.
+  Aucun champ ni appel d'API en plus ; seules les icônes absentes du cache sont téléchargées, sur le
+  site Jira.
+- Menu de carte : le même menu que ⋯, avec les mêmes entrées et écritures, s'ouvre au point du clic
+  droit, ou sous la carte avec **Maj+F10** ou la touche **Menu** ; le focus va à la première entrée
+  active, puis revient à l'élément de la carte qui l'avait (sinon au ⋯) avec Échap ou une action.
+  Une carte en consultation garde le menu du navigateur. Après une action choisie depuis ⋯, le
+  focus revient désormais au ⋯ au lieu de se perdre.
+
 ## 0.42.1 — Sprint Planning : clôturer le bon sprint et dire ce qui a été reporté (builds locaux)
 
 - Essai du 02/11/2026 : avec deux sprints actifs, la clôture visait le premier et rien n'était dit.
