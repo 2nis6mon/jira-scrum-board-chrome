@@ -83,6 +83,20 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   dépliable, comme celui des objectifs. Piste : un seul composant de menu de carte partagé par les
   deux écrans, avec le même comportement (survol, clavier, Échap). Mêmes écritures qu'aujourd'hui,
   aucune nouvelle. Stories 3.1, 3.2, 8.4 et 8.13.
+- [ ] Amélioration (demande de Denis, 02/11/2026) : en-tête d'objectif homogène entre le Sprint
+  Planning et le Sprint Board, même apparence pour toute la barre, progression comprise. Écarts relevés
+  dans le code : marqueur (`GoalMarker` avec état « atteint » et `lane-header-completed` sur le board,
+  `goal-ring` sans état dans le planning) ; compteur et progression (« n/N terminés · x/y pts » et
+  `<progress>` sur le board ; dans le planning, `lane-count`, puis `LaneProgress` avec la même ligne,
+  la barre, trois pastilles à faire / en cours / terminé et « Déjà livré ») ; « Aucun ticket rattaché »
+  seulement sur le board ; actions de l'objectif seulement dans le planning. Règle de « terminé »
+  différente : dernière colonne du board (`goalProgress`, `boardIssue.ts`) contre catégorie de statut
+  Jira dans le planning (`planningProgress.ts`, story 8.16) ; choisir une seule règle ou dire laquelle
+  s'applique. Piste : un composant d'en-tête d'objectif partagé (marqueur, titre, compteur, barre,
+  détail), avec des emplacements pour ce qui reste propre à chaque écran (actions, « Déjà livré »,
+  repli). Voir aussi la barre du sprint en haut de page (`SprintProgress` sur le board, charge contre
+  vélocité dans le planning) : même gabarit visuel, mesures différentes. Lecture seule, aucune
+  écriture. Côté planning : stories 8.6 et 8.16.
 - [ ] À investiguer (essai du 02/11/2026) : la colonne « Où sont les tickets » montre des tickets
   fermés, alors que Denis ne les voit pas dans le backlog Jira. Constat dans le code : `sections`
   (`PlanningModel.ts`) affiche tout ce que renvoient la lecture du backlog
