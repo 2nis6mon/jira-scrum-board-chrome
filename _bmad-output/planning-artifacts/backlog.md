@@ -109,6 +109,23 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   repli). Voir aussi la barre du sprint en haut de page (`SprintProgress` sur le board, charge contre
   vélocité dans le planning) : même gabarit visuel, mesures différentes. Lecture seule, aucune
   écriture. Côté planning : stories 8.6 et 8.16.
+- [ ] Amélioration (demande de Denis, 02/11/2026), à traiter avec l'en-tête homogène ci-dessus : une
+  seule barre de progression découpée par catégorie de statut, en couleur. Aujourd'hui, le Sprint
+  Board montre une barre (part terminée seulement) et le planning une barre plus trois pastilles
+  à faire / en cours / terminé (`LaneProgress`, `PlanningView.tsx` ; couleurs
+  `.planning-progress-part[data-status-category]`, `planning.css`). Ce que Denis veut garder : la
+  barre du sprint en cours et les story points par catégorie du planning. Cible : une barre empilée
+  à trois segments (gris à faire, bleu en cours, vert terminé), largeurs proportionnelles aux points,
+  ou aux tickets sans estimation ; valeurs au survol et en texte masqué pour les lecteurs d'écran.
+  Même composant dans les deux écrans. Côté board, la catégorie de statut de chaque ticket doit être
+  disponible ; à vérifier avec la règle « terminé » à unifier (dernière colonne contre catégorie).
+  Lecture seule, aucune écriture.
+- [ ] Amélioration (demande de Denis, 02/11/2026) : dans l'en-tête d'objectif du planning, ranger
+  « Déjà livré : 2 tickets · 8 pts » (`planning-lane-delivered`) dans la partie « Terminé » au lieu
+  d'une mention à part. Contrainte de la story 8.16 : le déjà livré date des sprints précédents et
+  reste hors de la charge du sprint et de la vélocité ; le distinguer dans la partie terminée (par
+  exemple un segment hachuré ou plus clair dans la barre, « Terminé : 3 · 5 pts, plus déjà livré :
+  2 · 8 pts » au survol) sans l'ajouter aux totaux du sprint. Lecture seule, aucune écriture.
 - [ ] À investiguer (essai du 02/11/2026) : la colonne « Où sont les tickets » montre des tickets
   fermés, alors que Denis ne les voit pas dans le backlog Jira. Constat dans le code : `sections`
   (`PlanningModel.ts`) affiche tout ce que renvoient la lecture du backlog
