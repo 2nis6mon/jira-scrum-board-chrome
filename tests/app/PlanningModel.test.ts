@@ -1217,6 +1217,29 @@ describe("Sprint Planning en direct : filtres (lecture seule)", () => {
   });
 });
 
+describe("Sprint Planning : « Où sont les tickets » comme le backlog Jira (8.22)", () => {
+  const backlogKeys = (planning: PlanningModel) =>
+    planning.sections.value
+      .filter((section) => section.kind === "backlog")
+      .flatMap((section) => section.issues.map((item) => item.issue.key));
+
+  it("ni dernière colonne ni statut sans colonne ; une catégorie trompeuse reste visible", async () => {
+    const { planning } = context({
+      issueFields: {
+        "ABC-202": { status: statusJson("4", "Revue", "done") },
+        "ABC-203": { status: statusJson("99", "Annulé", "done") },
+        "ABC-204": { status: statusJson("6", "Terminé", "done") },
+      },
+    });
+    await planning.load();
+    expect(backlogKeys(planning)).toEqual(["ABC-201", "ABC-202"]);
+    // Les filtres ne proposent que des valeurs des tickets affichés.
+    const statuses = planning.filterOptions.value?.statuses.map((option) => option.label) ?? [];
+    expect(statuses).not.toContain("Terminé");
+    expect(statuses).not.toContain("Annulé");
+  });
+});
+
 describe("Sprint Planning : seuls les sprints que l'utilisateur peut modifier", () => {
   it("ne propose pas le sprint futur d'un autre board sans « Gérer les sprints », ni ne lit ses tickets", async () => {
     const { planning, jira } = context({ foreignFutureSprint: true, otherFutureSprint: true });

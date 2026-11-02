@@ -97,8 +97,9 @@ export interface PlanningSnapshot {
   readonly velocity: number | null;
   readonly pinnedGoalIds: readonly string[];
   readonly sprintIssues: readonly JiraIssue[];
+  /** Backlog du board sans les tickets de la dernière colonne ni sans colonne, comme dans Jira. */
   readonly backlogIssues: readonly JiraIssue[];
-  /** Autres sprints futurs du board, dans l'ordre de Jira. */
+  /** Autres sprints futurs du board, dans l'ordre de Jira, mêmes tickets que le backlog. */
   readonly futureSprints: readonly PlanningSprintIssues[];
   /**
    * Sprints actifs du board et leur reste à faire (statut dans une colonne visible autre que la
@@ -157,7 +158,9 @@ export async function loadSprintPlanning(
     );
   const [futureSprints, activeSprints] = await Promise.all([issuesOf(others), issuesOf(actives)]);
   const states = columnStates(input.columns);
-  // Reste à faire d'un sprint actif : statut dans une colonne visible autre que la dernière.
+  // Colonne « Où sont les tickets » (backlog, autres sprints futurs, reste à faire actif) : comme
+  // le backlog Jira, seulement les statuts d'une colonne visible autre que la dernière (stories
+  // 8.20, 8.22). Le sprint en préparation garde tous ses tickets.
   const remaining = (issue: JiraIssue) => {
     const state = states.ofStatus(issue.fields.status?.id);
     return state !== null && state !== "done";
@@ -177,8 +180,11 @@ export async function loadSprintPlanning(
     velocity: document?.velocity ?? null,
     pinnedGoalIds: [...(document?.atlassianGoalIds ?? [])],
     sprintIssues,
-    backlogIssues,
-    futureSprints,
+    backlogIssues: backlogIssues.filter(remaining),
+    futureSprints: futureSprints.map(({ sprint: other, issues }) => ({
+      sprint: other,
+      issues: issues.filter(remaining),
+    })),
     activeSprints: activeSprints.map(({ sprint: active, issues }) => ({
       sprint: active,
       issues: issues.filter(remaining),

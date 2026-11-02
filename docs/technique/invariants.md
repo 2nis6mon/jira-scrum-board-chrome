@@ -73,7 +73,9 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
   compté : objectifs, barres, charge, santé, vieillissement, sous-tâches, reste à faire), avec l'avis
   « non affichés, comme dans Jira ». Restent à la catégorie : les refus de Jira lui-même (ajout au
   sprint d'un ticket résolu), les bloquants (souvent hors du board) et la couleur de la pastille de
-  statut. En-tête d'objectif et barre empilée par état (gris, bleu, vert) communs aux deux écrans
+  statut. « Où sont les tickets » du planning (backlog, autres sprints futurs, reste à faire actif)
+  ne garde, comme le backlog Jira, que les statuts d'une colonne autre que la dernière (8.22) ; le
+  sprint en préparation garde ses tickets terminés. En-tête d'objectif et barre empilée par état (gris, bleu, vert) communs aux deux écrans
   ([`LaneHeader`](../../src/app/views/LaneHeader.tsx)).
 - Une seule série de colonnes pour toutes les swimlanes. Un type est `GOAL`, `SWIMLANE` ou `IGNORED`.
   [`normalizeSwimlanes`](../../src/core/boardConfiguration.ts) garantit une seule swimlane par type :

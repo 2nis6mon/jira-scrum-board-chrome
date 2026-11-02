@@ -133,7 +133,7 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   exemple un segment hachuré ou plus clair dans la barre, « Terminé : 3 · 5 pts, plus déjà livré :
   2 · 8 pts » au survol) sans l'ajouter aux totaux du sprint. Lecture seule, aucune écriture.
   Planifiée : story 8.21 (epics.md).
-- [ ] À investiguer (essai du 02/11/2026) : la colonne « Où sont les tickets » montre des tickets
+- [x] À investiguer (essai du 02/11/2026) : la colonne « Où sont les tickets » montre des tickets
   fermés, alors que Denis ne les voit pas dans le backlog Jira. Constat dans le code : `sections`
   (`PlanningModel.ts`) affiche tout ce que renvoient la lecture du backlog
   (`GET /rest/software/1.0/board/{id}/backlog`) et celle des autres sprints futurs, sans filtre sur
@@ -145,4 +145,5 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   du reste à faire du sprint actif. Aucune écriture.
   Investigué le 02/11/2026 : la base de connaissances Atlassian confirme que le backlog Jira masque
   les statuts de la colonne la plus à droite (filtre de l'écran, pas de la lecture). Décision de Denis :
-  ne plus voir ces tickets, backlog et sprints futurs compris. Planifié : story 8.22 (epics.md).
+  ne plus voir ces tickets, backlog et sprints futurs compris. Corrigé en 0.47.1 (story 8.22), sur
+  Jira fictif ; à confirmer sur un vrai Jira en 8.10.

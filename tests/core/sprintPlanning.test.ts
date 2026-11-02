@@ -250,11 +250,11 @@ describe("lecture du Sprint Planning", () => {
     expect(snapshot.velocity).toBe(30);
     expect(snapshot.pinnedGoalIds).toEqual(["ari-garde"]);
     expect(snapshot.sprintIssues.map((issue) => issue.key)).toEqual(["ABC-210", "ABC-211"]);
+    // Backlog comme dans Jira : ABC-204 (dernière colonne) n'y figure pas.
     expect(snapshot.backlogIssues.map((issue) => issue.key)).toEqual([
       "ABC-201",
       "ABC-202",
       "ABC-203",
-      "ABC-204",
     ]);
     expect(
       snapshot.futureSprints.map(({ sprint: other, issues }) => [
@@ -271,6 +271,24 @@ describe("lecture du Sprint Planning", () => {
     ).toEqual([[ACTIVE, ["ABC-101"]]]);
     expect(f.sprintCalls).toEqual([["active", "future"]]);
     expect(f.writes).toEqual([]);
+  });
+
+  it("backlog et autres sprints futurs comme dans Jira : ni dernière colonne ni statut sans colonne (8.22)", async () => {
+    const f = fakeJira();
+    const recette = makeIssue("ABC-205", {
+      statusId: "3",
+      statusName: "Recette",
+      category: "done",
+    });
+    const annule = makeIssue("ABC-206", { statusId: "77", statusName: "Annulé", category: "done" });
+    f.state.backlog = [todo("ABC-201"), done("ABC-204"), recette, annule];
+    f.state.issues[OTHER] = [todo("ABC-301"), done("ABC-302"), annule];
+    f.state.issues[PREPARED] = [todo("ABC-210"), done("ABC-211")];
+    const snapshot = await f.load();
+    expect(snapshot.backlogIssues.map((issue) => issue.key)).toEqual(["ABC-201", "ABC-205"]);
+    expect(snapshot.futureSprints[0]?.issues.map((issue) => issue.key)).toEqual(["ABC-301"]);
+    // Le sprint en préparation garde ses tickets terminés.
+    expect(snapshot.sprintIssues.map((issue) => issue.key)).toEqual(["ABC-210", "ABC-211"]);
   });
 
   it("reste à faire actif par colonnes : catégorie Jira ignorée, statut sans colonne écarté", async () => {

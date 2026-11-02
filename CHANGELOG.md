@@ -3,6 +3,16 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.47.1 — Sprint Planning : plus de tickets terminés dans « Où sont les tickets » (builds locaux)
+
+- Essai du 02/11/2026 (story 8.22) : la colonne montrait des tickets annulés ou terminés que le
+  backlog Jira ne montre pas. Jira masque de son backlog les statuts de la dernière colonne du
+  board, mais sa lecture les renvoie quand même.
+- Le backlog, les autres sprints futurs et le reste à faire des sprints actifs ne montrent plus que
+  les tickets dont le statut est dans une colonne du board autre que la dernière ; un statut
+  rattaché à aucune colonne est masqué aussi. Les tickets terminés du sprint en préparation restent
+  visibles et comptés.
+
 ## 0.47.0 — Un seul en-tête d'objectif et une seule règle d'état
 
 - Décisions de Denis du 02/11/2026 (story 8.20) : l'état d'un ticket vient toujours des colonnes
