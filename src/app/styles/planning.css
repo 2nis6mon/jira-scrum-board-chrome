@@ -528,4 +528,25 @@ details.planning-card-menu > summary {
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
+
+  /* Les noms de sprint longs passent à la ligne au lieu de sortir de l'écran. */
+  .planning-header .sprint-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .planning-start,
+  .planning-start-sprint,
+  .planning-close-sprint {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .planning-start-sprint,
+  .planning-close-sprint {
+    white-space: normal;
+    text-align: start;
+  }
 }

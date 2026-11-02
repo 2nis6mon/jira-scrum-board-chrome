@@ -50,7 +50,6 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
 - Le texte `sprint.goal` est la source par défaut d'un nouveau Scrum ; les choix existants ou
   partagés sont conservés. Les Goals Atlassian sont optionnels ; leur échec permet un repli texte explicite.
   **Seuls les gestes du Sprint Planning modifient le champ natif d'un sprint futur ; le texte est relu avant chaque écriture.**
-  (Décision du 01/11/2026, mise en œuvre par l'Epic 8 ; jusque-là, seule la publication explicite le modifie.)
 - Kanban utilise le périmètre du board et `subQuery.query`, avec ses statuts mappés : aucun faux
   sprint, lecture séparée du backlog ou âge limite local des tickets terminés. `snapshot.sprint=null`
   et `activeSprints=[]` n'indiquent pas un board vide. Filtres rapides et couleurs JQL gardent ce
@@ -116,20 +115,26 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
 
 ## Déplacements, présentation et réglages
 
-- Sprint Planning : `PlanningModel` pilote un atelier chargé uniquement à son ouverture,
-  `core/sprintPlanning.ts` porte lectures, validation et publication, `views/planning/` sa présentation.
-  Choix d'un sprint futur existant, backlog du board paginé, RAF actif consultatif (statut hors Done),
-  objectifs texte éditables, sélection/affectation locale, capacité facultative et synthèse copiable.
-  Aucun appel Goals Atlassian par cet atelier, même si le board les utilise ; aucune modification de
-  sa source d'objectifs. Pour retrouver ces objectifs sur le board actif, choisir la source texte.
-  Les sous-tâches ne sont pas ajoutées séparément ; les tickets déjà dans le sprint restent présents.
-  Brouillons par site/board/sprint, sauvegardes ordonnées et copie mémoire conservée en cas d'échec local.
-  La publication compare texte, propriété et périmètre de la photographie avec Jira frais ; un conflit
-  conserve le brouillon et demande de copier la synthèse puis repartir de Jira. Ordre : texte → ajouts
-  par lots de 50 → propriété des rattachements, avec vérification de chaque étape. Refus/résultat
-  incertain arrête la séquence, sans rollback ni retry ; les étapes confirmées sont indiquées.
-  Les droits sprint et tickets sont appliqués par Jira, distincts du `canEdit` des réglages du board.
-  Durant la publication, retour Jira, changement de board, déconnexion et sorties de vue sont protégés.
+- Sprint Planning en direct (décision du 01/11/2026) : `PlanningModel` lit Jira à l'ouverture puis
+  après chaque geste, sans brouillon ; `core/sprintPlanning.ts` porte une fonction par intention
+  (objectifs texte, placer ou retirer un ticket, vélocité, report après clôture) au résultat typé
+  (`done`, `unchanged`, `refused`, `partial` avec étapes confirmées) ; `views/planning/` présente le
+  sprint futur choisi, les autres sprints futurs, le backlog paginé et le reste à faire du sprint
+  actif (consultation, statut hors Done). Chaque geste passe par la porte du board, une seule
+  tentative par écriture, et chaque écriture est conditionnée par une relecture : sprint encore futur,
+  texte `goal` identique à l'affichage avant E8 (sinon rien n'est écrit, la page est relue et l'avis
+  demande de refaire), zone modifiée de `sprintgoals.v1` inchangée avant E5. Objectifs texte : E8
+  seulement si les titres changent, puis E5, identifiants gardés au renommage (validé par Entrée ou
+  sortie du champ, Échap annule). Goals Atlassian : recherche par nom et épinglage (E5), liens E3/E4,
+  jamais de création. Ticket posé sur un objectif : E9 depuis le backlog ou un autre sprint futur,
+  relu, puis lien ; sous-tâche, ticket terminé ou du sprint actif refusés. Retrait seulement depuis le
+  sprint en préparation : E10 vers le backlog ou E9 vers un autre sprint futur ; le lien reste dans la
+  propriété. Clôture et démarrage par les fenêtres natives Jira, que l'utilisateur seul remplit ;
+  « Démarrer » est désactivé avec sa raison tant qu'un sprint est actif. Après la fermeture d'une
+  fenêtre de clôture, le sprint relu clos déclenche le report idempotent des objectifs non atteints
+  (au moins un ticket lié hors de la dernière colonne visible) ; encore actif, rien n'est écrit.
+  Les droits sprint et tickets sont appliqués par Jira, distincts du `canEdit` des réglages du board ;
+  pendant un geste, changement de board et rafraîchissement automatique attendent.
 
 - Même colonne : aucun changement de statut. Autre colonne : seuls les statuts accessibles
   acceptent le dépôt. `defaultTransitions` retient la première transition disponible

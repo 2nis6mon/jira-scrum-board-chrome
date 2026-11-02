@@ -1,6 +1,6 @@
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { boardSiteJira, SPRINT_GOAL_TEXT } from "./boardFixture";
-import { type FakeJira, isWriteRequest } from "./fakeJira";
+import { type FakeJira, isWriteRequest, type RecordedRequest, type Reply } from "./fakeJira";
 import { issueJson } from "./jiraFixtures";
 
 // Sprint Planning FICTIF et évolutif. Les écritures du navigateur restent dans cette mémoire.
@@ -46,13 +46,26 @@ const ALREADY_PLANNED = issueJson("ABC-210", {
   points: 2,
 });
 
+/** Ticket du sprint futur 44 (option `otherFutureSprint`). */
+const IN_OTHER_SPRINT = issueJson("ABC-220", {
+  summary: "Afficher les frais de livraison avant le paiement",
+  statusId: "1",
+  statusName: "À faire",
+  category: "new",
+  points: 3,
+});
+
 /**
  * Installe les routes après celles du board, pour préserver les lectures du sprint actif 42.
- * `issueFields` ajoute des champs à des tickets (par clé), sur une copie.
+ * `issueFields` ajoute des champs à des tickets (par clé), sur une copie ; `otherFutureSprint`
+ * ajoute le sprint futur 44 et son ticket, où l'on peut prendre ou envoyer des tickets.
  */
 export function planningFixture(
   jira: FakeJira = boardSiteJira(),
-  options: { issueFields?: Readonly<Record<string, Record<string, unknown>>> } = {},
+  options: {
+    issueFields?: Readonly<Record<string, Record<string, unknown>>>;
+    otherFutureSprint?: boolean;
+  } = {},
 ) {
   const sprint = {
     id: 43,
@@ -70,8 +83,23 @@ export function planningFixture(
     endDate: "2026-09-25T18:00:00.000+0200",
     goal: SPRINT_GOAL_TEXT,
   };
+  const otherSprint = options.otherFutureSprint
+    ? {
+        id: 44,
+        name: "Sprint 44 — Livraison",
+        state: "future",
+        originBoardId: 7,
+        goal: "",
+      }
+    : null;
   const selected = new Set(["ABC-210"]);
-  const catalog = [ALREADY_PLANNED, ...PLANNING_BACKLOG].map((issue) => {
+  /** Tickets du sprint futur 44 ; un ticket déplacé (E9) quitte l'autre sprint. */
+  const other = new Set(otherSprint ? ["ABC-220"] : []);
+  const catalog = [
+    ALREADY_PLANNED,
+    ...PLANNING_BACKLOG,
+    ...(otherSprint ? [IN_OTHER_SPRINT] : []),
+  ].map((issue) => {
     const extra = options.issueFields?.[String(issue.key)];
     if (!extra) return issue;
     const fields = issue.fields as Record<string, unknown>;
@@ -79,6 +107,27 @@ export function planningFixture(
   });
   let document: unknown = null;
   const property = `/rest/agile/1.0/sprint/43/properties/${SPRINT_PROPERTY_KEYS.goals}`;
+  /** E9 : les tickets rejoignent `target` et quittent `source`, comme un déplacement Jira. */
+  const addToSprint =
+    (target: Set<string>, source: Set<string>) =>
+    (request: RecordedRequest): Reply => {
+      const body = request.body as { issues?: unknown } | null;
+      if (
+        !body ||
+        !Array.isArray(body.issues) ||
+        body.issues.length === 0 ||
+        body.issues.length > 50 ||
+        Object.keys(body).length !== 1 ||
+        body.issues.some((key) => !catalog.some((issue) => issue.key === key))
+      ) {
+        return { status: 400, json: { errorMessages: ["Tickets hors du backlog de test"] } };
+      }
+      for (const key of body.issues) {
+        target.add(String(key));
+        source.delete(String(key));
+      }
+      return { status: 204 };
+    };
 
   jira
     .on("GET", "/rest/agile/1.0/board/7/sprint", (request) => {
@@ -87,17 +136,19 @@ export function planningFixture(
         status: 200,
         json: {
           isLast: true,
-          values: [activeSprint, sprint].filter(
+          values: [activeSprint, sprint, ...(otherSprint ? [otherSprint] : [])].filter(
             (item) => states.length === 0 || states.includes(item.state),
           ),
         },
       };
     })
     .on("GET", "/rest/agile/1.0/sprint/43", () => ({ status: 200, json: sprint }))
-    .on("GET", "/rest/agile/1.0/sprint/42", { status: 200, json: activeSprint })
+    .on("GET", "/rest/agile/1.0/sprint/42", () => ({ status: 200, json: activeSprint }))
     .on("GET", "/rest/software/1.0/board/7/backlog", (request) => {
       // Un ticket renvoyé au backlog (E10) y réapparaît.
-      const available = catalog.filter((issue) => !selected.has(String(issue.key)));
+      const available = catalog.filter(
+        (issue) => !selected.has(String(issue.key)) && !other.has(String(issue.key)),
+      );
       const secondPage = request.url.searchParams.get("nextPageToken") === "planning-page-2";
       const issues = secondPage ? available.slice(2) : available.slice(0, 2);
       const isLast = secondPage || available.length <= 2;
@@ -118,26 +169,15 @@ export function planningFixture(
       sprint.goal = body.goal;
       return { status: 200, json: sprint };
     })
-    .on("POST", "/rest/agile/1.0/sprint/43/issue", (request) => {
-      const body = request.body as { issues?: unknown } | null;
-      if (
-        !body ||
-        !Array.isArray(body.issues) ||
-        body.issues.length === 0 ||
-        body.issues.length > 50 ||
-        Object.keys(body).length !== 1 ||
-        body.issues.some((key) => !catalog.some((issue) => issue.key === key))
-      ) {
-        return { status: 400, json: { errorMessages: ["Tickets hors du backlog de test"] } };
-      }
-      for (const key of body.issues) selected.add(String(key));
-      return { status: 204 };
-    })
+    .on("POST", "/rest/agile/1.0/sprint/43/issue", addToSprint(selected, other))
     .on("POST", "/rest/agile/1.0/backlog/issue", (request) => {
       const body = request.body as { issues?: unknown } | null;
       if (!body || !Array.isArray(body.issues) || Object.keys(body).length !== 1)
         return { status: 400, json: { errorMessages: ["Seule la liste des tickets est permise"] } };
-      for (const key of body.issues) selected.delete(String(key));
+      for (const key of body.issues) {
+        selected.delete(String(key));
+        other.delete(String(key));
+      }
       return { status: 204 };
     })
     .on("GET", property, () =>
@@ -147,14 +187,31 @@ export function planningFixture(
       document = request.body;
       return { status: 201 };
     });
+  if (otherSprint) {
+    jira
+      .on("GET", "/rest/agile/1.0/sprint/44", () => ({ status: 200, json: otherSprint }))
+      .on("GET", "/rest/agile/1.0/board/7/sprint/44/issue", () => {
+        const issues = catalog.filter((issue) => other.has(String(issue.key)));
+        return { status: 200, json: { issues, total: issues.length } };
+      })
+      .on("GET", `/rest/agile/1.0/sprint/44/properties/${SPRINT_PROPERTY_KEYS.goals}`, {
+        status: 404,
+      })
+      .on("POST", "/rest/agile/1.0/sprint/44/issue", addToSprint(other, selected));
+  }
 
   return {
     jira,
     /** Sprint actif 42, que la fenêtre native de clôture fictive peut clore. */
     activeSprint,
+    /** Texte de l'objectif modifié dans Jira par quelqu'un d'autre (conflit). */
+    changeGoalText(text: string) {
+      sprint.goal = text;
+    },
     inspect: () => ({
       sprint,
       issueKeys: [...selected],
+      otherSprintKeys: [...other],
       document,
       writes: jira.requests.filter(isWriteRequest).map(({ method, path, body }) => ({
         method,

@@ -37,7 +37,7 @@ Toute évolution de permission, hôte, écriture ou CSP, soumise à décision pr
 | E9 | `POST /rest/agile/1.0/sprint/{id}/issue`, seul tableau `issues`, au plus 50 | Ticket du backlog ou d'un autre sprint futur posé dans le sprint en préparation, ou renvoyé de celui-ci vers un autre sprint futur ; jamais du RAF actif |
 | E10 | `POST /rest/agile/1.0/backlog/issue`, seul tableau `issues`, au plus 50 | Ticket du sprint en préparation renvoyé au backlog. Jira le retire aussi d'un sprint actif : juste avant, le sprint futur et sa présence dans ce sprint sont relus et un ticket d'un sprint actif est refusé ; relecture du sprint pour confirmer |
 
-E8 à E10 décrivent le planning en direct de l'Epic 8, livré story par story sur la branche de l'epic.
+E8 à E10 décrivent le planning en direct de l'Epic 8 (0.42.0), désactivé dans le paquet jusqu'à son activation (8.11).
 
 Une tentative par écriture POST/PUT/DELETE ; relecture après résultat incertain, jamais de succès
 avant confirmation. Lectures rejouables seulement sur erreur transitoire. E1 relit statut/transitions ;

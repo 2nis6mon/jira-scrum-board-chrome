@@ -589,8 +589,11 @@ if (scenario.startsWith("board")) {
       });
     }
   }
-  const planning = scenario === "board-planning" ? planningFixture(jira) : null;
+  const planning =
+    scenario === "board-planning" ? planningFixture(jira, { otherFutureSprint: true }) : null;
   let planningReady = false;
+  /** Fenêtres natives de clôture et de démarrage demandées à la « page hôte » du banc. */
+  const sprintDialogs: { action: string; sprintId: number }[] = [];
   const platform = {
     ...fakePlatform(jira),
     // Le banc affiche la version réellement construite, sans modifier ensuite son rendu.
@@ -652,14 +655,39 @@ if (scenario.startsWith("board")) {
     },
   });
   if (planning) {
-    // Garde-fous du paquet : appels réels du modèle avec un brouillon déjà dans le stockage.
+    // Planning en direct sur le faux Jira, et garde-fous du paquet : appels réels du modèle avec
+    // un ancien brouillon déjà dans le stockage.
     Object.assign(window, {
       __planning: {
         inspect: planning.inspect,
         ready: () => planningReady,
         requestCount: () => jira.requests.length,
+        /** Requêtes émises depuis `since` (index dans le journal du faux Jira). */
+        requestsSince: (since: number) =>
+          jira.requests.slice(since).map(({ method, path }) => `${method} ${path}`),
         storedDrafts: () =>
           [...platform.stored].filter(([key]) => key.startsWith("sprint-planning.")),
+        changeGoalText: planning.changeGoalText,
+        /** Ancien brouillon `sprint-planning.v1` du site, comme l'écrivait la décision du 14/10. */
+        async seedLegacyDraft() {
+          const current = model.connection.value;
+          if (current.state !== "connected") throw new Error("Board fictif non connecté");
+          await platform.store.set(`sprint-planning.v1:${current.board.site.origin}`, {
+            version: 1,
+            boards: { "7": { sprintId: 43, goals: [{ id: "brouillon", title: "Ancien" }] } },
+          });
+        },
+        sprintDialogs: () => sprintDialogs,
+        /**
+         * Fermeture simulée de la fenêtre native (message `refresh` de la page hôte) : validée,
+         * le sprint actif 42 est clos dans le faux Jira ; annulée, il reste actif.
+         */
+        async closeNativeDialog(completed: boolean) {
+          const current = model.connection.value;
+          if (current.state !== "connected") throw new Error("Board fictif non connecté");
+          if (completed) planning.activeSprint.state = "closed";
+          await current.board.planning.afterNativeDialog();
+        },
         async exerciseEntrypoints() {
           const current = model.connection.value;
           if (current.state !== "connected") throw new Error("Board fictif non connecté");
@@ -668,20 +696,27 @@ if (scenario.startsWith("board")) {
           await current.board.planning.refresh();
           await current.board.planning.selectSprint(43);
           const planningModel = current.board.planning;
+          planningModel.setSearch("ABC");
           await planningModel.addGoal("Objectif du paquet");
+          await planningModel.renameGoal("objectif", "Renommé");
+          await planningModel.moveGoal("objectif", 1);
+          await planningModel.removeGoal("objectif");
           await planningModel.placeIssue("ABC-201", null);
           await planningModel.removeIssue("ABC-210", { kind: "backlog" });
+          await planningModel.removeIssue("ABC-210", { kind: "sprint", sprintId: 44 });
           await planningModel.saveVelocity(20);
           await planningModel.searchGoals("");
           await planningModel.pinGoal("ari-paquet");
+          await planningModel.unpinGoal("ari-paquet");
           planningModel.closeActiveSprint();
           planningModel.startSprint();
           await planningModel.afterNativeDialog();
           model.view.value = "planning";
-          // Noms gardés pour `verify:planning:package` : aucune lecture, aucun geste possible.
           return {
-            draft: planningModel.snapshot.value,
-            canPublish: !planningModel.gesturesDisabled.value,
+            snapshot: planningModel.snapshot.value,
+            sprints: planningModel.sprints.value.length,
+            gesturesEnabled: !planningModel.gesturesDisabled.value,
+            sprintDialogs: sprintDialogs.length,
           };
         },
       },
@@ -834,6 +869,13 @@ if (scenario.startsWith("board")) {
         };
         connection.board.snapshot.value = { ...snapshot, goals: [...snapshot.goals, ...hidden] };
       }
+    }
+    if (planning) {
+      // Page hôte simulée : la demande est notée ; la fermeture vient de `closeNativeDialog`.
+      connection.board.nativeSprintDialogHandler = (action, sprint) => {
+        sprintDialogs.push({ action, sprintId: sprint.id });
+        return true;
+      };
     }
     if (automaticTransitionDrag) {
       connection.board.nativeTransitionHandler = (issueKey, transition) => {

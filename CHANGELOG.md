@@ -3,6 +3,34 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.42.0 — Sprint Planning en direct dans Jira (builds locaux)
+
+- Sprint Planning suit la décision du 01/11/2026 : chaque geste écrit aussitôt dans Jira, seule
+  source, par la porte d'écriture du board, avec une seule tentative et une relecture qui conditionne
+  chaque écriture. Plus de brouillon local ni de « Publier » : les anciens brouillons
+  `sprint-planning.v1` sont effacés à l'ouverture du planning (et toujours à la déconnexion).
+- Écran dans la grammaire de la page du sprint : sprint futur préparé et menu des sprints futurs,
+  champ **Vélocité de l'équipe** et charge, colonne **Où sont les tickets** (autres sprints futurs,
+  backlog, reste à faire du sprint actif en consultation), une swimlane par objectif puis **Sans
+  objectif**, recherche `/` commune.
+- Objectifs texte : ajout, renommage (Entrée ou sortie du champ, Échap annule), ordre et suppression
+  écrivent le texte du sprint (E8) puis `sprintgoals.v1` (E5) ; un texte changé dans Jira depuis
+  l'affichage n'écrit rien et demande de refaire. Goals Atlassian : recherche par nom et épinglage,
+  jamais de création.
+- Ticket posé sur un objectif, par glisser-déposer ou menu ⋯ : ajout au sprint (E9, aussi depuis un
+  autre sprint futur) puis rattachement. Retrait du seul sprint en préparation, vers le backlog
+  (nouvelle écriture E10, `POST /rest/agile/1.0/backlog/issue`) ou un autre sprint futur.
+- Vélocité partagée : nouveau champ facultatif `velocity` de `sprintgoals.v1`, écrit quand il est
+  validé ; une propriété sans ce champ reste lisible.
+- Clôture et démarrage par les fenêtres natives de Jira, que l'utilisateur seul remplit
+  (message `sprint-dialog` vers la page hôte). « Démarrer » reste désactivé avec sa raison tant
+  qu'un sprint est actif. Après une clôture confirmée, les objectifs non atteints sont reportés sur
+  le sprint préparé ; une fenêtre annulée ne reporte rien.
+- Avis du planning en clés de catalogue, traduits en anglais et en espagnol.
+- Toujours désactivé dans le paquet distribué (`npm run package`) jusqu'à l'essai sur un vrai Jira.
+  `npm run verify:planning` déroule ces gestes sur le faux Jira (fenêtres natives simulées, 640 et
+  390 px) ; `verify:planning:package` vérifie l'absence d'entrée, de requête et d'écriture.
+
 ## 0.41.1 — Menu de carte : liste des objectifs ouverte au survol
 
 - Dans le menu d'une carte, la liste de **Envoyer vers un goal** devient un sous-menu à côté du

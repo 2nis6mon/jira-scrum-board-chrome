@@ -37,7 +37,7 @@ Feature flag `SPRINT_PLANNING_ENABLED` : Vite injecte `__SPRINT_PLANNING_ENABLED
 Il vaut `true` uniquement pour les modes `dist` (`npm run build`), `development` (`watch` et banc)
 et `test` ; `false` pour `package`, `production` et tout mode inconnu. `npm run package` reconstruit
 toujours dans un dossier temporaire avec `--mode package`, sans reprendre ni remplacer `dist/`.
-Le paquet masque l'entrée et bloque l'ouverture, les lectures et la publication du planning.
+Le paquet masque l'entrée et bloque l'ouverture, les lectures, les gestes et les fenêtres natives du planning.
 Ce flag ne provient ni de `.env`, ni d'un paramètre d'URL, ni d'une préférence Chrome.
 
 ## Commandes
@@ -52,8 +52,8 @@ Ce flag ne provient ni de `.env`, ni d'un paramètre d'URL, ni d'une préférenc
 | `npm run verify:drag` / `verify:button` | Gestes, menu de carte au survol ; bouton et stockage Chrome, zoom/redimensionnement/plein écran |
 | `npm run verify:settings` | Glissés des réglages : swimlanes, types, champs et règles de couleur |
 | `npm run verify:i18n` | Rendu FR/EN/ES et préférence de langue (voir [invariants](invariants.md#langue-de-linterface)) |
-| `npm run verify:planning` | Atelier, glissés/affectations, brouillon, publication, RAF consultatif et petit écran |
-| `npm run verify:planning:package` | Passage du mode local au mode package : entrée/route désactivées, zéro requête Planning, brouillon conservé |
+| `npm run verify:planning` | Planning en direct sur le faux Jira : ouverture sans écriture, ancien brouillon effacé ; ajout et renommage d'objectif (E8 puis E5), glissés depuis le backlog et un autre sprint futur (E9 puis E5), renvoi au backlog (E10), vélocité (E5) ; conflit de texte sans écriture ; sprint actif consultatif, « Démarrer » désactivé avec sa raison ; fenêtres natives simulées (clôture annulée puis validée avec report, démarrage) ; 640 et 390 px sans débordement |
+| `npm run verify:planning:package` | Banc compilé en mode `package` : ni entrée ni vue, appels directs des points d'entrée sans requête, écriture ni fenêtre native, ancien brouillon ni lu ni effacé |
 | `npm run verify:loading` | Diagnostic de chargement du banc fictif |
 | `npm run package` | Archive `release/sprint-goals-board-<version>.zip` vérifiée |
 | `npm run store:screenshots` | Cinq captures Store 1280 × 800 du banc en mode `package`, sans Sprint Planning |

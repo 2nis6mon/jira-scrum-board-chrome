@@ -33,7 +33,6 @@ réelle (droits, volumes) et son activation dans le paquet sont planifiées dans
 [epics.md](epics.md).
 Depuis le 01/11/2026, le planning se fait en direct dans Jira, clôture et démarrage par les fenêtres
 natives compris ([décisions](../forge/sprint-planning-complet/forged-idea.md)). La création de sprint
-et la création de Goals restent hors périmètre.
-Contrats de publication et backlog vérifiés le 14/10/2026 dans les références officielles
-[Sprint](https://developer.atlassian.com/cloud/jira/software/rest/api-group-sprint/) et
-[Board](https://developer.atlassian.com/cloud/jira/software/rest/api-group-board/).
+et la création de Goals restent hors périmètre. Livré en 0.42.0 (stories 8.1 à 8.9), toujours désactivé
+dans le paquet ; contrats dans [intégration Jira](../../docs/technique/integration-jira.md).
+Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l'activation (8.11).

@@ -8,7 +8,7 @@ autres références : [index technique](index.md).
 
 | Propriété Jira | Contenu |
 |---|---|
-| `com.scrumboardmac.sprintgoals.v1` | Objectifs texte, liens ticket → objectif, Goals épinglés Scrum, métadonnées |
+| `com.scrumboardmac.sprintgoals.v1` | Objectifs texte, liens ticket → objectif, Goals épinglés Scrum, `velocity` (nombre de 0 à 100 000 ou `null`, facultatif : absent, aucune vélocité affichée), métadonnées |
 | `com.scrumboardmac.boardsettings.v1` | Réglages partagés, swimlanes, Goals épinglés Kanban |
 | `com.scrumboardmac.diagnostic` | Test d'écriture demandé, relu puis supprimé |
 
@@ -17,7 +17,8 @@ illisibles jamais écrasées, clés inconnues conservées, limite client 32 Ko. 
 [`sprintGoals.ts`](../../src/core/sprintGoals.ts), [`teamSettings.ts`](../../src/core/teamSettings.ts) et leurs tests.
 `sprintgoals.v1` n'est mis à jour que par `updateSprintGoalProperty` (`sprintGoals.ts`) : relecture
 stricte (version inconnue refusée), refus si la zone modifiée a changé depuis le chargement (lien
-du ticket, Goals épinglés, document entier pour le planning), fusion sur Jira frais sinon, clés
+du ticket, Goals épinglés, liste `[id, titre]` des objectifs pour un geste du planning sur les objectifs
+texte, `velocity` pour la vélocité), fusion sur Jira frais sinon, clés
 inconnues gardées à la racine et par objectif, `updatedAt` ISO à la seconde, une seule écriture.
 Un rattachement texte (`withTextGoalLink`) part des objectifs relus : ceux affichés gardent leurs
 champs de Jira avec le titre et la position du board, ceux réconciliés depuis le texte sont ajoutés ;
@@ -53,7 +54,7 @@ comme donnée inconnue, sans effet sur le classement.
 | `connection.v1`, `launcher.v1` | Site connecté ; dernière adresse de board |
 | `boards.v1`, `interface.v1` | Boards/configuration/sélection par site ; préférences de présentation |
 | `language.v1` | Langue personnelle (`auto`, `fr`, `en`, `es`), commune aux boards de ce navigateur |
-| `sprint-planning.v1:<origine Jira>` | Brouillons par board/sprint : objectifs texte, clés/rattachements, capacité, révision de base ; oubli du board/site les efface |
+| `sprint-planning.v1:<origine Jira>` | Anciens brouillons du planning (décision du 14/10/2026) : plus écrits ni appliqués, effacés à l'ouverture du planning d'un build local et à la déconnexion du site |
 | `jira-button-position.v1:<origine Jira>` | Position personnelle commune aux boards d'un site |
 | `dismissedNotices.v1`, `graphqlOrigin.v1` | Avis fermés par site/board ; variante Origin du site |
 | `audit.v1` | Au plus 500 écritures de l'extension : clés des tickets, résultat, erreurs, aucun cookie ni saisie native. Depuis 0.36.2, `toMessage`/`detailMessage` (facultatifs) portent une clé du catalogue et ses paramètres, traduits à l'affichage ; `to`/`detail` ne gardent que du contenu Jira brut ou `null` (`detail` : seul le message renvoyé par Atlassian lors d'un rattachement refusé). Le message d'erreur d'une écriture en échec est rangé dans `detailMessage` sous la forme `{ text }`, présentée par `localize`. Les anciennes entrées (phrases dans `to`/`detail`) restent affichées comme avant. Les champs exigés par 0.36.1 sont inchangés : une version précédente accepte les nouvelles entrées, mais affiche vides leurs colonnes Cible et Détail produites par l'extension |
@@ -61,7 +62,7 @@ comme donnée inconnue, sans effet sur le classement.
 
 Chaque clé a un module propriétaire sous `src/app/model/` : `connectionStore.ts` (`connection.v1`,
 `launcher.v1`), `boardStore.ts`, `noticeStore.ts`, `graphqlOrigin.ts`, `auditLog.ts`,
-`PlanningModel.ts` (brouillons), `buttonPosition.ts` (préfixe dupliqué et nommé dans `bootstrap.ts`,
+`PlanningModel.ts` (anciens brouillons), `buttonPosition.ts` (préfixe dupliqué et nommé dans `bootstrap.ts`,
 sans import), `AppModel.ts` (`interface.v1`) et `LoadDiagnostics.ts` ; la langue relève de
 `src/i18n/language.ts`. La déconnexion d'un site attend d'abord la porte d'écriture et la file
 locale du board (chaque requête reste bornée par le délai du transport, 30 s) ; ensuite le board
