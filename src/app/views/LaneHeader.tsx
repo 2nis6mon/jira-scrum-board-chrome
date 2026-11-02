@@ -8,7 +8,7 @@ import { formatPoints, plural } from "./format";
 
 /** Segment d'une barre empilée : sa part, sa couleur, et son texte (survol, lecteurs d'écran). */
 export interface BarSegment {
-  readonly tone: ColumnState | "over";
+  readonly tone: ColumnState | "delivered" | "over";
   readonly value: number;
   readonly label: string;
 }
@@ -61,67 +61,109 @@ export function tallyText(tally: StateTally, points: boolean): string {
 }
 
 /** Part d'un état dans la barre : les points s'il y en a, sinon les tickets. */
-function weight(tallies: StateTallies, points: boolean): (state: ColumnState) => number {
-  const totalPoints = BAR_ORDER.reduce((sum, state) => sum + tallies[state].points, 0);
-  return points && totalPoints > 0
-    ? (state) => tallies[state].points
-    : (state) => tallies[state].count;
+function weight(
+  tallies: StateTallies,
+  points: boolean,
+  delivered: StateTally | null,
+): (tally: StateTally) => number {
+  const totalPoints =
+    BAR_ORDER.reduce((sum, state) => sum + tallies[state].points, 0) + (delivered?.points ?? 0);
+  return points && totalPoints > 0 ? (tally) => tally.points : (tally) => tally.count;
 }
 
-/** Barre d'avancement par état (gris à faire, bleu en cours, vert terminé). */
+/** Libellé de « Terminé », déjà livré compris s'il y en a. */
+function doneLabel(tallies: StateTallies, points: boolean, delivered: StateTally | null): string {
+  return delivered
+    ? t("Terminé : {p0}, plus déjà livré : {p1}", {
+        p0: tallyText(tallies.done, points),
+        p1: tallyText(delivered, points),
+      })
+    : t(STATE_LABEL.done, { p0: tallyText(tallies.done, points) });
+}
+
+/**
+ * Barre d'avancement par état (gris à faire, bleu en cours, vert terminé). Le déjà livré avant ce
+ * sprint (planning, story 8.21) suit le terminé, hachuré : il élargit la barre sans entrer dans les
+ * totaux du sprint.
+ */
 export function StateBar({
   tallies,
   points,
   label,
+  delivered = null,
 }: {
   tallies: StateTallies;
   points: boolean;
   label: string;
+  delivered?: StateTally | null;
 }) {
-  const share = weight(tallies, points);
-  return (
-    <StackedBar
-      label={label}
-      segments={BAR_ORDER.map((state) => ({
-        tone: state,
-        value: share(state),
-        label: t(STATE_LABEL[state], { p0: tallyText(tallies[state], points) }),
-      }))}
-    />
-  );
+  const share = weight(tallies, points, delivered);
+  const segments: BarSegment[] = BAR_ORDER.flatMap((state): BarSegment[] => {
+    const segment: BarSegment = {
+      tone: state,
+      value: share(tallies[state]),
+      label: t(STATE_LABEL[state], { p0: tallyText(tallies[state], points) }),
+    };
+    return state === "done" && delivered
+      ? [
+          segment,
+          {
+            tone: "delivered",
+            value: share(delivered),
+            label: t("Déjà livré : {p0}", { p0: tallyText(delivered, points) }),
+          },
+        ]
+      : [segment];
+  });
+  return <StackedBar label={label} segments={segments} />;
 }
 
 /**
- * Avancement d'un objectif, identique sur les deux écrans : « n/N terminés · x/y pts », la barre
- * par état, et sa légende (points, ou tickets, de chaque état). Sans ticket compté : « Aucun ticket
- * rattaché ».
+ * Avancement d'un objectif, identique sur les deux écrans : « n/N terminés · x/y pts » (sprint
+ * seul), la barre par état, et sa légende (points, ou tickets, de chaque état ; le déjà livré dans
+ * celle de « Terminé »). Sans ticket compté : « Aucun ticket rattaché ».
  */
 export function GoalProgressSummary({
   name,
   tallies,
   points,
+  delivered = null,
 }: {
   name: string;
   tallies: StateTallies;
   points: boolean;
+  delivered?: StateTally | null;
 }) {
   const total = LEGEND_ORDER.reduce((sum, state) => sum + tallies[state].count, 0);
-  if (total === 0) return <span class="lane-progress">{t("Aucun ticket rattaché")}</span>;
+  if (total === 0 && !delivered)
+    return <span class="lane-progress">{t("Aucun ticket rattaché")}</span>;
   const totalPoints = LEGEND_ORDER.reduce((sum, state) => sum + tallies[state].points, 0);
+  const value = (tally: StateTally) => (points ? formatPoints(tally.points) : String(tally.count));
   return (
     <span class="lane-progress">
       <span>
         {t("{done}/{total} terminés", { done: tallies.done.count, total })}
         {points && ` · ${formatPoints(tallies.done.points)}/${formatPoints(totalPoints)} pts`}
       </span>
-      <StateBar tallies={tallies} points={points} label={t("Avancement de {name}", { name })} />
+      <StateBar
+        tallies={tallies}
+        points={points}
+        delivered={delivered}
+        label={t("Avancement de {name}", { name })}
+      />
       <span class="state-legend">
         {LEGEND_ORDER.map((state) => {
-          const label = t(STATE_LABEL[state], { p0: tallyText(tallies[state], points) });
+          const label =
+            state === "done"
+              ? doneLabel(tallies, points, delivered)
+              : t(STATE_LABEL[state], { p0: tallyText(tallies[state], points) });
           return (
             <span key={state} class="state-chip" data-state={state} title={label}>
               <span aria-hidden="true">
-                {points ? formatPoints(tallies[state].points) : tallies[state].count}
+                {value(tallies[state])}
+                {state === "done" && delivered && (
+                  <span class="state-chip-delivered"> +{value(delivered)}</span>
+                )}
               </span>
               <span class="visually-hidden">{label}</span>
             </span>
@@ -149,7 +191,12 @@ export function LaneHeader({
   leading?: ComponentChildren;
   title: ComponentChildren;
   count: ComponentChildren;
-  progress?: { name: string; tallies: StateTallies; points: boolean } | null;
+  progress?: {
+    name: string;
+    tallies: StateTallies;
+    points: boolean;
+    delivered?: StateTally | null;
+  } | null;
   children?: ComponentChildren;
 }) {
   return (

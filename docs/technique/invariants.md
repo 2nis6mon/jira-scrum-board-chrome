@@ -173,7 +173,8 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
 - Sprints proposés (0.43.1) : seulement ceux que l'utilisateur peut modifier (administrateur, ou
   « Gérer les sprints » sur tous les projets du board d'origine) ; indécidable : proposé.
 - Avancement des objectifs (story 8.16) : répartition par colonne (depuis 8.20), filtres ignorés ;
-  déjà livré avant ce sprint affiché à part, jamais compté dans la charge ; lectures seules,
+  déjà livré avant ce sprint (statut dans la dernière colonne, 8.21) : segment hachuré à la suite du
+  terminé et légende de « Terminé », jamais compté dans la charge ni dans « n/N terminés » ; lectures seules,
   relues quand les objectifs changent, jamais après un geste qui ne les change pas.
 
 - Même colonne : aucun changement de statut. Autre colonne : seuls les statuts accessibles

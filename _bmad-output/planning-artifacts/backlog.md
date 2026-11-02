@@ -126,7 +126,7 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   disponible ; à vérifier avec la règle « terminé » à unifier (dernière colonne contre catégorie).
   Lecture seule, aucune écriture.
   Planifiée : story 8.20 (epics.md).
-- [ ] Amélioration (demande de Denis, 02/11/2026) : dans l'en-tête d'objectif du planning, ranger
+- [x] Amélioration (demande de Denis, 02/11/2026) : dans l'en-tête d'objectif du planning, ranger
   « Déjà livré : 2 tickets · 8 pts » (`planning-lane-delivered`) dans la partie « Terminé » au lieu
   d'une mention à part. Contrainte de la story 8.16 : le déjà livré date des sprints précédents et
   reste hors de la charge du sprint et de la vélocité ; le distinguer dans la partie terminée (par

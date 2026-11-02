@@ -604,6 +604,7 @@ export const businessMessagesEs = {
   "Aucun sprint futur que vous pouvez modifier": "Ningún sprint futuro que puedas modificar",
   "1 ticket sélectionné": "1 ticket seleccionado",
   "Estimer {p0}": "Estimar {p0}",
+  "Terminé : {p0}, plus déjà livré : {p1}": "Terminado: {p0}, más ya entregado: {p1}",
   "Estimation de {p0}": "Estimación de {p0}",
   "Sans estimation : cliquez pour estimer": "Sin estimación: haz clic para estimar",
   "Modifier l'estimation": "Cambiar la estimación",
@@ -616,8 +617,6 @@ export const businessMessagesEs = {
   "En cours : {p0}": "En curso: {p0}",
   "Terminé : {p0}": "Terminado: {p0}",
   "Déjà livré : {p0}": "Ya entregado: {p0}",
-  "Tickets terminés avant ce sprint, hors de sa charge":
-    "Tickets terminados antes de este sprint, fuera de su carga",
   "Lecture incomplète de ce qui a déjà été livré : il peut en manquer.":
     "No se pudo leer por completo lo ya entregado: puede faltar algo.",
   "Jira demande le droit « Gérer les sprints » sur les projets du board de chaque sprint. Demandez-le à un administrateur, puis actualisez.":

@@ -583,6 +583,7 @@ export const businessMessages = {
   "Aucun sprint futur que vous pouvez modifier": "No future sprint you can edit",
   "1 ticket sélectionné": "1 issue selected",
   "Estimer {p0}": "Estimate {p0}",
+  "Terminé : {p0}, plus déjà livré : {p1}": "Done: {p0}, plus already delivered: {p1}",
   "Estimation de {p0}": "Estimate of {p0}",
   "Sans estimation : cliquez pour estimer": "No estimate: click to estimate",
   "Modifier l'estimation": "Change the estimate",
@@ -595,8 +596,6 @@ export const businessMessages = {
   "En cours : {p0}": "In progress: {p0}",
   "Terminé : {p0}": "Done: {p0}",
   "Déjà livré : {p0}": "Already delivered: {p0}",
-  "Tickets terminés avant ce sprint, hors de sa charge":
-    "Issues done before this sprint, not counted in its load",
   "Lecture incomplète de ce qui a déjà été livré : il peut en manquer.":
     "What was already delivered could not be read in full: some may be missing.",
   "Jira demande le droit « Gérer les sprints » sur les projets du board de chaque sprint. Demandez-le à un administrateur, puis actualisez.":

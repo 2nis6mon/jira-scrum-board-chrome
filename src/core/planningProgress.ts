@@ -1,5 +1,5 @@
 import type { IssueQuery, JiraClient } from "../jira/client";
-import { isDoneStatus, type JiraIssue, type JiraSprint } from "../jira/models";
+import type { JiraIssue, JiraSprint } from "../jira/models";
 import { isIssueKey, SPRINT_PROPERTY_KEYS } from "../jira/writes";
 import { readSprintGoalProperty, reconcileSprintGoals, stableGoalIds } from "./sprintGoals";
 
@@ -41,7 +41,8 @@ export type HistoryReader = Pick<JiraClient, "sprints" | "sprintProperty" | "spr
 /**
  * Objectifs texte reportés : en remontant les sprints clos du board, du plus récent au plus
  * ancien, tant que l'identifiant de l'objectif figure dans leur propriété, les tickets terminés
- * qui y étaient rattachés. Un report renommé `<id>-<sprint>` (collision d'identifiant) est suivi
+ * (statut aujourd'hui dans la dernière colonne du board, `doneStatusIds`, story 8.21) qui y étaient
+ * rattachés. Un report renommé `<id>-<sprint>` (collision d'identifiant) est suivi
  * jusqu'à son identifiant d'origine. Un ticket compte une fois ; ceux du sprint en préparation
  * sont exclus.
  */
@@ -53,9 +54,12 @@ export async function textGoalHistory(
     goalIds: readonly string[];
     sprintKeys: ReadonlySet<string>;
     query: IssueQuery;
+    /** Statuts de la dernière colonne visible du board : seule règle de « terminé ». */
+    doneStatusIds: readonly string[];
   },
   cache: ClosedSprintCache = closedSprintCache(),
 ): Promise<GoalHistory> {
+  const doneStatuses = new Set(input.doneStatusIds);
   const delivered: Record<string, JiraIssue[]> = {};
   let incomplete = false;
   /** Objectif affiché → identifiant à chercher dans le sprint clos suivant (plus ancien). */
@@ -110,7 +114,8 @@ export async function textGoalHistory(
     for (const [goalId, id] of issues === null ? [] : found) {
       const list = delivered[goalId] ?? [];
       for (const issue of issues ?? []) {
-        if (data.links[issue.key] !== id || !isDoneStatus(issue.fields.status)) continue;
+        if (data.links[issue.key] !== id || !doneStatuses.has(issue.fields.status?.id ?? ""))
+          continue;
         if (input.sprintKeys.has(issue.key) || list.some((known) => known.key === issue.key))
           continue;
         list.push(issue);
@@ -169,7 +174,8 @@ const KEYS_PER_READ = 50;
 
 /**
  * Goals Atlassian : tickets liés au Goal (`workItems` de l'API Goals) déjà terminés hors du sprint
- * en préparation, lus parmi les tickets du board par JQL (`key in (…) AND statusCategory = Done`).
+ * en préparation, lus parmi les tickets du board par JQL (`key in (…) AND status in (…)`, statuts de
+ * la dernière colonne visible du board, story 8.21).
  * `workItemsComplete` faux (lecture partielle des Goals) rend l'historique incomplet.
  */
 export async function atlassianGoalHistory(
@@ -181,24 +187,30 @@ export async function atlassianGoalHistory(
     workItemsComplete: boolean;
     sprintKeys: ReadonlySet<string>;
     query: IssueQuery;
+    /** Statuts de la dernière colonne visible du board : seule règle de « terminé ». */
+    doneStatusIds: readonly string[];
   },
 ): Promise<GoalHistory> {
   let incomplete = !input.workItemsComplete;
+  // Seuls des identifiants numériques entrent dans le JQL ; sans dernière colonne, rien n'est terminé.
+  const doneIds = input.doneStatusIds.filter((id) => /^\d+$/.test(id));
+  const doneStatuses = new Set(doneIds);
   const wanted = new Set<string>();
   for (const goalId of input.goalIds)
     for (const key of input.workItems[goalId] ?? [])
       if (isIssueKey(key) && !input.sprintKeys.has(key)) wanted.add(key);
-  const keys = [...wanted].sort();
+  const keys = doneIds.length > 0 ? [...wanted].sort() : [];
   const done = new Map<string, JiraIssue>();
   for (let start = 0; start < keys.length; start += KEYS_PER_READ) {
     const chunk = keys.slice(start, start + KEYS_PER_READ);
     try {
       const issues = await reader.boardIssues(
         input.boardId,
-        `key in (${chunk.join(", ")}) AND statusCategory = Done`,
+        `key in (${chunk.join(", ")}) AND status in (${doneIds.join(",")})`,
         input.query,
       );
-      for (const issue of issues) if (isDoneStatus(issue.fields.status)) done.set(issue.key, issue);
+      for (const issue of issues)
+        if (doneStatuses.has(issue.fields.status?.id ?? "")) done.set(issue.key, issue);
     } catch {
       incomplete = true;
     }

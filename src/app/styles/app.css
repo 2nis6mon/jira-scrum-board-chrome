@@ -1015,6 +1015,15 @@ button.lane-title[aria-pressed="true"] {
   background: var(--state-done);
 }
 
+/* Déjà livré avant ce sprint (planning) : le vert du terminé, hachuré, hors des totaux. */
+.state-bar i[data-state="delivered"] {
+  background: repeating-linear-gradient(135deg, var(--state-done) 0 2px, #a7dcb8 2px 4px);
+}
+
+.state-chip-delivered {
+  font-weight: 400;
+}
+
 .state-bar i[data-state="over"] {
   background: var(--blocked);
 }

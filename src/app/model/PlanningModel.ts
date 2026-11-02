@@ -554,10 +554,13 @@ export class PlanningModel implements PlanningViewModel {
     const text = configuration.goalSource !== "atlassianGoals";
     const goalIds = (text ? snapshot.goals : (atlassian?.goals ?? [])).map((goal) => goal.id);
     const workItems = atlassian?.workItems ?? {};
+    // « Terminé » = dernière colonne visible du board (stories 8.20, 8.21).
+    const doneStatusIds = columnStates(configuration.columns).doneStatusIds;
     const key = JSON.stringify([
       snapshot.sprint.id,
       text,
       goalIds,
+      doneStatusIds,
       text ? null : goalIds.map((id) => workItems[id] ?? []),
     ]);
     if (key === this.#historyKey) return;
@@ -575,6 +578,7 @@ export class PlanningModel implements PlanningViewModel {
               goalIds,
               sprintKeys,
               query: snapshot.query,
+              doneStatusIds,
             },
             this.#closedSprints,
           )
@@ -591,6 +595,7 @@ export class PlanningModel implements PlanningViewModel {
               ),
             sprintKeys,
             query: snapshot.query,
+            doneStatusIds,
           });
     } catch {
       history = { delivered: {}, incomplete: true };

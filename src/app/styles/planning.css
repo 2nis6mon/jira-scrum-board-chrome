@@ -737,16 +737,6 @@ details.planning-card-menu .menu-panel[data-at-point] {
   color: var(--ink-3);
 }
 
-/* Déjà livré avant ce sprint : à part, discret, hors de la charge. */
-.planning-lane-delivered {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: #166534;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
 .planning-history-incomplete {
   margin: 0;
 }

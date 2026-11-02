@@ -1416,7 +1416,14 @@ describe("Sprint Planning : avancement de chaque objectif (8.16)", () => {
     jira.on("GET", "/rest/agile/1.0/board/7/issue", {
       status: 200,
       json: {
-        issues: [issueJson("ABC-160", { category: "done", statusName: "Terminé", points: 8 })],
+        issues: [
+          issueJson("ABC-160", {
+            statusId: "6",
+            category: "done",
+            statusName: "Terminé",
+            points: 8,
+          }),
+        ],
         total: 1,
       },
     });
@@ -1424,9 +1431,7 @@ describe("Sprint Planning : avancement de chaque objectif (8.16)", () => {
     await vi.waitFor(() => expect(planning.goalHistory.value).not.toBeNull());
     expect(lane(planning, GOAL_A)?.delivered).toEqual({ count: 1, points: 8 });
     const read = jira.requests.find((request) => request.path === "/rest/agile/1.0/board/7/issue");
-    expect(read?.url.searchParams.get("jql")).toContain(
-      "key in (ABC-160) AND statusCategory = Done",
-    );
+    expect(read?.url.searchParams.get("jql")).toContain("key in (ABC-160) AND status in (6)");
     expect(planning.sprintLoad.value?.total).toBe(2);
   });
 

@@ -3,6 +3,15 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.47.2 — Sprint Planning : le déjà livré dans la partie terminée de la barre (builds locaux)
+
+- Demande de Denis du 02/11/2026 (story 8.21) : le déjà livré d'un objectif n'est plus une mention
+  à part. Il prolonge le vert du terminé dans la barre, hachuré, et la légende de « Terminé » le
+  cite (« Terminé : 3 tickets · 5 pts, plus déjà livré : 2 tickets · 8 pts »). La charge, la
+  vélocité et « n/N terminés » ne comptent toujours que le sprint en préparation.
+- Le déjà livré suit la règle des colonnes : un ticket compte s'il est aujourd'hui dans la dernière
+  colonne du board, en objectifs texte comme en Goals Atlassian.
+
 ## 0.47.1 — Sprint Planning : plus de tickets terminés dans « Où sont les tickets » (builds locaux)
 
 - Essai du 02/11/2026 (story 8.22) : la colonne montrait des tickets annulés ou terminés que le

@@ -771,7 +771,7 @@ describe("Sprint Planning en direct : écran", () => {
     expect(document.querySelector(".planning-velocity")).toBeNull();
   });
 
-  it("avancement d'un objectif : n/N terminés, à faire, en cours, terminé, et déjà livré à part", async () => {
+  it("avancement d'un objectif : n/N terminés et barre par état ; sans déjà livré, barre du sprint seul", async () => {
     const { planning } = setup();
     const first = lane(0, [IN_G1]);
     planning.lanes.value = [
@@ -784,7 +784,7 @@ describe("Sprint Planning en direct : écran", () => {
           inProgress: { count: 1, points: 3 },
           done: { count: 1, points: 2 },
         },
-        delivered: { count: 2, points: 8 },
+        delivered: null,
         deliveredIncomplete: true,
       },
       lane(1, [ARRIVED]),
@@ -814,13 +814,54 @@ describe("Sprint Planning en direct : écran", () => {
       "En cours : 1 ticket · 3 pts",
       "Terminé : 1 ticket · 2 pts",
     ]);
-    expect(header.querySelector(".planning-lane-delivered")?.textContent).toContain(
+    expect(text()).toContain("Lecture incomplète de ce qui a déjà été livré");
+  });
+
+  it("déjà livré dans la partie terminée : segment hachuré, légende de « Terminé », totaux du sprint seul (8.21)", async () => {
+    const { planning } = setup();
+    const first = lane(0, [IN_G1]);
+    planning.lanes.value = [
+      {
+        ...first,
+        issueCount: 3,
+        points: 10,
+        progress: {
+          todo: { count: 1, points: 5 },
+          inProgress: { count: 1, points: 3 },
+          done: { count: 1, points: 2 },
+        },
+        delivered: { count: 2, points: 8 },
+      },
+      lane(1, [ARRIVED]),
+    ];
+    await tick();
+    const header = find('[data-planning-goal="g1"] .lane-header');
+    // Les totaux ne comptent que le sprint en préparation.
+    expect(header.textContent).toContain("1/3 terminés · 2/10 pts");
+    // Largeurs sur 18 pts : terminé 2, déjà livré 8, en cours 3, à faire 5.
+    const segments = [...header.querySelectorAll<HTMLElement>(".state-bar i")].map((segment) => [
+      segment.dataset.state,
+      Math.round(Number.parseFloat(segment.style.width) * 10) / 10,
+    ]);
+    expect(segments).toEqual([
+      ["done", 11.1],
+      ["delivered", 44.4],
+      ["inProgress", 16.7],
+      ["todo", 27.8],
+    ]);
+    const done = header.querySelector('.state-chip[data-state="done"]');
+    expect(done?.querySelector(".visually-hidden")?.textContent).toBe(
+      "Terminé : 1 ticket · 2 pts, plus déjà livré : 2 tickets · 8 pts",
+    );
+    expect(done?.querySelector(".state-chip-delivered")?.textContent).toBe(" +8");
+    expect(header.querySelector(".state-bar")?.getAttribute("aria-label")).toContain(
       "Déjà livré : 2 tickets · 8 pts",
     );
+    // Plus de mention à part ; un objectif sans déjà livré n'a pas de segment hachuré.
+    expect(text()).not.toContain("Déjà livré : 2 tickets · 8 pts");
     expect(
-      find('[data-planning-goal="g2"] .lane-header').querySelector(".planning-lane-delivered"),
+      find('[data-planning-goal="g2"] .lane-header').querySelector('[data-state="delivered"]'),
     ).toBeNull();
-    expect(text()).toContain("Lecture incomplète de ce qui a déjà été livré");
   });
 
   it("objectif atteint et objectif vide : même en-tête que le board ; tickets sans colonne signalés", async () => {

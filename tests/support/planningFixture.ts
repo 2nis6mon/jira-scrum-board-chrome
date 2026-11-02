@@ -176,7 +176,7 @@ export function planningFixture(
               summary: "Payer en un clic",
               category: "done",
               statusName: "Terminé",
-              statusId: "5",
+              statusId: "6",
               points: 3,
             }),
             issueJson("ABC-151", {
@@ -201,7 +201,7 @@ export function planningFixture(
               summary: "Choisir sa carte",
               category: "done",
               statusName: "Terminé",
-              statusId: "5",
+              statusId: "6",
               points: 5,
             }),
           ],

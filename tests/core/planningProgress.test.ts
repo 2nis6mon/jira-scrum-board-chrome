@@ -13,6 +13,7 @@ const query = { estimationFieldId: "customfield_10016", includeChangelog: false 
 const done = (key: string, points?: number) =>
   decodeIssue(
     issueJson(key, {
+      statusId: "6",
       category: "done",
       statusName: "Terminé",
       ...(points !== undefined && { points }),
@@ -78,6 +79,8 @@ const input = (goalIds: readonly string[], sprintKeys: readonly string[] = []) =
   goalIds,
   sprintKeys: new Set(sprintKeys),
   query,
+  // Dernière colonne du board : « Terminé » (6) ; « Livré » (7) aussi.
+  doneStatusIds: ["6", "7"],
 });
 
 describe("déjà livré d'un objectif texte reporté", () => {
@@ -109,6 +112,24 @@ describe("déjà livré d'un objectif texte reporté", () => {
     // Le sprint 39 ne porte plus l'objectif : ses tickets ne sont pas lus.
     expect(reader.sprintIssues.mock.calls.map(([, id]) => id)).toEqual([41, 40]);
     expect(reader.sprints).toHaveBeenCalledWith(7, ["closed"]);
+  });
+
+  it("terminé = dernière colonne du board, jamais la catégorie de statut Jira (8.21)", async () => {
+    const recette = decodeIssue(
+      issueJson("ABC-150", { statusId: "3", statusName: "Recette", category: "done" }),
+    );
+    const livre = decodeIssue(
+      issueJson("ABC-151", { statusId: "7", statusName: "Livré", category: "indeterminate" }),
+    );
+    const reader = history({
+      41: {
+        day: 20,
+        goals: ["g"],
+        links: { "ABC-150": "g", "ABC-151": "g" },
+        issues: [recette, livre],
+      },
+    });
+    expect(keys((await textGoalHistory(reader, input(["g"]))).delivered.g)).toEqual(["ABC-151"]);
   });
 
   it("suit un report renommé « <id>-<sprint> » jusqu'à son identifiant d'origine", async () => {
@@ -186,6 +207,7 @@ describe("déjà livré d'un Goal Atlassian", () => {
         workItemsComplete: true,
         sprintKeys: new Set(["ABC-9"]),
         query,
+        doneStatusIds: ["6", "7"],
       },
     );
     expect(keys(result.delivered["goal-a"])).toEqual(["ABC-1"]);
@@ -193,7 +215,7 @@ describe("déjà livré d'un Goal Atlassian", () => {
     expect(result.incomplete).toBe(false);
     expect(boardIssues).toHaveBeenCalledExactlyOnceWith(
       7,
-      "key in (ABC-1, ABC-2, ABC-3) AND statusCategory = Done",
+      "key in (ABC-1, ABC-2, ABC-3) AND status in (6,7)",
       query,
     );
   });
@@ -213,11 +235,41 @@ describe("déjà livré d'un Goal Atlassian", () => {
         workItemsComplete: true,
         sprintKeys: new Set(),
         query,
+        doneStatusIds: ["6"],
       },
     );
     expect(boardIssues).toHaveBeenCalledTimes(2);
     expect(keys(result.delivered["goal-a"])).toEqual(["ABC-1"]);
     expect(result.incomplete).toBe(true);
+  });
+
+  it("terminé = dernière colonne : catégorie Jira ignorée ; sans dernière colonne, rien n'est lu", async () => {
+    const recette = decodeIssue(
+      issueJson("ABC-2", { statusId: "3", statusName: "Recette", category: "done" }),
+    );
+    const livre = decodeIssue(
+      issueJson("ABC-3", { statusId: "7", statusName: "Livré", category: "indeterminate" }),
+    );
+    const boardIssues = vi.fn(async () => [recette, livre]);
+    const base = {
+      boardId: 7,
+      goalIds: ["goal-a"],
+      workItems: { "goal-a": ["ABC-2", "ABC-3"] },
+      workItemsComplete: true,
+      sprintKeys: new Set<string>(),
+      query,
+    };
+    const result = await atlassianGoalHistory(
+      { boardIssues },
+      { ...base, doneStatusIds: ["6", "7"] },
+    );
+    expect(keys(result.delivered["goal-a"])).toEqual(["ABC-3"]);
+    boardIssues.mockClear();
+    expect(await atlassianGoalHistory({ boardIssues }, { ...base, doneStatusIds: [] })).toEqual({
+      delivered: {},
+      incomplete: false,
+    });
+    expect(boardIssues).not.toHaveBeenCalled();
   });
 
   it("des workItems lus en partie rendent l'historique incomplet", async () => {
@@ -230,6 +282,7 @@ describe("déjà livré d'un Goal Atlassian", () => {
         workItemsComplete: false,
         sprintKeys: new Set(),
         query,
+        doneStatusIds: ["6"],
       },
     );
     expect(result).toEqual({ delivered: {}, incomplete: true });

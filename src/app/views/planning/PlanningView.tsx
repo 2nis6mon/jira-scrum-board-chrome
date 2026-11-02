@@ -24,7 +24,7 @@ import { JiraIcon } from "../board/JiraIcon";
 import { formatDay, formatPoints, initials, plural, pluralWord, toggled } from "../format";
 import { GoalMarker } from "../GoalMarker";
 import { Icon } from "../Icon";
-import { LaneHeader, StackedBar, tallyText } from "../LaneHeader";
+import { LaneHeader, StackedBar } from "../LaneHeader";
 import { ErrorMessage } from "../Message";
 import "../../styles/planning.css";
 
@@ -1147,9 +1147,8 @@ function GoalLane({
           </>
         }
         count={plural(lane.issueCount, "ticket")}
-        progress={{ name: goal.title, tallies: lane.progress, points }}
+        progress={{ name: goal.title, tallies: lane.progress, points, delivered: lane.delivered }}
       >
-        <LaneDelivered lane={lane} points={points} />
         <span class="planning-lane-actions">
           {textMode ? (
             <>
@@ -1218,24 +1217,6 @@ function GoalLane({
         }
       />
     </section>
-  );
-}
-
-/** Ce qui a déjà été livré avant ce sprint, à part, jamais compté dans la charge (story 8.16). */
-function LaneDelivered({ lane, points }: { lane: PlanningLane; points: boolean }) {
-  const { delivered } = lane;
-  return (
-    <>
-      {delivered && (
-        <span
-          class="planning-lane-delivered"
-          title={t("Tickets terminés avant ce sprint, hors de sa charge")}
-        >
-          <Icon name="check" size={13} />
-          {t("Déjà livré : {p0}", { p0: tallyText(delivered, points) })}
-        </span>
-      )}
-    </>
   );
 }
 
