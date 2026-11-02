@@ -8,7 +8,12 @@ import {
   type GoalsWarning,
   type PlanningRefusal,
 } from "../../core/reasons";
-import type { CarryOverGoalStatus, PlanningOutcome, PlanningStep } from "../../core/sprintPlanning";
+import type {
+  CarryOverGoalStatus,
+  PlanningBatchOutcome,
+  PlanningOutcome,
+  PlanningStep,
+} from "../../core/sprintPlanning";
 import type { TeamFamily } from "../../core/teamSettings";
 import type { MessageKey } from "../../i18n";
 import { JiraError } from "../../jira/errors";
@@ -246,6 +251,8 @@ export function planningRefusalCause(refusal: PlanningRefusal): AppMessage {
       return message("La vélocité doit être un nombre entre 0 et 100 000.");
     case "sprintNotClosed":
       return message("Le sprint n'est pas clos dans Jira.");
+    case "batchTooLarge":
+      return message("Lot de {p0} tickets : au plus 50 par geste.", { p0: refusal.count });
     case "failed":
       return planningCause(refusal.error);
   }
@@ -296,6 +303,32 @@ export function planningOutcomeMessage(outcome: PlanningOutcome): AppMessage {
         : message("Écriture non confirmée. {p0}", { p0: rest });
     }
   }
+}
+
+/**
+ * Résultat d'un geste sur un lot de tickets : celui d'un geste unique, puis, si tout n'a pas été
+ * confirmé, les tickets confirmés et ceux qui restent à refaire. `null` : tout est confirmé.
+ */
+export function planningBatchMessage(result: PlanningBatchOutcome): AppMessage | null {
+  const { outcome, confirmedKeys, remainingKeys } = result;
+  if (outcome.kind === "done") return null;
+  const summary = planningOutcomeMessage(outcome);
+  if (outcome.kind !== "partial" || remainingKeys.length === 0) return summary;
+  return confirmedKeys.length > 0
+    ? message("{p0} Tickets confirmés : {p1}. À refaire : {p2}.", {
+        p0: summary,
+        p1: confirmedKeys.join(", "),
+        p2: remainingKeys.join(", "),
+      })
+    : message("{p0} À refaire : {p1}.", { p0: summary, p1: remainingKeys.join(", ") });
+}
+
+/** Entrée du journal d'un geste sur un lot : ses tickets, puis son résultat. */
+export function planningBatchJournalMessage(result: PlanningBatchOutcome): AppMessage {
+  return message("Tickets {p0} : {p1}", {
+    p0: [...result.confirmedKeys, ...result.remainingKeys].join(", "),
+    p1: planningBatchMessage(result) ?? planningOutcomeMessage(result.outcome),
+  });
 }
 
 /**

@@ -602,6 +602,12 @@ export const businessMessagesEs = {
   "Sprint à préparer": "Sprint por preparar",
   "Aucun sprint futur": "Ningún sprint futuro",
   "Aucun sprint futur que vous pouvez modifier": "Ningún sprint futuro que puedas modificar",
+  "1 ticket sélectionné": "1 ticket seleccionado",
+  "{count} tickets sélectionnés": "{count} tickets seleccionados",
+  "Vider la sélection": "Vaciar la selección",
+  Sélectionné: "Seleccionado",
+  "Glissez-les ou ouvrez le menu de l'une d'elles ; Échap vide la sélection.":
+    "Arrástralos o abre el menú de uno de ellos; Escape vacía la selección.",
   "À faire : {p0}": "Por hacer: {p0}",
   "En cours : {p0}": "En curso: {p0}",
   "Terminé : {p0}": "Terminado: {p0}",
@@ -661,6 +667,11 @@ export const businessMessagesEs = {
   "La vélocité doit être un nombre entre 0 et 100 000.":
     "La velocidad debe ser un número entre 0 y 100 000.",
   "Le sprint n'est pas clos dans Jira.": "El sprint no está cerrado en Jira.",
+  "Lot de {p0} tickets : au plus 50 par geste.": "Lote de {p0} tickets: 50 como máximo por acción.",
+  "{p0} Tickets confirmés : {p1}. À refaire : {p2}.":
+    "{p0} Tickets confirmados: {p1}. Por rehacer: {p2}.",
+  "{p0} À refaire : {p1}.": "{p0} Por rehacer: {p1}.",
+  "Tickets {p0} : {p1}": "Tickets {p0}: {p1}",
   "{p0} Rien n’a été écrit : la page a été relue, refaites votre modification.":
     "{p0} No se ha escrito nada: la página se ha vuelto a cargar, repite tu cambio.",
   "Enregistré et vérifié dans Jira.": "Guardado y verificado en Jira.",

@@ -3,6 +3,22 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.45.0 — Sprint Planning : déplacer plusieurs tickets ensemble (builds locaux)
+
+- Essai du 02/11/2026 (story 8.15) : pour répartir un lot, il fallait répéter le même
+  glisser-déposer pour chaque ticket.
+- **Ctrl+clic** (Cmd+clic sur macOS) ajoute ou retire une carte de la sélection, **Maj+clic**
+  prend la plage dans la même section ; le nombre de tickets sélectionnés s'affiche à côté des
+  filtres, **Échap** ou **Vider la sélection** la vide. Les cartes en consultation ne se
+  sélectionnent pas.
+- Une carte sélectionnée emmène toute la sélection, au glissé comme par son menu : objectif,
+  « Sans objectif », backlog ou autre sprint futur (un lot ne quitte le sprint que s'il y est
+  tout entier). Un lot = une seule écriture par étape (ajout au sprint, retour au backlog, liens du
+  texte) ; en Goals Atlassian, un lien par ticket. Au-delà de 50 tickets, le lot est refusé avant
+  toute écriture.
+- En cas d'échec, rien n'est rejoué : l'avis et le journal disent les tickets confirmés et ceux
+  à refaire, qui restent sélectionnés.
+
 ## 0.44.0 — Sprint Planning : avancement de chaque objectif (builds locaux)
 
 - Essai du 02/11/2026 (story 8.16) : un objectif reporté ou un Goal suivi sur plusieurs sprints ne

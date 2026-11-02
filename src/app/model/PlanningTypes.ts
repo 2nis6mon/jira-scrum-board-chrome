@@ -170,6 +170,8 @@ export interface PlanningViewModel {
   /** Compte rendu de la dernière clôture, jusqu'à sa fermeture. */
   readonly carryOverReport: ReadonlySignal<PlanningCarryOverReport | null>;
   readonly goalSearch: ReadonlySignal<PlanningGoalSearch | null>;
+  /** Tickets sélectionnés, déplacés ensemble par glisser-déposer ou par le menu d'une de leurs cartes. */
+  readonly selection: ReadonlySignal<ReadonlySet<string>>;
   /** Gestes impossibles maintenant (chargement, geste en cours, autre écriture du board). */
   readonly gesturesDisabled: ReadonlySignal<boolean>;
   selectSprint(id: number): Promise<void>;
@@ -188,6 +190,15 @@ export interface PlanningViewModel {
   /** Pose un ticket sur un objectif (`null` : « Sans objectif »), en l'ajoutant au sprint. */
   placeIssue(key: string, goalId: string | null): Promise<void>;
   removeIssue(key: string, destination: PlanningDestination): Promise<void>;
+  /** Ctrl/Cmd+clic : ajoute ou retire un ticket de la sélection. */
+  toggleSelection(key: string): void;
+  /** Maj+clic : sélectionne la plage depuis le dernier ticket choisi, dans la même section. */
+  extendSelection(key: string, sectionKeys: readonly string[]): void;
+  clearSelection(): void;
+  /** Pose un lot de tickets sur un objectif en un geste (au plus 50). */
+  placeIssues(keys: readonly string[], goalId: string | null): Promise<void>;
+  /** Retire un lot de tickets du sprint en préparation en un geste (au plus 50). */
+  removeIssues(keys: readonly string[], destination: PlanningDestination): Promise<void>;
   saveVelocity(velocity: number | null): Promise<void>;
   searchGoals(query: string): Promise<void>;
   pinGoal(goalId: string): Promise<void>;

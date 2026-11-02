@@ -64,6 +64,8 @@ export type PlanningRefusal =
   | { readonly reason: "velocityChanged" }
   | { readonly reason: "invalidVelocity" }
   | { readonly reason: "sprintNotClosed" }
+  /** Lot de plus de 50 tickets (limite de E9 et E10) : refusé avant toute écriture. */
+  | { readonly reason: "batchTooLarge"; readonly count: number }
   | { readonly reason: "failed"; readonly error: unknown };
 
 /** Erreur typée de `core` : son `message` est le code, jamais une phrase. */

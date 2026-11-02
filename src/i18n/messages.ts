@@ -581,6 +581,12 @@ export const businessMessages = {
   "Sprint à préparer": "Sprint to prepare",
   "Aucun sprint futur": "No future sprint",
   "Aucun sprint futur que vous pouvez modifier": "No future sprint you can edit",
+  "1 ticket sélectionné": "1 issue selected",
+  "{count} tickets sélectionnés": "{count} issues selected",
+  "Vider la sélection": "Clear selection",
+  Sélectionné: "Selected",
+  "Glissez-les ou ouvrez le menu de l'une d'elles ; Échap vide la sélection.":
+    "Drag them or open the menu of one of them; Escape clears the selection.",
   "À faire : {p0}": "To do: {p0}",
   "En cours : {p0}": "In progress: {p0}",
   "Terminé : {p0}": "Done: {p0}",
@@ -640,6 +646,10 @@ export const businessMessages = {
   "La vélocité doit être un nombre entre 0 et 100 000.":
     "Velocity must be a number between 0 and 100,000.",
   "Le sprint n'est pas clos dans Jira.": "The sprint is not closed in Jira.",
+  "Lot de {p0} tickets : au plus 50 par geste.": "Batch of {p0} issues: 50 at most per action.",
+  "{p0} Tickets confirmés : {p1}. À refaire : {p2}.": "{p0} Confirmed issues: {p1}. To redo: {p2}.",
+  "{p0} À refaire : {p1}.": "{p0} To redo: {p1}.",
+  "Tickets {p0} : {p1}": "Issues {p0}: {p1}",
   "{p0} Rien n’a été écrit : la page a été relue, refaites votre modification.":
     "{p0} Nothing was written: the page was reloaded, make your change again.",
   "Enregistré et vérifié dans Jira.": "Saved and verified in Jira.",
@@ -691,6 +701,9 @@ export const businessMessageParameters: Partial<
   "{p0} Aucune écriture n’a été rejouée. Vérifiez Jira avant de reprendre ; votre brouillon est conservé.":
     ["p0"],
   "Étapes confirmées : {p0}. {p1}": ["p0", "p1"],
+  "{p0} Tickets confirmés : {p1}. À refaire : {p2}.": ["p0"],
+  "{p0} À refaire : {p1}.": ["p0"],
+  "Tickets {p0} : {p1}": ["p1"],
   "Publication non confirmée. {p0}": ["p0"],
   "réponse {p0} au contenu inattendu, {p1}": ["p1"],
   "{p0} sans en-tête, puis {p1}": ["p0", "p1"],

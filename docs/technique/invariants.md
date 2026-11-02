@@ -152,6 +152,18 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   est évalué par Jira sur le périmètre du planning (`inPlanningScope`), réévalué après chaque
   relecture, puis croisé avec les cartes ; un JQL refusé désactive les filtres rapides, sans
   nouvelle tentative.
+- Lots du Sprint Planning (story 8.15) : Ctrl/Cmd+clic et Maj+clic (plage dans la même section)
+  sélectionnent les cartes déplaçables, jamais celles en consultation ; Échap vide la sélection. Une
+  carte sélectionnée emmène toute la sélection, au glissé comme par son menu ; un lot ne quitte le
+  sprint en préparation que s'il y est tout entier. Un lot = une seule E9 (ou E10, ou E9 vers
+  l'autre sprint), puis une seule E5 en texte ou un lien E3 par ticket (après E4) en Goals ; plus de
+  50 tickets : refus avant toute écriture. Arrêt au premier échec, rien n'est rejoué ; l'avis
+  et le journal disent les tickets confirmés et ceux à refaire, qui restent sélectionnés.
+- Sprints proposés (0.43.1) : seulement ceux que l'utilisateur peut modifier (administrateur, ou
+  « Gérer les sprints » sur tous les projets du board d'origine) ; indécidable : proposé.
+- Avancement des objectifs (story 8.16) : répartition par catégorie de statut, filtres ignorés ;
+  déjà livré avant ce sprint affiché à part, jamais compté dans la charge ; lectures seules,
+  relues quand les objectifs changent, jamais après un geste qui ne les change pas.
 
 - Même colonne : aucun changement de statut. Autre colonne : seuls les statuts accessibles
   acceptent le dépôt. `defaultTransitions` retient la première transition disponible

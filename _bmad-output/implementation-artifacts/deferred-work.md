@@ -77,3 +77,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-bug-objectifs-masques-au-demarrage.md`
   summary: Aucun test de synchronisation Kanban ne couvre un épinglage du board enregistré pendant la lecture (`pinnedGoalIdsOfSnapshot(result.snapshot, latest)`).
   evidence: le test de BoardModel.kanban.test.ts épingle avant `sync()` ; passer `configuration` au lieu de `latest` ne ferait échouer aucun test. Un lecteur bloqué (gated reader) fermerait le trou.
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-15-deplacer-plusieurs-tickets.md`
+  summary: La sélection de plusieurs cartes du planning ne se fait qu'à la souris (Ctrl/Cmd+clic, Maj+clic) ; aucun geste clavier ne sélectionne une carte.
+  evidence: hors de la story 8.15, qui ne demande que les clics ; à décider avec l'accessibilité du glissé (le menu de carte reste le recours clavier, ticket par ticket).
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-15-deplacer-plusieurs-tickets.md`
+  summary: Un ticket sélectionné puis masqué par un filtre reste dans la sélection et part avec le lot.
+  evidence: medium non vérifié en usage ; le compteur de la barre montre le nombre réel. À constater en 8.10 : faut-il élaguer la sélection aux cartes visibles ?

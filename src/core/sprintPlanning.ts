@@ -6,7 +6,12 @@ import { SPRINT_PROPERTY_KEYS } from "../jira/writes";
 import { type GoalsReader, loadAtlassianSprintGoals } from "./atlassianGoals";
 import type { BoardConfiguration } from "./boardConfiguration";
 import { changeAtlassianGoal } from "./boardMove";
-import { type JiraWriter, linkToTextGoal, pinAtlassianGoals } from "./boardWrites";
+import {
+  type JiraWriter,
+  linkToTextGoal,
+  pinAtlassianGoals,
+  withTextGoalLink,
+} from "./boardWrites";
 import { CoreError, type PlanningRefusal } from "./reasons";
 import {
   isVelocity,
@@ -583,6 +588,288 @@ export function removePlanningIssue(
       throw new CoreError({ code: "planningIssueUnconfirmed", issueKey });
     run.confirmed.push("issueMoved");
   });
+}
+
+// ─── Lots de tickets (story 8.15) ────────────────────────────────────────────
+
+/** Limite documentée de E9 et E10 : 50 tickets par écriture. */
+export const PLANNING_BATCH_LIMIT = 50;
+
+/**
+ * Résultat d'un geste sur un lot : `confirmedKeys`, tickets dont tout le geste a été relu dans
+ * Jira ; `remainingKeys`, ceux qui restent à refaire (rien n'est jamais rejoué).
+ */
+export interface PlanningBatchOutcome {
+  readonly outcome: PlanningOutcome;
+  readonly confirmedKeys: readonly string[];
+  readonly remainingKeys: readonly string[];
+}
+
+export type PlanningBatchTarget =
+  /** Objectif du texte (`goalId` à `null` : « Sans objectif »). */
+  | {
+      readonly kind: "text";
+      readonly goalId: string | null;
+      /** Lien de chaque ticket lu dans la propriété du sprint en préparation (`null` : aucun). */
+      readonly knownGoalIds: Readonly<Record<string, string | null>>;
+      readonly storedGoalIds: readonly string[];
+      readonly goals: readonly SprintGoal[];
+    }
+  /** Goal Atlassian (`goalId` à `null` : « Sans objectif »). */
+  | {
+      readonly kind: "atlassian";
+      readonly goalId: string | null;
+      /** Goal actuel de chaque ticket (`null` : aucun). */
+      readonly previousGoalIds: Readonly<Record<string, string | null>>;
+    };
+
+function batchOutcome(
+  keys: readonly string[],
+  outcome: PlanningOutcome,
+  done: ReadonlySet<string>,
+): PlanningBatchOutcome {
+  return {
+    outcome,
+    confirmedKeys: keys.filter((key) => done.has(key)),
+    remainingKeys: keys.filter((key) => !done.has(key)),
+  };
+}
+
+/**
+ * Pose un lot de tickets sur un objectif du sprint en préparation : ceux qui n'y sont pas encore
+ * y sont ajoutés par UNE écriture E9 (backlog ou autres sprints futurs, jamais un sprint actif),
+ * puis le lot est rattaché par UNE écriture E5 en texte, ou par un lien E3 par ticket (après E4 si
+ * besoin) en Goals Atlassian. Plus de 50 tickets : refus avant toute écriture. Arrêt au premier
+ * échec ; rien n'est rejoué.
+ */
+export async function placePlanningIssues(
+  reader: PlanningReader,
+  writer: JiraWriter,
+  goals: PlanningGoalLinks,
+  input: {
+    boardId: number;
+    sprintId: number;
+    query: IssueQuery;
+    issues: readonly JiraIssue[];
+    target: PlanningBatchTarget;
+    accountId: string | null;
+    now: Date;
+  },
+): Promise<PlanningBatchOutcome> {
+  const keys = [...new Set(input.issues.map((issue) => issue.key))];
+  const added = new Set<string>();
+  const linked = new Set<string>();
+  const outcome = await runIntention(writer, goals, async (run) => {
+    if (keys.length > PLANNING_BATCH_LIMIT) refuse({ reason: "batchTooLarge", count: keys.length });
+    const { sprintId, target } = input;
+    await futureSprint(reader, sprintId);
+    const before = new Set(
+      (await reader.sprintIssues(input.boardId, sprintId, input.query)).map((issue) => issue.key),
+    );
+    for (const key of keys) if (before.has(key)) added.add(key);
+    const toAdd = input.issues.filter((issue) => !before.has(issue.key));
+    const unavailable = toAdd.find(
+      (issue) => issue.fields.issuetype.subtask === true || isDoneStatus(issue.fields.status),
+    );
+    if (unavailable) refuse({ reason: "issueUnavailable", issueKey: unavailable.key });
+    if (toAdd.length > 0) {
+      const active = await activeIssueKeys(reader, input.boardId, input.query);
+      const inActive = toAdd.find((issue) => active.has(issue.key));
+      if (inActive) refuse({ reason: "issueInActiveSprint", issueKey: inActive.key });
+    }
+
+    // Liens à écrire : contrôlés avant E9 pour qu'aucun refus prévisible n'arrive après lui.
+    const toLink = keys.filter((key) => {
+      const current =
+        target.kind === "text" ? target.knownGoalIds[key] : target.previousGoalIds[key];
+      return (current ?? null) !== target.goalId;
+    });
+    for (const key of keys) if (!toLink.includes(key)) linked.add(key);
+    if (target.kind === "text" && toLink.length > 0) {
+      const raw = await reader.sprintProperty(sprintId, SPRINT_PROPERTY_KEYS.goals);
+      const prepared = prepareSprintGoalUpdate(
+        raw,
+        textBatchUpdate(sprintId, toLink, target, input),
+      );
+      if (prepared.kind === "conflict")
+        refuse({ reason: "linkChanged", issueKey: changedLinkKey(prepared.fresh, toLink, target) });
+    }
+
+    if (toAdd.length > 0) {
+      await run.writer.write({
+        kind: "sprint.issues.add",
+        sprintId,
+        issueKeys: toAdd.map((issue) => issue.key),
+      });
+      const read = new Set(
+        (await reader.sprintIssues(input.boardId, sprintId, input.query)).map((issue) => issue.key),
+      );
+      for (const issue of toAdd) if (read.has(issue.key)) added.add(issue.key);
+      const missing = toAdd.find((issue) => !read.has(issue.key));
+      if (missing) throw new CoreError({ code: "planningIssueUnconfirmed", issueKey: missing.key });
+      run.confirmed.push("issueAdded");
+    }
+    if (toLink.length === 0) return;
+
+    if (target.kind === "text") {
+      const result = await updateSprintGoalProperty(
+        reader,
+        run.writer,
+        textBatchUpdate(sprintId, toLink, target, input),
+      );
+      if (result.kind === "conflict")
+        refuse({ reason: "linkChanged", issueKey: changedLinkKey(result.fresh, toLink, target) });
+      if (result.kind === "written") {
+        const read = readSprintGoalProperty(
+          await reader.sprintProperty(sprintId, SPRINT_PROPERTY_KEYS.goals),
+        );
+        const links = read.kind === "document" ? read.document.links : {};
+        if (toLink.some((key) => (links[key] ?? null) !== target.goalId))
+          throw new CoreError({ code: "planningPropertyUnconfirmed" });
+        run.confirmed.push("issueLinked");
+      }
+      for (const key of toLink) linked.add(key);
+      return;
+    }
+
+    // Goals Atlassian : un lien par ticket, dans l'ordre du lot ; arrêt au premier échec.
+    const step = (name: PlanningStep) => {
+      if (!run.confirmed.includes(name)) run.confirmed.push(name);
+    };
+    for (const key of toLink) {
+      const issue = input.issues.find((candidate) => candidate.key === key);
+      if (!issue) continue;
+      const result = await changeAtlassianGoal(run.goals, {
+        issueId: issue.id,
+        previousGoalId: target.previousGoalIds[key] ?? null,
+        goalId: target.goalId,
+      });
+      switch (result.kind) {
+        case "unchanged":
+          linked.add(key);
+          continue;
+        case "linked":
+        case "unlinked":
+          linked.add(key);
+          step("issueLinked");
+          continue;
+        case "unlinkRefused":
+          throw new CoreError({ code: "planningGoalLinkRefused", messages: result.messages });
+        case "linkRefused":
+          if (result.detached) step("goalUnlinked");
+          throw new CoreError({ code: "planningGoalLinkRefused", messages: result.messages });
+        case "failed":
+          if (result.detached) step("goalUnlinked");
+          throw result.error;
+      }
+    }
+  });
+  const done = new Set(keys.filter((key) => added.has(key) && linked.has(key)));
+  return batchOutcome(keys, outcome, outcome.kind === "refused" ? new Set() : done);
+}
+
+/** Premier ticket du lot dont le lien relu n'est plus celui affiché. */
+function changedLinkKey(
+  fresh: SprintGoalDocument | null,
+  keys: readonly string[],
+  target: Extract<PlanningBatchTarget, { kind: "text" }>,
+): string {
+  const changed = keys.find(
+    (key) => (fresh?.links[key] ?? null) !== (target.knownGoalIds[key] ?? null),
+  );
+  return changed ?? keys[0] ?? "";
+}
+
+/** Mise à jour de la propriété pour un lot : seuls les liens de ses tickets changent. */
+function textBatchUpdate(
+  sprintId: number,
+  keys: readonly string[],
+  target: Extract<PlanningBatchTarget, { kind: "text" }>,
+  input: { accountId: string | null; now: Date },
+): SprintGoalUpdate {
+  const linkOf = (document: SprintGoalDocument | null, key: string) => document?.links[key] ?? null;
+  return {
+    sprintId,
+    unchangedSince: (fresh) =>
+      keys.every((key) => linkOf(fresh, key) === (target.knownGoalIds[key] ?? null)),
+    mutate: (fresh) => {
+      let document = fresh;
+      for (const key of keys) {
+        document = withTextGoalLink(document, {
+          issueKey: key,
+          goalId: target.goalId,
+          goals: target.goals,
+          knownGoalIds: target.storedGoalIds,
+          accountId: input.accountId,
+          now: input.now,
+        });
+      }
+      return document ?? makeSprintGoalDocument();
+    },
+    accountId: input.accountId,
+    now: input.now,
+  };
+}
+
+/**
+ * Retire un lot de tickets du sprint en préparation : UNE écriture E10 vers le backlog, ou UNE E9
+ * vers un autre sprint futur du board. Tous doivent être dans le sprint en préparation et hors d'un
+ * sprint actif ; plus de 50 : refus avant toute écriture.
+ */
+export async function removePlanningIssues(
+  reader: PlanningReader,
+  writer: JiraWriter,
+  input: {
+    boardId: number;
+    sprintId: number;
+    query: IssueQuery;
+    issueKeys: readonly string[];
+    destination: PlanningDestination;
+  },
+): Promise<PlanningBatchOutcome> {
+  const keys = [...new Set(input.issueKeys)];
+  const moved = new Set<string>();
+  const outcome = await runIntention(writer, NO_GOAL_LINKS, async (run) => {
+    if (keys.length > PLANNING_BATCH_LIMIT) refuse({ reason: "batchTooLarge", count: keys.length });
+    const { boardId, sprintId, destination } = input;
+    await futureSprint(reader, sprintId);
+    const inSprint = new Set(
+      (await reader.sprintIssues(boardId, sprintId, input.query)).map((issue) => issue.key),
+    );
+    const absent = keys.find((key) => !inSprint.has(key));
+    if (absent) refuse({ reason: "issueNotInSprint", issueKey: absent });
+    const boardSprints = await reader.sprints(boardId, ["active", "future"]);
+    const active = await activeIssueKeys(reader, boardId, input.query, boardSprints);
+    const inActive = keys.find((key) => active.has(key));
+    if (inActive) refuse({ reason: "issueInActiveSprint", issueKey: inActive });
+    if (
+      destination.kind === "sprint" &&
+      (destination.sprintId === sprintId ||
+        !boardSprints.some(
+          (sprint) => sprint.id === destination.sprintId && sprint.state === "future",
+        ))
+    )
+      refuse({ reason: "notFuture" });
+    await run.writer.write(
+      destination.kind === "backlog"
+        ? { kind: "backlog.issues.move", issueKeys: keys }
+        : { kind: "sprint.issues.add", sprintId: destination.sprintId, issueKeys: keys },
+    );
+    const [left, arrived] = await Promise.all([
+      reader.sprintIssues(boardId, sprintId, input.query),
+      destination.kind === "sprint"
+        ? reader.sprintIssues(boardId, destination.sprintId, input.query)
+        : Promise.resolve(null),
+    ]);
+    const stillThere = new Set(left.map((issue) => issue.key));
+    const there = arrived === null ? null : new Set(arrived.map((issue) => issue.key));
+    for (const key of keys)
+      if (!stillThere.has(key) && (there === null || there.has(key))) moved.add(key);
+    const missing = keys.find((key) => !moved.has(key));
+    if (missing) throw new CoreError({ code: "planningIssueUnconfirmed", issueKey: missing });
+    run.confirmed.push("issueMoved");
+  });
+  return batchOutcome(keys, outcome, outcome.kind === "refused" ? new Set() : moved);
 }
 
 // ─── Vélocité et Goals épinglés ──────────────────────────────────────────────

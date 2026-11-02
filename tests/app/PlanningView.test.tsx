@@ -182,6 +182,7 @@ function setup(
     pendingClosure: signal<PendingClosure | null>(null),
     carryOverReport: signal<PlanningCarryOverReport | null>(null),
     goalSearch: signal<PlanningGoalSearch | null>(null),
+    selection: signal<ReadonlySet<string>>(new Set()),
     gesturesDisabled,
     selectSprint: vi.fn(async (_id: number) => {}),
     refresh: vi.fn(async () => {}),
@@ -202,6 +203,17 @@ function setup(
     moveGoal: vi.fn(async (_id: string, _delta: -1 | 1) => {}),
     placeIssue: vi.fn(async (_key: string, _goalId: string | null) => {}),
     removeIssue: vi.fn(async () => {}),
+    toggleSelection: vi.fn((key: string) => {
+      const next = new Set(planning.selection.value);
+      if (!next.delete(key)) next.add(key);
+      planning.selection.value = next;
+    }),
+    extendSelection: vi.fn((_key: string, _sectionKeys: readonly string[]) => {}),
+    clearSelection: vi.fn(() => {
+      planning.selection.value = new Set();
+    }),
+    placeIssues: vi.fn(async (_keys: readonly string[], _goalId: string | null) => {}),
+    removeIssues: vi.fn(async () => {}),
     saveVelocity: vi.fn(async (_velocity: number | null) => {}),
     searchGoals: vi.fn(async (_query: string) => {}),
     pinGoal: vi.fn(async (_id: string) => {}),
@@ -1256,5 +1268,89 @@ describe("Sprint Planning en direct : filtres comme la page du sprint", () => {
       "Tous les tickets du sprint servent un objectif.",
     );
     expect(find('[data-planning-section="sprint-44"]').textContent).toContain("Aucun ticket.");
+  });
+});
+
+describe("Sprint Planning en direct : plusieurs tickets ensemble (8.15)", () => {
+  const click = (element: Element, init: MouseEventInit = {}) =>
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ...init }));
+
+  it("Ctrl/Cmd+clic et Maj+clic sélectionnent ; ni un clic simple ni une carte en consultation", async () => {
+    const { planning } = setup();
+    await tick();
+    click(cardOf("ABC-10"), { ctrlKey: true });
+    click(cardOf("ABC-11"), { metaKey: true });
+    click(cardOf("ABC-12"), { shiftKey: true });
+    click(cardOf("ABC-13"), { ctrlKey: true });
+    click(cardOf("ABC-14"));
+    expect(planning.toggleSelection.mock.calls).toEqual([["ABC-10"], ["ABC-11"]]);
+    expect(planning.extendSelection.mock.calls).toEqual([["ABC-12", ["ABC-12"]]]);
+    // Ctrl+clic sur la clé : sélection, pas d'ouverture de la fiche.
+    click(find('[data-planning-issue="ABC-14"] .planning-issue-link'), { ctrlKey: true });
+    expect(planning.openIssue).not.toHaveBeenCalled();
+    expect(planning.toggleSelection).toHaveBeenLastCalledWith("ABC-14");
+  });
+
+  it("le nombre de tickets sélectionnés s'affiche ; « Vider » et Échap vident la sélection", async () => {
+    const { planning } = setup();
+    planning.selection.value = new Set(["ABC-10", "ABC-11"]);
+    await tick();
+    expect(text()).toContain("2 tickets sélectionnés");
+    expect(cardOf("ABC-10").classList.contains("planning-card-selected")).toBe(true);
+    expect(cardOf("ABC-12").classList.contains("planning-card-selected")).toBe(false);
+    button("Vider la sélection").click();
+    expect(planning.clearSelection).toHaveBeenCalledTimes(1);
+    planning.selection.value = new Set(["ABC-10"]);
+    await tick();
+    expect(text()).toContain("1 ticket sélectionné");
+    key(document.body, "Escape");
+    expect(planning.clearSelection).toHaveBeenCalledTimes(2);
+  });
+
+  it("une carte sélectionnée emmène toute la sélection ; le dépôt d'un lot est un seul geste", async () => {
+    const { planning } = setup();
+    planning.selection.value = new Set(["ABC-10", "ABC-14"]);
+    await tick();
+    const inSprint = dragStart(cardOf("ABC-10"));
+    expect(inSprint.data.get(PLANNING_DRAG_TYPE)).toBe("ABC-10 ABC-14");
+    expect(inSprint.data.get(PLANNING_SPRINT_DRAG_TYPE)).toBe("ABC-10 ABC-14");
+    planning.selection.value = new Set(["ABC-10", "ABC-11"]);
+    await tick();
+    const mixed = dragStart(cardOf("ABC-11"));
+    expect(mixed.data.get(PLANNING_DRAG_TYPE)).toBe("ABC-10 ABC-11");
+    // Un lot qui n'est pas tout entier dans le sprint ne peut pas en être retiré.
+    expect(mixed.data.has(PLANNING_SPRINT_DRAG_TYPE)).toBe(false);
+    // Une carte hors de la sélection ne part que seule.
+    expect(dragStart(cardOf("ABC-12")).data.get(PLANNING_DRAG_TYPE)).toBe("ABC-12");
+
+    drop(find('[data-planning-goal="g2"]'), "ABC-10 ABC-11", [PLANNING_DRAG_TYPE]);
+    drop(find('[data-planning-section="backlog"]'), "ABC-10 ABC-14", [
+      PLANNING_DRAG_TYPE,
+      PLANNING_SPRINT_DRAG_TYPE,
+    ]);
+    expect(planning.placeIssues.mock.calls).toEqual([[["ABC-10", "ABC-11"], "g2"]]);
+    expect(planning.removeIssues.mock.calls).toEqual([[["ABC-10", "ABC-14"], { kind: "backlog" }]]);
+    expect(planning.placeIssue).not.toHaveBeenCalled();
+  });
+
+  it("le menu d'une carte sélectionnée agit sur toute la sélection", async () => {
+    const { planning } = setup();
+    planning.selection.value = new Set(["ABC-10", "ABC-11"]);
+    await tick();
+    const menu = menuOf("ABC-10");
+    expect(menu.textContent).toContain("2 tickets sélectionnés");
+    // Un lot n'a pas d'objectif courant : aucun objectif n'est désactivé.
+    expect(button("Simplifier les achats", menu).disabled).toBe(false);
+    // ABC-11 est au backlog : le lot ne peut pas quitter le sprint.
+    expect(() => button("Renvoyer au backlog", menu)).toThrow();
+    button("Sécuriser le paiement", menu).click();
+    expect(planning.placeIssues.mock.calls).toEqual([[["ABC-10", "ABC-11"], "g2"]]);
+
+    planning.selection.value = new Set(["ABC-10", "ABC-14"]);
+    await tick();
+    button("Vers Sprint 44", menuOf("ABC-14")).click();
+    expect(planning.removeIssues.mock.calls).toEqual([
+      [["ABC-10", "ABC-14"], { kind: "sprint", sprintId: 44 }],
+    ]);
   });
 });

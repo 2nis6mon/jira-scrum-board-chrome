@@ -11,6 +11,7 @@ import {
 } from "../../model/coreText";
 import type { ImageCache } from "../../model/ImageCache";
 import type {
+  PlanningDestination,
   PlanningIssue,
   PlanningLane,
   PlanningLoad,
@@ -78,6 +79,18 @@ export function PlanningView({
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  // Échap vide la sélection, sauf dans un champ, un menu ou une fenêtre ouverts (ils s'en servent).
+  useEffect(() => {
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (planning.selection.peek().size === 0 || isTyping(event.target)) return;
+      if (document.querySelector('[role="dialog"], dialog[open], details[open]')) return;
+      planning.clearSelection();
+    };
+    document.addEventListener("keydown", onEscape);
+    return () => document.removeEventListener("keydown", onEscape);
+  }, [planning]);
+
   return (
     <main class="planning-screen" aria-label="Sprint Planning" aria-busy={busy}>
       <PlanningHeader
@@ -106,6 +119,7 @@ export function PlanningView({
           <kbd title={t("Raccourci")}>/</kbd>
         </label>
         <PlanningFilters planning={planning} />
+        <SelectionChip planning={planning} />
       </div>
       <PlanningMessages planning={planning} />
       {snapshot ? (
@@ -143,6 +157,38 @@ export function PlanningView({
       )}
     </main>
   );
+}
+
+// ─── Sélection ───────────────────────────────────────────────────────────────
+
+/** Nombre de tickets sélectionnés ; Échap ou le bouton vident la sélection. */
+function SelectionChip({ planning }: { planning: PlanningViewModel }) {
+  const count = planning.selection.value.size;
+  if (count === 0) return null;
+  return (
+    <span
+      class="planning-selection"
+      role="status"
+      title={t("Glissez-les ou ouvrez le menu de l'une d'elles ; Échap vide la sélection.")}
+    >
+      {count === 1 ? t("1 ticket sélectionné") : t("{count} tickets sélectionnés", { count })}
+      <button
+        type="button"
+        class="icon-button"
+        aria-label={t("Vider la sélection")}
+        title={t("Vider la sélection")}
+        onClick={() => planning.clearSelection()}
+      >
+        <Icon name="close" />
+      </button>
+    </span>
+  );
+}
+
+/** Tickets déplacés par un geste sur la carte `key` : toute la sélection si elle en fait partie. */
+function gestureKeys(planning: PlanningViewModel, key: string): string[] {
+  const selection = planning.selection.value;
+  return selection.has(key) && selection.size > 1 ? [...selection] : [key];
 }
 
 // ─── Filtres ─────────────────────────────────────────────────────────────────
@@ -683,8 +729,11 @@ function PlanningMessages({ planning }: { planning: PlanningViewModel }) {
 
 // ─── Glisser-déposer ─────────────────────────────────────────────────────────
 
-/** Zone de dépôt d'un ticket glissé portant `type` ; `over` pendant le survol. */
-function useDrop(options: { type: string; disabled: boolean; onDrop(key: string): void }) {
+/**
+ * Zone de dépôt d'un ou plusieurs tickets glissés portant `type` (leurs clés, séparées par des
+ * espaces) ; `over` pendant le survol.
+ */
+function useDrop(options: { type: string; disabled: boolean; onDrop(keys: string[]): void }) {
   const [over, setOver] = useState(false);
   const accepts = (transfer: DataTransfer | null) =>
     !options.disabled && Boolean(transfer?.types.includes(options.type));
@@ -712,11 +761,30 @@ function useDrop(options: { type: string; disabled: boolean; onDrop(key: string)
         if (!accepts(event.dataTransfer)) return;
         event.preventDefault();
         event.stopPropagation();
-        const key = event.dataTransfer?.getData(options.type);
-        if (key) options.onDrop(key);
+        const keys = (event.dataTransfer?.getData(options.type) ?? "")
+          .split(" ")
+          .filter((key) => key !== "");
+        if (keys.length > 0) options.onDrop(keys);
       },
     },
   };
+}
+
+/** Un ticket : le geste d'une carte ; plusieurs : le geste du lot. */
+function placeKeys(planning: PlanningViewModel, keys: readonly string[], goalId: string | null) {
+  const [key] = keys;
+  if (keys.length === 1 && key !== undefined) return planning.placeIssue(key, goalId);
+  return planning.placeIssues(keys, goalId);
+}
+
+function removeKeys(
+  planning: PlanningViewModel,
+  keys: readonly string[],
+  destination: PlanningDestination,
+) {
+  const [key] = keys;
+  if (keys.length === 1 && key !== undefined) return planning.removeIssue(key, destination);
+  return planning.removeIssues(keys, destination);
 }
 
 // ─── Colonne « Où sont les tickets » ─────────────────────────────────────────
@@ -735,7 +803,7 @@ function SourcesColumn({ planning, images }: { planning: PlanningViewModel; imag
   const drop = useDrop({
     type: PLANNING_SPRINT_DRAG_TYPE,
     disabled,
-    onDrop: (key) => void planning.removeIssue(key, { kind: "backlog" }),
+    onDrop: (keys) => void removeKeys(planning, keys, { kind: "backlog" }),
   });
   const toggle = (id: string) => {
     const next = new Set(folded);
@@ -787,9 +855,9 @@ function SourceSection({
     type: PLANNING_SPRINT_DRAG_TYPE,
     // Le reste à faire du sprint actif ne reçoit rien ; le backlog est la colonne entière.
     disabled: disabled || section.kind !== "sprint",
-    onDrop: (key) => {
+    onDrop: (keys) => {
       if (section.kind === "sprint")
-        void planning.removeIssue(key, { kind: "sprint", sprintId: section.sprint.id });
+        void removeKeys(planning, keys, { kind: "sprint", sprintId: section.sprint.id });
     },
   });
   const readOnlySection = section.kind === "active";
@@ -840,6 +908,7 @@ function SourceSection({
               place={
                 readOnlySection || !canJoinSprint(item) ? { kind: "readOnly" } : { kind: "source" }
               }
+              sectionKeys={section.issues.map((entry) => entry.issue.key)}
               compact
             />
           ))}
@@ -986,6 +1055,7 @@ function LaneCards({
           images={images}
           item={item}
           place={{ kind: "sprint", goalId }}
+          sectionKeys={issues.map((entry) => entry.issue.key)}
         />
       ))}
       {issues.length === 0 && <p class="planning-lane-hint">{empty}</p>}
@@ -1013,7 +1083,7 @@ function GoalLane({
   const drop = useDrop({
     type: PLANNING_DRAG_TYPE,
     disabled,
-    onDrop: (key) => void planning.placeIssue(key, goal.id),
+    onDrop: (keys) => void placeKeys(planning, keys, goal.id),
   });
   return (
     <section
@@ -1348,7 +1418,7 @@ function UnassignedLane({ planning, images }: { planning: PlanningViewModel; ima
   const drop = useDrop({
     type: PLANNING_DRAG_TYPE,
     disabled: planning.gesturesDisabled.value,
-    onDrop: (key) => void planning.placeIssue(key, null),
+    onDrop: (keys) => void placeKeys(planning, keys, null),
   });
   return (
     <section
@@ -1409,15 +1479,19 @@ function PlanningCard({
   images,
   item,
   place,
+  sectionKeys,
   compact = false,
 }: {
   planning: PlanningViewModel;
   images: ImageCache;
   item: PlanningIssue;
   place: CardPlace;
+  /** Clés de la section de la carte, dans l'ordre affiché (plage Maj+clic). */
+  sectionKeys: readonly string[];
   compact?: boolean;
 }) {
   const { issue, origin } = item;
+  const selected = place.kind !== "readOnly" && planning.selection.value.has(issue.key);
   const { fields } = issue;
   const readOnly = place.kind === "readOnly";
   const draggable = !readOnly && !planning.gesturesDisabled.value;
@@ -1437,18 +1511,39 @@ function PlanningCard({
 
   return (
     <article
-      class={`card planning-card${compact ? " planning-card-compact" : ""}${readOnly ? " planning-card-readonly" : ""}${origin ? " planning-card-arrived" : ""}`}
+      class={`card planning-card${compact ? " planning-card-compact" : ""}${readOnly ? " planning-card-readonly" : ""}${origin ? " planning-card-arrived" : ""}${selected ? " planning-card-selected" : ""}`}
       data-planning-issue={issue.key}
+      data-selected={selected ? "true" : undefined}
       draggable={draggable}
+      onClick={
+        readOnly
+          ? undefined
+          : (event) => {
+              // Ctrl/Cmd+clic : ajoute ou retire ; Maj+clic : plage dans la même section.
+              if (event.shiftKey) {
+                event.preventDefault();
+                planning.extendSelection(issue.key, sectionKeys);
+              } else if (event.ctrlKey || event.metaKey) {
+                event.preventDefault();
+                planning.toggleSelection(issue.key);
+              }
+            }
+      }
       onDragStart={(event) => {
         if (!draggable || !event.dataTransfer) {
           event.preventDefault();
           return;
         }
+        // Une carte sélectionnée emmène toute la sélection ; seul un lot entièrement dans le
+        // sprint en préparation peut en être retiré.
+        const keys = gestureKeys(planning, issue.key);
+        const sprintKeys = new Set(
+          planning.snapshot.value?.sprintIssues.map((entry) => entry.key) ?? [],
+        );
         event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData(PLANNING_DRAG_TYPE, issue.key);
-        if (place.kind === "sprint")
-          event.dataTransfer.setData(PLANNING_SPRINT_DRAG_TYPE, issue.key);
+        event.dataTransfer.setData(PLANNING_DRAG_TYPE, keys.join(" "));
+        if (keys.every((key) => sprintKeys.has(key)))
+          event.dataTransfer.setData(PLANNING_SPRINT_DRAG_TYPE, keys.join(" "));
       }}
       // En consultation, aucun menu de l'extension : celui du navigateur reste.
       onContextMenu={
@@ -1481,12 +1576,17 @@ function PlanningCard({
     >
       <div class="card-top">
         <JiraIcon url={fields.issuetype.iconUrl} label={fields.issuetype.name} images={images} />
+        {selected && <span class="visually-hidden">{t("Sélectionné")}</span>}
         <button
           type="button"
           class="card-key planning-issue-link"
           aria-label={t("Ouvrir {p0} dans Jira", { p0: issue.key })}
           title={t("Ouvrir {p0} dans Jira", { p0: issue.key })}
-          onClick={() => planning.openIssue(issue.key)}
+          onClick={(event) => {
+            // Avec Ctrl, Cmd ou Maj, le clic sélectionne : la carte s'en charge.
+            if (event.ctrlKey || event.metaKey || event.shiftKey) return;
+            planning.openIssue(issue.key);
+          }}
         >
           {issue.key}
         </button>
@@ -1593,8 +1693,12 @@ function CardMenu({
   // Ouverture en cours au point demandé ; `null` quand le menu s'ouvre sous son bouton.
   const atPoint = useRef<MenuRequest | null>(null);
   const disabled = planning.gesturesDisabled.value;
-  const inSprint = place.kind === "sprint";
-  const current = place.kind === "sprint" ? place.goalId : undefined;
+  const keys = gestureKeys(planning, issueKey);
+  const many = keys.length > 1;
+  const sprintKeys = new Set(planning.snapshot.value?.sprintIssues.map((entry) => entry.key) ?? []);
+  // Un lot ne quitte le sprint en préparation que s'il y est tout entier.
+  const inSprint = many ? keys.every((key) => sprintKeys.has(key)) : place.kind === "sprint";
+  const current = !many && place.kind === "sprint" ? place.goalId : undefined;
   const others = planning.snapshot.value?.futureSprints.map((entry) => entry.sprint) ?? [];
 
   handle.current = {
@@ -1662,7 +1766,16 @@ function CardMenu({
         ⋯
       </summary>
       <div class="menu-panel">
-        <p class="menu-section">{inSprint ? t("Objectif") : t("Ajouter au sprint")}</p>
+        {many && (
+          <p class="menu-section planning-menu-batch">
+            {t("{count} tickets sélectionnés", { count: keys.length })}
+          </p>
+        )}
+        <p class="menu-section">
+          {inSprint || (many && keys.some((key) => sprintKeys.has(key)))
+            ? t("Objectif")
+            : t("Ajouter au sprint")}
+        </p>
         {planning.lanes.value.map((lane) => (
           <button
             key={lane.goal.id}
@@ -1671,7 +1784,7 @@ function CardMenu({
             data-goal-color={lane.goal.color}
             aria-current={current === lane.goal.id ? "true" : undefined}
             disabled={disabled || current === lane.goal.id}
-            onClick={() => act(() => planning.placeIssue(issueKey, lane.goal.id))}
+            onClick={() => act(() => placeKeys(planning, keys, lane.goal.id))}
           >
             <span class="goal-ring" aria-hidden="true" />
             {lane.goal.title}
@@ -1681,7 +1794,7 @@ function CardMenu({
           type="button"
           aria-current={current === null ? "true" : undefined}
           disabled={disabled || current === null}
-          onClick={() => act(() => planning.placeIssue(issueKey, null))}
+          onClick={() => act(() => placeKeys(planning, keys, null))}
         >
           {t("Sans objectif")}
         </button>
@@ -1691,7 +1804,7 @@ function CardMenu({
             <button
               type="button"
               disabled={disabled}
-              onClick={() => act(() => planning.removeIssue(issueKey, { kind: "backlog" }))}
+              onClick={() => act(() => removeKeys(planning, keys, { kind: "backlog" }))}
             >
               {t("Renvoyer au backlog")}
             </button>
@@ -1701,7 +1814,7 @@ function CardMenu({
                 type="button"
                 disabled={disabled}
                 onClick={() =>
-                  act(() => planning.removeIssue(issueKey, { kind: "sprint", sprintId: sprint.id }))
+                  act(() => removeKeys(planning, keys, { kind: "sprint", sprintId: sprint.id }))
                 }
               >
                 {t("Vers {name}", { name: sprint.name })}

@@ -11,7 +11,9 @@ import {
   type PlanningSnapshot,
   pinPlanningGoals,
   placePlanningIssue,
+  placePlanningIssues,
   removePlanningIssue,
+  removePlanningIssues,
   savePlanningVelocity,
   writeTextGoals,
 } from "../../src/core/sprintPlanning";
@@ -1402,5 +1404,209 @@ describe("report des objectifs non atteints après la clôture native (carryOver
     expect(result.report?.incomplete).toBe(true);
     expect(result.report?.goals.map((goal) => goal.status)).toEqual(["alreadyThere", "allDone"]);
     expect(f.writes).toEqual([]);
+  });
+});
+
+// ─── Lots de tickets (story 8.15) ────────────────────────────────────────────
+
+const batchTextTarget = (
+  snapshot: PlanningSnapshot,
+  keys: readonly string[],
+  goalId: string | null,
+) => ({
+  kind: "text" as const,
+  goalId,
+  knownGoalIds: Object.fromEntries(keys.map((key) => [key, snapshot.storedLinks[key] ?? null])),
+  storedGoalIds: snapshot.storedGoalIds,
+  goals: snapshot.goals,
+});
+
+describe("poser un lot de tickets sur un objectif (placePlanningIssues)", () => {
+  const placeAll = (
+    f: ReturnType<typeof fakeJira>,
+    keys: readonly string[],
+    target: Parameters<typeof placePlanningIssues>[3]["target"],
+    links: PlanningGoalLinks = goalLinks().links,
+  ) =>
+    placePlanningIssues(f.reader, f.writer, links, {
+      boardId: BOARD,
+      sprintId: PREPARED,
+      query,
+      issues: keys.map((key) => f.issue(key)),
+      target,
+      accountId: USER,
+      now: NOW,
+    });
+
+  it("texte : une seule E9 pour les tickets venus d'ailleurs, puis une seule E5 pour tout le lot", async () => {
+    const f = fakeJira();
+    const snapshot = await f.load();
+    const keys = ["ABC-201", "ABC-301", "ABC-210"];
+    const result = await placeAll(f, keys, batchTextTarget(snapshot, keys, PANIER.id));
+    expect(result).toEqual({
+      outcome: { kind: "done", confirmed: ["issueAdded", "issueLinked"] },
+      confirmedKeys: keys,
+      remainingKeys: [],
+    });
+    expect(f.writes.map((write) => write.kind)).toEqual([
+      "sprint.issues.add",
+      "sprintProperty.put",
+    ]);
+    expect(f.writes[0]).toEqual({
+      kind: "sprint.issues.add",
+      sprintId: PREPARED,
+      issueKeys: ["ABC-201", "ABC-301"],
+    });
+    expect(f.property()).toMatchObject({
+      links: {
+        "ABC-201": PANIER.id,
+        "ABC-301": PANIER.id,
+        "ABC-210": PANIER.id,
+        "ABC-211": PANIER.id,
+      },
+      velocity: 30,
+      foreign: { keep: true },
+    });
+  });
+
+  it("plus de 50 tickets : refusé avant toute lecture ou écriture", async () => {
+    const f = fakeJira();
+    const snapshot = await f.load();
+    const issues = Array.from({ length: 51 }, (_, index) => todo(`ABC-${500 + index}`));
+    const result = await placePlanningIssues(f.reader, f.writer, goalLinks().links, {
+      boardId: BOARD,
+      sprintId: PREPARED,
+      query,
+      issues,
+      target: batchTextTarget(snapshot, [], PANIER.id),
+      accountId: USER,
+      now: NOW,
+    });
+    expect(result.outcome).toEqual({
+      kind: "refused",
+      reason: { reason: "batchTooLarge", count: 51 },
+    });
+    expect(result.remainingKeys).toHaveLength(51);
+    expect(f.writes).toEqual([]);
+  });
+
+  it("une sous-tâche dans le lot : tout le lot est refusé, rien n'est écrit", async () => {
+    const f = fakeJira();
+    const snapshot = await f.load();
+    const keys = ["ABC-201", "ABC-203"];
+    const result = await placeAll(f, keys, batchTextTarget(snapshot, keys, PANIER.id));
+    expect(result.outcome).toEqual({
+      kind: "refused",
+      reason: { reason: "issueUnavailable", issueKey: "ABC-203" },
+    });
+    expect(f.writes).toEqual([]);
+  });
+
+  it("lien changé dans Jira depuis l'affichage : refus avant E9", async () => {
+    const f = fakeJira();
+    const snapshot = await f.load();
+    const property = f.state.properties[PREPARED] as { links: Record<string, string> };
+    property.links["ABC-210"] = PANIER.id;
+    const keys = ["ABC-201", "ABC-210"];
+    const result = await placeAll(f, keys, batchTextTarget(snapshot, keys, null));
+    expect(result.outcome).toEqual({
+      kind: "refused",
+      reason: { reason: "linkChanged", issueKey: "ABC-210" },
+    });
+    expect(f.writes).toEqual([]);
+  });
+
+  it("E5 en échec après E9 : ajout confirmé, tout le lot reste à refaire, rien n'est rejoué", async () => {
+    const f = fakeJira({ fail: { "sprintProperty.put": forbidden() } });
+    const snapshot = await f.load();
+    const keys = ["ABC-201", "ABC-202"];
+    const result = await placeAll(f, keys, batchTextTarget(snapshot, keys, PAIEMENT.id));
+    expect(result.outcome).toMatchObject({ kind: "partial", confirmed: ["issueAdded"] });
+    expect(result.confirmedKeys).toEqual([]);
+    expect(result.remainingKeys).toEqual(keys);
+    expect(f.writes.map((write) => write.kind)).toEqual([
+      "sprint.issues.add",
+      "sprintProperty.put",
+    ]);
+  });
+
+  it("Goals Atlassian : un lien par ticket ; arrêt au premier échec, tickets confirmés et à refaire", async () => {
+    const f = fakeJira();
+    const { calls, links } = goalLinks([{ success: true, messages: [] }, new Error("passerelle")]);
+    const keys = ["ABC-201", "ABC-202", "ABC-210"];
+    const result = await placeAll(
+      f,
+      keys,
+      {
+        kind: "atlassian",
+        goalId: "goal-a",
+        previousGoalIds: { "ABC-201": null, "ABC-202": null, "ABC-210": null },
+      },
+      links,
+    );
+    expect(result.outcome).toMatchObject({
+      kind: "partial",
+      confirmed: ["issueAdded", "issueLinked"],
+    });
+    expect(result.confirmedKeys).toEqual(["ABC-201"]);
+    expect(result.remainingKeys).toEqual(["ABC-202", "ABC-210"]);
+    expect(calls.map(([kind, goal]) => `${kind}:${goal}`)).toEqual([
+      "goal.link:goal-a",
+      "goal.link:goal-a",
+    ]);
+    expect(f.writes.map((write) => write.kind)).toEqual(["sprint.issues.add"]);
+  });
+});
+
+describe("retirer un lot du sprint en préparation (removePlanningIssues)", () => {
+  const removeAll = (
+    f: ReturnType<typeof fakeJira>,
+    issueKeys: readonly string[],
+    destination: Parameters<typeof removePlanningIssues>[2]["destination"],
+  ) =>
+    removePlanningIssues(f.reader, f.writer, {
+      boardId: BOARD,
+      sprintId: PREPARED,
+      query,
+      issueKeys,
+      destination,
+    });
+
+  it("vers le backlog : une seule E10 pour tout le lot", async () => {
+    const f = fakeJira();
+    const result = await removeAll(f, ["ABC-210", "ABC-211"], { kind: "backlog" });
+    expect(result).toEqual({
+      outcome: { kind: "done", confirmed: ["issueMoved"] },
+      confirmedKeys: ["ABC-210", "ABC-211"],
+      remainingKeys: [],
+    });
+    expect(f.writes).toEqual([{ kind: "backlog.issues.move", issueKeys: ["ABC-210", "ABC-211"] }]);
+  });
+
+  it("vers un autre sprint futur : une seule E9 vers ce sprint", async () => {
+    const f = fakeJira();
+    const result = await removeAll(f, ["ABC-210", "ABC-211"], { kind: "sprint", sprintId: OTHER });
+    expect(result.outcome.kind).toBe("done");
+    expect(f.writes).toEqual([
+      { kind: "sprint.issues.add", sprintId: OTHER, issueKeys: ["ABC-210", "ABC-211"] },
+    ]);
+  });
+
+  it("un ticket du lot hors du sprint en préparation : refus, rien n'est écrit", async () => {
+    const f = fakeJira();
+    const result = await removeAll(f, ["ABC-210", "ABC-301"], { kind: "backlog" });
+    expect(result.outcome).toEqual({
+      kind: "refused",
+      reason: { reason: "issueNotInSprint", issueKey: "ABC-301" },
+    });
+    expect(f.writes).toEqual([]);
+  });
+
+  it("E10 non relu : tout le lot reste à refaire, rien n'est rejoué", async () => {
+    const f = fakeJira({ ignore: ["backlog.issues.move"] });
+    const result = await removeAll(f, ["ABC-210", "ABC-211"], { kind: "backlog" });
+    expect(result.outcome.kind).toBe("partial");
+    expect(result.remainingKeys).toEqual(["ABC-210", "ABC-211"]);
+    expect(f.writes).toHaveLength(1);
   });
 });

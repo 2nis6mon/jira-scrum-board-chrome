@@ -59,6 +59,7 @@ const REFUSALS: {
   velocityChanged: { reason: "velocityChanged" },
   invalidVelocity: { reason: "invalidVelocity" },
   sprintNotClosed: { reason: "sprintNotClosed" },
+  batchTooLarge: { reason: "batchTooLarge", count: 51 },
   failed: { reason: "failed", error: new JiraError({ kind: "timeout" }) },
 };
 

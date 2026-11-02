@@ -40,13 +40,18 @@ import {
   type CarryOverResult,
   carryOverGoals,
   loadSprintPlanning,
+  PLANNING_BATCH_LIMIT,
+  type PlanningBatchOutcome,
+  type PlanningBatchTarget,
   type PlanningDestination,
   type PlanningOutcome,
   type PlanningSnapshot,
   type PlanningTarget,
   pinPlanningGoals,
   placePlanningIssue,
+  placePlanningIssues,
   removePlanningIssue,
+  removePlanningIssues,
   savePlanningVelocity,
   writeTextGoals,
 } from "../../core/sprintPlanning";
@@ -56,6 +61,7 @@ import {
   type AtlassianGoal,
   estimate,
   goalDisplayName,
+  isDoneStatus,
   type JiraIssue,
   type JiraSprint,
   linkedGoalIds,
@@ -69,6 +75,8 @@ import {
   errorMessage,
   goalsFailureMessage,
   goalsWarningMessage,
+  planningBatchJournalMessage,
+  planningBatchMessage,
   planningCarryOverMessage,
   planningOutcomeMessage,
 } from "./coreText";
@@ -164,6 +172,10 @@ export class PlanningModel implements PlanningViewModel {
   readonly noEditableSprint = signal(false);
   /** Droits lus pendant ce chargement ; vidés à l'actualisation et au changement de board. */
   #permissions: SprintPermissionCache = sprintPermissionCache();
+  /** Tickets sélectionnés (Ctrl/Cmd+clic, Maj+clic), à déplacer ensemble. */
+  readonly selection = signal<ReadonlySet<string>>(new Set());
+  /** Dernier ticket ajouté ou retiré de la sélection : départ d'une plage Maj+clic. */
+  #anchor: string | null = null;
   /** Déjà livré avant le sprint en préparation, par objectif (lectures seules, hors charge). */
   readonly goalHistory = signal<GoalHistory | null>(null);
   /** Sprints clos relus pour l'historique ; vidés à l'actualisation et au changement de board. */
@@ -415,8 +427,10 @@ export class PlanningModel implements PlanningViewModel {
       this.#origins.value = {};
       this.notice.value = null;
       this.goalHistory.value = null;
+      this.selection.value = new Set();
     });
     this.#historyKey = null;
+    this.#anchor = null;
   }
 
   async selectSprint(id: number): Promise<void> {
@@ -490,6 +504,8 @@ export class PlanningModel implements PlanningViewModel {
       this.snapshot.value = snapshot;
       this.atlassianGoals.value = goals;
       this.goalsWarning.value = warning;
+      const kept = [...this.selection.value].filter((key) => selectable(snapshot, key));
+      if (kept.length !== this.selection.value.size) this.selection.value = new Set(kept);
     });
     void this.#readHistory(generation, configuration, snapshot, goals);
   }
@@ -911,6 +927,213 @@ export class PlanningModel implements PlanningViewModel {
     );
   }
 
+  // ─── Sélection et lots (story 8.15) ──────────────────────────────────────────
+
+  /**
+   * Ctrl/Cmd+clic : ajoute le ticket à la sélection, ou l'en retire. Une carte en consultation
+   * (reste à faire du sprint actif, sous-tâche, ticket terminé hors du sprint) n'est pas sélectionnable.
+   */
+  toggleSelection(key: string): void {
+    const snapshot = this.snapshot.value;
+    if (!SPRINT_PLANNING_ENABLED || !snapshot || !selectable(snapshot, key)) return;
+    const next = new Set(this.selection.value);
+    if (!next.delete(key)) next.add(key);
+    this.selection.value = next;
+    this.#anchor = key;
+  }
+
+  /**
+   * Maj+clic : sélectionne la plage entre le dernier ticket choisi et celui-ci, dans la même section
+   * (`sectionKeys`, dans l'ordre affiché) ; sans départ dans cette section, agit comme Ctrl+clic.
+   */
+  extendSelection(key: string, sectionKeys: readonly string[]): void {
+    const snapshot = this.snapshot.value;
+    if (!SPRINT_PLANNING_ENABLED || !snapshot) return;
+    const from = this.#anchor === null ? -1 : sectionKeys.indexOf(this.#anchor);
+    const to = sectionKeys.indexOf(key);
+    if (from < 0 || to < 0) {
+      this.toggleSelection(key);
+      return;
+    }
+    const [start, end] = from <= to ? [from, to] : [to, from];
+    const next = new Set(this.selection.value);
+    for (const candidate of sectionKeys.slice(start, end + 1))
+      if (selectable(snapshot, candidate)) next.add(candidate);
+    this.selection.value = next;
+  }
+
+  /** Échap ou « Vider la sélection ». */
+  clearSelection(): void {
+    if (!SPRINT_PLANNING_ENABLED || this.selection.value.size === 0) return;
+    this.selection.value = new Set();
+    this.#anchor = null;
+  }
+
+  /**
+   * Pose plusieurs tickets sur un objectif (`null` : « Sans objectif ») en un geste : une seule
+   * E9 pour ceux qui rejoignent le sprint, puis une seule E5 en texte, ou un lien par ticket en
+   * Goals Atlassian. Un seul ticket : `placeIssue`.
+   */
+  placeIssues(keys: readonly string[], goalId: string | null): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
+    const unique = [...new Set(keys)];
+    const [single] = unique;
+    if (unique.length === 1 && single !== undefined) return this.placeIssue(single, goalId);
+    const snapshot = this.snapshot.value;
+    if (!snapshot || unique.length === 0) return Promise.resolve();
+    const { goals, links } = this.#goalView.value;
+    if (goalId !== null && !goals.some((goal) => goal.id === goalId)) return Promise.resolve();
+    if (this.#refuseLargeBatch(unique.length)) return Promise.resolve();
+    const located = unique
+      .map((key) => locate(snapshot, key))
+      .filter((entry) => entry !== null)
+      .filter(({ issue, origin }) => origin === null || canJoinSprint(issue));
+    if (located.length === 0) return Promise.resolve();
+    const issues = located.map(({ issue }) => issue);
+    const goalsField = this.context.configuration()?.goalsFieldId ?? null;
+    const target: PlanningBatchTarget =
+      this.goalMode.value === "text"
+        ? {
+            kind: "text",
+            goalId,
+            knownGoalIds: Object.fromEntries(
+              issues.map((issue) => [issue.key, snapshot.storedLinks[issue.key] ?? null]),
+            ),
+            storedGoalIds: snapshot.storedGoalIds,
+            goals: snapshot.goals,
+          }
+        : {
+            kind: "atlassian",
+            goalId,
+            // Un ticket qui arrive quitte d'abord le Goal de son champ natif (E4 puis E3).
+            previousGoalIds: Object.fromEntries(
+              located.map(({ issue, origin }) => [
+                issue.key,
+                origin === null
+                  ? (links[issue.key] ?? null)
+                  : (linkedGoalIds(issue.fields, goalsField)[0] ?? null),
+              ]),
+            ),
+          };
+    return this.#batchGesture(
+      issues.map((issue) => issue.key),
+      ({ writer, goals: goalLinks }, base) =>
+        placePlanningIssues(this.client, writer, goalLinks, {
+          boardId: base.boardId,
+          sprintId: base.sprint.id,
+          query: base.query,
+          issues,
+          target,
+          accountId: this.context.accountId(),
+          now: new Date(),
+        }),
+      (result) => {
+        if (result.outcome.kind === "refused" || result.outcome.kind === "unchanged") return;
+        if (!result.outcome.confirmed.includes("issueAdded")) return;
+        const origins = { ...this.#origins.value };
+        for (const { issue, origin } of located) if (origin) origins[issue.key] = origin;
+        this.#origins.value = origins;
+      },
+    );
+  }
+
+  /**
+   * Retire plusieurs tickets du sprint en préparation en un geste (une seule E10, ou une seule E9
+   * vers un autre sprint futur). Tous doivent être dans le sprint en préparation. Un seul ticket :
+   * `removeIssue`.
+   */
+  removeIssues(keys: readonly string[], destination: PlanningDestination): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
+    const unique = [...new Set(keys)];
+    const [single] = unique;
+    if (unique.length === 1 && single !== undefined) return this.removeIssue(single, destination);
+    const snapshot = this.snapshot.value;
+    if (!snapshot || unique.length === 0) return Promise.resolve();
+    if (!unique.every((key) => snapshot.sprintIssues.some((issue) => issue.key === key)))
+      return Promise.resolve();
+    if (
+      destination.kind === "sprint" &&
+      !snapshot.futureSprints.some(({ sprint }) => sprint.id === destination.sprintId)
+    )
+      return Promise.resolve();
+    if (this.#refuseLargeBatch(unique.length)) return Promise.resolve();
+    return this.#batchGesture(
+      unique,
+      ({ writer }, base) =>
+        removePlanningIssues(this.client, writer, {
+          boardId: base.boardId,
+          sprintId: base.sprint.id,
+          query: base.query,
+          issueKeys: unique,
+          destination,
+        }),
+      (result) => {
+        const origins = { ...this.#origins.value };
+        for (const key of result.confirmedKeys) delete origins[key];
+        this.#origins.value = origins;
+      },
+    );
+  }
+
+  /** Plus de 50 tickets : refus avant toute écriture, avec un avis. */
+  #refuseLargeBatch(count: number): boolean {
+    if (count <= PLANNING_BATCH_LIMIT) return false;
+    this.notice.value = planningOutcomeMessage({
+      kind: "refused",
+      reason: { reason: "batchTooLarge", count },
+    });
+    return true;
+  }
+
+  /**
+   * Geste sur un lot : porte du board, intention de `core`, une entrée de journal, avis des
+   * tickets confirmés et de ceux à refaire, puis relecture. La sélection garde les tickets à refaire.
+   */
+  async #batchGesture(
+    keys: readonly string[],
+    intention: (
+      access: BoardWriteAccess,
+      snapshot: PlanningSnapshot,
+    ) => Promise<PlanningBatchOutcome>,
+    after?: (result: PlanningBatchOutcome) => void,
+  ): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED || this.gesturesDisabled.value) return;
+    const snapshot = this.snapshot.value;
+    if (!snapshot) return;
+    await this.#busyWhile(async (generation) => {
+      let result: PlanningBatchOutcome;
+      try {
+        result = await this.context.write((access) => intention(access, snapshot));
+      } catch (error) {
+        result = {
+          outcome: { kind: "refused", reason: { reason: "failed", error } },
+          confirmedKeys: [],
+          remainingKeys: keys,
+        };
+      }
+      if (result.outcome.kind !== "unchanged")
+        await this.#record(
+          {
+            issueKey: null,
+            from: null,
+            to: snapshot.sprint.name,
+            detailMessage: planningBatchJournalMessage(result),
+          },
+          result.outcome,
+        );
+      if (this.#stale(generation)) return;
+      after?.(result);
+      batch(() => {
+        this.notice.value = planningBatchMessage(result);
+        // Lot confirmé : la sélection est vidée ; sinon elle garde les tickets à refaire.
+        this.selection.value = new Set(
+          result.outcome.kind === "refused" ? keys : result.remainingKeys,
+        );
+      });
+      await this.#reread(generation);
+    });
+  }
+
   /** Vélocité partagée de l'équipe, validée par le champ (Entrée ou sortie). */
   saveVelocity(velocity: number | null): Promise<void> {
     if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
@@ -1220,7 +1443,9 @@ export class PlanningModel implements PlanningViewModel {
     this.#closedSprints = closedSprintCache();
     this.#historyKey = null;
     this.#historyRun += 1;
+    this.#anchor = null;
     batch(() => {
+      this.selection.value = new Set();
       this.goalHistory.value = null;
       this.noEditableSprint.value = false;
       this.snapshot.value = null;
@@ -1280,6 +1505,20 @@ function tally(items: readonly PlanningIssue[]): PlanningTally {
     count: items.length,
     points: items.reduce((sum, item) => sum + (item.estimate ?? 0), 0),
   };
+}
+
+/** Jira refuse d'ajouter au sprint une sous-tâche ou un ticket terminé. */
+function canJoinSprint(issue: JiraIssue): boolean {
+  return issue.fields.issuetype.subtask !== true && !isDoneStatus(issue.fields.status);
+}
+
+/**
+ * Ticket qu'un geste peut déplacer : dans le sprint en préparation, ou dans une source d'où il
+ * peut le rejoindre. Le reste à faire d'un sprint actif reste en consultation.
+ */
+function selectable(snapshot: PlanningSnapshot, key: string): boolean {
+  const located = locate(snapshot, key);
+  return located !== null && (located.origin === null || canJoinSprint(located.issue));
 }
 
 /** Première couleur de la palette qu'aucun objectif n'utilise encore. */

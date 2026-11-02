@@ -1390,3 +1390,103 @@ describe("Sprint Planning : avancement de chaque objectif (8.16)", () => {
     expect(lane(planning, GOAL_A)?.deliveredIncomplete).toBe(true);
   });
 });
+
+describe("Sprint Planning : déplacer plusieurs tickets ensemble (8.15)", () => {
+  const selected = (planning: PlanningModel) => [...planning.selection.value];
+  const goalOf = (planning: PlanningModel, title: string) =>
+    planning.lanes.value.find((lane) => lane.goal.title === title)?.goal.id ?? "";
+
+  it("Ctrl+clic ajoute ou retire ; Maj+clic prend la plage de la section ; consultation exclue", async () => {
+    const { planning } = context();
+    await planning.load();
+    planning.toggleSelection("ABC-201");
+    planning.toggleSelection("ABC-210");
+    expect(selected(planning)).toEqual(["ABC-201", "ABC-210"]);
+    planning.toggleSelection("ABC-210");
+    expect(selected(planning)).toEqual(["ABC-201"]);
+    // Départ de la plage : le dernier ticket cliqué, ici de nouveau ABC-201.
+    planning.toggleSelection("ABC-201");
+    planning.toggleSelection("ABC-201");
+    planning.extendSelection("ABC-203", ["ABC-201", "ABC-202", "ABC-203", "ABC-204"]);
+    expect(selected(planning)).toEqual(["ABC-201", "ABC-202", "ABC-203"]);
+    // Reste à faire du sprint actif : en consultation, jamais sélectionnable.
+    const remaining = planning.sections.value.find((section) => section.kind === "active");
+    const readOnlyKey = remaining?.issues[0]?.issue.key ?? "";
+    planning.toggleSelection(readOnlyKey);
+    expect(selected(planning)).not.toContain(readOnlyKey);
+    planning.clearSelection();
+    expect(selected(planning)).toEqual([]);
+  });
+
+  it("poser un lot sur un objectif texte : une seule E9, une seule E5, sélection vidée", async () => {
+    const { planning, inspect, audit } = context();
+    await planning.load();
+    const goalId = goalOf(planning, "Rendre le panier plus rapide");
+    planning.toggleSelection("ABC-202");
+    planning.toggleSelection("ABC-204");
+    await planning.placeIssues(["ABC-202", "ABC-204"], goalId);
+    expect(inspect().writes.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      "POST /rest/agile/1.0/sprint/43/issue",
+      `PUT ${PROPERTY}`,
+    ]);
+    expect(inspect().writes[0]?.body).toEqual({ issues: ["ABC-202", "ABC-204"] });
+    const lane = planning.lanes.value.find((candidate) => candidate.goal.id === goalId);
+    expect(lane?.issues.map((item) => item.issue.key)).toEqual(["ABC-202", "ABC-204"]);
+    expect(lane?.issues.every((item) => item.origin?.kind === "backlog")).toBe(true);
+    expect(selected(planning)).toEqual([]);
+    expect(planning.notice.value).toBeNull();
+    const [entry] = await audit.list("https://acme.atlassian.net");
+    expect(entry).toMatchObject({ action: "sprint planning", issueKey: null, outcome: "réussi" });
+    expect(entry?.detailMessage).toMatchObject({ key: "Tickets {p0} : {p1}" });
+  });
+
+  it("renvoyer un lot au backlog : une seule E10", async () => {
+    const { planning, inspect } = context();
+    await planning.load();
+    await planning.placeIssues(["ABC-201", "ABC-202"], null);
+    const before = inspect().writes.length;
+    await planning.removeIssues(["ABC-201", "ABC-202", "ABC-210"], { kind: "backlog" });
+    const writes = inspect().writes.slice(before);
+    expect(writes.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      "POST /rest/agile/1.0/backlog/issue",
+    ]);
+    expect(writes[0]?.body).toEqual({ issues: ["ABC-201", "ABC-202", "ABC-210"] });
+    expect(inspect().issueKeys).toEqual([]);
+  });
+
+  it("plus de 50 tickets : refusé avant toute écriture, avec un avis", async () => {
+    const { planning, inspect } = context();
+    await planning.load();
+    const keys = Array.from({ length: 51 }, (_, index) => `ABC-${600 + index}`);
+    await planning.placeIssues(keys, null);
+    expect(inspect().writes).toEqual([]);
+    expect(notice(planning)).toContain("Lot de 51 tickets : au plus 50 par geste.");
+  });
+
+  it("E5 refusée après E9 : l'avis dit ce qui reste à refaire, la sélection le garde, rien n'est rejoué", async () => {
+    const { planning, inspect, jira } = context();
+    await planning.load();
+    const goalId = goalOf(planning, "Simplifier le paiement");
+    jira.on("PUT", PROPERTY, { status: 403, json: { errorMessages: ["Refusé"] } });
+    planning.toggleSelection("ABC-201");
+    planning.toggleSelection("ABC-202");
+    await planning.placeIssues(["ABC-201", "ABC-202"], goalId);
+    expect(inspect().writes.map(({ method }) => method)).toEqual(["POST", "PUT"]);
+    expect(notice(planning)).toContain("ticket ajouté au sprint");
+    expect(notice(planning)).toContain("À refaire : ABC-201, ABC-202.");
+    expect(selected(planning)).toEqual(["ABC-201", "ABC-202"]);
+  });
+
+  it("la sélection survit aux relectures tant que ses tickets restent déplaçables", async () => {
+    const { planning, changeGoalText } = context();
+    await planning.load();
+    planning.toggleSelection("ABC-201");
+    planning.toggleSelection("ABC-210");
+    await planning.removeIssue("ABC-210", { kind: "backlog" });
+    // ABC-210 est revenu au backlog : toujours visible, toujours sélectionnable.
+    expect(selected(planning)).toEqual(["ABC-201", "ABC-210"]);
+    changeGoalText("🎯 Simplifier le paiement");
+    await planning.selectSprint(43);
+    expect(selected(planning)).toEqual(["ABC-201", "ABC-210"]);
+  });
+});

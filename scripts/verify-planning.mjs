@@ -115,8 +115,29 @@ try {
       || !element.contains(document.elementFromPoint(x, y))) return null;
     return { x, y };
   })()`);
-  /** Glissé natif de Chrome : carte `key` déposée sur `target` (qui doit signaler le survol). */
-  const drag = async (key, target, activeSelector) => {
+  /** Clic réel sur la carte `key` avec des touches (2 : Ctrl, 4 : Cmd, 8 : Maj). */
+  const clickCard = async (key, modifiers) => {
+    const at = await point(`[data-planning-issue="${key}"] .planning-card-title`);
+    assert(at, `La carte ${key} n'est pas accessible pour le clic`);
+    for (const type of ["mousePressed", "mouseReleased"])
+      await send(
+        "Input.dispatchMouseEvent",
+        {
+          type,
+          ...at,
+          button: "left",
+          buttons: type === "mousePressed" ? 1 : 0,
+          clickCount: 1,
+          modifiers,
+        },
+        sessionId,
+      );
+  };
+  /**
+   * Glissé natif de Chrome : carte `key` déposée sur `target` (qui doit signaler le survol) ;
+   * `carried` : clés transmises, la seule carte par défaut, toute la sélection sinon.
+   */
+  const drag = async (key, target, activeSelector, carried = key) => {
     await wait(idle, "Un geste est encore en cours avant le glissé");
     const from = await point(`[data-planning-issue="${key}"] .planning-card-title`);
     assert(from, `La carte ${key} n'est pas accessible pour le glisser-déposer`);
@@ -140,7 +161,7 @@ try {
     assert(
       data.items.some(
         (item) =>
-          item.mimeType === "application/x-sprint-goals-planning-issue" && item.data === key,
+          item.mimeType === "application/x-sprint-goals-planning-issue" && item.data === carried,
       ),
       "La carte n'a pas transmis son identifiant dans le glissement natif",
     );
@@ -518,6 +539,30 @@ try {
     );
     assert(!(await inspect()).issueKeys.includes("ABC-210"), "ABC-210 est encore dans le sprint");
     console.log("✓ Renvoi au backlog par glissé : E10 seul, relu");
+
+    // Story 8.15 : Ctrl+clic sur deux cartes du backlog, puis un seul glissé pour le lot.
+    await clickCard("ABC-202", 2);
+    await clickCard("ABC-204", 2);
+    await wait(
+      "document.querySelector('.planning-selection')?.textContent.includes('2 tickets sélectionnés')",
+      "Le nombre de tickets sélectionnés n'est pas affiché",
+    );
+    await drag(
+      "ABC-202",
+      laneCell(secondGoal),
+      `[data-planning-goal="${secondGoal}"]`,
+      "ABC-202 ABC-204",
+    );
+    done = await expectWrites(done, [E9, E5], "Lot posé sur un objectif");
+    state = await inspect();
+    assert(
+      ["ABC-202", "ABC-204"].every(
+        (key) => state.issueKeys.includes(key) && state.document.links[key] === secondGoal,
+      ),
+      "Le lot n'a pas rejoint l'objectif en un seul geste",
+    );
+    await wait("!document.querySelector('.planning-selection')", "La sélection n'a pas été vidée");
+    console.log("✓ Lot : Ctrl+clic sur deux cartes, un glissé, une seule E9 puis une seule E5");
 
     await setValue(".planning-velocity input", "20");
     await press("Enter");
