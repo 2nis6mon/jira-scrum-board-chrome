@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { auditText } from "../../src/app/model/auditLog";
 import { BoardModel } from "../../src/app/model/BoardModel";
 import { BUILD_BLOCK, goalBlock, swimlaneBlock } from "../../src/core/boardBlocks";
+import { withLocalPins } from "../../src/core/boardPreferences";
 import { normalizeSiteUrl } from "../../src/jira/site";
+import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { atlassianGoalsPlatform } from "../support/atlassianGoalsBoard";
-import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
+import { BOARD_URL, boardSiteJira, GOALS_DOCUMENT, SPRINT_ISSUES } from "../support/boardFixture";
 import { isWriteRequest, type Reply } from "../support/fakeJira";
 import { type FakeGoal, goalsGateway } from "../support/goalsGateway";
 import { issueJson } from "../support/jiraFixtures";
@@ -273,6 +275,89 @@ describe("BoardModel — Goals Atlassian", () => {
     expect(board.snapshot.value?.goalsOrigin).toBe("atlassianGoals");
     expect(board.snapshot.value?.goals).toEqual([]);
     expect(board.goalsNotice.value).toBeNull();
+  });
+});
+
+describe("Goal Atlassian inconnu après la première lecture", () => {
+  const NOUVEAU = "ari:cloud:townsquare:c:goal/nouveau";
+  const PROPERTY = `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.goals}`;
+  const goalLane = (board: BoardModel, goalId: string) =>
+    board.layout.value?.lanes
+      .find((lane) => lane.id === `goal:${goalId}`)
+      ?.cells.flatMap((cell) => cell.issues)
+      .map((issue) => issue.issue.key);
+
+  /** Board lu une première fois, puis un Goal neuf rattaché à ABC-104 apparaît sur le site. */
+  async function boardWithNewGoal() {
+    const goals = [...GOALS];
+    const context = await goalsBoard({ goals });
+    expect(context.board.snapshot.value?.goals.map((goal) => goal.id)).toEqual([
+      PAIEMENT,
+      STABILITE,
+    ]);
+    goals.push({ id: NOUVEAU, key: "GOAL-3", name: "Nouveau Goal", workItems: ["ABC-104"] });
+    return context;
+  }
+
+  it("découvert par un ticket, non épinglé : arrive masqué, puis se réaffiche", async () => {
+    const { board, jira } = await boardWithNewGoal();
+
+    await board.sync();
+
+    expect(board.snapshot.value?.goals.some((goal) => goal.id === NOUVEAU)).toBe(true);
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([NOUVEAU]);
+    expect(board.hiddenGoals.value.map((goal) => goal.id)).toEqual([NOUVEAU]);
+    expect(goalLane(board, NOUVEAU)).toBeUndefined();
+    // Masquage local : rien n'est écrit dans Jira.
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+
+    await board.setGoalHidden(NOUVEAU, false);
+
+    expect(board.hiddenGoals.value).toEqual([]);
+    expect(goalLane(board, NOUVEAU)).toEqual(["ABC-104"]);
+    await board.sync();
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([]);
+  });
+
+  it("épinglé au sprint dans Jira : visible, rien n'est masqué", async () => {
+    const { board, jira } = await boardWithNewGoal();
+    jira.on("GET", PROPERTY, {
+      status: 200,
+      json: {
+        key: SPRINT_PROPERTY_KEYS.goals,
+        value: { ...GOALS_DOCUMENT, atlassianGoalIds: [NOUVEAU] },
+      },
+    });
+
+    await board.sync();
+
+    expect(board.snapshot.value?.pinnedGoalIds).toEqual([NOUVEAU]);
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([]);
+    expect(goalLane(board, NOUVEAU)).toEqual(["ABC-104"]);
+  });
+
+  it("épinglé dans ce navigateur (repli local) : visible, rien n'est masqué", async () => {
+    const { board } = await boardWithNewGoal();
+    await board.applySettings((current) => withLocalPins(current, 42, [NOUVEAU]), {
+      resync: true,
+    });
+
+    expect(board.snapshot.value?.localPinnedGoalIds).toEqual([NOUVEAU]);
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([]);
+    expect(goalLane(board, NOUVEAU)).toEqual(["ABC-104"]);
+  });
+
+  it("propriété du sprint illisible : épinglage inconnu, rien n'est masqué", async () => {
+    const { board, jira } = await boardWithNewGoal();
+    jira.on("GET", PROPERTY, { status: 500, json: { errorMessages: ["Erreur interne"] } });
+
+    await board.sync();
+
+    expect(board.syncProblem.value).toBeNull();
+    expect(board.snapshot.value?.pinnedGoalIds).toBeNull();
+    expect(board.snapshot.value?.goals.some((goal) => goal.id === NOUVEAU)).toBe(true);
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([]);
+    expect(goalLane(board, NOUVEAU)).toEqual(["ABC-104"]);
   });
 });
 

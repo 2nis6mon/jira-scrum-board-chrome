@@ -2,6 +2,7 @@ import type { BoardConfiguration } from "../../core/boardConfiguration";
 import { allIssues, type BoardSnapshot } from "../../core/boardIssue";
 import { type AtlassianGoalsLoader, type BoardReader, loadSnapshot } from "../../core/boardSync";
 import { withObservedIssueTypes } from "../../core/issueTypeDiscovery";
+import { pinnedGoalIdsOfSnapshot } from "../../core/pinnedGoals";
 import { goalColorName } from "../../core/sprintGoals";
 import type { JiraClient } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
@@ -176,13 +177,24 @@ export class BoardLoadingService {
         result.snapshot.goalIssues.flatMap((issue) => (issue.goalId ? [issue.goalId] : [])),
       );
       // À la toute première lecture, les Goals constituent le board initial et restent visibles.
-      // Ensuite, un Goal inconnu introduit par un ticket arrive masqué : le ticket reste dans
-      // son bloc par défaut jusqu'à ce que l'utilisateur le réaffiche depuis « Goals masqués ».
+      // Ensuite, un Goal Atlassian inconnu introduit par un ticket seulement (non épinglé) arrive
+      // masqué : le ticket reste dans son bloc par défaut jusqu'à ce que l'utilisateur le
+      // réaffiche depuis « Masqués du board ». Jamais un objectif du texte d'un sprint, y compris
+      // en repli texte : ceux d'un sprint qui démarre peuvent avoir un identifiant neuf (objectifs
+      // créés pendant le planning). Épinglage illisible : rien n'est masqué.
+      const pinnedGoalIds = pinnedGoalIdsOfSnapshot(result.snapshot, latest);
       const newLinkedGoalIds =
-        knownGoalIds.size === 0
+        knownGoalIds.size === 0 ||
+        result.snapshot.goalsOrigin !== "atlassianGoals" ||
+        pinnedGoalIds === null
           ? []
           : result.snapshot.goals
-              .filter((goal) => linkedGoalIds.has(goal.id) && !knownGoalIds.has(goal.id))
+              .filter(
+                (goal) =>
+                  linkedGoalIds.has(goal.id) &&
+                  !knownGoalIds.has(goal.id) &&
+                  !pinnedGoalIds.has(goal.id),
+              )
               .map((goal) => goal.id);
       const colors = { ...result.goalColorIndex, ...latest.goalColorIndex };
       this.#state.snapshot.value = {

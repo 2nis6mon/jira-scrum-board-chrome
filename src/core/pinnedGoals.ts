@@ -131,6 +131,41 @@ export function boardLocalPinnedGoalIds(
   return ids.length > 0 ? ids : null;
 }
 
+type PinnedOfSnapshot = Pick<BoardSnapshot, "pinnedGoalIds" | "localPinnedGoalIds"> &
+  Partial<
+    Pick<BoardSnapshot, "goalSprintIds" | "sprintPinnedGoalIds" | "sprintLocalPinnedGoalIds">
+  >;
+
+/**
+ * Goals épinglés d'une photographie, tous stockages réunis : épinglage effectif de chaque sprint
+ * réuni (sélection de Jira, à défaut celle gardée dans ce navigateur), sélection du sprint de
+ * référence et, en Kanban, celle du board. Distingue un Goal épinglé d'un Goal introduit par un
+ * ticket seulement. `null` en Scrum si la propriété d'un sprint réuni n'a pas pu être lue :
+ * l'épinglage n'est alors pas connu.
+ */
+export function pinnedGoalIdsOfSnapshot(
+  snapshot: PinnedOfSnapshot,
+  configuration: Pick<BoardConfiguration, "boardType" | "boardPinnedGoalIds">,
+): ReadonlySet<string> | null {
+  if (configuration.boardType !== "kanban") {
+    if (snapshot.pinnedGoalIds === null) return null;
+    const read = snapshot.sprintPinnedGoalIds;
+    if (read && (snapshot.goalSprintIds ?? []).some((sprintId) => read[sprintId] === undefined))
+      return null;
+  }
+  const ids = new Set<string>();
+  const add = (list: readonly string[] | null | undefined) => {
+    for (const id of list ?? []) ids.add(id);
+  };
+  for (const sprintId of snapshot.goalSprintIds ?? []) {
+    add(snapshot.sprintLocalPinnedGoalIds?.[sprintId] ?? snapshot.sprintPinnedGoalIds?.[sprintId]);
+  }
+  add(snapshot.pinnedGoalIds);
+  add(snapshot.localPinnedGoalIds);
+  if (configuration.boardType === "kanban") add(configuration.boardPinnedGoalIds);
+  return ids;
+}
+
 export type BoardPinOutcome =
   /** Jira a confirmé l'enregistrement : `document` est la version publiée. */
   | { kind: "pinned"; document: TeamDocument }

@@ -3,6 +3,19 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.42.3 — Objectifs du sprint démarré visibles sur le board
+
+- Essai du 02/11/2026 : après le démarrage du sprint préparé, ses objectifs créés pendant le
+  planning arrivaient masqués (œil fermé) sur le Sprint Board ; seuls les objectifs reportés
+  restaient visibles.
+- Après la première lecture, seul un Goal Atlassian inconnu introduit par un ticket, et épinglé
+  nulle part (ni sur un sprint réuni, ni dans le repli local, ni au board Kanban), arrive masqué.
+  Un Goal dont l'épinglage n'a pas pu être lu n'est pas masqué. Les objectifs texte d'un sprint ne
+  sont plus jamais masqués d'office, y compris en repli texte quand les Goals sont illisibles. Le
+  masquage reste local, rien n'est écrit dans Jira.
+- Un objectif masqué à tort par une version précédente le reste : il se réaffiche depuis
+  **Masqués du board**.
+
 ## 0.42.2 — Sprint Planning : type, priorité et statut sur la carte, menu au clic droit (builds locaux)
 
 - Essai du 02/11/2026 (stories 8.12 et 8.13) : la carte du planning ne montrait que la lettre du

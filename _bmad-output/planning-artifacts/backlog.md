@@ -49,13 +49,14 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   affiché au premier geste. Même règle pour les autres sprints futurs de la colonne de gauche, les cibles
   « Vers {sprint} » et les sprints actifs proposés à la clôture. À rapprocher de la décision sur les
   droits (8.10).
-- [ ] Bug (essai du 02/11/2026) : après le démarrage du sprint préparé, ses nouveaux objectifs
+- [x] Bug (essai du 02/11/2026) : après le démarrage du sprint préparé, ses nouveaux objectifs
   arrivent masqués (œil fermé) sur le Sprint Board. Cause : `BoardLoadingService.ts` masque, après
   la première lecture, tout objectif inconnu (absent de `goalColorIndex` et de la lecture
   précédente) qui a des tickets rattachés ; les objectifs créés pendant le planning ont un identifiant
   neuf, les objectifs reportés gardent le leur et restent visibles. Ne masquer que les Goals
   introduits par un ticket seulement, jamais les objectifs du texte d'un sprint ni les Goals épinglés ;
-  test de régression sur un démarrage de sprint.
+  test de régression sur un démarrage de sprint. Corrigé en 0.42.3, vérifié sur Jira fictif ; à
+  confirmer à l'essai réel (8.10).
 - [ ] À investiguer (essai du 02/11/2026) : la colonne « Où sont les tickets » montre des tickets
   fermés, alors que Denis ne les voit pas dans le backlog Jira. Constat dans le code : `sections`
   (`PlanningModel.ts`) affiche tout ce que renvoient la lecture du backlog

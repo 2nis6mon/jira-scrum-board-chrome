@@ -3,6 +3,7 @@ import { BoardModel } from "../../src/app/model/BoardModel";
 import { loadActiveBoard, saveBoard } from "../../src/app/model/boardStore";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
+import { atlassianGoalsPlatform } from "../support/atlassianGoalsBoard";
 import {
   BOARD_URL,
   boardSiteJira,
@@ -115,15 +116,20 @@ describe("BoardModel — mise en place", () => {
 });
 
 describe("BoardModel — synchronisation", () => {
-  it("masque un Goal inconnu introduit par un ticket, puis permet de le réafficher", async () => {
-    const { jira, board, platform } = await detected();
-    const newGoalId = "g-nouveau";
+  const goalLane = (board: BoardModel, goalId: string) =>
+    board.layout.value?.lanes
+      .find((lane) => lane.id === `goal:${goalId}`)
+      ?.cells.flatMap((cell) => cell.issues)
+      .map((issue) => issue.issue.key);
+
+  /** Objectif texte « Nouveau Goal » ajouté au sprint 42, avec un ticket rattaché. */
+  function withNewTextGoal(jira: FakeJira, newGoalId: string): FakeJira {
     const newIssue = issueJson("ABC-106", {
-      summary: "Ticket ajouté au sprint avec un nouveau Goal",
+      summary: "Ticket ajouté au sprint avec un nouvel objectif",
       statusId: "3",
       statusName: "En cours",
     });
-    jira
+    return jira
       .on("GET", "/rest/agile/1.0/board/7/sprint", {
         status: 200,
         json: {
@@ -155,34 +161,103 @@ describe("BoardModel — synchronisation", () => {
           },
         },
       });
+  }
+
+  it("un objectif texte inconnu introduit par un ticket reste visible, rien n'est masqué", async () => {
+    const { jira, board, platform } = await detected();
+    const newGoalId = "g-nouveau";
+    withNewTextGoal(jira, newGoalId);
 
     await board.sync();
 
-    expect(board.snapshot.value?.goals.some((goal) => goal.id === newGoalId)).toBe(true);
-    expect(board.configuration.value?.hiddenGoalIds).toContain(newGoalId);
-    expect(board.hiddenGoals.value.map((goal) => goal.id)).toContain(newGoalId);
-    expect(
-      board.layout.value?.lanes
-        .find((lane) => lane.id === "build")
-        ?.cells.flatMap((cell) => cell.issues)
-        .map((issue) => issue.issue.key),
-    ).toContain("ABC-106");
-    expect((await loadActiveBoard(platform.store, SITE.origin))?.hiddenGoalIds).toContain(
-      newGoalId,
-    );
-
-    await board.setGoalHidden(newGoalId, false);
-
+    expect(board.snapshot.value?.goalsOrigin).toBe("sprintText");
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([]);
     expect(board.hiddenGoals.value.map((goal) => goal.id)).not.toContain(newGoalId);
-    expect(
-      board.layout.value?.lanes
-        .find((lane) => lane.id === `goal:${newGoalId}`)
-        ?.cells.flatMap((cell) => cell.issues)
-        .map((issue) => issue.issue.key),
-    ).toEqual(["ABC-106"]);
+    expect(goalLane(board, newGoalId)).toEqual(["ABC-106"]);
+    expect((await loadActiveBoard(platform.store, SITE.origin))?.hiddenGoalIds).toEqual([]);
+  });
+
+  it("repli texte (Goals illisibles) : un objectif texte inconnu lié reste visible", async () => {
+    // Board réglé sur les Goals Atlassian ; la passerelle refuse (CORS) : repli sur le texte.
+    const jira = boardSiteJira();
+    const board = new BoardModel(SITE, await atlassianGoalsPlatform(jira), { now: () => NOW });
+    await board.load();
+    await board.detect(BOARD_URL);
+    expect(board.snapshot.value?.goalsOrigin).toBe("sprintText");
+    expect(board.goalsNotice.value).not.toBeNull();
+    const newGoalId = "g-nouveau";
+    withNewTextGoal(jira, newGoalId);
 
     await board.sync();
-    expect(board.configuration.value?.hiddenGoalIds).not.toContain(newGoalId);
+
+    expect(board.snapshot.value?.goalsOrigin).toBe("sprintText");
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([]);
+    expect(goalLane(board, newGoalId)).toEqual(["ABC-106"]);
+  });
+
+  it("démarrage du sprint préparé : ses objectifs texte neufs s'affichent avec leurs tickets", async () => {
+    // Première lecture : sprint actif 42. Le sprint préparé 43 démarre ensuite, avec des objectifs
+    // créés pendant le planning (identifiants neufs), chacun rattaché à un ticket.
+    const { jira, board, platform } = await detected();
+    const issues = [
+      issueJson("ABC-201", { summary: "Mémoriser le moyen de paiement", statusId: "1" }),
+      issueJson("ABC-202", { summary: "Charger le panier plus vite", statusId: "3" }),
+      issueJson("ABC-203", { summary: "Rédiger l'aide", statusId: "1" }),
+    ];
+    jira
+      .on("GET", "/rest/agile/1.0/board/7/sprint", {
+        status: 200,
+        json: {
+          isLast: true,
+          values: [
+            {
+              id: 43,
+              name: "Sprint 43",
+              state: "active",
+              originBoardId: 7,
+              startDate: "2026-09-28T08:00:00.000+0200",
+              endDate: "2026-10-09T18:00:00.000+0200",
+              goal: "🎯 Simplifier le paiement\n🎯 Rendre le panier plus rapide",
+            },
+          ],
+        },
+      })
+      .on("GET", "/rest/agile/1.0/board/7/sprint/43/issue", {
+        status: 200,
+        json: { issues, total: issues.length },
+      })
+      .on("GET", `/rest/agile/1.0/sprint/43/properties/${SPRINT_PROPERTY_KEYS.goals}`, {
+        status: 200,
+        json: {
+          value: {
+            version: 1,
+            goals: [
+              { id: "g-planning-1", title: "Simplifier le paiement", color: "goal1", position: 0 },
+              {
+                id: "g-planning-2",
+                title: "Rendre le panier plus rapide",
+                color: "goal2",
+                position: 1,
+              },
+            ],
+            links: { "ABC-201": "g-planning-1", "ABC-202": "g-planning-2" },
+            atlassianGoalIds: [],
+          },
+        },
+      });
+
+    await board.sync();
+
+    expect(board.snapshot.value?.sprint?.id).toBe(43);
+    expect(board.snapshot.value?.goals.map((goal) => goal.id)).toEqual([
+      "g-planning-1",
+      "g-planning-2",
+    ]);
+    expect(board.hiddenGoals.value).toEqual([]);
+    expect(goalLane(board, "g-planning-1")).toEqual(["ABC-201"]);
+    expect(goalLane(board, "g-planning-2")).toEqual(["ABC-202"]);
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([]);
+    expect((await loadActiveBoard(platform.store, SITE.origin))?.hiddenGoalIds).toEqual([]);
   });
 
   it("ne fait que lire", async () => {

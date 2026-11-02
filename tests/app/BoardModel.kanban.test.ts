@@ -7,7 +7,7 @@ import { BOARD_PROPERTY_KEYS } from "../../src/jira/writes";
 import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
 import { isWriteRequest, type Reply } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
-import { goalsGateway } from "../support/goalsGateway";
+import { type FakeGoal, goalsGateway } from "../support/goalsGateway";
 import { makeConfiguration, statusJson } from "../support/jiraFixtures";
 
 // Données FICTIVES : board Kanban sans sprint, deux Goals et un Goal vide à épingler.
@@ -18,7 +18,18 @@ const STABILITE = "ari:cloud:townsquare:c:goal/stabilite";
 const SECURITE = "ari:cloud:townsquare:c:goal/securite";
 const TODO = "col-0-À faire";
 
-async function kanbanBoard(options: { canEdit?: boolean; put?: Reply; property?: unknown } = {}) {
+/** Goals du site ; une copie par board, que le test peut modifier entre deux lectures. */
+function kanbanGoals(): FakeGoal[] {
+  return [
+    { id: PAIEMENT, key: "GOAL-1", name: "Paiement", workItems: ["ABC-101", "ABC-102"] },
+    { id: STABILITE, key: "GOAL-2", name: "Stabilité", workItems: ["ABC-103"] },
+    { id: SECURITE, key: "GOAL-3", name: "Sécurité" },
+  ];
+}
+
+async function kanbanBoard(
+  options: { canEdit?: boolean; put?: Reply; property?: unknown; goals?: FakeGoal[] } = {},
+) {
   const mutations: { field: string; goalId: string; workItemId: string }[] = [];
   const property = {
     value: options.property ?? (null as unknown),
@@ -29,11 +40,7 @@ async function kanbanBoard(options: { canEdit?: boolean; put?: Reply; property?:
     ...(options.canEdit === undefined ? {} : { canEdit: options.canEdit }),
     quickFilters: [{ id: 1, name: "Urgent", jql: "labels = urgent", position: 0 }],
     graphql: goalsGateway({
-      goals: [
-        { id: PAIEMENT, key: "GOAL-1", name: "Paiement", workItems: ["ABC-101", "ABC-102"] },
-        { id: STABILITE, key: "GOAL-2", name: "Stabilité", workItems: ["ABC-103"] },
-        { id: SECURITE, key: "GOAL-3", name: "Sécurité" },
-      ],
+      goals: options.goals ?? kanbanGoals(),
       mutation: (input, field) => {
         mutations.push({ field, ...input });
         return { status: 200, json: { data: { [field]: { success: true } } } };
@@ -329,6 +336,28 @@ describe("BoardModel — Kanban sans sprint", () => {
     property.value = null;
     await board.sync();
     expect(board.snapshot.value?.pinnedGoalIds).toEqual([]);
+  });
+
+  it("Goal inconnu épinglé au board puis rattaché à un ticket : visible, rien n'est masqué", async () => {
+    const goals = kanbanGoals();
+    const { board, property } = await kanbanBoard({ goals });
+    expect(board.snapshot.value?.goals.map((goal) => goal.id)).toEqual([PAIEMENT, STABILITE]);
+    const securite = goals.find((goal) => goal.id === SECURITE);
+    if (!securite) throw new Error("Goal attendu");
+    securite.workItems = ["ABC-104"];
+    property.value = document(board, [SECURITE]);
+
+    await board.sync();
+
+    expect(board.configuration.value?.boardPinnedGoalIds).toEqual([SECURITE]);
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([]);
+    expect(board.hiddenGoals.value).toEqual([]);
+    expect(
+      board.layout.value?.lanes
+        .find((lane) => lane.id === `goal:${SECURITE}`)
+        ?.cells.flatMap((cell) => cell.issues)
+        .map((issue) => issue.issue.key),
+    ).toEqual(["ABC-104"]);
   });
 
   it("transition puis relecture du board, sans sprint", async () => {

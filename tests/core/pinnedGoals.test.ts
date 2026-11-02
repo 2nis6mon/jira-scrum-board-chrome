@@ -4,6 +4,7 @@ import {
   localPinnedGoalIdsIn,
   pinnableSprints,
   pinnedGoalIdsIn,
+  pinnedGoalIdsOfSnapshot,
   pinnedGoalsStorage,
   saveBoardPinnedGoals,
 } from "../../src/core/pinnedGoals";
@@ -122,6 +123,62 @@ describe("sprint de l'épinglage, avec plusieurs sprints actifs", () => {
     expect(
       boardLocalPinnedGoalIds({ localPinnedGoalIds: null, sprintLocalPinnedGoalIds: {} }),
     ).toBeNull();
+  });
+});
+
+describe("Goals épinglés d'une photographie", () => {
+  const ids = (set: ReadonlySet<string> | null) => (set === null ? null : [...set].sort());
+
+  it("Scrum : épinglage effectif de chaque sprint réuni, repli local compris", () => {
+    const snapshot = {
+      goalSprintIds: [42, 43, 44],
+      pinnedGoalIds: ["g-42"],
+      localPinnedGoalIds: null,
+      sprintPinnedGoalIds: { 42: ["g-42"], 43: [], 44: ["g-44"] },
+      sprintLocalPinnedGoalIds: { 43: ["g-local"] },
+    };
+    expect(ids(pinnedGoalIdsOfSnapshot(snapshot, scrum))).toEqual(["g-42", "g-44", "g-local"]);
+  });
+
+  it("sans épinglage par sprint : sélection et repli local du sprint de référence", () => {
+    expect(
+      ids(pinnedGoalIdsOfSnapshot({ pinnedGoalIds: ["g-jira"], localPinnedGoalIds: null }, scrum)),
+    ).toEqual(["g-jira"]);
+    expect(
+      ids(pinnedGoalIdsOfSnapshot({ pinnedGoalIds: [], localPinnedGoalIds: ["g-local"] }, scrum)),
+    ).toEqual(["g-local"]);
+  });
+
+  it("Scrum, propriété d'un sprint réuni illisible : épinglage inconnu (null)", () => {
+    // Sprint de référence illisible.
+    expect(
+      pinnedGoalIdsOfSnapshot({ pinnedGoalIds: null, localPinnedGoalIds: null }, scrum),
+    ).toBeNull();
+    // Sprint réuni 43 sans entrée lue, même avec un repli local.
+    expect(
+      pinnedGoalIdsOfSnapshot(
+        {
+          goalSprintIds: [42, 43],
+          pinnedGoalIds: ["g-42"],
+          localPinnedGoalIds: null,
+          sprintPinnedGoalIds: { 42: ["g-42"] },
+          sprintLocalPinnedGoalIds: { 43: ["g-local"] },
+        },
+        scrum,
+      ),
+    ).toBeNull();
+    // Kanban : la sélection du board reste connue.
+    expect(
+      ids(pinnedGoalIdsOfSnapshot({ pinnedGoalIds: null, localPinnedGoalIds: null }, kanban)),
+    ).toEqual(["g-board"]);
+  });
+
+  it("Kanban : sélection du board, même modifiée depuis la lecture ; Scrum l'ignore", () => {
+    const snapshot = { pinnedGoalIds: ["g-lu"], localPinnedGoalIds: null };
+    expect(ids(pinnedGoalIdsOfSnapshot(snapshot, kanban))).toEqual(["g-board", "g-lu"]);
+    expect(
+      ids(pinnedGoalIdsOfSnapshot(snapshot, { ...scrum, boardPinnedGoalIds: ["g-board"] })),
+    ).toEqual(["g-lu"]);
   });
 });
 
