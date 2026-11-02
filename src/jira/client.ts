@@ -544,6 +544,33 @@ export class JiraClient {
     );
   }
 
+  /**
+   * Estimation d'un ticket dans le champ du board : `GET /rest/agile/1.0/issue/{clé}/estimation
+   * ?boardId=` (OpenAPI de Jira Software, vérifiée le 02/11/2026 : `fieldId` et `value`, chaîne
+   * comme « 8.0 »). `value` à `null` : ticket non estimé.
+   */
+  async issueEstimation(
+    issueKey: string,
+    boardId: number,
+  ): Promise<{ fieldId: string | null; value: number | null }> {
+    assertIssueKey(issueKey);
+    assertEntityId(boardId, "board");
+    const { body } = await this.#transport.get(`/rest/agile/1.0/issue/${issueKey}/estimation`, {
+      query: { boardId: String(boardId) },
+      resource: `l'estimation de ${issueKey}`,
+    });
+    if (!isRecord(body)) decodingFailure("estimation", "objet attendu");
+    const raw = body.value;
+    const value =
+      typeof raw === "number"
+        ? raw
+        : typeof raw === "string" && raw.trim() !== ""
+          ? Number(raw)
+          : null;
+    if (value !== null && !Number.isFinite(value)) decodingFailure("estimation", String(raw));
+    return { fieldId: typeof body.fieldId === "string" ? body.fieldId : null, value };
+  }
+
   /** Statut actuel d'un ticket dans Jira : relu juste avant une transition. */
   async issueStatus(issueKey: string): Promise<JiraStatus> {
     assertIssueKey(issueKey);

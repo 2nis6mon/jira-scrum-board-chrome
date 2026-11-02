@@ -2,7 +2,7 @@ import type { IssueQuery, JiraClient } from "../jira/client";
 import type { GoalsClient } from "../jira/goals";
 import type { JsonValue } from "../jira/json";
 import { isDoneStatus, type JiraIssue, type JiraSprint } from "../jira/models";
-import { SPRINT_PROPERTY_KEYS } from "../jira/writes";
+import { isEstimateValue, SPRINT_PROPERTY_KEYS } from "../jira/writes";
 import { type GoalsReader, loadAtlassianSprintGoals } from "./atlassianGoals";
 import type { BoardConfiguration } from "./boardConfiguration";
 import { changeAtlassianGoal } from "./boardMove";
@@ -40,6 +40,7 @@ export type PlanningReader = Pick<
   JiraClient,
   "sprint" | "sprints" | "sprintIssues" | "backlogIssues" | "sprintProperty"
 >;
+export type EstimateReader = Pick<JiraClient, "issueEstimation">;
 export type PlanningWriter = JiraWriter;
 export type PlanningGoalLinks = Pick<GoalsClient, "setLink">;
 
@@ -53,7 +54,9 @@ export type PlanningStep =
   | "goalUnlinked"
   | "issueMoved"
   | "pinned"
-  | "velocity";
+  | "velocity"
+  /** Estimation du ticket écrite (E11) puis relue. */
+  | "estimate";
 
 export type PlanningOutcome =
   /** Tout ce qui a été écrit a été relu et confirmé. */
@@ -870,6 +873,49 @@ export async function removePlanningIssues(
     run.confirmed.push("issueMoved");
   });
   return batchOutcome(keys, outcome, outcome.kind === "refused" ? new Set() : moved);
+}
+
+// ─── Estimation pendant la séance (story 8.17) ───────────────────────────────
+
+/**
+ * Champ d'estimation modifiable depuis le planning : un champ personnalisé (story points). Le temps
+ * estimé (`timeoriginalestimate`, en secondes et en durées) reste à la fiche native.
+ */
+export function canEstimateWith(fieldId: string | null): fieldId is string {
+  return fieldId !== null && /^customfield_\d+$/.test(fieldId);
+}
+
+/**
+ * Estime un ticket (E11) dans le champ du board. L'estimation relue doit être celle affichée
+ * (`base`) et son champ celui du board ; sinon rien n'est écrit. Une valeur égale n'écrit rien.
+ * Une seule écriture, relue pour confirmer.
+ */
+export function estimatePlanningIssue(
+  reader: EstimateReader,
+  writer: JiraWriter,
+  input: {
+    boardId: number;
+    issueKey: string;
+    fieldId: string | null;
+    base: number | null;
+    value: number;
+  },
+): Promise<PlanningOutcome> {
+  return runIntention(writer, NO_GOAL_LINKS, async (run) => {
+    const { boardId, issueKey, value } = input;
+    if (!canEstimateWith(input.fieldId)) refuse({ reason: "estimateUnavailable", issueKey });
+    if (!isEstimateValue(value)) refuse({ reason: "invalidEstimate" });
+    const current = await reader.issueEstimation(issueKey, boardId);
+    if (current.fieldId !== null && current.fieldId !== input.fieldId)
+      refuse({ reason: "estimateUnavailable", issueKey });
+    if (current.value !== input.base) refuse({ reason: "estimateChanged", issueKey });
+    if (current.value === value) return;
+    await run.writer.write({ kind: "issue.estimation", issueKey, boardId, value });
+    const read = await reader.issueEstimation(issueKey, boardId);
+    if (read.value !== value)
+      throw new CoreError({ code: "planningEstimateUnconfirmed", issueKey });
+    run.confirmed.push("estimate");
+  });
 }
 
 // ─── Vélocité et Goals épinglés ──────────────────────────────────────────────

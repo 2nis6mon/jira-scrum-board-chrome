@@ -3,6 +3,20 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.46.0 — Sprint Planning : estimer un ticket pendant la séance (builds locaux)
+
+- Essai du 02/11/2026 (story 8.17) : pour chiffrer une story en séance, il fallait ouvrir sa fiche.
+- Sur un board estimé par un champ (story points), la valeur d'une carte du sprint en préparation
+  ou d'une source (« ? » si vide) s'ouvre au clic ; **Entrée** ou la sortie du champ écrivent
+  l'estimation dans Jira, **Échap** annule, une valeur vide ou inchangée n'écrit rien. La carte et
+  la charge du sprint affichent la valeur relue.
+- Nouvelle écriture E11 (décision de Denis du 02/11/2026), contrat vérifié dans la documentation
+  officielle : `PUT /rest/agile/1.0/issue/{clé}/estimation?boardId=`, seule la valeur. Estimation
+  modifiée dans Jira depuis l'affichage, ou champ différent : rien n'est écrit, l'avis le dit et
+  la page est relue. Une seule tentative.
+- Sans champ d'estimation, avec le temps estimé, ou en consultation, la valeur reste affichée sans
+  être modifiable : la fiche Jira reste le recours.
+
 ## 0.45.0 — Sprint Planning : déplacer plusieurs tickets ensemble (builds locaux)
 
 - Essai du 02/11/2026 (story 8.15) : pour répartir un lot, il fallait répéter le même

@@ -170,6 +170,8 @@ export interface PlanningViewModel {
   /** Compte rendu de la dernière clôture, jusqu'à sa fermeture. */
   readonly carryOverReport: ReadonlySignal<PlanningCarryOverReport | null>;
   readonly goalSearch: ReadonlySignal<PlanningGoalSearch | null>;
+  /** Estimation modifiable sur les cartes (champ d'estimation personnalisé du board). */
+  readonly canEstimate: ReadonlySignal<boolean>;
   /** Tickets sélectionnés, déplacés ensemble par glisser-déposer ou par le menu d'une de leurs cartes. */
   readonly selection: ReadonlySignal<ReadonlySet<string>>;
   /** Gestes impossibles maintenant (chargement, geste en cours, autre écriture du board). */
@@ -200,6 +202,8 @@ export interface PlanningViewModel {
   /** Retire un lot de tickets du sprint en préparation en un geste (au plus 50). */
   removeIssues(keys: readonly string[], destination: PlanningDestination): Promise<void>;
   saveVelocity(velocity: number | null): Promise<void>;
+  /** Estime un ticket (E11), validé par le champ de sa carte. */
+  estimateIssue(key: string, value: number): Promise<void>;
   searchGoals(query: string): Promise<void>;
   pinGoal(goalId: string): Promise<void>;
   unpinGoal(goalId: string): Promise<void>;

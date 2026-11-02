@@ -129,3 +129,30 @@ describe("droits de l'utilisateur sur les sprints (lectures seules)", () => {
     expect(jira.requests).toHaveLength(0);
   });
 });
+
+describe("estimation d'un ticket (lecture)", () => {
+  it("lit fieldId et value (chaîne) dans le champ du board", async () => {
+    const jira = new FakeJira().on("GET", "/rest/agile/1.0/issue/ABC-12/estimation", {
+      status: 200,
+      json: { fieldId: "customfield_10016", value: "8.0" },
+    });
+    expect(await client(jira).issueEstimation("ABC-12", 7)).toEqual({
+      fieldId: "customfield_10016",
+      value: 8,
+    });
+    expect(jira.requests[0]?.url.searchParams.get("boardId")).toBe("7");
+  });
+
+  it("valeur absente : non estimé ; valeur illisible : erreur de décodage", async () => {
+    const empty = new FakeJira().on("GET", "/rest/agile/1.0/issue/ABC-12/estimation", {
+      status: 200,
+      json: { fieldId: "customfield_10016" },
+    });
+    expect((await client(empty).issueEstimation("ABC-12", 7)).value).toBeNull();
+    const wrong = new FakeJira().on("GET", "/rest/agile/1.0/issue/ABC-12/estimation", {
+      status: 200,
+      json: { fieldId: "customfield_10016", value: "huit" },
+    });
+    await expect(client(wrong).issueEstimation("ABC-12", 7)).rejects.toThrow();
+  });
+});

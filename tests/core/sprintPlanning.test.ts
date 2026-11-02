@@ -4,6 +4,7 @@ import { CoreError } from "../../src/core/reasons";
 import { makeSprintGoal, type SprintGoal, stableGoalIds } from "../../src/core/sprintGoals";
 import {
   carryOverGoals,
+  estimatePlanningIssue,
   goalTextKeepingLines,
   loadSprintPlanning,
   type PlanningGoalLinks,
@@ -1607,6 +1608,99 @@ describe("retirer un lot du sprint en préparation (removePlanningIssues)", () =
     const result = await removeAll(f, ["ABC-210", "ABC-211"], { kind: "backlog" });
     expect(result.outcome.kind).toBe("partial");
     expect(result.remainingKeys).toEqual(["ABC-210", "ABC-211"]);
+    expect(f.writes).toHaveLength(1);
+  });
+});
+
+// ─── Estimation pendant la séance (story 8.17) ───────────────────────────────
+
+describe("estimer un ticket (estimatePlanningIssue)", () => {
+  /** Ressource d'estimation fictive du board : champ, valeur, écritures appliquées ou non. */
+  function estimation(options: { value: number | null; fieldId?: string; ignore?: boolean }) {
+    let value = options.value;
+    const writes: JiraWrite[] = [];
+    const reader = {
+      issueEstimation: async () => ({ fieldId: options.fieldId ?? "customfield_10016", value }),
+    };
+    const writer = {
+      write: async (write: JiraWrite) => {
+        writes.push(write);
+        if (write.kind === "issue.estimation" && !options.ignore) value = write.value;
+        return { status: 200, body: null };
+      },
+    };
+    const run = (input: { base: number | null; value: number; fieldId?: string | null }) =>
+      estimatePlanningIssue(reader, writer, {
+        boardId: BOARD,
+        issueKey: "ABC-201",
+        fieldId: input.fieldId === undefined ? "customfield_10016" : input.fieldId,
+        base: input.base,
+        value: input.value,
+      });
+    return { writes, run };
+  }
+
+  it("valeur relue égale à l'affichage : E11 une fois, puis relue", async () => {
+    const f = estimation({ value: null });
+    expect(await f.run({ base: null, value: 3 })).toEqual({
+      kind: "done",
+      confirmed: ["estimate"],
+    });
+    expect(f.writes).toEqual([
+      { kind: "issue.estimation", issueKey: "ABC-201", boardId: BOARD, value: 3 },
+    ]);
+  });
+
+  it("estimation changée dans Jira depuis l'affichage : rien n'est écrit", async () => {
+    const f = estimation({ value: 5 });
+    expect(await f.run({ base: 3, value: 8 })).toEqual({
+      kind: "refused",
+      reason: { reason: "estimateChanged", issueKey: "ABC-201" },
+    });
+    expect(f.writes).toEqual([]);
+  });
+
+  it("valeur déjà dans Jira : rien n'est écrit", async () => {
+    const f = estimation({ value: 5 });
+    expect(await f.run({ base: 5, value: 5 })).toEqual({ kind: "unchanged" });
+    expect(f.writes).toEqual([]);
+  });
+
+  it.each([
+    ["temps estimé", { base: null, value: 2, fieldId: "timeoriginalestimate" }],
+    ["sans champ", { base: null, value: 2, fieldId: null }],
+  ])("%s : non modifiable ici, rien n'est écrit", async (_label, input) => {
+    const f = estimation({ value: null });
+    expect(await f.run(input)).toEqual({
+      kind: "refused",
+      reason: { reason: "estimateUnavailable", issueKey: "ABC-201" },
+    });
+    expect(f.writes).toEqual([]);
+  });
+
+  it("champ de Jira différent de celui du board affiché : rien n'est écrit", async () => {
+    const f = estimation({ value: null, fieldId: "customfield_99999" });
+    expect((await f.run({ base: null, value: 2 })).kind).toBe("refused");
+    expect(f.writes).toEqual([]);
+  });
+
+  it("valeur hors bornes : refusée avant toute lecture", async () => {
+    const f = estimation({ value: null });
+    expect(await f.run({ base: null, value: -1 })).toEqual({
+      kind: "refused",
+      reason: { reason: "invalidEstimate" },
+    });
+    expect(f.writes).toEqual([]);
+  });
+
+  it("écriture non relue : partielle, sans nouvelle tentative", async () => {
+    const f = estimation({ value: null, ignore: true });
+    const outcome = await f.run({ base: null, value: 3 });
+    expect(outcome.kind).toBe("partial");
+    expect(outcome.kind === "partial" && coreCode(outcome.error)).toEqual({
+      code: "planningEstimateUnconfirmed",
+      issueKey: "ABC-201",
+    });
     expect(f.writes).toHaveLength(1);
   });
 });

@@ -32,6 +32,7 @@ const EVERY_WRITE: Record<JiraWrite["kind"], JiraWrite> = {
   },
   "issue.transition": { kind: "issue.transition", issueKey: "ABC-1", transitionId: "21" },
   "issue.rank": { kind: "issue.rank", issueKey: "ABC-1", before: "ABC-2" },
+  "issue.estimation": { kind: "issue.estimation", issueKey: "ABC-1", boardId: 7, value: 5 },
 };
 
 /** Chemins qu'une écriture a le droit de viser. Rien d'autre. */
@@ -43,6 +44,7 @@ const ALLOWED_PATHS = [
   /^\/rest\/agile\/1\.0\/board\/\d+\/properties\/com\.scrumboardmac\.[a-z0-9.]+$/,
   /^\/rest\/api\/3\/issue\/[A-Z][A-Z0-9_]*-\d+\/transitions$/,
   /^\/rest\/agile\/1\.0\/issue\/rank$/,
+  /^\/rest\/agile\/1\.0\/issue\/[A-Z][A-Z0-9_]*-\d+\/estimation\?boardId=\d+$/,
 ];
 
 describe("inventaire des écritures", () => {
@@ -171,6 +173,38 @@ describe("inventaire des écritures", () => {
         key: SPRINT_PROPERTY_KEYS.diagnostic,
       }),
     ).toThrowError(JiraError);
+  });
+});
+
+describe("estimation d'un ticket (E11)", () => {
+  it("PUT de la seule valeur, en chaîne, dans le champ du board désigné par boardId", () => {
+    const request = buildWriteRequest({
+      kind: "issue.estimation",
+      issueKey: "ABC-12",
+      boardId: 7,
+      value: 2.5,
+    });
+    expect(request.method).toBe("PUT");
+    expect(request.path).toBe("/rest/agile/1.0/issue/ABC-12/estimation?boardId=7");
+    expect(JSON.parse(request.body ?? "")).toEqual({ value: "2.5" });
+  });
+
+  it.each([-1, Number.NaN, Number.POSITIVE_INFINITY, 10_001])(
+    "refuse avant l'envoi une valeur hors bornes : %s",
+    (value) => {
+      expect(() =>
+        buildWriteRequest({ kind: "issue.estimation", issueKey: "ABC-12", boardId: 7, value }),
+      ).toThrow(JiraError);
+    },
+  );
+
+  it("refuse une clé ou un board invalides", () => {
+    expect(() =>
+      buildWriteRequest({ kind: "issue.estimation", issueKey: "abc-1", boardId: 7, value: 1 }),
+    ).toThrow(JiraError);
+    expect(() =>
+      buildWriteRequest({ kind: "issue.estimation", issueKey: "ABC-1", boardId: 0, value: 1 }),
+    ).toThrow(JiraError);
   });
 });
 

@@ -6,7 +6,7 @@
 Extension Chrome pour Jira Cloud, uniquement dans une page Jira autorisée, en Scrum ou Kanban
 (TypeScript, Preact + signals, Vite, Vitest, Biome). Le mode autonome et l'application macOS sont
 abandonnés. Référence technique : [docs/technique/](docs/technique/index.md) (invariants, intégration et API,
-données, sécurité E1–E10/S1–S13, contrôles et livraison) et la [note d'architecture](_bmad-output/planning-artifacts/architecture/architecture-sprint-goals-board-2026-10-27/ARCHITECTURE-SPINE.md)
+données, sécurité E1–E11/S1–S13, contrôles et livraison) et la [note d'architecture](_bmad-output/planning-artifacts/architecture/architecture-sprint-goals-board-2026-10-27/ARCHITECTURE-SPINE.md)
 (couches, modules, règles AD-1 à AD-7) ; travaux restants : [backlog](_bmad-output/planning-artifacts/backlog.md) ; utilisation :
 [manuel](docs/manuel-utilisateur.md) ; versions livrées : [historique](CHANGELOG.md) ; entrée du
 projet : [README](README.md). Éviter les copies entre documents. L'historique détaillé reste dans Git.
@@ -14,7 +14,8 @@ projet : [README](README.md). Éviter les copies entre documents. L'historique d
 ## Règles produit et sécurité
 
 - Écritures métier limitées aux transitions, rang, liens ticket ↔ Goal, propriétés de sprint/board
-  et gestes du Sprint Planning (texte `goal`, ajout de tickets au sprint en préparation, retour au backlog).
+  et gestes du Sprint Planning (texte `goal`, ajout de tickets au sprint en préparation, retour au backlog,
+  estimation d'un ticket dans le champ du board, décision du 02/11/2026).
   Le diagnostic peut écrire puis supprimer sa propriété technique. Aucun nouvel endpoint
   d'écriture, hôte, droit Chrome ou assouplissement de CSP sans décision produit explicite et
   vérification du contrat Atlassian. Ne pas inventer d'API.

@@ -564,6 +564,23 @@ try {
     await wait("!document.querySelector('.planning-selection')", "La sélection n'a pas été vidée");
     console.log("✓ Lot : Ctrl+clic sur deux cartes, un glissé, une seule E9 puis une seule E5");
 
+    // Story 8.17 : estimation saisie sur la carte d'un ticket du backlog, E11 seule puis relue.
+    const estimateOf = (key) =>
+      `document.querySelector('[data-planning-issue="${key}"] button.planning-estimate')`;
+    await click(estimateOf("ABC-203"));
+    await setValue('[aria-label="Estimation de ABC-203"]', "3");
+    await press("Enter");
+    done = await expectWrites(
+      done,
+      ["PUT /rest/agile/1.0/issue/ABC-203/estimation"],
+      "Estimation sur la carte",
+    );
+    await wait(
+      `${estimateOf("ABC-203")}?.textContent === "3"`,
+      "La carte n'affiche pas l'estimation relue",
+    );
+    console.log("✓ Estimation sur la carte : Entrée écrit E11 une fois, valeur relue affichée");
+
     await setValue(".planning-velocity input", "20");
     await press("Enter");
     done = await expectWrites(done, [E5], "Vélocité");

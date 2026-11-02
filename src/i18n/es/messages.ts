@@ -603,6 +603,10 @@ export const businessMessagesEs = {
   "Aucun sprint futur": "Ningún sprint futuro",
   "Aucun sprint futur que vous pouvez modifier": "Ningún sprint futuro que puedas modificar",
   "1 ticket sélectionné": "1 ticket seleccionado",
+  "Estimer {p0}": "Estimar {p0}",
+  "Estimation de {p0}": "Estimación de {p0}",
+  "Sans estimation : cliquez pour estimer": "Sin estimación: haz clic para estimar",
+  "Modifier l'estimation": "Cambiar la estimación",
   "{count} tickets sélectionnés": "{count} tickets seleccionados",
   "Vider la sélection": "Vaciar la selección",
   Sélectionné: "Seleccionado",
@@ -668,6 +672,16 @@ export const businessMessagesEs = {
     "La velocidad debe ser un número entre 0 y 100 000.",
   "Le sprint n'est pas clos dans Jira.": "El sprint no está cerrado en Jira.",
   "Lot de {p0} tickets : au plus 50 par geste.": "Lote de {p0} tickets: 50 como máximo por acción.",
+  "Jira n'a pas relu l'estimation de {p0} telle qu'elle a été écrite.":
+    "Jira no ha releído la estimación de {p0} tal como se escribió.",
+  "estimation du ticket": "estimación del ticket",
+  "L'estimation de {p0} a changé dans Jira depuis son affichage.":
+    "La estimación de {p0} ha cambiado en Jira desde que se mostró.",
+  "L'estimation de {p0} ne se modifie pas ici : ouvrez sa fiche dans Jira.":
+    "La estimación de {p0} no se modifica aquí: abre su ficha en Jira.",
+  "L'estimation doit être un nombre entre 0 et 10 000.":
+    "La estimación debe ser un número entre 0 y 10 000.",
+  estimation: "estimación",
   "{p0} Tickets confirmés : {p1}. À refaire : {p2}.":
     "{p0} Tickets confirmados: {p1}. Por rehacer: {p2}.",
   "{p0} À refaire : {p1}.": "{p0} Por rehacer: {p1}.",

@@ -36,8 +36,9 @@ Toute évolution de permission, hôte, écriture ou CSP, soumise à décision pr
 | E8 | `POST /rest/agile/1.0/sprint/{id}`, seul champ `goal` | Geste sur un objectif texte du planning, sprint futur et texte relus, sans dates/état/nom |
 | E9 | `POST /rest/agile/1.0/sprint/{id}/issue`, seul tableau `issues`, au plus 50 | Ticket du backlog ou d'un autre sprint futur posé dans le sprint en préparation, ou renvoyé de celui-ci vers un autre sprint futur ; jamais du RAF actif |
 | E10 | `POST /rest/agile/1.0/backlog/issue`, seul tableau `issues`, au plus 50 | Ticket du sprint en préparation renvoyé au backlog. Jira le retire aussi d'un sprint actif : juste avant, le sprint futur et sa présence dans ce sprint sont relus et un ticket d'un sprint actif est refusé ; relecture du sprint pour confirmer |
+| E11 | `PUT /rest/agile/1.0/issue/{clé}/estimation?boardId={id}`, seul `value` (nombre de 0 à 10 000, en chaîne) ; champ d'estimation du board | Estimation saisie sur la carte d'un ticket du planning (sprint en préparation ou source), champ personnalisé seulement (pas le temps estimé) ; estimation et champ relus avant (`GET …/estimation?boardId=`), rien n'est écrit s'ils ont changé ; relue après pour confirmer. Contrat vérifié dans l'OpenAPI de Jira Software le 02/11/2026 (Jira l'applique même hors de l'écran du ticket ; 403 sans droit de modifier le ticket) |
 
-E8 à E10 décrivent le planning en direct de l'Epic 8 (0.42.0), désactivé dans le paquet jusqu'à son activation (8.11).
+E8 à E11 décrivent le planning en direct de l'Epic 8 (0.42.0, E11 en 0.46.0), désactivé dans le paquet jusqu'à son activation (8.11).
 
 Une tentative par écriture POST/PUT/DELETE ; relecture après résultat incertain, jamais de succès
 avant confirmation. Lectures rejouables seulement sur erreur transitoire. E1 relit statut/transitions ;

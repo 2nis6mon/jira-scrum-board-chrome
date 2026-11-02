@@ -318,6 +318,17 @@ describe("code de production", () => {
     );
   });
 
+  it("limite l'estimation (E11) à la ressource du board, avec la seule valeur", () => {
+    const writes = sources.find(({ file }) => file === "src/jira/writes.ts");
+    const issuePaths = writes?.code.match(/\/rest\/agile\/1\.0\/issue[^`"']*/g) ?? [];
+    expect(issuePaths.sort()).toEqual([
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: texte littéral du code source, vérifié tel quel.
+      "/rest/agile/1.0/issue/${write.issueKey}/estimation?boardId=${write.boardId}",
+      "/rest/agile/1.0/issue/rank",
+    ]);
+    expect(writes?.code).toContain("body: JSON.stringify({ value: String(write.value) })");
+  });
+
   it("limite le backlog au seul retour sans board ni rang (E10)", () => {
     const writes = sources.find(({ file }) => file === "src/jira/writes.ts");
     const backlogPaths = writes?.code.match(/\/rest\/agile\/1\.0\/backlog[^`"']*/g) ?? [];

@@ -582,6 +582,10 @@ export const businessMessages = {
   "Aucun sprint futur": "No future sprint",
   "Aucun sprint futur que vous pouvez modifier": "No future sprint you can edit",
   "1 ticket sélectionné": "1 issue selected",
+  "Estimer {p0}": "Estimate {p0}",
+  "Estimation de {p0}": "Estimate of {p0}",
+  "Sans estimation : cliquez pour estimer": "No estimate: click to estimate",
+  "Modifier l'estimation": "Change the estimate",
   "{count} tickets sélectionnés": "{count} issues selected",
   "Vider la sélection": "Clear selection",
   Sélectionné: "Selected",
@@ -647,6 +651,16 @@ export const businessMessages = {
     "Velocity must be a number between 0 and 100,000.",
   "Le sprint n'est pas clos dans Jira.": "The sprint is not closed in Jira.",
   "Lot de {p0} tickets : au plus 50 par geste.": "Batch of {p0} issues: 50 at most per action.",
+  "Jira n'a pas relu l'estimation de {p0} telle qu'elle a été écrite.":
+    "Jira did not read the estimate of {p0} back as it was written.",
+  "estimation du ticket": "issue estimate",
+  "L'estimation de {p0} a changé dans Jira depuis son affichage.":
+    "The estimate of {p0} changed in Jira after it was displayed.",
+  "L'estimation de {p0} ne se modifie pas ici : ouvrez sa fiche dans Jira.":
+    "The estimate of {p0} cannot be changed here: open the issue in Jira.",
+  "L'estimation doit être un nombre entre 0 et 10 000.":
+    "The estimate must be a number between 0 and 10,000.",
+  estimation: "estimate",
   "{p0} Tickets confirmés : {p1}. À refaire : {p2}.": "{p0} Confirmed issues: {p1}. To redo: {p2}.",
   "{p0} À refaire : {p1}.": "{p0} To redo: {p1}.",
   "Tickets {p0} : {p1}": "Issues {p0}: {p1}",

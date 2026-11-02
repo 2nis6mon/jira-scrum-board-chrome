@@ -676,6 +676,24 @@ details.planning-card-menu .menu-panel[data-at-point] {
   color: var(--ink-3);
 }
 
+/* Estimation modifiable sur la carte (story 8.17) : la pastille devient un bouton, puis un champ. */
+.planning-estimate {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.planning-estimate:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1px var(--in-progress);
+}
+
+.planning-estimate-input {
+  width: 52px;
+  height: 22px;
+  padding: 0 4px;
+  font-size: 12px;
+}
+
 /* Sélection de plusieurs tickets (story 8.15) : contour d'accent, compteur dans la barre. */
 .planning-card-selected {
   outline: 2px solid var(--in-progress);

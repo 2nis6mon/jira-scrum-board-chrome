@@ -8,7 +8,8 @@ import type { JsonObject } from "./json";
  * d'ici est impossible à émettre. Le Sprint Planning autorise uniquement le texte `goal`,
  * l'ajout de tickets à un sprint futur et leur retour au backlog (décision du 01/11/2026). Ni
  * dates, nom ou état de sprint ; aucune création de sprint ; démarrage et clôture passent par les
- * fenêtres natives de Jira, hors de cet inventaire.
+ * fenêtres natives de Jira, hors de cet inventaire. L'estimation d'un ticket pendant la séance
+ * (E11, décision de Denis du 02/11/2026) passe par la ressource d'estimation du board.
  *
  * Catégories validées : propriété de sprint, lien ticket↔Goal, transition, rang, gestes du Sprint
  * Planning (texte `goal`, ajout au sprint, retour au backlog), et (validée par
@@ -35,6 +36,12 @@ export type JiraWrite =
       issueKey: string;
       transitionId: string;
     }
+  /**
+   * Estimation d'un ticket (E11) dans le champ d'estimation du board : `PUT
+   * /rest/agile/1.0/issue/{clé}/estimation?boardId=`, corps `{"value": "<nombre>"}` (OpenAPI de Jira
+   * Software, vérifiée le 02/11/2026 ; Jira répond 200 avec `fieldId` et `value`).
+   */
+  | { kind: "issue.estimation"; issueKey: string; boardId: number; value: number }
   /** Rang du board (global) : juste avant, ou juste après, un autre ticket. 204 ou 207. */
   | { kind: "issue.rank"; issueKey: string; before: string }
   | { kind: "issue.rank"; issueKey: string; after: string };
@@ -155,6 +162,22 @@ export function buildWriteRequest(write: JiraWrite): WriteRequest {
         }),
         resource: `la transition de ${write.issueKey}`,
       };
+    case "issue.estimation":
+      assertIssueKey(write.issueKey);
+      assertEntityId(write.boardId, "board");
+      if (!isEstimateValue(write.value)) {
+        throw new JiraError({
+          kind: "decoding",
+          context: "estimation",
+          detail: String(write.value),
+        });
+      }
+      return {
+        method: "PUT",
+        path: `/rest/agile/1.0/issue/${write.issueKey}/estimation?boardId=${write.boardId}`,
+        body: JSON.stringify({ value: String(write.value) }),
+        resource: `l'estimation de ${write.issueKey}`,
+      };
     case "issue.rank": {
       assertIssueKey(write.issueKey);
       const reference = "before" in write ? write.before : write.after;
@@ -191,6 +214,11 @@ function assertIssueBatch(issueKeys: readonly string[], context: string): void {
     throw new JiraError({ kind: "decoding", context, detail: "1 à 50 tickets distincts attendus" });
   }
   for (const key of issueKeys) assertIssueKey(key);
+}
+
+/** Estimation admise : nombre fini, positif ou nul, au plus 10 000 (points d'une story). */
+export function isEstimateValue(value: number): boolean {
+  return Number.isFinite(value) && value >= 0 && value <= 10_000;
 }
 
 /** Clé Jira (`ABC-123`) : seule forme admise dans un chemin ou un corps d'écriture. */

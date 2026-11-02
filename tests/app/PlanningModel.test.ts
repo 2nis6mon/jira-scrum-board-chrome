@@ -1490,3 +1490,70 @@ describe("Sprint Planning : déplacer plusieurs tickets ensemble (8.15)", () => 
     expect(selected(planning)).toEqual(["ABC-201", "ABC-210"]);
   });
 });
+
+describe("Sprint Planning : estimer un ticket pendant la séance (8.17)", () => {
+  const estimationPath = (key: string) => `/rest/agile/1.0/issue/${key}/estimation`;
+  const cardEstimate = (planning: PlanningModel, key: string) =>
+    [
+      ...planning.unassigned.value,
+      ...planning.lanes.value.flatMap((lane) => lane.issues),
+      ...planning.sections.value.flatMap((section) => section.issues),
+    ].find((item) => item.issue.key === key)?.estimate;
+
+  it("écrit E11 une seule fois, puis la carte et la charge affichent la valeur relue", async () => {
+    const { planning, inspect } = context();
+    await planning.load();
+    expect(planning.canEstimate.value).toBe(true);
+    await planning.estimateIssue("ABC-210", 5);
+    expect(inspect().writes).toEqual([
+      { method: "PUT", path: estimationPath("ABC-210"), body: { value: "5" } },
+    ]);
+    expect(cardEstimate(planning, "ABC-210")).toBe(5);
+    expect(planning.sprintLoad.value?.total).toBe(5);
+    expect(planning.notice.value).toBeNull();
+  });
+
+  it("un ticket du backlog s'estime aussi, sans rejoindre le sprint", async () => {
+    const { planning, inspect } = context();
+    await planning.load();
+    await planning.estimateIssue("ABC-203", 2);
+    expect(inspect().writes.map(({ path }) => path)).toEqual([estimationPath("ABC-203")]);
+    expect(inspect().issueKeys).toEqual(["ABC-210"]);
+    expect(cardEstimate(planning, "ABC-203")).toBe(2);
+  });
+
+  it("estimation changée dans Jira depuis l'affichage : rien n'est écrit, la page est relue", async () => {
+    const { planning, inspect, jira } = context();
+    await planning.load();
+    jira.on("GET", estimationPath("ABC-210"), {
+      status: 200,
+      json: { fieldId: "customfield_10016", value: "13" },
+    });
+    await planning.estimateIssue("ABC-210", 5);
+    expect(inspect().writes).toEqual([]);
+    expect(notice(planning)).toContain("L'estimation de ABC-210 a changé dans Jira");
+  });
+
+  it("valeur inchangée : rien n'est lu ni écrit", async () => {
+    const { planning, inspect, jira } = context();
+    await planning.load();
+    const before = jira.requests.length;
+    await planning.estimateIssue("ABC-210", 2);
+    expect(jira.requests.length).toBe(before);
+    expect(inspect().writes).toEqual([]);
+  });
+
+  it("board sans champ d'estimation, ou reste à faire du sprint actif : pas d'estimation", async () => {
+    const tickets = context({ configuration: { estimationFieldId: null } });
+    await tickets.planning.load();
+    expect(tickets.planning.canEstimate.value).toBe(false);
+    await tickets.planning.estimateIssue("ABC-210", 3);
+    expect(tickets.inspect().writes).toEqual([]);
+
+    const { planning, inspect } = context();
+    await planning.load();
+    const remaining = planning.sections.value.find((section) => section.kind === "active");
+    await planning.estimateIssue(remaining?.issues[0]?.issue.key ?? "", 3);
+    expect(inspect().writes).toEqual([]);
+  });
+});

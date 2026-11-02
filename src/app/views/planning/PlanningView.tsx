@@ -1492,9 +1492,11 @@ function PlanningCard({
 }) {
   const { issue, origin } = item;
   const selected = place.kind !== "readOnly" && planning.selection.value.has(issue.key);
+  // Pendant la saisie de l'estimation, la carte ne se glisse pas : le champ garde la souris.
+  const [estimating, setEstimating] = useState(false);
   const { fields } = issue;
   const readOnly = place.kind === "readOnly";
-  const draggable = !readOnly && !planning.gesturesDisabled.value;
+  const draggable = !readOnly && !planning.gesturesDisabled.value && !estimating;
   const points = planning.sprintLoad.value?.unit !== "tickets";
   const menu = useRef<CardMenuHandle | null>(null);
   const category = fields.status.statusCategory?.key;
@@ -1638,14 +1640,22 @@ function PlanningCard({
           </span>
         </span>
         <span class="card-owner">
-          {points && (
-            <span
-              class={`card-points${item.estimate === null ? " planning-card-unestimated" : ""}`}
-              title={item.estimate === null ? t("Sans estimation") : t("Estimation Jira")}
-            >
-              {item.estimate === null ? "?" : formatPoints(item.estimate)}
-            </span>
-          )}
+          {points &&
+            (planning.canEstimate.value && !readOnly ? (
+              <CardEstimate
+                planning={planning}
+                item={item}
+                editing={estimating}
+                onEditing={setEstimating}
+              />
+            ) : (
+              <span
+                class={`card-points${item.estimate === null ? " planning-card-unestimated" : ""}`}
+                title={item.estimate === null ? t("Sans estimation") : t("Estimation Jira")}
+              >
+                {item.estimate === null ? "?" : formatPoints(item.estimate)}
+              </span>
+            ))}
           {fields.assignee ? (
             <span class="avatar" title={fields.assignee.displayName}>
               {initials(fields.assignee.displayName)}
@@ -1656,6 +1666,93 @@ function PlanningCard({
         </span>
       </div>
     </article>
+  );
+}
+
+/**
+ * Estimation modifiable sur la carte (story 8.17) : un clic sur la valeur (« ? » si vide) ouvre le
+ * champ ; Entrée ou sa sortie écrivent une fois dans Jira (E11), Échap annule. Une valeur vide,
+ * invalide ou inchangée n'écrit rien.
+ */
+function CardEstimate({
+  planning,
+  item,
+  editing,
+  onEditing,
+}: {
+  planning: PlanningViewModel;
+  item: PlanningIssue;
+  editing: boolean;
+  onEditing(editing: boolean): void;
+}) {
+  const key = item.issue.key;
+  const value = item.estimate;
+  const input = useRef<HTMLInputElement>(null);
+  // Une seule validation par ouverture : la sortie du champ juste après Entrée ne renvoie rien.
+  const closed = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!editing) return;
+    closed.current = false;
+    input.current?.focus();
+    input.current?.select();
+  }, [editing]);
+
+  const close = () => {
+    closed.current = true;
+    onEditing(false);
+  };
+  const commit = (field: HTMLInputElement) => {
+    if (closed.current) return;
+    const raw = field.value.trim();
+    const next = raw === "" || field.validity?.badInput ? null : Number(raw);
+    close();
+    if (next === null || !Number.isFinite(next) || next < 0 || next === value) return;
+    void planning.estimateIssue(key, next);
+  };
+
+  if (!editing)
+    return (
+      <button
+        type="button"
+        class={`card-points planning-estimate${value === null ? " planning-card-unestimated" : ""}`}
+        aria-label={t("Estimer {p0}", { p0: key })}
+        title={
+          value === null ? t("Sans estimation : cliquez pour estimer") : t("Modifier l'estimation")
+        }
+        disabled={planning.gesturesDisabled.value}
+        onClick={(event) => {
+          // Avec Ctrl, Cmd ou Maj, le clic sélectionne la carte.
+          if (event.ctrlKey || event.metaKey || event.shiftKey) return;
+          onEditing(true);
+        }}
+      >
+        {value === null ? "?" : formatPoints(value)}
+      </button>
+    );
+  return (
+    <input
+      ref={input}
+      class="planning-estimate-input"
+      type="number"
+      min="0"
+      max="10000"
+      step="any"
+      inputMode="decimal"
+      aria-label={t("Estimation de {p0}", { p0: key })}
+      defaultValue={value === null ? "" : String(value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commit(event.currentTarget);
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          close();
+        }
+      }}
+      onBlur={(event) => commit(event.currentTarget)}
+    />
   );
 }
 

@@ -29,6 +29,7 @@ const SAMPLES: { [Code in CoreReason["code"]]: Extract<CoreReason, { code: Code 
   planningGoalTextUnconfirmed: { code: "planningGoalTextUnconfirmed" },
   planningPropertyUnconfirmed: { code: "planningPropertyUnconfirmed" },
   planningIssueUnconfirmed: { code: "planningIssueUnconfirmed", issueKey: "ABC-1" },
+  planningEstimateUnconfirmed: { code: "planningEstimateUnconfirmed", issueKey: "ABC-1" },
   planningGoalLinkRefused: { code: "planningGoalLinkRefused", messages: ["Goal archivé"] },
   planningRefused: { code: "planningRefused", refusal: { reason: "goalsChanged" } },
 };
@@ -60,6 +61,9 @@ const REFUSALS: {
   invalidVelocity: { reason: "invalidVelocity" },
   sprintNotClosed: { reason: "sprintNotClosed" },
   batchTooLarge: { reason: "batchTooLarge", count: 51 },
+  estimateChanged: { reason: "estimateChanged", issueKey: "ABC-1" },
+  estimateUnavailable: { reason: "estimateUnavailable", issueKey: "ABC-1" },
+  invalidEstimate: { reason: "invalidEstimate" },
   failed: { reason: "failed", error: new JiraError({ kind: "timeout" }) },
 };
 
@@ -72,6 +76,7 @@ const STEPS: Record<PlanningStep, true> = {
   issueMoved: true,
   pinned: true,
   velocity: true,
+  estimate: true,
 };
 
 const NOTHING_SENT = "Rien n'a été envoyé à Jira : le board a changé avant l'envoi.";

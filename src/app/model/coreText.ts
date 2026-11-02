@@ -144,6 +144,10 @@ export function reasonMessage(reason: CoreReason): AppMessage {
       });
     case "planningIssueUnconfirmed":
       return message("Jira n'a pas relu {p0} à sa nouvelle place.", { p0: reason.issueKey });
+    case "planningEstimateUnconfirmed":
+      return message("Jira n'a pas relu l'estimation de {p0} telle qu'elle a été écrite.", {
+        p0: reason.issueKey,
+      });
     case "planningGoalLinkRefused":
       return reason.messages.length > 0
         ? message("Atlassian a refusé le rattachement au Goal : {p0}", {
@@ -207,6 +211,7 @@ const PLANNING_STEPS = {
   issueMoved: "ticket retiré du sprint",
   pinned: "Goals épinglés au sprint",
   velocity: "vélocité de l'équipe",
+  estimate: "estimation du ticket",
 } as const satisfies Record<PlanningStep, MessageKey>;
 
 /** Refus suivis d'une relecture : la page est à jour, l'utilisateur refait son geste. */
@@ -215,6 +220,7 @@ const PLANNING_CONFLICTS: ReadonlySet<PlanningRefusal["reason"]> = new Set([
   "goalsChanged",
   "linkChanged",
   "velocityChanged",
+  "estimateChanged",
 ]);
 
 /** Ce qu'une relecture a constaté, sans dire ce qui a été écrit. */
@@ -251,6 +257,16 @@ export function planningRefusalCause(refusal: PlanningRefusal): AppMessage {
       return message("La vélocité doit être un nombre entre 0 et 100 000.");
     case "sprintNotClosed":
       return message("Le sprint n'est pas clos dans Jira.");
+    case "estimateChanged":
+      return message("L'estimation de {p0} a changé dans Jira depuis son affichage.", {
+        p0: refusal.issueKey,
+      });
+    case "estimateUnavailable":
+      return message("L'estimation de {p0} ne se modifie pas ici : ouvrez sa fiche dans Jira.", {
+        p0: refusal.issueKey,
+      });
+    case "invalidEstimate":
+      return message("L'estimation doit être un nombre entre 0 et 10 000.");
     case "batchTooLarge":
       return message("Lot de {p0} tickets : au plus 50 par geste.", { p0: refusal.count });
     case "failed":

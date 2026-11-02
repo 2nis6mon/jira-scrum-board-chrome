@@ -43,6 +43,8 @@ export type CoreReason =
   | { readonly code: "planningPropertyUnconfirmed" }
   /** Le ticket n'a pas été relu à sa nouvelle place après son ajout ou son retrait. */
   | { readonly code: "planningIssueUnconfirmed"; readonly issueKey: string }
+  /** L'estimation écrite n'a pas été relue telle quelle dans Jira. */
+  | { readonly code: "planningEstimateUnconfirmed"; readonly issueKey: string }
   /** Atlassian a refusé le lien ticket ↔ Goal demandé par le planning. */
   | { readonly code: "planningGoalLinkRefused"; readonly messages: readonly string[] }
   /** Refus constaté par une relecture, après une première écriture confirmée. */
@@ -64,6 +66,12 @@ export type PlanningRefusal =
   | { readonly reason: "velocityChanged" }
   | { readonly reason: "invalidVelocity" }
   | { readonly reason: "sprintNotClosed" }
+  /** L'estimation a changé dans Jira depuis son affichage. */
+  | { readonly reason: "estimateChanged"; readonly issueKey: string }
+  /** Champ d'estimation du board absent, non modifiable ici, ou différent de celui de Jira. */
+  | { readonly reason: "estimateUnavailable"; readonly issueKey: string }
+  /** Estimation hors des bornes : nombre de 0 à 10 000. */
+  | { readonly reason: "invalidEstimate" }
   /** Lot de plus de 50 tickets (limite de E9 et E10) : refusé avant toute écriture. */
   | { readonly reason: "batchTooLarge"; readonly count: number }
   | { readonly reason: "failed"; readonly error: unknown };

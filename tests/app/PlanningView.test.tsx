@@ -183,6 +183,7 @@ function setup(
     carryOverReport: signal<PlanningCarryOverReport | null>(null),
     goalSearch: signal<PlanningGoalSearch | null>(null),
     selection: signal<ReadonlySet<string>>(new Set()),
+    canEstimate: signal(false),
     gesturesDisabled,
     selectSprint: vi.fn(async (_id: number) => {}),
     refresh: vi.fn(async () => {}),
@@ -215,6 +216,7 @@ function setup(
     placeIssues: vi.fn(async (_keys: readonly string[], _goalId: string | null) => {}),
     removeIssues: vi.fn(async () => {}),
     saveVelocity: vi.fn(async (_velocity: number | null) => {}),
+    estimateIssue: vi.fn(async (_key: string, _value: number) => {}),
     searchGoals: vi.fn(async (_query: string) => {}),
     pinGoal: vi.fn(async (_id: string) => {}),
     unpinGoal: vi.fn(async (_id: string) => {}),
@@ -1352,5 +1354,58 @@ describe("Sprint Planning en direct : plusieurs tickets ensemble (8.15)", () => 
     expect(planning.removeIssues.mock.calls).toEqual([
       [["ABC-10", "ABC-14"], { kind: "sprint", sprintId: 44 }],
     ]);
+  });
+});
+
+describe("Sprint Planning en direct : estimation sur la carte (8.17)", () => {
+  const estimateButton = (issueKey: string) =>
+    cardOf(issueKey).querySelector<HTMLButtonElement>("button.planning-estimate");
+
+  it("clic sur la valeur, saisie, Entrée : une seule demande ; la sortie juste après ne renvoie rien", async () => {
+    const { planning } = setup();
+    planning.canEstimate.value = true;
+    await tick();
+    estimateButton("ABC-12")?.click();
+    await tick();
+    const input = find<HTMLInputElement>('[aria-label="Estimation de ABC-12"]');
+    expect(cardOf("ABC-12").getAttribute("draggable")).not.toBe("true");
+    input.value = "3";
+    key(input, "Enter");
+    blur(input);
+    expect(planning.estimateIssue.mock.calls).toEqual([["ABC-12", 3]]);
+  });
+
+  it("Échap annule, une valeur vide ou inchangée n'écrit rien", async () => {
+    const { planning } = setup();
+    planning.canEstimate.value = true;
+    await tick();
+    estimateButton("ABC-10")?.click();
+    await tick();
+    let input = find<HTMLInputElement>('[aria-label="Estimation de ABC-10"]');
+    input.value = "8";
+    key(input, "Escape");
+    await tick();
+    estimateButton("ABC-10")?.click();
+    await tick();
+    input = find<HTMLInputElement>('[aria-label="Estimation de ABC-10"]');
+    input.value = "5";
+    key(input, "Enter");
+    await tick();
+    estimateButton("ABC-10")?.click();
+    await tick();
+    input = find<HTMLInputElement>('[aria-label="Estimation de ABC-10"]');
+    input.value = "";
+    blur(input);
+    expect(planning.estimateIssue).not.toHaveBeenCalled();
+  });
+
+  it("sans estimation possible, ou en consultation, la valeur n'est pas un bouton", async () => {
+    const { planning } = setup();
+    await tick();
+    expect(estimateButton("ABC-10")).toBeNull();
+    planning.canEstimate.value = true;
+    await tick();
+    expect(estimateButton("ABC-10")).not.toBeNull();
+    expect(estimateButton("ABC-13")).toBeNull();
   });
 });

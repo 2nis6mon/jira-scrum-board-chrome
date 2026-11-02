@@ -58,6 +58,7 @@ const EVERY_WRITE: Record<JiraWrite["kind"], JiraWrite> = {
   "boardProperty.put": PUT,
   "issue.transition": { kind: "issue.transition", issueKey: "ABC-1", transitionId: "21" },
   "issue.rank": { kind: "issue.rank", issueKey: "ABC-1", before: "ABC-2" },
+  "issue.estimation": { kind: "issue.estimation", issueKey: "ABC-1", boardId: 7, value: 3 },
 };
 const TRANSITION: JiraWrite = { kind: "issue.transition", issueKey: "ABC-1", transitionId: "21" };
 

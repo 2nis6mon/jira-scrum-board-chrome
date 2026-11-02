@@ -143,10 +143,10 @@ export function planningFixture(
     ...PLANNING_BACKLOG,
     ...(otherSprint ? [IN_OTHER_SPRINT] : []),
   ].map((issue) => {
+    // Copie par banc : une estimation écrite (E11) ne doit pas passer d'un test à l'autre.
+    const fields = structuredClone(issue.fields) as Record<string, unknown>;
     const extra = options.issueFields?.[String(issue.key)];
-    if (!extra) return issue;
-    const fields = issue.fields as Record<string, unknown>;
-    return { ...issue, fields: { ...fields, ...extra } };
+    return { ...issue, fields: { ...fields, ...extra } } as Record<string, unknown>;
   });
   let document: unknown = options.closedSprints
     ? {
@@ -294,6 +294,36 @@ export function planningFixture(
       document = request.body;
       return { status: 201 };
     });
+  // Estimation des tickets (E11) : lue et écrite par la ressource d'estimation du board 7.
+  for (const issue of catalog) {
+    const path = `/rest/agile/1.0/issue/${String(issue.key)}/estimation`;
+    const fields = issue.fields as Record<string, unknown>;
+    const reply = (): Reply => ({
+      status: 200,
+      json: {
+        fieldId: "customfield_10016",
+        value:
+          typeof fields.customfield_10016 === "number" ? String(fields.customfield_10016) : null,
+      },
+    });
+    jira
+      .on("GET", path, (request) =>
+        request.url.searchParams.get("boardId") === "7" ? reply() : { status: 400 },
+      )
+      .on("PUT", path, (request) => {
+        const body = request.body as { value?: unknown } | null;
+        if (
+          request.url.searchParams.get("boardId") !== "7" ||
+          !body ||
+          typeof body.value !== "string" ||
+          Object.keys(body).length !== 1
+        )
+          return { status: 400, json: { errorMessages: ["Seule la valeur est permise"] } };
+        fields.customfield_10016 = Number(body.value);
+        return reply();
+      });
+  }
+
   // Droits de l'utilisateur (lectures seules) : projets des boards 7 et 9, puis `mypermissions`.
   // Relue à chaque requête : un test peut changer les droits entre deux lectures.
   const manageSprints = (): Readonly<Record<string, boolean | "error">> => ({

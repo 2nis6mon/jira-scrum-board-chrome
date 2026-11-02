@@ -38,7 +38,9 @@ import {
 import {
   type CarryOverMode,
   type CarryOverResult,
+  canEstimateWith,
   carryOverGoals,
+  estimatePlanningIssue,
   loadSprintPlanning,
   PLANNING_BATCH_LIMIT,
   type PlanningBatchOutcome,
@@ -207,6 +209,16 @@ export class PlanningModel implements PlanningViewModel {
     SPRINT_PLANNING_ENABLED
       ? (this.snapshot.value?.activeSprints ?? []).map(({ sprint }) => sprint)
       : [],
+  );
+
+  /**
+   * Estimation modifiable sur les cartes : le board a un champ d'estimation personnalisé (story
+   * points). Sans champ, ou avec le temps estimé, la fiche native reste le recours.
+   */
+  readonly canEstimate = computed(
+    () =>
+      SPRINT_PLANNING_ENABLED &&
+      canEstimateWith(this.context.configuration()?.estimationFieldId ?? null),
   );
 
   /** Sprints actifs proposés à la clôture : ceux que l'utilisateur peut modifier. */
@@ -1132,6 +1144,31 @@ export class PlanningModel implements PlanningViewModel {
       });
       await this.#reread(generation);
     });
+  }
+
+  /**
+   * Estime un ticket du sprint en préparation ou d'une source (E11), validé par le champ de la
+   * carte. Une valeur égale à celle affichée n'écrit rien ; le reste à faire d'un sprint actif,
+   * une sous-tâche ou un ticket terminé hors du sprint restent en consultation.
+   */
+  estimateIssue(key: string, value: number): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED || !this.canEstimate.value) return Promise.resolve();
+    const snapshot = this.snapshot.value;
+    if (!snapshot || !selectable(snapshot, key)) return Promise.resolve();
+    const located = locate(snapshot, key);
+    if (!located) return Promise.resolve();
+    const fieldId = this.context.configuration()?.estimationFieldId ?? null;
+    const base = estimate(located.issue.fields, fieldId);
+    if (base === value) return Promise.resolve();
+    return this.#gesture({ issueKey: key }, ({ writer }, current) =>
+      estimatePlanningIssue(this.client, writer, {
+        boardId: current.boardId,
+        issueKey: key,
+        fieldId,
+        base,
+        value,
+      }),
+    );
   }
 
   /** Vélocité partagée de l'équipe, validée par le champ (Entrée ou sortie). */
