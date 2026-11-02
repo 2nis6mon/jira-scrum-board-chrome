@@ -55,8 +55,8 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   précédente) qui a des tickets rattachés ; les objectifs créés pendant le planning ont un identifiant
   neuf, les objectifs reportés gardent le leur et restent visibles. Ne masquer que les Goals
   introduits par un ticket seulement, jamais les objectifs du texte d'un sprint ni les Goals épinglés ;
-  test de régression sur un démarrage de sprint. Corrigé en 0.42.3, vérifié sur Jira fictif ; à
-  confirmer à l'essai réel (8.10).
+  test de régression sur un démarrage de sprint. Corrigé en 0.42.3, vérifié sur Jira fictif,
+  confirmé par Denis le 02/11/2026.
 - [ ] À investiguer (essai du 02/11/2026) : la colonne « Où sont les tickets » montre des tickets
   fermés, alors que Denis ne les voit pas dans le backlog Jira. Constat dans le code : `sections`
   (`PlanningModel.ts`) affiche tout ce que renvoient la lecture du backlog
