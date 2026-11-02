@@ -932,6 +932,14 @@ So that je lis d'un coup d'œil où en est chaque objectif, en points, avec la m
 **When** l'avancement d'un objectif est calculé, sur le board comme dans le planning
 **Then** un ticket est « à faire » si son statut est dans la première colonne visible du board, « en cours » s'il est dans une colonne du milieu, « terminé » s'il est dans la dernière (règle de `goalProgress` et du report 8.7) ; un board à une seule colonne visible n'a que « terminé », un board à deux colonnes n'a pas d'« en cours » ; la répartition de la story 8.16, aujourd'hui par catégorie de statut, adopte cette règle
 
+**Given** la même décision
+**When** un autre calcul du board ou du planning juge l'état d'un ticket
+**Then** il passe aussi par les colonnes, au moyen d'une seule fonction de `core` : barre et chiffres du sprint en haut du board (`sprintMetrics` : terminés, à faire, en cours, points terminés), santé du sprint (avancement des objectifs, tickets surveillés), tickets vieillissants, reste à faire d'un sprint actif dans le planning ; plus aucun calcul d'état ne lit la catégorie de statut (`isIssueDone`, `isDoneStatus`, `progressCategory`), hors du refus de Jira d'ajouter au sprint un ticket résolu (`canJoinSprint`)
+
+**Given** la décision de Denis du 02/11/2026 (option A) : un ticket dont le statut n'est dans aucune colonne visible est ignoré, comme sur le board Jira
+**When** le board ou le planning s'affiche
+**Then** ce ticket n'est ni affiché ni compté nulle part : ni dans « n/N » et le marqueur « atteint » d'un objectif, ni dans les barres, la charge, la santé ou le reste à faire ; l'avis existant du board (« N tickets ont un statut qui n'appartient à aucune colonne visible : non affichés, comme dans Jira ») reste, et le planning affiche le même avis pour le sprint en préparation
+
 **Given** une swimlane d'objectif sur le board ou dans le planning
 **When** son en-tête s'affiche
 **Then** un seul composant montre le marqueur de l'objectif (atteint quand tous ses tickets sont terminés, sur les deux écrans), son titre, « n/N terminés · x/y pts », et une barre empilée en trois segments : gris à faire, bleu en cours, vert terminé, de largeur proportionnelle aux points (aux tickets sur un board sans estimation) ; un objectif sans ticket affiche « Aucun ticket rattaché » sur les deux écrans
@@ -946,13 +954,13 @@ So that je lis d'un coup d'œil où en est chaque objectif, en points, avec la m
 
 **Given** la barre du sprint en haut de page (avancement sur le board, charge comparée à la vélocité dans le planning)
 **When** elle s'affiche
-**Then** elle prend le même gabarit visuel que la barre d'objectif ; ses mesures ne changent pas
+**Then** elle prend le même gabarit visuel que la barre d'objectif ; l'avancement du board suit les colonnes (critère ci-dessus), la charge du planning reste comparée à la vélocité
 
 **Given** les données déjà lues (colonnes du board, statut de chaque ticket)
 **When** l'en-tête se calcule
 **Then** aucune lecture ni écriture n'est ajoutée
 
-*Notes :* demandes de Denis du 02/11/2026 (backlog : en-tête homogène, barre par catégorie). Ce que Denis veut garder : la barre du sprint en cours et les points par catégorie du planning. Un ticket du sprint en préparation dont le statut n'est dans aucune colonne visible compte « à faire » (proposition de la table, à confirmer en 8.10) ; dans « Où sont les tickets », il est masqué (story 8.22). Colonnes et statuts déjà lus (`visibleColumns`, `src/core/boardConfiguration.ts`).
+*Notes :* demandes de Denis du 02/11/2026 (backlog : en-tête homogène, barre par catégorie). Ce que Denis veut garder : la barre du sprint en cours et les points par catégorie du planning. Constat du 02/11/2026 : trois règles cohabitaient (colonne pour l'en-tête d'objectif du board et le report, catégorie pour la barre du sprint, la santé, le vieillissement et le planning, rien pour les tickets sans colonne, comptés dans l'objectif mais jamais terminés). À constater en 8.10 : Jira déplace-t-il au sprint suivant, à la clôture, un ticket sans colonne ? Colonnes et statuts déjà lus (`visibleColumns`, `src/core/boardConfiguration.ts`).
 
 ### Story 8.21: Le déjà livré dans la partie terminée de la barre
 
@@ -998,7 +1006,7 @@ So that la colonne « Où sont les tickets » ressemble au backlog de Jira et ne
 
 **Given** un ticket dont le statut n'est dans aucune colonne visible du board (statut « Annulé » non rattaché, par exemple)
 **When** la colonne s'affiche
-**Then** il est masqué aussi, comme sur le board Jira ; ce comportement est confirmé sur le board de Denis lors de l'essai 8.10
+**Then** il est masqué aussi, comme sur le board Jira (décision de Denis du 02/11/2026, option A de la story 8.20)
 
 **Given** un ticket masqué par cette règle et déjà sélectionné (story 8.15), ou un ticket qui passe dans la dernière colonne pendant la séance
 **When** le planning est relu
