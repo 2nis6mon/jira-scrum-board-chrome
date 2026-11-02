@@ -5,6 +5,7 @@ import { isDoneStatus, type JiraIssue, type JiraSprint } from "../jira/models";
 import { isEstimateValue, SPRINT_PROPERTY_KEYS } from "../jira/writes";
 import { type GoalsReader, loadAtlassianSprintGoals } from "./atlassianGoals";
 import type { BoardConfiguration, ColumnConfiguration } from "./boardConfiguration";
+import { isForeignSprint } from "./boardIssue";
 import { changeAtlassianGoal } from "./boardMove";
 import {
   type JiraWriter,
@@ -159,7 +160,12 @@ export async function loadSprintPlanning(
         issues: await reader.sprintIssues(input.boardId, other.id, input.query),
       })),
     );
-  const [futureSprints, activeSprints] = await Promise.all([issuesOf(others), issuesOf(actives)]);
+  const [readFutures, readActives] = await Promise.all([issuesOf(others), issuesOf(actives)]);
+  // Sprint d'un autre board sans aucun ticket du board : ni colonne, ni destination, ni clôture.
+  const shown = ({ sprint: other, issues }: PlanningSprintIssues) =>
+    !(isForeignSprint(other, input.boardId) && issues.length === 0);
+  const futureSprints = readFutures.filter(shown);
+  const activeSprints = readActives.filter(shown);
   const states = columnStates(input.columns);
   // Colonne « Où sont les tickets » (backlog, autres sprints futurs, reste à faire actif) : comme
   // le backlog Jira, seulement les statuts d'une colonne visible autre que la dernière (stories
@@ -192,8 +198,35 @@ export async function loadSprintPlanning(
       sprint: active,
       issues: issues.filter(remaining),
     })),
-    closableSprintIds: actives.map((active) => active.id).filter((id) => proposable.has(id)),
+    closableSprintIds: activeSprints
+      .map(({ sprint: active }) => active.id)
+      .filter((id) => proposable.has(id)),
   };
+}
+
+/**
+ * Sprints proposés à la préparation, sans ceux d'un autre board (`originBoardId`, `isForeignSprint`)
+ * qui ne contiennent aucun ticket du board (bug du 02/11/2026). Lecture des tickets de chaque
+ * sprint étranger par la route du board, champs réduits ; une lecture en échec garde le sprint.
+ * Un sprint du board, même vide, reste proposé.
+ */
+export async function withoutEmptyForeignSprints(
+  reader: Pick<JiraClient, "sprintIssues">,
+  boardId: number,
+  sprints: readonly JiraSprint[],
+): Promise<JiraSprint[]> {
+  const query = { estimationFieldId: null, includeChangelog: false, onlyFields: ["status"] };
+  const kept = await Promise.all(
+    sprints.map(async (sprint) => {
+      if (!isForeignSprint(sprint, boardId)) return true;
+      try {
+        return (await reader.sprintIssues(boardId, sprint.id, query)).length > 0;
+      } catch {
+        return true;
+      }
+    }),
+  );
+  return sprints.filter((_sprint, index) => kept[index]);
 }
 
 // ─── Déroulement commun ──────────────────────────────────────────────────────

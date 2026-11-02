@@ -84,8 +84,11 @@ export function planningFixture(
      * jusqu'au sprint 43 ; sa propriété porte alors les identifiants `g-pay` et `g-cart`.
      */
     closedSprints?: boolean;
-    /** Sprint futur 46 d'un autre board (origine 9, projet XYZ), remonté par le filtre. */
-    foreignFutureSprint?: boolean;
+    /**
+     * Sprint futur 46 d'un autre board (origine 9, projet XYZ), remonté par le filtre, avec un ticket
+     * du board ; `"empty"` : sans aucun ticket du board.
+     */
+    foreignFutureSprint?: boolean | "empty";
     /**
      * Droits de l'utilisateur : administrateur de Jira, et « Gérer les sprints » par projet
      * (`error` : lecture refusée). Par défaut : non administrateur, droit sur ABC, pas sur XYZ.
@@ -409,9 +412,19 @@ export function planningFixture(
       .on("GET", `/rest/agile/1.0/sprint/46/properties/${SPRINT_PROPERTY_KEYS.goals}`, {
         status: 404,
       })
-      .on("GET", "/rest/agile/1.0/board/7/sprint/46/issue", {
-        status: 200,
-        json: { issues: [], total: 0 },
+      .on("GET", "/rest/agile/1.0/board/7/sprint/46/issue", () => {
+        const issues =
+          options.foreignFutureSprint === "empty"
+            ? []
+            : [
+                issueJson("ABC-460", {
+                  summary: "Ticket partagé avec l'équipe voisine",
+                  statusId: "1",
+                  statusName: "À faire",
+                  category: "new",
+                }),
+              ];
+        return { status: 200, json: { issues, total: issues.length } };
       });
   }
 

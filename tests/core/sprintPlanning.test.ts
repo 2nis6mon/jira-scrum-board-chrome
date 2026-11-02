@@ -17,6 +17,7 @@ import {
   removePlanningIssue,
   removePlanningIssues,
   savePlanningVelocity,
+  withoutEmptyForeignSprints,
   writeTextGoals,
 } from "../../src/core/sprintPlanning";
 import type { IssueQuery } from "../../src/jira/client";
@@ -303,6 +304,42 @@ describe("lecture du Sprint Planning", () => {
     expect(snapshot.futureSprints[0]?.issues.map((issue) => issue.key)).toEqual(["ABC-301"]);
     // Le sprint en préparation garde ses tickets terminés.
     expect(snapshot.sprintIssues.map((issue) => issue.key)).toEqual(["ABC-210", "ABC-211"]);
+  });
+
+  it("sprint vide d'un autre board : ni colonne, ni destination, ni clôture ; vide du board : gardé", async () => {
+    const f = fakeJira();
+    const foreign = (id: number, state: string) => ({ ...sprint(id, state), originBoardId: 99 });
+    f.state.sprints = [
+      ...f.state.sprints,
+      foreign(60, "future"),
+      foreign(61, "future"),
+      foreign(62, "active"),
+      sprint(63, "future"),
+    ];
+    f.state.issues[61] = [todo("ABC-610")];
+    const snapshot = await f.load();
+    expect(snapshot.futureSprints.map(({ sprint: other }) => other.id)).toEqual([OTHER, 61, 63]);
+    expect(snapshot.activeSprints.map(({ sprint: active }) => active.id)).toEqual([ACTIVE]);
+    expect(snapshot.closableSprintIds).toEqual([ACTIVE]);
+  });
+
+  it("menu des sprints : un sprint vide d'un autre board est écarté, une lecture en échec le garde", async () => {
+    const own = sprint(70, "future");
+    const empty = { ...sprint(71, "future"), originBoardId: 99 };
+    const shared = { ...sprint(72, "future"), originBoardId: 99 };
+    const unreadable = { ...sprint(73, "future"), originBoardId: 99 };
+    const calls: number[] = [];
+    const reader = {
+      sprintIssues: async (_board: number, id: number) => {
+        calls.push(id);
+        if (id === 73) throw new JiraError({ kind: "timeout" });
+        return id === 72 ? [todo("ABC-720")] : [];
+      },
+    };
+    const kept = await withoutEmptyForeignSprints(reader, BOARD, [own, empty, shared, unreadable]);
+    expect(kept.map((candidate) => candidate.id)).toEqual([70, 72, 73]);
+    // Le sprint du board n'est pas lu.
+    expect(calls.sort()).toEqual([71, 72, 73]);
   });
 
   it("reste à faire actif par colonnes : catégorie Jira ignorée, statut sans colonne écarté", async () => {

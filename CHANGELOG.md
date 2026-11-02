@@ -3,6 +3,13 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.48.1 — Sprint Planning : plus de sprints vides d'un autre board (builds locaux)
+
+- Signalé par Denis le 02/11/2026 : un sprint d'un autre board (son board d'origine, connu par
+  Jira) qui ne contient aucun ticket du board n'apparaît plus dans le planning : ni dans le menu
+  des sprints à préparer, ni dans « Où sont les tickets », ni dans « Vers {sprint} », ni à la
+  clôture. Un sprint du board, même vide, reste proposé. Lectures seules.
+
 ## 0.48.0 — Le même menu de carte sur le board et dans le planning
 
 - Demande de Denis du 02/11/2026 (story 8.19) : le Sprint Board et le Sprint Planning (builds

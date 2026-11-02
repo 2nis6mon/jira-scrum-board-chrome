@@ -63,6 +63,10 @@ et la création de Goals restent hors périmètre. Livré en 0.42.0 (stories 8.1
 dans le paquet ; contrats dans [intégration Jira](../../docs/technique/integration-jira.md).
 Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l'activation (8.11).
 
+- [x] Bug (signalé par Denis, 02/11/2026) : un sprint vide qui n'appartient pas au board apparaît dans
+  le Sprint Planning. On sait qu'il n'est pas au board par son `originBoardId` (API Agile). Décision :
+  ne l'afficher nulle part dans le planning (menu des sprints, colonne, destinations, clôture) ; un
+  sprint du board, même vide, reste proposé. Corrigé en 0.48.1, sur Jira fictif.
 - [x] Bug (essai du 02/11/2026) : le menu des sprints à préparer propose des sprints que
   l'utilisateur ne peut pas modifier (ici un sprint d'un autre board, remonté par le filtre) ; y
   ajouter un objectif texte échoue (« Only a Jira administrator can update this sprint »). Choix de

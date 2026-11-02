@@ -177,7 +177,9 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   50 tickets : refus avant toute écriture. Arrêt au premier échec, rien n'est rejoué ; l'avis
   et le journal disent les tickets confirmés et ceux à refaire, qui restent sélectionnés.
 - Sprints proposés (0.43.1) : seulement ceux que l'utilisateur peut modifier (administrateur, ou
-  « Gérer les sprints » sur tous les projets du board d'origine) ; indécidable : proposé.
+  « Gérer les sprints » sur tous les projets du board d'origine) ; indécidable : proposé. Un sprint
+  d'un autre board (`originBoardId`, `isForeignSprint`) sans aucun ticket du board n'est proposé
+  nulle part (0.48.1) ; un sprint du board, même vide, l'est ; lecture en échec : proposé.
 - Avancement des objectifs (story 8.16) : répartition par colonne (depuis 8.20), filtres ignorés ;
   déjà livré avant ce sprint (statut dans la dernière colonne, 8.21) : segment hachuré à la suite du
   terminé et légende de « Terminé », jamais compté dans la charge ni dans « n/N terminés » ; lectures seules,

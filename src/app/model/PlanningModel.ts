@@ -55,6 +55,7 @@ import {
   removePlanningIssue,
   removePlanningIssues,
   savePlanningVelocity,
+  withoutEmptyForeignSprints,
   writeTextGoals,
 } from "../../core/sprintPlanning";
 import type { IssueQuery, JiraClient, JiraQuickFilter } from "../../jira/client";
@@ -424,7 +425,13 @@ export class PlanningModel implements PlanningViewModel {
       // Seuls les sprints que l'utilisateur peut modifier sont proposés (Jira refuserait le geste).
       const proposable = await proposableSprintIds(this.client, read, this.#permissions);
       if (this.#stale(generation)) return;
-      const futures = read.filter((sprint) => proposable.has(sprint.id));
+      // Ni sprint non modifiable, ni sprint vide d'un autre board.
+      const futures = await withoutEmptyForeignSprints(
+        this.client,
+        configuration.boardId,
+        read.filter((sprint) => proposable.has(sprint.id)),
+      );
+      if (this.#stale(generation)) return;
       batch(() => {
         this.sprints.value = futures;
         this.noEditableSprint.value = read.length > 0 && futures.length === 0;
