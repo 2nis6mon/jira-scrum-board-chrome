@@ -7,6 +7,18 @@ engagée tant qu'elle n'est pas décidée. Mise en conformité d'architecture :
 
 ## Fiabilité et distribution
 
+- [ ] Bug (signalé par Denis, 02/11/2026) : pendant le glisser d'un ticket à la souris, approcher la
+  carte du haut (ou du bas) du board ne le fait pas défiler ; un objectif hors de l'écran est alors
+  impossible à atteindre. Constat dans le code : glisser-déposer HTML natif (`draggable`,
+  `onDragStart` dans `IssueCard.tsx`, `BoardView.tsx`), aucun défilement automatique de notre côté ;
+  le board défile dans son propre conteneur (`.board`, `overflow: auto`, `app.css`), dans l'iframe
+  injectée dans Jira. Piste, à confirmer : la zone de défilement automatique de Chrome, au bord du
+  conteneur, est trop étroite ou inaccessible (en-têtes, bord de l'iframe). Correctif possible :
+  pendant un `dragover`, faire défiler le conteneur quand le pointeur entre dans une bande en haut
+  ou en bas (vitesse croissante vers le bord), arrêt au `drop`, au `dragend` ou à la sortie. Vérifier
+  aussi le Sprint Planning (`.planning-lanes` et `.planning-sources`, `overflow-y: auto`) et le
+  défilement à la molette pendant le glisser. Test : Chrome réel sur le banc fictif, board plus haut
+  que la fenêtre. Aucune écriture concernée.
 - [ ] Workflows réels : Time Spent, Story Points, Resolution, commentaires, plusieurs champs,
   widgets tiers ; validation et annulation. Améliorer le diagnostic des formulaires non reconnus sans données sensibles.
 - [ ] Schémas Goals réels : plus de 100 liens, absence de `workItems`, champ Goals manquant ;
