@@ -1021,3 +1021,25 @@ So that la colonne « Où sont les tickets » ressemble au backlog de Jira et ne
 **Then** aucune lecture ni écriture n'est ajoutée ; les compteurs de section et le résultat des filtres (8.14) ne comptent que les tickets affichés
 
 *Notes :* retour d'essai du 02/11/2026 (backlog « À investiguer »). Cause : `GET /rest/software/1.0/board/{id}/backlog` renvoie aussi les tickets de la dernière colonne, que l'écran de Jira masque ([base de connaissances Atlassian](https://support.atlassian.com/jira/kb/done-or-resolved-issues-appear-in-a-scrum-board-backlog/)) ; `sections` (`PlanningModel.ts`) n'avait aucun filtre. Règle à réutiliser : `visibleColumns(configuration.columns).at(-1)`, déjà employée par le report (8.7). `canJoinSprint` (refus de Jira pour les tickets résolus et les sous-tâches) reste inchangé pour les tickets encore affichés.
+
+### Story 8.23: Ne plus voir les tickets terminés du sprint en préparation
+
+As a Scrum Master qui prépare son sprint,
+I want ne plus voir dans le sprint en préparation les tickets déjà terminés,
+So that le sprint à planifier ne montre et ne compte que le travail qui reste à faire.
+
+**Acceptance Criteria:**
+
+**Given** la décision de Denis du 02/11/2026 (« Les masquer aussi », après essai sur le sandbox) qui remplace, pour le sprint en préparation, celle de la story 8.22
+**When** le sprint en préparation s'affiche
+**Then** un ticket dont le statut est dans la dernière colonne visible du board n'apparaît ni dans les swimlanes ni dans « Sans objectif », comme un statut sans colonne (8.20)
+
+**Given** un tel ticket
+**When** la charge, l'avancement des objectifs, les options de filtre et le compteur « n / N tickets » se calculent
+**Then** il n'y est pas compté, et il ne peut pas être sélectionné ; il disparaît sans avis, comme en 8.22
+
+**Given** les données déjà lues
+**When** la règle s'applique
+**Then** aucune lecture ni écriture n'est ajoutée ; le ticket reste lu dans Jira pour les gestes et le déjà livré
+
+*Notes :* filtre dans `PlanningModel.#sprintItems` (`shownInSprint`), pas dans `loadSprintPlanning`. La partie « terminé » des barres ne vient plus que du déjà livré (8.21).

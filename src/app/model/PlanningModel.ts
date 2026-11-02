@@ -6,7 +6,7 @@ import {
 } from "../../core/atlassianGoals";
 import type { BoardConfiguration } from "../../core/boardConfiguration";
 import { type IssueFilterOptions, issueFilterOptions } from "../../core/boardLayout";
-import { columnStates, tallyByState } from "../../core/columnState";
+import { type ColumnStates, columnStates, tallyByState } from "../../core/columnState";
 import {
   matchesIssue,
   matchesIssueSearch,
@@ -277,7 +277,7 @@ export class PlanningModel implements PlanningViewModel {
   readonly filterOptions = computed((): IssueFilterOptions | null => {
     const snapshot = this.snapshot.value;
     if (!SPRINT_PLANNING_ENABLED || !snapshot) return null;
-    return issueFilterOptions(planningIssues(snapshot));
+    return issueFilterOptions(planningIssues(snapshot, this.#states.value));
   });
 
   /** Critères actifs, recherche comprise : « Réinitialiser (n) ». */
@@ -298,16 +298,20 @@ export class PlanningModel implements PlanningViewModel {
   readonly #states = computed(() => columnStates(this.context.configuration()?.columns ?? []));
 
   /**
-   * Sprint en préparation, sans les tickets dont le statut n'est dans aucune colonne visible :
-   * comme sur le board, ils ne sont ni affichés ni comptés (`unmappedCount` le dit).
+   * Sprint en préparation, sans les tickets dont le statut n'est dans aucune colonne visible (comme
+   * sur le board, `unmappedCount` le dit) ni dans la dernière (story 8.23, comme « Où sont les
+   * tickets » en 8.22) : ils ne sont ni affichés ni comptés.
    */
   readonly #sprintItems = computed((): readonly PlanningIssue[] => {
     if (!SPRINT_PLANNING_ENABLED) return [];
     const states = this.#states.value;
     return (this.snapshot.value?.sprintIssues ?? [])
-      .filter((issue) => states.ofStatus(issue.fields.status?.id) !== null)
+      .filter((issue) => shownInSprint(states, issue))
       .map((issue) => this.#item(issue));
   });
+
+  /** Tickets affichés du sprint en préparation, avant recherche et filtres. */
+  readonly sprintIssueCount = computed(() => this.#sprintItems.value.length);
 
   /** Tickets du sprint en préparation ignorés faute de colonne visible pour leur statut. */
   readonly unmappedCount = computed(() => {
@@ -544,7 +548,8 @@ export class PlanningModel implements PlanningViewModel {
       this.snapshot.value = snapshot;
       this.atlassianGoals.value = goals;
       this.goalsWarning.value = warning;
-      const kept = [...this.selection.value].filter((key) => selectable(snapshot, key));
+      const states = columnStates(configuration.columns);
+      const kept = [...this.selection.value].filter((key) => selectable(snapshot, key, states));
       if (kept.length !== this.selection.value.size) this.selection.value = new Set(kept);
     });
     void this.#readHistory(generation, configuration, snapshot, goals);
@@ -981,7 +986,8 @@ export class PlanningModel implements PlanningViewModel {
    */
   toggleSelection(key: string): void {
     const snapshot = this.snapshot.value;
-    if (!SPRINT_PLANNING_ENABLED || !snapshot || !selectable(snapshot, key)) return;
+    if (!SPRINT_PLANNING_ENABLED || !snapshot || !selectable(snapshot, key, this.#states.value))
+      return;
     const next = new Set(this.selection.value);
     if (!next.delete(key)) next.add(key);
     this.selection.value = next;
@@ -1004,7 +1010,7 @@ export class PlanningModel implements PlanningViewModel {
     const [start, end] = from <= to ? [from, to] : [to, from];
     const next = new Set(this.selection.value);
     for (const candidate of sectionKeys.slice(start, end + 1))
-      if (selectable(snapshot, candidate)) next.add(candidate);
+      if (selectable(snapshot, candidate, this.#states.value)) next.add(candidate);
     this.selection.value = next;
   }
 
@@ -1243,7 +1249,7 @@ export class PlanningModel implements PlanningViewModel {
   estimateIssue(key: string, value: number): Promise<void> {
     if (!SPRINT_PLANNING_ENABLED || !this.canEstimate.value) return Promise.resolve();
     const snapshot = this.snapshot.value;
-    if (!snapshot || !selectable(snapshot, key)) return Promise.resolve();
+    if (!snapshot || !selectable(snapshot, key, this.#states.value)) return Promise.resolve();
     const located = locate(snapshot, key);
     if (!located) return Promise.resolve();
     const fieldId = this.context.configuration()?.estimationFieldId ?? null;
@@ -1610,10 +1616,10 @@ function planningQuery(configuration: BoardConfiguration): IssueQuery {
   };
 }
 
-/** Tickets du sprint en préparation et de toutes les sources de la colonne de gauche. */
-function planningIssues(snapshot: PlanningSnapshot): JiraIssue[] {
+/** Tickets affichés du sprint en préparation et de toutes les sources de la colonne de gauche. */
+function planningIssues(snapshot: PlanningSnapshot, states: ColumnStates): JiraIssue[] {
   return [
-    ...snapshot.sprintIssues,
+    ...snapshot.sprintIssues.filter((issue) => shownInSprint(states, issue)),
     ...snapshot.futureSprints.flatMap(({ issues }) => issues),
     ...snapshot.backlogIssues,
     ...snapshot.activeSprints.flatMap(({ issues }) => issues),
@@ -1638,12 +1644,24 @@ function canJoinSprint(issue: JiraIssue): boolean {
 }
 
 /**
- * Ticket qu'un geste peut déplacer : dans le sprint en préparation, ou dans une source d'où il
- * peut le rejoindre. Le reste à faire d'un sprint actif reste en consultation.
+ * Ticket affiché dans le sprint en préparation : statut dans une colonne visible du board autre
+ * que la dernière (stories 8.20, 8.22, 8.23).
  */
-function selectable(snapshot: PlanningSnapshot, key: string): boolean {
+function shownInSprint(states: ColumnStates, issue: JiraIssue): boolean {
+  const state = states.ofStatus(issue.fields.status?.id);
+  return state !== null && state !== "done";
+}
+
+/**
+ * Ticket qu'un geste peut déplacer : affiché dans le sprint en préparation, ou dans une source
+ * d'où il peut le rejoindre. Le reste à faire d'un sprint actif reste en consultation.
+ */
+function selectable(snapshot: PlanningSnapshot, key: string, states: ColumnStates): boolean {
   const located = locate(snapshot, key);
-  return located !== null && (located.origin === null || canJoinSprint(located.issue));
+  if (located === null) return false;
+  return located.origin === null
+    ? shownInSprint(states, located.issue)
+    : canJoinSprint(located.issue);
 }
 
 /** Première couleur de la palette qu'aucun objectif n'utilise encore. */

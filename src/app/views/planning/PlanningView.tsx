@@ -291,7 +291,7 @@ function filterResult(planning: PlanningViewModel): string {
   const snapshot = planning.snapshot.value;
   if (!snapshot) return "";
   const total =
-    snapshot.sprintIssues.length +
+    planning.sprintIssueCount.value +
     snapshot.backlogIssues.length +
     [...snapshot.futureSprints, ...snapshot.activeSprints].reduce(
       (sum, { issues }) => sum + issues.length,

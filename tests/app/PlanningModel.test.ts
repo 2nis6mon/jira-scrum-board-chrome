@@ -1408,6 +1408,27 @@ describe("Sprint Planning : avancement de chaque objectif (8.16)", () => {
     expect(planning.unmappedCount.value).toBe(1);
   });
 
+  it("ticket du sprint dans la dernière colonne : ni affiché, ni compté, ni sélectionnable, sans avis (8.23)", async () => {
+    const { planning, jira } = context({
+      issueFields: { "ABC-210": { status: statusJson("6", "Terminé", "done") } },
+    });
+    await planning.load();
+    // Toujours lu dans Jira : seul l'affichage l'écarte.
+    expect(planning.snapshot.value?.sprintIssues.map((issue) => issue.key)).toContain("ABC-210");
+    expect(planning.unassigned.value.map((item) => item.issue.key)).toEqual([]);
+    expect(planning.lanes.value.every((entry) => entry.issueCount === 0)).toBe(true);
+    expect(planning.lanes.value.every((entry) => entry.progress.done.count === 0)).toBe(true);
+    expect(planning.sprintLoad.value).toMatchObject({ total: 0, unestimated: 0 });
+    expect(planning.sprintIssueCount.value).toBe(0);
+    expect(planning.unmappedCount.value).toBe(0);
+    expect(planning.filterOptions.value?.statuses.map((entry) => entry.label)).not.toContain(
+      "Terminé",
+    );
+    planning.toggleSelection("ABC-210");
+    expect(planning.selection.value.size).toBe(0);
+    expect(jira.requests.filter(isWriteRequest)).toHaveLength(0);
+  });
+
   it("objectif texte reporté : indique le déjà livré des sprints clos, hors charge du sprint", async () => {
     const { planning, jira } = context({ closedSprints: true });
     await planning.load();

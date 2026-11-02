@@ -166,6 +166,11 @@ export interface PlanningViewModel {
   readonly unassigned: ReadonlySignal<readonly PlanningIssue[]>;
   readonly sections: ReadonlySignal<readonly PlanningSection[]>;
   readonly sprintLoad: ReadonlySignal<PlanningLoad | null>;
+  /**
+   * Tickets affichés du sprint en préparation (ni dernière colonne ni statut sans colonne, 8.23),
+   * avant recherche et filtres : total du compteur « n / N tickets ».
+   */
+  readonly sprintIssueCount: ReadonlySignal<number>;
   /** Tickets du sprint en préparation dont le statut n'est dans aucune colonne visible : ignorés. */
   readonly unmappedCount: ReadonlySignal<number>;
   /** Sprints actifs du board : un seul, « Clôturer le Sprint N » ; plusieurs, un menu. */

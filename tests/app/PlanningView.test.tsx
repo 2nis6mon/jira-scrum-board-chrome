@@ -169,6 +169,7 @@ function setup(
       { kind: "active", sprint: SPRINT_42, issues: [REMAINING] },
     ]),
     unmappedCount: signal(0),
+    sprintIssueCount: signal(snapshot.sprintIssues.length),
     sprintLoad: signal<PlanningLoad | null>({
       total: 8,
       unestimated: 1,

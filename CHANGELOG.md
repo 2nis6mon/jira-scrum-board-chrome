@@ -3,6 +3,14 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.48.4 — Sprint Planning : plus de tickets terminés dans le sprint en préparation (builds locaux)
+
+- Décision de Denis du 02/11/2026 après essai sur le sandbox (story 8.23) : le sprint en
+  préparation ne montre plus les tickets de la dernière colonne du board, comme « Où sont les
+  tickets » depuis la 8.22. Ils ne sont plus comptés dans la charge, l'avancement des objectifs, les
+  filtres ni le compteur de tickets, et ne peuvent plus être sélectionnés. La partie « terminé » des
+  barres ne montre plus que le déjà livré des sprints précédents. Aucune lecture ni écriture en plus.
+
 ## 0.48.3 — Sprint Planning : le menu des sprints écarte vraiment les sprints d'un autre board (builds locaux)
 
 - Constaté par Denis le 02/11/2026 sur le Jira sandbox : malgré 0.48.2, « APP : Backlog
