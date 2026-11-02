@@ -3,6 +3,14 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.48.2 — Sprint Planning : plus de sprints d'un autre board aux tickets masqués (builds locaux)
+
+- Constaté par Denis le 02/11/2026 sur le Jira sandbox : un sprint d'un autre board dont tous les
+  tickets du board sont terminés (dernière colonne) ou sans colonne paraissait vide dans le
+  planning, ces tickets y étant masqués depuis la 8.22, mais restait proposé. Il est désormais
+  écarté comme un sprint vide : « vide » veut dire sans ticket restant à faire ou en cours selon
+  les colonnes du board. Un sprint du board reste proposé. Aucune lecture en plus.
+
 ## 0.48.1 — Sprint Planning : plus de sprints vides d'un autre board (builds locaux)
 
 - Signalé par Denis le 02/11/2026 : un sprint d'un autre board (son board d'origine, connu par

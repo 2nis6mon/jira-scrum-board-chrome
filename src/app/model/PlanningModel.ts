@@ -425,10 +425,11 @@ export class PlanningModel implements PlanningViewModel {
       // Seuls les sprints que l'utilisateur peut modifier sont proposés (Jira refuserait le geste).
       const proposable = await proposableSprintIds(this.client, read, this.#permissions);
       if (this.#stale(generation)) return;
-      // Ni sprint non modifiable, ni sprint vide d'un autre board.
+      // Ni sprint non modifiable, ni sprint d'un autre board sans ticket restant du board.
       const futures = await withoutEmptyForeignSprints(
         this.client,
         configuration.boardId,
+        configuration.columns,
         read.filter((sprint) => proposable.has(sprint.id)),
       );
       if (this.#stale(generation)) return;

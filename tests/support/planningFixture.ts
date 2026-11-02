@@ -86,9 +86,10 @@ export function planningFixture(
     closedSprints?: boolean;
     /**
      * Sprint futur 46 d'un autre board (origine 9, projet XYZ), remonté par le filtre, avec un ticket
-     * du board ; `"empty"` : sans aucun ticket du board.
+     * du board ; `"empty"` : sans aucun ticket du board ; `"done"` : son seul ticket du board est
+     * dans la dernière colonne.
      */
-    foreignFutureSprint?: boolean | "empty";
+    foreignFutureSprint?: boolean | "empty" | "done";
     /**
      * Droits de l'utilisateur : administrateur de Jira, et « Gérer les sprints » par projet
      * (`error` : lecture refusée). Par défaut : non administrateur, droit sur ABC, pas sur XYZ.
@@ -413,15 +414,16 @@ export function planningFixture(
         status: 404,
       })
       .on("GET", "/rest/agile/1.0/board/7/sprint/46/issue", () => {
+        const finished = options.foreignFutureSprint === "done";
         const issues =
           options.foreignFutureSprint === "empty"
             ? []
             : [
                 issueJson("ABC-460", {
                   summary: "Ticket partagé avec l'équipe voisine",
-                  statusId: "1",
-                  statusName: "À faire",
-                  category: "new",
+                  statusId: finished ? "6" : "1",
+                  statusName: finished ? "Terminé" : "À faire",
+                  category: finished ? "done" : "new",
                 }),
               ];
         return { status: 200, json: { issues, total: issues.length } };

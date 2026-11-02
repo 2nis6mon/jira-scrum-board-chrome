@@ -315,10 +315,24 @@ describe("lecture du Sprint Planning", () => {
       foreign(61, "future"),
       foreign(62, "active"),
       sprint(63, "future"),
+      foreign(64, "future"),
+      foreign(65, "active"),
+      sprint(66, "future"),
     ];
     f.state.issues[61] = [todo("ABC-610")];
+    // Tickets du board tous masqués (dernière colonne, statut sans colonne) : sprint étranger vide
+    // à l'écran, écarté (0.48.2, sandbox : « APP : Backlog tech/dette » et ses tickets Closed).
+    const annule = makeIssue("ABC-641", { statusId: "77", statusName: "Annulé", category: "done" });
+    f.state.issues[64] = [done("ABC-640"), annule];
+    f.state.issues[65] = [done("ABC-650")];
+    f.state.issues[66] = [done("ABC-660")];
     const snapshot = await f.load();
-    expect(snapshot.futureSprints.map(({ sprint: other }) => other.id)).toEqual([OTHER, 61, 63]);
+    expect(snapshot.futureSprints.map(({ sprint: other }) => other.id)).toEqual([
+      OTHER,
+      61,
+      63,
+      66,
+    ]);
     expect(snapshot.activeSprints.map(({ sprint: active }) => active.id)).toEqual([ACTIVE]);
     expect(snapshot.closableSprintIds).toEqual([ACTIVE]);
   });
@@ -328,18 +342,31 @@ describe("lecture du Sprint Planning", () => {
     const empty = { ...sprint(71, "future"), originBoardId: 99 };
     const shared = { ...sprint(72, "future"), originBoardId: 99 };
     const unreadable = { ...sprint(73, "future"), originBoardId: 99 };
+    const finished = { ...sprint(74, "future"), originBoardId: 99 };
     const calls: number[] = [];
     const reader = {
       sprintIssues: async (_board: number, id: number) => {
         calls.push(id);
         if (id === 73) throw new JiraError({ kind: "timeout" });
-        return id === 72 ? [todo("ABC-720")] : [];
+        if (id === 74)
+          return [
+            done("ABC-740"),
+            makeIssue("ABC-741", { statusId: "77", statusName: "Annulé", category: "done" }),
+          ];
+        return id === 72 ? [done("ABC-721"), todo("ABC-720")] : [];
       },
     };
-    const kept = await withoutEmptyForeignSprints(reader, BOARD, [own, empty, shared, unreadable]);
+    const kept = await withoutEmptyForeignSprints(reader, BOARD, COLUMNS, [
+      own,
+      empty,
+      shared,
+      unreadable,
+      finished,
+    ]);
+    // 74 : tickets du board tous terminés ou sans colonne, masqués du planning : écarté (0.48.2).
     expect(kept.map((candidate) => candidate.id)).toEqual([70, 72, 73]);
     // Le sprint du board n'est pas lu.
-    expect(calls.sort()).toEqual([71, 72, 73]);
+    expect(calls.sort()).toEqual([71, 72, 73, 74]);
   });
 
   it("reste à faire actif par colonnes : catégorie Jira ignorée, statut sans colonne écarté", async () => {

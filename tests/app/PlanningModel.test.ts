@@ -63,7 +63,7 @@ function context(
     /** Sprints clos 41 et 40, d'où l'objectif `g-pay` a été reporté. */
     closedSprints?: boolean;
     /** Sprint futur 46 d'un autre board, que l'utilisateur ne peut pas modifier par défaut. */
-    foreignFutureSprint?: boolean | "empty";
+    foreignFutureSprint?: boolean | "empty" | "done";
     permissions?: Parameters<typeof planningFixture>[1] extends infer O
       ? O extends { permissions?: infer P }
         ? P
@@ -1279,6 +1279,18 @@ describe("Sprint Planning : seuls les sprints que l'utilisateur peut modifier", 
       (request) => request.path === "/rest/agile/1.0/board/7/sprint/46/issue",
     );
     expect(read?.url.searchParams.get("fields")).toBe("status");
+    expect(jira.requests.filter(isWriteRequest)).toHaveLength(0);
+  });
+
+  it("sprint d'un autre board aux tickets du board tous terminés : écarté comme un sprint vide", async () => {
+    const { planning, jira } = context({
+      foreignFutureSprint: "done",
+      permissions: { manageSprints: { XYZ: true } },
+    });
+    await planning.load();
+    expect(planning.sprints.value.map((sprint) => sprint.id)).toEqual([43]);
+    expect(planning.snapshot.value?.futureSprints.map(({ sprint }) => sprint.id)).toEqual([]);
+    expect(planning.sections.value.some((section) => section.kind === "sprint")).toBe(false);
     expect(jira.requests.filter(isWriteRequest)).toHaveLength(0);
   });
 

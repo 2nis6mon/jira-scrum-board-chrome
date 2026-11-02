@@ -161,19 +161,16 @@ export async function loadSprintPlanning(
       })),
     );
   const [readFutures, readActives] = await Promise.all([issuesOf(others), issuesOf(actives)]);
-  // Sprint d'un autre board sans aucun ticket du board : ni colonne, ni destination, ni clôture.
-  const shown = ({ sprint: other, issues }: PlanningSprintIssues) =>
-    !(isForeignSprint(other, input.boardId) && issues.length === 0);
-  const futureSprints = readFutures.filter(shown);
-  const activeSprints = readActives.filter(shown);
-  const states = columnStates(input.columns);
   // Colonne « Où sont les tickets » (backlog, autres sprints futurs, reste à faire actif) : comme
   // le backlog Jira, seulement les statuts d'une colonne visible autre que la dernière (stories
   // 8.20, 8.22). Le sprint en préparation garde tous ses tickets.
-  const remaining = (issue: JiraIssue) => {
-    const state = states.ofStatus(issue.fields.status?.id);
-    return state !== null && state !== "done";
-  };
+  const remaining = remainingIssue(input.columns);
+  // Sprint d'un autre board sans aucun ticket restant du board : ni colonne, ni destination, ni
+  // clôture (0.48.1, 0.48.2).
+  const shown = ({ sprint: other, issues }: PlanningSprintIssues) =>
+    !(isForeignSprint(other, input.boardId) && !issues.some(remaining));
+  const futureSprints = readFutures.filter(shown);
+  const activeSprints = readActives.filter(shown);
   return {
     boardId: input.boardId,
     query: input.query,
@@ -205,22 +202,37 @@ export async function loadSprintPlanning(
 }
 
 /**
+ * Ticket restant à faire ou en cours : statut dans une colonne visible du board autre que la
+ * dernière (stories 8.20, 8.22). Un statut sans colonne ou de la dernière colonne ne l'est pas.
+ */
+function remainingIssue(columns: readonly ColumnConfiguration[]): (issue: JiraIssue) => boolean {
+  const states = columnStates(columns);
+  return (issue) => {
+    const state = states.ofStatus(issue.fields.status?.id);
+    return state !== null && state !== "done";
+  };
+}
+
+/**
  * Sprints proposés à la préparation, sans ceux d'un autre board (`originBoardId`, `isForeignSprint`)
- * qui ne contiennent aucun ticket du board (bug du 02/11/2026). Lecture des tickets de chaque
+ * qui ne contiennent aucun ticket restant du board (bugs du 02/11/2026) : ses tickets terminés ou
+ * sans colonne sont masqués du planning (8.22), il y paraîtrait vide. Lecture des tickets de chaque
  * sprint étranger par la route du board, champs réduits ; une lecture en échec garde le sprint.
  * Un sprint du board, même vide, reste proposé.
  */
 export async function withoutEmptyForeignSprints(
   reader: Pick<JiraClient, "sprintIssues">,
   boardId: number,
+  columns: readonly ColumnConfiguration[],
   sprints: readonly JiraSprint[],
 ): Promise<JiraSprint[]> {
   const query = { estimationFieldId: null, includeChangelog: false, onlyFields: ["status"] };
+  const remaining = remainingIssue(columns);
   const kept = await Promise.all(
     sprints.map(async (sprint) => {
       if (!isForeignSprint(sprint, boardId)) return true;
       try {
-        return (await reader.sprintIssues(boardId, sprint.id, query)).length > 0;
+        return (await reader.sprintIssues(boardId, sprint.id, query)).some(remaining);
       } catch {
         return true;
       }
