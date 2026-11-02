@@ -889,3 +889,93 @@ So that les objectifs non atteints du bon sprint arrivent dans celui que je pré
 **Then** la clôture de ce second sprint reporte ses objectifs non atteints, et une clôture lente côté Jira est couverte par un test de non-régression
 
 *Notes :* retour d'essai du 02/11/2026 : deux sprints actifs, clôture par le bouton du planning, objectifs avec tickets non tous terminés, aucun objectif reporté et aucun message. Causes possibles relevées dans le code : premier sprint actif seul visé (`PlanningModel.ts`, `activeSprint`), relecture unique de l'état du sprint juste après la fermeture de la fenêtre, message effacé par le geste suivant. Cause exacte à confirmer par les traces `Sprint Goals —` de la console lors du prochain essai.
+
+### Story 8.19: Le même menu de carte dans le planning et sur le board
+
+As a Scrum Master qui passe du Sprint Board au Sprint Planning,
+I want retrouver le même menu de carte sur les deux écrans,
+So that je n'ai qu'une seule façon d'envoyer un ticket vers un objectif ou de le classer.
+
+**Acceptance Criteria:**
+
+**Given** une carte du board ou du planning qui n'est pas en consultation
+**When** j'ouvre son menu (bouton ⋯, clic droit, touche Menu ou Maj+F10)
+**Then** le même composant de menu s'ouvre sur les deux écrans : même structure, même ouverture des sous-menus au survol et au clavier, Échap referme et rend le focus à la carte
+
+**Given** le sous-menu « Envoyer vers un goal › », sur le board comme dans le planning
+**When** il s'ouvre
+**Then** chaque objectif a sa pastille de couleur à gauche de son nom (couleur de sa swimlane), « Sans objectif » compris
+
+**Given** une carte du sprint en préparation dans le planning
+**When** je choisis « Mettre en top priorité » ou « Mettre en basse priorité »
+**Then** le ticket passe en tête ou en fin de la swimlane de son objectif (« Sans objectif » compris), comme sur le board, par une seule écriture de rang E2, relue ; une carte d'une source (backlog, autre sprint futur) n'a pas ces choix
+
+**Given** une carte du planning
+**When** son menu s'ouvre
+**Then** les destinations de sprint (« Renvoyer au backlog », « Vers {sprint} ») sont regroupées dans un sous-menu dépliable, comme celui des objectifs ; le mode lot de la story 8.15 est conservé (une carte sélectionnée applique le choix à toute la sélection), et top / basse priorité restent des gestes d'un seul ticket
+
+**Given** les tests du menu du board (stories 3.1, 3.2) et du planning (8.4, 8.13, 8.15)
+**When** le composant est partagé
+**Then** ils passent tous, et aucune écriture nouvelle n'apparaît : E2, E3/E4, E5, E9, E10 seulement
+
+*Notes :* demande de Denis du 02/11/2026 (backlog). Décision de Denis : tête ou fin de la swimlane de l'objectif dans le sprint en préparation. Aujourd'hui `CardMenu.tsx` (board, sous-menus) et `<details>` à plat dans `PlanningView.tsx` (planning). Indépendante des stories 8.20 et 8.21.
+
+### Story 8.20: Un seul en-tête d'objectif, avec une barre par état
+
+As a équipe qui suit ses objectifs du planning au sprint en cours,
+I want le même en-tête d'objectif sur les deux écrans, avec une barre de progression colorée par état,
+So that je lis d'un coup d'œil où en est chaque objectif, en points, avec la même règle partout.
+
+**Acceptance Criteria:**
+
+**Given** la décision de Denis du 02/11/2026 : « terminé » veut toujours dire « dans la dernière colonne visible du board »
+**When** l'avancement d'un objectif est calculé, sur le board comme dans le planning
+**Then** un ticket est terminé si son statut est dans la dernière colonne visible du board (règle de `goalProgress` et du report 8.7) ; hors de cette colonne, il est « à faire » si la catégorie de statut Jira est « à faire », sinon « en cours » ; la répartition de la story 8.16, aujourd'hui par catégorie de statut, adopte cette règle
+
+**Given** une swimlane d'objectif sur le board ou dans le planning
+**When** son en-tête s'affiche
+**Then** un seul composant montre le marqueur de l'objectif (atteint quand tous ses tickets sont terminés, sur les deux écrans), son titre, « n/N terminés · x/y pts », et une barre empilée en trois segments : gris à faire, bleu en cours, vert terminé, de largeur proportionnelle aux points (aux tickets sur un board sans estimation) ; un objectif sans ticket affiche « Aucun ticket rattaché » sur les deux écrans
+
+**Given** la barre empilée
+**When** je la regarde sans la survoler
+**Then** les points (ou tickets) de chaque état restent lisibles à côté de la barre, dans une légende aux mêmes couleurs (les pastilles de la story 8.16) ; chaque valeur est aussi donnée au survol et en texte pour les lecteurs d'écran, et aucune information ne passe par la couleur seule
+
+**Given** ce qui reste propre à chaque écran (actions de l'objectif dans le planning ; repli et déplacement de la swimlane sur le board ; déjà livré, story 8.21)
+**When** l'en-tête s'affiche
+**Then** ces éléments gardent leur place dans le composant commun, sans changer de comportement
+
+**Given** la barre du sprint en haut de page (avancement sur le board, charge comparée à la vélocité dans le planning)
+**When** elle s'affiche
+**Then** elle prend le même gabarit visuel que la barre d'objectif ; ses mesures ne changent pas
+
+**Given** les données déjà lues (colonnes du board, statut et catégorie de chaque ticket)
+**When** l'en-tête se calcule
+**Then** aucune lecture ni écriture n'est ajoutée
+
+*Notes :* demandes de Denis du 02/11/2026 (backlog : en-tête homogène, barre par catégorie). Ce que Denis veut garder : la barre du sprint en cours et les points par catégorie du planning. La règle « à faire / en cours » hors de la dernière colonne est une proposition de la table, à confirmer avec Denis. Un statut rattaché à aucune colonne visible n'est jamais terminé. `BoardIssue.statusCategoryKey` existe déjà (`src/core/boardIssue.ts`).
+
+### Story 8.21: Le déjà livré dans la partie terminée de la barre
+
+As a équipe qui reprend un objectif sur plusieurs sprints,
+I want voir ce qui a déjà été livré dans la partie « terminé » de l'objectif,
+So that l'avancement réel de l'objectif se lit d'un seul coup, sans mention à part.
+
+**Acceptance Criteria:**
+
+**Given** un objectif du planning avec des tickets déjà livrés avant ce sprint (story 8.16)
+**When** son en-tête s'affiche
+**Then** le déjà livré apparaît comme un segment vert hachuré à la suite du segment terminé, et la légende de « Terminé » le mentionne (« Terminé : 3 · 5 pts, plus déjà livré : 2 · 8 pts ») ; la mention à part « Déjà livré » disparaît
+
+**Given** un objectif avec du déjà livré
+**When** la charge, la vélocité et « n/N terminés · x/y pts » s'affichent
+**Then** ils ne comptent que le sprint en préparation ; seule la largeur des segments tient compte du déjà livré
+
+**Given** la décision « terminé = dernière colonne visible du board » (story 8.20)
+**When** le déjà livré est lu
+**Then** il suit la même règle : en mode texte, un ticket des sprints clos compte si son statut est dans la dernière colonne visible ; pour un Goal Atlassian, la lecture JQL vise les statuts de cette colonne (`status in (…)`) au lieu de `statusCategory = Done`
+
+**Given** une lecture incomplète de l'historique ou des Goals
+**When** l'en-tête s'affiche
+**Then** elle reste signalée, comme dans la story 8.16
+
+*Notes :* demande de Denis du 02/11/2026 (backlog). Dépend de la story 8.20. Planning seulement : le board n'affiche pas de déjà livré. Lectures seulement, aucune écriture.

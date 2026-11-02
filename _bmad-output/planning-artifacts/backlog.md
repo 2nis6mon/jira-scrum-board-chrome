@@ -95,6 +95,7 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   dépliable, comme celui des objectifs. Piste : un seul composant de menu de carte partagé par les
   deux écrans, avec le même comportement (survol, clavier, Échap). Mêmes écritures qu'aujourd'hui,
   aucune nouvelle. Stories 3.1, 3.2, 8.4 et 8.13.
+  Planifiée : story 8.19 (epics.md), 02/11/2026.
 - [ ] Amélioration (demande de Denis, 02/11/2026) : en-tête d'objectif homogène entre le Sprint
   Planning et le Sprint Board, même apparence pour toute la barre, progression comprise. Écarts relevés
   dans le code : marqueur (`GoalMarker` avec état « atteint » et `lane-header-completed` sur le board,
@@ -109,6 +110,8 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   repli). Voir aussi la barre du sprint en haut de page (`SprintProgress` sur le board, charge contre
   vélocité dans le planning) : même gabarit visuel, mesures différentes. Lecture seule, aucune
   écriture. Côté planning : stories 8.6 et 8.16.
+  Planifiée avec la suivante : story 8.20 (epics.md). Décision de Denis du 02/11/2026 : « terminé »
+  veut toujours dire dernière colonne visible du board, planning compris.
 - [ ] Amélioration (demande de Denis, 02/11/2026), à traiter avec l'en-tête homogène ci-dessus : une
   seule barre de progression découpée par catégorie de statut, en couleur. Aujourd'hui, le Sprint
   Board montre une barre (part terminée seulement) et le planning une barre plus trois pastilles
@@ -120,12 +123,14 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   Même composant dans les deux écrans. Côté board, la catégorie de statut de chaque ticket doit être
   disponible ; à vérifier avec la règle « terminé » à unifier (dernière colonne contre catégorie).
   Lecture seule, aucune écriture.
+  Planifiée : story 8.20 (epics.md).
 - [ ] Amélioration (demande de Denis, 02/11/2026) : dans l'en-tête d'objectif du planning, ranger
   « Déjà livré : 2 tickets · 8 pts » (`planning-lane-delivered`) dans la partie « Terminé » au lieu
   d'une mention à part. Contrainte de la story 8.16 : le déjà livré date des sprints précédents et
   reste hors de la charge du sprint et de la vélocité ; le distinguer dans la partie terminée (par
   exemple un segment hachuré ou plus clair dans la barre, « Terminé : 3 · 5 pts, plus déjà livré :
   2 · 8 pts » au survol) sans l'ajouter aux totaux du sprint. Lecture seule, aucune écriture.
+  Planifiée : story 8.21 (epics.md).
 - [ ] À investiguer (essai du 02/11/2026) : la colonne « Où sont les tickets » montre des tickets
   fermés, alors que Denis ne les voit pas dans le backlog Jira. Constat dans le code : `sections`
   (`PlanningModel.ts`) affiche tout ce que renvoient la lecture du backlog
