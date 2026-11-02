@@ -243,7 +243,7 @@ export function planningRefusalCause(refusal: PlanningRefusal): AppMessage {
     case "velocityChanged":
       return message("La vélocité a changé dans Jira depuis son affichage.");
     case "invalidVelocity":
-      return message("La vélocité doit être un nombre positif ou nul.");
+      return message("La vélocité doit être un nombre entre 0 et 100 000.");
     case "sprintNotClosed":
       return message("Le sprint n'est pas clos dans Jira.");
     case "failed":

@@ -452,7 +452,12 @@ describe("vélocité de l'équipe dans la propriété du sprint", () => {
     if (read.kind === "document") expect(read.document.velocity).toBe(velocity);
   });
 
-  it.each([[-1], ["21"], [null], [100_001], [Number.NaN]])(
+  it("lecture stricte : `velocity: null` vaut absence, la propriété reste lisible", () => {
+    const read = sprintGoals.readSprintGoalProperty({ version: 1, goals: [], velocity: null });
+    expect(read).toMatchObject({ kind: "document", document: { velocity: null } });
+  });
+
+  it.each([[-1], ["21"], [100_001], [Number.NaN]])(
     "lecture stricte : %j rend la propriété illisible, jamais écrasée",
     (velocity) => {
       expect(sprintGoals.readSprintGoalProperty({ version: 1, velocity }).kind).toBe("unreadable");

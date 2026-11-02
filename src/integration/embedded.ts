@@ -1,4 +1,5 @@
 import { effect } from "@preact/signals";
+import { SPRINT_PLANNING_ENABLED } from "../app/featureFlags";
 import { language } from "../app/i18n";
 import type { AppModel } from "../app/model/AppModel";
 import type { Platform } from "../app/platform/types";
@@ -68,19 +69,23 @@ export function installEmbeddedLinks(model: AppModel, origin: string, address: s
     };
     // Clôture ou démarrage par la fenêtre native de Jira : seuls l'action et le nom du sprint
     // partent, la page hôte forme elle-même l'adresse de son backlog et n'y clique qu'un bouton.
-    board.nativeSprintDialogHandler = (action, sprint) => {
-      if (board.site.origin !== origin) return false;
-      model.exitPresentation();
-      window.parent.postMessage(
-        message("sprintDialog", {
-          action,
-          // Un préfixe suffit à l'hôte pour reconnaître la ligne du sprint.
-          sprintName: sprint.name.slice(0, PROTOCOL.sprintDialog.fields.sprintName.maxLength),
-        }),
-        origin,
-      );
-      return true;
-    };
+    // Sprint Planning coupé (paquet) : aucune fenêtre native de sprint ne peut être demandée.
+    board.nativeSprintDialogHandler = SPRINT_PLANNING_ENABLED
+      ? (action, sprint) => {
+          if (board.site.origin !== origin) return false;
+          model.exitPresentation();
+          window.parent.postMessage(
+            message("sprintDialog", {
+              action,
+              // Nom tronqué à la longueur maximale du protocole : l'hôte le reconnaît alors comme
+              // préfixe du nom de la ligne du sprint (sans limite de mot à droite).
+              sprintName: sprint.name.slice(0, PROTOCOL.sprintDialog.fields.sprintName.maxLength),
+            }),
+            origin,
+          );
+          return true;
+        }
+      : null;
     // Changer de board, c'est changer de page Jira : l'adresse et le board affiché derrière
     // suivent. Seuls l'identifiant et la clé de projet partent ; la page hôte forme l'adresse.
     board.hostBoardNavigator = (target) => {

@@ -11,6 +11,15 @@ import {
 } from "../support/boardFixture";
 import { fakePlatform } from "../support/fakePlatform";
 
+// Interrupteur Sprint Planning pilotable par test (actif par défaut, comme dans les builds locaux).
+const flags = vi.hoisted(() => ({ planning: true }));
+vi.mock("../../src/app/featureFlags", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../src/app/featureFlags")>()),
+  get SPRINT_PLANNING_ENABLED() {
+    return flags.planning;
+  },
+}));
+
 // Données FICTIVES : la vue encadrée dans la page Jira du board 7, plus un second board (12, XYZ).
 const SITE = "https://acme.atlassian.net";
 const postMessage = vi.fn();
@@ -24,6 +33,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  flags.planning = true;
   for (const cleanup of cleanups.splice(0)) cleanup();
   if (originalParent) Object.defineProperty(window, "parent", originalParent);
 });
@@ -173,6 +183,31 @@ describe("changement de board demandé à la page Jira hôte", () => {
     const board = await hosted();
     for (const cleanup of cleanups.splice(0)) cleanup();
     expect(board.nativeSprintDialogHandler).toBeNull();
+    board.dispose();
+  });
+
+  it("Sprint Planning coupé (paquet) : aucune fenêtre native de sprint ne peut être demandée", async () => {
+    flags.planning = false;
+    const board = await hosted();
+    expect(board.nativeSprintDialogHandler).toBeNull();
+    expect(board.nativeIssueHandler).not.toBeNull();
+    board.dispose();
+  });
+
+  it("vue planning sans clôture en attente : la fermeture d'une fenêtre native relit le planning", async () => {
+    const board = await hosted();
+    vi.spyOn(board, "sync").mockResolvedValue();
+    const after = vi.spyOn(board.planning, "afterNativeDialog").mockResolvedValue();
+    board.app.view.value = "planning";
+    expect(board.planning.pendingClosure.value).toBeNull();
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        origin: SITE,
+        source: window.parent,
+        data: { type: "sprint-goals:refresh" },
+      }),
+    );
+    expect(after).toHaveBeenCalledTimes(1);
     board.dispose();
   });
 

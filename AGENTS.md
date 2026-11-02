@@ -6,7 +6,7 @@
 Extension Chrome pour Jira Cloud, uniquement dans une page Jira autorisée, en Scrum ou Kanban
 (TypeScript, Preact + signals, Vite, Vitest, Biome). Le mode autonome et l'application macOS sont
 abandonnés. Référence technique : [docs/technique/](docs/technique/index.md) (invariants, intégration et API,
-données, sécurité E1–E10/S1–S12, contrôles et livraison) et la [note d'architecture](_bmad-output/planning-artifacts/architecture/architecture-sprint-goals-board-2026-10-27/ARCHITECTURE-SPINE.md)
+données, sécurité E1–E10/S1–S13, contrôles et livraison) et la [note d'architecture](_bmad-output/planning-artifacts/architecture/architecture-sprint-goals-board-2026-10-27/ARCHITECTURE-SPINE.md)
 (couches, modules, règles AD-1 à AD-7) ; travaux restants : [backlog](_bmad-output/planning-artifacts/backlog.md) ; utilisation :
 [manuel](docs/manuel-utilisateur.md) ; versions livrées : [historique](CHANGELOG.md) ; entrée du
 projet : [README](README.md). Éviter les copies entre documents. L'historique détaillé reste dans Git.
@@ -23,7 +23,7 @@ projet : [README](README.md). Éviter les copies entre documents. L'historique d
   épinglés, jamais créés). Tickets ajoutés depuis le backlog ou un sprint futur du board, retirés
   seulement du sprint en préparation. Clôture et démarrage par les fenêtres natives Jira, puis report
   des objectifs non atteints. Création de sprint exclue. Relecture du texte des objectifs avant écriture.
-  Mise en œuvre : Epic 8 ; le code actuel suit encore l'ancienne décision.
+  Mise en œuvre : Epic 8, livrée en 0.42.0 (stories 8.1 à 8.9) ; essai réel 8.10 et activation 8.11 à venir.
 - Sprint Planning est expérimental : actif dans les builds locaux `dist/` et les tests uniquement,
   désactivé à la compilation dans le paquet de distribution (`npm run package`).
 - Réglages partagés relus à chaque chargement, écrits seulement sur modification explicite.

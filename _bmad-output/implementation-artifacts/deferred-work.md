@@ -26,3 +26,30 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-2-tickets-reportes.md`
   summary: Vérifier si l'historique joint par `expand=changelog` aux tickets de sprint peut être tronqué (`total` > `maxResults`), ce qui fausserait `sprintScope` et `carriedOverInto`.
   evidence: maybe-false, gravité medium non vérifiée. Ni `total` ni `maxResults` ne sont décodés ; se règle par un essai réel sur un ticket à plus de 100 historiques (Epic 4).
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
+  summary: Un report après clôture en échec (refus, panne, conflit) ne peut pas être relancé depuis le planning.
+  evidence: PlanningModel.afterNativeDialog efface pendingClosure avant de connaître le résultat ; carryOverGoals est idempotent et pourrait être proposé à nouveau par un bouton explicite.
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
+  summary: Le journal ne distingue pas les gestes du planning (action « sprint planning », destination d'un retrait absente).
+  evidence: PlanningModel.#journal écrit toujours le même action/from/to ; audit.v1 ne permet pas de savoir s'il s'agit d'un renommage, d'un retrait ou de la vélocité.
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
+  summary: L'état terminé ou sous-tâche d'un ticket est jugé sur l'affichage, pas relu avant E9.
+  evidence: placePlanningIssue relit sprints et sprint actif mais teste input.issue ; un ticket terminé entre l'affichage et le geste peut être ajouté (sévérité medium non vérifiée sur Jira réel).
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
+  summary: Chaque geste relit tout le planning (backlog paginé jusqu'à 5 000 tickets, tous les sprints) : risque de limitation de débit sur un gros board.
+  evidence: PlanningModel.#reread appelle loadSprintPlanning après chaque geste ; à mesurer lors de l'essai réel 8.10 (backlog volumineux).
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
+  summary: Seul le premier sprint actif peut être clôturé depuis le planning (sprints parallèles).
+  evidence: PlanningModel.activeSprint = activeSprints[0] ; la colonne de gauche les liste tous.
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
+  summary: La recherche de Goals charge une fois tous les Goals du site et filtre localement, sans recherche serveur ni rafraîchissement.
+  evidence: PlanningModel #siteGoals ??= searchGoals({loadAll:true}) ; un Goal créé pendant la séance n'apparaît pas.
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
+  summary: Report Goals Atlassian sur une lecture partielle des Goals (avertissements) : objectifs manquants non reportés sans le dire.
+  evidence: carryOverGoals ignore loaded.warnings ; à décider (refuser ou avertir).
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
+  summary: Relecture de l'état du sprint juste après la fenêtre native sans délai : un Jira lent à refléter la clôture ferait annoncer « toujours actif » (non vérifié).
+  evidence: maybe-false, medium ; à constater lors de l'essai réel 8.10.
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
+  summary: La fermeture de la fenêtre native est détectée sur sa disparition ; un remontage du dialogue par Jira pourrait fermer la popin trop tôt (non vérifié).
+  evidence: maybe-false, medium ; monitorClosure dans injectBoard.ts, à constater en 8.10.

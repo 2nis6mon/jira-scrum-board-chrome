@@ -2,7 +2,7 @@
 title: 'Stories 8.2 à 8.9 — Sprint Planning en direct dans Jira'
 type: 'feature'
 created: '2026-11-01'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '4079b6d986901848a47eadcde3a428b7b8269cdb'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -80,6 +80,34 @@ context:
 - Given un avis du planning, when l'interface est en anglais ou espagnol, then il est traduit (tests en/es).
 
 ## Implementation Notes
+
+- Implémentation en cinq phases confiées à des sous-agents (la première passe unique s'est figée) : cœur et tests (phase 1), modèle sans brouillon, avis en clés et branchement (2), écran (3), fenêtres natives côté hôte (4), banc `verify-planning`, documentation, version 0.42.0 (5). Commits `298fac7` et `8118810`.
+- Écarts assumés : étape `goalUnlinked` ajoutée (détachement E4 confirmé avant un échec E3) ; refus `linkChanged` (conflit de lien sans E9) ; `planningQuery` lit le champ Goals natif ; une clôture accepte un seul bouton non nommé ; Échap dans la page backlog montrée referme la popin.
+- Correctif d'interface trouvé par le banc : actions de l'en-tête à la ligne sous 820 px.
+
+## Review Triage Log
+
+Passe 1 (chasse aveugle, cas limites, trous de vérification) :
+- `velocity: null` refusé à la lecture stricte alors que la doc l'admet — medium, patch.
+- Message `invalidVelocity` faux au-delà de 100 000 — low, patch.
+- Gestionnaire de fenêtre native installé dans le paquet — medium, patch (garde par `SPRINT_PLANNING_ENABLED`).
+- Hôte sur un sous-chemin `/boards/N/...` : adresse refusée, pas de `refresh`, clôture en attente pour toujours — high, patch.
+- Nom de sprint tronqué à 199 jamais reconnu — low, patch (préfixe).
+- Recherche de Goals bloquée en chargement après relecture — medium, patch.
+- Bouton de désépinglage sur un Goal non épinglé sans effet — medium, patch.
+- Ticket du backlog lié à un Goal déposé sur « Sans objectif » garde son Goal — medium, patch.
+- Champs vélocité et titre gardent une valeur refusée — medium, patch.
+- Assertion du report trop lâche dans `verify-planning` — low, patch.
+- Tests manquants (dernière colonne visible, report Atlassian dans le modèle, journal « incertain », cadre inaccessible et bouton désactivé côté hôte, relecture du planning sans clôture, collision d'identifiant) — medium, patch (tests ajoutés).
+- AGENTS.md et index : « le code suit encore l'ancienne décision », S1–S12 — low, patch factuel.
+- Ligne « Lecture du planning » incomplète — low, patch.
+- Objectif reporté même si aucun ticket n'est allé dans le sprint préparé — false : l'intention reporte les objectifs non atteints dans le sprint en préparation, indépendamment de la destination des tickets.
+- Report en échec non relançable ; journal indifférencié ; terminé jugé sur l'affichage ; relecture complète à chaque geste ; un seul sprint actif ; recherche Goals locale ; avertissements Goals ignorés au report — medium/low, defer (deferred-work.md).
+- Clôture lue trop tôt ; remontage du dialogue Jira — maybe-false medium, defer (à constater en 8.10).
+- Échec d'ouverture affiché « toujours actif » — low, rejeté (rare, corrigé en partie par le `refresh` systématique).
+- Renommage ou report qui retire les puces de toutes les lignes — d'abord rejeté (low), puis démontré par `verify:planning` (« 🎯 » perdu au report) : medium, patch (`goalTextKeepingLines` garde la ligne d'origine de chaque titre inchangé, test de régression).
+- Brouillons hérités survivant à la suppression d'un board — low, rejeté (effacés à l'ouverture du planning et à la déconnexion).
+- `pendingClosure` consommé par un `refresh` sans rapport — low, rejeté (le `refresh` systématique en cas d'erreur couvre le cas réel).
 
 ## Verification
 

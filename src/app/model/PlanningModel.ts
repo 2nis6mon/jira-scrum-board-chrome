@@ -544,7 +544,9 @@ export class PlanningModel implements PlanningViewModel {
     const current = links[key] ?? null;
     if (origin === null && current === goalId) return Promise.resolve();
     let target: PlanningTarget = null;
-    if (origin === null || goalId !== null) {
+    // En Goals Atlassian, un ticket qui arrive sur « Sans objectif » quitte aussi le Goal de son
+    // champ natif : sinon il resterait affiché sous ce Goal.
+    if (origin === null || goalId !== null || this.goalMode.value === "atlassian") {
       target =
         this.goalMode.value === "text"
           ? {
@@ -638,6 +640,15 @@ export class PlanningModel implements PlanningViewModel {
     if (!SPRINT_PLANNING_ENABLED || this.goalMode.value !== "atlassian" || this.#disposed) return;
     const run = ++this.#goalSearchRun;
     const generation = this.#generation;
+    // Planning relu pendant la recherche : la réponse est ignorée, mais cette recherche, si elle
+    // est toujours la dernière, ne reste pas « en cours » indéfiniment.
+    const abandoned = () => {
+      if (run !== this.#goalSearchRun) return true;
+      if (!this.#stale(generation)) return false;
+      const pending = this.goalSearch.value;
+      if (pending?.loading) this.goalSearch.value = { ...pending, loading: false };
+      return true;
+    };
     this.goalSearch.value = {
       query,
       loading: true,
@@ -647,7 +658,7 @@ export class PlanningModel implements PlanningViewModel {
     try {
       this.#siteGoals ??= this.context.goals.searchGoals({ limit: 100, loadAll: true });
       const site = await this.#siteGoals;
-      if (run !== this.#goalSearchRun || this.#stale(generation)) return;
+      if (abandoned()) return;
       const shown = new Set(this.#goalView.value.goals.map((goal) => goal.id));
       const folded = query.trim().toLocaleLowerCase();
       this.goalSearch.value = {
@@ -665,7 +676,7 @@ export class PlanningModel implements PlanningViewModel {
       };
     } catch (error) {
       this.#siteGoals = null;
-      if (run !== this.#goalSearchRun || this.#stale(generation)) return;
+      if (abandoned()) return;
       this.goalSearch.value = { query, loading: false, results: [], error: toMessage(error) };
     }
   }

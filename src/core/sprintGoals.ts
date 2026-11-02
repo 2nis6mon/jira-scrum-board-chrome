@@ -274,7 +274,8 @@ export function readSprintGoalProperty(raw: unknown): StrictSprintGoalRead {
           (goal) =>
             !isRecord(goal) || typeof goal.id !== "string" || typeof goal.title !== "string",
         ))) ||
-    (raw.velocity !== undefined && !isVelocity(raw.velocity)) ||
+    // `velocity: null` vaut absence (format documenté dans donnees.md).
+    (raw.velocity !== undefined && raw.velocity !== null && !isVelocity(raw.velocity)) ||
     (raw.links !== undefined &&
       (!isRecord(raw.links) || Object.values(raw.links).some((id) => typeof id !== "string")));
   if (malformed) {

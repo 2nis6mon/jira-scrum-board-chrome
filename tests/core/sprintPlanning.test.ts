@@ -4,6 +4,7 @@ import { CoreError } from "../../src/core/reasons";
 import { makeSprintGoal, type SprintGoal, stableGoalIds } from "../../src/core/sprintGoals";
 import {
   carryOverGoals,
+  goalTextKeepingLines,
   loadSprintPlanning,
   type PlanningGoalLinks,
   type PlanningReader,
@@ -295,6 +296,16 @@ describe("lecture du Sprint Planning", () => {
 // ─── Objectifs du texte du sprint ────────────────────────────────────────────
 
 describe("objectifs texte du sprint (writeTextGoals)", () => {
+  it("garde puces et emoji des lignes inchangées quand un objectif est ajouté ou renommé", () => {
+    const jira = "🎯 Livrer le paiement\n2) Stabiliser\n- Doublon\n- Doublon";
+    expect(goalTextKeepingLines(jira, ["Livrer le paiement", "Stabiliser", "Nouveau"])).toBe(
+      "🎯 Livrer le paiement\n2) Stabiliser\nNouveau",
+    );
+    expect(goalTextKeepingLines(jira, ["Stabiliser", "Renommé", "Doublon", "Doublon"])).toBe(
+      "2) Stabiliser\nRenommé\n- Doublon\n- Doublon",
+    );
+  });
+
   const NOUVEAU = makeSprintGoal({ id: "g-nouveau", title: "Rassurer au paiement", position: 2 });
 
   it("ajout : E8 relu puis E5 relu, identifiants gardés, inconnus, épinglés et vélocité conservés", async () => {
@@ -1217,6 +1228,34 @@ describe("report des objectifs non atteints après la clôture native (carryOver
     const existing = reloaded.goals[1];
     expect(existing?.title).toBe(PAIEMENT.title.toUpperCase());
     expect(reloaded.links["ABC-110"]).toBe(existing?.id);
+  });
+
+  it("texte : identifiant déjà pris dans la cible sous un autre titre, l'objectif reporté en prend un nouveau", async () => {
+    const f = closedFixture();
+    f.state.sprints = f.state.sprints.map((candidate) =>
+      candidate.id === PREPARED
+        ? { ...candidate, goal: "Rechercher plus vite\nAutre titre" }
+        : candidate,
+    );
+    const stored = f.property() as Record<string, JsonValue>;
+    f.state.properties[PREPARED] = {
+      ...stored,
+      goals: [
+        { id: "g-recherche", title: "Rechercher plus vite", color: "goal1", position: 0 },
+        { id: PAIEMENT.id, title: "Autre titre", color: "goal2", position: 1 },
+      ],
+    };
+    const outcome = await carry(f, { kind: "text" });
+    expect(outcome).toEqual({ kind: "done", confirmed: ["goalText", "goalProperty"] });
+    const carried = `${PAIEMENT.id}-${PREPARED}`;
+    expect(f.property()).toMatchObject({
+      goals: [
+        { id: "g-recherche" },
+        { id: PAIEMENT.id, title: "Autre titre" },
+        { id: carried, title: PAIEMENT.title },
+      ],
+      links: { "ABC-220": "g-recherche", "ABC-110": carried },
+    });
   });
 
   it("texte : ticket arrivé déjà rattaché dans la cible, son lien est respecté", async () => {

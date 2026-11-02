@@ -314,7 +314,15 @@ function VelocityField({ planning }: { planning: PlanningViewModel }) {
     }
     if (next === velocity || raw === sent.current) return;
     sent.current = raw;
-    void planning.saveVelocity(next);
+    void planning.saveVelocity(next).then(() => {
+      // Refus ou échec relu sans changement dans Jira : le champ rend la valeur de Jira et la
+      // même saisie peut être renvoyée.
+      const current = planning.snapshot.peek()?.velocity ?? null;
+      if (current === next || sent.current !== raw) return;
+      sent.current = null;
+      input.value = velocityText(current);
+      setValue(velocityText(current));
+    });
   };
 
   return (
@@ -669,7 +677,15 @@ function GoalLane({
             goal={goal}
             index={index}
             disabled={disabled}
-            onRename={(title) => planning.renameGoal(goal.id, title)}
+            onRename={(title) =>
+              planning
+                .renameGoal(goal.id, title)
+                .then(
+                  () =>
+                    planning.snapshot.peek()?.goals.find((current) => current.id === goal.id)
+                      ?.title ?? null,
+                )
+            }
           />
         ) : (
           <span class="lane-title planning-goal-name">{goal.title}</span>
@@ -715,16 +731,20 @@ function GoalLane({
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              class="icon-button"
-              aria-label={t("Retirer l'épinglage de {name}", { name: goal.title })}
-              title={t("Retirer l'épinglage du sprint ; le Goal reste dans Atlassian")}
-              disabled={disabled}
-              onClick={() => void planning.unpinGoal(goal.id)}
-            >
-              <Icon name="close" />
-            </button>
+            // Un Goal affiché seulement parce que des tickets s'y rattachent n'est pas épinglé :
+            // rien à retirer.
+            planning.snapshot.value?.pinnedGoalIds.includes(goal.id) && (
+              <button
+                type="button"
+                class="icon-button"
+                aria-label={t("Retirer l'épinglage de {name}", { name: goal.title })}
+                title={t("Retirer l'épinglage du sprint ; le Goal reste dans Atlassian")}
+                disabled={disabled}
+                onClick={() => void planning.unpinGoal(goal.id)}
+              >
+                <Icon name="close" />
+              </button>
+            )
           )}
         </span>
       </header>
@@ -757,7 +777,8 @@ function GoalTitle({
   goal: SprintGoal;
   index: number;
   disabled: boolean;
-  onRename(title: string): Promise<void>;
+  /** Écrit le titre puis rend celui relu dans Jira (`null` : objectif disparu). */
+  onRename(title: string): Promise<string | null>;
 }) {
   const [value, setValue] = useState(goal.title);
   // Dernier titre envoyé : la sortie du champ juste après Entrée ne le renvoie pas.
@@ -780,7 +801,14 @@ function GoalTitle({
     }
     if (title === goal.title || title === sent.current) return;
     sent.current = title;
-    void onRename(title);
+    void onRename(title).then((jiraTitle) => {
+      // Refus ou échec relu sans changement dans Jira : le champ rend le titre de Jira et le
+      // même titre peut être renvoyé.
+      if (jiraTitle === null || jiraTitle === title || sent.current !== title) return;
+      sent.current = null;
+      input.value = jiraTitle;
+      setValue(jiraTitle);
+    });
   };
 
   return (

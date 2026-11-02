@@ -647,8 +647,8 @@ export const businessMessagesEs = {
     "La vinculación de {p0} ha cambiado en Jira desde que se mostró.",
   "La vélocité a changé dans Jira depuis son affichage.":
     "La velocidad ha cambiado en Jira desde que se mostró.",
-  "La vélocité doit être un nombre positif ou nul.":
-    "La velocidad debe ser cero o un número positivo.",
+  "La vélocité doit être un nombre entre 0 et 100 000.":
+    "La velocidad debe ser un número entre 0 y 100 000.",
   "Le sprint n'est pas clos dans Jira.": "El sprint no está cerrado en Jira.",
   "{p0} Rien n’a été écrit : la page a été relue, refaites votre modification.":
     "{p0} No se ha escrito nada: la página se ha vuelto a cargar, repite tu cambio.",

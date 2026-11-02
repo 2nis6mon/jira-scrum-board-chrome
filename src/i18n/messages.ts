@@ -626,7 +626,8 @@ export const businessMessages = {
     "The goal link of {p0} changed in Jira after it was displayed.",
   "La vélocité a changé dans Jira depuis son affichage.":
     "The velocity changed in Jira after it was displayed.",
-  "La vélocité doit être un nombre positif ou nul.": "Velocity must be zero or a positive number.",
+  "La vélocité doit être un nombre entre 0 et 100 000.":
+    "Velocity must be a number between 0 and 100,000.",
   "Le sprint n'est pas clos dans Jira.": "The sprint is not closed in Jira.",
   "{p0} Rien n’a été écrit : la page a été relue, refaites votre modification.":
     "{p0} Nothing was written: the page was reloaded, make your change again.",

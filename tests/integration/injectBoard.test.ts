@@ -831,8 +831,69 @@ describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => 
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("refuse une page hôte qui n'est pas un board et ignore une demande d'une autre fenêtre", () => {
+  it("reconnaît comme préfixe un nom tronqué à la longueur maximale du protocole", async () => {
+    const { send } = mount();
+    const full = `Sprint 13 ${"objectives ".repeat(30)}`.trim();
+    // Coupure au milieu d'un mot : la limite de mot à droite ne peut pas être satisfaite.
+    expect(full[199]).toMatch(/\p{L}/u);
+    const current = request(send, "start", full.slice(0, 199));
+    const other = sprintRow(current.doc, "Sprint 14", "Démarrer le sprint");
+    const target = sprintRow(current.doc, full, "Démarrer le sprint");
+    await vi.advanceTimersByTimeAsync(600);
+    expect(target.clicked).toHaveBeenCalledTimes(1);
+    expect(other.clicked).not.toHaveBeenCalled();
+  });
+
+  it("ferme après vingt secondes si la page backlog refuse le cadre, avec une erreur et une seule relecture", async () => {
+    const { send, board, host } = mount();
+    const current = request(send, "complete", "Sprint 12");
+    page(current.backlog).inaccessible = true;
+    await vi.advanceTimersByTimeAsync(19800);
+    expect(current.dialog.isConnected).toBe(true);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(current.dialog.isConnected).toBe(false);
+    expect(host.hasAttribute("data-error")).toBe(true);
+    expect(host.shadowRoot?.textContent).toContain(
+      "Jira n'a pas permis d'ouvrir la fenêtre du sprint ici.",
+    );
+    expect(board.postMessage).toHaveBeenCalledExactlyOnceWith(
+      { type: "sprint-goals:refresh" },
+      EXTENSION,
+    );
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each([
+    ["disabled", ""],
+    ["aria-disabled", "true"],
+  ])(
+    "ne clique jamais un bouton de Jira désactivé (%s) et rend la page",
+    async (attribute, value) => {
+      const { send, board } = mount();
+      const current = request(send, "start", "Sprint 13");
+      const target = sprintRow(current.doc, "Sprint 13", "Démarrer le sprint");
+      target.element.setAttribute(attribute, value);
+      await vi.advanceTimersByTimeAsync(600);
+      expect(current.backlog.style.visibility).toBe("visible");
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(target.clicked).not.toHaveBeenCalled();
+      expect(current.dialog.isConnected).toBe(true);
+      expect(board.postMessage).not.toHaveBeenCalled();
+    },
+  );
+
+  it("forme l'adresse du backlog depuis une sous-page du board", () => {
     const { send, host } = mount();
+    (window as unknown as { happyDOM: { setURL(url: string): void } }).happyDOM.setURL(
+      `${SITE}/jira/software/c/projects/ABC/boards/7/timeline?sprintGoals=1`,
+    );
+    const current = request(send, "start", "Sprint 13");
+    expect(current.win.location.href).toBe(BACKLOG);
+    expect(host.hasAttribute("data-error")).toBe(false);
+  });
+
+  it("refuse une page hôte qui n'est pas un board et ignore une demande d'une autre fenêtre", () => {
+    const { send, host, board } = mount();
     const valid = { type: "sprint-goals:sprint-dialog", action: "start", sprintName: "Sprint 13" };
     send(valid, "https://evil.example");
     send(valid, EXTENSION, window);
@@ -840,10 +901,15 @@ describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => 
     expect(document.querySelector("dialog")).toBeNull();
 
     (window as unknown as { happyDOM: { setURL(url: string): void } }).happyDOM.setURL(
-      `${SITE}/jira/software/c/projects/ABC/boards/7/timeline?sprintGoals=1`,
+      `${SITE}/jira/your-work?sprintGoals=1`,
     );
     send(valid);
     expect(document.querySelector("dialog")).toBeNull();
+    // Sans popin ouverte, la vue est quand même relue une fois : aucune clôture ne reste en attente.
+    expect(board.postMessage).toHaveBeenCalledExactlyOnceWith(
+      { type: "sprint-goals:refresh" },
+      EXTENSION,
+    );
     expect(host.hasAttribute("data-error")).toBe(true);
     expect(host.shadowRoot?.textContent).toContain(
       "Jira n'a pas permis d'ouvrir la fenêtre du sprint ici.",

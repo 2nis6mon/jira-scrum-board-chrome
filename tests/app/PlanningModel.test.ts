@@ -12,10 +12,11 @@ import { normalizeSiteUrl } from "../../src/jira/site";
 import { JiraTransport } from "../../src/jira/transport";
 import { isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
-import { makeConfiguration } from "../support/jiraFixtures";
+import { column, makeConfiguration } from "../support/jiraFixtures";
 import { planningFixture } from "../support/planningFixture";
 
 const DRAFT_KEY = "sprint-planning.v1:https://acme.atlassian.net";
+const PROPERTY = "/rest/agile/1.0/sprint/43/properties/com.scrumboardmac.sprintgoals.v1";
 const PREPARED = "Sprint 43 — Paiement sans friction";
 
 /** Goals Atlassian fictifs : lectures et liens E3/E4 en mémoire. */
@@ -50,6 +51,8 @@ function context(
     configuration?: Partial<BoardConfiguration>;
     goals?: ReturnType<typeof fakeGoals>;
     issueFields?: Record<string, Record<string, unknown>>;
+    /** Délai d'abandon d'une requête (30 s par défaut). */
+    timeoutMs?: number;
   } = {},
 ) {
   const fixture = planningFixture(undefined, { issueFields: options.issueFields ?? {} });
@@ -57,6 +60,7 @@ function context(
   const transport = new JiraTransport({
     site: normalizeSiteUrl("acme.atlassian.net"),
     fetch: platform.fetch,
+    ...(options.timeoutMs !== undefined && { timeoutMs: options.timeoutMs }),
   });
   const client = new JiraClient(transport);
   const goals = options.goals ?? new GoalsClient(transport);
@@ -259,7 +263,8 @@ describe("Sprint Planning en direct : objectifs texte", () => {
     ]);
     await planning.removeGoal(first ?? "");
     expect(goalTitles(planning)).toEqual(["Rendre le panier plus rapide"]);
-    expect(inspect().sprint.goal).toBe("Rendre le panier plus rapide");
+    // La ligne gardée conserve sa puce saisie dans Jira.
+    expect(inspect().sprint.goal).toBe("🎯 Rendre le panier plus rapide");
   });
 
   it("texte changé dans Jira depuis l'affichage : rien n'est écrit, la page est relue", async () => {
@@ -358,6 +363,53 @@ describe("Sprint Planning en direct : tickets", () => {
     ]);
   });
 
+  it("Goals Atlassian : « Sans objectif » depuis le backlog détache le ticket du Goal de son champ natif", async () => {
+    const GOAL_A = "ari:cloud:townsquare:site:goal/a";
+    const GOAL_OLD = "ari:cloud:townsquare:site:goal/old";
+    const goals = fakeGoals({
+      workItems: { [GOAL_A]: ["ABC-210"] },
+      names: { [GOAL_A]: "Paiement", [GOAL_OLD]: "Ancien" },
+    });
+    const { planning, inspect } = context({
+      configuration: { goalSource: "atlassianGoals", goalsFieldId: "customfield_10500" },
+      goals,
+      issueFields: { "ABC-202": { customfield_10500: [{ id: GOAL_OLD }] } },
+    });
+    await planning.load();
+    const issueId = planning.sections.value
+      .find((section) => section.kind === "backlog")
+      ?.issues.find((item) => item.issue.key === "ABC-202")?.issue.id;
+    await planning.placeIssue("ABC-202", null);
+    expect(inspect().writes.map(({ path }) => path)).toEqual(["/rest/agile/1.0/sprint/43/issue"]);
+    expect(goals.setLink.mock.calls).toEqual([["goal.unlink", GOAL_OLD, issueId]]);
+  });
+
+  it("Goals Atlassian : une relecture pendant une recherche de Goal ne la laisse pas en cours", async () => {
+    const goals = fakeGoals({
+      workItems: {},
+      names: { "ari:cloud:townsquare:site:goal/a": "Paiement" },
+    });
+    const { planning } = context({
+      configuration: { goalSource: "atlassianGoals", goalsFieldId: "customfield_10500" },
+      goals,
+    });
+    await planning.load();
+    // Seule la recherche du site est retenue ; la relecture du planning passe.
+    const search = goals.searchGoals;
+    let release = () => {};
+    goals.searchGoals = () =>
+      new Promise((resolve) => {
+        release = () => resolve(search());
+      });
+    const searching = planning.searchGoals("pai");
+    expect(planning.goalSearch.value?.loading).toBe(true);
+    goals.searchGoals = search;
+    await planning.refresh();
+    release();
+    await searching;
+    expect(planning.goalSearch.value).toMatchObject({ query: "pai", loading: false });
+  });
+
   it("le reste à faire du sprint actif et un objectif inconnu ne déclenchent rien", async () => {
     const { planning, jira } = context();
     await planning.load();
@@ -417,8 +469,21 @@ describe("Sprint Planning en direct : vélocité", () => {
     await planning.saveVelocity(-1);
     expect(inspect().writes).toHaveLength(0);
     expect(notice(planning)).toBe(
-      "La vélocité doit être un nombre positif ou nul. Rien n’a été écrit.",
+      "La vélocité doit être un nombre entre 0 et 100 000. Rien n’a été écrit.",
     );
+  });
+});
+
+describe("Sprint Planning en direct : issue inconnue", () => {
+  it("écriture sans réponse (délai dépassé) : jamais rejouée, journalisée « incertain »", async () => {
+    const { planning, jira, audit } = context({ timeoutMs: 20 });
+    await planning.load();
+    jira.on("PUT", PROPERTY, { hang: true });
+    await planning.saveVelocity(20);
+    expect(jira.sent("PUT", PROPERTY)).toHaveLength(1);
+    expect(planning.busy.value).toBe(false);
+    const [entry] = await audit.list("https://acme.atlassian.net");
+    expect(entry).toMatchObject({ action: "sprint planning", to: PREPARED, outcome: "incertain" });
   });
 });
 
@@ -483,6 +548,55 @@ describe("Sprint Planning en direct : fenêtres natives", () => {
     expect(planning.startDisabledReason.value).toBeNull();
     planning.startSprint();
     expect(openSprintDialog).toHaveBeenLastCalledWith("start", expect.objectContaining({ id: 43 }));
+  });
+
+  it("report : « terminé » veut dire dernière colonne VISIBLE, quelle que soit la catégorie du statut", async () => {
+    const { planning, activeSprint } = context({
+      configuration: {
+        columns: [
+          column("todo", "À faire", ["4"], 0),
+          // Dernière colonne visible : statuts « À faire » (1) et « En cours » (3), non terminés.
+          column("ready", "Prêt à livrer", ["1", "3"], 1),
+          // Dernière colonne réelle, masquée : « Terminé » (6) n'y compte pas.
+          { ...column("done", "Terminé", ["6"], 2), hidden: true, isDone: true },
+        ],
+      },
+    });
+    await planning.load();
+    planning.closeActiveSprint();
+    activeSprint.state = "closed";
+    await planning.afterNativeDialog();
+    // « Finaliser le parcours de paiement » (ABC-101, ABC-102) est atteint ; « Améliorer la
+    // stabilité » (ABC-103, colonne masquée) ne l'est pas et seul lui est reporté.
+    expect(goalTitles(planning)).toEqual([
+      "Simplifier le paiement",
+      "Rendre le panier plus rapide",
+      "Améliorer la stabilité",
+    ]);
+  });
+
+  it("report en Goals Atlassian : le Goal non atteint est épinglé (E5), sans E8", async () => {
+    const PAY = "ari:cloud:townsquare:site:goal/pay";
+    const STAB = "ari:cloud:townsquare:site:goal/stab";
+    const goals = fakeGoals({
+      workItems: { [PAY]: ["ABC-101", "ABC-102"], [STAB]: ["ABC-103"] },
+      names: { [PAY]: "Finaliser le paiement", [STAB]: "Stabilité" },
+    });
+    const { planning, activeSprint, inspect } = context({
+      configuration: { goalSource: "atlassianGoals", goalsFieldId: "customfield_10500" },
+      goals,
+    });
+    await planning.load();
+    planning.closeActiveSprint();
+    activeSprint.state = "closed";
+    await planning.afterNativeDialog();
+    expect(planning.error.value).toBeNull();
+    // ABC-102 n'est pas terminé : seul « Finaliser le paiement » est épinglé dans le sprint 43.
+    expect(inspect().writes.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      `PUT ${PROPERTY}`,
+    ]);
+    expect(inspect().document).toMatchObject({ atlassianGoalIds: [PAY] });
+    expect(goals.setLink).not.toHaveBeenCalled();
   });
 
   it("fenêtre de clôture annulée : sprint encore actif, rien n'est reporté", async () => {

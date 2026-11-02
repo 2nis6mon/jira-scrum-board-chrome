@@ -438,6 +438,7 @@ try {
       JSON.stringify(await writes()) === JSON.stringify(done),
       "Une clôture annulée a écrit dans Jira",
     );
+    const goalLinesBefore = (await inspect()).sprint.goal.split("\n");
     await click("document.querySelector('.planning-close-sprint')");
     await run("window.__planning.closeNativeDialog(true)");
     await wait(
@@ -446,10 +447,14 @@ try {
     );
     const carried = (await writes()).slice(done.length);
     state = await inspect();
+    // Seul « Finaliser le parcours de paiement » (ABC-101 et ABC-102 hors de la dernière colonne)
+    // est non atteint ; « Améliorer la stabilité » (ABC-103 terminé) ne doit pas être reporté.
     assert(
       JSON.stringify(carried) === JSON.stringify([E8, E5]) &&
         state.sprint.state === "future" &&
-        /Finaliser le parcours de paiement|Améliorer la stabilité/.test(state.sprint.goal),
+        JSON.stringify(state.sprint.goal.split("\n")) ===
+          JSON.stringify([...goalLinesBefore, "Finaliser le parcours de paiement"]) &&
+        !state.sprint.goal.includes("Améliorer la stabilité"),
       `Report après clôture inattendu : ${JSON.stringify(carried)} ; texte ${JSON.stringify(state.sprint.goal)}`,
     );
     done = [...done, ...carried];

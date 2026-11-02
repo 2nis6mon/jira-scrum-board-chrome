@@ -72,7 +72,9 @@ function lane(index: 0 | 1, issues: readonly PlanningIssue[]): PlanningLane {
   };
 }
 
-function setup(options: { goalMode?: "text" | "atlassian" } = {}) {
+function setup(
+  options: { goalMode?: "text" | "atlassian"; pinnedGoalIds?: readonly string[] } = {},
+) {
   const snapshot = {
     boardId: 7,
     query: { estimationFieldId: "customfield_10016", includeChangelog: false },
@@ -84,7 +86,7 @@ function setup(options: { goalMode?: "text" | "atlassian" } = {}) {
     storedLinks: {},
     storedGoalIds: [],
     velocity: 20,
-    pinnedGoalIds: [],
+    pinnedGoalIds: options.pinnedGoalIds ?? [],
     sprintIssues: [IN_G1.issue, ARRIVED.issue, UNASSIGNED.issue],
     backlogIssues: [BACKLOG.issue],
     futureSprints: [{ sprint: SPRINT_44, issues: [OTHER_SPRINT.issue] }],
@@ -330,6 +332,35 @@ describe("Sprint Planning en direct : écran", () => {
     expect(planning.saveVelocity.mock.calls.at(-1)).toEqual([null]);
   });
 
+  it("vélocité refusée, relue inchangée : le champ rend la valeur de Jira et la même saisie repart", async () => {
+    const { planning } = setup();
+    await tick();
+    const input = find<HTMLInputElement>(".planning-velocity input");
+    await type(input, "25");
+    key(input, "Enter");
+    await tick();
+    expect(input.value).toBe("20");
+    await type(input, "25");
+    key(input, "Enter");
+    expect(planning.saveVelocity.mock.calls).toEqual([[25], [25]]);
+  });
+
+  it("titre refusé, relu inchangé : le champ rend le titre de Jira et le même titre repart", async () => {
+    const { planning } = setup();
+    await tick();
+    const title = field("Titre de l’objectif 1");
+    await type(title, "Simplifier le panier");
+    key(title, "Enter");
+    await tick();
+    expect(title.value).toBe("Simplifier les achats");
+    await type(title, "Simplifier le panier");
+    key(title, "Enter");
+    expect(planning.renameGoal.mock.calls).toEqual([
+      ["g1", "Simplifier le panier"],
+      ["g1", "Simplifier le panier"],
+    ]);
+  });
+
   it("titre d'objectif : Entrée écrit, Échap annule, un titre vide n'écrit rien", async () => {
     const { planning } = setup();
     await tick();
@@ -478,12 +509,14 @@ describe("Sprint Planning en direct : écran", () => {
   });
 
   it("Goals Atlassian : chercher par nom, épingler, retirer l'épinglage, sans titre modifiable", async () => {
-    const { planning } = setup({ goalMode: "atlassian" });
+    // g1 épinglé ; g2 affiché seulement parce qu'un ticket s'y rattache.
+    const { planning } = setup({ goalMode: "atlassian", pinnedGoalIds: ["g1"] });
     await tick();
     expect(document.querySelector("input.planning-goal-title")).toBeNull();
     expect(document.querySelector('[aria-label="Nouvel objectif du sprint"]')).toBeNull();
     button("Retirer l'épinglage de Simplifier les achats").click();
     expect(planning.unpinGoal).toHaveBeenCalledWith("g1");
+    expect(() => button("Retirer l'épinglage de Sécuriser le paiement")).toThrow();
 
     await type(field("Chercher un Goal à épingler"), "colis");
     expect(planning.searchGoals).toHaveBeenCalledWith("colis");

@@ -318,7 +318,10 @@ export function writeTextGoals(
       title: goal.title.trim(),
       position,
     }));
-    let text = goals.map((goal) => goal.title).join("\n");
+    let text = goalTextKeepingLines(
+      currentText,
+      goals.map((goal) => goal.title),
+    );
     // Puces et espaces saisis directement dans Jira restent tels quels si les titres sont égaux.
     if (sameTitles(parseSprintGoalText(currentText), parseSprintGoalText(text))) text = currentText;
 
@@ -357,6 +360,20 @@ function goalZone(document: SprintGoalDocument | null): string {
       .sort((a, b) => a.position - b.position)
       .map((goal) => [goal.id, goal.title]),
   );
+}
+
+/**
+ * Texte des objectifs : chaque titre inchangé reprend sa ligne d'origine dans Jira (puce, emoji,
+ * numéro saisis par l'équipe) ; un titre nouveau ou renommé s'écrit tel quel.
+ */
+export function goalTextKeepingLines(currentText: string, titles: readonly string[]): string {
+  const original = new Map<string, string[]>();
+  for (const line of currentText.split(/\r\n|\r|\n|\p{Zl}|\p{Zp}/u)) {
+    const [title] = parseSprintGoalText(line);
+    if (title === undefined) continue;
+    original.set(title, [...(original.get(title) ?? []), line.trimEnd()]);
+  }
+  return titles.map((title) => original.get(title)?.shift() ?? title).join("\n");
 }
 
 function sameTitles(a: readonly string[], b: readonly string[]): boolean {

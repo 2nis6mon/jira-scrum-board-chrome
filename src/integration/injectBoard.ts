@@ -614,7 +614,10 @@ export function injectBoard(
     start: ["start sprint", "demarrer le sprint", "iniciar sprint"],
   };
   const sprintError = () => {
-    closeTicket();
+    // Toujours une seule relecture, popin ouverte ou non : la vue ne garde jamais de clôture
+    // en attente.
+    if (ticketSession) closeTicket();
+    else refresh();
     host.setAttribute("data-error", "");
     status.textContent = t(
       "Jira n'a pas permis d'ouvrir la fenêtre du sprint ici. Ouvrez le backlog du board dans Jira.",
@@ -642,13 +645,16 @@ export function injectBoard(
     const candidates = all.filter(visible);
     // Nom entier, délimité : « Sprint 1 » ne désigne pas la ligne de « Sprint 13 ».
     const name = normalized(sprintName);
+    // Nom reçu à la longueur maximale du protocole : la vue l'a tronqué, il est reconnu comme
+    // préfixe, sans limite de mot à droite.
+    const truncated = sprintName.length >= PROTOCOL.sprintDialog.fields.sprintName.maxLength;
     const wordCharacter = /[\p{L}\p{N}]/u;
     const mentions = (value: string) => {
       if (!name) return false;
       for (let at = value.indexOf(name); at >= 0; at = value.indexOf(name, at + 1))
         if (
           !wordCharacter.test(value[at - 1] ?? "") &&
-          !wordCharacter.test(value[at + name.length] ?? "")
+          (truncated || !wordCharacter.test(value[at + name.length] ?? ""))
         )
           return true;
       return false;
@@ -701,7 +707,8 @@ export function injectBoard(
    */
   const openSprintDialog = (action: SprintAction, sprintName: string) => {
     const address = new URL(location.href);
-    const board = /^(.*\/boards\/\d+)\/?$/.exec(address.pathname);
+    // Mêmes adresses que bootstrap.ts : le board ou l'une de ses sous-pages.
+    const board = /^(.*\/boards\/\d+)(?:\/.*)?$/.exec(address.pathname);
     if (!board) {
       trace("page hôte sans adresse de board, fenêtre du sprint impossible", address.pathname);
       sprintError();
