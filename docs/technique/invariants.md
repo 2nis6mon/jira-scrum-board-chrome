@@ -130,9 +130,17 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   relu, puis lien ; sous-tâche, ticket terminé ou du sprint actif refusés. Retrait seulement depuis le
   sprint en préparation : E10 vers le backlog ou E9 vers un autre sprint futur ; le lien reste dans la
   propriété. Clôture et démarrage par les fenêtres natives Jira, que l'utilisateur seul remplit ;
-  « Démarrer » est désactivé avec sa raison tant qu'un sprint est actif. Après la fermeture d'une
-  fenêtre de clôture, le sprint relu clos déclenche le report idempotent des objectifs non atteints
-  (au moins un ticket lié hors de la dernière colonne visible) ; encore actif, rien n'est écrit.
+  « Démarrer » est désactivé avec sa raison tant qu'un sprint est actif. Plusieurs sprints actifs :
+  « Clôturer un sprint » propose chacun par son nom, et le report lit les objectifs du sprint choisi.
+  Après la fermeture de la fenêtre de clôture, l'état du sprint est relu à 0, 1, 3, 6 et 10 s
+  (« Clôture en cours dans Jira… » ; pendant ces 10 s environ, les gestes, le retour au board, le
+  changement de board et la déconnexion attendent, comme pendant un geste ; second `refresh` ignoré) ; clos, il déclenche
+  le report idempotent des objectifs non atteints (au moins un ticket lié hors de la dernière
+  colonne visible) ; encore actif à 10 s, rien n'est écrit. Chaque clôture demandée laisse un
+  compte rendu par objectif (reporté, sans ticket, tickets tous dans la dernière colonne, déjà dans
+  la cible ; lecture des Goals incomplète signalée), affiché au-dessus des swimlanes jusqu'à sa
+  fermeture, et une entrée de journal du sprint clos vers le sprint préparé (`réussi` si écrit ou
+  rien à reporter, `échec` si toujours actif ou refusé, `incertain` si le résultat est inconnu).
   Les droits sprint et tickets sont appliqués par Jira, distincts du `canEdit` des réglages du board ;
   pendant un geste, changement de board et rafraîchissement automatique attendent.
 

@@ -4,6 +4,7 @@ import type { SprintGoal } from "../../../core/sprintGoals";
 import { goalDisplayName, isDoneStatus, type JiraSprint } from "../../../jira/models";
 import { language, t } from "../../i18n";
 import { type AppMessage, renderMessage } from "../../model/appMessage";
+import { planningCarryOverGoalMessage } from "../../model/coreText";
 import type {
   PlanningIssue,
   PlanningLane,
@@ -146,14 +147,16 @@ function PlanningHeader({
     null;
   const busy = planning.loading.value || planning.busy.value;
   const disabled = planning.gesturesDisabled.value;
-  const active = planning.activeSprint.value;
+  const actives = planning.activeSprints.value;
+  const single = actives.length === 1 ? actives[0] : undefined;
   const startReason = planning.startDisabledReason.value;
+  // Clôture demandée : jusqu'à la fin de sa vérification, même pendant le report qui écrit.
   const status = planning.loading.value
     ? t("Lecture de Jira…")
-    : planning.busy.value
-      ? t("Écriture dans Jira…")
-      : planning.pendingClosure.value
-        ? t("Clôture en cours dans Jira…")
+    : planning.pendingClosure.value
+      ? t("Clôture en cours dans Jira…")
+      : planning.busy.value
+        ? t("Écriture dans Jira…")
         : null;
   const sidebarLabel = sidebarCollapsed
     ? t("Afficher la barre latérale")
@@ -226,16 +229,19 @@ function PlanningHeader({
         >
           <Icon name="arrowLeft" size={17} />
         </button>
-        {active && (
+        {single && (
           <button
             type="button"
             class="planning-close-sprint"
             disabled={disabled}
             title={t("Ouvre la fenêtre de Jira ; vous seul la remplissez et la validez.")}
-            onClick={() => planning.closeActiveSprint()}
+            onClick={() => planning.closeActiveSprint(single.id)}
           >
-            {t("Clôturer {name}", { name: active.name })}
+            {t("Clôturer {name}", { name: single.name })}
           </button>
+        )}
+        {actives.length > 1 && (
+          <CloseSprintMenu planning={planning} sprints={actives} disabled={disabled} />
         )}
         {snapshot && (
           <span class="planning-start">
@@ -263,6 +269,67 @@ function PlanningHeader({
         )}
       </div>
     </header>
+  );
+}
+
+/**
+ * Plusieurs sprints actifs : « Clôturer un sprint » ouvre la liste de leurs noms ; chacun ouvre
+ * la fenêtre native de clôture de ce sprint. Échap referme le menu et rend le focus à son bouton.
+ */
+function CloseSprintMenu({
+  planning,
+  sprints,
+  disabled,
+}: {
+  planning: PlanningViewModel;
+  sprints: readonly JiraSprint[];
+  disabled: boolean;
+}) {
+  const details = useRef<HTMLDetailsElement>(null);
+  return (
+    <details
+      ref={details}
+      class="menu lane-menu planning-close-menu"
+      onToggle={(event) => {
+        const menu = event.currentTarget;
+        // Gestes impossibles (geste ou clôture en cours) : le menu ne reste pas ouvert.
+        if (disabled && menu.open) menu.open = false;
+        placeFloatingMenu(menu);
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || !details.current?.open) return;
+        event.preventDefault();
+        event.stopPropagation();
+        details.current.open = false;
+        details.current.querySelector("summary")?.focus();
+      }}
+    >
+      <summary
+        class="planning-close-sprint"
+        aria-disabled={disabled ? "true" : undefined}
+        title={t("Ouvre la fenêtre de Jira ; vous seul la remplissez et la validez.")}
+      >
+        {t("Clôturer un sprint")}
+        <Icon name="chevronDown" size={13} />
+      </summary>
+      <div class="menu-panel">
+        <p class="menu-section">{t("Sprints actifs du board")}</p>
+        {sprints.map((sprint) => (
+          <button
+            key={sprint.id}
+            type="button"
+            data-close-sprint={sprint.id}
+            disabled={disabled}
+            onClick={() => {
+              if (details.current) details.current.open = false;
+              planning.closeActiveSprint(sprint.id);
+            }}
+          >
+            {sprint.name}
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -597,6 +664,7 @@ function LanesColumn({
   const textMode = planning.goalMode.value === "text";
   return (
     <section class="planning-lanes" aria-label={t("{name} par objectifs", { name: sprintName })}>
+      <CarryOverReportPanel planning={planning} />
       {lanes.map((lane, index) => (
         <GoalLane
           key={lane.goal.id}
@@ -612,6 +680,68 @@ function LanesColumn({
         <Icon name="check" />
         {t("Chaque geste est écrit aussitôt dans Jira, puis relu.")}
       </p>
+    </section>
+  );
+}
+
+/**
+ * Compte rendu de la dernière clôture : chaque objectif du sprint clos, reporté ou non avec sa
+ * raison. Il reste affiché jusqu'à sa fermeture ; la clôture suivante le remplace.
+ */
+function CarryOverReportPanel({ planning }: { planning: PlanningViewModel }) {
+  const report = planning.carryOverReport.value;
+  if (!report) return null;
+  const heading = t("Clôture de {name}", { name: report.closedSprintName });
+  return (
+    <section class="planning-carry-over" aria-label={heading} aria-live="polite">
+      <header class="planning-carry-over-head">
+        <h3>{heading}</h3>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label={t("Fermer le compte rendu")}
+          title={t("Fermer le compte rendu")}
+          onClick={() => planning.dismissCarryOverReport()}
+        >
+          <Icon name="close" />
+        </button>
+      </header>
+      <p class="planning-carry-over-summary">{text(report.summary)}</p>
+      {report.goals.length > 0 && (
+        <ul class="planning-carry-over-goals">
+          {report.goals.map((goal, index) => (
+            <li
+              // Deux objectifs peuvent porter le même titre dans des sources différentes.
+              key={`${index}-${goal.title}`}
+              data-carry-over-status={goal.status}
+              class={
+                goal.status === "carried" && report.written ? "planning-carry-over-carried" : ""
+              }
+            >
+              <span class="planning-carry-over-title">{goal.title}</span>
+              <span class="planning-carry-over-reason">
+                {text(
+                  planningCarryOverGoalMessage(
+                    goal.status,
+                    report.written,
+                    report.targetSprintName,
+                  ),
+                )}
+              </span>
+              {goal.linkedKeys.length > 0 && (
+                <small class="planning-carry-over-keys">{goal.linkedKeys.join(", ")}</small>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {report.incomplete && (
+        <p class="notice notice-warning planning-carry-over-incomplete">
+          {t(
+            "Lecture des Goals incomplète : un objectif non atteint peut manquer à ce compte rendu.",
+          )}
+        </p>
+      )}
     </section>
   );
 }

@@ -156,8 +156,8 @@ try {
     await mouse("mouseReleased", to, 0);
   };
   let navigation = 0;
-  const openBoard = async () => {
-    const url = `http://127.0.0.1:${PORT}/?scenario=board-planning&hote=1&essai=${++navigation}`;
+  const openBoard = async (scenario = "board-planning") => {
+    const url = `http://127.0.0.1:${PORT}/?scenario=${scenario}&hote=1&essai=${++navigation}`;
     await navigateToHarness(sessionId, url);
     await wait(
       `location.href === ${JSON.stringify(url)} && document.readyState === 'complete' && window.__planning?.ready() && Boolean(document.querySelector('.host-return:not([disabled])'))`,
@@ -430,9 +430,14 @@ try {
       "La clôture n'a pas demandé la fenêtre native du sprint actif",
     );
     await run("window.__planning.closeNativeDialog(false)");
+    // Relectures de l'état du sprint pendant 10 s : l'en-tête dit la clôture en cours.
     await wait(
-      `document.querySelector('.planning-notice')?.textContent.includes('toujours actif') && ${idle}`,
-      "Une fenêtre de clôture annulée doit être signalée",
+      "document.querySelector('.sync-status')?.textContent === 'Clôture en cours dans Jira…'",
+      "La vérification de la clôture n'est pas annoncée",
+    );
+    await wait(
+      `document.querySelector('.planning-carry-over-summary')?.textContent.includes('toujours actif') && ${idle}`,
+      "Une fenêtre de clôture annulée doit être signalée dans le compte rendu",
     );
     assert(
       JSON.stringify(await writes()) === JSON.stringify(done),
@@ -440,10 +445,21 @@ try {
     );
     const goalLinesBefore = (await inspect()).sprint.goal.split("\n");
     await click("document.querySelector('.planning-close-sprint')");
-    await run("window.__planning.closeNativeDialog(true)");
+    // Clôture lente : Jira clôt le sprint 2 s après la fermeture de sa fenêtre.
+    await run("window.__planning.closeNativeDialog(true, 2000)");
     await wait(
-      `!document.querySelector('[data-planning-section="active-42"]') && !document.querySelector('.planning-close-sprint') && ${idle}`,
-      "Le planning n'a pas été relu après la clôture",
+      `!document.querySelector('[data-planning-section="active-42"]') && !document.querySelector('.planning-close-sprint') && document.querySelector('.planning-carry-over-summary')?.textContent.includes('reportés') && ${idle}`,
+      "Le planning n'a pas été relu après la clôture lente",
+    );
+    const lines = await run(`[...document.querySelectorAll('.planning-carry-over li')].map(line =>
+      [line.dataset.carryOverStatus, line.querySelector('.planning-carry-over-title').textContent])`);
+    assert(
+      JSON.stringify(lines) ===
+        JSON.stringify([
+          ["carried", "Finaliser le parcours de paiement"],
+          ["allDone", "Améliorer la stabilité"],
+        ]),
+      `Compte rendu de clôture inattendu : ${JSON.stringify(lines)}`,
     );
     const carried = (await writes()).slice(done.length);
     state = await inspect();
@@ -459,7 +475,7 @@ try {
     );
     done = [...done, ...carried];
     console.log(
-      "✓ Clôture : fenêtre annulée sans écriture ; validée, objectifs non atteints reportés (E8 puis E5)",
+      "✓ Clôture : fenêtre annulée signalée après 10 s sans écriture ; validée lentement, objectifs non atteints reportés (E8 puis E5) avec leur compte rendu",
     );
 
     await click("document.querySelector('.planning-start-sprint')");
@@ -473,7 +489,68 @@ try {
         (await inspect()).sprint.state === "future",
       "Le démarrage a écrit dans Jira au lieu de laisser la fenêtre native",
     );
+    // Le compte rendu reste affiché après un autre geste, jusqu'à sa fermeture.
+    assert(
+      await run("Boolean(document.querySelector('.planning-carry-over'))"),
+      "Le compte rendu de clôture a disparu au geste suivant",
+    );
+    await click("document.querySelector('.planning-carry-over-head button')");
+    await wait(
+      "!document.querySelector('.planning-carry-over')",
+      "Le compte rendu ne se ferme pas",
+    );
     console.log("✓ Démarrer, sans sprint actif : fenêtre native demandée, aucune écriture");
+
+    // Deux sprints actifs : le menu choisit le sprint, sa fenêtre et ses objectifs.
+    await openBoard("board-planning-deux-actifs");
+    await click(buttonNamed("Sprint Planning"));
+    await wait(
+      `Boolean(document.querySelector('.planning-close-menu')) && !document.querySelector('button.planning-close-sprint') && ${idle}`,
+      "Deux sprints actifs : le menu « Clôturer un sprint » est absent",
+    );
+    const twoBefore = await writes();
+    await run("document.querySelector('.planning-close-menu > summary').click()");
+    await wait(
+      `(() => {
+        const panel = document.querySelector('.planning-close-menu[data-placed] .menu-panel');
+        if (!panel) return false;
+        const r = panel.getBoundingClientRect();
+        return r.width > 0 && r.left >= 0 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1;
+      })()`,
+      "Le menu « Clôturer un sprint » ne s'affiche pas dans la fenêtre",
+    );
+    await capture("planning-menu-cloture");
+    await click(
+      `[...document.querySelectorAll('.planning-close-menu .menu-panel button')].find(button => button.textContent.trim() === 'Sprint 45 — Notifications')`,
+    );
+    assert(
+      JSON.stringify(await run("window.__planning.sprintDialogs()")) ===
+        JSON.stringify([{ action: "complete", sprintId: 45 }]),
+      "Le menu n'a pas demandé la fenêtre native du sprint choisi",
+    );
+    await run("window.__planning.closeNativeDialog(true, 0, 45)");
+    await wait(
+      `document.querySelector('.planning-carry-over h3')?.textContent === 'Clôture de Sprint 45 — Notifications' && ${idle}`,
+      "Le compte rendu de la clôture du sprint 45 est absent",
+    );
+    const twoState = await inspect();
+    const twoWrites = (await writes()).slice(twoBefore.length);
+    assert(
+      JSON.stringify(twoWrites) === JSON.stringify([E8, E5]) &&
+        twoState.sprint.goal.split("\n").at(-1) === "Fiabiliser les notifications" &&
+        !twoState.sprint.goal.includes("Finaliser le parcours de paiement"),
+      `Report du sprint 45 inattendu : ${JSON.stringify(twoWrites)} ; texte ${JSON.stringify(twoState.sprint.goal)}`,
+    );
+    assert(
+      await run(
+        "Boolean(document.querySelector('button.planning-close-sprint')) && !document.querySelector('.planning-close-menu')",
+      ),
+      "Après la clôture du sprint 45, « Clôturer Sprint 42 » doit revenir",
+    );
+    await capture("planning-deux-actifs");
+    console.log(
+      "✓ Deux sprints actifs : menu des sprints, fenêtre du sprint choisi, report de ses objectifs",
+    );
   }
 } finally {
   await browser.close();

@@ -13,7 +13,7 @@ import { JiraTransport } from "../../src/jira/transport";
 import { isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 import { column, makeConfiguration } from "../support/jiraFixtures";
-import { planningFixture } from "../support/planningFixture";
+import { planningFixture, SECOND_ACTIVE_GOAL } from "../support/planningFixture";
 
 const DRAFT_KEY = "sprint-planning.v1:https://acme.atlassian.net";
 const PROPERTY = "/rest/agile/1.0/sprint/43/properties/com.scrumboardmac.sprintgoals.v1";
@@ -53,14 +53,22 @@ function context(
     issueFields?: Record<string, Record<string, unknown>>;
     /** Délai d'abandon d'une requête (30 s par défaut). */
     timeoutMs?: number;
+    /** Tentatives d'une lecture (3 par défaut) : 1 pour une erreur transitoire sans rejeu. */
+    maxGetAttempts?: number;
+    /** Second sprint actif 45, dont l'objectif a un ticket non terminé. */
+    secondActiveSprint?: boolean;
   } = {},
 ) {
-  const fixture = planningFixture(undefined, { issueFields: options.issueFields ?? {} });
+  const fixture = planningFixture(undefined, {
+    issueFields: options.issueFields ?? {},
+    secondActiveSprint: options.secondActiveSprint ?? false,
+  });
   const platform = fakePlatform(fixture.jira);
   const transport = new JiraTransport({
     site: normalizeSiteUrl("acme.atlassian.net"),
     fetch: platform.fetch,
     ...(options.timeoutMs !== undefined && { timeoutMs: options.timeoutMs }),
+    ...(options.maxGetAttempts !== undefined && { maxGetAttempts: options.maxGetAttempts }),
   });
   const client = new JiraClient(transport);
   const goals = options.goals ?? new GoalsClient(transport);
@@ -82,6 +90,8 @@ function context(
   const canWrite = signal(true);
   const openIssue = vi.fn();
   const openSprintDialog = vi.fn(() => true);
+  /** Attente entre deux relectures de l'état du sprint : immédiate, sauf simulation. */
+  const wait = vi.fn(async (_ms: number) => {});
   const create = () =>
     new PlanningModel(client, platform, {
       configuration: () => configuration.value,
@@ -93,9 +103,11 @@ function context(
       write: (task) => gate.run(task),
       record: (entry) =>
         audit.append({ ...entry, at: new Date().toISOString(), site: client.site.origin }),
+      wait,
     });
   return {
     ...fixture,
+    wait,
     platform,
     configuration,
     canWrite,
@@ -126,6 +138,9 @@ function holdGate(gate: BoardWriteGate) {
 const goalTitles = (planning: PlanningModel) => planning.lanes.value.map((lane) => lane.goal.title);
 const notice = (planning: PlanningModel) =>
   planning.notice.value ? sourceText(planning.notice.value) : null;
+/** Résumé du compte rendu de la dernière clôture, en texte source. */
+const report = (planning: PlanningModel) =>
+  planning.carryOverReport.value ? sourceText(planning.carryOverReport.value.summary) : null;
 
 describe("Sprint Planning en direct : lecture", () => {
   it("lit à la demande sprint préparé, backlog, autres sprints et RAF actif, sans écrire ni lire les Goals", async () => {
@@ -152,7 +167,7 @@ describe("Sprint Planning en direct : lecture", () => {
       velocity: null,
       unit: "pts",
     });
-    expect(planning.activeSprint.value?.id).toBe(42);
+    expect(planning.activeSprints.value.map((sprint) => sprint.id)).toEqual([42]);
     expect(jira.requests.filter(isWriteRequest)).toHaveLength(0);
     expect(jira.requests.some((request) => request.path.includes("graphql"))).toBe(false);
   });
@@ -514,7 +529,7 @@ describe("Sprint Planning en direct : un geste à la fois", () => {
     canWrite.value = false;
     expect(planning.gesturesDisabled.value).toBe(true);
     await planning.addGoal("Sécuriser le parcours");
-    planning.closeActiveSprint();
+    planning.closeActiveSprint(42);
     expect(inspect().writes).toHaveLength(0);
     expect(planning.pendingClosure.value).toBeNull();
     canWrite.value = true;
@@ -524,14 +539,19 @@ describe("Sprint Planning en direct : un geste à la fois", () => {
 
 describe("Sprint Planning en direct : fenêtres natives", () => {
   it("clôture native fermée, sprint relu clos : les objectifs non atteints sont reportés", async () => {
-    const { planning, openSprintDialog, activeSprint, inspect } = context();
+    const { planning, openSprintDialog, activeSprint, inspect, wait } = context();
     await planning.load();
-    planning.closeActiveSprint();
+    planning.closeActiveSprint(42);
     expect(openSprintDialog).toHaveBeenCalledExactlyOnceWith(
       "complete",
       expect.objectContaining({ id: 42 }),
     );
-    expect(planning.pendingClosure.value).toEqual({ closedSprintId: 42, targetSprintId: 43 });
+    expect(planning.pendingClosure.value).toEqual({
+      closedSprintId: 42,
+      closedSprintName: "Sprint 42",
+      targetSprintId: 43,
+      targetSprintName: PREPARED,
+    });
     activeSprint.state = "closed";
     await planning.afterNativeDialog();
     expect(planning.pendingClosure.value).toBeNull();
@@ -541,10 +561,26 @@ describe("Sprint Planning en direct : fenêtres natives", () => {
       "Rendre le panier plus rapide",
       "Finaliser le parcours de paiement",
     ]);
-    expect(notice(planning)).toBe(`Objectifs non atteints reportés dans ${PREPARED}.`);
+    expect(report(planning)).toBe(`Objectifs non atteints reportés dans ${PREPARED}.`);
+    expect(planning.carryOverReport.value).toMatchObject({
+      closedSprintName: "Sprint 42",
+      targetSprintName: PREPARED,
+      written: true,
+      goals: [
+        {
+          title: "Finaliser le parcours de paiement",
+          status: "carried",
+          linkedKeys: ["ABC-101", "ABC-102"],
+        },
+        { title: "Améliorer la stabilité", status: "allDone", linkedKeys: ["ABC-103"] },
+      ],
+      incomplete: false,
+    });
     expect(inspect().writes.map(({ method }) => method)).toEqual(["POST", "PUT"]);
+    // Sprint clos dès la première relecture : aucune attente.
+    expect(wait).not.toHaveBeenCalled();
     // Plus aucun sprint actif : démarrer devient possible.
-    expect(planning.activeSprint.value).toBeNull();
+    expect(planning.activeSprints.value).toEqual([]);
     expect(planning.startDisabledReason.value).toBeNull();
     planning.startSprint();
     expect(openSprintDialog).toHaveBeenLastCalledWith("start", expect.objectContaining({ id: 43 }));
@@ -563,7 +599,7 @@ describe("Sprint Planning en direct : fenêtres natives", () => {
       },
     });
     await planning.load();
-    planning.closeActiveSprint();
+    planning.closeActiveSprint(42);
     activeSprint.state = "closed";
     await planning.afterNativeDialog();
     // « Finaliser le parcours de paiement » (ABC-101, ABC-102) est atteint ; « Améliorer la
@@ -587,7 +623,7 @@ describe("Sprint Planning en direct : fenêtres natives", () => {
       goals,
     });
     await planning.load();
-    planning.closeActiveSprint();
+    planning.closeActiveSprint(42);
     activeSprint.state = "closed";
     await planning.afterNativeDialog();
     expect(planning.error.value).toBeNull();
@@ -597,16 +633,238 @@ describe("Sprint Planning en direct : fenêtres natives", () => {
     ]);
     expect(inspect().document).toMatchObject({ atlassianGoalIds: [PAY] });
     expect(goals.setLink).not.toHaveBeenCalled();
+    expect(planning.carryOverReport.value?.incomplete).toBe(false);
   });
 
-  it("fenêtre de clôture annulée : sprint encore actif, rien n'est reporté", async () => {
-    const { planning, inspect } = context();
+  it("report en Goals Atlassian lus en partie : le compte rendu le signale", async () => {
+    const PAY = "ari:cloud:townsquare:site:goal/pay";
+    const goals = fakeGoals({
+      workItems: { [PAY]: ["ABC-101", "ABC-102"] },
+      names: { [PAY]: "Finaliser le paiement" },
+    });
+    (goals as { lastWorkItemsIssue: string | null }).lastWorkItemsIssue = "réponse tronquée";
+    const { planning, activeSprint } = context({
+      configuration: { goalSource: "atlassianGoals", goalsFieldId: "customfield_10500" },
+      goals,
+    });
     await planning.load();
-    planning.closeActiveSprint();
+    planning.closeActiveSprint(42);
+    activeSprint.state = "closed";
     await planning.afterNativeDialog();
+    expect(planning.carryOverReport.value?.incomplete).toBe(true);
+  });
+
+  it("fenêtre de clôture annulée : relu à 0, 1, 3, 6 et 10 s, sprint encore actif, rien n'est reporté", async () => {
+    const { planning, inspect, wait, jira, audit } = context();
+    await planning.load();
+    planning.closeActiveSprint(42);
+    const before = jira.requests.length;
+    await planning.afterNativeDialog();
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([1000, 2000, 3000, 4000]);
+    expect(
+      jira.requests.slice(before).filter(({ path }) => path === "/rest/agile/1.0/sprint/42"),
+    ).toHaveLength(5);
     expect(planning.pendingClosure.value).toBeNull();
     expect(inspect().writes).toHaveLength(0);
-    expect(notice(planning)).toBe("Le sprint est toujours actif : rien n'a été reporté.");
+    expect(report(planning)).toBe("Le sprint est toujours actif : rien n'a été reporté.");
+    expect(planning.carryOverReport.value).toMatchObject({ written: false, goals: [] });
+    const [entry] = await audit.list("https://acme.atlassian.net");
+    expect(entry).toMatchObject({
+      action: "sprint planning",
+      issueKey: null,
+      from: "Sprint 42",
+      to: PREPARED,
+      outcome: "échec",
+      detailMessage: { key: "Le sprint est toujours actif : rien n'a été reporté." },
+    });
+  });
+
+  it("clôture lente : sprint encore actif à 0 et 1 s, clos à 3 s, les objectifs sont reportés", async () => {
+    const { planning, activeSprint, inspect, wait, audit } = context();
+    await planning.load();
+    planning.closeActiveSprint(42);
+    wait.mockImplementation(async () => {
+      // Jira clôt le sprint pendant la deuxième attente (entre 1 et 3 s).
+      if (wait.mock.calls.length === 2) activeSprint.state = "closed";
+    });
+    const checking = planning.afterNativeDialog();
+    // Pendant la vérification, l'en-tête dit « Clôture en cours » et les gestes attendent.
+    expect(planning.pendingClosure.value).not.toBeNull();
+    expect(planning.gesturesDisabled.value).toBe(true);
+    await checking;
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([1000, 2000]);
+    expect(inspect().writes.map(({ method }) => method)).toEqual(["POST", "PUT"]);
+    expect(report(planning)).toBe(`Objectifs non atteints reportés dans ${PREPARED}.`);
+    const [entry] = await audit.list("https://acme.atlassian.net");
+    expect(entry).toMatchObject({ from: "Sprint 42", to: PREPARED, outcome: "réussi" });
+  });
+
+  it("un second refresh pendant la vérification est ignoré : un seul report", async () => {
+    const { planning, activeSprint, inspect, wait, audit } = context();
+    await planning.load();
+    planning.closeActiveSprint(42);
+    let release = () => {};
+    wait.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const first = planning.afterNativeDialog();
+    await vi.waitFor(() => expect(wait).toHaveBeenCalledTimes(1));
+    await planning.afterNativeDialog();
+    expect(wait).toHaveBeenCalledTimes(1);
+    activeSprint.state = "closed";
+    release();
+    await first;
+    expect(inspect().writes.map(({ method }) => method)).toEqual(["POST", "PUT"]);
+    expect(await audit.list("https://acme.atlassian.net")).toHaveLength(1);
+    expect(planning.pendingClosure.value).toBeNull();
+  });
+
+  it("le compte rendu reste affiché après un autre geste, jusqu'à sa fermeture ou au changement de board", async () => {
+    const { planning, activeSprint, configuration, openSprintDialog, audit } = context();
+    await planning.load();
+    planning.closeActiveSprint(42);
+    activeSprint.state = "closed";
+    await planning.afterNativeDialog();
+    expect(planning.carryOverReport.value).not.toBeNull();
+    await planning.addGoal("Sécuriser le parcours");
+    expect(planning.carryOverReport.value).not.toBeNull();
+    planning.dismissCarryOverReport();
+    expect(planning.carryOverReport.value).toBeNull();
+
+    // Sprint de nouveau actif : le compte rendu précédent reste tant qu'aucune fenêtre ne s'ouvre.
+    activeSprint.state = "active";
+    await planning.refresh();
+    planning.closeActiveSprint(42);
+    activeSprint.state = "closed";
+    await planning.afterNativeDialog();
+    expect(planning.carryOverReport.value).not.toBeNull();
+    activeSprint.state = "active";
+    await planning.refresh();
+    openSprintDialog.mockReturnValueOnce(false);
+    planning.closeActiveSprint(42);
+    expect(planning.carryOverReport.value).not.toBeNull();
+    // Nouvelle fenêtre de clôture demandée : l'ancien compte rendu est effacé pendant la vérification.
+    planning.closeActiveSprint(42);
+    expect(planning.pendingClosure.value).not.toBeNull();
+    expect(planning.carryOverReport.value).toBeNull();
+    activeSprint.state = "closed";
+    await planning.afterNativeDialog();
+    // Objectif non atteint déjà dans la cible : « rien de nouveau », journalisé « réussi ».
+    expect(report(planning)).toBe("Sprint clos : rien de nouveau à reporter.");
+    expect(planning.carryOverReport.value?.goals[0]).toMatchObject({ status: "alreadyThere" });
+    const [entry] = await audit.list("https://acme.atlassian.net");
+    expect(entry).toMatchObject({
+      from: "Sprint 42",
+      to: PREPARED,
+      outcome: "réussi",
+      detailMessage: { key: "Sprint clos : rien de nouveau à reporter." },
+    });
+    configuration.value = { ...configuration.value, boardId: 8 };
+    await planning.load();
+    expect(planning.carryOverReport.value).toBeNull();
+  });
+
+  it("relectures en erreur aux cinq passages : résumé d'échec, aucune écriture, journal « échec »", async () => {
+    const { planning, jira, inspect, audit } = context({ maxGetAttempts: 1 });
+    await planning.load();
+    planning.closeActiveSprint(42);
+    jira.on("GET", "/rest/agile/1.0/sprint/42", { status: 500 });
+    await planning.afterNativeDialog();
+    expect(jira.sent("GET", "/rest/agile/1.0/sprint/42").length).toBeGreaterThanOrEqual(5);
+    expect(inspect().writes).toHaveLength(0);
+    expect(report(planning)).toMatch(/^Report des objectifs non atteints : /);
+    expect(report(planning)).not.toContain("toujours actif");
+    expect(planning.carryOverReport.value).toMatchObject({ written: false, goals: [] });
+    const [entry] = await audit.list("https://acme.atlassian.net");
+    expect(entry).toMatchObject({ from: "Sprint 42", outcome: "échec" });
+  });
+
+  it("une relecture en erreur puis le sprint actif : « toujours actif »", async () => {
+    const { planning, jira, activeSprint, inspect } = context({ maxGetAttempts: 1 });
+    await planning.load();
+    planning.closeActiveSprint(42);
+    jira.on("GET", "/rest/agile/1.0/sprint/42", { status: 500 }, () => ({
+      status: 200,
+      json: activeSprint,
+    }));
+    await planning.afterNativeDialog();
+    expect(inspect().writes).toHaveLength(0);
+    expect(report(planning)).toBe("Le sprint est toujours actif : rien n'a été reporté.");
+  });
+
+  it("report refusé par Jira après la clôture : non écrit au compte rendu, journal « échec »", async () => {
+    const { planning, jira, activeSprint, audit } = context();
+    await planning.load();
+    planning.closeActiveSprint(42);
+    activeSprint.state = "closed";
+    jira.on("PUT", PROPERTY, { status: 403 });
+    await planning.afterNativeDialog();
+    expect(planning.carryOverReport.value).toMatchObject({
+      written: false,
+      goals: [{ title: "Finaliser le parcours de paiement", status: "carried" }, {}],
+    });
+    expect(report(planning)).toMatch(/^Report des objectifs non atteints : Étapes confirmées/);
+    const [entry] = await audit.list("https://acme.atlassian.net");
+    expect(entry).toMatchObject({ from: "Sprint 42", to: PREPARED, outcome: "échec" });
+  });
+
+  it("report sans réponse de Jira : journal « incertain », rien n'est rejoué", async () => {
+    const { planning, jira, activeSprint, audit } = context({ timeoutMs: 20 });
+    await planning.load();
+    planning.closeActiveSprint(42);
+    activeSprint.state = "closed";
+    jira.on("PUT", PROPERTY, { hang: true });
+    await planning.afterNativeDialog();
+    expect(jira.sent("PUT", PROPERTY)).toHaveLength(1);
+    expect(planning.carryOverReport.value?.written).toBe(false);
+    const [entry] = await audit.list("https://acme.atlassian.net");
+    expect(entry).toMatchObject({ from: "Sprint 42", outcome: "incertain" });
+  });
+
+  it("deux sprints actifs : le sprint choisi ouvre sa fenêtre et le report lit ses objectifs", async () => {
+    const { planning, openSprintDialog, secondActiveSprint, inspect, audit } = context({
+      secondActiveSprint: true,
+    });
+    await planning.load();
+    expect(planning.activeSprints.value.map((sprint) => sprint.id)).toEqual([42, 45]);
+    planning.closeActiveSprint(45);
+    expect(openSprintDialog).toHaveBeenCalledExactlyOnceWith(
+      "complete",
+      expect.objectContaining({ id: 45, name: "Sprint 45 — Notifications" }),
+    );
+    expect(planning.pendingClosure.value).toMatchObject({
+      closedSprintId: 45,
+      closedSprintName: "Sprint 45 — Notifications",
+      targetSprintId: 43,
+    });
+    if (secondActiveSprint) secondActiveSprint.state = "closed";
+    await planning.afterNativeDialog();
+    expect(goalTitles(planning)).toEqual([
+      "Simplifier le paiement",
+      "Rendre le panier plus rapide",
+      SECOND_ACTIVE_GOAL,
+    ]);
+    expect(planning.carryOverReport.value).toMatchObject({
+      closedSprintName: "Sprint 45 — Notifications",
+      written: true,
+      goals: [{ title: SECOND_ACTIVE_GOAL, status: "carried", linkedKeys: ["ABC-301"] }],
+    });
+    expect(inspect().sprint.goal).not.toContain("Finaliser le parcours de paiement");
+    // Le sprint 42 reste actif : démarrer reste désactivé.
+    expect(planning.activeSprints.value.map((sprint) => sprint.id)).toEqual([42]);
+    const [entry] = await audit.list("https://acme.atlassian.net");
+    expect(entry).toMatchObject({ from: "Sprint 45 — Notifications", to: PREPARED });
+  });
+
+  it("un sprint qui n'est pas actif sur le board n'ouvre aucune fenêtre", async () => {
+    const { planning, openSprintDialog } = context();
+    await planning.load();
+    planning.closeActiveSprint(45);
+    expect(openSprintDialog).not.toHaveBeenCalled();
+    expect(planning.pendingClosure.value).toBeNull();
   });
 
   it("une relecture sans clôture demandée ne reporte rien", async () => {
@@ -615,7 +873,8 @@ describe("Sprint Planning en direct : fenêtres natives", () => {
     activeSprint.state = "closed";
     await planning.afterNativeDialog();
     expect(inspect().writes).toHaveLength(0);
-    expect(planning.activeSprint.value).toBeNull();
+    expect(planning.activeSprints.value).toEqual([]);
+    expect(planning.carryOverReport.value).toBeNull();
   });
 
   it("démarrer reste désactivé, avec sa raison, tant qu'un sprint est actif", async () => {
@@ -632,7 +891,7 @@ describe("Sprint Planning en direct : fenêtres natives", () => {
     const { planning, openSprintDialog } = context();
     openSprintDialog.mockReturnValue(false);
     await planning.load();
-    planning.closeActiveSprint();
+    planning.closeActiveSprint(42);
     expect(planning.pendingClosure.value).toBeNull();
     expect(notice(planning)).toBe(
       "La fenêtre de Jira ne s'ouvre que depuis le board Jira qui héberge Sprint Goals Board.",

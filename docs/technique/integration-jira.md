@@ -74,9 +74,16 @@ inutilisable lors de l'essai réel. Le DOM et la politique d'iframe de Jira rest
 Fenêtres natives de clôture et de démarrage (S13) : l'hôte charge, cachée dans la même popin, la page
 `…/boards/<id>/backlog` construite depuis sa propre adresse, puis clique le seul bouton visible au
 libellé exact « Terminer/Démarrer le sprint » (fr/en/es) ; pour démarrer, la ligne qui ne contient que
-ce bouton doit nommer le sprint. La fenêtre de Jira est isolée comme un formulaire de transition et sa
-disparition referme la popin (`refresh`) ; bouton absent, ambigu ou autre langue : backlog montré tel
-quel au bout de 10 s, sans clic. Rien n'est rempli ni validé par l'extension.
+ce bouton doit nommer le sprint ; pour terminer, ce nom départage plusieurs sprints actifs. La
+fenêtre de Jira est isolée comme un formulaire de transition. Quand elle disparaît, une seule nouvelle
+fenêtre extérieure, absente avant le clic, est suivie à sa place : fenêtre remontée par Jira, ou
+fenêtre de suite ouverte après la validation de la clôture (création d'une rétrospective, page
+Confluence de récapitulatif), montrée seule et laissée à l'utilisateur. Aucune fenêtre suivante
+pendant 600 ms : la popin se ferme (`refresh`), et le report part donc quand plus aucune fenêtre de
+Jira n'est ouverte. Bouton absent, ambigu ou autre langue : backlog montré tel quel au bout de 10 s,
+sans clic ; la fenêtre que l'utilisateur y ouvre est suivie de même, sans rien masquer. Rien n'est
+cliqué, rempli ni validé par l'extension dans ces fenêtres. Côté vue, la clôture est relue à 0, 1, 3,
+6 et 10 s après le `refresh` (voir [invariants](invariants.md)).
 
 ## Contrats API
 

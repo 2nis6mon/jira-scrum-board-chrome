@@ -1138,8 +1138,8 @@ describe("report des objectifs non atteints après la clôture native (carryOver
    * Sprint 41 clos par la fenêtre native : « paiement » non atteint (ABC-110 reporté dans le 43,
    * ABC-113 renvoyé au backlog), « panier » atteint, « doc » sans ticket. Le 43 vise la recherche.
    */
-  function closedFixture() {
-    const f = fakeJira();
+  function closedFixture(options: FakeOptions = {}) {
+    const f = fakeJira(options);
     f.state.sprints = [
       sprint(CLOSED, "closed", `${PAIEMENT.title}\n${PANIER.title}\n${DOC.title}`),
       sprint(PREPARED, "future", "Rechercher plus vite"),
@@ -1174,7 +1174,11 @@ describe("report des objectifs non atteints après la clôture native (carryOver
     return f;
   }
 
-  const carry = (
+  const carry = async (
+    f: ReturnType<typeof fakeJira>,
+    mode: Parameters<typeof carryOverGoals>[2]["mode"],
+  ) => (await carryWithReport(f, mode)).outcome;
+  const carryWithReport = (
     f: ReturnType<typeof fakeJira>,
     mode: Parameters<typeof carryOverGoals>[2]["mode"],
   ) =>
@@ -1221,8 +1225,10 @@ describe("report des objectifs non atteints après la clôture native (carryOver
     f.state.sprints = f.state.sprints.map((candidate) =>
       candidate.id === PREPARED ? { ...candidate, goal: text } : candidate,
     );
-    const outcome = await carry(f, { kind: "text" });
+    const { outcome, report } = await carryWithReport(f, { kind: "text" });
     expect(outcome).toEqual({ kind: "done", confirmed: ["goalProperty"] });
+    // Titre déjà présent, mais ABC-110 y est rattaché par ce report : reporté.
+    expect(report?.goals[0]).toMatchObject({ title: PAIEMENT.title, status: "carried" });
     expect(f.goalOf(PREPARED)).toBe(text);
     const reloaded = await f.load();
     const existing = reloaded.goals[1];
@@ -1335,5 +1341,66 @@ describe("report des objectifs non atteints après la clôture native (carryOver
     });
     expect(await carry(f, mode)).toEqual({ kind: "unchanged" });
     expect(f.writes).toHaveLength(1);
+  });
+
+  it("compte rendu texte : chaque objectif du sprint clos avec sa raison et ses tickets", async () => {
+    const f = closedFixture();
+    const first = await carryWithReport(f, { kind: "text" });
+    expect(first.outcome.kind).toBe("done");
+    expect(first.report).toEqual({
+      goals: [
+        {
+          title: PAIEMENT.title,
+          status: "carried",
+          linkedKeys: ["ABC-110", "ABC-111", "ABC-113"],
+        },
+        { title: PANIER.title, status: "allDone", linkedKeys: ["ABC-112"] },
+        { title: DOC.title, status: "noIssue", linkedKeys: [] },
+      ],
+      incomplete: false,
+    });
+    // Second report : l'objectif est déjà dans la cible, rien n'est écrit.
+    const second = await carryWithReport(f, { kind: "text" });
+    expect(second.outcome).toEqual({ kind: "unchanged" });
+    expect(second.report?.goals[0]).toMatchObject({ status: "alreadyThere" });
+  });
+
+  it("compte rendu : refus avant lecture (sprint non clos), aucun compte rendu", async () => {
+    const f = closedFixture();
+    f.state.sprints = f.state.sprints.map((candidate) =>
+      candidate.id === CLOSED ? { ...candidate, state: "active" } : candidate,
+    );
+    expect((await carryWithReport(f, { kind: "text" })).report).toBeNull();
+  });
+
+  it("compte rendu : écriture en échec, les objectifs restent listés avec le résultat partiel", async () => {
+    const f = closedFixture({ fail: { "sprint.goal": new Error("Refus fictif") } });
+    const result = await carryWithReport(f, { kind: "text" });
+    expect(result.outcome).toMatchObject({ kind: "partial", confirmed: [] });
+    expect(result.report?.goals.map((goal) => goal.status)).toEqual([
+      "carried",
+      "allDone",
+      "noIssue",
+    ]);
+    expect(f.writes).toHaveLength(1);
+  });
+
+  it("compte rendu Goals Atlassian : lecture partielle signalée, Goal déjà épinglé distingué", async () => {
+    const f = closedFixture();
+    f.state.properties[PREPARED] = {
+      ...(f.property() as Record<string, JsonValue>),
+      atlassianGoalIds: ["ari-c", "ari-a"],
+    };
+    const reader = goalsReader({ "ari-a": ["ABC-110", "ABC-111"], "ari-b": ["ABC-112"] });
+    (reader as { lastWorkItemsIssue: string | null }).lastWorkItemsIssue = "réponse tronquée";
+    const result = await carryWithReport(f, {
+      kind: "atlassian",
+      goals: reader,
+      configuration: makeConfiguration({ boardId: BOARD }),
+    });
+    expect(result.outcome).toEqual({ kind: "unchanged" });
+    expect(result.report?.incomplete).toBe(true);
+    expect(result.report?.goals.map((goal) => goal.status)).toEqual(["alreadyThere", "allDone"]);
+    expect(f.writes).toEqual([]);
   });
 });

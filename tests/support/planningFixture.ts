@@ -55,16 +55,30 @@ const IN_OTHER_SPRINT = issueJson("ABC-220", {
   points: 3,
 });
 
+/** Ticket non terminé du second sprint actif 45 (option `secondActiveSprint`). */
+const IN_SECOND_ACTIVE = issueJson("ABC-301", {
+  summary: "Envoyer la confirmation de commande par SMS",
+  statusId: "3",
+  statusName: "En cours",
+  category: "indeterminate",
+  points: 5,
+});
+
+/** Objectif du sprint actif 45, rattaché à son ticket non terminé. */
+export const SECOND_ACTIVE_GOAL = "Fiabiliser les notifications";
+
 /**
  * Installe les routes après celles du board, pour préserver les lectures du sprint actif 42.
  * `issueFields` ajoute des champs à des tickets (par clé), sur une copie ; `otherFutureSprint`
- * ajoute le sprint futur 44 et son ticket, où l'on peut prendre ou envoyer des tickets.
+ * ajoute le sprint futur 44 et son ticket, où l'on peut prendre ou envoyer des tickets ;
+ * `secondActiveSprint` ajoute le sprint actif 45, dont l'objectif a un ticket non terminé.
  */
 export function planningFixture(
   jira: FakeJira = boardSiteJira(),
   options: {
     issueFields?: Readonly<Record<string, Record<string, unknown>>>;
     otherFutureSprint?: boolean;
+    secondActiveSprint?: boolean;
   } = {},
 ) {
   const sprint = {
@@ -90,6 +104,17 @@ export function planningFixture(
         state: "future",
         originBoardId: 7,
         goal: "",
+      }
+    : null;
+  const secondActive = options.secondActiveSprint
+    ? {
+        id: 45,
+        name: "Sprint 45 — Notifications",
+        state: "active",
+        originBoardId: 7,
+        startDate: "2026-09-14T08:00:00.000+0200",
+        endDate: "2026-09-25T18:00:00.000+0200",
+        goal: `🎯 ${SECOND_ACTIVE_GOAL}`,
       }
     : null;
   const selected = new Set(["ABC-210"]);
@@ -136,9 +161,12 @@ export function planningFixture(
         status: 200,
         json: {
           isLast: true,
-          values: [activeSprint, sprint, ...(otherSprint ? [otherSprint] : [])].filter(
-            (item) => states.length === 0 || states.includes(item.state),
-          ),
+          values: [
+            activeSprint,
+            ...(secondActive ? [secondActive] : []),
+            sprint,
+            ...(otherSprint ? [otherSprint] : []),
+          ].filter((item) => states.length === 0 || states.includes(item.state)),
         },
       };
     })
@@ -200,10 +228,35 @@ export function planningFixture(
       .on("POST", "/rest/agile/1.0/sprint/44/issue", addToSprint(other, selected));
   }
 
+  if (secondActive) {
+    jira
+      .on("GET", "/rest/agile/1.0/sprint/45", () => ({ status: 200, json: secondActive }))
+      .on("GET", "/rest/agile/1.0/board/7/sprint/45/issue", {
+        status: 200,
+        json: { issues: [IN_SECOND_ACTIVE], total: 1 },
+      })
+      .on("GET", `/rest/agile/1.0/sprint/45/properties/${SPRINT_PROPERTY_KEYS.goals}`, {
+        status: 200,
+        json: {
+          key: SPRINT_PROPERTY_KEYS.goals,
+          value: {
+            version: 1,
+            goals: [
+              { id: "g-notifications", title: SECOND_ACTIVE_GOAL, color: "goal4", position: 0 },
+            ],
+            links: { "ABC-301": "g-notifications" },
+            atlassianGoalIds: [],
+          },
+        },
+      });
+  }
+
   return {
     jira,
     /** Sprint actif 42, que la fenêtre native de clôture fictive peut clore. */
     activeSprint,
+    /** Second sprint actif 45 (option `secondActiveSprint`), ou `null`. */
+    secondActiveSprint: secondActive,
     /** Texte de l'objectif modifié dans Jira par quelqu'un d'autre (conflit). */
     changeGoalText(text: string) {
       sprint.goal = text;

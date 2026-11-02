@@ -416,6 +416,7 @@ export class BoardModel {
       goals: this.#goals,
       write: (task) => this.#gate.run(task),
       record: (entry) => this.#record(entry),
+      wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     });
     this.images = new ImageCache((url) => transport.fetchImage(url));
     this.#settings = new BoardSettingsService(

@@ -638,8 +638,7 @@ export const businessMessages = {
     "{p0} No write was retried; the page was reloaded from Jira.",
   "Écriture non confirmée. {p0}": "Write not confirmed. {p0}",
   "Objectifs non atteints reportés dans {p0}.": "Unmet goals carried over to {p0}.",
-  "Sprint clos : aucun objectif non atteint à reporter.":
-    "Sprint closed: no unmet goals to carry over.",
+  "Sprint clos : rien de nouveau à reporter.": "Sprint closed: nothing new to carry over.",
   "Report des objectifs non atteints : {p0}": "Carrying over unmet goals: {p0}",
   "Un sprint est actif : clôturez-le avant de démarrer celui-ci.":
     "A sprint is active: complete it before starting this one.",
@@ -647,6 +646,12 @@ export const businessMessages = {
     "The Jira dialog only opens from the Jira board that hosts Sprint Goals Board.",
   "Le sprint est toujours actif : rien n'a été reporté.":
     "The sprint is still active: nothing was carried over.",
+  "Reporté dans {p0}.": "Carried over to {p0}.",
+  "Non atteint, report non confirmé.": "Not achieved; carry-over not confirmed.",
+  "Non reporté : aucun ticket rattaché.": "Not carried over: no linked issue.",
+  "Non reporté : tous ses tickets sont dans la dernière colonne.":
+    "Not carried over: all its issues are in the last column.",
+  "Non reporté : déjà présent dans {p0}.": "Not carried over: already in {p0}.",
 } as const;
 
 /** Seuls ces paramètres sont des messages de l'application, jamais des noms ou contenus Jira. */

@@ -6,7 +6,8 @@
 //                            board-vide|board-dnd|board-choix|board-statuts|board-erreur|board-goals|
 //                            board-epingle|board-epingle-refus|board-multi|board-infos|
 //                            board-soustaches|board-kanban|board-kanban-vide|ok|xsrf|refuse|session|deconnecte|
-//                            board-chargement|board-planning|connexion|recherche-board|
+//                            board-chargement|board-planning|board-planning-deux-actifs|
+//                            connexion|recherche-board|
 //                            board-reglages[&onglet=board|goals|cardFields|cardColors]
 import { render } from "preact";
 import packageDocument from "../../package.json?raw";
@@ -589,8 +590,15 @@ if (scenario.startsWith("board")) {
       });
     }
   }
-  const planning =
-    scenario === "board-planning" ? planningFixture(jira, { otherFutureSprint: true }) : null;
+  // `board-planning-deux-actifs` : un second sprint actif (45) à clôturer depuis le menu.
+  const planningScenario =
+    scenario === "board-planning" || scenario === "board-planning-deux-actifs";
+  const planning = planningScenario
+    ? planningFixture(jira, {
+        otherFutureSprint: true,
+        secondActiveSprint: scenario === "board-planning-deux-actifs",
+      })
+    : null;
   let planningReady = false;
   /** Fenêtres natives de clôture et de démarrage demandées à la « page hôte » du banc. */
   const sprintDialogs: { action: string; sprintId: number }[] = [];
@@ -680,13 +688,26 @@ if (scenario.startsWith("board")) {
         sprintDialogs: () => sprintDialogs,
         /**
          * Fermeture simulée de la fenêtre native (message `refresh` de la page hôte) : validée,
-         * le sprint actif 42 est clos dans le faux Jira ; annulée, il reste actif.
+         * le sprint actif `sprintId` est clos dans le faux Jira, `lagMs` après la fermeture
+         * (clôture lente) ; annulée, il reste actif. Ne fait que lancer la vérification, qui
+         * relit l'état du sprint jusqu'à 10 s : le contrôle attend son effet à l'écran.
          */
-        async closeNativeDialog(completed: boolean) {
+        closeNativeDialog(completed: boolean, lagMs = 0, sprintId = 42) {
           const current = model.connection.value;
           if (current.state !== "connected") throw new Error("Board fictif non connecté");
-          if (completed) planning.activeSprint.state = "closed";
-          await current.board.planning.afterNativeDialog();
+          const sprint =
+            sprintId === 42
+              ? planning.activeSprint
+              : sprintId === 45
+                ? planning.secondActiveSprint
+                : null;
+          if (!sprint) throw new Error(`Sprint actif fictif inconnu : ${sprintId}`);
+          if (completed && lagMs > 0)
+            setTimeout(() => {
+              sprint.state = "closed";
+            }, lagMs);
+          else if (completed) sprint.state = "closed";
+          void current.board.planning.afterNativeDialog();
         },
         async exerciseEntrypoints() {
           const current = model.connection.value;
@@ -708,7 +729,8 @@ if (scenario.startsWith("board")) {
           await planningModel.searchGoals("");
           await planningModel.pinGoal("ari-paquet");
           await planningModel.unpinGoal("ari-paquet");
-          planningModel.closeActiveSprint();
+          planningModel.closeActiveSprint(42);
+          planningModel.dismissCarryOverReport();
           planningModel.startSprint();
           await planningModel.afterNativeDialog();
           model.view.value = "planning";
@@ -757,7 +779,7 @@ if (scenario.startsWith("board")) {
       await connection.board.detect(SECOND_BOARD_URL);
     }
     await connection.board.detect(BOARD_URL);
-    if (scenario !== "board-chargement" && scenario !== "board-planning" && !restoredSettings)
+    if (scenario !== "board-chargement" && !planningScenario && !restoredSettings)
       await connection.board.applySettings(
         (current) => ({
           ...current,

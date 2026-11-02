@@ -785,6 +785,110 @@ describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => 
     );
   });
 
+  it("suit la fenêtre de suite de Jira après la clôture, sans rien y cliquer, puis relit à sa fermeture", async () => {
+    const { send, board } = mount();
+    const current = request(send, "complete", "Sprint 12");
+    const active = sprintRow(current.doc, "Sprint 12", "Terminer le sprint");
+    const opened: HTMLElement[] = [];
+    active.element.addEventListener("click", () =>
+      opened.push(sprintWindow(current.doc, "Terminer le sprint")),
+    );
+    await vi.advanceTimersByTimeAsync(2100);
+    expect(opened[0]?.hasAttribute("data-sprint-goals-sprint-dialog")).toBe(true);
+
+    // Validation par l'utilisateur : Jira ferme sa fenêtre et ouvre celle de la rétrospective.
+    opened[0]?.remove();
+    const followUp = sprintWindow(current.doc, "Créer une rétrospective");
+    const clicks = vi.fn();
+    followUp.addEventListener("click", clicks);
+    const submitted = vi.fn();
+    current.doc.addEventListener("submit", submitted);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(current.dialog.isConnected).toBe(true);
+    expect(current.backlog.style.visibility).toBe("visible");
+    expect(followUp.hasAttribute("data-sprint-goals-sprint-dialog")).toBe(true);
+    expect(
+      current.doc.querySelectorAll("style[data-sprint-goals-sprint-dialog-style]"),
+    ).toHaveLength(1);
+    expect(board.postMessage).not.toHaveBeenCalled();
+
+    // L'utilisateur seul la ferme : la popin se ferme et la vue relit une seule fois.
+    followUp.remove();
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(current.dialog.isConnected).toBe(false);
+    expect(board.postMessage).toHaveBeenCalledExactlyOnceWith(
+      { type: "sprint-goals:refresh" },
+      EXTENSION,
+    );
+    expect(clicks).not.toHaveBeenCalled();
+    expect(submitted).not.toHaveBeenCalled();
+    expect(active.clicked).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("deux sprints actifs : termine par le seul bouton de la ligne du sprint nommé", async () => {
+    const { send } = mount();
+    const current = request(send, "complete", "Sprint 45");
+    const other = sprintRow(current.doc, "Sprint 42", "Terminer le sprint");
+    const named = sprintRow(current.doc, "Sprint 45", "Terminer le sprint");
+    named.element.addEventListener("click", () => sprintWindow(current.doc, "Terminer le sprint"));
+    await vi.advanceTimersByTimeAsync(2100);
+    expect(named.clicked).toHaveBeenCalledTimes(1);
+    expect(other.clicked).not.toHaveBeenCalled();
+    expect(current.backlog.style.visibility).toBe("visible");
+  });
+
+  it("page rendue telle quelle : la fenêtre suivante est suivie sans rien masquer, une seule relecture", async () => {
+    const { send, board } = mount();
+    const current = request(send, "complete", "Sprint 12");
+    // Deux boutons sans nom de sprint reconnu : rien n'est cliqué, la page est rendue à 10 s.
+    sprintRow(current.doc, "Autre", "Terminer le sprint");
+    sprintRow(current.doc, "Encore", "Terminer le sprint");
+    await vi.advanceTimersByTimeAsync(10500);
+    expect(current.backlog.style.visibility).toBe("visible");
+    const first = sprintWindow(current.doc, "Terminer le sprint");
+    await vi.advanceTimersByTimeAsync(300);
+    first.remove();
+    const followUp = sprintWindow(current.doc, "Créer une rétrospective");
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(current.dialog.isConnected).toBe(true);
+    expect(current.doc.querySelector("style[data-sprint-goals-sprint-dialog-style]")).toBeNull();
+    expect(followUp.hasAttribute("data-sprint-goals-sprint-dialog")).toBe(false);
+    expect(board.postMessage).not.toHaveBeenCalled();
+    followUp.remove();
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(current.dialog.isConnected).toBe(false);
+    expect(board.postMessage).toHaveBeenCalledExactlyOnceWith(
+      { type: "sprint-goals:refresh" },
+      EXTENSION,
+    );
+  });
+
+  it("garde la popin sur une fenêtre remontée par Jira, mais pas sur deux fenêtres nouvelles", async () => {
+    const { send, board } = mount();
+    const current = request(send, "complete", "Sprint 12");
+    const active = sprintRow(current.doc, "Sprint 12", "Terminer le sprint");
+    const opened: HTMLElement[] = [];
+    active.element.addEventListener("click", () =>
+      opened.push(sprintWindow(current.doc, "Terminer le sprint")),
+    );
+    await vi.advanceTimersByTimeAsync(2100);
+    // Jira détache sa fenêtre et en monte une copie : elle est reprise, la popin reste.
+    opened[0]?.remove();
+    const remounted = sprintWindow(current.doc, "Terminer le sprint");
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(current.dialog.isConnected).toBe(true);
+    expect(remounted.hasAttribute("data-sprint-goals-sprint-dialog")).toBe(true);
+
+    // Disparue avec deux fenêtres nouvelles : aucune n'est choisie, fermeture comme avant.
+    remounted.remove();
+    sprintWindow(current.doc, "Première");
+    sprintWindow(current.doc, "Seconde");
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(current.dialog.isConnected).toBe(false);
+    expect(board.postMessage).toHaveBeenCalledTimes(1);
+  });
+
   it("rend la page sans rien cliquer si le bouton est ambigu, inexact ou dans une autre langue", async () => {
     const { send, board } = mount();
     const current = request(send, "start", "Sprint 13");

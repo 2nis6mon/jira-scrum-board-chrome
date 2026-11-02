@@ -167,7 +167,12 @@ describe("changement de board demandé à la page Jira hôte", () => {
 
     vi.spyOn(board, "sync").mockResolvedValue();
     const after = vi.spyOn(board.planning, "afterNativeDialog").mockResolvedValue();
-    board.planning.pendingClosure.value = { closedSprintId: 30, targetSprintId: 31 };
+    board.planning.pendingClosure.value = {
+      closedSprintId: 30,
+      closedSprintName: "Sprint 30",
+      targetSprintId: 31,
+      targetSprintName: "Sprint 31",
+    };
     window.dispatchEvent(
       new MessageEvent("message", {
         origin: SITE,

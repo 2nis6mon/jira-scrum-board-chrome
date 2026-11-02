@@ -6,6 +6,7 @@ import { type AppMessage, message } from "../../src/app/model/appMessage";
 import type { UserMessage } from "../../src/app/model/messages";
 import type {
   PendingClosure,
+  PlanningCarryOverReport,
   PlanningGoalSearch,
   PlanningIssue,
   PlanningLane,
@@ -41,6 +42,7 @@ const SPRINT_43 = decodeSprint({
 });
 const SPRINT_44 = decodeSprint({ id: 44, name: "Sprint 44", state: "future" });
 const SPRINT_42 = decodeSprint({ id: 42, name: "Sprint 42", state: "active" });
+const SPRINT_45 = decodeSprint({ id: 45, name: "Sprint 45", state: "active" });
 
 const item = (
   key: string,
@@ -117,11 +119,12 @@ function setup(
       velocity: 20,
       unit: "pts",
     }),
-    activeSprint: signal<JiraSprint | null>(SPRINT_42),
+    activeSprints: signal<readonly JiraSprint[]>([SPRINT_42]),
     startDisabledReason: signal<AppMessage | null>(
       message("Un sprint est actif : clôturez-le avant de démarrer celui-ci."),
     ),
     pendingClosure: signal<PendingClosure | null>(null),
+    carryOverReport: signal<PlanningCarryOverReport | null>(null),
     goalSearch: signal<PlanningGoalSearch | null>(null),
     gesturesDisabled,
     selectSprint: vi.fn(async (_id: number) => {}),
@@ -139,7 +142,10 @@ function setup(
     searchGoals: vi.fn(async (_query: string) => {}),
     pinGoal: vi.fn(async (_id: string) => {}),
     unpinGoal: vi.fn(async (_id: string) => {}),
-    closeActiveSprint: vi.fn(),
+    closeActiveSprint: vi.fn((_sprintId: number) => {}),
+    dismissCarryOverReport: vi.fn(() => {
+      planning.carryOverReport.value = null;
+    }),
     startSprint: vi.fn(),
     openIssue: vi.fn(),
   } satisfies PlanningViewModel;
@@ -297,9 +303,10 @@ describe("Sprint Planning en direct : écran", () => {
       "Un sprint est actif : clôturez-le avant de démarrer celui-ci.",
     );
     button("Clôturer Sprint 42").click();
-    expect(planning.closeActiveSprint).toHaveBeenCalledTimes(1);
+    expect(planning.closeActiveSprint).toHaveBeenCalledExactlyOnceWith(42);
+    expect(document.querySelector(".planning-close-menu")).toBeNull();
 
-    planning.activeSprint.value = null;
+    planning.activeSprints.value = [];
     planning.startDisabledReason.value = null;
     await tick();
     expect(() => button("Clôturer Sprint 42")).toThrow();
@@ -562,11 +569,119 @@ describe("Sprint Planning en direct : écran", () => {
     expect(text()).toContain("Dónde están las incidencias");
   });
 
+  it("plusieurs sprints actifs : « Clôturer un sprint » propose chacun par son nom", async () => {
+    const { planning } = setup();
+    planning.activeSprints.value = [SPRINT_42, SPRINT_45];
+    await tick();
+    expect(() => button("Clôturer Sprint 42")).toThrow();
+    const menu = find<HTMLDetailsElement>(".planning-close-menu");
+    expect(menu.querySelector("summary")?.textContent).toBe("Clôturer un sprint");
+    menu.open = true;
+    button("Sprint 45", menu).click();
+    expect(planning.closeActiveSprint).toHaveBeenCalledExactlyOnceWith(45);
+    expect(menu.open).toBe(false);
+
+    // Échap referme le menu ouvert et rend le focus à son bouton.
+    menu.open = true;
+    const choice = button("Sprint 42", menu);
+    choice.focus();
+    choice.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(menu.open).toBe(false);
+    expect(document.activeElement).toBe(menu.querySelector("summary"));
+
+    // Gestes impossibles : le menu ne reste pas ouvert et ses choix sont désactivés.
+    planning.gesturesDisabled.value = true;
+    await tick();
+    expect(button("Sprint 42", menu).disabled).toBe(true);
+    expect(menu.querySelector("summary")?.getAttribute("aria-disabled")).toBe("true");
+    menu.open = true;
+    menu.dispatchEvent(new Event("toggle"));
+    expect(menu.open).toBe(false);
+  });
+
+  it("« Clôture en cours dans Jira… » prime sur « Écriture dans Jira… » pendant la vérification", async () => {
+    const { planning } = setup();
+    planning.busy.value = true;
+    await tick();
+    expect(find(".sync-status").textContent).toBe("Écriture dans Jira…");
+    planning.pendingClosure.value = {
+      closedSprintId: 42,
+      closedSprintName: "Sprint 42",
+      targetSprintId: 43,
+      targetSprintName: "Sprint 43",
+    };
+    await tick();
+    expect(find(".sync-status").textContent).toBe("Clôture en cours dans Jira…");
+  });
+
+  it("compte rendu de clôture : chaque objectif avec sa raison, au-dessus des swimlanes, jusqu'à sa fermeture", async () => {
+    const { planning } = setup();
+    planning.carryOverReport.value = {
+      closedSprintName: "Sprint 42",
+      targetSprintName: "Sprint 43",
+      summary: message("Objectifs non atteints reportés dans {p0}.", { p0: "Sprint 43" }),
+      written: true,
+      goals: [
+        { title: "Finaliser le paiement", status: "carried", linkedKeys: ["ABC-1", "ABC-2"] },
+        { title: "Documenter l'API", status: "noIssue", linkedKeys: [] },
+        { title: "Améliorer la stabilité", status: "allDone", linkedKeys: ["ABC-3"] },
+        { title: "Rechercher", status: "alreadyThere", linkedKeys: ["ABC-4"] },
+      ],
+      incomplete: true,
+    };
+    await tick();
+    const panel = find(".planning-carry-over");
+    // Au-dessus des swimlanes.
+    expect(panel.nextElementSibling?.classList.contains("planning-lane")).toBe(true);
+    expect(panel.querySelector("h3")?.textContent).toBe("Clôture de Sprint 42");
+    expect(find(".planning-carry-over-summary").textContent).toBe(
+      "Objectifs non atteints reportés dans Sprint 43.",
+    );
+    const reasons = [...panel.querySelectorAll("li")].map((line) => [
+      line.querySelector(".planning-carry-over-title")?.textContent,
+      line.querySelector(".planning-carry-over-reason")?.textContent,
+    ]);
+    expect(reasons).toEqual([
+      ["Finaliser le paiement", "Reporté dans Sprint 43."],
+      ["Documenter l'API", "Non reporté : aucun ticket rattaché."],
+      ["Améliorer la stabilité", "Non reporté : tous ses tickets sont dans la dernière colonne."],
+      ["Rechercher", "Non reporté : déjà présent dans Sprint 43."],
+    ]);
+    expect(panel.textContent).toContain("ABC-1, ABC-2");
+    expect(find(".planning-carry-over-incomplete").textContent).toContain(
+      "Lecture des Goals incomplète",
+    );
+
+    setLanguage("en");
+    await tick();
+    expect(find(".planning-carry-over h3").textContent).toBe("Completion of Sprint 42");
+    expect(find(".planning-carry-over-reason").textContent).toBe("Carried over to Sprint 43.");
+    setLanguage("es");
+    await tick();
+    expect(find(".planning-carry-over-reason").textContent).toBe("Trasladado a Sprint 43.");
+    expect(find(".planning-carry-over-summary").textContent).toBe(
+      "Objetivos no alcanzados trasladados a Sprint 43.",
+    );
+    setLanguage("fr");
+
+    // Report non confirmé : l'objectif n'est pas dit reporté.
+    planning.carryOverReport.value = { ...planning.carryOverReport.value, written: false };
+    await tick();
+    expect(find(".planning-carry-over-reason").textContent).toBe(
+      "Non atteint, report non confirmé.",
+    );
+
+    button("Fermer le compte rendu").click();
+    expect(planning.dismissCarryOverReport).toHaveBeenCalledTimes(1);
+    await tick();
+    expect(document.querySelector(".planning-carry-over")).toBeNull();
+  });
+
   it("sans sprint futur : invite à en créer un dans Jira", async () => {
     const { planning } = setup();
     planning.snapshot.value = null;
     planning.sprints.value = [];
-    planning.activeSprint.value = null;
+    planning.activeSprints.value = [];
     await tick();
     expect(text()).toContain("Aucun sprint futur");
     expect(document.querySelector(".planning-body")).toBeNull();

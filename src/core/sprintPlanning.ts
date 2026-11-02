@@ -642,24 +642,59 @@ export type CarryOverMode =
     };
 
 /**
+ * Sort d'un objectif du sprint clos : `carried`, non atteint et reporté (ou à reporter si
+ * l'écriture échoue) ; `noIssue`, aucun ticket du sprint clos rattaché ; `allDone`, tous ses
+ * tickets dans la dernière colonne ; `alreadyThere`, non atteint mais déjà dans la cible (même
+ * titre sans casse, ou Goal déjà épinglé).
+ */
+export type CarryOverGoalStatus = "carried" | "noIssue" | "allDone" | "alreadyThere";
+
+export interface CarryOverGoalReport {
+  readonly title: string;
+  readonly status: CarryOverGoalStatus;
+  /** Tickets du sprint clos rattachés à l'objectif. */
+  readonly linkedKeys: readonly string[];
+}
+
+/** Compte rendu du report, objectif par objectif du sprint clos. */
+export interface CarryOverReport {
+  readonly goals: readonly CarryOverGoalReport[];
+  /** Goals Atlassian lus en partie : un objectif non atteint peut manquer. */
+  readonly incomplete: boolean;
+}
+
+export interface CarryOverResult {
+  readonly outcome: PlanningOutcome;
+  /** `null` : refus avant la lecture des objectifs (sprint non clos, lecture impossible). */
+  readonly report: CarryOverReport | null;
+}
+
+/**
  * Objectif non atteint : au moins un ticket rattaché, et pas tous dans la dernière colonne. Un
  * objectif sans ticket est atteint au sens de cette règle.
  */
-function unmet(
+function progress(
   keys: readonly string[],
   issues: ReadonlyMap<string, JiraIssue>,
   isDone: (issue: JiraIssue) => boolean,
-): boolean {
+): { linkedKeys: string[]; state: "noIssue" | "allDone" | "unmet" } {
   const linked = keys.map((key) => issues.get(key)).filter((issue) => issue !== undefined);
-  return linked.length > 0 && !linked.every(isDone);
+  const linkedKeys = linked.map((issue) => issue.key);
+  if (linked.length === 0) return { linkedKeys, state: "noIssue" };
+  return { linkedKeys, state: linked.every(isDone) ? "allDone" : "unmet" };
 }
+
+type CarryOverPlan =
+  | { kind: "text"; input: TextGoalsInput }
+  | { kind: "pin"; shownGoalIds: string[]; goalIds: string[] }
+  | null;
 
 /**
  * Reporte dans le sprint en préparation les objectifs non atteints d'un sprint relu clos. Texte :
  * objectifs absents ajoutés (même identifiant, même couleur) avec les liens de leurs tickets
  * arrivés dans la cible et non terminés, par `writeTextGoals`. Goals : épinglage des Goals
  * manquants. Idempotent : titres déjà présents et Goals déjà épinglés sont ignorés ; un ticket
- * envoyé ailleurs par la fenêtre native est respecté.
+ * envoyé ailleurs par la fenêtre native est respecté. Rend aussi le compte rendu par objectif.
  */
 export async function carryOverGoals(
   reader: PlanningReader,
@@ -674,38 +709,38 @@ export async function carryOverGoals(
     accountId: string | null;
     now: Date;
   },
-): Promise<PlanningOutcome> {
-  let prepared:
-    | { kind: "text"; input: TextGoalsInput }
-    | { kind: "pin"; shownGoalIds: string[]; goalIds: string[] }
-    | null;
+): Promise<CarryOverResult> {
+  let prepared: { plan: CarryOverPlan; report: CarryOverReport };
   try {
     prepared = await prepareCarryOver(reader, input);
   } catch (error) {
     return {
-      kind: "refused",
-      reason: error instanceof Refusal ? error.refusal : { reason: "failed", error },
+      outcome: {
+        kind: "refused",
+        reason: error instanceof Refusal ? error.refusal : { reason: "failed", error },
+      },
+      report: null,
     };
   }
-  if (prepared === null) return { kind: "unchanged" };
-  if (prepared.kind === "text") return writeTextGoals(reader, writer, prepared.input);
-  return pinPlanningGoals(reader, writer, {
-    sprintId: input.targetSprintId,
-    shownGoalIds: prepared.shownGoalIds,
-    goalIds: prepared.goalIds,
-    accountId: input.accountId,
-    now: input.now,
-  });
+  const { plan, report } = prepared;
+  if (plan === null) return { outcome: { kind: "unchanged" }, report };
+  const outcome =
+    plan.kind === "text"
+      ? await writeTextGoals(reader, writer, plan.input)
+      : await pinPlanningGoals(reader, writer, {
+          sprintId: input.targetSprintId,
+          shownGoalIds: plan.shownGoalIds,
+          goalIds: plan.goalIds,
+          accountId: input.accountId,
+          now: input.now,
+        });
+  return { outcome, report };
 }
 
 async function prepareCarryOver(
   reader: PlanningReader,
   input: Parameters<typeof carryOverGoals>[2],
-): Promise<
-  | { kind: "text"; input: TextGoalsInput }
-  | { kind: "pin"; shownGoalIds: string[]; goalIds: string[] }
-  | null
-> {
+): Promise<{ plan: CarryOverPlan; report: CarryOverReport }> {
   const closed = await reader.sprint(input.closedSprintId);
   if (closed.id !== input.closedSprintId || closed.state !== "closed")
     refuse({ reason: "sprintNotClosed" });
@@ -727,6 +762,7 @@ async function prepareCarryOver(
     Object.entries(links)
       .filter(([, id]) => id === goalId)
       .map(([key]) => key);
+  const goalsReport: CarryOverGoalReport[] = [];
 
   if (input.mode.kind === "atlassian") {
     const loaded = await loadAtlassianSprintGoals({
@@ -736,13 +772,24 @@ async function prepareCarryOver(
       configuration: input.mode.configuration,
     });
     const shown = [...(targetDocument?.atlassianGoalIds ?? [])];
-    const missing = loaded.goals
-      .filter((goal) => unmet(keysOf(loaded.links, goal.id), byKey, input.isDone))
-      .map((goal) => goal.id)
-      .filter((id) => !shown.includes(id));
-    return missing.length === 0
-      ? null
-      : { kind: "pin", shownGoalIds: shown, goalIds: [...shown, ...missing] };
+    const missing: string[] = [];
+    for (const goal of loaded.goals) {
+      const { linkedKeys, state } = progress(keysOf(loaded.links, goal.id), byKey, input.isDone);
+      let status: CarryOverGoalStatus = state === "unmet" ? "carried" : state;
+      if (status === "carried") {
+        if (shown.includes(goal.id) || missing.includes(goal.id)) status = "alreadyThere";
+        else missing.push(goal.id);
+      }
+      goalsReport.push({ title: goal.title, status, linkedKeys });
+    }
+    const report = { goals: goalsReport, incomplete: loaded.warnings.length > 0 };
+    return {
+      plan:
+        missing.length === 0
+          ? null
+          : { kind: "pin", shownGoalIds: shown, goalIds: [...shown, ...missing] },
+      report,
+    };
   }
 
   const closedGoals = reconcileSprintGoals(closed.goal, closedDocument, stableGoalIds(closed.id));
@@ -755,9 +802,15 @@ async function prepareCarryOver(
   let changed = false;
   for (const goal of closedGoals.goals) {
     const keys = keysOf(closedGoals.links, goal.id);
-    if (!unmet(keys, byKey, input.isDone)) continue;
+    const { linkedKeys, state } = progress(keys, byKey, input.isDone);
+    if (state !== "unmet") {
+      goalsReport.push({ title: goal.title, status: state, linkedKeys });
+      continue;
+    }
     const folded = goal.title.toLocaleLowerCase();
     let destination = goals.find((candidate) => candidate.title.toLocaleLowerCase() === folded);
+    // Déjà dans la cible : reporté quand même si ce report y rattache au moins un ticket.
+    let carried = !destination;
     if (!destination) {
       destination = makeSprintGoal({
         id: goals.some((candidate) => candidate.id === goal.id)
@@ -776,19 +829,29 @@ async function prepareCarryOver(
       if (!issue || input.isDone(issue) || targetGoals.links[key] !== undefined) continue;
       links[key] = destination.id;
       changed = true;
+      carried = true;
     }
+    goalsReport.push({
+      title: goal.title,
+      status: carried ? "carried" : "alreadyThere",
+      linkedKeys,
+    });
   }
-  if (!changed) return null;
+  const report = { goals: goalsReport, incomplete: false };
+  if (!changed) return { plan: null, report };
   return {
-    kind: "text",
-    input: {
-      sprintId: target.id,
-      baseText: target.goal ?? "",
-      baseProperty: targetRaw,
-      goals,
-      links,
-      accountId: input.accountId,
-      now: input.now,
+    plan: {
+      kind: "text",
+      input: {
+        sprintId: target.id,
+        baseText: target.goal ?? "",
+        baseProperty: targetRaw,
+        goals,
+        links,
+        accountId: input.accountId,
+        now: input.now,
+      },
     },
+    report,
   };
 }

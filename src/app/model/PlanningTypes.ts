@@ -1,11 +1,19 @@
 import type { ReadonlySignal } from "@preact/signals";
 import type { SprintGoal } from "../../core/sprintGoals";
-import type { PlanningDestination, PlanningSnapshot } from "../../core/sprintPlanning";
+import type {
+  CarryOverGoalReport,
+  PlanningDestination,
+  PlanningSnapshot,
+} from "../../core/sprintPlanning";
 import type { AtlassianGoal, JiraIssue, JiraSprint } from "../../jira/models";
 import type { AppMessage } from "./appMessage";
 import type { UserMessage } from "./messages";
 
-export type { PlanningDestination } from "../../core/sprintPlanning";
+export type {
+  CarryOverGoalReport,
+  CarryOverGoalStatus,
+  PlanningDestination,
+} from "../../core/sprintPlanning";
 
 /** Fenêtres natives de Jira ouvertes par la page hôte : l'utilisateur seul les remplit. */
 export type SprintDialogAction = "complete" | "start";
@@ -70,7 +78,26 @@ export interface PlanningGoalSearch {
 /** Clôture native demandée : le report n'a lieu que si le sprint relu est clos. */
 export interface PendingClosure {
   readonly closedSprintId: number;
+  readonly closedSprintName: string;
   readonly targetSprintId: number;
+  readonly targetSprintName: string;
+}
+
+/**
+ * Compte rendu d'une clôture demandée par le planning : affiché jusqu'à sa fermeture, remplacé
+ * par la clôture suivante, oublié au changement de board.
+ */
+export interface PlanningCarryOverReport {
+  readonly closedSprintName: string;
+  readonly targetSprintName: string;
+  /** Reporté, rien à reporter, sprint toujours actif, refus ou échec, en clé du catalogue. */
+  readonly summary: AppMessage;
+  /** Jira a confirmé le report : les objectifs « carried » sont dans la cible. */
+  readonly written: boolean;
+  /** Objectifs du sprint clos et leur sort ; vide si le report n'a pas lu le sprint clos. */
+  readonly goals: readonly CarryOverGoalReport[];
+  /** Goals Atlassian lus en partie : un objectif non atteint peut manquer. */
+  readonly incomplete: boolean;
 }
 
 /**
@@ -99,11 +126,14 @@ export interface PlanningViewModel {
   readonly unassigned: ReadonlySignal<readonly PlanningIssue[]>;
   readonly sections: ReadonlySignal<readonly PlanningSection[]>;
   readonly sprintLoad: ReadonlySignal<PlanningLoad | null>;
-  /** Premier sprint actif du board (« Clôturer le Sprint N »), ou `null`. */
-  readonly activeSprint: ReadonlySignal<JiraSprint | null>;
+  /** Sprints actifs du board : un seul, « Clôturer le Sprint N » ; plusieurs, un menu. */
+  readonly activeSprints: ReadonlySignal<readonly JiraSprint[]>;
   /** Raison pour laquelle « Démarrer » est désactivé, ou `null`. */
   readonly startDisabledReason: ReadonlySignal<AppMessage | null>;
+  /** Clôture demandée, jusqu'à la fin de sa vérification (« Clôture en cours dans Jira… »). */
   readonly pendingClosure: ReadonlySignal<PendingClosure | null>;
+  /** Compte rendu de la dernière clôture, jusqu'à sa fermeture. */
+  readonly carryOverReport: ReadonlySignal<PlanningCarryOverReport | null>;
   readonly goalSearch: ReadonlySignal<PlanningGoalSearch | null>;
   /** Gestes impossibles maintenant (chargement, geste en cours, autre écriture du board). */
   readonly gesturesDisabled: ReadonlySignal<boolean>;
@@ -122,7 +152,10 @@ export interface PlanningViewModel {
   searchGoals(query: string): Promise<void>;
   pinGoal(goalId: string): Promise<void>;
   unpinGoal(goalId: string): Promise<void>;
-  closeActiveSprint(): void;
+  /** Ouvre la fenêtre native de clôture du sprint actif `sprintId`. */
+  closeActiveSprint(sprintId: number): void;
+  /** Ferme le compte rendu de la dernière clôture. */
+  dismissCarryOverReport(): void;
   startSprint(): void;
   openIssue(key: string): void;
 }

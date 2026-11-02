@@ -689,6 +689,9 @@ export function injectBoard(
   };
 
   const isolateSprintDialog = (doc: Document, dialog: HTMLElement) => {
+    dialog.setAttribute("data-sprint-goals-sprint-dialog", "");
+    // Fenêtre remontée ou fenêtre de suite : le style posé pour la première suffit.
+    if (doc.querySelector("style[data-sprint-goals-sprint-dialog-style]")) return;
     const css = doc.createElement("style");
     css.setAttribute("data-sprint-goals-sprint-dialog-style", "");
     // La fenêtre garde son viewport et ses dimensions natifs ; le backlog derrière est masqué.
@@ -696,8 +699,13 @@ export function injectBoard(
     css.textContent =
       'html,body{background:transparent!important}body *{visibility:hidden!important}[data-sprint-goals-sprint-dialog],[data-sprint-goals-sprint-dialog] *{visibility:visible!important}[role="dialog"],[role="dialog"] *,[role="menu"],[role="menu"] *,[role="listbox"],[role="listbox"] *{visibility:visible!important}';
     doc.head.append(css);
-    dialog.setAttribute("data-sprint-goals-sprint-dialog", "");
   };
+
+  /** Fenêtres les plus extérieures : une fenêtre peut en imbriquer une autre (calendrier). */
+  const outermost = (dialogs: HTMLElement[]) =>
+    dialogs.filter(
+      (element) => !dialogs.some((other) => other !== element && other.contains(element)),
+    );
 
   /**
    * Clôture ou démarrage par la fenêtre native de Jira (S13) : la page backlog du board de cet
@@ -733,7 +741,13 @@ export function injectBoard(
           lastSize: string;
           stableTicks: number;
         }
-      | { kind: "dialog-visible"; dialog: HTMLElement; missingSince: number | null }
+      | {
+          kind: "dialog-visible";
+          /** Fenêtres d'avant le clic, puis celles déjà suivies : jamais reprises. */
+          dialogsBefore: Set<Element>;
+          dialog: HTMLElement;
+          missingSince: number | null;
+        }
       | {
           kind: "manual";
           dialogsBefore: Set<Element>;
@@ -802,9 +816,7 @@ export function injectBoard(
       doc: Document,
     ) => {
       // Une fenêtre peut en imbriquer une autre (calendrier) : seule compte la plus extérieure.
-      const fresh = freshDialogs(doc, current.dialogsBefore).filter(
-        (element, _, all) => !all.some((other) => other !== element && other.contains(element)),
-      );
+      const fresh = outermost(freshDialogs(doc, current.dialogsBefore));
       const candidate = fresh.length === 1 ? fresh[0] : null;
       const box = candidate?.getBoundingClientRect();
       const size = box ? `${Math.round(box.width)}x${Math.round(box.height)}` : "";
@@ -812,7 +824,12 @@ export function injectBoard(
       current.lastSize = size;
       if (candidate && current.stableTicks >= 3) {
         trace("fenêtre de sprint de Jira isolée", size);
-        step = { kind: "dialog-visible", dialog: candidate, missingSince: null };
+        step = {
+          kind: "dialog-visible",
+          dialogsBefore: current.dialogsBefore,
+          dialog: candidate,
+          missingSince: null,
+        };
         reveal();
         isolateSprintDialog(doc, candidate);
       } else if (Date.now() > current.deadline) {
@@ -820,14 +837,36 @@ export function injectBoard(
       }
     };
 
-    /** Fenêtre disparue plus de 600 ms : fermée par Jira, la vue relit le board. */
-    const monitorClosure = (current: {
-      dialog: HTMLElement | null;
-      missingSince: number | null;
-    }) => {
+    /**
+     * Fenêtre suivie disparue : Jira peut la remonter, ou ouvrir après la clôture sa fenêtre de
+     * suite (rétrospective, page Confluence). Une seule nouvelle fenêtre extérieure est alors
+     * suivie, et montrée seule si la page était isolée ; rien n'y est cliqué ni rempli. Aucune
+     * plus de 600 ms : fermée par Jira, la popin se ferme et la vue relit le board.
+     */
+    const monitorClosure = (
+      current: {
+        dialogsBefore: Set<Element>;
+        dialog: HTMLElement | null;
+        missingSince: number | null;
+      },
+      doc: Document,
+      isolate: boolean,
+    ) => {
       if (!current.dialog) return;
       if (current.dialog.isConnected && visible(current.dialog)) {
         current.missingSince = null;
+        return;
+      }
+      const previous = current.dialog;
+      const next = outermost(
+        freshDialogs(doc, current.dialogsBefore).filter((element) => element !== previous),
+      );
+      if (next.length === 1 && next[0]) {
+        trace("nouvelle fenêtre de Jira suivie", label(next[0]).slice(0, 80));
+        current.dialogsBefore.add(previous);
+        current.dialog = next[0];
+        current.missingSince = null;
+        if (isolate) isolateSprintDialog(doc, next[0]);
       } else if (current.missingSince === null) {
         current.missingSince = Date.now();
       } else if (Date.now() - current.missingSince > 600) {
@@ -853,7 +892,8 @@ export function injectBoard(
         const fresh = freshDialogs(doc, current.dialogsBefore);
         if (fresh.length === 1) current.dialog = fresh[0] ?? null;
       }
-      monitorClosure(current);
+      // Page rendue telle quelle : la fenêtre suivante est suivie sans rien masquer.
+      monitorClosure(current, doc, false);
     };
 
     const tick = () => {
@@ -868,7 +908,7 @@ export function injectBoard(
         reachable = true;
         if (step.kind === "searching") search(step, doc);
         if (step.kind === "waiting-dialog") recognizeDialog(step, doc);
-        else if (step.kind === "dialog-visible") monitorClosure(step);
+        else if (step.kind === "dialog-visible") monitorClosure(step, doc, true);
         else if (step.kind === "manual") watchManual(step, doc);
       } catch {
         // Jira peut momentanément reconstruire sa page pendant son chargement.

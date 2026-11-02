@@ -32,6 +32,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
   summary: Le journal ne distingue pas les gestes du planning (action « sprint planning », destination d'un retrait absente).
   evidence: PlanningModel.#journal écrit toujours le même action/from/to ; audit.v1 ne permet pas de savoir s'il s'agit d'un renommage, d'un retrait ou de la vélocité.
+  status: partiellement couvert par la story 8.18 (0.42.1) : le report après clôture a son entrée, du sprint clos (`from`) vers le sprint préparé (`to`) ; les autres gestes restent indistincts.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
   summary: L'état terminé ou sous-tâche d'un ticket est jugé sur l'affichage, pas relu avant E9.
   evidence: placePlanningIssue relit sprints et sprint actif mais teste input.issue ; un ticket terminé entre l'affichage et le geste peut être ajouté (sévérité medium non vérifiée sur Jira réel).
@@ -41,15 +42,31 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
   summary: Seul le premier sprint actif peut être clôturé depuis le planning (sprints parallèles).
   evidence: PlanningModel.activeSprint = activeSprints[0] ; la colonne de gauche les liste tous.
+  status: couvert par la story 8.18 (0.42.1) : « Clôturer un sprint » propose chaque sprint actif ; fenêtre et report du sprint choisi.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
   summary: La recherche de Goals charge une fois tous les Goals du site et filtre localement, sans recherche serveur ni rafraîchissement.
   evidence: PlanningModel #siteGoals ??= searchGoals({loadAll:true}) ; un Goal créé pendant la séance n'apparaît pas.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
   summary: Report Goals Atlassian sur une lecture partielle des Goals (avertissements) : objectifs manquants non reportés sans le dire.
   evidence: carryOverGoals ignore loaded.warnings ; à décider (refuser ou avertir).
+  status: couvert par la story 8.18 (0.42.1) : le compte rendu du report signale la lecture incomplète (avertir, sans refuser).
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
   summary: Relecture de l'état du sprint juste après la fenêtre native sans délai : un Jira lent à refléter la clôture ferait annoncer « toujours actif » (non vérifié).
   evidence: maybe-false, medium ; à constater lors de l'essai réel 8.10.
+  status: couvert par la story 8.18 (0.42.1) : relectures à 0, 1, 3, 6 et 10 s ; le délai réel reste à constater en 8.10.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
   summary: La fermeture de la fenêtre native est détectée sur sa disparition ; un remontage du dialogue par Jira pourrait fermer la popin trop tôt (non vérifié).
   evidence: maybe-false, medium ; monitorClosure dans injectBoard.ts, à constater en 8.10.
+  status: couvert par la story 8.18 (0.42.1) : une seule nouvelle fenêtre extérieure (remontée ou fenêtre de suite) est suivie ; à constater en 8.10.
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-18-cloturer-le-bon-sprint.md`
+  summary: Une clôture que Jira enregistre après la dernière relecture (10 s) laisse le compte rendu « toujours actif » et aucun report n'est possible depuis le planning.
+  evidence: medium ; PlanningModel.#verifyClosure s'arrête à CLOSURE_CHECKS_MS, la relecture finale retire le sprint des actifs et le bouton de clôture disparaît. Délai réel à mesurer en 8.10 ; une relance manuelle explicite reste à décider.
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-18-cloturer-le-bon-sprint.md`
+  summary: Pour terminer, un seul bouton visible non nommé est cliqué même si sa ligne porte un autre sprint ; avec plusieurs sprints actifs, la fenêtre d'un autre sprint pourrait s'ouvrir.
+  evidence: maybe-false, medium non vérifié ; sprintButtonChoice (injectBoard.ts) accepte `candidates.length === 1` pour `complete`. À constater en 8.10 : la ligne du backlog Jira porte-t-elle le nom du sprint autour de « Terminer le sprint » ?
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-18-cloturer-le-bon-sprint.md`
+  summary: La popin se ferme si la fenêtre de suite de Jira (rétrospective, Confluence) apparaît plus de 600 ms après la clôture ou si plusieurs fenêtres naissent ensemble ; à l'inverse une fenêtre Jira persistante née après le clic serait suivie sans fin.
+  evidence: maybe-false, medium non vérifié ; monitorClosure adopte une seule nouvelle fenêtre extérieure, délai de 600 ms. À constater en 8.10 sur la vraie fenêtre de suite.
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-18-cloturer-le-bon-sprint.md`
+  summary: « Démarrer » reste désactivé tant qu'un sprint est actif, même sur un board à sprints parallèles où Jira le permet, et son message est au singulier.
+  evidence: medium ; startDisabledReason teste `activeSprints.length > 0` (règle antérieure à 8.18). Décision produit à prendre sur le démarrage avec sprints parallèles.

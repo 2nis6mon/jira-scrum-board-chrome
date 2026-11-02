@@ -13,6 +13,7 @@ import {
 } from "../../core/sprintGoals";
 import {
   type CarryOverMode,
+  type CarryOverResult,
   carryOverGoals,
   loadSprintPlanning,
   type PlanningDestination,
@@ -49,6 +50,7 @@ import {
 import { toMessage, type UserMessage } from "./messages";
 import type {
   PendingClosure,
+  PlanningCarryOverReport,
   PlanningGoalSearch,
   PlanningIssue,
   PlanningLane,
@@ -73,6 +75,8 @@ export interface PlanningContext {
   readonly write: BoardWriteGateway["run"];
   /** Journal du board. */
   readonly record: RecordWrite;
+  /** Attente entre deux relectures de l'état d'un sprint après une fenêtre native. */
+  wait(ms: number): Promise<void>;
 }
 
 /** Anciens brouillons du Sprint Planning d'un site (décision du 14/10) : une clé par site. */
@@ -95,6 +99,13 @@ export function forgetPlanningDrafts(store: LocalStore, origin: string): Promise
 const GOAL_SEARCH_LIMIT = 20;
 
 /**
+ * Relectures de l'état du sprint après la fenêtre native de clôture, en millisecondes depuis sa
+ * fermeture : Jira peut clore le sprint quelques secondes après. Toujours actif à la dernière,
+ * la fenêtre est tenue pour annulée.
+ */
+export const CLOSURE_CHECKS_MS = [0, 1000, 3000, 6000, 10000] as const;
+
+/**
  * Sprint Planning en direct (décision du 01/11/2026) : aucun brouillon, Jira est la seule source.
  * Chaque geste passe par la porte du board, une intention de `core`, le journal, puis une relecture
  * du sprint en préparation.
@@ -111,6 +122,7 @@ export class PlanningModel implements PlanningViewModel {
   readonly goalsWarning = signal<AppMessage | null>(null);
   readonly search = signal("");
   readonly pendingClosure = signal<PendingClosure | null>(null);
+  readonly carryOverReport = signal<PlanningCarryOverReport | null>(null);
   readonly goalSearch = signal<PlanningGoalSearch | null>(null);
   /** Goals Atlassian du sprint en préparation (épinglés et rattachés à ses tickets). */
   readonly atlassianGoals = signal<AtlassianSprintGoals | null>(null);
@@ -122,6 +134,8 @@ export class PlanningModel implements PlanningViewModel {
   #draftsErased = false;
   #siteGoals: Promise<AtlassianGoal[]> | null = null;
   #goalSearchRun = 0;
+  /** Clôture en cours de vérification : un second `refresh` de l'hôte est ignoré. */
+  #closureCheck: PendingClosure | null = null;
 
   constructor(
     readonly client: JiraClient,
@@ -133,8 +147,10 @@ export class PlanningModel implements PlanningViewModel {
     this.context.configuration()?.goalSource === "atlassianGoals" ? "atlassian" : "text",
   );
 
-  readonly activeSprint = computed(
-    () => (SPRINT_PLANNING_ENABLED && this.snapshot.value?.activeSprints[0]?.sprint) || null,
+  readonly activeSprints = computed((): readonly JiraSprint[] =>
+    SPRINT_PLANNING_ENABLED
+      ? (this.snapshot.value?.activeSprints ?? []).map(({ sprint }) => sprint)
+      : [],
   );
 
   readonly gesturesDisabled = computed(() => {
@@ -155,7 +171,7 @@ export class PlanningModel implements PlanningViewModel {
     const snapshot = this.snapshot.value;
     if (!snapshot) return message("Choisissez un sprint futur à préparer.");
     if (snapshot.sprint.state !== "future") return message("Ce sprint n'est plus un sprint futur.");
-    if (this.activeSprint.value)
+    if (this.activeSprints.value.length > 0)
       return message("Un sprint est actif : clôturez-le avant de démarrer celui-ci.");
     return null;
   });
@@ -441,14 +457,26 @@ export class PlanningModel implements PlanningViewModel {
 
   async #journal(issueKey: string | null, to: string, outcome: PlanningOutcome): Promise<void> {
     if (outcome.kind === "unchanged") return;
+    await this.#record(
+      { issueKey, from: null, to, detailMessage: planningOutcomeMessage(outcome) },
+      outcome,
+    );
+  }
+
+  /**
+   * Entrée « sprint planning » du journal : écrit ou rien à écrire, « réussi » ; résultat inconnu
+   * après un envoi, « incertain » ; refus ou échec, « échec ».
+   */
+  async #record(
+    entry: { issueKey: string | null; from: string | null; to: string; detailMessage: AppMessage },
+    outcome: PlanningOutcome,
+  ): Promise<void> {
     await this.context
       .record({
         action: "sprint planning",
-        issueKey,
-        from: null,
-        to,
+        ...entry,
         outcome:
-          outcome.kind === "done"
+          outcome.kind === "done" || outcome.kind === "unchanged"
             ? "réussi"
             : outcome.kind === "partial" &&
                 outcome.error instanceof JiraError &&
@@ -456,7 +484,6 @@ export class PlanningModel implements PlanningViewModel {
               ? "incertain"
               : "échec",
         detail: null,
-        detailMessage: planningOutcomeMessage(outcome),
       })
       .catch(() => {});
   }
@@ -713,14 +740,22 @@ export class PlanningModel implements PlanningViewModel {
 
   // ─── Fenêtres natives : clôture et démarrage ─────────────────────────────────
 
-  /** Ouvre la fenêtre native « Terminer le sprint » ; le report attend sa fermeture. */
-  closeActiveSprint(): void {
-    if (!SPRINT_PLANNING_ENABLED || this.gesturesDisabled.value) return;
+  /**
+   * Ouvre la fenêtre native « Terminer le sprint » du sprint actif choisi ; le report attend sa
+   * fermeture.
+   */
+  closeActiveSprint(sprintId: number): void {
+    if (!SPRINT_PLANNING_ENABLED || this.gesturesDisabled.value || this.#closureCheck) return;
     const snapshot = this.snapshot.value;
-    const active = this.activeSprint.value;
+    const active = this.activeSprints.value.find((sprint) => sprint.id === sprintId);
     if (!snapshot || !active) return;
     this.notice.value = null;
-    this.pendingClosure.value = { closedSprintId: active.id, targetSprintId: snapshot.sprint.id };
+    this.pendingClosure.value = {
+      closedSprintId: active.id,
+      closedSprintName: active.name,
+      targetSprintId: snapshot.sprint.id,
+      targetSprintName: snapshot.sprint.name,
+    };
     if (!this.context.openSprintDialog("complete", active)) {
       batch(() => {
         this.pendingClosure.value = null;
@@ -728,7 +763,10 @@ export class PlanningModel implements PlanningViewModel {
           "La fenêtre de Jira ne s'ouvre que depuis le board Jira qui héberge Sprint Goals Board.",
         );
       });
+      return;
     }
+    // Nouvelle clôture demandée : le compte rendu de la précédente ne la décrit pas.
+    this.carryOverReport.value = null;
   }
 
   /** Ouvre la fenêtre native « Démarrer le sprint », que l'utilisateur seul remplit. */
@@ -745,30 +783,86 @@ export class PlanningModel implements PlanningViewModel {
 
   /**
    * Après la fermeture d'une fenêtre native (message `refresh` de la page hôte) : une clôture
-   * demandée reporte les objectifs non atteints seulement si le sprint relu est clos ; encore
-   * actif, la fenêtre a été annulée et rien n'est écrit. Puis tout est relu.
+   * demandée relit l'état du sprint à 0, 1, 3, 6 et 10 s, puis reporte les objectifs non atteints
+   * s'il est clos ; encore actif, la fenêtre a été annulée et rien n'est écrit. Le compte rendu
+   * reste affiché jusqu'à sa fermeture et le journal garde une entrée. Puis tout est relu.
    */
   async afterNativeDialog(): Promise<void> {
     if (!SPRINT_PLANNING_ENABLED || this.#disposed) return;
+    // Vérification déjà en cours : un second `refresh` ne lance pas un second report.
+    if (this.#closureCheck) return;
     const pending = this.pendingClosure.value;
     const configuration = this.context.configuration();
-    this.pendingClosure.value = null;
     if (pending && configuration?.boardId === this.#boardId && configuration) {
-      await this.#busyWhile(async (generation) => {
-        try {
-          const closed = await this.client.sprint(pending.closedSprintId);
-          if (this.#stale(generation)) return;
-          if (closed.state !== "closed") {
-            this.notice.value = message("Le sprint est toujours actif : rien n'a été reporté.");
-            return;
-          }
-          await this.#carryOver(pending, configuration, generation);
-        } catch (error) {
-          if (!this.#stale(generation)) this.error.value = toMessage(error);
+      this.#closureCheck = pending;
+      try {
+        await this.#busyWhile((generation) =>
+          this.#verifyClosure(pending, configuration, generation),
+        );
+      } finally {
+        if (this.#closureCheck === pending) {
+          this.#closureCheck = null;
+          if (this.pendingClosure.value === pending) this.pendingClosure.value = null;
         }
-      });
+      }
+    } else if (pending) {
+      this.pendingClosure.value = null;
     }
+    if (this.#disposed) return;
     if (this.snapshot.value || this.selectedSprintId.value !== null) await this.refresh();
+  }
+
+  /** Relectures bornées de l'état du sprint, puis report ou constat « toujours actif ». */
+  async #verifyClosure(
+    pending: PendingClosure,
+    configuration: BoardConfiguration,
+    generation: number,
+  ): Promise<void> {
+    let elapsed = 0;
+    let closed = false;
+    let failure: unknown = null;
+    for (const at of CLOSURE_CHECKS_MS) {
+      if (at > elapsed) {
+        await this.context.wait(at - elapsed);
+        elapsed = at;
+      }
+      if (this.#stale(generation)) return;
+      try {
+        const sprint = await this.client.sprint(pending.closedSprintId);
+        failure = null;
+        if (sprint.state === "closed") {
+          closed = true;
+          break;
+        }
+      } catch (error) {
+        // Lecture seule : la suivante peut répondre ; seule la dernière erreur est rendue.
+        failure = error;
+      }
+    }
+    if (this.#stale(generation)) return;
+    if (closed) {
+      await this.#carryOver(pending, configuration, generation);
+      return;
+    }
+    const outcome: PlanningOutcome = {
+      kind: "refused",
+      reason:
+        failure === null ? { reason: "sprintNotClosed" } : { reason: "failed", error: failure },
+    };
+    const summary = planningCarryOverMessage(
+      failure === null ? { kind: "stillActive" } : outcome,
+      pending.targetSprintName,
+    );
+    await this.#journalCarryOver(pending, outcome, summary);
+    if (this.#stale(generation)) return;
+    this.carryOverReport.value = {
+      closedSprintName: pending.closedSprintName,
+      targetSprintName: pending.targetSprintName,
+      summary,
+      written: false,
+      goals: [],
+      incomplete: false,
+    };
   }
 
   async #carryOver(
@@ -783,9 +877,9 @@ export class PlanningModel implements PlanningViewModel {
       configuration.goalSource === "atlassianGoals"
         ? { kind: "atlassian", goals: this.context.goals, configuration }
         : { kind: "text" };
-    let outcome: PlanningOutcome;
+    let result: CarryOverResult;
     try {
-      outcome = await this.context.write(({ writer }) =>
+      result = await this.context.write(({ writer }) =>
         carryOverGoals(this.client, writer, {
           boardId: configuration.boardId,
           closedSprintId: pending.closedSprintId,
@@ -798,13 +892,46 @@ export class PlanningModel implements PlanningViewModel {
         }),
       );
     } catch (error) {
-      outcome = { kind: "refused", reason: { reason: "failed", error } };
+      result = { outcome: { kind: "refused", reason: { reason: "failed", error } }, report: null };
     }
-    const target =
-      this.sprints.value.find((sprint) => sprint.id === pending.targetSprintId)?.name ??
-      String(pending.targetSprintId);
-    await this.#journal(null, target, outcome);
-    if (!this.#stale(generation)) this.notice.value = planningCarryOverMessage(outcome, target);
+    const { outcome, report } = result;
+    const summary = planningCarryOverMessage(outcome, pending.targetSprintName);
+    await this.#journalCarryOver(pending, outcome, summary);
+    if (this.#stale(generation)) return;
+    this.carryOverReport.value = {
+      closedSprintName: pending.closedSprintName,
+      targetSprintName: pending.targetSprintName,
+      summary,
+      written: outcome.kind === "done",
+      goals: report?.goals ?? [],
+      incomplete: report?.incomplete ?? false,
+    };
+  }
+
+  /**
+   * Une entrée par report, du sprint clos vers le sprint préparé : écrit ou rien à reporter,
+   * « réussi » ; sprint encore actif ou refus, « échec » ; résultat inconnu, « incertain ».
+   */
+  async #journalCarryOver(
+    pending: PendingClosure,
+    outcome: PlanningOutcome,
+    summary: AppMessage,
+  ): Promise<void> {
+    await this.#record(
+      {
+        issueKey: null,
+        from: pending.closedSprintName,
+        to: pending.targetSprintName,
+        detailMessage: summary,
+      },
+      outcome,
+    );
+  }
+
+  /** Ferme le compte rendu de la dernière clôture. */
+  dismissCarryOverReport(): void {
+    if (!SPRINT_PLANNING_ENABLED) return;
+    this.carryOverReport.value = null;
   }
 
   openIssue(key: string): void {
@@ -820,6 +947,7 @@ export class PlanningModel implements PlanningViewModel {
     this.#generation += 1;
     this.#boardId = null;
     this.#siteGoals = null;
+    this.#closureCheck = null;
     batch(() => {
       this.snapshot.value = null;
       this.atlassianGoals.value = null;
@@ -830,6 +958,7 @@ export class PlanningModel implements PlanningViewModel {
       this.notice.value = null;
       this.goalsWarning.value = null;
       this.pendingClosure.value = null;
+      this.carryOverReport.value = null;
       this.goalSearch.value = null;
       this.search.value = "";
       this.#origins.value = {};

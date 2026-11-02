@@ -53,6 +53,7 @@ function setup() {
       write: (task) => gate.run(task),
       record: (entry) =>
         audit.append({ ...entry, at: new Date().toISOString(), site: client.site.origin }),
+      wait: async () => {},
     });
   return { jira, platform, openIssue, openSprintDialog, create, planning: create() };
 }
@@ -129,7 +130,12 @@ describe("Sprint Planning désactivé à la compilation", () => {
       activeSprints: [{ sprint: active, issues: [] }],
     };
     planning.selectedSprintId.value = 43;
-    planning.pendingClosure.value = { closedSprintId: 42, targetSprintId: 43 };
+    planning.pendingClosure.value = {
+      closedSprintId: 42,
+      closedSprintName: "Sprint 42",
+      targetSprintId: 43,
+      targetSprintName: "Sprint 43",
+    };
     const set = vi.spyOn(platform.store, "set");
     await planning.addGoal("Un autre objectif");
     await planning.renameGoal("g1", "Titre modifié");
@@ -140,7 +146,8 @@ describe("Sprint Planning désactivé à la compilation", () => {
     await planning.saveVelocity(21);
     await planning.pinGoal("ari-1");
     await planning.unpinGoal("ari-1");
-    planning.closeActiveSprint();
+    planning.closeActiveSprint(42);
+    planning.dismissCarryOverReport();
     planning.startSprint();
     await planning.afterNativeDialog();
     planning.openIssue("ABC-201");
@@ -148,7 +155,8 @@ describe("Sprint Planning désactivé à la compilation", () => {
     expect(planning.unassigned.value).toEqual([]);
     expect(planning.sections.value).toEqual([]);
     expect(planning.sprintLoad.value).toBeNull();
-    expect(planning.activeSprint.value).toBeNull();
+    expect(planning.activeSprints.value).toEqual([]);
+    expect(planning.carryOverReport.value).toBeNull();
     expect(planning.gesturesDisabled.value).toBe(true);
     expect(planning.busy.value).toBe(false);
     expect(jira.requests).toEqual([]);

@@ -659,8 +659,7 @@ export const businessMessagesEs = {
     "{p0} No se ha repetido ninguna escritura; la página se ha vuelto a cargar desde Jira.",
   "Écriture non confirmée. {p0}": "Escritura no confirmada. {p0}",
   "Objectifs non atteints reportés dans {p0}.": "Objetivos no alcanzados trasladados a {p0}.",
-  "Sprint clos : aucun objectif non atteint à reporter.":
-    "Sprint cerrado: no hay objetivos no alcanzados que trasladar.",
+  "Sprint clos : rien de nouveau à reporter.": "Sprint cerrado: nada nuevo que trasladar.",
   "Report des objectifs non atteints : {p0}": "Traslado de objetivos no alcanzados: {p0}",
   "Un sprint est actif : clôturez-le avant de démarrer celui-ci.":
     "Hay un sprint activo: complétalo antes de iniciar este.",
@@ -668,4 +667,10 @@ export const businessMessagesEs = {
     "La ventana de Jira solo se abre desde el tablero de Jira que aloja Sprint Goals Board.",
   "Le sprint est toujours actif : rien n'a été reporté.":
     "El sprint sigue activo: no se ha trasladado nada.",
+  "Reporté dans {p0}.": "Trasladado a {p0}.",
+  "Non atteint, report non confirmé.": "No alcanzado; traslado no confirmado.",
+  "Non reporté : aucun ticket rattaché.": "No trasladado: ninguna incidencia vinculada.",
+  "Non reporté : tous ses tickets sont dans la dernière colonne.":
+    "No trasladado: todas sus incidencias están en la última columna.",
+  "Non reporté : déjà présent dans {p0}.": "No trasladado: ya está en {p0}.",
 } as const satisfies Record<keyof typeof businessMessages, string>;

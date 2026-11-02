@@ -263,6 +263,94 @@
   padding: 4px 20px 32px;
 }
 
+/* Compte rendu de la dernière clôture, au-dessus des swimlanes, jusqu'à sa fermeture. */
+.planning-carry-over {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #d8e0ec;
+  border-radius: 8px;
+  background: #eef2f8;
+  color: var(--ink-2);
+}
+
+.planning-carry-over-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.planning-carry-over-head h3 {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.planning-carry-over-summary {
+  margin: 4px 0 0;
+}
+
+.planning-carry-over-goals {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planning-carry-over-goals li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+.planning-carry-over-title {
+  font-weight: 600;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.planning-carry-over-carried .planning-carry-over-reason {
+  color: var(--done);
+}
+
+.planning-carry-over-keys {
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.planning-carry-over .planning-carry-over-incomplete {
+  margin: 8px 0 0;
+}
+
+/* Plusieurs sprints actifs : le bouton de clôture ouvre la liste de leurs noms. */
+details.planning-close-menu {
+  margin-left: 0;
+}
+
+details.planning-close-menu > summary.planning-close-sprint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  height: 28px;
+  padding: 0 12px;
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  white-space: nowrap;
+  --icon-color: currentColor;
+}
+
+details.planning-close-menu > summary[aria-disabled="true"] {
+  color: var(--ink-4);
+  cursor: default;
+}
+
 /* Les swimlanes du board sont collantes sous la bande des colonnes : ici, pas de colonnes. */
 .planning-screen .lane {
   min-width: 0;

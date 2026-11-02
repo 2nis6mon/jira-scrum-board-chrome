@@ -139,7 +139,7 @@ describe("avis du Sprint Planning", () => {
       sourceText(planningCarryOverMessage({ kind: "done", confirmed: ["goalText"] }, "Sprint 43")),
     ).toBe("Objectifs non atteints reportés dans Sprint 43.");
     expect(sourceText(planningCarryOverMessage({ kind: "unchanged" }, "Sprint 43"))).toBe(
-      "Sprint clos : aucun objectif non atteint à reporter.",
+      "Sprint clos : rien de nouveau à reporter.",
     );
   });
 });

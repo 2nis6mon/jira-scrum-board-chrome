@@ -8,7 +8,7 @@ import {
   type GoalsWarning,
   type PlanningRefusal,
 } from "../../core/reasons";
-import type { PlanningOutcome, PlanningStep } from "../../core/sprintPlanning";
+import type { CarryOverGoalStatus, PlanningOutcome, PlanningStep } from "../../core/sprintPlanning";
 import type { TeamFamily } from "../../core/teamSettings";
 import type { MessageKey } from "../../i18n";
 import { JiraError } from "../../jira/errors";
@@ -298,18 +298,49 @@ export function planningOutcomeMessage(outcome: PlanningOutcome): AppMessage {
   }
 }
 
-/** Report des objectifs non atteints après la clôture native, vers le sprint `target`. */
-export function planningCarryOverMessage(outcome: PlanningOutcome, target: string): AppMessage {
+/**
+ * Résumé du report des objectifs non atteints après la clôture native, vers le sprint `target`.
+ * `stillActive` : la fenêtre a été annulée, ou Jira n'a pas clos le sprint à temps.
+ */
+export function planningCarryOverMessage(
+  outcome: PlanningOutcome | { readonly kind: "stillActive" },
+  target: string,
+): AppMessage {
   switch (outcome.kind) {
+    case "stillActive":
+      return message("Le sprint est toujours actif : rien n'a été reporté.");
     case "done":
       return message("Objectifs non atteints reportés dans {p0}.", { p0: target });
     case "unchanged":
-      return message("Sprint clos : aucun objectif non atteint à reporter.");
+      return message("Sprint clos : rien de nouveau à reporter.");
     case "refused":
     case "partial":
       return message("Report des objectifs non atteints : {p0}", {
         p0: planningOutcomeMessage(outcome),
       });
+  }
+}
+
+/**
+ * Sort d'un objectif du sprint clos dans le compte rendu. Un objectif non atteint (`carried`)
+ * n'est dit reporté que si Jira a confirmé l'écriture (`written`).
+ */
+export function planningCarryOverGoalMessage(
+  status: CarryOverGoalStatus,
+  written: boolean,
+  target: string,
+): AppMessage {
+  switch (status) {
+    case "carried":
+      return written
+        ? message("Reporté dans {p0}.", { p0: target })
+        : message("Non atteint, report non confirmé.");
+    case "noIssue":
+      return message("Non reporté : aucun ticket rattaché.");
+    case "allDone":
+      return message("Non reporté : tous ses tickets sont dans la dernière colonne.");
+    case "alreadyThere":
+      return message("Non reporté : déjà présent dans {p0}.", { p0: target });
   }
 }
 

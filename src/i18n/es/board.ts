@@ -285,6 +285,12 @@ export const boardMessagesEs = {
     "Abre la ventana de Jira; solo usted la rellena y la confirma.",
   "Clôturer {name}": "Cerrar {name}",
   "Démarrer {name}": "Iniciar {name}",
+  "Clôturer un sprint": "Cerrar un sprint",
+  "Sprints actifs du board": "Sprints activos del tablero",
+  "Clôture de {name}": "Cierre de {name}",
+  "Fermer le compte rendu": "Cerrar el informe",
+  "Lecture des Goals incomplète : un objectif non atteint peut manquer à ce compte rendu.":
+    "Lectura de Goals incompleta: puede faltar un objetivo no alcanzado en este informe.",
   "Partagée avec l'équipe dans les données du sprint, écrite quand vous validez.":
     "Compartida con el equipo en los datos del sprint, se escribe al confirmar.",
   "Vélocité de l'équipe": "Velocidad del equipo",

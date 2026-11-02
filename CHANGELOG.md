@@ -3,6 +3,23 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.42.1 — Sprint Planning : clôturer le bon sprint et dire ce qui a été reporté (builds locaux)
+
+- Essai du 02/11/2026 : avec deux sprints actifs, la clôture visait le premier et rien n'était dit.
+  Plusieurs sprints actifs : **Clôturer un sprint** ouvre la liste de leurs noms ; la fenêtre native
+  est celle du sprint choisi et le report lit ses objectifs. Un seul : **Clôturer {nom}**, inchangé.
+- Après la fenêtre native, l'état du sprint est relu à 0, 1, 3, 6 et 10 s (« Clôture en cours dans
+  Jira… ») : une clôture que Jira enregistre avec retard est reportée ; une fenêtre annulée est
+  annoncée après environ 10 s. Pendant cette vérification, les gestes, le retour au board, le
+  changement de board et la déconnexion attendent ; un second `refresh` est ignoré.
+- Compte rendu de chaque clôture au-dessus des swimlanes, jusqu'à sa fermeture : résumé, puis chaque
+  objectif du sprint clos, reporté ou non avec sa raison (aucun ticket, tickets tous dans la dernière
+  colonne, déjà dans le sprint préparé) et ses tickets ; lecture partielle des Goals signalée. Une
+  entrée de journal par report, du sprint clos vers le sprint préparé.
+- Page hôte : une fenêtre de Jira remontée, ou la fenêtre de suite ouverte après la validation de la
+  clôture (rétrospective, page Confluence), est suivie et montrée au lieu de refermer la popin ;
+  l'utilisateur seul la remplit ou la ferme, et le report part ensuite.
+
 ## 0.42.0 — Sprint Planning en direct dans Jira (builds locaux)
 
 - Sprint Planning suit la décision du 01/11/2026 : chaque geste écrit aussitôt dans Jira, seule

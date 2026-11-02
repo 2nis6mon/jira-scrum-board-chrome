@@ -280,6 +280,12 @@ export const boardMessages = {
     "Opens the Jira dialog; only you fill it in and confirm it.",
   "Clôturer {name}": "Complete {name}",
   "Démarrer {name}": "Start {name}",
+  "Clôturer un sprint": "Complete a sprint",
+  "Sprints actifs du board": "Active sprints on the board",
+  "Clôture de {name}": "Completion of {name}",
+  "Fermer le compte rendu": "Close the report",
+  "Lecture des Goals incomplète : un objectif non atteint peut manquer à ce compte rendu.":
+    "Goals were only partly read: an unmet goal may be missing from this report.",
   "Partagée avec l'équipe dans les données du sprint, écrite quand vous validez.":
     "Shared with the team in the sprint data, written when you confirm.",
   "Vélocité de l'équipe": "Team velocity",
