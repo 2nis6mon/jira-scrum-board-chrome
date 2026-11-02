@@ -36,3 +36,10 @@ natives compris ([décisions](../forge/sprint-planning-complet/forged-idea.md)).
 et la création de Goals restent hors périmètre. Livré en 0.42.0 (stories 8.1 à 8.9), toujours désactivé
 dans le paquet ; contrats dans [intégration Jira](../../docs/technique/integration-jira.md).
 Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l'activation (8.11).
+
+- [ ] Bug (essai du 02/11/2026) : le menu des sprints à préparer propose aussi des sprints d'autres
+  boards, remontés par le filtre du board ; y ajouter un objectif texte échoue (« Only a Jira
+  administrator can update this sprint »). N'y garder que les sprints du board : écarter ceux que
+  `isForeignSprint` (`src/core/boardIssue.ts`) reconnaît, sans `originBoardId` le sprint restant
+  celui du board. Même règle pour les autres sprints futurs de la colonne de gauche, les cibles
+  « Vers {sprint} », et les sprints actifs proposés à la clôture.
