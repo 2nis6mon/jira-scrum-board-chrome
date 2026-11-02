@@ -413,7 +413,7 @@ export function planningFixture(
       .on("GET", `/rest/agile/1.0/sprint/46/properties/${SPRINT_PROPERTY_KEYS.goals}`, {
         status: 404,
       })
-      .on("GET", "/rest/agile/1.0/board/7/sprint/46/issue", () => {
+      .on("GET", "/rest/agile/1.0/board/7/sprint/46/issue", (request) => {
         const finished = options.foreignFutureSprint === "done";
         const issues =
           options.foreignFutureSprint === "empty"
@@ -425,7 +425,7 @@ export function planningFixture(
                   statusName: finished ? "Terminé" : "À faire",
                   category: finished ? "done" : "new",
                 }),
-              ];
+              ].map((issue) => withRequestedFields(issue, request.url.searchParams.get("fields")));
         return { status: 200, json: { issues, total: issues.length } };
       });
   }
@@ -487,5 +487,22 @@ export function planningFixture(
         body,
       })),
     }),
+  };
+}
+
+/**
+ * Comme Jira, ne garde que les champs demandés par `fields` (liste séparée par des virgules) : une
+ * lecture réduite qui oublie un champ nécessaire au décodage échoue ici aussi (0.48.3).
+ */
+function withRequestedFields(
+  issue: Record<string, unknown>,
+  fields: string | null,
+): Record<string, unknown> {
+  if (fields === null || fields === "*all") return issue;
+  const requested = new Set(fields.split(","));
+  const all = (issue.fields ?? {}) as Record<string, unknown>;
+  return {
+    ...issue,
+    fields: Object.fromEntries(Object.entries(all).filter(([name]) => requested.has(name))),
   };
 }

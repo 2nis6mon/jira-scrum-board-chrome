@@ -30,6 +30,7 @@ context:
 - Constat préalable (lectures seules du sandbox, 02/11/2026) : board 3013, sprints futurs étrangers 3334 (origine 1569 : 2 tickets du board, `Closed`), 3707 (origine 1650 : 1 ticket `TO DELIVER IN PROD`), 6269 (origine 2753) ; « Closed » et « TO DELIVER IN PROD » sont dans « Validé Squad », dernière colonne. Hypothèses « extension non rechargée » et « sprint du board » écartées.
 - Régressions : les trois nouveaux cas échouent sans le correctif.
 - Ajout après coup (question de Denis) : `tests/app/PlanningSprintSelect.test.tsx` affiche la vraie vue avec le vrai modèle et lit les options de « Sprint à préparer » ; le cas « tickets tous terminés » échoue avec le code 0.48.1 (sprint 46 affiché).
+- Suite 0.48.3 (constat de Denis sur le sandbox après 0.48.2, menu « Sprint à préparer ») : la lecture réduite du menu ne demandait que `status` ; `decodeIssueFields` exige `issuetype`, donc chaque ticket réel faisait échouer la lecture et le `catch` gardait le sprint. Le Jira fictif renvoyait des tickets complets quel que soit `fields`, d'où des tests verts. Correctif : `onlyFields: ["issuetype", "status"]` (comme `boardSync` et `jiraQuickFilters`) ; la route du sprint 46 du banc ne renvoie plus que les champs demandés (`withRequestedFields`).
 
 ## Review Triage Log
 

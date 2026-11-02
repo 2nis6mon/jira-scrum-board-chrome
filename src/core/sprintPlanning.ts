@@ -217,8 +217,10 @@ function remainingIssue(columns: readonly ColumnConfiguration[]): (issue: JiraIs
  * Sprints proposés à la préparation, sans ceux d'un autre board (`originBoardId`, `isForeignSprint`)
  * qui ne contiennent aucun ticket restant du board (bugs du 02/11/2026) : ses tickets terminés ou
  * sans colonne sont masqués du planning (8.22), il y paraîtrait vide. Lecture des tickets de chaque
- * sprint étranger par la route du board, champs réduits ; une lecture en échec garde le sprint.
- * Un sprint du board, même vide, reste proposé.
+ * sprint étranger par la route du board, champs réduits à ceux qu'exige le décodage d'un ticket
+ * (`issuetype`, `status` : sans `issuetype`, chaque ticket réel faisait échouer la lecture et
+ * garder le sprint, bug 0.48.3) ; une lecture en échec garde le sprint. Un sprint du board, même
+ * vide, reste proposé.
  */
 export async function withoutEmptyForeignSprints(
   reader: Pick<JiraClient, "sprintIssues">,
@@ -226,7 +228,11 @@ export async function withoutEmptyForeignSprints(
   columns: readonly ColumnConfiguration[],
   sprints: readonly JiraSprint[],
 ): Promise<JiraSprint[]> {
-  const query = { estimationFieldId: null, includeChangelog: false, onlyFields: ["status"] };
+  const query = {
+    estimationFieldId: null,
+    includeChangelog: false,
+    onlyFields: ["issuetype", "status"],
+  };
   const remaining = remainingIssue(columns);
   const kept = await Promise.all(
     sprints.map(async (sprint) => {

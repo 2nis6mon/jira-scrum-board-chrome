@@ -3,6 +3,14 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.48.3 — Sprint Planning : le menu des sprints écarte vraiment les sprints d'un autre board (builds locaux)
+
+- Constaté par Denis le 02/11/2026 sur le Jira sandbox : malgré 0.48.2, « APP : Backlog
+  tech/dette » restait dans le menu « Sprint à préparer ». La lecture de ses tickets ne demandait
+  que leur statut ; sans leur type, chaque ticket était jugé illisible, et un sprint illisible est
+  gardé par prudence. Le menu lit désormais type et statut, et applique la règle de 0.48.2. Le
+  Jira fictif des tests ne renvoie plus que les champs demandés pour ce sprint.
+
 ## 0.48.2 — Sprint Planning : plus de sprints d'un autre board aux tickets masqués (builds locaux)
 
 - Constaté par Denis le 02/11/2026 sur le Jira sandbox : un sprint d'un autre board dont tous les

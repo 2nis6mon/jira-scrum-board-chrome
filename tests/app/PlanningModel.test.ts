@@ -1278,7 +1278,7 @@ describe("Sprint Planning : seuls les sprints que l'utilisateur peut modifier", 
     const read = jira.requests.find(
       (request) => request.path === "/rest/agile/1.0/board/7/sprint/46/issue",
     );
-    expect(read?.url.searchParams.get("fields")).toBe("status");
+    expect(read?.url.searchParams.get("fields")).toBe("issuetype,status");
     expect(jira.requests.filter(isWriteRequest)).toHaveLength(0);
   });
 
