@@ -37,7 +37,7 @@ et la création de Goals restent hors périmètre. Livré en 0.42.0 (stories 8.1
 dans le paquet ; contrats dans [intégration Jira](../../docs/technique/integration-jira.md).
 Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l'activation (8.11).
 
-- [ ] Bug (essai du 02/11/2026) : le menu des sprints à préparer propose des sprints que
+- [x] Bug (essai du 02/11/2026) : le menu des sprints à préparer propose des sprints que
   l'utilisateur ne peut pas modifier (ici un sprint d'un autre board, remonté par le filtre) ; y
   ajouter un objectif texte échoue (« Only a Jira administrator can update this sprint »). Choix de
   Denis : ne proposer que les sprints que l'utilisateur a le droit de modifier, et non seulement ceux
@@ -48,7 +48,8 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   indécidable (filtre sans projet, lecture refusée) : garder le sprint, le refus de Jira restant
   affiché au premier geste. Même règle pour les autres sprints futurs de la colonne de gauche, les cibles
   « Vers {sprint} » et les sprints actifs proposés à la clôture. À rapprocher de la décision sur les
-  droits (8.10).
+  droits (8.10). Corrigé en 0.43.1 (contrats vérifiés dans l'OpenAPI, lectures seules), sur Jira
+  fictif ; à confirmer sur un vrai Jira en 8.10.
 - [x] Bug (essai du 02/11/2026) : après le démarrage du sprint préparé, ses nouveaux objectifs
   arrivent masqués (œil fermé) sur le Sprint Board. Cause : `BoardLoadingService.ts` masque, après
   la première lecture, tout objectif inconnu (absent de `goalColorIndex` et de la lecture

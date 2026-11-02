@@ -85,3 +85,47 @@ describe("lectures du planning Jira", () => {
     expect(await client(jira).backlogIssues(7, query)).toEqual([]);
   });
 });
+
+describe("droits de l'utilisateur sur les sprints (lectures seules)", () => {
+  it("lit les projets d'un board, page par page, en ne gardant que les clés valides", async () => {
+    const jira = new FakeJira().on(
+      "GET",
+      "/rest/agile/1.0/board/9/project",
+      {
+        status: 200,
+        json: { isLast: false, startAt: 0, values: [{ id: "1", key: "XYZ" }, { key: "bad key" }] },
+      },
+      { status: 200, json: { isLast: true, startAt: 2, values: [{ id: "2", key: "ABC" }] } },
+    );
+    expect(await client(jira).boardProjectKeys(9)).toEqual(["XYZ", "ABC"]);
+    expect(jira.requests.map((request) => request.url.searchParams.get("startAt"))).toEqual([
+      "0",
+      "2",
+    ]);
+  });
+
+  it("lit havePermission par clé, globalement ou pour un projet", async () => {
+    const jira = new FakeJira().on("GET", "/rest/api/3/mypermissions", {
+      status: 200,
+      json: {
+        permissions: {
+          MANAGE_SPRINTS_PERMISSION: { key: "MANAGE_SPRINTS_PERMISSION", havePermission: true },
+        },
+      },
+    });
+    expect(
+      await client(jira).myPermissions(["MANAGE_SPRINTS_PERMISSION", "ADMINISTER"], "ABC"),
+    ).toEqual({ MANAGE_SPRINTS_PERMISSION: true, ADMINISTER: false });
+    const url = jira.requests[0]?.url;
+    expect(url?.searchParams.get("permissions")).toBe("MANAGE_SPRINTS_PERMISSION,ADMINISTER");
+    expect(url?.searchParams.get("projectKey")).toBe("ABC");
+    expect(jira.requests.every((request) => request.method === "GET")).toBe(true);
+  });
+
+  it("refuse une clé de projet ou de droit hors format, sans requête", async () => {
+    const jira = new FakeJira();
+    await expect(client(jira).myPermissions(["ADMINISTER"], "abc&x=1")).rejects.toThrow();
+    await expect(client(jira).myPermissions(["manage"])).rejects.toThrow();
+    expect(jira.requests).toHaveLength(0);
+  });
+});

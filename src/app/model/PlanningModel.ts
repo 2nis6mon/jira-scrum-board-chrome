@@ -22,6 +22,11 @@ import {
   type SprintGoal,
 } from "../../core/sprintGoals";
 import {
+  proposableSprintIds,
+  type SprintPermissionCache,
+  sprintPermissionCache,
+} from "../../core/sprintPermissions";
+import {
   type CarryOverMode,
   type CarryOverResult,
   carryOverGoals,
@@ -145,6 +150,10 @@ export class PlanningModel implements PlanningViewModel {
   readonly atlassianGoals = signal<AtlassianSprintGoals | null>(null);
   /** Provenance des tickets arrivés pendant la séance, pour le sprint affiché. */
   readonly #origins = signal<Readonly<Record<string, PlanningOrigin>>>({});
+  /** Sprints futurs lus, mais aucun que l'utilisateur puisse modifier. */
+  readonly noEditableSprint = signal(false);
+  /** Droits lus pendant ce chargement ; vidés à l'actualisation et au changement de board. */
+  #permissions: SprintPermissionCache = sprintPermissionCache();
   #boardId: number | null = null;
   #generation = 0;
   #disposed = false;
@@ -170,6 +179,12 @@ export class PlanningModel implements PlanningViewModel {
       ? (this.snapshot.value?.activeSprints ?? []).map(({ sprint }) => sprint)
       : [],
   );
+
+  /** Sprints actifs proposés à la clôture : ceux que l'utilisateur peut modifier. */
+  readonly closableSprints = computed((): readonly JiraSprint[] => {
+    const ids = this.snapshot.value?.closableSprintIds ?? [];
+    return this.activeSprints.value.filter((sprint) => ids.includes(sprint.id));
+  });
 
   readonly gesturesDisabled = computed(() => {
     if (!SPRINT_PLANNING_ENABLED) return true;
@@ -329,12 +344,20 @@ export class PlanningModel implements PlanningViewModel {
     batch(() => {
       this.loading.value = true;
       this.error.value = null;
+      this.noEditableSprint.value = false;
     });
     try {
       const sprints = await this.client.sprints(configuration.boardId, ["future"]);
       if (this.#stale(generation)) return;
-      const futures = sprints.filter((sprint) => sprint.state === "future");
-      this.sprints.value = futures;
+      const read = sprints.filter((sprint) => sprint.state === "future");
+      // Seuls les sprints que l'utilisateur peut modifier sont proposés (Jira refuserait le geste).
+      const proposable = await proposableSprintIds(this.client, read, this.#permissions);
+      if (this.#stale(generation)) return;
+      const futures = read.filter((sprint) => proposable.has(sprint.id));
+      batch(() => {
+        this.sprints.value = futures;
+        this.noEditableSprint.value = read.length > 0 && futures.length === 0;
+      });
       const selected =
         futures.find((sprint) => sprint.id === this.selectedSprintId.value) ?? futures[0];
       if (!selected) {
@@ -397,6 +420,7 @@ export class PlanningModel implements PlanningViewModel {
   async refresh(): Promise<void> {
     if (!SPRINT_PLANNING_ENABLED) return;
     if (this.busy.value || this.loading.value || this.#disposed) return;
+    this.#permissions = sprintPermissionCache();
     await this.#loadSprintsAndSelection();
   }
 
@@ -409,6 +433,8 @@ export class PlanningModel implements PlanningViewModel {
       boardId: configuration.boardId,
       sprintId,
       query: planningQuery(configuration),
+      // Autres sprints futurs et sprints à clôturer : seulement ceux que l'utilisateur peut modifier.
+      proposable: (sprints) => proposableSprintIds(this.client, sprints, this.#permissions),
     });
     if (this.#stale(generation)) return;
     let goals: AtlassianSprintGoals | null = null;
@@ -896,7 +922,7 @@ export class PlanningModel implements PlanningViewModel {
   closeActiveSprint(sprintId: number): void {
     if (!SPRINT_PLANNING_ENABLED || this.gesturesDisabled.value || this.#closureCheck) return;
     const snapshot = this.snapshot.value;
-    const active = this.activeSprints.value.find((sprint) => sprint.id === sprintId);
+    const active = this.closableSprints.value.find((sprint) => sprint.id === sprintId);
     if (!snapshot || !active) return;
     this.notice.value = null;
     this.pendingClosure.value = {
@@ -1098,7 +1124,9 @@ export class PlanningModel implements PlanningViewModel {
     this.#siteGoals = null;
     this.#closureCheck = null;
     this.#quickFilterRun += 1;
+    this.#permissions = sprintPermissionCache();
     batch(() => {
+      this.noEditableSprint.value = false;
       this.snapshot.value = null;
       this.atlassianGoals.value = null;
       this.selectedSprintId.value = null;

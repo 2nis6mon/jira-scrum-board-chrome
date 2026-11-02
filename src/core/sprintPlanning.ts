@@ -93,6 +93,8 @@ export interface PlanningSnapshot {
   readonly futureSprints: readonly PlanningSprintIssues[];
   /** Sprints actifs du board et leur reste à faire (tickets non terminés), en consultation. */
   readonly activeSprints: readonly PlanningSprintIssues[];
+  /** Sprints actifs que l'utilisateur peut modifier (ou indécidables) : proposés à la clôture. */
+  readonly closableSprintIds: readonly number[];
 }
 
 // ─── Lecture ─────────────────────────────────────────────────────────────────
@@ -100,7 +102,17 @@ export interface PlanningSnapshot {
 /** Lecture sans aucune écriture, même si le texte a changé dans Jira. */
 export async function loadSprintPlanning(
   reader: PlanningReader,
-  input: { boardId: number; sprintId: number; query: IssueQuery },
+  input: {
+    boardId: number;
+    sprintId: number;
+    query: IssueQuery;
+    /**
+     * Sprints proposables parmi les autres sprints futurs et les sprints actifs (droits de
+     * l'utilisateur). Un sprint futur refusé n'est pas lu ; un sprint actif refusé reste en
+     * consultation sans être proposé à la clôture. Sans lui, tous sont proposés.
+     */
+    proposable?: (sprints: readonly JiraSprint[]) => Promise<ReadonlySet<number>>;
+  },
 ): Promise<PlanningSnapshot> {
   const [sprint, rawGoalProperty, sprintIssues, backlogIssues, boardSprints] = await Promise.all([
     reader.sprint(input.sprintId),
@@ -114,10 +126,14 @@ export async function loadSprintPlanning(
   if (read.kind === "unreadable") throw new CoreError({ code: "planningUnreadableProperty" });
   const document = read.kind === "document" ? read.document : null;
   const reconciled = reconcileSprintGoals(sprint.goal, document, stableGoalIds(sprint.id));
-  const others = boardSprints.filter(
+  const futures = boardSprints.filter(
     (candidate) => candidate.id !== sprint.id && candidate.state === "future",
   );
   const actives = boardSprints.filter((candidate) => candidate.state === "active");
+  const proposable = input.proposable
+    ? await input.proposable([...futures, ...actives])
+    : new Set(boardSprints.map((candidate) => candidate.id));
+  const others = futures.filter((candidate) => proposable.has(candidate.id));
   const issuesOf = (list: readonly JiraSprint[]) =>
     Promise.all(
       list.map(async (other) => ({
@@ -147,6 +163,7 @@ export async function loadSprintPlanning(
       sprint: active,
       issues: issues.filter((issue) => !isDoneStatus(issue.fields.status)),
     })),
+    closableSprintIds: actives.map((active) => active.id).filter((id) => proposable.has(id)),
   };
 }
 

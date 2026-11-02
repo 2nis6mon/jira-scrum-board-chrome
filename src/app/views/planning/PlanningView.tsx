@@ -117,6 +117,15 @@ export function PlanningView({
           <Icon name="goal" size={26} />
           {planning.loading.value ? (
             <p>{t("Lecture de Jira…")}</p>
+          ) : planning.noEditableSprint.value ? (
+            <>
+              <h2>{t("Aucun sprint futur que vous pouvez modifier")}</h2>
+              <p>
+                {t(
+                  "Jira demande le droit « Gérer les sprints » sur les projets du board de chaque sprint. Demandez-le à un administrateur, puis actualisez.",
+                )}
+              </p>
+            </>
           ) : (
             planning.sprints.value.length === 0 && (
               <>
@@ -342,7 +351,8 @@ function PlanningHeader({
     null;
   const busy = planning.loading.value || planning.busy.value;
   const disabled = planning.gesturesDisabled.value;
-  const actives = planning.activeSprints.value;
+  // Seuls les sprints actifs que l'utilisateur peut modifier sont proposés à la clôture.
+  const actives = planning.closableSprints.value;
   const single = actives.length === 1 ? actives[0] : undefined;
   const startReason = planning.startDisabledReason.value;
   // Clôture demandée : jusqu'à la fin de sa vérification, même pendant le report qui écrit.

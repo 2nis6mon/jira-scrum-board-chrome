@@ -3,6 +3,19 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.43.1 — Sprint Planning : seulement les sprints que vous pouvez modifier (builds locaux)
+
+- Essai du 02/11/2026 : le menu des sprints à préparer proposait un sprint d'un autre board,
+  remonté par le filtre ; y ajouter un objectif échouait (« Only a Jira administrator can update
+  this sprint »).
+- Le planning lit vos droits (lectures seules) : administrateur de Jira, ou « Gérer les sprints »
+  sur tous les projets du board d'origine du sprint. Un sprint refusé n'est plus proposé : ni
+  dans le menu des sprints à préparer, ni dans « Où sont les tickets » (ses tickets ne sont pas
+  lus), ni dans « Vers {sprint} ». Un sprint actif refusé reste en consultation, sans « Clôturer ».
+- Cas indécidable (sprint sans board d'origine, board sans projet, droit illisible) : le sprint
+  reste proposé et le refus de Jira s'affiche au premier geste. Sans aucun sprint futur
+  modifiable, l'écran le dit. Droits relus à l'actualisation.
+
 ## 0.43.0 — Sprint Planning : filtres de la page du sprint (builds locaux)
 
 - Essai du 02/11/2026 (story 8.14) : le planning n'avait qu'une recherche par clé et résumé ; un PO

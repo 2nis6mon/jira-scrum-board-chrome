@@ -147,6 +147,7 @@ const ISSUE_PAGE_SIZE = 100;
 /** Garde-fous de pagination : on s'arrête plutôt que de boucler sur une réponse incohérente. */
 const MAX_SPRINTS = 2000;
 const MAX_QUICK_FILTERS = 500;
+const MAX_BOARD_PROJECTS = 500;
 const MAX_ISSUES = 5000;
 /** Boards parcourus au plus pour retrouver les droits sur un board (recherche par nom). */
 const MAX_BOARD_SEARCH = 500;
@@ -457,6 +458,65 @@ export class JiraClient {
   }
 
   /**
+   * Clés des projets associés au board : `GET /rest/agile/1.0/board/{boardId}/project`
+   * (spécification OpenAPI de Jira Software, vérifiée le 02/11/2026 : `values[].key`, pagination
+   * `startAt` / `isLast`, projets référencés par le filtre ou portant un ticket du board).
+   */
+  async boardProjectKeys(boardId: number): Promise<string[]> {
+    assertEntityId(boardId, "board");
+    const keys: string[] = [];
+    let startAt = 0;
+    for (;;) {
+      const { body } = await this.#transport.get(`/rest/agile/1.0/board/${boardId}/project`, {
+        query: { startAt: String(startAt), maxResults: String(SPRINT_PAGE_SIZE) },
+        resource: `les projets du board ${boardId}`,
+      });
+      if (!isRecord(body) || !Array.isArray(body.values))
+        decodingFailure("projets du board", "values absent");
+      for (const value of body.values) {
+        if (isRecord(value) && typeof value.key === "string" && isProjectKey(value.key))
+          keys.push(value.key);
+      }
+      if (body.isLast === true || body.values.length === 0) break;
+      startAt += body.values.length;
+      if (typeof body.total === "number" && startAt >= body.total) break;
+      if (startAt > MAX_BOARD_PROJECTS) break;
+    }
+    return [...new Set(keys)];
+  }
+
+  /**
+   * Droits de l'utilisateur : `GET /rest/api/3/mypermissions` (spécification OpenAPI de la
+   * plateforme Jira, vérifiée le 02/11/2026). `permissions` est obligatoire ; un projet par
+   * requête (`projectKey`) ; les droits globaux (`ADMINISTER`) ignorent le contexte. Rend
+   * `havePermission` par clé demandée, `false` si Jira ne la renvoie pas.
+   */
+  async myPermissions(
+    permissions: readonly string[],
+    projectKey?: string,
+  ): Promise<Record<string, boolean>> {
+    if (permissions.length === 0 || permissions.some((key) => !/^[A-Z_]+$/.test(key)))
+      decodingFailure("droits demandés", permissions.join(","));
+    if (projectKey !== undefined && !isProjectKey(projectKey))
+      decodingFailure("clé de projet", projectKey);
+    const { body } = await this.#transport.get("/rest/api/3/mypermissions", {
+      query: {
+        permissions: permissions.join(","),
+        ...(projectKey !== undefined ? { projectKey } : {}),
+      },
+      resource: projectKey ? `vos droits sur le projet ${projectKey}` : "vos droits Jira",
+    });
+    const granted = isRecord(body) && isRecord(body.permissions) ? body.permissions : null;
+    if (!granted) decodingFailure("droits", "permissions absent");
+    return Object.fromEntries(
+      permissions.map((key) => {
+        const entry = granted[key];
+        return [key, isRecord(entry) && entry.havePermission === true];
+      }),
+    );
+  }
+
+  /**
    * Tickets d'un sprint vus depuis le board : `GET /rest/agile/1.0/board/{boardId}/sprint/
    * {sprintId}/issue` (spécification OpenAPI de Jira Software, vérifiée le 24/09/2026 : « issues
    * […] that belong to the sprint from the board », mêmes paramètres que `sprint/{id}/issue`).
@@ -666,6 +726,11 @@ function decodeQuickFilter(value: unknown): JiraQuickFilter | null {
         : null,
     position: typeof value.position === "number" ? value.position : 0,
   };
+}
+
+/** Clé de projet Jira (`ABC`) : seule forme admise dans une lecture de droits. */
+function isProjectKey(value: string): boolean {
+  return /^[A-Z][A-Z0-9_]*$/.test(value);
 }
 
 function decodingFailure(context: string, detail: string): never {

@@ -122,6 +122,7 @@ function setup(
     backlogIssues: [BACKLOG.issue],
     futureSprints: [{ sprint: SPRINT_44, issues: [OTHER_SPRINT.issue] }],
     activeSprints: [{ sprint: SPRINT_42, issues: [REMAINING.issue] }],
+    closableSprintIds: [42],
   } satisfies PlanningSnapshot;
   const gesturesDisabled = signal(false);
   const planning = {
@@ -163,6 +164,8 @@ function setup(
       unit: "pts",
     }),
     activeSprints: signal<readonly JiraSprint[]>([SPRINT_42]),
+    closableSprints: signal<readonly JiraSprint[]>([SPRINT_42]),
+    noEditableSprint: signal(false),
     startDisabledReason: signal<AppMessage | null>(
       message("Un sprint est actif : clôturez-le avant de démarrer celui-ci."),
     ),
@@ -359,6 +362,7 @@ describe("Sprint Planning en direct : écran", () => {
     expect(document.querySelector(".planning-close-menu")).toBeNull();
 
     planning.activeSprints.value = [];
+    planning.closableSprints.value = [];
     planning.startDisabledReason.value = null;
     await tick();
     expect(() => button("Clôturer Sprint 42")).toThrow();
@@ -624,6 +628,7 @@ describe("Sprint Planning en direct : écran", () => {
   it("plusieurs sprints actifs : « Clôturer un sprint » propose chacun par son nom", async () => {
     const { planning } = setup();
     planning.activeSprints.value = [SPRINT_42, SPRINT_45];
+    planning.closableSprints.value = [SPRINT_42, SPRINT_45];
     await tick();
     expect(() => button("Clôturer Sprint 42")).toThrow();
     const menu = find<HTMLDetailsElement>(".planning-close-menu");
@@ -734,10 +739,30 @@ describe("Sprint Planning en direct : écran", () => {
     planning.snapshot.value = null;
     planning.sprints.value = [];
     planning.activeSprints.value = [];
+    planning.closableSprints.value = [];
     await tick();
     expect(text()).toContain("Aucun sprint futur");
     expect(document.querySelector(".planning-body")).toBeNull();
     expect(document.querySelector(".planning-velocity")).toBeNull();
+  });
+
+  it("aucun sprint futur modifiable : le dit, sans inviter à en créer un", async () => {
+    const { planning } = setup();
+    planning.snapshot.value = null;
+    planning.sprints.value = [];
+    planning.noEditableSprint.value = true;
+    await tick();
+    expect(text()).toContain("Aucun sprint futur que vous pouvez modifier");
+    expect(text()).toContain("Gérer les sprints");
+    expect(text()).not.toContain("Créez un sprint futur");
+  });
+
+  it("un sprint actif non modifiable n'est pas proposé à la clôture", async () => {
+    const { planning } = setup();
+    planning.closableSprints.value = [];
+    await tick();
+    expect(() => button("Clôturer Sprint 42")).toThrow();
+    expect(find("#planning-start-reason").textContent).toContain("Un sprint est actif");
   });
 });
 

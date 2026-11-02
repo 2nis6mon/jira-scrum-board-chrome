@@ -58,11 +58,23 @@ function context(
     maxGetAttempts?: number;
     /** Second sprint actif 45, dont l'objectif a un ticket non terminé. */
     secondActiveSprint?: boolean;
+    /** Sprint futur 44 du board. */
+    otherFutureSprint?: boolean;
+    /** Sprint futur 46 d'un autre board, que l'utilisateur ne peut pas modifier par défaut. */
+    foreignFutureSprint?: boolean;
+    permissions?: Parameters<typeof planningFixture>[1] extends infer O
+      ? O extends { permissions?: infer P }
+        ? P
+        : never
+      : never;
   } = {},
 ) {
   const fixture = planningFixture(undefined, {
     issueFields: options.issueFields ?? {},
     secondActiveSprint: options.secondActiveSprint ?? false,
+    otherFutureSprint: options.otherFutureSprint ?? false,
+    foreignFutureSprint: options.foreignFutureSprint ?? false,
+    ...(options.permissions && { permissions: options.permissions }),
   });
   const platform = fakePlatform(fixture.jira);
   const transport = new JiraTransport({
@@ -1193,5 +1205,96 @@ describe("Sprint Planning en direct : filtres (lecture seule)", () => {
       unassigned: ["ABC-210"],
       sources: ["ABC-201", "ABC-104"],
     });
+  });
+});
+
+describe("Sprint Planning : seuls les sprints que l'utilisateur peut modifier", () => {
+  it("ne propose pas le sprint futur d'un autre board sans « Gérer les sprints », ni ne lit ses tickets", async () => {
+    const { planning, jira } = context({ foreignFutureSprint: true, otherFutureSprint: true });
+    await planning.load();
+    expect(planning.sprints.value.map((sprint) => sprint.id)).toEqual([43, 44]);
+    const futures = planning.snapshot.value?.futureSprints.map(({ sprint }) => sprint.id);
+    expect(futures).toEqual([44]);
+    expect(
+      planning.sections.value.some(
+        (section) => section.kind === "sprint" && section.sprint.id === 46,
+      ),
+    ).toBe(false);
+    expect(jira.requests.some((request) => request.path.includes("/sprint/46/issue"))).toBe(false);
+    expect(jira.requests.filter(isWriteRequest)).toHaveLength(0);
+  });
+
+  it("propose le sprint d'un autre board quand l'utilisateur a le droit sur ses projets", async () => {
+    const { planning } = context({
+      foreignFutureSprint: true,
+      permissions: { manageSprints: { XYZ: true } },
+    });
+    await planning.load();
+    expect(planning.sprints.value.map((sprint) => sprint.id)).toEqual([43, 46]);
+  });
+
+  it("garde un sprint dont le droit est illisible : le refus de Jira viendra au geste", async () => {
+    const { planning } = context({
+      foreignFutureSprint: true,
+      permissions: { manageSprints: { XYZ: "error" } },
+    });
+    await planning.load();
+    expect(planning.sprints.value.map((sprint) => sprint.id)).toEqual([43, 46]);
+    expect(planning.error.value).toBeNull();
+  });
+
+  it("annonce qu'aucun sprint futur n'est modifiable", async () => {
+    const { planning } = context({ permissions: { manageSprints: { ABC: false } } });
+    await planning.load();
+    expect(planning.sprints.value).toEqual([]);
+    expect(planning.noEditableSprint.value).toBe(true);
+    expect(planning.snapshot.value).toBeNull();
+  });
+
+  it("ne propose pas à la clôture un sprint actif non modifiable, qui reste en consultation", async () => {
+    const { planning, activeSprint, openSprintDialog } = context({
+      permissions: { manageSprints: { ABC: true } },
+    });
+    // Le sprint actif 42 vient d'un autre board, sans droit sur ses projets.
+    (activeSprint as { originBoardId: number }).originBoardId = 9;
+    await planning.load();
+    expect(planning.activeSprints.value.map((sprint) => sprint.id)).toEqual([42]);
+    expect(planning.closableSprints.value).toEqual([]);
+    expect(planning.sections.value.some((section) => section.kind === "active")).toBe(true);
+    planning.closeActiveSprint(42);
+    expect(openSprintDialog).not.toHaveBeenCalled();
+  });
+
+  it("un administrateur de Jira voit tous les sprints, sans lecture par projet", async () => {
+    const { planning, jira } = context({
+      foreignFutureSprint: true,
+      permissions: { administrator: true },
+    });
+    await planning.load();
+    expect(planning.sprints.value.map((sprint) => sprint.id)).toEqual([43, 46]);
+    expect(jira.requests.some((request) => request.path.endsWith("/project"))).toBe(false);
+  });
+
+  it("un sprint sélectionné devenu non modifiable laisse la place au premier sprint modifiable", async () => {
+    const manageSprints: Record<string, boolean> = { XYZ: true };
+    const { planning } = context({ foreignFutureSprint: true, permissions: { manageSprints } });
+    await planning.load();
+    await planning.selectSprint(46);
+    expect(planning.selectedSprintId.value).toBe(46);
+    manageSprints.XYZ = false;
+    await planning.refresh();
+    expect(planning.sprints.value.map((sprint) => sprint.id)).toEqual([43]);
+    expect(planning.selectedSprintId.value).toBe(43);
+    expect(planning.snapshot.value?.sprint.id).toBe(43);
+  });
+
+  it("relit les droits à l'actualisation", async () => {
+    const { planning, jira } = context({ foreignFutureSprint: true });
+    await planning.load();
+    const reads = () =>
+      jira.requests.filter((request) => request.path === "/rest/api/3/mypermissions").length;
+    const first = reads();
+    await planning.refresh();
+    expect(reads()).toBeGreaterThan(first);
   });
 });

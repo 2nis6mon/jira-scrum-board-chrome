@@ -144,6 +144,10 @@ export interface PlanningViewModel {
   readonly sprintLoad: ReadonlySignal<PlanningLoad | null>;
   /** Sprints actifs du board : un seul, « Clôturer le Sprint N » ; plusieurs, un menu. */
   readonly activeSprints: ReadonlySignal<readonly JiraSprint[]>;
+  /** Sprints actifs proposés à la clôture : ceux que l'utilisateur peut modifier dans Jira. */
+  readonly closableSprints: ReadonlySignal<readonly JiraSprint[]>;
+  /** Des sprints futurs existent, mais l'utilisateur ne peut en modifier aucun. */
+  readonly noEditableSprint: ReadonlySignal<boolean>;
   /** Raison pour laquelle « Démarrer » est désactivé, ou `null`. */
   readonly startDisabledReason: ReadonlySignal<AppMessage | null>;
   /** Clôture demandée, jusqu'à la fin de sa vérification (« Clôture en cours dans Jira… »). */

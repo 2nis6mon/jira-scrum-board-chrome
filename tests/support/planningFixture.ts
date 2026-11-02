@@ -79,6 +79,16 @@ export function planningFixture(
     issueFields?: Readonly<Record<string, Record<string, unknown>>>;
     otherFutureSprint?: boolean;
     secondActiveSprint?: boolean;
+    /** Sprint futur 46 d'un autre board (origine 9, projet XYZ), remonté par le filtre. */
+    foreignFutureSprint?: boolean;
+    /**
+     * Droits de l'utilisateur : administrateur de Jira, et « Gérer les sprints » par projet
+     * (`error` : lecture refusée). Par défaut : non administrateur, droit sur ABC, pas sur XYZ.
+     */
+    permissions?: {
+      administrator?: boolean;
+      manageSprints?: Readonly<Record<string, boolean | "error">>;
+    };
   } = {},
 ) {
   const sprint = {
@@ -116,6 +126,9 @@ export function planningFixture(
         endDate: "2026-09-25T18:00:00.000+0200",
         goal: `🎯 ${SECOND_ACTIVE_GOAL}`,
       }
+    : null;
+  const foreign = options.foreignFutureSprint
+    ? { id: 46, name: "Sprint 46 — Équipe voisine", state: "future", originBoardId: 9, goal: "" }
     : null;
   const selected = new Set(["ABC-210"]);
   /** Tickets du sprint futur 44 ; un ticket déplacé (E9) quitte l'autre sprint. */
@@ -166,6 +179,7 @@ export function planningFixture(
             ...(secondActive ? [secondActive] : []),
             sprint,
             ...(otherSprint ? [otherSprint] : []),
+            ...(foreign ? [foreign] : []),
           ].filter((item) => states.length === 0 || states.includes(item.state)),
         },
       };
@@ -215,6 +229,53 @@ export function planningFixture(
       document = request.body;
       return { status: 201 };
     });
+  // Droits de l'utilisateur (lectures seules) : projets des boards 7 et 9, puis `mypermissions`.
+  // Relue à chaque requête : un test peut changer les droits entre deux lectures.
+  const manageSprints = (): Readonly<Record<string, boolean | "error">> => ({
+    ABC: true,
+    XYZ: false,
+    ...options.permissions?.manageSprints,
+  });
+  const projectsOf = (keys: readonly string[]) => ({
+    status: 200,
+    json: {
+      isLast: true,
+      startAt: 0,
+      values: keys.map((key, index) => ({ id: String(10000 + index), key })),
+    },
+  });
+  jira
+    .on("GET", "/rest/agile/1.0/board/7/project", projectsOf(["ABC"]))
+    .on("GET", "/rest/agile/1.0/board/9/project", projectsOf(["XYZ"]))
+    .on("GET", "/rest/api/3/mypermissions", (request): Reply => {
+      const keys = request.url.searchParams.get("permissions")?.split(",") ?? [];
+      const project = request.url.searchParams.get("projectKey");
+      const granted = (key: string): boolean => {
+        if (key === "ADMINISTER") return options.permissions?.administrator === true;
+        return project !== null && manageSprints()[project] === true;
+      };
+      if (project !== null && manageSprints()[project] === "error") return { status: 403 };
+      return {
+        status: 200,
+        json: {
+          permissions: Object.fromEntries(
+            keys.map((key) => [key, { key, havePermission: granted(key) }]),
+          ),
+        },
+      };
+    });
+  if (foreign) {
+    jira
+      .on("GET", "/rest/agile/1.0/sprint/46", () => ({ status: 200, json: foreign }))
+      .on("GET", `/rest/agile/1.0/sprint/46/properties/${SPRINT_PROPERTY_KEYS.goals}`, {
+        status: 404,
+      })
+      .on("GET", "/rest/agile/1.0/board/7/sprint/46/issue", {
+        status: 200,
+        json: { issues: [], total: 0 },
+      });
+  }
+
   if (otherSprint) {
     jira
       .on("GET", "/rest/agile/1.0/sprint/44", () => ({ status: 200, json: otherSprint }))

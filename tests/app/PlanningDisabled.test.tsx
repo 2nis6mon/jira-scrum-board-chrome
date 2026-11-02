@@ -129,6 +129,7 @@ describe("Sprint Planning désactivé à la compilation", () => {
       backlogIssues: [makeIssue("ABC-201")],
       futureSprints: [],
       activeSprints: [{ sprint: active, issues: [] }],
+      closableSprintIds: [42],
     };
     planning.selectedSprintId.value = 43;
     planning.pendingClosure.value = {
@@ -167,6 +168,7 @@ describe("Sprint Planning désactivé à la compilation", () => {
     expect(planning.sections.value).toEqual([]);
     expect(planning.sprintLoad.value).toBeNull();
     expect(planning.activeSprints.value).toEqual([]);
+    expect(planning.closableSprints.value).toEqual([]);
     expect(planning.carryOverReport.value).toBeNull();
     expect(planning.gesturesDisabled.value).toBe(true);
     expect(planning.busy.value).toBe(false);

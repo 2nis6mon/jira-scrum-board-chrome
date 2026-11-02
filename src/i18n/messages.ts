@@ -580,6 +580,9 @@ export const businessMessages = {
   "Retour au board": "Back to board",
   "Sprint à préparer": "Sprint to prepare",
   "Aucun sprint futur": "No future sprint",
+  "Aucun sprint futur que vous pouvez modifier": "No future sprint you can edit",
+  "Jira demande le droit « Gérer les sprints » sur les projets du board de chaque sprint. Demandez-le à un administrateur, puis actualisez.":
+    "Jira requires the Manage sprints permission on the projects of each sprint's board. Ask an administrator for it, then refresh.",
   "Lecture de Jira…": "Loading from Jira…",
   "Relire les tickets depuis Jira": "Reload issues from Jira",
   Actualiser: "Refresh",
