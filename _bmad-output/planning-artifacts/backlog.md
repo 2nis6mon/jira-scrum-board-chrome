@@ -62,8 +62,8 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   un goal › ») et celui du planning (`<details>` à plat dans `PlanningView.tsx`) diffèrent à l'écran.
   À garder du planning : la pastille de couleur de chaque objectif, à gauche de son nom, à reprendre
   aussi dans le menu du board. À ajouter au planning : « Mettre en top priorité » et « Mettre en basse
-  priorité » (rang, écriture déjà autorisée). Le périmètre du rang reste à préciser : tête ou fin de
-  la swimlane de l'objectif dans le sprint en préparation, ou du sprint entier. À ajouter aussi : les
+  priorité » (rang, écriture déjà autorisée). Décision de Denis (02/11/2026) : tête ou fin de la
+  swimlane de l'objectif dans le sprint en préparation (« Sans objectif » compris), comme sur le board. À ajouter aussi : les
   destinations de sprint (« Renvoyer au backlog », « Vers {sprint} ») regroupées dans un sous-menu
   dépliable, comme celui des objectifs. Piste : un seul composant de menu de carte partagé par les
   deux écrans, avec le même comportement (survol, clavier, Échap). Mêmes écritures qu'aujourd'hui,
