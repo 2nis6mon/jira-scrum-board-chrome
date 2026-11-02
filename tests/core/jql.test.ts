@@ -43,19 +43,30 @@ describe("JQL combiné", () => {
 
 describe("périmètre du Sprint Planning", () => {
   it("restreint aux sprints donnés et au backlog, sans tri", () => {
-    expect(inPlanningScope("assignee = currentUser() ORDER BY rank", [51, 52, 42])).toBe(
-      "(assignee = currentUser()) AND (sprint in (51,52,42) OR sprint is EMPTY OR (sprint in closedSprints() AND statusCategory != Done))",
+    expect(
+      inPlanningScope("assignee = currentUser() ORDER BY rank", [51, 52, 42], ["6", "7"]),
+    ).toBe(
+      "(assignee = currentUser()) AND (sprint in (51,52,42) OR sprint is EMPTY OR (sprint in closedSprints() AND status not in (6,7)))",
+    );
+  });
+
+  it("terminé = statuts de la dernière colonne ; seuls des identifiants numériques entrent", () => {
+    expect(inPlanningScope("a = 1", [], ["6", "6) OR (1=1"])).toBe(
+      "(a = 1) AND (sprint is EMPTY OR (sprint in closedSprints() AND status not in (6)))",
+    );
+    expect(inPlanningScope("a = 1", [], [])).toBe(
+      "(a = 1) AND (sprint is EMPTY OR sprint in closedSprints())",
     );
   });
 
   it("sans sprint : le backlog seul, jamais une liste vide", () => {
-    expect(inPlanningScope("a = 1", [])).toBe(
-      "(a = 1) AND (sprint is EMPTY OR (sprint in closedSprints() AND statusCategory != Done))",
+    expect(inPlanningScope("a = 1", [], ["6"])).toBe(
+      "(a = 1) AND (sprint is EMPTY OR (sprint in closedSprints() AND status not in (6)))",
     );
   });
 
   it("rien à restreindre : pas de requête", () => {
-    expect(inPlanningScope("  ", [51])).toBeNull();
-    expect(inPlanningScope("ORDER BY rank", [51])).toBeNull();
+    expect(inPlanningScope("  ", [51], ["6"])).toBeNull();
+    expect(inPlanningScope("ORDER BY rank", [51], ["6"])).toBeNull();
   });
 });

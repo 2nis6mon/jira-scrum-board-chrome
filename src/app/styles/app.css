@@ -475,10 +475,6 @@ progress::-webkit-progress-value {
   font-variant-numeric: tabular-nums;
 }
 
-.sprint-progress progress {
-  width: 120px;
-}
-
 .sprint-percent {
   color: var(--ink-3);
 }
@@ -991,8 +987,65 @@ button.lane-title[aria-pressed="true"] {
   font-variant-numeric: tabular-nums;
 }
 
-.lane-progress progress {
+/* Barre empilée par état (story 8.20), commune au board et au planning. */
+.state-bar {
+  display: inline-flex;
+  flex: none;
   width: 120px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--column);
+  overflow: hidden;
+}
+
+.state-bar i {
+  flex: none;
+  height: 100%;
+}
+
+.state-bar i[data-state="todo"] {
+  background: var(--state-todo);
+}
+
+.state-bar i[data-state="inProgress"] {
+  background: var(--state-in-progress);
+}
+
+.state-bar i[data-state="done"] {
+  background: var(--state-done);
+}
+
+.state-bar i[data-state="over"] {
+  background: var(--blocked);
+}
+
+/* Légende de la barre : points (ou tickets) de chaque état, aux mêmes couleurs. */
+.state-legend {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.state-chip {
+  min-width: 22px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: #e9ebef;
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.state-chip[data-state="inProgress"] {
+  background: #e7eefd;
+  color: #1d4ed8;
+}
+
+.state-chip[data-state="done"] {
+  background: #e3f4e8;
+  color: #166534;
 }
 
 .lane-cells {
@@ -1181,11 +1234,11 @@ button.lane-title[aria-pressed="true"] {
   background: #d4d9e1;
 }
 
-.subtask-bar i[data-status="indeterminate"] {
+.subtask-bar i[data-state="inProgress"] {
   background: #93b8f5;
 }
 
-.subtask-bar i[data-status="done"] {
+.subtask-bar i[data-state="done"] {
   background: var(--done);
 }
 

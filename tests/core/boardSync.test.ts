@@ -10,6 +10,7 @@ import {
   loadSnapshot,
   refreshBoardStructure,
 } from "../../src/core/boardSync";
+import { columnStates } from "../../src/core/columnState";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
 import { JiraClient } from "../../src/jira/client";
 import { JiraError } from "../../src/jira/errors";
@@ -24,6 +25,7 @@ const BOARD_URL = "https://acme.atlassian.net/jira/software/c/projects/ABC/board
 const GOALS_PROPERTY = (sprintId: number) =>
   `/rest/agile/1.0/sprint/${sprintId}/properties/${SPRINT_PROPERTY_KEYS.goals}`;
 const NOW = new Date("2026-09-18T12:00:00Z");
+const STATES = columnStates(makeConfiguration().columns);
 
 function readerFor(jira: FakeJira) {
   return new JiraClient(new JiraTransport({ site: ACME, fetch: jira.fetch, maxGetAttempts: 1 }));
@@ -415,11 +417,11 @@ describe("loadSnapshot", () => {
       ["RUN-4", null],
     ]);
     expect(snapshot.issueOrder?.slice(0, 5)).toEqual(["RUN-1", "RUN-2", "ABC-1", "RUN-3", "RUN-4"]);
-    expect(snapshotGoalProgress(snapshot).map((goal) => [goal.total, goal.done])).toEqual([
+    expect(snapshotGoalProgress(snapshot, STATES).map((goal) => [goal.total, goal.done])).toEqual([
       [3, 1],
       [1, 0],
     ]);
-    expect(sprintMetrics(snapshot, 3)).toMatchObject({
+    expect(sprintMetrics(snapshot, 3, STATES)).toMatchObject({
       totalIssues: 4,
       totalPoints: 3,
       donePoints: 3,
@@ -715,7 +717,7 @@ describe("loadSnapshot", () => {
       ["ABC-1", true],
       ["ABC-2", false],
     ]);
-    expect(sprintMetrics(snapshot, 3).carriedOverCount).toBe(1);
+    expect(sprintMetrics(snapshot, 3, STATES).carriedOverCount).toBe(1);
     expect(jira.sent("GET", "/rest/agile/1.0/board/1/sprint/42/issue")).toHaveLength(1);
   });
 

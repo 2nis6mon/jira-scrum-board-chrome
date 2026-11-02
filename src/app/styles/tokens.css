@@ -24,6 +24,11 @@
   --foreign-sprint: #b45309;
   --jira-filter: #d4507d;
 
+  /* États d'un ticket, lus dans les colonnes du board : à faire, en cours, terminé. */
+  --state-todo: #c3c9d2;
+  --state-in-progress: var(--in-progress);
+  --state-done: #16803d;
+
   /* Gabarits */
   --sidebar-width: 248px;
   --header-height: 56px;

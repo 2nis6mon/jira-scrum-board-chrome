@@ -167,6 +167,7 @@ function setup(
       { kind: "backlog", issues: [BACKLOG] },
       { kind: "active", sprint: SPRINT_42, issues: [REMAINING] },
     ]),
+    unmappedCount: signal(0),
     sprintLoad: signal<PlanningLoad | null>({
       total: 8,
       unestimated: 1,
@@ -791,9 +792,23 @@ describe("Sprint Planning en direct : écran", () => {
     await tick();
     const header = find('[data-planning-goal="g1"] .lane-header');
     expect(header.textContent).toContain("1/3 terminés · 2/10 pts");
-    const parts = [...header.querySelectorAll(".planning-progress-part")].map(
+    const parts = [...header.querySelectorAll(".state-chip")].map(
       (part) => part.querySelector(".visually-hidden")?.textContent,
     );
+    // Barre empilée : terminé, en cours, à faire, en proportion des points (2, 3, 5 sur 10).
+    const segments = [...header.querySelectorAll(".state-bar i")].map((segment) => [
+      segment.getAttribute("data-state"),
+      (segment as HTMLElement).style.width,
+    ]);
+    expect(segments).toEqual([
+      ["done", "20%"],
+      ["inProgress", "30%"],
+      ["todo", "50%"],
+    ]);
+    expect(header.querySelector(".state-bar")?.getAttribute("aria-label")).toContain(
+      "Terminé : 1 ticket · 2 pts",
+    );
+    expect(header.classList.contains("lane-header-completed")).toBe(false);
     expect(parts).toEqual([
       "À faire : 1 ticket · 5 pts",
       "En cours : 1 ticket · 3 pts",
@@ -806,6 +821,35 @@ describe("Sprint Planning en direct : écran", () => {
       find('[data-planning-goal="g2"] .lane-header').querySelector(".planning-lane-delivered"),
     ).toBeNull();
     expect(text()).toContain("Lecture incomplète de ce qui a déjà été livré");
+  });
+
+  it("objectif atteint et objectif vide : même en-tête que le board ; tickets sans colonne signalés", async () => {
+    const { planning } = setup();
+    const first = lane(0, [IN_G1]);
+    planning.lanes.value = [
+      {
+        ...first,
+        progress: {
+          todo: { count: 0, points: 0 },
+          inProgress: { count: 0, points: 0 },
+          done: first.progress.todo,
+        },
+      },
+      { ...lane(1, []), issueCount: 0 },
+    ];
+    planning.unmappedCount.value = 2;
+    await tick();
+    const reached = find('[data-planning-goal="g1"] .lane-header');
+    expect(reached.classList.contains("lane-header-completed")).toBe(true);
+    expect(reached.querySelector(".goal-completed")?.getAttribute("aria-label")).toBe(
+      "Objectif atteint",
+    );
+    expect(find('[data-planning-goal="g2"] .lane-header').textContent).toContain(
+      "Aucun ticket rattaché",
+    );
+    expect(text()).toContain(
+      "2 tickets du sprint ont un statut qui n'appartient à aucune colonne visible du board : non affichés, comme dans Jira.",
+    );
   });
 
   it("aucun sprint futur modifiable : le dit, sans inviter à en créer un", async () => {

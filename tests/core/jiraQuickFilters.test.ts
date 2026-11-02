@@ -104,7 +104,7 @@ describe("filtres rapides du board Jira", () => {
 
 describe("filtres rapides du board Jira dans le Sprint Planning", () => {
   const SCOPE =
-    "sprint in (51,42) OR sprint is EMPTY OR (sprint in closedSprints() AND statusCategory != Done)";
+    "sprint in (51,42) OR sprint is EMPTY OR (sprint in closedSprints() AND status not in (6))";
 
   it("évalue chaque JQL sur le périmètre du planning, en intersection", async () => {
     const { jira, client } = jiraAnswering({
@@ -116,6 +116,7 @@ describe("filtres rapides du board Jira dans le Sprint Planning", () => {
       scope: "planning",
       filters: [filter(1, "a = 1 ORDER BY rank"), filter(2, "b = 2")],
       sprintIds: [51, 42],
+      doneStatusIds: ["6"],
     });
     expect(keys).toEqual(new Set(["ABC-2", "ABC-3"]));
     expect(jira.sent("GET", ISSUES)).toHaveLength(2);
@@ -124,7 +125,7 @@ describe("filtres rapides du board Jira dans le Sprint Planning", () => {
 
   it("sans aucun sprint : Jira est tout de même interrogé sur le backlog", async () => {
     const { client } = jiraAnswering({
-      "(a = 1) AND (sprint is EMPTY OR (sprint in closedSprints() AND statusCategory != Done))": [
+      "(a = 1) AND (sprint is EMPTY OR (sprint in closedSprints() AND status not in (6)))": [
         "ABC-4",
       ],
     });
@@ -134,6 +135,7 @@ describe("filtres rapides du board Jira dans le Sprint Planning", () => {
         scope: "planning",
         filters: [filter(1, "a = 1")],
         sprintIds: [],
+        doneStatusIds: ["6"],
       }),
     ).toEqual(new Set(["ABC-4"]));
   });

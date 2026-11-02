@@ -4,7 +4,7 @@ import type { JsonValue } from "../jira/json";
 import { isDoneStatus, type JiraIssue, type JiraSprint } from "../jira/models";
 import { isEstimateValue, SPRINT_PROPERTY_KEYS } from "../jira/writes";
 import { type GoalsReader, loadAtlassianSprintGoals } from "./atlassianGoals";
-import type { BoardConfiguration } from "./boardConfiguration";
+import type { BoardConfiguration, ColumnConfiguration } from "./boardConfiguration";
 import { changeAtlassianGoal } from "./boardMove";
 import {
   type JiraWriter,
@@ -12,6 +12,7 @@ import {
   pinAtlassianGoals,
   withTextGoalLink,
 } from "./boardWrites";
+import { columnStates } from "./columnState";
 import { CoreError, type PlanningRefusal } from "./reasons";
 import {
   isVelocity,
@@ -99,7 +100,10 @@ export interface PlanningSnapshot {
   readonly backlogIssues: readonly JiraIssue[];
   /** Autres sprints futurs du board, dans l'ordre de Jira. */
   readonly futureSprints: readonly PlanningSprintIssues[];
-  /** Sprints actifs du board et leur reste à faire (tickets non terminés), en consultation. */
+  /**
+   * Sprints actifs du board et leur reste à faire (statut dans une colonne visible autre que la
+   * dernière), en consultation.
+   */
   readonly activeSprints: readonly PlanningSprintIssues[];
   /** Sprints actifs que l'utilisateur peut modifier (ou indécidables) : proposés à la clôture. */
   readonly closableSprintIds: readonly number[];
@@ -114,6 +118,8 @@ export async function loadSprintPlanning(
     boardId: number;
     sprintId: number;
     query: IssueQuery;
+    /** Colonnes du board : seule règle d'état d'un ticket (story 8.20). */
+    columns: readonly ColumnConfiguration[];
     /**
      * Sprints proposables parmi les autres sprints futurs et les sprints actifs (droits de
      * l'utilisateur). Un sprint futur refusé n'est pas lu ; un sprint actif refusé reste en
@@ -150,6 +156,12 @@ export async function loadSprintPlanning(
       })),
     );
   const [futureSprints, activeSprints] = await Promise.all([issuesOf(others), issuesOf(actives)]);
+  const states = columnStates(input.columns);
+  // Reste à faire d'un sprint actif : statut dans une colonne visible autre que la dernière.
+  const remaining = (issue: JiraIssue) => {
+    const state = states.ofStatus(issue.fields.status?.id);
+    return state !== null && state !== "done";
+  };
   return {
     boardId: input.boardId,
     query: input.query,
@@ -169,7 +181,7 @@ export async function loadSprintPlanning(
     futureSprints,
     activeSprints: activeSprints.map(({ sprint: active, issues }) => ({
       sprint: active,
-      issues: issues.filter((issue) => !isDoneStatus(issue.fields.status)),
+      issues: issues.filter(remaining),
     })),
     closableSprintIds: actives.map((active) => active.id).filter((id) => proposable.has(id)),
   };

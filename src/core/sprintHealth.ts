@@ -11,10 +11,11 @@ import {
   type BoardSnapshot,
   type GoalProgress,
   goalProgress,
-  isIssueDone,
+  isMapped,
 } from "./boardIssue";
 import { columnLoad } from "./boardLayout";
 import { laneOrder } from "./boardPreferences";
+import { columnStates } from "./columnState";
 import { applyFilters, type BoardFilters } from "./filters";
 import type { SprintGoal } from "./sprintGoals";
 
@@ -87,7 +88,12 @@ export function sprintHealth(
   filters: BoardFilters,
 ): SprintHealth {
   const shownSwimlanes = new Set(shownSwimlaneIds(configuration));
-  const filtered = applyFilters(filters, allIssues(snapshot));
+  // États par colonnes ; un ticket sans colonne visible, que le board n'affiche pas, est ignoré.
+  const states = columnStates(configuration.columns);
+  const stateOf = (issue: BoardIssue) => states.ofColumn(issue.columnId);
+  const filtered = applyFilters(filters, allIssues(snapshot)).filter((issue) =>
+    isMapped(issue, states),
+  );
   const inGoalOrBuild = (issue: BoardIssue) =>
     displayedGoalId(configuration, issue.goalId) !== null || issue.swimlaneId === null;
   const scrum = filtered.filter(inGoalOrBuild);
@@ -97,7 +103,6 @@ export function sprintHealth(
   );
   const all = [...scrum, ...swimlanes];
   const threshold = configuration.agingThresholdDays;
-  const categoryKey = (issue: BoardIssue) => issue.issue.fields.status.statusCategory?.key;
 
   // Historique connu dès qu'un ticket du sprint (filtres ignorés) sait s'il a été ajouté.
   const historyKnown = [...snapshot.goalIssues, ...snapshot.swimlaneIssues].some(
@@ -108,7 +113,7 @@ export function sprintHealth(
     .sort((a, b) => (b.addedToSprintAt?.getTime() ?? 0) - (a.addedToSprintAt?.getTime() ?? 0));
 
   const estimates = scrum.map((issue) => issue.estimate).filter((v): v is number => v !== null);
-  const doneScrum = scrum.filter(isIssueDone);
+  const doneScrum = scrum.filter((issue) => stateOf(issue) === "done");
 
   const goalsById = new Map(snapshot.goals.map((goal) => [goal.id, goal]));
   const goals = laneOrder(snapshot, configuration).flatMap((id) => {
@@ -118,6 +123,7 @@ export function sprintHealth(
           goalProgress(
             goal,
             scrum.filter((issue) => issue.goalId === goal.id),
+            states,
           ),
         ]
       : [];
@@ -132,7 +138,7 @@ export function sprintHealth(
   const linked = scrum.filter((issue) => displayedGoalId(configuration, issue.goalId) !== null);
 
   const watched = all
-    .filter((issue) => !isIssueDone(issue))
+    .filter((issue) => stateOf(issue) !== "done")
     .filter((issue) => issue.isBlocked || (issue.daysInColumn ?? -1) >= threshold)
     .sort(
       (a, b) =>
@@ -154,8 +160,8 @@ export function sprintHealth(
       donePoints: sum(doneScrum.map((issue) => issue.estimate ?? 0)),
       scrumCount: scrum.length,
       done: doneScrum.length,
-      inProgress: scrum.filter((issue) => categoryKey(issue) === "indeterminate").length,
-      toDo: scrum.filter((issue) => categoryKey(issue) === "new").length,
+      inProgress: scrum.filter((issue) => stateOf(issue) === "inProgress").length,
+      toDo: scrum.filter((issue) => stateOf(issue) === "todo").length,
       allCount: all.length,
       blocked: all.filter((issue) => issue.isBlocked).length,
       added: historyKnown ? added.length : null,

@@ -3,7 +3,6 @@ import {
   carriedOverInto,
   estimate,
   isBlockedByLink,
-  isDoneStatus,
   isFlagged,
   type JiraIssue,
   type JiraSprint,
@@ -20,6 +19,12 @@ import {
   type IssueCategory,
   swimlaneOfType,
 } from "./boardConfiguration";
+import {
+  type ColumnState,
+  type ColumnStates,
+  type StateTallies,
+  tallyByState,
+} from "./columnState";
 import type { SprintGoal } from "./sprintGoals";
 
 /**
@@ -48,6 +53,8 @@ export interface Subtask {
   readonly key: string;
   readonly summary: string | null;
   readonly statusName: string | null;
+  /** Statut Jira : son état vient de sa colonne sur le board (`columnStates`). */
+  readonly statusId: string | null;
   /** `new` | `indeterminate` | `done`, ou `null` si Jira ne l'a pas fourni. */
   readonly statusCategoryKey: string | null;
   /** Assigné, connu quand la sous-tâche figure parmi les tickets du sprint ; sinon `null`. */
@@ -61,11 +68,6 @@ export interface Subtask {
 export function familyKey(issue: BoardIssue): string {
   const fields = issue.issue.fields;
   return fields.issuetype.subtask === true && fields.parent ? fields.parent.key : issue.issue.key;
-}
-
-/** Une sous-tâche sans statut connu compte comme ouverte : on ne présume jamais la fin. */
-export function isSubtaskDone(subtask: Subtask): boolean {
-  return subtask.statusCategoryKey === "done";
 }
 
 /** Où se trouve un bloquant, pour la bulle de survol. */
@@ -116,10 +118,6 @@ export interface BoardIssue {
   readonly subtasks: readonly Subtask[];
 }
 
-export function isIssueDone(issue: BoardIssue): boolean {
-  return isDoneStatus(issue.issue.fields.status);
-}
-
 export function blockingKeys(issue: BoardIssue): string[] {
   return issue.blockers.map((blocker) => blocker.key);
 }
@@ -132,28 +130,38 @@ export function browseUrl(siteOrigin: string, issueKey: string): string {
 export interface SubtaskProgress {
   readonly total: number;
   readonly done: number;
+  /** Sous-tâches rattachées à une colonne : terminées, puis en cours, puis à faire. */
+  readonly segments: readonly { readonly subtask: Subtask; readonly state: ColumnState }[];
   /** Toutes les sous-tâches sont terminées alors que le ticket n'a pas atteint la dernière colonne. */
   readonly allDoneBeforeLastColumn: boolean;
   /** Ticket dans la dernière colonne alors que des sous-tâches restent ouvertes. */
   readonly openInLastColumn: readonly Subtask[];
 }
 
+const SEGMENT_ORDER: Record<ColumnState, number> = { done: 0, inProgress: 1, todo: 2 };
+
 /**
- * `lastColumnId` : dernière colonne visible du bloc du ticket, comme pour les Goals atteints.
- * `null` pour un ticket sans sous-tâche.
+ * État des sous-tâches par leurs colonnes, comme les tickets (`columnStates`). Une sous-tâche dont
+ * le statut n'est dans aucune colonne visible est ignorée. `null` sans sous-tâche comptée.
  */
-export function subtaskProgress(
-  issue: BoardIssue,
-  lastColumnId: string | null,
-): SubtaskProgress | null {
-  if (issue.subtasks.length === 0) return null;
-  const done = issue.subtasks.filter(isSubtaskDone).length;
-  const inLastColumn = lastColumnId !== null && issue.columnId === lastColumnId;
+export function subtaskProgress(issue: BoardIssue, states: ColumnStates): SubtaskProgress | null {
+  const segments = issue.subtasks
+    .flatMap((subtask) => {
+      const state = states.ofStatus(subtask.statusId);
+      return state === null ? [] : [{ subtask, state }];
+    })
+    .sort((a, b) => SEGMENT_ORDER[a.state] - SEGMENT_ORDER[b.state]);
+  if (segments.length === 0) return null;
+  const done = segments.filter((segment) => segment.state === "done").length;
+  const inLastColumn = states.ofColumn(issue.columnId) === "done";
   return {
-    total: issue.subtasks.length,
+    total: segments.length,
     done,
-    allDoneBeforeLastColumn: done === issue.subtasks.length && !inLastColumn,
-    openInLastColumn: inLastColumn ? issue.subtasks.filter((sub) => !isSubtaskDone(sub)) : [],
+    segments,
+    allDoneBeforeLastColumn: done === segments.length && !inLastColumn,
+    openInLastColumn: inLastColumn
+      ? segments.filter((segment) => segment.state !== "done").map((segment) => segment.subtask)
+      : [],
   };
 }
 
@@ -165,6 +173,7 @@ export type GoalProgressState = "empty" | "completed" | "inProgress";
 /** Avancement d'un objectif, calculé sur les tickets qui lui sont rattachés. */
 export interface GoalProgress {
   readonly goal: SprintGoal;
+  /** Tickets rattachés dont le statut est dans une colonne visible : les autres sont ignorés. */
   readonly issues: readonly BoardIssue[];
   readonly total: number;
   readonly done: number;
@@ -176,19 +185,24 @@ export interface GoalProgress {
   /** Progression en tickets. Les points sont un affichage complémentaire, jamais un substitut. */
   readonly completionRatio: number;
   readonly state: GoalProgressState;
+  /** Répartition à faire, en cours, terminé, selon les colonnes. */
+  readonly byState: StateTallies;
 }
 
+/** Ticket dont le statut est dans une colonne visible du board : les autres sont ignorés. */
+export function isMapped(issue: BoardIssue, states: ColumnStates): boolean {
+  return states.ofColumn(issue.columnId) !== null;
+}
+
+/** Avancement selon les colonnes ; un ticket sans colonne visible n'est pas compté. */
 export function goalProgress(
   goal: SprintGoal,
-  issues: readonly BoardIssue[],
-  lastColumnId?: string | null,
+  attached: readonly BoardIssue[],
+  states: ColumnStates,
 ): GoalProgress {
+  const issues = attached.filter((issue) => isMapped(issue, states));
   const total = issues.length;
-  const doneIssues = issues.filter((issue) =>
-    lastColumnId === undefined
-      ? isIssueDone(issue)
-      : lastColumnId !== null && issue.columnId === lastColumnId,
-  );
+  const doneIssues = issues.filter((issue) => states.ofColumn(issue.columnId) === "done");
   const done = doneIssues.length;
   const totalPoints = sumEstimates(issues);
   return {
@@ -202,6 +216,11 @@ export function goalProgress(
     donePoints: totalPoints === null ? null : (sumEstimates(doneIssues) ?? 0),
     completionRatio: total === 0 ? 0 : done / total,
     state: total === 0 ? "empty" : done === total ? "completed" : "inProgress",
+    byState: tallyByState(
+      issues,
+      (issue) => states.ofColumn(issue.columnId),
+      (issue) => issue.estimate,
+    ),
   };
 }
 
@@ -231,6 +250,8 @@ export interface SprintMetrics {
   readonly donePoints: number | null;
   readonly goalCount: number;
   readonly completionRatio: number;
+  /** Répartition des tickets Scrum à faire, en cours, terminés, selon les colonnes. */
+  readonly byState: StateTallies;
 }
 
 /** Photographie complète du board à un instant donné. */
@@ -376,43 +397,58 @@ export function issuesWithoutGoal(snapshot: BoardSnapshot): BoardIssue[] {
   return snapshot.goalIssues.filter((issue) => issue.goalId === null);
 }
 
-export function snapshotGoalProgress(snapshot: BoardSnapshot): GoalProgress[] {
+export function snapshotGoalProgress(
+  snapshot: BoardSnapshot,
+  states: ColumnStates,
+): GoalProgress[] {
   return [...snapshot.goals]
     .sort((a, b) => a.position - b.position)
     .map((goal) =>
       goalProgress(
         goal,
         snapshot.goalIssues.filter((issue) => issue.goalId === goal.id),
+        states,
       ),
     );
 }
 
-export function sprintMetrics(snapshot: BoardSnapshot, agingThresholdDays: number): SprintMetrics {
-  const scrum = snapshot.goalIssues;
-  const everything = allIssues(snapshot);
-  const categoryKey = (issue: BoardIssue) => issue.issue.fields.status.statusCategory?.key;
+/**
+ * Indicateurs du sprint, états par colonnes. Les tickets sans colonne visible, que le board
+ * n'affiche pas, ne sont comptés nulle part.
+ */
+export function sprintMetrics(
+  snapshot: BoardSnapshot,
+  agingThresholdDays: number,
+  states: ColumnStates,
+): SprintMetrics {
+  const mapped = (issue: BoardIssue) => isMapped(issue, states);
+  const stateOf = (issue: BoardIssue) => states.ofColumn(issue.columnId);
+  const scrum = snapshot.goalIssues.filter(mapped);
+  const everything = allIssues(snapshot).filter(mapped);
   const totalPoints = sumEstimates(scrum);
-  const done = scrum.filter(isIssueDone).length;
+  const doneIssues = scrum.filter((issue) => stateOf(issue) === "done");
+  const done = doneIssues.length;
   return {
     totalIssues: scrum.length,
     done,
-    inProgress: scrum.filter((issue) => categoryKey(issue) === "indeterminate").length,
-    toDo: scrum.filter((issue) => categoryKey(issue) === "new").length,
-    swimlaneCount: snapshot.swimlaneIssues.length,
+    inProgress: scrum.filter((issue) => stateOf(issue) === "inProgress").length,
+    toDo: scrum.filter((issue) => stateOf(issue) === "todo").length,
+    swimlaneCount: snapshot.swimlaneIssues.filter(mapped).length,
     blockedCount: everything.filter((issue) => issue.isBlocked).length,
     agingCount: everything.filter(
       (issue) =>
         issue.daysInColumn !== null &&
-        !isIssueDone(issue) &&
+        stateOf(issue) !== "done" &&
         issue.daysInColumn >= agingThresholdDays,
     ).length,
-    withoutGoalCount: issuesWithoutGoal(snapshot).length,
+    withoutGoalCount: issuesWithoutGoal(snapshot).filter(mapped).length,
     addedAfterStartCount: everything.filter((issue) => issue.addedAfterSprintStart === true).length,
     carriedOverCount: everything.filter((issue) => issue.carriedOver).length,
     totalPoints,
-    donePoints: totalPoints === null ? null : (sumEstimates(scrum.filter(isIssueDone)) ?? 0),
+    donePoints: totalPoints === null ? null : (sumEstimates(doneIssues) ?? 0),
     goalCount: snapshot.goals.length,
     completionRatio: scrum.length === 0 ? 0 : done / scrum.length,
+    byState: tallyByState(scrum, stateOf, (issue) => issue.estimate),
   };
 }
 
@@ -529,6 +565,7 @@ function subtasksOf(issue: JiraIssue, sprintSubtasks: ReadonlyMap<string, JiraIs
       key: ref.key,
       summary: full?.fields.summary ?? ref.summary,
       statusName: status?.name ?? null,
+      statusId: status?.id ?? null,
       statusCategoryKey: status?.statusCategory?.key ?? null,
       assignee: full?.fields.assignee ?? null,
     };
@@ -541,6 +578,7 @@ function subtasksOf(issue: JiraIssue, sprintSubtasks: ReadonlyMap<string, JiraIs
         key: sub.key,
         summary: sub.fields.summary,
         statusName: sub.fields.status.name,
+        statusId: sub.fields.status.id,
         statusCategoryKey: sub.fields.status.statusCategory?.key ?? null,
         assignee: sub.fields.assignee,
       }),

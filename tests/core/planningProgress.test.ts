@@ -4,7 +4,6 @@ import {
   closedSprintCache,
   type HistoryReader,
   MAX_HISTORY_SPRINTS,
-  progressCategory,
   textGoalHistory,
 } from "../../src/core/planningProgress";
 import { decodeIssue, decodeSprint, type JiraIssue } from "../../src/jira/models";
@@ -20,7 +19,6 @@ const done = (key: string, points?: number) =>
     }),
   );
 const ongoing = (key: string) => decodeIssue(issueJson(key, { category: "indeterminate" }));
-const todo = (key: string) => decodeIssue(issueJson(key, { category: "new" }));
 
 /** Sprint clos dont le texte porte ses objectifs : la réconciliation part du texte. */
 const closed = (id: number, day: number, goals: readonly string[]) =>
@@ -80,15 +78,6 @@ const input = (goalIds: readonly string[], sprintKeys: readonly string[] = []) =
   goalIds,
   sprintKeys: new Set(sprintKeys),
   query,
-});
-
-describe("avancement d'un objectif : catégorie du statut", () => {
-  it("à faire, en cours, terminé ; une catégorie inconnue compte « à faire »", () => {
-    expect(progressCategory(todo("A-1"))).toBe("todo");
-    expect(progressCategory(ongoing("A-1"))).toBe("inProgress");
-    expect(progressCategory(done("A-1"))).toBe("done");
-    expect(progressCategory(decodeIssue(issueJson("A-1", { category: "autre" })))).toBe("todo");
-  });
 });
 
 describe("déjà livré d'un objectif texte reporté", () => {

@@ -17,7 +17,9 @@ import {
   type GoalProgress,
   goalProgress,
   isForeignSprint,
+  isMapped,
 } from "./boardIssue";
+import { columnStates } from "./columnState";
 import { applyFilters, areFiltersActive, type BoardFilters } from "./filters";
 import type { SprintGoal } from "./sprintGoals";
 
@@ -112,6 +114,7 @@ export function buildBoardLayout(
     ...(options.showEmptySwimlaneId ? { showEmptySwimlaneId: options.showEmptySwimlaneId } : {}),
   });
 
+  const states = columnStates(configuration.columns);
   let unmappedCount = 0;
   const lanes = shown.map((block): Lane => {
     const visible = visibleIssuesOf(block);
@@ -138,12 +141,13 @@ export function buildBoardLayout(
         ? goalProgress(
             goal,
             everything.filter((issue) => issue.goalId === goal.id),
-            columns.at(-1)?.id ?? null,
+            states,
           )
         : null,
       cells,
       visibleCount: placed,
-      totalCount: allIssuesOf(block).length,
+      // Un ticket sans colonne visible n'est pas compté : il n'est pas affiché.
+      totalCount: allIssuesOf(block).filter((issue) => isMapped(issue, states)).length,
       // Une destination révélée doit offrir ses cases de dépôt, sans modifier le repli mémorisé.
       collapsed: !revealedDestination && isBlockCollapsed(configuration, block),
     };

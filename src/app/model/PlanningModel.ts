@@ -4,8 +4,9 @@ import {
   type GoalsReader,
   loadAtlassianSprintGoals,
 } from "../../core/atlassianGoals";
-import { type BoardConfiguration, visibleColumns } from "../../core/boardConfiguration";
+import type { BoardConfiguration } from "../../core/boardConfiguration";
 import { type IssueFilterOptions, issueFilterOptions } from "../../core/boardLayout";
+import { columnStates, tallyByState } from "../../core/columnState";
 import {
   matchesIssue,
   matchesIssueSearch,
@@ -20,8 +21,6 @@ import {
   type ClosedSprintCache,
   closedSprintCache,
   type GoalHistory,
-  type ProgressCategory,
-  progressCategory,
   textGoalHistory,
 } from "../../core/planningProgress";
 import {
@@ -292,20 +291,38 @@ export class PlanningModel implements PlanningViewModel {
     };
   }
 
-  readonly #sprintItems = computed((): readonly PlanningIssue[] =>
-    SPRINT_PLANNING_ENABLED
-      ? (this.snapshot.value?.sprintIssues ?? []).map((issue) => this.#item(issue))
-      : [],
-  );
+  /** Seule règle d'état d'un ticket : les colonnes visibles du board (story 8.20). */
+  readonly #states = computed(() => columnStates(this.context.configuration()?.columns ?? []));
+
+  /**
+   * Sprint en préparation, sans les tickets dont le statut n'est dans aucune colonne visible :
+   * comme sur le board, ils ne sont ni affichés ni comptés (`unmappedCount` le dit).
+   */
+  readonly #sprintItems = computed((): readonly PlanningIssue[] => {
+    if (!SPRINT_PLANNING_ENABLED) return [];
+    const states = this.#states.value;
+    return (this.snapshot.value?.sprintIssues ?? [])
+      .filter((issue) => states.ofStatus(issue.fields.status?.id) !== null)
+      .map((issue) => this.#item(issue));
+  });
+
+  /** Tickets du sprint en préparation ignorés faute de colonne visible pour leur statut. */
+  readonly unmappedCount = computed(() => {
+    const states = this.#states.value;
+    return SPRINT_PLANNING_ENABLED
+      ? (this.snapshot.value?.sprintIssues ?? []).filter(
+          (issue) => states.ofStatus(issue.fields.status?.id) === null,
+        ).length
+      : 0;
+  });
 
   readonly lanes = computed((): readonly PlanningLane[] => {
     const { goals, links } = this.#goalView.value;
     const matches = this.#matches.value;
     const history = this.goalHistory.value;
+    const states = this.#states.value;
     return goals.map((goal) => {
       const all = this.#sprintItems.value.filter((item) => links[item.issue.key] === goal.id);
-      const byCategory = (category: ProgressCategory) =>
-        tally(all.filter((item) => progressCategory(item.issue) === category));
       const delivered = history?.delivered[goal.id] ?? [];
       return {
         goal,
@@ -313,11 +330,11 @@ export class PlanningModel implements PlanningViewModel {
         issueCount: all.length,
         points: all.reduce((sum, item) => sum + (item.estimate ?? 0), 0),
         unestimated: all.filter((item) => item.estimate === null).length,
-        progress: {
-          todo: byCategory("todo"),
-          inProgress: byCategory("inProgress"),
-          done: byCategory("done"),
-        },
+        progress: tallyByState(
+          all,
+          (item) => states.ofStatus(item.issue.fields.status?.id),
+          (item) => item.estimate,
+        ),
         delivered: delivered.length > 0 ? tally(delivered.map((issue) => this.#item(issue))) : null,
         deliveredIncomplete: history?.incomplete ?? false,
       };
@@ -491,6 +508,7 @@ export class PlanningModel implements PlanningViewModel {
       boardId: configuration.boardId,
       sprintId,
       query: planningQuery(configuration),
+      columns: configuration.columns,
       // Autres sprints futurs et sprints à clôturer : seulement ceux que l'utilisateur peut modifier.
       proposable: (sprints) => proposableSprintIds(this.client, sprints, this.#permissions),
     });
@@ -673,6 +691,7 @@ export class PlanningModel implements PlanningViewModel {
         scope: "planning",
         filters: active,
         sprintIds: [...new Set(sprintIds)],
+        doneStatusIds: columnStates(configuration.columns).doneStatusIds,
       });
       if (current()) this.filters.value = { ...this.filters.value, jiraQuickFilterKeys: keys };
     } catch (error) {
@@ -1397,9 +1416,8 @@ export class PlanningModel implements PlanningViewModel {
     configuration: BoardConfiguration,
     generation: number,
   ): Promise<void> {
-    const last = visibleColumns(configuration.columns).at(-1) ?? null;
-    const isDone = (issue: JiraIssue) =>
-      last?.statusIds.includes(issue.fields.status?.id ?? "") === true;
+    const states = columnStates(configuration.columns);
+    const isDone = (issue: JiraIssue) => states.ofStatus(issue.fields.status?.id) === "done";
     const mode: CarryOverMode =
       configuration.goalSource === "atlassianGoals"
         ? { kind: "atlassian", goals: this.context.goals, configuration }

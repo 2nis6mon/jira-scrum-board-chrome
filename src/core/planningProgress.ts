@@ -6,21 +6,6 @@ import { readSprintGoalProperty, reconcileSprintGoals, stableGoalIds } from "./s
 // Avancement des objectifs du Sprint Planning (story 8.16). Lectures seules : ce qui est déjà
 // livré avant le sprint en préparation est indiqué à part, jamais compté dans sa charge.
 
-/** Répartition des tickets d'un objectif selon la catégorie de leur statut Jira. */
-export type ProgressCategory = "todo" | "inProgress" | "done";
-
-/** Catégorie de statut d'Atlassian ; inconnue, le ticket compte « à faire ». */
-export function progressCategory(issue: JiraIssue): ProgressCategory {
-  switch (issue.fields.status?.statusCategory?.key) {
-    case "done":
-      return "done";
-    case "indeterminate":
-      return "inProgress";
-    default:
-      return "todo";
-  }
-}
-
 /** Tickets terminés avant le sprint en préparation, par objectif. */
 export interface GoalHistory {
   readonly delivered: Readonly<Record<string, readonly JiraIssue[]>>;

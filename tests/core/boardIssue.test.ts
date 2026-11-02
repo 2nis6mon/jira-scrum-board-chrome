@@ -15,6 +15,7 @@ import {
   sprintMetrics,
   textLinkSprintId,
 } from "../../src/core/boardIssue";
+import { columnStates } from "../../src/core/columnState";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
 import type { JiraIssue, JiraSprint } from "../../src/jira/models";
 import {
@@ -24,6 +25,9 @@ import {
   makeSprint,
   statusJson,
 } from "../support/jiraFixtures";
+
+/** États des colonnes de la configuration fictive : To Do, In Progress, Done. */
+const STATES = columnStates(makeConfiguration().columns);
 
 function assemble(
   issues: JiraIssue[],
@@ -175,24 +179,55 @@ describe("goalProgress", () => {
     const goal = makeSprintGoal({ id: "g1", title: "Objectif", position: 0 });
     const issues = assemble([makeIssue("ABC-1"), makeIssue("ABC-2")]).map((issue) => ({
       ...issue,
-      columnId: "last",
+      columnId: "done",
     }));
-    expect(goalProgress(goal, issues, "last").state).toBe("completed");
-    expect(goalProgress(goal, issues, "last").done).toBe(2);
+    expect(goalProgress(goal, issues, STATES).state).toBe("completed");
+    expect(goalProgress(goal, issues, STATES).done).toBe(2);
     expect(
       goalProgress(
         goal,
-        issues.map((issue, index) => (index === 0 ? { ...issue, columnId: "previous" } : issue)),
-        "last",
+        issues.map((issue, index) => (index === 0 ? { ...issue, columnId: "prog" } : issue)),
+        STATES,
       ).state,
     ).toBe("inProgress");
-    expect(goalProgress(goal, [], "last").state).toBe("empty");
-    expect(goalProgress(goal, issues, null).state).toBe("inProgress");
-    const categoryDone = assemble([makeIssue("ABC-3", { category: "done" })]).map((issue) => ({
-      ...issue,
-      columnId: "previous",
-    }));
-    expect(goalProgress(goal, categoryDone, "last").state).toBe("inProgress");
+    expect(goalProgress(goal, [], STATES).state).toBe("empty");
+  });
+
+  it("la catégorie de statut Jira ne compte pas : seule la colonne dit l'état", () => {
+    const goal = makeSprintGoal({ id: "g1", title: "Objectif", position: 0 });
+    // « Recette » : catégorie done, mais dans une colonne du milieu.
+    const recette = assemble([makeIssue("ABC-3", { category: "done" })]);
+    const progress = goalProgress(goal, recette, STATES);
+    expect(progress.state).toBe("inProgress");
+    expect(progress.byState.inProgress.count).toBe(1);
+    expect(progress.byState.done.count).toBe(0);
+  });
+
+  it("un ticket sans colonne visible est ignoré : l'objectif reste atteignable", () => {
+    const goal = makeSprintGoal({ id: "g1", title: "Objectif", position: 0 });
+    const issues = assemble([
+      makeIssue("ABC-1", { statusId: "6", statusName: "Done", category: "done", points: 3 }),
+      makeIssue("ABC-2", { statusId: "99", statusName: "Annulé", category: "done", points: 5 }),
+    ]);
+    const progress = goalProgress(goal, issues, STATES);
+    expect(progress).toMatchObject({ total: 1, done: 1, state: "completed", totalPoints: 3 });
+    expect(progress.issues.map((issue) => issue.issue.key)).toEqual(["ABC-1"]);
+    expect(goalProgress(goal, [issues[1] as BoardIssue], STATES).state).toBe("empty");
+  });
+
+  it("répartition par colonne, en tickets et en points", () => {
+    const goal = makeSprintGoal({ id: "g1", title: "Objectif", position: 0 });
+    const issues = assemble([
+      makeIssue("ABC-1", { statusId: "1", statusName: "To Do", category: "new", points: 2 }),
+      makeIssue("ABC-2", { points: 3 }),
+      makeIssue("ABC-3"),
+      makeIssue("ABC-4", { statusId: "6", statusName: "Done", category: "done", points: 5 }),
+    ]);
+    expect(goalProgress(goal, issues, STATES).byState).toEqual({
+      todo: { count: 1, points: 2 },
+      inProgress: { count: 2, points: 3 },
+      done: { count: 1, points: 5 },
+    });
   });
 
   function progress(done: number, total: number, points: (number | undefined)[] = []) {
@@ -209,6 +244,7 @@ describe("goalProgress", () => {
     return goalProgress(
       makeSprintGoal({ id: "g1", title: "Objectif", position: 0 }),
       assemble(raw),
+      STATES,
     );
   }
 
@@ -403,7 +439,7 @@ describe("reporté du sprint précédent", () => {
     const c = assemble([withEntry("ABC-3", "2026-09-11T10:00:00.000+0200", "", "43")], {
       sprint: sprint43(),
     });
-    expect(sprintMetrics(snapshot([...a, ...b, ...c]), 3).carriedOverCount).toBe(2);
+    expect(sprintMetrics(snapshot([...a, ...b, ...c]), 3, STATES).carriedOverCount).toBe(2);
   });
 });
 
@@ -464,7 +500,7 @@ describe("photographie du board", () => {
       { links: { "ABC-1": "g1" }, now },
     );
     const run = assemble([makeIssue("RUN-1", { typeId: "10004", blockedBy: "X-2" })], { now });
-    const metrics = sprintMetrics(snapshot(scrum, run), 3);
+    const metrics = sprintMetrics(snapshot(scrum, run), 3, STATES);
 
     expect(metrics).toMatchObject({
       totalIssues: 3,
@@ -479,6 +515,27 @@ describe("photographie du board", () => {
       donePoints: 3,
     });
     expect(metrics.completionRatio).toBeCloseTo(1 / 3, 4);
+    expect(metrics.byState).toEqual({
+      todo: { count: 1, points: 0 },
+      inProgress: { count: 1, points: 5 },
+      done: { count: 1, points: 3 },
+    });
+  });
+
+  it("barre du sprint par colonnes : catégorie ignorée, ticket sans colonne compté nulle part", () => {
+    const scrum = assemble([
+      makeIssue("ABC-1", { category: "done", points: 2 }),
+      makeIssue("ABC-2", { statusId: "99", statusName: "Annulé", category: "done", points: 8 }),
+      makeIssue("ABC-3", { statusId: "99", statusName: "Annulé", blockedBy: "X-1" }),
+    ]);
+    expect(sprintMetrics(snapshot(scrum), 3, STATES)).toMatchObject({
+      totalIssues: 1,
+      done: 0,
+      inProgress: 1,
+      totalPoints: 2,
+      blockedCount: 0,
+      withoutGoalCount: 1,
+    });
   });
 
   it("avancement par objectif, dans l'ordre des positions", () => {
@@ -489,7 +546,7 @@ describe("photographie du board", () => {
       makeSprintGoal({ id: "g2", title: "Deux", position: 1 }),
       makeSprintGoal({ id: "g1", title: "Un", position: 0 }),
     ];
-    const progress = snapshotGoalProgress({ ...snapshot(issues), goals });
+    const progress = snapshotGoalProgress({ ...snapshot(issues), goals }, STATES);
     expect(progress.map((p) => [p.goal.id, p.total])).toEqual([
       ["g1", 0],
       ["g2", 2],

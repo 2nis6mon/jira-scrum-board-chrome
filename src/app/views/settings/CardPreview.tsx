@@ -1,6 +1,7 @@
-import { type BoardConfiguration, visibleColumns } from "../../../core/boardConfiguration";
+import type { BoardConfiguration } from "../../../core/boardConfiguration";
 import type { BoardIssue } from "../../../core/boardIssue";
 import type { CardField } from "../../../core/cardFields";
+import { columnStates } from "../../../core/columnState";
 import type { BoardModel } from "../../model/BoardModel";
 import { IssueCard } from "../board/IssueCard";
 
@@ -16,7 +17,7 @@ export function CardPreview(props: {
   tints?: Readonly<Record<string, string>>;
 }) {
   const { board, configuration } = props;
-  const lastColumnId = visibleColumns(configuration.columns).at(-1)?.id ?? null;
+  const states = columnStates(configuration.columns);
   const parentColors = board.parentColors.value;
   return (
     <div class="settings-preview" inert>
@@ -32,7 +33,7 @@ export function CardPreview(props: {
             parentColor={parentKey ? (parentColors.get(parentKey) ?? null) : null}
             agingThresholdDays={configuration.agingThresholdDays}
             goalTitle={null}
-            lastColumnId={lastColumnId}
+            columnStates={states}
             tint={props.tints?.[issue.issue.key] ?? null}
           />
         );

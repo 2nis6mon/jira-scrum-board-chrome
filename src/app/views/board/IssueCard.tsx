@@ -1,12 +1,12 @@
 import {
   type BoardIssue,
   browseUrl,
-  isSubtaskDone,
   type Subtask,
   type SubtaskProgress,
   subtaskProgress,
 } from "../../../core/boardIssue";
 import { type CardField, cardFieldId, cardFieldValues } from "../../../core/cardFields";
+import type { ColumnStates } from "../../../core/columnState";
 import type { ParentColor } from "../../../core/parentColors";
 import { localize, t } from "../../i18n";
 import { cardFieldLabel } from "../../model/coreText";
@@ -25,8 +25,8 @@ interface Props {
   agingThresholdDays: number;
   /** Titre de l'objectif, montré quand le ticket n'est pas dans la swimlane de son objectif. */
   goalTitle: string | null;
-  /** Dernière colonne visible du bloc du ticket : c'est là qu'un ticket est terminé sur le board. */
-  lastColumnId: string | null;
+  /** États des colonnes du board : seule règle pour dire qu'un ticket ou une sous-tâche est fini. */
+  columnStates: ColumnStates;
   /** Une écriture est en cours sur ce ticket : il attend la réponse de Jira. */
   pending?: boolean;
   feedback?: "warning" | undefined;
@@ -49,12 +49,12 @@ interface Props {
 export function IssueCard(props: Props) {
   const { issue } = props;
   const fields = issue.issue.fields;
-  const subtasks = subtaskProgress(issue, props.lastColumnId);
+  const subtasks = subtaskProgress(issue, props.columnStates);
   const openInLastColumn = subtasks?.openInLastColumn ?? [];
   const aging =
     issue.daysInColumn !== null &&
     issue.daysInColumn >= props.agingThresholdDays &&
-    fields.status.statusCategory?.key !== "done";
+    props.columnStates.ofColumn(issue.columnId) !== "done";
   // Champs choisis dans les réglages : un badge par valeur, le nom du champ en info-bulle.
   const tags = props.cardFields.flatMap((field) =>
     cardFieldValues(field, fields).map((value, index) => ({
@@ -158,7 +158,7 @@ export function IssueCard(props: Props) {
         </div>
       )}
 
-      {subtasks && <SubtaskBar subtasks={issue.subtasks} progress={subtasks} />}
+      {subtasks && <SubtaskBar progress={subtasks} />}
 
       {/* Dernière ligne : les alertes, compactes (icône, détail au survol), puis points et assigné. */}
       <div class="card-bottom">
@@ -182,7 +182,7 @@ export function IssueCard(props: Props) {
                     "sous-tâches encore ouvertes",
                   ),
                 }),
-                ...openInLastColumn.map(subtaskLine),
+                ...openInLastColumn.map((subtask) => subtaskLine(subtask, false)),
               ].join("\n")}
             >
               <Icon name="subtasks" size={13} />
@@ -257,20 +257,12 @@ function belowCard(event: Event): { x: number; y: number } {
   return { x: box.left, y: box.bottom };
 }
 
-/** Ordre des segments : terminées, en cours, puis à faire ; la barre se remplit de gauche à droite. */
-const SEGMENT_ORDER: Record<string, number> = { done: 0, indeterminate: 1, new: 2 };
-
 /**
- * Avancement des sous-tâches, repliées dans la carte : un segment par sous-tâche, coloré selon son
- * statut, et « terminées / total ». Le détail s'affiche au survol, comme les autres alertes.
+ * Avancement des sous-tâches, repliées dans la carte : un segment par sous-tâche, coloré selon sa
+ * colonne (terminées, en cours, puis à faire), et « terminées / total ». Le détail s'affiche au
+ * survol, comme les autres alertes. Une sous-tâche sans colonne visible n'est pas comptée.
  */
-function SubtaskBar(props: { subtasks: readonly Subtask[]; progress: SubtaskProgress }) {
-  const { progress } = props;
-  const segments = [...props.subtasks].sort(
-    (a, b) =>
-      (SEGMENT_ORDER[a.statusCategoryKey ?? ""] ?? 3) -
-      (SEGMENT_ORDER[b.statusCategoryKey ?? ""] ?? 3),
-  );
+function SubtaskBar({ progress }: { progress: SubtaskProgress }) {
   const headline = progress.allDoneBeforeLastColumn
     ? t("Toutes les sous-tâches sont terminées : le ticket peut avancer.")
     : t("Sous-tâches : {done} sur {total} terminées.", {
@@ -282,11 +274,14 @@ function SubtaskBar(props: { subtasks: readonly Subtask[]; progress: SubtaskProg
       class={`card-subtasks${progress.allDoneBeforeLastColumn ? " card-subtasks-ready" : ""}`}
       role="img"
       aria-label={headline}
-      title={[headline, ...props.subtasks.map(subtaskLine)].join("\n")}
+      title={[
+        headline,
+        ...progress.segments.map(({ subtask, state }) => subtaskLine(subtask, state === "done")),
+      ].join("\n")}
     >
       <span class="subtask-bar" aria-hidden="true">
-        {segments.map((subtask) => (
-          <i key={subtask.key} data-status={subtask.statusCategoryKey ?? "unknown"} />
+        {progress.segments.map(({ subtask, state }) => (
+          <i key={subtask.key} data-state={state} />
         ))}
       </span>
       <span class="subtask-count">
@@ -298,8 +293,8 @@ function SubtaskBar(props: { subtasks: readonly Subtask[]; progress: SubtaskProg
 }
 
 /** Une ligne de sous-tâche pour une info-bulle : coche, clé, résumé, statut, assigné. */
-function subtaskLine(subtask: Subtask): string {
-  const parts = [`${isSubtaskDone(subtask) ? "✓" : "○"} ${subtask.key}`];
+function subtaskLine(subtask: Subtask, done: boolean): string {
+  const parts = [`${done ? "✓" : "○"} ${subtask.key}`];
   if (subtask.summary) parts.push(`— ${subtask.summary}`);
   if (subtask.statusName) parts.push(`(${subtask.statusName})`);
   if (subtask.assignee) parts.push(`· ${subtask.assignee.displayName}`);

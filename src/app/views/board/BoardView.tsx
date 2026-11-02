@@ -5,7 +5,6 @@ import {
   displayedCardFields,
   displayedGoalId,
   isGoalHidden,
-  visibleColumns,
 } from "../../../core/boardConfiguration";
 import {
   allIssues,
@@ -14,11 +13,12 @@ import {
   familyKey,
   goalProgress,
   isForeignSprint,
-  isIssueDone,
+  isMapped,
   type SprintMetrics,
   sprintMetrics,
 } from "../../../core/boardIssue";
 import { type BoardLayout, columnLoad, daysRemaining, type Lane } from "../../../core/boardLayout";
+import { columnStates } from "../../../core/columnState";
 import {
   cappedStock,
   currentStepIndex,
@@ -54,6 +54,7 @@ import { FullscreenButton, requestFullscreen, useFullscreen } from "../fullscree
 import { GoalMarker } from "../GoalMarker";
 import { HealthPanel } from "../health/HealthPanel";
 import { Icon, type IconName } from "../Icon";
+import { LaneHeader, StateBar } from "../LaneHeader";
 import { CardMenu } from "./CardMenu";
 import { FilterMenu } from "./FilterMenu";
 import { placeFloatingMenu } from "./floatingMenu";
@@ -261,19 +262,25 @@ function SprintHeader(props: {
   const kanban = configuration.boardType === "kanban";
   const sprint = snapshot?.sprint ?? null;
   const hasScope = snapshot !== null && (kanban || sprint !== null);
-  const metrics = snapshot ? sprintMetrics(snapshot, configuration.agingThresholdDays) : null;
-  const kanbanIssues = kanban && snapshot ? allIssues(snapshot) : [];
-  const kanbanDone = kanbanIssues.filter(isIssueDone).length;
+  // État de chaque ticket par sa colonne ; ceux sans colonne visible ne sont pas comptés.
+  const states = columnStates(configuration.columns);
+  const metrics = snapshot
+    ? sprintMetrics(snapshot, configuration.agingThresholdDays, states)
+    : null;
+  const kanbanIssues =
+    kanban && snapshot ? allIssues(snapshot).filter((issue) => isMapped(issue, states)) : [];
+  const kanbanDone = kanbanIssues.filter(
+    (issue) => states.ofColumn(issue.columnId) === "done",
+  ).length;
   const remaining = daysRemaining(sprint?.endDate ?? null, new Date());
   const goals = snapshot?.goals.filter((goal) => !isGoalHidden(configuration, goal.id)) ?? [];
-  const lastColumnId = visibleColumns(configuration.columns).at(-1)?.id ?? null;
   const completedGoals = snapshot
     ? goals.filter(
         (goal) =>
           goalProgress(
             goal,
             snapshot.goalIssues.filter((issue) => issue.goalId === goal.id),
-            lastColumnId,
+            states,
           ).state === "completed",
       ).length
     : 0;
@@ -605,7 +612,10 @@ function DailyBar(props: {
   );
 }
 
-/** Avancement du sprint : en story points si le board en a, sinon en tickets. */
+/**
+ * Avancement du sprint : en story points si le board en a, sinon en tickets ; barre par état des
+ * colonnes, comme celle des objectifs.
+ */
 function SprintProgress({ metrics }: { metrics: SprintMetrics }) {
   const tickets = t("{done} / {issues} terminés", {
     done: metrics.done,
@@ -632,7 +642,11 @@ function SprintProgress({ metrics }: { metrics: SprintMetrics }) {
           ? `${metrics.done}/${plural(metrics.totalIssues, t("ticket"))}`
           : `${formatPoints(metrics.donePoints ?? 0)}/${formatPoints(points)} pts`}
       </strong>
-      <progress max={1} value={ratio} aria-label={t("Avancement du sprint")} />
+      <StateBar
+        tallies={metrics.byState}
+        points={points !== null}
+        label={t("Avancement du sprint")}
+      />
       <span class="sprint-percent">{Math.round(ratio * 100)} %</span>
     </div>
   );
@@ -658,7 +672,8 @@ function carriedOverCount(board: BoardModel): number {
   const snapshot = board.snapshot.value;
   const configuration = board.configuration.value;
   return snapshot && configuration
-    ? sprintMetrics(snapshot, configuration.agingThresholdDays).carriedOverCount
+    ? sprintMetrics(snapshot, configuration.agingThresholdDays, columnStates(configuration.columns))
+        .carriedOverCount
     : 0;
 }
 
@@ -1204,6 +1219,7 @@ function LaneView(props: {
   const focused = goal !== null && isGoalFocused(board.filters.value, goal.id);
   const goalsById = new Map(board.snapshot.value?.goals.map((g) => [g.id, g]) ?? []);
   const cardFields = displayedCardFields(configuration);
+  const states = columnStates(configuration.columns);
   const parentColors = board.parentColors.value;
   const stockExpanded = dailyStock?.expandedIds.includes(lane.id) ?? false;
 
@@ -1234,67 +1250,78 @@ function LaneView(props: {
         void board.dropLane(dragged, target);
       }}
     >
-      <header
-        class={`lane-header${progress?.state === "completed" ? " lane-header-completed" : ""}`}
-      >
-        {!daily && (
-          <>
-            {board.canEditSettings.value && (
-              <span
-                class="lane-grip"
-                draggable
-                aria-hidden="true"
-                title={t("Glisser pour déplacer la swimlane (ou menu ⋯ : Monter, Descendre)")}
-                onDragStart={(event) => {
-                  if (!event.dataTransfer) return;
-                  event.dataTransfer.setData(LANE_DRAG_TYPE, lane.id);
-                  event.dataTransfer.effectAllowed = "move";
-                  const header = event.currentTarget.closest(".lane-header");
-                  if (header instanceof HTMLElement)
-                    event.dataTransfer.setDragImage?.(header, 12, 12);
-                  board.startLaneDrag(lane.id);
-                }}
-                onDragEnd={() => board.endLaneDrag()}
-              />
-            )}
+      <LaneHeader
+        completed={progress?.state === "completed"}
+        leading={
+          !daily && (
+            <>
+              {board.canEditSettings.value && (
+                <span
+                  class="lane-grip"
+                  draggable
+                  aria-hidden="true"
+                  title={t("Glisser pour déplacer la swimlane (ou menu ⋯ : Monter, Descendre)")}
+                  onDragStart={(event) => {
+                    if (!event.dataTransfer) return;
+                    event.dataTransfer.setData(LANE_DRAG_TYPE, lane.id);
+                    event.dataTransfer.effectAllowed = "move";
+                    const header = event.currentTarget.closest(".lane-header");
+                    if (header instanceof HTMLElement)
+                      event.dataTransfer.setDragImage?.(header, 12, 12);
+                    board.startLaneDrag(lane.id);
+                  }}
+                  onDragEnd={() => board.endLaneDrag()}
+                />
+              )}
+              <button
+                type="button"
+                class="lane-toggle"
+                aria-expanded={!lane.collapsed}
+                aria-label={t(lane.collapsed ? "Déplier {name}" : "Replier {name}", {
+                  name: lane.title,
+                })}
+                title={lane.collapsed ? t("Déplier") : t("Replier")}
+                onClick={() => void board.toggleLaneCollapsed(lane.block)}
+              >
+                <span class="chevron" aria-hidden="true" />
+              </button>
+            </>
+          )
+        }
+        title={
+          goal && !daily ? (
             <button
               type="button"
-              class="lane-toggle"
-              aria-expanded={!lane.collapsed}
-              aria-label={t(lane.collapsed ? "Déplier {name}" : "Replier {name}", {
-                name: lane.title,
-              })}
-              title={lane.collapsed ? t("Déplier") : t("Replier")}
-              onClick={() => void board.toggleLaneCollapsed(lane.block)}
+              class="lane-title"
+              aria-pressed={focused}
+              title={focused ? t("Afficher tous les objectifs") : t("N'afficher que cet objectif")}
+              onClick={() => board.focusGoal(goal.id)}
             >
-              <span class="chevron" aria-hidden="true" />
+              <GoalMarker completed={progress?.state === "completed"} />
+              {lane.sprintName && <span class="lane-sprint">{lane.sprintName} · </span>}
+              {lane.title}
             </button>
-          </>
-        )}
-        {goal && !daily ? (
-          <button
-            type="button"
-            class="lane-title"
-            aria-pressed={focused}
-            title={focused ? t("Afficher tous les objectifs") : t("N'afficher que cet objectif")}
-            onClick={() => board.focusGoal(goal.id)}
-          >
-            <GoalMarker completed={progress?.state === "completed"} />
-            {lane.sprintName && <span class="lane-sprint">{lane.sprintName} · </span>}
-            {lane.title}
-          </button>
-        ) : (
-          <span class="lane-title">
-            {goal && <GoalMarker completed={progress?.state === "completed"} />}
-            {lane.sprintName && <span class="lane-sprint">{lane.sprintName} · </span>}
-            {lane.title}
-          </span>
-        )}
-        <span class="lane-count">
-          {layout.filtersActive
+          ) : (
+            <span class="lane-title">
+              {goal && <GoalMarker completed={progress?.state === "completed"} />}
+              {lane.sprintName && <span class="lane-sprint">{lane.sprintName} · </span>}
+              {lane.title}
+            </span>
+          )
+        }
+        count={
+          layout.filtersActive
             ? `${lane.visibleCount} / ${lane.totalCount}`
-            : plural(lane.totalCount, t("ticket"))}
-        </span>
+            : plural(lane.totalCount, t("ticket"))
+        }
+        progress={
+          progress && {
+            name: lane.title,
+            tallies: progress.byState,
+            points: progress.totalPoints !== null,
+          }
+        }
+      >
         {lane.block.kind === "swimlane" && (
           <span
             class="lane-default-label"
@@ -1305,25 +1332,8 @@ function LaneView(props: {
             {t("Par défaut")}
           </span>
         )}
-        {progress && progress.total > 0 && (
-          <span class="lane-progress">
-            <span>
-              {t("{done}/{total} terminés", { done: progress.done, total: progress.total })}
-              {progress.totalPoints !== null &&
-                ` · ${formatPoints(progress.donePoints ?? 0)}/${formatPoints(progress.totalPoints)} pts`}
-            </span>
-            <progress
-              max={1}
-              value={progress.completionRatio}
-              aria-label={t("Avancement de {name}", { name: lane.title })}
-            />
-          </span>
-        )}
-        {progress?.state === "empty" && (
-          <span class="lane-progress">{t("Aucun ticket rattaché")}</span>
-        )}
         {!daily && <LaneMenu board={board} lane={lane} onShowSettings={props.onShowSettings} />}
-      </header>
+      </LaneHeader>
       {!lane.collapsed && (
         <div class="board-row lane-cells">
           {lane.cells.map((cell, cellIndex) => {
@@ -1480,7 +1490,7 @@ function LaneView(props: {
                           parentColor={parentKey ? (parentColors.get(parentKey) ?? null) : null}
                           agingThresholdDays={configuration.agingThresholdDays}
                           goalTitle={hiddenGoal}
-                          lastColumnId={lane.cells.at(-1)?.column.id ?? null}
+                          columnStates={states}
                           highlighted={drag === null && hoveredFamily === familyKey(issue)}
                           onHoverChange={(hovering) =>
                             onHoverFamily(hovering ? familyKey(issue) : null)

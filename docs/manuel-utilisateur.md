@@ -101,6 +101,11 @@ Les lignes répartissent les tickets entre **objectifs**, **Build** et groupes p
 RUN. Les colonnes et leurs statuts viennent de Jira. Cliquez sur une ligne dans la barre
 latérale pour la rejoindre.
 
+L'en-tête d'un objectif, comme la barre du sprint, montre ses tickets terminés et une barre
+gris / bleu / vert : première colonne (à faire), colonnes du milieu (en cours), dernière colonne
+(terminé), en points quand le board est estimé. Un ticket dont le statut n'est dans aucune
+colonne n'est ni affiché ni compté, comme dans Jira.
+
 Utilisez **Rechercher**, puis les filtres **Personne**, **Type**, **Parent**, **Statut** ou **Label**.
 En Scrum, **Bloqués**, **Ajoutés** et **Reportés** sont des filtres rapides de l'extension :
 **Reportés (N)** ne garde que les tickets reportés du sprint précédent du board (ceux que Jira y a

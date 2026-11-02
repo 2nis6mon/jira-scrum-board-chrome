@@ -192,6 +192,36 @@ describe("Sprint Health : comptages directs", () => {
     expect(sprintHealth(snapshot(), noSwimlane, NO_FILTERS).composition.swimlanes).toBeNull();
   });
 
+  it("états par colonnes : catégorie Jira ignorée, ticket sans colonne compté nulle part", () => {
+    const recette = issue(
+      "ABC-7",
+      { statusId: "3", category: "done", points: 4 },
+      { goalId: "g1", isBlocked: true, daysInColumn: 10 },
+    );
+    const annule = issue(
+      "ABC-8",
+      { statusId: "99", category: "done", points: 8 },
+      { goalId: "g1", isBlocked: true, daysInColumn: 10 },
+    );
+    const health = sprintHealth(
+      snapshot({ goalIssues: [recette, annule], swimlaneIssues: [] }),
+      config,
+      NO_FILTERS,
+    );
+    expect(health.kpis).toMatchObject({
+      totalPoints: 4,
+      donePoints: 0,
+      scrumCount: 1,
+      done: 0,
+      inProgress: 1,
+      allCount: 1,
+      blocked: 1,
+    });
+    expect(health.goals[0]).toMatchObject({ total: 1, done: 0 });
+    // « Recette » n'est pas terminée : elle reste à surveiller ; « Annulé » est ignoré.
+    expect(health.watched.map((entry) => entry.issue.issue.key)).toEqual(["ABC-7"]);
+  });
+
   it("à surveiller : non terminés, bloqués d'abord, puis du plus ancien au plus récent", () => {
     const watched = sprintHealth(snapshot(), config, NO_FILTERS).watched.map((entry) => [
       entry.issue.issue.key,

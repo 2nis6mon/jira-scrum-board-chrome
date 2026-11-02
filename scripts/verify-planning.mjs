@@ -330,7 +330,7 @@ try {
     assert(
       JSON.stringify(sentJql) ===
         JSON.stringify([
-          "(assignee = currentUser()) AND (sprint in (43,44,42) OR sprint is EMPTY OR (sprint in closedSprints() AND statusCategory != Done))",
+          "(assignee = currentUser()) AND (sprint in (43,44,42) OR sprint is EMPTY OR (sprint in closedSprints() AND status not in (6)))",
         ]),
       `JQL du filtre rapide inattendu : ${JSON.stringify(sentJql)}`,
     );

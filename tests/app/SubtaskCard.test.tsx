@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ImageCache } from "../../src/app/model/ImageCache";
 import { IssueCard } from "../../src/app/views/board/IssueCard";
 import { assembleBoardIssues } from "../../src/core/boardIssue";
+import { columnStates } from "../../src/core/columnState";
 import { decodeIssue } from "../../src/jira/models";
 import { issueJson, makeConfiguration, statusJson } from "../support/jiraFixtures";
 
@@ -28,7 +29,8 @@ const ref = (key: string, category: string) => ({
   },
 });
 
-function showCard(subtasks: unknown[], lastColumnId: (columnId: string | null) => string | null) {
+/** `inLastColumn` : la story est dans la dernière colonne (« Done »), sinon dans « In Progress ». */
+function showCard(subtasks: unknown[], inLastColumn: boolean) {
   const configuration = makeConfiguration();
   const [card] = assembleBoardIssues({
     issues: [decodeIssue(issueJson("ABC-1", { summary: "Story", extraFields: { subtasks } }))],
@@ -40,14 +42,14 @@ function showCard(subtasks: unknown[], lastColumnId: (columnId: string | null) =
   if (!card) throw new Error("carte attendue");
   render(
     <IssueCard
-      issue={card}
+      issue={inLastColumn ? { ...card, columnId: "done" } : card}
       siteOrigin="https://acme.atlassian.net"
       images={new ImageCache(async () => new Blob())}
       cardFields={[]}
       parentColor={null}
       agingThresholdDays={99}
       goalTitle={null}
-      lastColumnId={lastColumnId(card.columnId)}
+      columnStates={columnStates(configuration.columns)}
     />,
     document.body,
   );
@@ -58,14 +60,11 @@ const openAlert = () => document.querySelector(".badge-subtasks-open");
 
 describe("sous-tâches sur la carte", () => {
   it("une barre, un segment par sous-tâche, terminées d'abord, et « terminées / total »", () => {
-    showCard(
-      [ref("ABC-2", "new"), ref("ABC-3", "done"), ref("ABC-4", "indeterminate")],
-      () => "autre",
-    );
+    showCard([ref("ABC-2", "new"), ref("ABC-3", "done"), ref("ABC-4", "indeterminate")], false);
     const segments = [...document.querySelectorAll(".subtask-bar i")].map((segment) =>
-      segment.getAttribute("data-status"),
+      segment.getAttribute("data-state"),
     );
-    expect(segments).toEqual(["done", "indeterminate", "new"]);
+    expect(segments).toEqual(["done", "inProgress", "todo"]);
     expect(bar()?.querySelector(".subtask-count")?.textContent).toBe("1/3");
     expect(bar()?.getAttribute("aria-label")).toBe("Sous-tâches : 1 sur 3 terminées.");
     // Le détail de chaque sous-tâche est dans l'info-bulle.
@@ -73,21 +72,21 @@ describe("sous-tâches sur la carte", () => {
   });
 
   it("toutes terminées avant la dernière colonne : la carte dit que la story peut avancer", () => {
-    showCard([ref("ABC-2", "done"), ref("ABC-3", "done")], () => "autre");
+    showCard([ref("ABC-2", "done"), ref("ABC-3", "done")], false);
     expect(bar()?.classList.contains("card-subtasks-ready")).toBe(true);
     expect(bar()?.getAttribute("aria-label")).toContain("le ticket peut avancer");
     expect(openAlert()).toBeNull();
   });
 
   it("story dans la dernière colonne avec des sous-tâches ouvertes : une alerte", () => {
-    showCard([ref("ABC-2", "done"), ref("ABC-3", "indeterminate")], (columnId) => columnId);
+    showCard([ref("ABC-2", "done"), ref("ABC-3", "indeterminate")], true);
     expect(openAlert()?.textContent).toBe("1");
     expect(openAlert()?.getAttribute("title")).toContain("ABC-3");
     expect(bar()?.classList.contains("card-subtasks-ready")).toBe(false);
   });
 
   it("story sans sous-tâche : ni barre ni alerte", () => {
-    showCard([], (columnId) => columnId);
+    showCard([], true);
     expect(bar()).toBeNull();
     expect(openAlert()).toBeNull();
   });

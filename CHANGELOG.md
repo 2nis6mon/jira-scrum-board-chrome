@@ -3,6 +3,21 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.47.0 — Un seul en-tête d'objectif et une seule règle d'état
+
+- Décisions de Denis du 02/11/2026 (story 8.20) : l'état d'un ticket vient toujours des colonnes
+  du board, jamais de la catégorie de statut Jira. Première colonne : à faire ; colonnes du milieu :
+  en cours ; dernière : terminé. Sur le Sprint Board, la barre et les chiffres du sprint, la santé
+  du sprint, les tickets vieillissants et les sous-tâches suivent désormais cette règle, comme
+  l'en-tête des objectifs et le report.
+- Un ticket dont le statut n'est dans aucune colonne visible (« Annulé » non rattaché, par
+  exemple) n'est plus compté nulle part : un objectif ne reste plus « non atteint » à cause d'un
+  ticket invisible. L'avis « non affichés, comme dans Jira » reste, et le planning l'affiche aussi.
+- Le Sprint Board et le Sprint Planning (builds locaux) partagent le même en-tête d'objectif :
+  marqueur « atteint », « n/N terminés · x/y pts », une barre empilée gris / bleu / vert
+  proportionnelle aux points et sa légende chiffrée. La barre du sprint en haut de page prend la
+  même forme.
+
 ## 0.46.0 — Sprint Planning : estimer un ticket pendant la séance (builds locaux)
 
 - Essai du 02/11/2026 (story 8.17) : pour chiffrer une story en séance, il fallait ouvrir sa fiche.

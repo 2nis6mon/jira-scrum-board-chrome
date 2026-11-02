@@ -603,7 +603,7 @@ if (scenario.startsWith("board")) {
     // Filtres rapides FICTIFS évalués sur le périmètre du planning (sprints du board et backlog) ;
     // les autres JQL gardent la réponse du board.
     const planningScope =
-      "sprint in (43,44,42) OR sprint is EMPTY OR (sprint in closedSprints() AND statusCategory != Done)";
+      "sprint in (43,44,42) OR sprint is EMPTY OR (sprint in closedSprints() AND status not in (6))";
     const planningAnswers: Record<string, string[]> = {
       [`(assignee = currentUser()) AND (${planningScope})`]: ["ABC-201", "ABC-210", "ABC-101"],
     };

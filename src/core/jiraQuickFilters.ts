@@ -24,6 +24,8 @@ export async function quickFilterKeys(
     filters: readonly JiraQuickFilter[];
     /** Périmètre évalué : le board affiché (par défaut) ou le Sprint Planning. */
     scope?: "board" | "planning";
+    /** Planning : statuts de la dernière colonne visible, exclus de l'historique des sprints clos. */
+    doneStatusIds?: readonly string[];
   },
 ): Promise<Set<string> | null> {
   if (input.filters.length === 0) return null;
@@ -33,7 +35,7 @@ export async function quickFilterKeys(
   const selections: Set<string>[] = [];
   for (const filter of input.filters) {
     const jql = planning
-      ? inPlanningScope(filter.jql, input.sprintIds)
+      ? inPlanningScope(filter.jql, input.sprintIds, input.doneStatusIds ?? [])
       : inBoardScope(filter.jql, input);
     if (jql === null) continue;
     const issues = await reader.boardIssues(input.boardId, jql, {

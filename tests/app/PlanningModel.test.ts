@@ -100,6 +100,12 @@ function context(
     makeConfiguration({
       boardId: 7,
       estimationFieldId: "customfield_10016",
+      // Colonnes du board 7 du banc : « Revue » (4) est en cours, comme « En cours » (3).
+      columns: [
+        column("todo", "À faire", ["1"], 0),
+        column("prog", "En cours", ["3", "4"], 1),
+        column("done", "Terminé", ["6"], 2),
+      ],
       ...options.configuration,
     }),
   );
@@ -921,7 +927,7 @@ describe("Sprint Planning en direct : fenêtres natives", () => {
 describe("Sprint Planning en direct : filtres (lecture seule)", () => {
   const BOARD_ISSUES = "/rest/agile/1.0/board/7/issue";
   const SCOPE =
-    "sprint in (43,42) OR sprint is EMPTY OR (sprint in closedSprints() AND statusCategory != Done)";
+    "sprint in (43,42) OR sprint is EMPTY OR (sprint in closedSprints() AND status not in (6))";
   const ALEX = { assignee: { accountId: "acc-1", displayName: "Alex Martin" } };
   const BUG = { issuetype: { id: "10004", name: "Bug", subtask: false } };
   const BLOCKED = {
@@ -1321,6 +1327,33 @@ describe("Sprint Planning : avancement de chaque objectif (8.16)", () => {
       inProgress: { count: 1, points: 5 },
       done: { count: 0, points: 0 },
     });
+  });
+
+  it("état par colonne du board, jamais par catégorie de statut Jira (8.20)", async () => {
+    const { planning } = context({
+      closedSprints: true,
+      // « Revue » (4) est dans la colonne du milieu, même classée « terminé » par Jira.
+      issueFields: { "ABC-210": { status: statusJson("4", "Revue", "done") } },
+    });
+    await planning.load();
+    const goalId = planning.lanes.value[0]?.goal.id ?? null;
+    await planning.placeIssue("ABC-210", goalId);
+    expect(planning.lanes.value[0]?.progress).toEqual({
+      todo: { count: 0, points: 0 },
+      inProgress: { count: 1, points: 2 },
+      done: { count: 0, points: 0 },
+    });
+  });
+
+  it("ticket du sprint sans colonne visible : ni affiché ni compté, et signalé (8.20)", async () => {
+    const { planning } = context({
+      issueFields: { "ABC-210": { status: statusJson("99", "Annulé", "done") } },
+    });
+    await planning.load();
+    expect(planning.unassigned.value.map((item) => item.issue.key)).toEqual([]);
+    expect(planning.lanes.value.every((entry) => entry.issueCount === 0)).toBe(true);
+    expect(planning.sprintLoad.value).toMatchObject({ total: 0, unestimated: 0 });
+    expect(planning.unmappedCount.value).toBe(1);
   });
 
   it("objectif texte reporté : indique le déjà livré des sprints clos, hors charge du sprint", async () => {

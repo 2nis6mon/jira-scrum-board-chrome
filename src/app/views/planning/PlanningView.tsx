@@ -16,14 +16,15 @@ import type {
   PlanningLane,
   PlanningLoad,
   PlanningSection,
-  PlanningTally,
   PlanningViewModel,
 } from "../../model/PlanningTypes";
 import { FilterMenu } from "../board/FilterMenu";
 import { type Point, placeDetailsAtPoint, placeFloatingMenu } from "../board/floatingMenu";
 import { JiraIcon } from "../board/JiraIcon";
 import { formatDay, formatPoints, initials, plural, pluralWord, toggled } from "../format";
+import { GoalMarker } from "../GoalMarker";
 import { Icon } from "../Icon";
+import { LaneHeader, StackedBar, tallyText } from "../LaneHeader";
 import { ErrorMessage } from "../Message";
 import "../../styles/planning.css";
 
@@ -453,6 +454,7 @@ function PlanningHeader({
         <div class="sprint-metrics">
           <VelocityField planning={planning} />
           <SprintLoad load={planning.sprintLoad.value} />
+          <UnmappedNote count={planning.unmappedCount.value} />
         </div>
       )}
 
@@ -675,6 +677,24 @@ function VelocityField({ planning }: { planning: PlanningViewModel }) {
   );
 }
 
+/**
+ * Tickets du sprint en préparation dont le statut n'est dans aucune colonne visible : ni affichés ni
+ * comptés, comme sur le board ; l'avis le dit, avec le même texte.
+ */
+function UnmappedNote({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <span class="counter planning-unmapped">
+      {t(
+        count === 1
+          ? "{issues} du {scope} a un statut qui n'appartient à aucune colonne visible du board : non affiché, comme dans Jira."
+          : "{issues} du {scope} ont un statut qui n'appartient à aucune colonne visible du board : non affichés, comme dans Jira.",
+        { issues: plural(count, "ticket"), scope: "sprint" },
+      )}
+    </span>
+  );
+}
+
 /** Charge du sprint en préparation comparée à la vélocité, dans la grammaire de l'avancement. */
 function SprintLoad({ load }: { load: PlanningLoad | null }) {
   if (!load) return null;
@@ -691,10 +711,16 @@ function SprintLoad({ load }: { load: PlanningLoad | null }) {
         {velocity !== null && ` / ${formatPoints(velocity)}`} {unit}
       </strong>
       {velocity !== null && velocity > 0 && (
-        <progress
+        <StackedBar
           max={1}
-          value={Math.min(1, load.total / velocity)}
-          aria-label={t("Charge du sprint comparée à la vélocité de l'équipe")}
+          label={t("Charge du sprint comparée à la vélocité de l'équipe")}
+          segments={[
+            {
+              tone: over ? "over" : "inProgress",
+              value: Math.min(1, load.total / velocity),
+              label: `${Math.round((load.total / velocity) * 100)} %`,
+            },
+          ]}
         />
       )}
       <span class="sprint-percent">
@@ -1080,6 +1106,8 @@ function GoalLane({
   const disabled = planning.gesturesDisabled.value;
   const textMode = planning.goalMode.value === "text";
   const points = planning.sprintLoad.value?.unit === "pts";
+  // Objectif atteint : tous ses tickets sont dans la dernière colonne du board.
+  const completed = lane.issueCount > 0 && lane.progress.done.count === lane.issueCount;
   const drop = useDrop({
     type: PLANNING_DRAG_TYPE,
     disabled,
@@ -1093,31 +1121,35 @@ function GoalLane({
       aria-label={t("Objectif {p0} : {p1}", { p0: index + 1, p1: goal.title })}
       {...drop.handlers}
     >
-      <header class="lane-header">
-        <span class="goal-ring" aria-hidden="true" />
-        {textMode ? (
-          <GoalTitle
-            goal={goal}
-            index={index}
-            disabled={disabled}
-            onRename={(title) =>
-              planning
-                .renameGoal(goal.id, title)
-                .then(
-                  () =>
-                    planning.snapshot.peek()?.goals.find((current) => current.id === goal.id)
-                      ?.title ?? null,
-                )
-            }
-          />
-        ) : (
-          <span class="lane-title planning-goal-name">{goal.title}</span>
-        )}
-        <span class="lane-count">
-          {plural(lane.issueCount, "ticket")}
-          {points && ` · ${formatPoints(lane.points)} pts`}
-        </span>
-        <LaneProgress lane={lane} points={points} />
+      <LaneHeader
+        completed={completed}
+        title={
+          <>
+            <GoalMarker completed={completed} />
+            {textMode ? (
+              <GoalTitle
+                goal={goal}
+                index={index}
+                disabled={disabled}
+                onRename={(title) =>
+                  planning
+                    .renameGoal(goal.id, title)
+                    .then(
+                      () =>
+                        planning.snapshot.peek()?.goals.find((current) => current.id === goal.id)
+                          ?.title ?? null,
+                    )
+                }
+              />
+            ) : (
+              <span class="lane-title planning-goal-name">{goal.title}</span>
+            )}
+          </>
+        }
+        count={plural(lane.issueCount, "ticket")}
+        progress={{ name: goal.title, tallies: lane.progress, points }}
+      >
+        <LaneDelivered lane={lane} points={points} />
         <span class="planning-lane-actions">
           {textMode ? (
             <>
@@ -1171,7 +1203,7 @@ function GoalLane({
             )
           )}
         </span>
-      </header>
+      </LaneHeader>
       <LaneCards
         planning={planning}
         images={images}
@@ -1189,60 +1221,11 @@ function GoalLane({
   );
 }
 
-/** « 3 tickets · 5 pts », ou le seul nombre de tickets sans champ d'estimation. */
-function tallyText(tally: PlanningTally, points: boolean): string {
-  const tickets = plural(tally.count, "ticket");
-  return points ? `${tickets} · ${formatPoints(tally.points)} pts` : tickets;
-}
-
-const PROGRESS_PARTS = [
-  { category: "todo", status: "new", label: "À faire : {p0}" },
-  { category: "inProgress", status: "indeterminate", label: "En cours : {p0}" },
-  { category: "done", status: "done", label: "Terminé : {p0}" },
-] as const;
-
-/**
- * Avancement d'un objectif dans la grammaire de la page du sprint : « n/N terminés » et sa barre,
- * puis la répartition à faire, en cours, terminé (tickets et points) ; à part, ce qui a déjà été
- * livré avant ce sprint, jamais compté dans la charge.
- */
-function LaneProgress({ lane, points }: { lane: PlanningLane; points: boolean }) {
-  const { progress, delivered } = lane;
-  const total = lane.issueCount;
+/** Ce qui a déjà été livré avant ce sprint, à part, jamais compté dans la charge (story 8.16). */
+function LaneDelivered({ lane, points }: { lane: PlanningLane; points: boolean }) {
+  const { delivered } = lane;
   return (
     <>
-      {total > 0 && (
-        <span class="lane-progress planning-lane-progress">
-          <span>
-            {t("{done}/{total} terminés", { done: progress.done.count, total })}
-            {points && ` · ${formatPoints(progress.done.points)}/${formatPoints(lane.points)} pts`}
-          </span>
-          <progress
-            max={1}
-            value={progress.done.count / total}
-            aria-label={t("Avancement de {name}", { name: lane.goal.title })}
-          />
-          <span class="planning-progress-parts">
-            {PROGRESS_PARTS.map((part) => {
-              const tally = progress[part.category];
-              const label = t(part.label, { p0: tallyText(tally, points) });
-              return (
-                <span
-                  key={part.category}
-                  class="planning-progress-part"
-                  data-status-category={part.status}
-                  title={label}
-                >
-                  <span aria-hidden="true">
-                    {points ? formatPoints(tally.points) : tally.count}
-                  </span>
-                  <span class="visually-hidden">{label}</span>
-                </span>
-              );
-            })}
-          </span>
-        </span>
-      )}
       {delivered && (
         <span
           class="planning-lane-delivered"

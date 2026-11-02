@@ -45,8 +45,8 @@ export interface PlanningLane {
   readonly points: number;
   readonly unestimated: number;
   /**
-   * Répartition de ses tickets dans le sprint en préparation selon la catégorie de leur statut
-   * Jira (à faire, en cours, terminé), filtres ignorés.
+   * Répartition de ses tickets dans le sprint en préparation selon leur colonne sur le board
+   * (première : à faire, milieu : en cours, dernière : terminé), filtres ignorés.
    */
   readonly progress: Readonly<Record<"todo" | "inProgress" | "done", PlanningTally>>;
   /** Tickets déjà terminés avant ce sprint (sprints clos ou Goal), hors charge ; `null` : aucun. */
@@ -157,6 +157,8 @@ export interface PlanningViewModel {
   readonly unassigned: ReadonlySignal<readonly PlanningIssue[]>;
   readonly sections: ReadonlySignal<readonly PlanningSection[]>;
   readonly sprintLoad: ReadonlySignal<PlanningLoad | null>;
+  /** Tickets du sprint en préparation dont le statut n'est dans aucune colonne visible : ignorés. */
+  readonly unmappedCount: ReadonlySignal<number>;
   /** Sprints actifs du board : un seul, « Clôturer le Sprint N » ; plusieurs, un menu. */
   readonly activeSprints: ReadonlySignal<readonly JiraSprint[]>;
   /** Sprints actifs proposés à la clôture : ceux que l'utilisateur peut modifier dans Jira. */

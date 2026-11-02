@@ -391,6 +391,18 @@ describe("en-tête du sprint", () => {
     expect(document.querySelector(".sprint-name")?.textContent).toBe("Sprint 42actif");
     expect(document.querySelector(".sprint-progress strong")?.textContent).toBe("3/17 pts");
     expect(document.querySelector(".sprint-percent")?.textContent).toBe("18 %");
+    // Barre du sprint par état des colonnes, même gabarit que celle des objectifs.
+    const sprintBar = document.querySelector(".sprint-progress .state-bar");
+    expect([...(sprintBar?.querySelectorAll("i") ?? [])].map((i) => i.dataset.state)).toEqual([
+      "done",
+      "inProgress",
+      "todo",
+    ]);
+    expect(sprintBar?.getAttribute("aria-label")).toContain("Terminé : 1 ticket · 3 pts");
+    // En-tête d'objectif commun au planning : n/N terminés, barre et légende par état.
+    const goalHeader = document.querySelector(".lane-goal .lane-header");
+    expect(goalHeader?.querySelector(".lane-progress .state-bar")).not.toBeNull();
+    expect(goalHeader?.querySelectorAll(".state-legend .state-chip")).toHaveLength(3);
     expect(document.querySelector(".counter-goals strong")?.textContent).toBe("1/2");
     expect(document.querySelector(".sync-status")).toBeNull();
   });

@@ -6,6 +6,7 @@ import {
   subtaskProgress,
 } from "../../src/core/boardIssue";
 import { type AtlassianGoalsLoader, loadSnapshot, subtaskFamilies } from "../../src/core/boardSync";
+import { columnStates } from "../../src/core/columnState";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
 import { JiraClient } from "../../src/jira/client";
 import { decodeIssue } from "../../src/jira/models";
@@ -43,6 +44,9 @@ function subtaskJson(
 }
 
 /** Référence de sous-tâche telle que Jira la joint à son parent (`fields.subtasks`). */
+/** Colonnes fictives : To Do (1), In Progress (3), Done (6). */
+const STATES = columnStates(makeConfiguration().columns);
+
 function subtaskRef(key: string, category: string) {
   return {
     key,
@@ -139,25 +143,38 @@ describe("avancement des sous-tâches", () => {
     ]);
   });
 
-  it("compte les terminées ; un statut inconnu compte comme ouvert", () => {
+  it("compte les terminées par colonne ; un statut inconnu ou sans colonne est ignoré", () => {
     const card = assemble(
       storyJson("ABC-1", [
         subtaskRef("ABC-2", "done"),
         { key: "ABC-3", fields: { summary: "Sans statut" } },
+        {
+          key: "ABC-4",
+          fields: { summary: "Annulée", status: statusJson("99", "Annulé", "done") },
+        },
+        // Catégorie done, mais dans la colonne du milieu : pas terminée.
+        {
+          key: "ABC-5",
+          fields: { summary: "Recette", status: statusJson("3", "Recette", "done") },
+        },
       ]),
     );
-    expect(subtaskProgress(card, "col-done")).toMatchObject({ total: 2, done: 1 });
+    const progress = subtaskProgress(card, STATES);
+    expect(progress).toMatchObject({ total: 2, done: 1 });
+    expect(progress?.segments.map(({ subtask, state }) => [subtask.key, state])).toEqual([
+      ["ABC-2", "done"],
+      ["ABC-5", "inProgress"],
+    ]);
   });
 
   it("signale les sous-tâches terminées avant la dernière colonne, et les ouvertes après", () => {
     const allDone = assemble(storyJson("ABC-1", [subtaskRef("ABC-2", "done")]));
-    const last = allDone.columnId === null ? "autre" : `pas-${allDone.columnId}`;
-    expect(subtaskProgress(allDone, last)).toMatchObject({
+    expect(subtaskProgress(allDone, STATES)).toMatchObject({
       allDoneBeforeLastColumn: true,
       openInLastColumn: [],
     });
     // Le même ticket dans la dernière colonne : plus rien à signaler, tout est cohérent.
-    expect(subtaskProgress(allDone, allDone.columnId)).toMatchObject({
+    expect(subtaskProgress({ ...allDone, columnId: "done" }, STATES)).toMatchObject({
       allDoneBeforeLastColumn: false,
       openInLastColumn: [],
     });
@@ -165,14 +182,16 @@ describe("avancement des sous-tâches", () => {
     const open = assemble(
       storyJson("ABC-1", [subtaskRef("ABC-2", "done"), subtaskRef("ABC-3", "indeterminate")]),
     );
-    expect(subtaskProgress(open, open.columnId)?.openInLastColumn.map((sub) => sub.key)).toEqual([
-      "ABC-3",
-    ]);
-    expect(subtaskProgress(open, "autre")?.allDoneBeforeLastColumn).toBe(false);
+    expect(
+      subtaskProgress({ ...open, columnId: "done" }, STATES)?.openInLastColumn.map(
+        (sub) => sub.key,
+      ),
+    ).toEqual(["ABC-3"]);
+    expect(subtaskProgress(open, STATES)?.allDoneBeforeLastColumn).toBe(false);
   });
 
   it("rien pour un ticket sans sous-tâche", () => {
-    expect(subtaskProgress(assemble(storyJson("ABC-1", [])), null)).toBeNull();
+    expect(subtaskProgress(assemble(storyJson("ABC-1", [])), STATES)).toBeNull();
   });
 });
 
@@ -221,7 +240,7 @@ describe("board complet", () => {
     ]);
     // La story garde l'avancement de ses sous-tâches ; chacune compte comme un ticket.
     expect(snapshot.goalIssues[0]?.subtasks.map((sub) => sub.key)).toEqual(["ABC-2", "ABC-3"]);
-    expect(sprintMetrics(snapshot, 99).totalIssues).toBe(3);
+    expect(sprintMetrics(snapshot, 99, STATES).totalIssues).toBe(3);
   });
 
   it("les sous-tâches d'un ticket Kanban vont dans le bloc Kanban, avec lui", async () => {

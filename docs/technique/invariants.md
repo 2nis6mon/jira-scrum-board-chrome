@@ -66,6 +66,15 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
   (objectifs créés pendant le planning). Épinglage d'un sprint réuni illisible : rien n'est masqué.
   Les objectifs épinglés peuvent rester vides. Un Goal vide n'est jamais atteint ; sinon tous ses
   tickets doivent être dans la dernière colonne visible. Le vert est réservé à cet état.
+- État d'un ticket (décisions de Denis du 02/11/2026, story 8.20) : une seule règle,
+  [`columnStates`](../../src/core/columnState.ts), sur le board comme dans le planning. Première
+  colonne visible « à faire », colonnes du milieu « en cours », dernière « terminé » ; jamais la
+  catégorie de statut Jira. Un statut dans aucune colonne visible est ignoré partout (ni affiché ni
+  compté : objectifs, barres, charge, santé, vieillissement, sous-tâches, reste à faire), avec l'avis
+  « non affichés, comme dans Jira ». Restent à la catégorie : les refus de Jira lui-même (ajout au
+  sprint d'un ticket résolu), les bloquants (souvent hors du board) et la couleur de la pastille de
+  statut. En-tête d'objectif et barre empilée par état (gris, bleu, vert) communs aux deux écrans
+  ([`LaneHeader`](../../src/app/views/LaneHeader.tsx)).
 - Une seule série de colonnes pour toutes les swimlanes. Un type est `GOAL`, `SWIMLANE` ou `IGNORED`.
   [`normalizeSwimlanes`](../../src/core/boardConfiguration.ts) garantit une seule swimlane par type :
   groupe créé avec son premier type, retiré avec le dernier ; nom vide = noms des types réunis.
@@ -161,7 +170,7 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   et le journal disent les tickets confirmés et ceux à refaire, qui restent sélectionnés.
 - Sprints proposés (0.43.1) : seulement ceux que l'utilisateur peut modifier (administrateur, ou
   « Gérer les sprints » sur tous les projets du board d'origine) ; indécidable : proposé.
-- Avancement des objectifs (story 8.16) : répartition par catégorie de statut, filtres ignorés ;
+- Avancement des objectifs (story 8.16) : répartition par colonne (depuis 8.20), filtres ignorés ;
   déjà livré avant ce sprint affiché à part, jamais compté dans la charge ; lectures seules,
   relues quand les objectifs changent, jamais après un geste qui ne les change pas.
 

@@ -6,14 +6,10 @@ import {
   parseBlockIdentifier,
   resolveBlocks,
 } from "./boardBlocks";
-import {
-  type BoardConfiguration,
-  isGoalHidden,
-  shownSwimlaneIds,
-  visibleColumns,
-} from "./boardConfiguration";
-import { type BoardSnapshot, goalProgress, isIssueDone } from "./boardIssue";
+import { type BoardConfiguration, isGoalHidden, shownSwimlaneIds } from "./boardConfiguration";
+import { type BoardSnapshot, isMapped } from "./boardIssue";
 import { blockTitle, laneKey } from "./boardLayout";
+import { columnStates } from "./columnState";
 import { moveAmongShown, sameOrder, shiftTarget } from "./reorder";
 import { GOAL_COLOR_COUNT, type SprintGoal } from "./sprintGoals";
 
@@ -66,11 +62,13 @@ export function laneSummaries(
   configuration: BoardConfiguration,
 ): LaneSummary[] {
   const goals = new Map(snapshot.goals.map((goal) => [goal.id, goal]));
+  const states = columnStates(configuration.columns);
   return laneOrder(snapshot, configuration).flatMap((id): LaneSummary[] => {
     const block = parseBlockIdentifier(id);
     if (!block) return [];
+    // Tickets sans colonne visible : ni affichés ni comptés, comme sur le board.
     const issues = [...snapshot.goalIssues, ...snapshot.swimlaneIssues].filter(
-      (issue) => laneKey(configuration, issue) === id,
+      (issue) => laneKey(configuration, issue) === id && isMapped(issue, states),
     );
     const goal = block.kind === "goal" ? (goals.get(block.goalId) ?? null) : null;
     if (block.kind === "goal" && !goal) return [];
@@ -82,10 +80,7 @@ export function laneSummaries(
         title,
         goal,
         count: issues.length,
-        done: goal
-          ? goalProgress(goal, issues, visibleColumns(configuration.columns).at(-1)?.id ?? null)
-              .done
-          : issues.filter(isIssueDone).length,
+        done: issues.filter((issue) => states.ofColumn(issue.columnId) === "done").length,
       },
     ];
   });

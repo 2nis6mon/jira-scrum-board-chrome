@@ -92,7 +92,7 @@ development_status:
   8-17-estimer-un-ticket-pendant-la-seance: done
   8-18-cloturer-le-bon-sprint-et-dire-ce-qui-a-ete-reporte: done
   8-19-le-meme-menu-de-carte-dans-le-planning-et-sur-le-board: backlog
-  8-20-un-seul-en-tete-d-objectif-avec-une-barre-par-etat: backlog
+  8-20-un-seul-en-tete-d-objectif-avec-une-barre-par-etat: review
   8-21-le-deja-livre-dans-la-partie-terminee-de-la-barre: backlog
   8-22-ne-plus-voir-les-tickets-termines-dans-ou-sont-les-tickets: backlog
   8-10-valider-le-sprint-planning-sur-un-vrai-jira: backlog

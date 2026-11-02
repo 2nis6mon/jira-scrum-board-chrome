@@ -24,7 +24,14 @@ import type { LinkOutcome } from "../../src/jira/goals";
 import type { JsonValue } from "../../src/jira/json";
 import { decodeSprint, isDoneStatus, type JiraIssue, type JiraSprint } from "../../src/jira/models";
 import type { JiraWrite } from "../../src/jira/writes";
-import { makeConfiguration, makeIssue } from "../support/jiraFixtures";
+import { column, makeConfiguration, makeIssue } from "../support/jiraFixtures";
+
+/** Colonnes du board fictif : « Terminé » (6, 9) est la dernière, la seule qui termine. */
+const COLUMNS = [
+  column("todo", "À faire", ["1"], 0),
+  column("prog", "En cours", ["3"], 1),
+  column("done", "Terminé", ["6", "9"], 2),
+];
 
 // Jira FICTIF en mémoire : sprints, tickets, backlog et propriétés `sprintgoals.v1`. Les écritures
 // y sont appliquées comme Jira le ferait, sauf panne ou refus simulés.
@@ -185,7 +192,7 @@ function fakeJira(options: FakeOptions = {}) {
   };
 
   const load = (sprintId = PREPARED) =>
-    loadSprintPlanning(reader, { boardId: BOARD, sprintId, query });
+    loadSprintPlanning(reader, { boardId: BOARD, sprintId, query, columns: COLUMNS });
   const issue = (key: string): JiraIssue => {
     const all = [...state.backlog, ...Object.values(state.issues).flat()];
     const found = all.find((candidate) => candidate.key === key);
@@ -264,6 +271,23 @@ describe("lecture du Sprint Planning", () => {
     ).toEqual([[ACTIVE, ["ABC-101"]]]);
     expect(f.sprintCalls).toEqual([["active", "future"]]);
     expect(f.writes).toEqual([]);
+  });
+
+  it("reste à faire actif par colonnes : catégorie Jira ignorée, statut sans colonne écarté", async () => {
+    const f = fakeJira();
+    f.state.issues[ACTIVE] = [
+      // « Recette » : catégorie done, mais colonne du milieu : il reste à faire.
+      makeIssue("ABC-105", { statusId: "3", statusName: "Recette", category: "done" }),
+      // « Annulé » : aucune colonne visible, ignoré.
+      makeIssue("ABC-106", { statusId: "77", statusName: "Annulé", category: "done" }),
+      done("ABC-107"),
+      todo("ABC-108"),
+    ];
+    const snapshot = await f.load();
+    expect(snapshot.activeSprints[0]?.issues.map((issue) => issue.key)).toEqual([
+      "ABC-105",
+      "ABC-108",
+    ]);
   });
 
   it("objectifs saisis dans Jira sans propriété : identifiants stables d'une lecture à l'autre", async () => {

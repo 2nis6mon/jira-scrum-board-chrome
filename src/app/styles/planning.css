@@ -722,42 +722,19 @@ details.planning-card-menu .menu-panel[data-at-point] {
 
 /* Avancement d'un objectif (story 8.16) : « n/N terminés », sa barre, puis la répartition à
    faire, en cours, terminé dans les teintes des statuts. Les actions restent à droite. */
-.planning-screen .planning-lane-progress {
+.planning-screen .planning-lane .lane-progress {
   margin-left: 0;
   flex-wrap: wrap;
   gap: 6px 10px;
 }
 
-.planning-screen .planning-lane-progress progress {
+.planning-screen .planning-lane .state-bar {
   width: 96px;
 }
 
-.planning-progress-parts {
-  display: inline-flex;
-  gap: 3px;
-}
-
-.planning-progress-part {
-  min-width: 22px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 3px;
-  background: #e9ebef;
-  color: var(--ink-2);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 18px;
-  text-align: center;
-}
-
-.planning-progress-part[data-status-category="indeterminate"] {
-  background: #e7eefd;
-  color: #1d4ed8;
-}
-
-.planning-progress-part[data-status-category="done"] {
-  background: #e3f4e8;
-  color: #166534;
+/* Tickets du sprint sans colonne visible : ignorés, comme sur le board. */
+.planning-unmapped {
+  color: var(--ink-3);
 }
 
 /* Déjà livré avant ce sprint : à part, discret, hors de la charge. */
