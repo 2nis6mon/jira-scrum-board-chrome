@@ -16,6 +16,15 @@ engagée tant qu'elle n'est pas décidée. Mise en conformité d'architecture :
 - [ ] Étudier les lectures Software « enhanced » avant de remplacer les endpoints Agile ; préserver filtre, sprints et pagination.
 - [ ] Confirmer publication et canal de mise à jour ; fiche, empaquetage et politique existent.
 - [ ] Renouveler les captures Store après chaque évolution visuelle ; revue de sécurité indépendante avant diffusion large.
+- [ ] Correctif (demande de Denis, 02/11/2026) : renommer les clés des propriétés Jira écrites par
+  l'extension de `com.scrumboardmac.*` en `com.mousquetaires.*`. Clés concernées (inventaire
+  `src/jira/writes.ts`) : `sprintgoals.v1` (E5, propriété de sprint), `boardsettings.v1` (E6, propriété
+  du board) et `diagnostic` (E7, écrite puis supprimée). À trancher avant de commencer : la règle
+  d'AGENTS.md « préserver les clés `com.scrumboardmac.*` » (à amender), et la reprise des données
+  existantes. Les objectifs épinglés et les réglages d'équipe déjà publiés restent sous l'ancienne
+  clé. Piste : lire la nouvelle clé, sinon l'ancienne ; écrire seulement la nouvelle au prochain geste
+  explicite ; ne jamais supprimer l'ancienne automatiquement. Format `v1` inchangé, mêmes écritures,
+  aucune nouvelle. Mettre à jour `securite.md`, `donnees.md` (ou équivalent) et les tests exhaustifs.
 
 ## Pistes produit à décider
 
