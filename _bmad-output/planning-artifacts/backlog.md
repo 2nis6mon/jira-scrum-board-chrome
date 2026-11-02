@@ -37,12 +37,18 @@ et la création de Goals restent hors périmètre. Livré en 0.42.0 (stories 8.1
 dans le paquet ; contrats dans [intégration Jira](../../docs/technique/integration-jira.md).
 Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l'activation (8.11).
 
-- [ ] Bug (essai du 02/11/2026) : le menu des sprints à préparer propose aussi des sprints d'autres
-  boards, remontés par le filtre du board ; y ajouter un objectif texte échoue (« Only a Jira
-  administrator can update this sprint »). N'y garder que les sprints du board : écarter ceux que
-  `isForeignSprint` (`src/core/boardIssue.ts`) reconnaît, sans `originBoardId` le sprint restant
-  celui du board. Même règle pour les autres sprints futurs de la colonne de gauche, les cibles
-  « Vers {sprint} », et les sprints actifs proposés à la clôture.
+- [ ] Bug (essai du 02/11/2026) : le menu des sprints à préparer propose des sprints que
+  l'utilisateur ne peut pas modifier (ici un sprint d'un autre board, remonté par le filtre) ; y
+  ajouter un objectif texte échoue (« Only a Jira administrator can update this sprint »). Choix de
+  Denis : ne proposer que les sprints que l'utilisateur a le droit de modifier, et non seulement ceux
+  du board. Jira exige « Gérer les sprints » sur tous les projets du filtre du board d'origine du
+  sprint (`originBoardId`), sinon seul un administrateur peut le modifier. Lectures candidates, contrat
+  à vérifier avant de coder : projets d'un board (`GET /rest/agile/1.0/board/{id}/project`) et droits
+  de l'utilisateur (`GET /rest/api/3/mypermissions`, `MANAGE_SPRINTS_PERMISSION`, par projet). Cas
+  indécidable (filtre sans projet, lecture refusée) : garder le sprint, le refus de Jira restant
+  affiché au premier geste. Même règle pour les autres sprints futurs de la colonne de gauche, les cibles
+  « Vers {sprint} » et les sprints actifs proposés à la clôture. À rapprocher de la décision sur les
+  droits (8.10).
 - [ ] Bug (essai du 02/11/2026) : après le démarrage du sprint préparé, ses nouveaux objectifs
   arrivent masqués (œil fermé) sur le Sprint Board. Cause : `BoardLoadingService.ts` masque, après
   la première lecture, tout objectif inconnu (absent de `goalColorIndex` et de la lecture
