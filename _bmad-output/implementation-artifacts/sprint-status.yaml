@@ -91,10 +91,10 @@ development_status:
   8-16-voir-l-avancement-de-chaque-objectif: done
   8-17-estimer-un-ticket-pendant-la-seance: done
   8-18-cloturer-le-bon-sprint-et-dire-ce-qui-a-ete-reporte: done
-  8-19-le-meme-menu-de-carte-dans-le-planning-et-sur-le-board: review
-  8-20-un-seul-en-tete-d-objectif-avec-une-barre-par-etat: review
-  8-21-le-deja-livre-dans-la-partie-terminee-de-la-barre: review
-  8-22-ne-plus-voir-les-tickets-termines-dans-ou-sont-les-tickets: review
+  8-19-le-meme-menu-de-carte-dans-le-planning-et-sur-le-board: done
+  8-20-un-seul-en-tete-d-objectif-avec-une-barre-par-etat: done
+  8-21-le-deja-livre-dans-la-partie-terminee-de-la-barre: done
+  8-22-ne-plus-voir-les-tickets-termines-dans-ou-sont-les-tickets: done
   8-10-valider-le-sprint-planning-sur-un-vrai-jira: backlog
   8-11-activer-le-sprint-planning-dans-le-paquet: backlog
   epic-8-retrospective: optional
