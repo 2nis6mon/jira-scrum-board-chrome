@@ -29,6 +29,7 @@ context:
 - Tests : core (menu et snapshot, ticket terminé et ticket sans colonne) ; banc `planningFixture` : `foreignFutureSprint: "done"`.
 - Constat préalable (lectures seules du sandbox, 02/11/2026) : board 3013, sprints futurs étrangers 3334 (origine 1569 : 2 tickets du board, `Closed`), 3707 (origine 1650 : 1 ticket `TO DELIVER IN PROD`), 6269 (origine 2753) ; « Closed » et « TO DELIVER IN PROD » sont dans « Validé Squad », dernière colonne. Hypothèses « extension non rechargée » et « sprint du board » écartées.
 - Régressions : les trois nouveaux cas échouent sans le correctif.
+- Ajout après coup (question de Denis) : `tests/app/PlanningSprintSelect.test.tsx` affiche la vraie vue avec le vrai modèle et lit les options de « Sprint à préparer » ; le cas « tickets tous terminés » échoue avec le code 0.48.1 (sprint 46 affiché).
 
 ## Review Triage Log
 
