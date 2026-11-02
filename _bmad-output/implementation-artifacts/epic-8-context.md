@@ -17,6 +17,13 @@ Permettre à l'équipe de clôturer son sprint, de construire le suivant par obj
 - Story 8.7 : Clôturer le sprint actif et reporter ses objectifs non atteints
 - Story 8.8 : Démarrer le sprint préparé
 - Story 8.9 : Avis du planning dans les trois langues
+- Story 8.12 : La carte du planning montre le type et le statut du ticket
+- Story 8.13 : Ouvrir le menu d'une carte du planning au clic droit
+- Story 8.14 : Filtrer le planning comme la page du sprint
+- Story 8.15 : Déplacer plusieurs tickets ensemble
+- Story 8.16 : Voir l'avancement de chaque objectif
+- Story 8.17 : Estimer un ticket pendant la séance (nouvelle écriture E11, décision du 02/11/2026, contrat à vérifier)
+- Story 8.18 : Clôturer le bon sprint et toujours dire ce qui a été reporté
 - Story 8.10 : Valider le Sprint Planning sur un vrai Jira
 - Story 8.11 : Activer le Sprint Planning dans le paquet
 

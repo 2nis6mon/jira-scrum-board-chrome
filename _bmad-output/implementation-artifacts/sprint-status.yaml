@@ -84,6 +84,13 @@ development_status:
   8-7-cloturer-le-sprint-actif-et-reporter-ses-objectifs: done
   8-8-demarrer-le-sprint-prepare: done
   8-9-avis-du-planning-dans-les-trois-langues: done
+  8-12-la-carte-du-planning-montre-type-et-statut: backlog
+  8-13-menu-de-carte-du-planning-au-clic-droit: backlog
+  8-14-filtrer-le-planning-comme-la-page-du-sprint: backlog
+  8-15-deplacer-plusieurs-tickets-ensemble: backlog
+  8-16-voir-l-avancement-de-chaque-objectif: backlog
+  8-17-estimer-un-ticket-pendant-la-seance: backlog
+  8-18-cloturer-le-bon-sprint-et-dire-ce-qui-a-ete-reporte: backlog
   8-10-valider-le-sprint-planning-sur-un-vrai-jira: backlog
   8-11-activer-le-sprint-planning-dans-le-paquet: backlog
   epic-8-retrospective: optional

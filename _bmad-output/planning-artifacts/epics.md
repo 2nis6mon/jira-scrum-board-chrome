@@ -56,7 +56,7 @@ FR13: Les routes des boards gérés par l'équipe, le changement de board et le 
 FR14: Les lectures Software « enhanced » sont étudiées avant de remplacer les endpoints Agile, en préservant filtre, sprints et pagination.
 FR15: Le canal de publication et de mise à jour est confirmé (fiche, empaquetage et politique existent déjà).
 FR16: Les captures du Store sont renouvelées après chaque évolution visuelle, et une revue de sécurité indépendante a lieu avant une diffusion large.
-FR17: Sprint Planning planifie le prochain sprint en direct dans Jira : chaque geste écrit aussitôt ; objectifs selon la source du board (texte, ou Goals Atlassian cherchés et épinglés) ; tickets pris dans le backlog et les sprints futurs du board, retirés seulement du sprint en préparation ; clôture et démarrage par les fenêtres natives Jira, avec report des objectifs non atteints ; vélocité partagée. Il est validé sur une instance réelle avant son activation dans le paquet ; création de sprint et création de Goals restent hors périmètre.
+FR17: Sprint Planning planifie le prochain sprint en direct dans Jira : chaque geste écrit aussitôt ; objectifs selon la source du board (texte, ou Goals Atlassian cherchés et épinglés) ; tickets pris dans le backlog et les sprints futurs du board, retirés seulement du sprint en préparation ; clôture et démarrage par les fenêtres natives Jira, avec report des objectifs non atteints ; vélocité partagée ; estimation d'un ticket pendant la séance. Il est validé sur une instance réelle avant son activation dans le paquet ; création de sprint et création de Goals restent hors périmètre.
 
 Pistes produit (backlog, à décider) :
 
@@ -177,7 +177,7 @@ L'équipe règle ses limites WIP en points et des minimums par colonne, et voit 
 ### Epic 8: Sprint Planning en direct dans Jira
 L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre, sans quitter l'extension ; chaque geste est aussitôt dans Jira, et la fonction, validée sur un vrai Jira, est activée dans le paquet distribué.
 **FRs covered:** FR17
-*Notes :* créé le 31/10/2026, redéfini le 01/11/2026 (Denis) depuis [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md), qui remplace la décision du 14/10/2026. Création de sprint et de Goals hors périmètre. Droits (lecture seule annoncée ou découverte au premier refus) : décision en attente. Écran de référence : maquette v2.
+*Notes :* créé le 31/10/2026, redéfini le 01/11/2026 (Denis) depuis [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md), qui remplace la décision du 14/10/2026. Création de sprint et de Goals hors périmètre. Droits (lecture seule annoncée ou découverte au premier refus) : décision en attente. Écran de référence : maquette v2. Complété le 02/11/2026 (Denis, retours d'essai) par les stories 8.12 à 8.18 ; décision produit du même jour : l'estimation d'un ticket s'écrit depuis le planning (E11, story 8.17), sous réserve de la vérification du contrat Atlassian.
 
 ## Epic 1: Des écritures Jira sûres et cohérentes
 
@@ -554,7 +554,7 @@ So that je diffuse en connaissant les risques.
 
 L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre. Chaque geste écrit aussitôt dans Jira, qui reste la seule source : la page se reconstruit à l'entrée depuis le texte de l'objectif du sprint, la propriété `sprintgoals.v1` et les tickets du sprint. Aujourd'hui, Sprint Planning n'existe que dans les builds locaux `dist/` et les tests (`SPRINT_PLANNING_ENABLED`) ; il le reste jusqu'à la story 8.11. Décisions : [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md) ; écran : maquette v2.
 
-Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis essai réel et activation.
+Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments issus des premiers essais (8.12 à 8.18), et enfin essai réel et activation. Les numéros 8.12 à 8.18 se jouent avant 8.10 et 8.11.
 
 ### Story 8.1: Vérifier les contrats Atlassian du planning en direct
 
@@ -717,7 +717,7 @@ So that son activation repose sur un constat.
 **Acceptance Criteria:**
 
 **Given** l'autorisation de Denis et un site Jira de test (NFR9)
-**When** un cycle complet est joué (clôture, report, objectifs, tickets venant de plusieurs sprints, retrait, vélocité, démarrage), avec et sans droit de gérer les sprints, sur un backlog volumineux
+**When** un cycle complet est joué (clôture, report, objectifs, tickets venant de plusieurs sprints, déplacement groupé, retrait, vélocité, estimation, démarrage), avec et sans droit de gérer les sprints, sur un backlog volumineux
 **Then** le constat est consigné, et chaque défaut devient une story ou un correctif ; la décision sur les droits est prise à partir de ce constat
 
 ### Story 8.11: Activer le Sprint Planning dans le paquet
@@ -728,6 +728,164 @@ So that je planifie mes sprints sans build local.
 
 **Acceptance Criteria:**
 
-**Given** les stories 8.1 à 8.10 terminées et le constat de 8.10 favorable
+**Given** les stories 8.1 à 8.10 et 8.12 à 8.18 terminées et le constat de 8.10 favorable
 **When** le paquet est construit (`npm run package`)
 **Then** `SPRINT_PLANNING_ENABLED` vaut vrai dans le paquet, `npm run verify:planning:package` le vérifie, et AGENTS.md, le manuel, le CHANGELOG et les captures Store sont à jour
+
+### Story 8.12: La carte du planning montre le type et le statut du ticket
+
+As a équipe en séance de planning,
+I want reconnaître d'un coup d'œil le type et l'état d'un ticket sur sa carte,
+So that je n'ouvre pas la fiche pour savoir si c'est un bug ou s'il est déjà commencé.
+
+**Acceptance Criteria:**
+
+**Given** une carte du planning (sprint en préparation, sources ou consultation)
+**When** elle s'affiche
+**Then** elle montre l'icône Jira du type de ticket, et celle de sa priorité si elle existe, par le même composant et le même cache d'images que la carte du board (`JiraIcon`), avec la lettre du type si l'image manque
+
+**Given** une carte du planning
+**When** elle s'affiche
+**Then** elle montre le nom du statut Jira, teinté selon sa catégorie (à faire, en cours, terminé), sur toutes les cartes et plus seulement en consultation, sans nouvelle lecture Jira
+
+*Notes :* retour d'essai du 02/11/2026 (points 4 et 5). Aucune écriture.
+
+### Story 8.13: Ouvrir le menu d'une carte du planning au clic droit
+
+As a Scrum Master habitué au menu de carte du board,
+I want ouvrir le menu d'une carte du planning au clic droit,
+So that je pose un ticket sur un objectif sans viser le petit bouton ⋯.
+
+**Acceptance Criteria:**
+
+**Given** une carte du planning qui n'est pas en consultation
+**When** je fais un clic droit dessus, ou j'appuie sur la touche Menu ou Maj+F10 avec le focus sur la carte
+**Then** le même menu que ⋯ s'ouvre à cet endroit (objectifs, « Sans objectif », retour au backlog, autres sprints futurs), comme le menu de carte du board ; Échap le referme et rend le focus
+
+**Given** une carte en consultation
+**When** je fais un clic droit dessus
+**Then** aucun menu de l'extension ne s'ouvre
+
+*Notes :* retour d'essai du 02/11/2026 (point 3). Mêmes écritures que le menu ⋯ (8.4).
+
+### Story 8.14: Filtrer le planning comme la page du sprint
+
+As a PO qui cherche les tickets d'une personne, d'un type ou d'un epic,
+I want les mêmes filtres que sur la page du sprint,
+So that je trouve vite les tickets à planifier.
+
+**Acceptance Criteria:**
+
+**Given** la barre de filtres du planning
+**When** elle s'affiche
+**Then** elle propose, en plus de la recherche `/`, les menus Personne, Type, Statut, Parent, Priorité, Label et Composant et les filtres rapides du board Jira, avec les composants de la page du sprint
+
+**Given** un filtre actif
+**When** la page s'affiche
+**Then** il s'applique aux swimlanes, à « Sans objectif » et à la colonne « Où sont les tickets » ; les totaux d'un objectif et la charge du sprint restent calculés sans filtre, comme avec la recherche
+
+**Given** un filtre rapide du board Jira actif
+**When** la page s'affiche
+**Then** son JQL est évalué par Jira sur le sprint en préparation, les autres sprints futurs, le backlog et le reste à faire du sprint actif (lecture seule), plusieurs filtres se combinant en intersection
+
+*Notes :* retour d'essai du 02/11/2026 (point 1). Prévu par la story 8.2 mais livré avec la seule recherche. Les filtres « Ajoutés » et « Reportés », sans objet avant le démarrage, ne sont pas proposés. Le périmètre de `quickFilterKeys` (aujourd'hui les sprints actifs) est à élargir dans `core/jql.ts`.
+
+### Story 8.15: Déplacer plusieurs tickets ensemble
+
+As a Scrum Master qui répartit un lot de tickets,
+I want sélectionner plusieurs tickets et les poser d'un seul geste sur un objectif,
+So that je ne répète pas le même glisser-déposer dix fois.
+
+**Acceptance Criteria:**
+
+**Given** des cartes du planning
+**When** je fais Ctrl+clic (Cmd+clic sur macOS) ou Maj+clic (plage dans la même section)
+**Then** les cartes sont sélectionnées, leur nombre est affiché, Échap vide la sélection, et une carte en consultation (sous-tâche, ticket terminé, reste à faire du sprint actif) n'est pas sélectionnable
+
+**Given** une sélection
+**When** je la glisse, ou j'utilise le menu de l'une de ses cartes, vers un objectif, « Sans objectif », le backlog ou un autre sprint futur
+**Then** les tickets absents du sprint en préparation y sont ajoutés en une seule écriture E9 (ou renvoyés par une seule E10, ou une seule E9 vers l'autre sprint), puis rattachés : une seule écriture E5 en texte, un lien E3 par ticket (après E4 si besoin) en Goals Atlassian
+
+**Given** une écriture du lot en échec
+**When** le geste s'arrête
+**Then** rien n'est rejoué, Jira est relu, et l'avis indique les tickets confirmés et ceux qui restent à refaire
+
+**Given** un lot de plus de 50 tickets
+**When** je le dépose
+**Then** il est refusé avant toute écriture, avec un avis (limite de E9 et E10)
+
+*Notes :* retour d'essai du 02/11/2026 (point 2). Nouvelle fonction de `core` par intention (AD-2) pour le lot, à côté de `placePlanningIssue` et `removePlanningIssue`.
+
+### Story 8.16: Voir l'avancement de chaque objectif
+
+As a équipe qui reprend un objectif reporté ou un Goal sur plusieurs sprints,
+I want voir où en est chaque objectif, y compris ce qui a déjà été livré avant ce sprint,
+So that je dimensionne ce qu'il reste vraiment à faire.
+
+**Acceptance Criteria:**
+
+**Given** une swimlane d'objectif
+**When** elle s'affiche
+**Then** son en-tête montre la répartition de ses tickets dans le sprint en préparation (à faire, en cours, terminé), en tickets et en points, dans la grammaire de l'avancement de la page du sprint
+
+**Given** un objectif texte reporté (même identifiant dans la propriété des sprints clos précédents)
+**When** la swimlane s'affiche
+**Then** elle indique aussi les tickets déjà terminés rattachés à cet objectif dans les sprints clos, en remontant la chaîne des reports tant que l'identifiant y figure, sans les compter dans la charge du sprint
+
+**Given** un Goal Atlassian épinglé
+**When** la swimlane s'affiche
+**Then** elle indique les tickets liés au Goal déjà terminés hors du sprint en préparation, lus dans ses `workItems`, signale une lecture incomplète, et ne les compte pas dans la charge du sprint
+
+*Notes :* retour d'essai du 02/11/2026 (point 6). Lectures seulement (propriétés des sprints clos, Goals) ; nombre de sprints relus et coût à mesurer en 8.10.
+
+### Story 8.17: Estimer un ticket pendant la séance
+
+As a équipe qui chiffre ses stories en Sprint Planning,
+I want saisir l'estimation d'un ticket directement sur sa carte,
+So that la charge du sprint se met à jour sans ouvrir chaque fiche.
+
+**Acceptance Criteria:**
+
+**Given** la décision produit de Denis du 02/11/2026 (écrire l'estimation depuis le planning)
+**When** la story commence
+**Then** le contrat est vérifié dans la documentation officielle Atlassian (candidat : `PUT /rest/agile/1.0/issue/{issueIdOrKey}/estimation?boardId=`, qui vise le champ d'estimation du board ; sinon `PUT /rest/api/3/issue/{issueIdOrKey}` limité à ce seul champ), avec ses droits et ses limites ; E11 entre alors dans l'inventaire fermé de `jira/writes.ts` et dans `securite.md`, et la règle « Écritures métier » d'AGENTS.md est complétée ; tout usage non confirmé revient à Denis
+
+**Given** un board dont le champ d'estimation est connu, et un ticket du sprint en préparation ou d'une source
+**When** je clique sur l'estimation de la carte (« ? » si elle est vide), saisis une valeur et valide (Entrée ou sortie du champ)
+**Then** E11 est écrit une seule fois par la porte du board, puis le ticket est relu ; la carte et la charge affichent la valeur relue ; Échap annule sans écriture ; une valeur inchangée n'écrit rien
+
+**Given** une estimation modifiée dans Jira depuis l'affichage, un refus de Jira ou un résultat incertain
+**When** le geste se termine
+**Then** rien n'est rejoué, la valeur de Jira est affichée, et l'avis le dit sans annoncer de réussite
+
+**Given** un board sans champ d'estimation (unité « tickets »), un ticket en consultation, ou un champ non modifiable pour ce ticket
+**When** la carte s'affiche
+**Then** l'estimation n'est pas modifiable, et la fiche native reste le recours
+
+*Notes :* retour d'essai du 02/11/2026 (point 7, option « saisie sur la carte »). Nouvel endpoint d'écriture : la décision produit est prise, la vérification du contrat reste préalable. Avis en clés de catalogue en/es (8.9).
+
+### Story 8.18: Clôturer le bon sprint et toujours dire ce qui a été reporté
+
+As a Scrum Master d'un board à plusieurs sprints actifs,
+I want choisir le sprint que je clôture et voir ce que le report a fait,
+So that les objectifs non atteints du bon sprint arrivent dans celui que je prépare.
+
+**Acceptance Criteria:**
+
+**Given** plusieurs sprints actifs sur le board
+**When** je veux clôturer depuis le planning
+**Then** je choisis le sprint actif à clôturer (et non le premier renvoyé par Jira), son nom figure sur le geste et dans la fenêtre native, et le report lit les objectifs de ce sprint
+
+**Given** la fenêtre native fermée
+**When** le sprint relu est encore actif
+**Then** son état est relu pendant une durée bornée (une dizaine de secondes) avant de conclure ; ce sont des lectures, aucune écriture n'est rejouée
+
+**Given** une clôture demandée depuis le planning
+**When** le report se termine, quel que soit son résultat (reporté, rien à reporter, sprint encore actif, refus, échec)
+**Then** un compte rendu reste affiché jusqu'à ce que je le ferme : objectifs reportés, objectifs non reportés avec leur raison (aucun ticket rattaché, tous terminés, déjà présents), tickets rattachés ; il est aussi inscrit au journal des écritures, en clés de catalogue en/es
+
+**Given** le banc fictif `verify:planning`
+**When** un board a deux sprints actifs dont le second porte les objectifs
+**Then** la clôture de ce second sprint reporte ses objectifs non atteints, et une clôture lente côté Jira est couverte par un test de non-régression
+
+*Notes :* retour d'essai du 02/11/2026 : deux sprints actifs, clôture par le bouton du planning, objectifs avec tickets non tous terminés, aucun objectif reporté et aucun message. Causes possibles relevées dans le code : premier sprint actif seul visé (`PlanningModel.ts`, `activeSprint`), relecture unique de l'état du sprint juste après la fermeture de la fenêtre, message effacé par le geste suivant. Cause exacte à confirmer par les traces `Sprint Goals —` de la console lors du prochain essai.
