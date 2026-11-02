@@ -1,3 +1,4 @@
+import type { JiraIssue } from "../jira/models";
 import { type BoardBlock, blockIdentifier, displayedBlocks, resolveBlocks } from "./boardBlocks";
 import {
   type BoardConfiguration,
@@ -232,9 +233,22 @@ export interface FilterOptions {
   readonly sprints: readonly (FilterOption & { readonly foreign: boolean })[];
 }
 
-/** Valeurs réellement présentes dans le sprint, avec leur nombre de tickets. Rien n'est inventé. */
-export function filterOptions(snapshot: BoardSnapshot, boardId?: number): FilterOptions {
-  const issues = [...snapshot.goalIssues, ...snapshot.swimlaneIssues];
+/** Valeurs des menus lues sur les seuls tickets Jira : communes au board et au planning. */
+export type IssueFilterOptions = Pick<
+  FilterOptions,
+  | "assignees"
+  | "unassignedCount"
+  | "issueTypes"
+  | "priorities"
+  | "statuses"
+  | "labels"
+  | "components"
+  | "parents"
+  | "withoutParentCount"
+>;
+
+/** Valeurs réellement présentes dans ces tickets, avec leur nombre. Rien n'est inventé. */
+export function issueFilterOptions(issues: readonly JiraIssue[]): IssueFilterOptions {
   const tally = () => new Map<string, { label: string; count: number }>();
   const add = (map: ReturnType<typeof tally>, value: string, label: string) => {
     const entry = map.get(value);
@@ -252,7 +266,7 @@ export function filterOptions(snapshot: BoardSnapshot, boardId?: number): Filter
   let unassignedCount = 0;
   let withoutParentCount = 0;
 
-  for (const { issue } of issues) {
+  for (const issue of issues) {
     const fields = issue.fields;
     if (fields.assignee?.accountId) {
       add(assignees, fields.assignee.accountId, fields.assignee.displayName);
@@ -276,12 +290,6 @@ export function filterOptions(snapshot: BoardSnapshot, boardId?: number): Filter
     }
   }
 
-  const goalCounts = new Map<string, number>();
-  for (const issue of issues) {
-    if (issue.goalId !== null)
-      goalCounts.set(issue.goalId, (goalCounts.get(issue.goalId) ?? 0) + 1);
-  }
-
   return {
     assignees: sorted(assignees),
     unassignedCount,
@@ -292,6 +300,21 @@ export function filterOptions(snapshot: BoardSnapshot, boardId?: number): Filter
     components: sorted(components),
     parents: sorted(parents),
     withoutParentCount,
+  };
+}
+
+/** Valeurs réellement présentes dans le sprint, avec leur nombre de tickets. Rien n'est inventé. */
+export function filterOptions(snapshot: BoardSnapshot, boardId?: number): FilterOptions {
+  const issues = [...snapshot.goalIssues, ...snapshot.swimlaneIssues];
+
+  const goalCounts = new Map<string, number>();
+  for (const issue of issues) {
+    if (issue.goalId !== null)
+      goalCounts.set(issue.goalId, (goalCounts.get(issue.goalId) ?? 0) + 1);
+  }
+
+  return {
+    ...issueFilterOptions(issues.map(({ issue }) => issue)),
     goals: [...snapshot.goals]
       .sort((a, b) => a.position - b.position)
       .map((goal) => ({ value: goal.id, label: goal.title, count: goalCounts.get(goal.id) ?? 0 })),

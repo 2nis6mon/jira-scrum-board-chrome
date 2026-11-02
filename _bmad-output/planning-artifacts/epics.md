@@ -778,7 +778,7 @@ So that je trouve vite les tickets à planifier.
 
 **Given** la barre de filtres du planning
 **When** elle s'affiche
-**Then** elle propose, en plus de la recherche `/`, les menus Personne, Type, Statut, Parent, Priorité, Label et Composant et les filtres rapides du board Jira, avec les composants de la page du sprint
+**Then** elle propose, en plus de la recherche `/`, les menus de la page du sprint (Personne, Type, Parent, Statut et Label), la pastille « Bloqués » (lien Jira « est bloqué par », règle du board) et les filtres rapides du board Jira, avec les mêmes composants
 
 **Given** un filtre actif
 **When** la page s'affiche
@@ -788,7 +788,7 @@ So that je trouve vite les tickets à planifier.
 **When** la page s'affiche
 **Then** son JQL est évalué par Jira sur le sprint en préparation, les autres sprints futurs, le backlog et le reste à faire du sprint actif (lecture seule), plusieurs filtres se combinant en intersection
 
-*Notes :* retour d'essai du 02/11/2026 (point 1). Prévu par la story 8.2 mais livré avec la seule recherche. Les filtres « Ajoutés » et « Reportés », sans objet avant le démarrage, ne sont pas proposés. Le périmètre de `quickFilterKeys` (aujourd'hui les sprints actifs) est à élargir dans `core/jql.ts`.
+*Notes :* retour d'essai du 02/11/2026 (point 1). Prévu par la story 8.2 mais livré avec la seule recherche. Décision de Denis (02/11/2026) : Priorité et Composant, retirés de la page du sprint en 0.14.2, ne sont pas repris ; « Bloqués » est proposé ; « Ajoutés » et « Reportés », sans objet avant le démarrage, ne le sont pas. Livrée en 0.43.0 : périmètre du planning `inPlanningScope` dans `core/jql.ts` (sprints du board et backlog), sans changer celui du board.
 
 ### Story 8.15: Déplacer plusieurs tickets ensemble
 

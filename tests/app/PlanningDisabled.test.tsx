@@ -54,6 +54,7 @@ function setup() {
       record: (entry) =>
         audit.append({ ...entry, at: new Date().toISOString(), site: client.site.origin }),
       wait: async () => {},
+      jiraQuickFilters: () => [],
     });
   return { jira, platform, openIssue, openSprintDialog, create, planning: create() };
 }
@@ -151,6 +152,16 @@ describe("Sprint Planning désactivé à la compilation", () => {
     planning.startSprint();
     await planning.afterNativeDialog();
     planning.openIssue("ABC-201");
+    planning.setSearch("panier");
+    planning.setFilters({ ...planning.filters.value, labels: new Set(["tech"]) });
+    planning.toggleBlocked();
+    await planning.toggleJiraQuickFilter(1);
+    planning.resetFilters();
+    expect(planning.filters.value.labels.size).toBe(0);
+    expect(planning.filters.value.quickFilters.size).toBe(0);
+    expect(planning.filterOptions.value).toBeNull();
+    expect(planning.jiraQuickFilters.value).toEqual([]);
+    expect(planning.activeFilterCount.value).toBe(0);
     expect(planning.lanes.value).toEqual([]);
     expect(planning.unassigned.value).toEqual([]);
     expect(planning.sections.value).toEqual([]);

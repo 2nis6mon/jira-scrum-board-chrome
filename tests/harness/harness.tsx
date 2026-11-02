@@ -34,7 +34,7 @@ import { goalsGateway } from "../support/goalsGateway";
 import { issueJson, statusJson } from "../support/jiraFixtures";
 import { withJqlFixture } from "../support/jqlFixture";
 import { KANBAN_NAME, KANBAN_SUBQUERY } from "../support/kanbanFixture";
-import { planningFixture } from "../support/planningFixture";
+import { PLANNING_BACKLOG, planningFixture } from "../support/planningFixture";
 
 const PROPERTY = `/rest/agile/1.0/sprint/42/properties/${SPRINT_PROPERTY_KEYS.diagnostic}`;
 const OK: Reply = { status: 200, json: {} };
@@ -599,6 +599,36 @@ if (scenario.startsWith("board")) {
         secondActiveSprint: scenario === "board-planning-deux-actifs",
       })
     : null;
+  if (planning) {
+    // Filtres rapides FICTIFS évalués sur le périmètre du planning (sprints du board et backlog) ;
+    // les autres JQL gardent la réponse du board.
+    const planningScope =
+      "sprint in (43,44,42) OR sprint is EMPTY OR (sprint in closedSprints() AND statusCategory != Done)";
+    const planningAnswers: Record<string, string[]> = {
+      [`(assignee = currentUser()) AND (${planningScope})`]: ["ABC-201", "ABC-210", "ABC-101"],
+    };
+    const planningIssues = () => [
+      ...issues(),
+      ...PLANNING_BACKLOG,
+      issueJson("ABC-210"),
+      issueJson("ABC-220"),
+    ];
+    jira.on("GET", "/rest/agile/1.0/board/7/issue", (request) => {
+      const jql = request.url.searchParams.get("jql");
+      if (jql === null) return { status: 200, json: { issues: issues(), total: issues().length } };
+      const planned = planningAnswers[jql];
+      if (planned) {
+        const result = planningIssues().filter((issue) => planned.includes(issue.key as string));
+        return { status: 200, json: { issues: result, total: result.length } };
+      }
+      if (jql.includes("closedSprints()"))
+        return { status: 400, json: { errorMessages: [`JQL inattendu : ${jql}`] } };
+      const quick = quickFilters.find((filter) => jql.includes(`(${filter.jql})`));
+      const keys = quick ? quickFilterAnswers[`(${quick.jql}) AND sprint in (42)`] : null;
+      const result = keys ? issues().filter((issue) => keys.includes(issue.key as string)) : [];
+      return { status: 200, json: { issues: result, total: result.length } };
+    });
+  }
   let planningReady = false;
   /** Fenêtres natives de clôture et de démarrage demandées à la « page hôte » du banc. */
   const sprintDialogs: { action: string; sprintId: number }[] = [];
@@ -673,6 +703,12 @@ if (scenario.startsWith("board")) {
         /** Requêtes émises depuis `since` (index dans le journal du faux Jira). */
         requestsSince: (since: number) =>
           jira.requests.slice(since).map(({ method, path }) => `${method} ${path}`),
+        /** JQL des filtres rapides envoyés à Jira depuis `since`. */
+        quickFilterJql: (since: number) =>
+          jira.requests
+            .slice(since)
+            .filter(({ path }) => path === "/rest/agile/1.0/board/7/issue")
+            .map(({ url }) => url.searchParams.get("jql")),
         storedDrafts: () =>
           [...platform.stored].filter(([key]) => key.startsWith("sprint-planning.")),
         changeGoalText: planning.changeGoalText,

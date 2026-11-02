@@ -9,8 +9,14 @@ import {
   focusGoal,
   isGoalFocused,
   isSprintQuickFilter,
+  matchesIssue,
+  matchesIssueSearch,
   NO_FILTERS,
+  NO_PLANNING_FILTERS,
+  type PlanningFilters,
+  planningFilterCount,
   QUICK_FILTERS,
+  searchNeedle,
 } from "../../src/core/filters";
 import type { AtlassianGoal, JiraIssue } from "../../src/jira/models";
 import { makeConfiguration, makeIssue } from "../support/jiraFixtures";
@@ -277,5 +283,89 @@ describe("filterAtlassianGoals", () => {
 
   it("un Goal sans nom se cherche par son identifiant", () => {
     expect(filterAtlassianGoals("xyz", [goal("ari:cloud:townsquare:c:goal/xyz")])).toHaveLength(1);
+  });
+});
+
+describe("matchesIssue (critères lus sur le ticket Jira)", () => {
+  const filters = (parts: Partial<PlanningFilters>): PlanningFilters => ({
+    ...NO_PLANNING_FILTERS,
+    ...parts,
+  });
+  const issues = [
+    makeIssue("ABC-1", { assigneeId: "acc-1", labels: ["tech"], parent: "ABC-10" }),
+    makeIssue("ABC-2", { typeId: "10004", statusId: "4", statusName: "Done" }),
+    makeIssue("ABC-3", { blockedBy: "ABC-9", assigneeId: "acc-2" }),
+  ];
+  const kept = (parts: Partial<PlanningFilters>) =>
+    issues.filter((issue) => matchesIssue(filters(parts), issue)).map((issue) => issue.key);
+
+  it("sans critère : tout passe", () => {
+    expect(kept({})).toEqual(["ABC-1", "ABC-2", "ABC-3"]);
+  });
+
+  it("personne, non assigné, type, statut, label et parent", () => {
+    expect(kept({ assigneeIds: new Set(["acc-1"]) })).toEqual(["ABC-1"]);
+    expect(kept({ includeUnassigned: true })).toEqual(["ABC-2"]);
+    expect(kept({ issueTypeIds: new Set(["10004"]) })).toEqual(["ABC-2"]);
+    expect(kept({ statusIds: new Set(["4"]) })).toEqual(["ABC-2"]);
+    expect(kept({ labels: new Set(["tech"]) })).toEqual(["ABC-1"]);
+    expect(kept({ parentKeys: new Set(["ABC-10"]) })).toEqual(["ABC-1"]);
+    expect(kept({ includeWithoutParent: true })).toEqual(["ABC-2", "ABC-3"]);
+  });
+
+  it("« Bloqués » : la règle du board, lien « est bloqué par »", () => {
+    expect(kept({ quickFilters: new Set(["blocked"]) })).toEqual(["ABC-3"]);
+  });
+
+  it("filtres rapides Jira : seules les clés retenues par Jira", () => {
+    expect(kept({ jiraQuickFilterKeys: new Set(["ABC-2", "ABC-9"]) })).toEqual(["ABC-2"]);
+    expect(kept({ jiraQuickFilterKeys: new Set() })).toEqual([]);
+  });
+
+  it("plusieurs critères : intersection", () => {
+    expect(
+      kept({ assigneeIds: new Set(["acc-1", "acc-2"]), quickFilters: new Set(["blocked"]) }),
+    ).toEqual(["ABC-3"]);
+  });
+
+  it("compte les critères du planning comme ceux du board, recherche comprise", () => {
+    expect(planningFilterCount(NO_PLANNING_FILTERS, "  ")).toBe(0);
+    expect(
+      planningFilterCount(
+        filters({
+          assigneeIds: new Set(["acc-1"]),
+          includeUnassigned: true,
+          quickFilters: new Set(["blocked"]),
+          jiraQuickFilterIds: new Set([1, 2]),
+        }),
+        "abc",
+      ),
+    ).toBe(5);
+  });
+});
+
+describe("matchesIssueSearch (règle de recherche du board sur le ticket Jira)", () => {
+  const issue = makeIssue("ABC-7", {
+    summary: "Mémoriser le panier",
+    assigneeId: "acc-1",
+    assigneeName: "Élodie Durand",
+    labels: ["Sécurité"],
+    parent: "ABC-90",
+  });
+  const finds = (text: string) => matchesIssueSearch(issue, searchNeedle(text));
+
+  it("accents et casse ignorés, sur clé, résumé, personne, type, label et parent", () => {
+    expect(finds("  ")).toBe(true);
+    expect(finds("elodie")).toBe(true);
+    expect(finds("MEMORISER")).toBe(true);
+    expect(finds("abc-7")).toBe(true);
+    expect(finds("story")).toBe(true);
+    expect(finds("securite")).toBe(true);
+    expect(finds("epic abc-90")).toBe(true);
+    expect(finds("introuvable")).toBe(false);
+  });
+
+  it("le board garde la même règle", () => {
+    expect(keys({ searchText: "Elodie" }, assemble([issue]))).toEqual(["ABC-7"]);
   });
 });

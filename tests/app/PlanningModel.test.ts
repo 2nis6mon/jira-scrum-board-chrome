@@ -1,18 +1,19 @@
 import { signal } from "@preact/signals";
 import { describe, expect, it, vi } from "vitest";
-import { sourceText } from "../../src/app/model/appMessage";
+import { renderMessage, sourceText } from "../../src/app/model/appMessage";
 import { AuditLog } from "../../src/app/model/auditLog";
 import { BoardWriteGate } from "../../src/app/model/BoardWriteGate";
 import { forgetPlanningDrafts, PlanningModel } from "../../src/app/model/PlanningModel";
 import type { BoardConfiguration } from "../../src/core/boardConfiguration";
-import { JiraClient } from "../../src/jira/client";
+import { NO_PLANNING_FILTERS } from "../../src/core/filters";
+import { JiraClient, type JiraQuickFilter } from "../../src/jira/client";
 import { GoalsClient } from "../../src/jira/goals";
 import type { AtlassianGoal } from "../../src/jira/models";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { JiraTransport } from "../../src/jira/transport";
 import { isWriteRequest } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
-import { column, makeConfiguration } from "../support/jiraFixtures";
+import { column, issueJson, makeConfiguration, statusJson } from "../support/jiraFixtures";
 import { planningFixture, SECOND_ACTIVE_GOAL } from "../support/planningFixture";
 
 const DRAFT_KEY = "sprint-planning.v1:https://acme.atlassian.net";
@@ -88,6 +89,7 @@ function context(
     }),
   );
   const canWrite = signal(true);
+  const quickFilters = signal<readonly JiraQuickFilter[]>([]);
   const openIssue = vi.fn();
   const openSprintDialog = vi.fn(() => true);
   /** Attente entre deux relectures de l'état du sprint : immédiate, sauf simulation. */
@@ -104,6 +106,7 @@ function context(
       record: (entry) =>
         audit.append({ ...entry, at: new Date().toISOString(), site: client.site.origin }),
       wait,
+      jiraQuickFilters: () => quickFilters.value,
     });
   return {
     ...fixture,
@@ -111,6 +114,7 @@ function context(
     platform,
     configuration,
     canWrite,
+    quickFilters,
     openIssue,
     openSprintDialog,
     create,
@@ -896,5 +900,298 @@ describe("Sprint Planning en direct : fenêtres natives", () => {
     expect(notice(planning)).toBe(
       "La fenêtre de Jira ne s'ouvre que depuis le board Jira qui héberge Sprint Goals Board.",
     );
+  });
+});
+
+describe("Sprint Planning en direct : filtres (lecture seule)", () => {
+  const BOARD_ISSUES = "/rest/agile/1.0/board/7/issue";
+  const SCOPE =
+    "sprint in (43,42) OR sprint is EMPTY OR (sprint in closedSprints() AND statusCategory != Done)";
+  const ALEX = { assignee: { accountId: "acc-1", displayName: "Alex Martin" } };
+  const BUG = { issuetype: { id: "10004", name: "Bug", subtask: false } };
+  const BLOCKED = {
+    issuelinks: [
+      {
+        type: { name: "Blocks", inward: "is blocked by", outward: "blocks" },
+        inwardIssue: { key: "ABC-999", fields: { status: statusJson("3", "Open") } },
+      },
+    ],
+  };
+  const quick = (id: number, jql: string): JiraQuickFilter => ({
+    id,
+    name: `Filtre ${id}`,
+    jql,
+    description: null,
+    position: id,
+  });
+  const keysOf = (items: readonly { issue: { key: string } }[]) =>
+    items.map((item) => item.issue.key);
+  /** Cartes affichées : swimlanes, « Sans objectif » et colonne de gauche. */
+  const shown = (planning: PlanningModel) => ({
+    lanes: planning.lanes.value.flatMap((lane) => keysOf(lane.issues)),
+    unassigned: keysOf(planning.unassigned.value),
+    sources: planning.sections.value.flatMap((section) => keysOf(section.issues)),
+  });
+  const totals = (planning: PlanningModel) => ({
+    load: planning.sprintLoad.value,
+    lanes: planning.lanes.value.map(({ issueCount, points, unestimated }) => ({
+      issueCount,
+      points,
+      unestimated,
+    })),
+  });
+  const issueFields = {
+    "ABC-210": ALEX,
+    "ABC-201": ALEX,
+    "ABC-202": BUG,
+    "ABC-203": BLOCKED,
+    "ABC-204": { ...BUG, status: statusJson("3", "En cours") },
+  };
+  /** Faux Jira qui évalue les filtres rapides selon le JQL reçu ; un JQL inconnu est refusé. */
+  function answering(
+    jira: ReturnType<typeof context>["jira"],
+    byJql: Record<string, readonly string[]>,
+  ) {
+    jira.on("GET", BOARD_ISSUES, (request) => {
+      const keys = byJql[request.url.searchParams.get("jql") ?? ""];
+      if (!keys) return { status: 400, json: { errorMessages: ["JQL refusé par Jira"] } };
+      return {
+        status: 200,
+        json: { total: keys.length, issues: keys.map((key) => issueJson(key)) },
+      };
+    });
+  }
+
+  it("menu Personne : swimlanes, « Sans objectif » et sources réduites, totaux et charge inchangés", async () => {
+    const { planning } = context({ issueFields });
+    await planning.load();
+    const before = totals(planning);
+    planning.setFilters({ ...NO_PLANNING_FILTERS, assigneeIds: new Set(["acc-1"]) });
+    expect(shown(planning)).toEqual({ lanes: [], unassigned: ["ABC-210"], sources: ["ABC-201"] });
+    expect(totals(planning)).toEqual(before);
+    planning.setFilters({ ...NO_PLANNING_FILTERS, includeUnassigned: true });
+    expect(shown(planning).unassigned).toEqual([]);
+    expect(shown(planning).sources).toEqual(
+      expect.arrayContaining(["ABC-202", "ABC-203", "ABC-204"]),
+    );
+    expect(shown(planning).sources).not.toContain("ABC-201");
+  });
+
+  it("Type + Statut + recherche : intersection", async () => {
+    const { planning } = context({ issueFields });
+    await planning.load();
+    planning.setSearch("panier");
+    planning.setFilters({
+      ...NO_PLANNING_FILTERS,
+      issueTypeIds: new Set(["10004"]),
+      statusIds: new Set(["1"]),
+    });
+    expect(shown(planning)).toEqual({ lanes: [], unassigned: [], sources: ["ABC-202"] });
+    expect(planning.activeFilterCount.value).toBe(3);
+  });
+
+  it("options : valeurs réellement présentes dans le sprint et les sources, avec leur nombre", async () => {
+    const { planning } = context({ issueFields });
+    await planning.load();
+    const options = planning.filterOptions.value;
+    expect(options?.assignees).toContainEqual({ value: "acc-1", label: "Alex Martin", count: 2 });
+    // Deux Bugs du backlog et une anomalie du reste à faire du sprint actif.
+    expect(options?.issueTypes).toContainEqual({ value: "10004", label: "Bug", count: 3 });
+    expect(options?.parents.map((option) => option.value)).toEqual(
+      expect.arrayContaining(["ABC-90", "ABC-91"]),
+    );
+    // Les options ne dépendent pas des filtres actifs.
+    planning.setFilters({ ...NO_PLANNING_FILTERS, assigneeIds: new Set(["acc-1"]) });
+    expect(planning.filterOptions.value).toEqual(options);
+  });
+
+  it("« Bloqués » : seuls les tickets bloqués par un lien, les autres pastilles sont ignorées", async () => {
+    const { planning } = context({ issueFields });
+    await planning.load();
+    planning.toggleBlocked();
+    // Backlog, puis reste à faire du sprint actif.
+    expect(shown(planning)).toEqual({ lanes: [], unassigned: [], sources: ["ABC-203", "ABC-102"] });
+    planning.setFilters({
+      ...planning.filters.value,
+      quickFilters: new Set(["blocked", "addedAfterStart", "carriedOver"]),
+    });
+    expect([...planning.filters.value.quickFilters]).toEqual(["blocked"]);
+    planning.toggleBlocked();
+    expect(planning.filters.value.quickFilters.size).toBe(0);
+  });
+
+  it("filtre rapide Jira : Jira évalue son JQL sur le périmètre du planning, croisé avec les cartes", async () => {
+    const { planning, jira, quickFilters } = context({ issueFields });
+    quickFilters.value = [quick(1, "assignee = currentUser() ORDER BY rank")];
+    answering(jira, {
+      [`(assignee = currentUser()) AND (${SCOPE})`]: ["ABC-201", "ABC-210", "ABC-999"],
+    });
+    await planning.load();
+    const before = totals(planning);
+    const writes = jira.requests.filter(isWriteRequest).length;
+    await planning.toggleJiraQuickFilter(1);
+    expect(planning.applyingQuickFilters.value).toBe(false);
+    expect(shown(planning)).toEqual({ lanes: [], unassigned: ["ABC-210"], sources: ["ABC-201"] });
+    expect(totals(planning)).toEqual(before);
+    const [request] = jira.sent("GET", BOARD_ISSUES);
+    expect(request?.url.searchParams.get("fields")).toBe("issuetype,status");
+    expect(jira.requests.filter(isWriteRequest)).toHaveLength(writes);
+    // Désactivé : plus aucune restriction, sans nouvelle lecture.
+    await planning.toggleJiraQuickFilter(1);
+    expect(planning.filters.value.jiraQuickFilterKeys).toBeNull();
+    expect(jira.sent("GET", BOARD_ISSUES)).toHaveLength(1);
+  });
+
+  it("deux filtres rapides Jira : intersection", async () => {
+    const { planning, jira, quickFilters } = context({ issueFields });
+    quickFilters.value = [quick(1, "a = 1"), quick(2, "b = 2")];
+    answering(jira, {
+      [`(a = 1) AND (${SCOPE})`]: ["ABC-201", "ABC-202", "ABC-210"],
+      [`(b = 2) AND (${SCOPE})`]: ["ABC-202", "ABC-210"],
+    });
+    await planning.load();
+    await planning.toggleJiraQuickFilter(1);
+    await planning.toggleJiraQuickFilter(2);
+    expect(shown(planning)).toEqual({ lanes: [], unassigned: ["ABC-210"], sources: ["ABC-202"] });
+  });
+
+  it("JQL refusé : filtres rapides désactivés, avis traduit, autres filtres gardés, une seule lecture", async () => {
+    const { planning, jira, quickFilters } = context({ issueFields });
+    quickFilters.value = [quick(1, "champ ~ ")];
+    answering(jira, {});
+    await planning.load();
+    planning.setFilters({ ...NO_PLANNING_FILTERS, assigneeIds: new Set(["acc-1"]) });
+    await planning.toggleJiraQuickFilter(1);
+    expect(jira.sent("GET", BOARD_ISSUES)).toHaveLength(1);
+    expect(planning.filters.value.jiraQuickFilterIds.size).toBe(0);
+    expect(planning.filters.value.jiraQuickFilterKeys).toBeNull();
+    expect([...planning.filters.value.assigneeIds]).toEqual(["acc-1"]);
+    expect(notice(planning)).toMatch(
+      /^Filtre rapide Jira inapplicable : .+ Les filtres rapides Jira ont été désactivés\.$/,
+    );
+    const notified = planning.notice.value;
+    if (!notified) throw new Error("avis attendu");
+    expect(renderMessage(notified, "en")).toMatch(
+      /^Jira quick filter cannot be applied: .+ Jira quick filters have been disabled\.$/,
+    );
+    expect(shown(planning)).toEqual({ lanes: [], unassigned: ["ABC-210"], sources: ["ABC-201"] });
+  });
+
+  it("une réponse arrivée après la réinitialisation est ignorée", async () => {
+    const { planning, jira, quickFilters } = context({ issueFields });
+    quickFilters.value = [quick(1, "a = 1")];
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    answering(jira, { [`(a = 1) AND (${SCOPE})`]: ["ABC-201"] });
+    await planning.load();
+    // Réponse de Jira retenue jusqu'à `release()`.
+    const read = planning.client.boardIssues.bind(planning.client);
+    planning.client.boardIssues = async (...args) => {
+      await held;
+      return read(...args);
+    };
+    const pending = planning.toggleJiraQuickFilter(1);
+    expect(planning.applyingQuickFilters.value).toBe(true);
+    planning.resetFilters();
+    release();
+    await pending;
+    expect(planning.filters.value).toEqual(NO_PLANNING_FILTERS);
+    expect(planning.applyingQuickFilters.value).toBe(false);
+  });
+
+  it("Réinitialiser : le compteur réunit recherche et filtres, tout est vidé", async () => {
+    const { planning, jira, quickFilters } = context({ issueFields });
+    quickFilters.value = [quick(1, "a = 1")];
+    answering(jira, { [`(a = 1) AND (${SCOPE})`]: ["ABC-201"] });
+    await planning.load();
+    const all = shown(planning);
+    planning.setSearch("paiement");
+    planning.setFilters({ ...NO_PLANNING_FILTERS, assigneeIds: new Set(["acc-1"]) });
+    planning.toggleBlocked();
+    await planning.toggleJiraQuickFilter(1);
+    expect(planning.activeFilterCount.value).toBe(4);
+    planning.resetFilters();
+    expect(planning.activeFilterCount.value).toBe(0);
+    expect(planning.search.value).toBe("");
+    expect(planning.filters.value).toEqual(NO_PLANNING_FILTERS);
+    expect(shown(planning)).toEqual(all);
+  });
+
+  it("changement de board : les filtres du planning sont vidés, comme la recherche", async () => {
+    const { planning } = context({ issueFields });
+    await planning.load();
+    planning.setSearch("panier");
+    planning.setFilters({ ...NO_PLANNING_FILTERS, labels: new Set(["tech"]) });
+    planning.toggleBlocked();
+    planning.reset();
+    expect(planning.search.value).toBe("");
+    expect(planning.filters.value).toEqual(NO_PLANNING_FILTERS);
+    expect(planning.activeFilterCount.value).toBe(0);
+  });
+
+  it("filtre actif : poser un ticket filtré sur un objectif écrit comme avant et la carte reste visible", async () => {
+    const { planning, inspect, jira, quickFilters } = context({ issueFields });
+    quickFilters.value = [quick(1, "a = 1")];
+    answering(jira, { [`(a = 1) AND (${SCOPE})`]: ["ABC-201", "ABC-210"] });
+    await planning.load();
+    planning.setFilters({ ...NO_PLANNING_FILTERS, assigneeIds: new Set(["acc-1"]) });
+    await planning.toggleJiraQuickFilter(1);
+    const goal = planning.lanes.value[0]?.goal;
+    await planning.placeIssue("ABC-201", goal?.id ?? null);
+    expect(inspect().writes.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      "POST /rest/agile/1.0/sprint/43/issue",
+      "PUT /rest/agile/1.0/sprint/43/properties/com.scrumboardmac.sprintgoals.v1",
+    ]);
+    expect(shown(planning)).toEqual({ lanes: ["ABC-201"], unassigned: ["ABC-210"], sources: [] });
+    expect(planning.lanes.value[0]).toMatchObject({ issueCount: 1, points: 5 });
+  });
+
+  it("filtre rapide Jira réévalué après actualisation, choix du sprint et geste", async () => {
+    const { planning, jira, quickFilters } = context({ issueFields });
+    quickFilters.value = [quick(1, "sprint = 43")];
+    const jql = `(sprint = 43) AND (${SCOPE})`;
+    const answers: Record<string, readonly string[]> = { [jql]: ["ABC-210"] };
+    answering(jira, answers);
+    await planning.load();
+    await planning.toggleJiraQuickFilter(1);
+    expect(shown(planning)).toEqual({ lanes: [], unassigned: ["ABC-210"], sources: [] });
+    /** Attend une lecture de plus, avec le JQL du planning, puis les cartes de la réponse. */
+    const reevaluated = async (count: number, expected: ReturnType<typeof shown>) => {
+      await vi.waitFor(() => {
+        expect(jira.sent("GET", BOARD_ISSUES)).toHaveLength(count);
+        expect(planning.applyingQuickFilters.value).toBe(false);
+      });
+      expect(jira.sent("GET", BOARD_ISSUES).at(-1)?.url.searchParams.get("jql")).toBe(jql);
+      expect(shown(planning)).toEqual(expected);
+    };
+
+    answers[jql] = ["ABC-210", "ABC-201"];
+    await planning.refresh();
+    await reevaluated(2, { lanes: [], unassigned: ["ABC-210"], sources: ["ABC-201"] });
+
+    answers[jql] = ["ABC-201"];
+    await planning.selectSprint(43);
+    await reevaluated(3, { lanes: [], unassigned: [], sources: ["ABC-201"] });
+
+    // ABC-202 rejoint le sprint 43 : Jira le retient désormais.
+    answers[jql] = ["ABC-201", "ABC-202"];
+    const goal = planning.lanes.value[0]?.goal;
+    await planning.placeIssue("ABC-202", goal?.id ?? null);
+    await reevaluated(4, { lanes: ["ABC-202"], unassigned: [], sources: ["ABC-201"] });
+  });
+
+  it("la recherche suit la règle du board : accents et casse ignorés, personne comprise", async () => {
+    const { planning } = context({ issueFields });
+    await planning.load();
+    planning.setSearch("MEMORISER");
+    expect(shown(planning)).toEqual({ lanes: [], unassigned: [], sources: ["ABC-201"] });
+    planning.setSearch("alex martin");
+    expect(shown(planning)).toEqual({
+      lanes: [],
+      unassigned: ["ABC-210"],
+      sources: ["ABC-201", "ABC-104"],
+    });
   });
 });

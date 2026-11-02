@@ -20,9 +20,12 @@ import {
   PLANNING_SPRINT_DRAG_TYPE,
   PlanningView,
 } from "../../src/app/views/planning/PlanningView";
+import { type IssueFilterOptions, issueFilterOptions } from "../../src/core/boardLayout";
+import { NO_PLANNING_FILTERS, type PlanningFilters } from "../../src/core/filters";
 import { makeSprintGoal } from "../../src/core/sprintGoals";
 import type { PlanningSnapshot } from "../../src/core/sprintPlanning";
 import { setLanguage } from "../../src/i18n";
+import type { JiraQuickFilter } from "../../src/jira/client";
 import { type AtlassianGoal, decodeSprint, type JiraSprint } from "../../src/jira/models";
 import { type IssueOptions, makeIssue } from "../support/jiraFixtures";
 
@@ -100,6 +103,7 @@ function setup(
     goalMode?: "text" | "atlassian";
     pinnedGoalIds?: readonly string[];
     images?: ImageCache;
+    quickFilters?: readonly JiraQuickFilter[];
   } = {},
 ) {
   const snapshot = {
@@ -130,6 +134,20 @@ function setup(
     error: signal<UserMessage | null>(null),
     goalsWarning: signal<AppMessage | null>(null),
     search: signal(""),
+    filters: signal<PlanningFilters>(NO_PLANNING_FILTERS),
+    filterOptions: signal<IssueFilterOptions | null>(
+      issueFilterOptions([
+        IN_G1.issue,
+        ARRIVED.issue,
+        UNASSIGNED.issue,
+        BACKLOG.issue,
+        OTHER_SPRINT.issue,
+        REMAINING.issue,
+      ]),
+    ),
+    jiraQuickFilters: signal<readonly JiraQuickFilter[]>(options.quickFilters ?? []),
+    applyingQuickFilters: signal(false),
+    activeFilterCount: signal(0),
     goalMode: signal<"text" | "atlassian">(options.goalMode ?? "text"),
     lanes: signal<readonly PlanningLane[]>([lane(0, [IN_G1]), lane(1, [ARRIVED])]),
     unassigned: signal<readonly PlanningIssue[]>([UNASSIGNED]),
@@ -156,7 +174,15 @@ function setup(
     refresh: vi.fn(async () => {}),
     setSearch: vi.fn((value: string) => {
       planning.search.value = value;
+      // Comme le modèle : la recherche compte parmi les critères actifs.
+      planning.activeFilterCount.value = value.trim() === "" ? 0 : 1;
     }),
+    setFilters: vi.fn((filters: PlanningFilters) => {
+      planning.filters.value = filters;
+    }),
+    toggleBlocked: vi.fn(),
+    toggleJiraQuickFilter: vi.fn(async (_id: number) => {}),
+    resetFilters: vi.fn(),
     addGoal: vi.fn(async (_title: string) => {}),
     renameGoal: vi.fn(async (_id: string, _title: string) => {}),
     removeGoal: vi.fn(async (_id: string) => {}),
@@ -537,7 +563,7 @@ describe("Sprint Planning en direct : écran", () => {
     planning.sections.value = [{ kind: "backlog", issues: [] }];
     await tick();
     expect(find('[data-planning-section="backlog"]').textContent).toContain(
-      "Aucun ticket ne correspond à cette recherche.",
+      "Aucun ticket ne correspond à la recherche ou aux filtres.",
     );
   });
 
@@ -1002,5 +1028,160 @@ describe("Sprint Planning en direct : carte (type, priorité, statut) et menu au
     expect(details.open).toBe(false);
     expect(planning.placeIssue).not.toHaveBeenCalled();
     expect(planning.removeIssue).not.toHaveBeenCalled();
+  });
+});
+
+describe("Sprint Planning en direct : filtres comme la page du sprint", () => {
+  const menus = () =>
+    [...document.querySelectorAll(".planning-filter-bar details.filter-menu > summary")].map(
+      (summary) => summary.textContent?.replace(/\d+$/, "").trim(),
+    );
+
+  it("mêmes menus que la page du sprint, « Bloqués », sans Priorité, Composant, Sprint ni Objectif", async () => {
+    setup();
+    await tick();
+    expect(menus()).toEqual(["Personne", "Type", "Parent", "Statut", "Label"]);
+    const chips = [...document.querySelectorAll(".planning-filter-bar .chip")].map((chip) =>
+      chip.textContent?.trim(),
+    );
+    expect(chips).toEqual(["Bloqués"]);
+    expect(document.querySelector(".planning-filter-bar .filter-reset")).toBeNull();
+  });
+
+  it("menu Personne : valeurs présentes avec leur nombre, cocher appelle le modèle", async () => {
+    const { planning } = setup();
+    planning.filterOptions.value = issueFilterOptions([
+      makeIssue("ABC-10", { assigneeId: "acc-1", assigneeName: "Alex Martin" }),
+      makeIssue("ABC-11", { assigneeId: "acc-1", assigneeName: "Alex Martin" }),
+      makeIssue("ABC-12"),
+    ]);
+    await tick();
+    const person = find<HTMLDetailsElement>(".planning-filter-bar details.filter-menu");
+    person.open = true;
+    const options = [...person.querySelectorAll(".filter-option")].map((option) =>
+      option.textContent?.trim(),
+    );
+    expect(options).toEqual(["Non assigné1", "Alex Martin2"]);
+    const alex = [...person.querySelectorAll<HTMLInputElement>("input")][1];
+    alex?.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(planning.setFilters).toHaveBeenCalledTimes(1);
+    expect([...(planning.setFilters.mock.calls[0]?.[0].assigneeIds ?? [])]).toEqual(["acc-1"]);
+  });
+
+  it("« Bloqués » et filtres rapides du board Jira passent par le modèle", async () => {
+    const { planning } = setup({
+      quickFilters: [
+        {
+          id: 1,
+          name: "Mes tickets",
+          jql: "assignee = currentUser()",
+          description: null,
+          position: 0,
+        },
+      ],
+    });
+    await tick();
+    button("Bloqués").click();
+    expect(planning.toggleBlocked).toHaveBeenCalledTimes(1);
+    const mine = button("Mes tickets");
+    expect(mine.getAttribute("title")).toContain("assignee = currentUser()");
+    mine.click();
+    expect(planning.toggleJiraQuickFilter).toHaveBeenCalledWith(1);
+    planning.applyingQuickFilters.value = true;
+    await tick();
+    expect(button("Mes tickets").disabled).toBe(true);
+    expect(text()).toContain("Jira filtre…");
+  });
+
+  it("filtres actifs : « Réinitialiser (n) » vide tout", async () => {
+    const { planning } = setup();
+    planning.activeFilterCount.value = 3;
+    planning.filters.value = { ...NO_PLANNING_FILTERS, quickFilters: new Set(["blocked"]) };
+    await tick();
+    expect(button("Bloqués").getAttribute("aria-pressed")).toBe("true");
+    button("Réinitialiser (3)").click();
+    expect(planning.resetFilters).toHaveBeenCalledTimes(1);
+  });
+
+  it("les filtres restent utilisables pendant un geste : lecture seule", async () => {
+    const { planning } = setup();
+    planning.busy.value = true;
+    planning.gesturesDisabled.value = true;
+    await tick();
+    expect(button("Bloqués").disabled).toBe(false);
+  });
+
+  it("chaque menu transmet au modèle le critère coché, cases « Non assigné » et « Sans parent » comprises", async () => {
+    const { planning } = setup();
+    planning.filterOptions.value = {
+      assignees: [{ value: "acc-1", label: "Alex Martin", count: 1 }],
+      unassignedCount: 2,
+      issueTypes: [{ value: "10004", label: "Bug", count: 1 }],
+      priorities: [],
+      statuses: [{ value: "3", label: "En cours", count: 2 }],
+      labels: [{ value: "tech", label: "tech", count: 1 }],
+      components: [],
+      parents: [{ value: "ABC-90", label: "ABC-90 · Epic", count: 1 }],
+      withoutParentCount: 2,
+    };
+    await tick();
+    const cases: [menu: string, input: number, expected: Partial<PlanningFilters>][] = [
+      ["Personne", 0, { includeUnassigned: true }],
+      ["Personne", 1, { assigneeIds: new Set(["acc-1"]) }],
+      ["Type", 0, { issueTypeIds: new Set(["10004"]) }],
+      ["Parent", 0, { includeWithoutParent: true }],
+      ["Parent", 1, { parentKeys: new Set(["ABC-90"]) }],
+      ["Statut", 0, { statusIds: new Set(["3"]) }],
+      ["Label", 0, { labels: new Set(["tech"]) }],
+    ];
+    for (const [label, index, expected] of cases) {
+      planning.filters.value = NO_PLANNING_FILTERS;
+      planning.setFilters.mockClear();
+      await tick();
+      const menu = [
+        ...document.querySelectorAll<HTMLDetailsElement>(
+          ".planning-filter-bar details.filter-menu",
+        ),
+      ].find((details) => details.querySelector("summary")?.textContent?.startsWith(label));
+      if (!menu) throw new Error(`Menu attendu : ${label}`);
+      menu.open = true;
+      menu.querySelectorAll("input")[index]?.dispatchEvent(new Event("change", { bubbles: true }));
+      expect(planning.setFilters, `${label} n° ${index}`).toHaveBeenCalledTimes(1);
+      expect(planning.setFilters.mock.calls[0]?.[0]).toEqual({
+        ...NO_PLANNING_FILTERS,
+        ...expected,
+      });
+      menu.open = false;
+    }
+  });
+
+  it("filtres actifs sans recherche : messages des zones vidées et « visibles / total »", async () => {
+    const { planning } = setup();
+    planning.filters.value = { ...NO_PLANNING_FILTERS, quickFilters: new Set(["blocked"]) };
+    planning.activeFilterCount.value = 1;
+    planning.lanes.value = [{ ...lane(0, [IN_G1]), issues: [] }, lane(1, [ARRIVED])];
+    planning.unassigned.value = [];
+    planning.sections.value = [
+      { kind: "sprint", sprint: SPRINT_44, issues: [] },
+      { kind: "backlog", issues: [BACKLOG] },
+      { kind: "active", sprint: SPRINT_42, issues: [] },
+    ];
+    await tick();
+    const filtered = "Aucun ticket ne correspond à la recherche ou aux filtres.";
+    expect(find('[data-planning-goal="g1"]').textContent).toContain(filtered);
+    expect(find('[data-planning-goal="unassigned"]').textContent).toContain(filtered);
+    expect(find('[data-planning-goal="unassigned"]').textContent).not.toContain(
+      "Tous les tickets du sprint servent un objectif.",
+    );
+    expect(find('[data-planning-section="sprint-44"]').textContent).toContain(filtered);
+    // Deux cartes retenues sur les six du sprint et de ses sources.
+    expect(find(".planning-filter-bar .filter-result").textContent).toBe("2 / 6 tickets");
+    planning.activeFilterCount.value = 0;
+    await tick();
+    expect(document.querySelector(".planning-filter-bar .filter-result")).toBeNull();
+    expect(find('[data-planning-goal="unassigned"]').textContent).toContain(
+      "Tous les tickets du sprint servent un objectif.",
+    );
+    expect(find('[data-planning-section="sprint-44"]').textContent).toContain("Aucun ticket.");
   });
 });

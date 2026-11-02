@@ -122,6 +122,34 @@
   font: 11px var(--font);
 }
 
+/* Filtres de la page du sprint : la barre passe à la ligne, sans déborder d'une fenêtre étroite. */
+.planning-filter-bar {
+  min-width: 0;
+}
+
+.planning-filter-bar .filter-search,
+.planning-filter-bar .jira-quick-filters,
+.planning-filter-bar .chip-jira {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.planning-filter-bar .chip-jira {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Décalé par la vue s'il dépasse à droite ; jamais plus large que la fenêtre. */
+.planning-filter-bar .filter-menu-panel {
+  max-width: calc(100vw - 16px);
+}
+
+@media (max-width: 480px) {
+  .planning-filter-bar {
+    padding-inline: 12px;
+  }
+}
+
 .planning-messages {
   display: flex;
   flex-direction: column;

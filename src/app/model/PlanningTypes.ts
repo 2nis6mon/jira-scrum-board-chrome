@@ -1,10 +1,13 @@
 import type { ReadonlySignal } from "@preact/signals";
+import type { IssueFilterOptions } from "../../core/boardLayout";
+import type { PlanningFilters } from "../../core/filters";
 import type { SprintGoal } from "../../core/sprintGoals";
 import type {
   CarryOverGoalReport,
   PlanningDestination,
   PlanningSnapshot,
 } from "../../core/sprintPlanning";
+import type { JiraQuickFilter } from "../../jira/client";
 import type { AtlassianGoal, JiraIssue, JiraSprint } from "../../jira/models";
 import type { AppMessage } from "./appMessage";
 import type { UserMessage } from "./messages";
@@ -34,16 +37,16 @@ export interface PlanningIssue {
 /** Swimlane d'un objectif du sprint en préparation. */
 export interface PlanningLane {
   readonly goal: SprintGoal;
-  /** Tickets de l'objectif retenus par la recherche. */
+  /** Tickets de l'objectif retenus par la recherche et les filtres. */
   readonly issues: readonly PlanningIssue[];
-  /** Nombre de tickets de l'objectif, recherche ignorée. */
+  /** Nombre de tickets de l'objectif, recherche et filtres ignorés. */
   readonly issueCount: number;
-  /** Somme des estimations connues, recherche ignorée. */
+  /** Somme des estimations connues, recherche et filtres ignorés. */
   readonly points: number;
   readonly unestimated: number;
 }
 
-/** Section de la colonne « Où sont les tickets » (recherche appliquée). */
+/** Section de la colonne « Où sont les tickets » (recherche et filtres appliqués). */
 export type PlanningSection =
   | {
       readonly kind: "sprint";
@@ -119,10 +122,23 @@ export interface PlanningViewModel {
   /** Lecture partielle ou impossible des Goals Atlassian du sprint. */
   readonly goalsWarning: ReadonlySignal<AppMessage | null>;
   readonly search: ReadonlySignal<string>;
+  /**
+   * Filtres de la barre (Personne, Type, Parent, Statut, Label, « Bloqués », filtres rapides du
+   * board Jira), appliqués comme la recherche ; totaux et charge restent calculés sans eux.
+   */
+  readonly filters: ReadonlySignal<PlanningFilters>;
+  /** Valeurs présentes dans le sprint en préparation et ses sources ; `null` sans sprint lu. */
+  readonly filterOptions: ReadonlySignal<IssueFilterOptions | null>;
+  /** Filtres rapides du board Jira proposés. */
+  readonly jiraQuickFilters: ReadonlySignal<readonly JiraQuickFilter[]>;
+  /** Jira évalue les filtres rapides actifs. */
+  readonly applyingQuickFilters: ReadonlySignal<boolean>;
+  /** Critères actifs, recherche comprise. */
+  readonly activeFilterCount: ReadonlySignal<number>;
   /** Source des objectifs du board : texte du sprint ou Goals Atlassian épinglés. */
   readonly goalMode: ReadonlySignal<"text" | "atlassian">;
   readonly lanes: ReadonlySignal<readonly PlanningLane[]>;
-  /** Tickets du sprint en préparation sans objectif (recherche appliquée). */
+  /** Tickets du sprint en préparation sans objectif (recherche et filtres appliqués). */
   readonly unassigned: ReadonlySignal<readonly PlanningIssue[]>;
   readonly sections: ReadonlySignal<readonly PlanningSection[]>;
   readonly sprintLoad: ReadonlySignal<PlanningLoad | null>;
@@ -140,6 +156,11 @@ export interface PlanningViewModel {
   selectSprint(id: number): Promise<void>;
   refresh(): Promise<void>;
   setSearch(text: string): void;
+  setFilters(filters: PlanningFilters): void;
+  toggleBlocked(): void;
+  toggleJiraQuickFilter(id: number): Promise<void>;
+  /** Vide la recherche et tous les filtres. */
+  resetFilters(): void;
   addGoal(title: string): Promise<void>;
   renameGoal(id: string, title: string): Promise<void>;
   /** Texte : supprime l'objectif ; Goals Atlassian : retire l'épinglage. */

@@ -1,4 +1,9 @@
-import { type AtlassianGoal, goalDisplayName } from "../jira/models";
+import {
+  type AtlassianGoal,
+  goalDisplayName,
+  isBlockedByLink,
+  type JiraIssue,
+} from "../jira/models";
 import type { BoardIssue } from "./boardIssue";
 import { foldText } from "./text";
 
@@ -102,51 +107,109 @@ export function areFiltersActive(filters: BoardFilters): boolean {
   return activeFilterCount(filters) > 0;
 }
 
+/**
+ * Critères lus sur le seul ticket Jira, communs au board et au Sprint Planning. Priorité et
+ * composant restent facultatifs : le planning ne les propose pas.
+ */
+export type IssueFilters = Pick<
+  BoardFilters,
+  | "assigneeIds"
+  | "includeUnassigned"
+  | "issueTypeIds"
+  | "labels"
+  | "statusIds"
+  | "parentKeys"
+  | "includeWithoutParent"
+  | "quickFilters"
+  | "jiraQuickFilterKeys"
+> &
+  Partial<Pick<BoardFilters, "priorityNames" | "componentNames">>;
+
+/**
+ * Filtres du Sprint Planning : menus Personne, Type, Parent, Statut et Label, pastille
+ * « Bloqués » et filtres rapides du board Jira. La recherche reste à part, comme avant.
+ */
+export type PlanningFilters = Omit<IssueFilters, "priorityNames" | "componentNames"> &
+  Pick<BoardFilters, "jiraQuickFilterIds">;
+
+export const NO_PLANNING_FILTERS: PlanningFilters = {
+  assigneeIds: NO_FILTERS.assigneeIds,
+  includeUnassigned: false,
+  issueTypeIds: NO_FILTERS.issueTypeIds,
+  labels: NO_FILTERS.labels,
+  statusIds: NO_FILTERS.statusIds,
+  parentKeys: NO_FILTERS.parentKeys,
+  includeWithoutParent: false,
+  quickFilters: NO_FILTERS.quickFilters,
+  jiraQuickFilterIds: NO_FILTERS.jiraQuickFilterIds,
+  jiraQuickFilterKeys: null,
+};
+
+/** Nombre de critères actifs du planning, recherche comprise, comptés comme sur le board. */
+export function planningFilterCount(filters: PlanningFilters, searchText: string): number {
+  return activeFilterCount({ ...NO_FILTERS, ...filters, searchText });
+}
+
+/**
+ * Le ticket satisfait-il les critères lus sur ses champs ? Des filtres rapides de l'extension,
+ * seul « Bloqués » se lit ainsi (lien Jira « est bloqué par », sauf valeur fournie) ; les
+ * filtres rapides du board Jira ont été évalués par Jira (`jiraQuickFilterKeys`).
+ */
+export function matchesIssue(
+  filters: IssueFilters,
+  issue: JiraIssue,
+  isBlocked: boolean = isBlockedByLink(issue.fields),
+): boolean {
+  const fields = issue.fields;
+
+  // Filtres rapides du board : la sélection a été faite par Jira via JQL.
+  if (filters.jiraQuickFilterKeys && !filters.jiraQuickFilterKeys.has(issue.key)) return false;
+
+  if (filters.assigneeIds.size > 0 || filters.includeUnassigned) {
+    const accountId = fields.assignee?.accountId ?? null;
+    const matchesAssignee = accountId !== null && filters.assigneeIds.has(accountId);
+    const matchesUnassigned = filters.includeUnassigned && fields.assignee === null;
+    if (!matchesAssignee && !matchesUnassigned) return false;
+  }
+
+  if (filters.issueTypeIds.size > 0 && !filters.issueTypeIds.has(fields.issuetype.id)) {
+    return false;
+  }
+  const priorityNames = filters.priorityNames;
+  if (priorityNames && priorityNames.size > 0) {
+    if (fields.priority === null || !priorityNames.has(fields.priority.name)) return false;
+  }
+  if (filters.labels.size > 0 && !fields.labels.some((label) => filters.labels.has(label))) {
+    return false;
+  }
+  const componentNames = filters.componentNames;
+  if (
+    componentNames &&
+    componentNames.size > 0 &&
+    !fields.components.some((component) => componentNames.has(component.name))
+  ) {
+    return false;
+  }
+  if (filters.statusIds.size > 0 && !filters.statusIds.has(fields.status.id)) return false;
+
+  if (filters.parentKeys.size > 0 || filters.includeWithoutParent) {
+    const matchesParent = fields.parent !== null && filters.parentKeys.has(fields.parent.key);
+    const matchesNone = filters.includeWithoutParent && fields.parent === null;
+    if (!matchesParent && !matchesNone) return false;
+  }
+
+  if (filters.quickFilters.has("blocked") && !isBlocked) return false;
+  return true;
+}
+
 /** Applique les filtres à une liste de tickets. */
 export function applyFilters(filters: BoardFilters, issues: readonly BoardIssue[]): BoardIssue[] {
   if (!areFiltersActive(filters)) return [...issues];
-  const needle = foldText(filters.searchText.trim());
+  const needle = searchNeedle(filters.searchText);
 
   return issues.filter((issue) => {
-    const fields = issue.issue.fields;
-
-    // Filtres rapides du board : la sélection a été faite par Jira via JQL.
-    if (filters.jiraQuickFilterKeys && !filters.jiraQuickFilterKeys.has(issue.issue.key)) {
-      return false;
-    }
+    if (!matchesIssue(filters, issue.issue, issue.isBlocked)) return false;
     if (needle !== "" && !matchesSearch(issue, needle)) return false;
-
-    if (filters.assigneeIds.size > 0 || filters.includeUnassigned) {
-      const accountId = fields.assignee?.accountId ?? null;
-      const matchesAssignee = accountId !== null && filters.assigneeIds.has(accountId);
-      const matchesUnassigned = filters.includeUnassigned && fields.assignee === null;
-      if (!matchesAssignee && !matchesUnassigned) return false;
-    }
-
-    if (filters.issueTypeIds.size > 0 && !filters.issueTypeIds.has(fields.issuetype.id)) {
-      return false;
-    }
-    if (filters.priorityNames.size > 0) {
-      if (fields.priority === null || !filters.priorityNames.has(fields.priority.name)) {
-        return false;
-      }
-    }
-    if (filters.labels.size > 0 && !fields.labels.some((label) => filters.labels.has(label))) {
-      return false;
-    }
-    if (
-      filters.componentNames.size > 0 &&
-      !fields.components.some((component) => filters.componentNames.has(component.name))
-    ) {
-      return false;
-    }
-    if (filters.statusIds.size > 0 && !filters.statusIds.has(fields.status.id)) return false;
-
-    if (filters.parentKeys.size > 0 || filters.includeWithoutParent) {
-      const matchesParent = fields.parent !== null && filters.parentKeys.has(fields.parent.key);
-      const matchesNone = filters.includeWithoutParent && fields.parent === null;
-      if (!matchesParent && !matchesNone) return false;
-    }
 
     if (filters.goalIds.size > 0 || filters.includeWithoutGoal) {
       const matchesGoal = issue.goalId !== null && filters.goalIds.has(issue.goalId);
@@ -161,7 +224,6 @@ export function applyFilters(filters: BoardFilters, issues: readonly BoardIssue[
       return false;
     }
 
-    if (filters.quickFilters.has("blocked") && !issue.isBlocked) return false;
     // Sans information (`null`), le ticket n'est pas présenté comme ajouté en cours de sprint.
     if (filters.quickFilters.has("addedAfterStart") && issue.addedAfterSprintStart !== true) {
       return false;
@@ -172,12 +234,26 @@ export function applyFilters(filters: BoardFilters, issues: readonly BoardIssue[
 }
 
 function matchesSearch(issue: BoardIssue, needle: string): boolean {
-  const fields = issue.issue.fields;
+  return matchesIssueSearch(issue.issue, needle);
+}
+
+/** Texte recherché, prêt pour `matchesIssueSearch` : sans espaces autour, accents et casse ignorés. */
+export function searchNeedle(text: string): string {
+  return foldText(text.trim());
+}
+
+/**
+ * Règle de recherche du board, sur le seul ticket Jira : clé, résumé, personne, type, label et
+ * parent, accents et casse ignorés. `needle` vient de `searchNeedle` ; vide, tout passe.
+ */
+export function matchesIssueSearch(issue: JiraIssue, needle: string): boolean {
+  if (needle === "") return true;
+  const fields = issue.fields;
   const contains = (text: string | null | undefined) =>
     text !== null && text !== undefined && foldText(text).includes(needle);
 
   return (
-    contains(issue.issue.key) ||
+    contains(issue.key) ||
     contains(fields.summary) ||
     contains(fields.assignee?.displayName) ||
     contains(fields.issuetype.name) ||

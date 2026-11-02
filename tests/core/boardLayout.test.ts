@@ -5,6 +5,7 @@ import {
   columnLoad,
   daysRemaining,
   filterOptions,
+  issueFilterOptions,
 } from "../../src/core/boardLayout";
 import {
   withSwimlaneHidden,
@@ -501,5 +502,30 @@ describe("plusieurs sprints actifs", () => {
       { value: "43", label: "Sprint 43", count: 1, foreign: false },
       { value: "50", label: "Autre équipe", count: 1, foreign: true },
     ]);
+  });
+});
+
+describe("issueFilterOptions", () => {
+  it("compte les valeurs d'une liste de tickets Jira, comme filterOptions", () => {
+    const issues = [
+      makeIssue("ABC-1", { assigneeId: "u1", assigneeName: "Élodie", parent: "ABC-90" }),
+      makeIssue("ABC-2", { typeId: "10004", typeName: "Bug", statusId: "4", statusName: "Done" }),
+      makeIssue("ABC-3", { assigneeId: "u1", assigneeName: "Élodie", labels: ["tech"] }),
+    ];
+    const options = issueFilterOptions(issues);
+    expect(options.assignees).toEqual([{ value: "u1", label: "Élodie", count: 2 }]);
+    expect(options.unassignedCount).toBe(1);
+    expect(options.issueTypes.map((o) => [o.label, o.count])).toEqual([
+      ["Bug", 1],
+      ["Story", 2],
+    ]);
+    expect(options.statuses.map((o) => [o.value, o.count])).toEqual([
+      ["4", 1],
+      ["3", 2],
+    ]);
+    expect(options.labels).toEqual([{ value: "tech", label: "tech", count: 1 }]);
+    expect(options.parents.map((o) => o.value)).toEqual(["ABC-90"]);
+    expect(options.withoutParentCount).toBe(2);
+    expect(issueFilterOptions([])).toMatchObject({ assignees: [], unassignedCount: 0 });
   });
 });

@@ -261,6 +261,77 @@ try {
       "✓ Sprint actif en consultation ; « Démarrer » désactivé avec sa raison ; recherche partagée",
     );
 
+    // Filtres de la page du sprint : menu Personne, puis filtre rapide Jira évalué par le faux
+    // Jira sur le périmètre du planning. Totaux des objectifs et charge ne bougent pas.
+    const shownCards =
+      "[...document.querySelectorAll('.planning-body [data-planning-issue]')].map(card => card.dataset.planningIssue).sort().join(',')";
+    const totalsText = `[document.querySelector('.planning-load').textContent,
+      ...[...document.querySelectorAll('section.planning-lane[data-planning-goal]:not([data-planning-goal="unassigned"]) .lane-count')].map(count => count.textContent)].join('|')`;
+    const allCards = await run(shownCards);
+    const totalsBefore = await run(totalsText);
+    const filterWrites = await writes();
+    assert(
+      JSON.stringify(
+        await run(
+          "[...document.querySelectorAll('.planning-filter-bar details.filter-menu > summary')].map(summary => summary.textContent.trim())",
+        ),
+      ) === JSON.stringify(["Personne", "Type", "Parent", "Statut", "Label"]) &&
+        (await run(`Boolean(${buttonNamed("Bloqués")})`)),
+      "La barre du planning doit proposer Bloqués, Personne, Type, Parent, Statut et Label",
+    );
+    await run(
+      "document.querySelector('.planning-filter-bar details.filter-menu > summary').click()",
+    );
+    const camille =
+      "[...document.querySelectorAll('.planning-filter-bar details.filter-menu[open] .filter-option')].find(option => option.textContent.startsWith('Camille Durand'))?.querySelector('input')";
+    await click(camille);
+    await wait(
+      `${shownCards} === 'ABC-101,RUN-7'`,
+      "Le menu Personne ne réduit pas les cartes du planning",
+    );
+    assert(
+      (await run(totalsText)) === totalsBefore,
+      "Le menu Personne a changé les totaux ou la charge",
+    );
+    await run("document.querySelector('.planning-filter-bar details.filter-menu').open = false");
+    await click("document.querySelector('.planning-filter-bar .filter-reset')");
+    await wait(
+      `${shownCards} === ${JSON.stringify(allCards)}`,
+      "Réinitialiser ne vide pas les filtres",
+    );
+    const beforeQuick = await run("window.__planning.requestCount()");
+    await click(buttonNamed("Mes tickets"));
+    await wait(
+      `${shownCards} === 'ABC-101,ABC-201,ABC-210' && !document.querySelector('.planning-filter-bar .chip-jira[disabled]')`,
+      "Le filtre rapide Jira ne réduit pas les cartes du planning",
+    );
+    const sentJql = await run(`window.__planning.quickFilterJql(${beforeQuick})`);
+    assert(
+      JSON.stringify(sentJql) ===
+        JSON.stringify([
+          "(assignee = currentUser()) AND (sprint in (43,44,42) OR sprint is EMPTY OR (sprint in closedSprints() AND statusCategory != Done))",
+        ]),
+      `JQL du filtre rapide inattendu : ${JSON.stringify(sentJql)}`,
+    );
+    assert(
+      (await run(totalsText)) === totalsBefore,
+      "Le filtre rapide Jira a changé les totaux ou la charge",
+    );
+    await capture("planning-filtres");
+    // Les contrôles du petit écran ont besoin de toutes les cartes.
+    await click("document.querySelector('.planning-filter-bar .filter-reset')");
+    await wait(
+      `${shownCards} === ${JSON.stringify(allCards)}`,
+      "Réinitialiser ne vide pas les filtres",
+    );
+    assert(
+      JSON.stringify(await writes()) === JSON.stringify(filterWrites),
+      "Les filtres du planning ont écrit dans Jira",
+    );
+    console.log(
+      "✓ Filtres : menu Personne et filtre rapide Jira (périmètre du planning) réduisent les cartes, totaux et charge inchangés, sans écriture",
+    );
+
     // Clic droit réel : le menu ⋯ d'une carte du sprint s'ouvre au pointeur, à l'écran ; une carte
     // en consultation garde le menu du navigateur.
     await run(`(() => {
@@ -500,8 +571,43 @@ try {
         })
         .map(element => element.className || element.tagName)`);
       assert(outside.length === 0, `${width}px : en-tête hors de l'écran : ${outside.join(", ")}`);
+      // La barre de filtres passe à la ligne sans déborder de l'écran.
+      const barOutside = await run(`(() => {
+        const bar = document.querySelector('.planning-filter-bar');
+        const outside = [bar, ...bar.querySelectorAll('*')].filter(element => {
+          const r = element.getBoundingClientRect();
+          // Le panneau d'un menu fermé n'est pas affiché : seul ce qui se voit compte.
+          return element.checkVisibility() && r.width > 0 && (r.left < -1 || r.right > innerWidth + 1);
+        }).map(element => element.className || element.tagName);
+        return bar.scrollWidth > bar.clientWidth + 1 ? ['planning-filter-bar (défilement)', ...outside] : outside;
+      })()`);
+      assert(
+        barOutside.length === 0,
+        `${width}px : barre de filtres hors de l'écran : ${barOutside.join(", ")}`,
+      );
+      // Chaque menu ouvert tient dans la largeur de l'écran, une fois placé par la vue.
+      const menusOutside = await run(`(async () => {
+        const outside = [];
+        for (const menu of document.querySelectorAll('.planning-filter-bar details.filter-menu')) {
+          menu.open = true;
+          await new Promise(resolve => setTimeout(resolve, 50));
+          const r = menu.querySelector('.filter-menu-panel').getBoundingClientRect();
+          if (r.width === 0 || r.left < -1 || r.right > innerWidth + 1)
+            outside.push(menu.querySelector('summary').textContent.trim());
+          menu.open = false;
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        return outside;
+      })()`);
+      assert(
+        menusOutside.length === 0,
+        `${width}px : menu de filtre hors de l'écran : ${menusOutside.join(", ")}`,
+      );
       for (const selector of [
         '[aria-label="Sprint à préparer"]',
+        '[aria-label="Rechercher un ticket à planifier"]',
+        ".planning-filter-bar .chip-blocked",
+        ".planning-filter-bar details.filter-menu:last-of-type > summary",
         ".planning-velocity input",
         ".planning-close-sprint",
         ".planning-start-sprint",

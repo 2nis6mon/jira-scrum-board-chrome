@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inActiveSprints, inBoardScope, withoutOrderBy } from "../../src/core/jql";
+import { inActiveSprints, inBoardScope, inPlanningScope, withoutOrderBy } from "../../src/core/jql";
 
 describe("JQL combiné", () => {
   it("retire la clause ORDER BY, quelle que soit sa casse ou sa ligne", () => {
@@ -38,5 +38,24 @@ describe("JQL combiné", () => {
       "labels = urgent",
     );
     expect(inBoardScope("ORDER BY rank", { sprintIds: [], boardType: "kanban" })).toBeNull();
+  });
+});
+
+describe("périmètre du Sprint Planning", () => {
+  it("restreint aux sprints donnés et au backlog, sans tri", () => {
+    expect(inPlanningScope("assignee = currentUser() ORDER BY rank", [51, 52, 42])).toBe(
+      "(assignee = currentUser()) AND (sprint in (51,52,42) OR sprint is EMPTY OR (sprint in closedSprints() AND statusCategory != Done))",
+    );
+  });
+
+  it("sans sprint : le backlog seul, jamais une liste vide", () => {
+    expect(inPlanningScope("a = 1", [])).toBe(
+      "(a = 1) AND (sprint is EMPTY OR (sprint in closedSprints() AND statusCategory != Done))",
+    );
+  });
+
+  it("rien à restreindre : pas de requête", () => {
+    expect(inPlanningScope("  ", [51])).toBeNull();
+    expect(inPlanningScope("ORDER BY rank", [51])).toBeNull();
   });
 });

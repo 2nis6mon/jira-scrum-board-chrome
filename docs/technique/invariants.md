@@ -146,6 +146,12 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   rien à reporter, `échec` si toujours actif ou refusé, `incertain` si le résultat est inconnu).
   Les droits sprint et tickets sont appliqués par Jira, distincts du `canEdit` des réglages du board ;
   pendant un geste, changement de board et rafraîchissement automatique attendent.
+- Filtres du Sprint Planning (story 8.14) : lecture seule, distincts de ceux du board, vidés au
+  changement de board et gardés au changement de sprint ; recherche et menus suivent les règles du
+  board. Totaux des objectifs et charge du sprint sont calculés sans eux. Le JQL des filtres rapides
+  est évalué par Jira sur le périmètre du planning (`inPlanningScope`), réévalué après chaque
+  relecture, puis croisé avec les cartes ; un JQL refusé désactive les filtres rapides, sans
+  nouvelle tentative.
 
 - Même colonne : aucun changement de statut. Autre colonne : seuls les statuts accessibles
   acceptent le dépôt. `defaultTransitions` retient la première transition disponible

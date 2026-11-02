@@ -417,6 +417,7 @@ export class BoardModel {
       write: (task) => this.#gate.run(task),
       record: (entry) => this.#record(entry),
       wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      jiraQuickFilters: () => this.jiraQuickFilters.value,
     });
     this.images = new ImageCache((url) => transport.fetchImage(url));
     this.#settings = new BoardSettingsService(

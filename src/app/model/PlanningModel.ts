@@ -5,6 +5,16 @@ import {
   loadAtlassianSprintGoals,
 } from "../../core/atlassianGoals";
 import { type BoardConfiguration, visibleColumns } from "../../core/boardConfiguration";
+import { type IssueFilterOptions, issueFilterOptions } from "../../core/boardLayout";
+import {
+  matchesIssue,
+  matchesIssueSearch,
+  NO_PLANNING_FILTERS,
+  type PlanningFilters,
+  planningFilterCount,
+  searchNeedle,
+} from "../../core/filters";
+import { quickFilterKeys } from "../../core/jiraQuickFilters";
 import {
   GOAL_COLOR_COUNT,
   goalColorName,
@@ -26,7 +36,7 @@ import {
   savePlanningVelocity,
   writeTextGoals,
 } from "../../core/sprintPlanning";
-import type { IssueQuery, JiraClient } from "../../jira/client";
+import type { IssueQuery, JiraClient, JiraQuickFilter } from "../../jira/client";
 import { JiraError } from "../../jira/errors";
 import {
   type AtlassianGoal,
@@ -42,6 +52,7 @@ import type { LocalStore, Platform } from "../platform/types";
 import type { BoardWriteAccess, BoardWriteGateway, RecordWrite } from "../services/ports";
 import { type AppMessage, message } from "./appMessage";
 import {
+  errorMessage,
   goalsFailureMessage,
   goalsWarningMessage,
   planningCarryOverMessage,
@@ -77,6 +88,8 @@ export interface PlanningContext {
   readonly record: RecordWrite;
   /** Attente entre deux relectures de l'état d'un sprint après une fenêtre native. */
   wait(ms: number): Promise<void>;
+  /** Filtres rapides du board Jira, lus par le board ; leur JQL est évalué par Jira. */
+  jiraQuickFilters(): readonly JiraQuickFilter[];
 }
 
 /** Anciens brouillons du Sprint Planning d'un site (décision du 14/10) : une clé par site. */
@@ -121,6 +134,10 @@ export class PlanningModel implements PlanningViewModel {
   readonly error = signal<UserMessage | null>(null);
   readonly goalsWarning = signal<AppMessage | null>(null);
   readonly search = signal("");
+  /** Filtres du planning, distincts de ceux du board ; vidés au changement de board. */
+  readonly filters = signal<PlanningFilters>(NO_PLANNING_FILTERS);
+  /** Jira évalue les filtres rapides actifs. */
+  readonly applyingQuickFilters = signal(false);
   readonly pendingClosure = signal<PendingClosure | null>(null);
   readonly carryOverReport = signal<PlanningCarryOverReport | null>(null);
   readonly goalSearch = signal<PlanningGoalSearch | null>(null);
@@ -134,6 +151,7 @@ export class PlanningModel implements PlanningViewModel {
   #draftsErased = false;
   #siteGoals: Promise<AtlassianGoal[]> | null = null;
   #goalSearchRun = 0;
+  #quickFilterRun = 0;
   /** Clôture en cours de vérification : un second `refresh` de l'hôte est ignoré. */
   #closureCheck: PendingClosure | null = null;
 
@@ -185,13 +203,29 @@ export class PlanningModel implements PlanningViewModel {
     return { goals: loaded?.goals ?? [], links: loaded?.links ?? {} };
   });
 
+  /** Recherche et filtres de la barre, avec les règles du board, en intersection. */
   readonly #matches = computed(() => {
-    const query = this.search.value.trim().toLocaleLowerCase();
-    return (issue: JiraIssue) =>
-      !query ||
-      issue.key.toLocaleLowerCase().includes(query) ||
-      issue.fields.summary.toLocaleLowerCase().includes(query);
+    const needle = searchNeedle(this.search.value);
+    const filters = this.filters.value;
+    return (issue: JiraIssue) => matchesIssueSearch(issue, needle) && matchesIssue(filters, issue);
   });
+
+  /** Filtres rapides du board Jira proposés dans le planning. */
+  readonly jiraQuickFilters = computed((): readonly JiraQuickFilter[] =>
+    SPRINT_PLANNING_ENABLED ? this.context.jiraQuickFilters() : [],
+  );
+
+  /** Valeurs présentes dans le sprint en préparation et ses sources, avec leur nombre. */
+  readonly filterOptions = computed((): IssueFilterOptions | null => {
+    const snapshot = this.snapshot.value;
+    if (!SPRINT_PLANNING_ENABLED || !snapshot) return null;
+    return issueFilterOptions(planningIssues(snapshot));
+  });
+
+  /** Critères actifs, recherche comprise : « Réinitialiser (n) ». */
+  readonly activeFilterCount = computed(() =>
+    SPRINT_PLANNING_ENABLED ? planningFilterCount(this.filters.value, this.search.value) : 0,
+  );
 
   #item(issue: JiraIssue): PlanningIssue {
     const fieldId = this.context.configuration()?.estimationFieldId ?? null;
@@ -313,6 +347,7 @@ export class PlanningModel implements PlanningViewModel {
       }
       if (selected.id !== this.selectedSprintId.value) this.#select(selected.id);
       await this.#read(generation);
+      if (!this.#stale(generation)) this.#reapplyJiraQuickFilters();
     } catch (error) {
       if (!this.#stale(generation)) this.error.value = toMessage(error);
     } finally {
@@ -350,6 +385,7 @@ export class PlanningModel implements PlanningViewModel {
     });
     try {
       await this.#read(generation);
+      if (!this.#stale(generation)) this.#reapplyJiraQuickFilters();
     } catch (error) {
       if (!this.#stale(generation)) this.error.value = toMessage(error);
     } finally {
@@ -404,6 +440,117 @@ export class PlanningModel implements PlanningViewModel {
     this.search.value = text;
   }
 
+  // ─── Filtres (lecture seule) ─────────────────────────────────────────────────
+
+  /**
+   * Menus de la barre. Les filtres rapides du board Jira ne changent que par
+   * `toggleJiraQuickFilter`, et des pastilles seule « Bloqués » est retenue.
+   */
+  setFilters(next: PlanningFilters): void {
+    if (!SPRINT_PLANNING_ENABLED) return;
+    const current = this.filters.value;
+    this.filters.value = {
+      ...next,
+      quickFilters: new Set([...next.quickFilters].filter((quick) => quick === "blocked")),
+      jiraQuickFilterIds: current.jiraQuickFilterIds,
+      jiraQuickFilterKeys: current.jiraQuickFilterKeys,
+    };
+  }
+
+  /** Pastille « Bloqués » : lien Jira « est bloqué par », règle du board. */
+  toggleBlocked(): void {
+    if (!SPRINT_PLANNING_ENABLED) return;
+    const current = this.filters.value;
+    this.filters.value = {
+      ...current,
+      quickFilters: current.quickFilters.has("blocked") ? new Set() : new Set(["blocked"]),
+    };
+  }
+
+  /** Vide la recherche et tous les filtres, filtres rapides Jira compris. */
+  resetFilters(): void {
+    if (!SPRINT_PLANNING_ENABLED) return;
+    this.#quickFilterRun += 1;
+    batch(() => {
+      this.search.value = "";
+      this.filters.value = NO_PLANNING_FILTERS;
+      this.applyingQuickFilters.value = false;
+    });
+  }
+
+  /** Active ou désactive un filtre rapide du board Jira. Son JQL est évalué par Jira. */
+  async toggleJiraQuickFilter(id: number): Promise<void> {
+    if (!SPRINT_PLANNING_ENABLED || this.#disposed) return;
+    if (!this.jiraQuickFilters.value.some((filter) => filter.id === id)) return;
+    const ids = new Set(this.filters.value.jiraQuickFilterIds);
+    if (ids.has(id)) ids.delete(id);
+    else ids.add(id);
+    this.filters.value = { ...this.filters.value, jiraQuickFilterIds: ids };
+    await this.#applyJiraQuickFilters();
+  }
+
+  /**
+   * Demande à Jira les tickets du planning retenus par les filtres rapides actifs : une lecture
+   * par filtre, jamais rejouée par le modèle. Un filtre que Jira refuse désactive les filtres
+   * rapides plutôt que de les appliquer à moitié, et on le dit ; les autres filtres restent.
+   */
+  async #applyJiraQuickFilters(): Promise<void> {
+    const configuration = this.context.configuration();
+    const snapshot = this.snapshot.value;
+    const ids = this.filters.value.jiraQuickFilterIds;
+    const active = this.jiraQuickFilters.value.filter((filter) => ids.has(filter.id));
+    const run = ++this.#quickFilterRun;
+    // Seul le dernier calcul compte, et seulement si les filtres actifs n'ont pas changé depuis.
+    const current = () =>
+      run === this.#quickFilterRun &&
+      !this.#disposed &&
+      sameIds(this.filters.value.jiraQuickFilterIds, ids);
+
+    if (!configuration || active.length === 0) {
+      batch(() => {
+        this.filters.value = { ...this.filters.value, jiraQuickFilterKeys: null };
+        this.applyingQuickFilters.value = false;
+      });
+      return;
+    }
+    this.applyingQuickFilters.value = true;
+    try {
+      const sprintIds = snapshot
+        ? [
+            snapshot.sprint.id,
+            ...snapshot.futureSprints.map(({ sprint }) => sprint.id),
+            ...snapshot.activeSprints.map(({ sprint }) => sprint.id),
+          ]
+        : this.sprints.value.map((sprint) => sprint.id);
+      const keys = await quickFilterKeys(this.client, {
+        boardId: configuration.boardId,
+        scope: "planning",
+        filters: active,
+        sprintIds: [...new Set(sprintIds)],
+      });
+      if (current()) this.filters.value = { ...this.filters.value, jiraQuickFilterKeys: keys };
+    } catch (error) {
+      if (!current()) return;
+      batch(() => {
+        this.filters.value = {
+          ...this.filters.value,
+          jiraQuickFilterIds: new Set(),
+          jiraQuickFilterKeys: null,
+        };
+        this.notice.value = message("{p0} Les filtres rapides Jira ont été désactivés.", {
+          p0: message("Filtre rapide Jira inapplicable : {p0}", { p0: errorMessage(error) }),
+        });
+      });
+    } finally {
+      if (run === this.#quickFilterRun) this.applyingQuickFilters.value = false;
+    }
+  }
+
+  /** Après une lecture demandée (sprint choisi, actualisation) : Jira réévalue les filtres. */
+  #reapplyJiraQuickFilters(): void {
+    if (this.filters.value.jiraQuickFilterIds.size > 0) void this.#applyJiraQuickFilters();
+  }
+
   // ─── Gestes ──────────────────────────────────────────────────────────────────
 
   /**
@@ -450,6 +597,8 @@ export class PlanningModel implements PlanningViewModel {
   async #reread(generation: number): Promise<void> {
     try {
       await this.#read(generation);
+      // Un ticket déplacé peut ne plus répondre à un filtre rapide qui dépend du sprint.
+      if (!this.#stale(generation)) this.#reapplyJiraQuickFilters();
     } catch (error) {
       if (!this.#stale(generation)) this.error.value = toMessage(error);
     }
@@ -948,6 +1097,7 @@ export class PlanningModel implements PlanningViewModel {
     this.#boardId = null;
     this.#siteGoals = null;
     this.#closureCheck = null;
+    this.#quickFilterRun += 1;
     batch(() => {
       this.snapshot.value = null;
       this.atlassianGoals.value = null;
@@ -961,6 +1111,8 @@ export class PlanningModel implements PlanningViewModel {
       this.carryOverReport.value = null;
       this.goalSearch.value = null;
       this.search.value = "";
+      this.filters.value = NO_PLANNING_FILTERS;
+      this.applyingQuickFilters.value = false;
       this.#origins.value = {};
     });
   }
@@ -982,6 +1134,20 @@ function planningQuery(configuration: BoardConfiguration): IssueQuery {
     includeChangelog: false,
     ...(configuration.goalsFieldId ? { extraFieldIds: [configuration.goalsFieldId] } : {}),
   };
+}
+
+/** Tickets du sprint en préparation et de toutes les sources de la colonne de gauche. */
+function planningIssues(snapshot: PlanningSnapshot): JiraIssue[] {
+  return [
+    ...snapshot.sprintIssues,
+    ...snapshot.futureSprints.flatMap(({ issues }) => issues),
+    ...snapshot.backlogIssues,
+    ...snapshot.activeSprints.flatMap(({ issues }) => issues),
+  ];
+}
+
+function sameIds(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
+  return a.size === b.size && [...a].every((id) => b.has(id));
 }
 
 /** Première couleur de la palette qu'aucun objectif n'utilise encore. */

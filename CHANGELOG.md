@@ -3,6 +3,25 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.43.0 — Sprint Planning : filtres de la page du sprint (builds locaux)
+
+- Essai du 02/11/2026 (story 8.14) : le planning n'avait qu'une recherche par clé et résumé ; un PO
+  ne retrouvait pas les tickets d'une personne, d'un type ou d'un parent.
+- À côté de la recherche `/`, la barre de la page du sprint, avec ses composants et ses règles :
+  **Bloqués** (lien Jira « est bloqué par »), filtres rapides du board Jira, puis **Personne**,
+  **Type**, **Parent**, **Statut** et **Label**, avec les valeurs présentes dans le sprint en
+  préparation et ses sources, et **Réinitialiser (N)**. Ni Priorité, ni Composant (retirés de la
+  page du sprint en 0.14.2), ni « Ajoutés » ou « Reportés ».
+- Les filtres réduisent les swimlanes, « Sans objectif » et « Où sont les tickets » ; les totaux
+  des objectifs et la charge du sprint restent calculés sans eux. Ils sont propres au planning et
+  vidés au changement de board.
+- Les filtres rapides Jira sont évalués par Jira sur le périmètre du planning : sprint préparé,
+  autres sprints futurs, sprints actifs et backlog (`sprint is EMPTY`, ou passé par un sprint clos
+  sans être terminé, pour ne pas relire tout l'historique), une lecture par filtre, en
+  intersection, réévalués après chaque relecture du planning. Un JQL refusé désactive les filtres rapides avec un avis,
+  sans nouvelle tentative, et garde les autres filtres. Lecture seule : rien n'est écrit.
+- Un menu de filtre ouvert près du bord droit d'une fenêtre étroite reste à l'écran.
+
 ## 0.42.3 — Objectifs du sprint démarré visibles sur le board
 
 - Essai du 02/11/2026 : après le démarrage du sprint préparé, ses objectifs créés pendant le

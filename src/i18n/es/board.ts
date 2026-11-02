@@ -276,7 +276,6 @@ export const boardMessagesEs = {
   "Aucune autre sous-tâche de son parent dans cette swimlane":
     "Ninguna otra subtarea de su padre en este carril",
   // ─── Sprint Planning en direct : écran ───
-  "Clé ou résumé, dans le sprint et ailleurs…": "Clave o resumen, en el sprint y fuera de él…",
   Raccourci: "Atajo",
   "Écriture dans Jira…": "Escribiendo en Jira…",
   "Clôture en cours dans Jira…": "Cierre en curso en Jira…",
@@ -311,8 +310,8 @@ export const boardMessagesEs = {
   "Retirer l'épinglage de {name}": "Dejar de fijar {name}",
   "Retirer l'épinglage du sprint ; le Goal reste dans Atlassian":
     "Dejar de fijarlo en el sprint; el Goal sigue en Atlassian",
-  "Aucun ticket de cet objectif ne correspond à la recherche.":
-    "Ninguna incidencia de este objetivo coincide con la búsqueda.",
+  "Aucun ticket ne correspond à la recherche ou aux filtres.":
+    "Ninguna incidencia coincide con la búsqueda o los filtros.",
   "Déposez ici les tickets qui rendent ce résultat possible : ils rejoignent le sprint.":
     "Suelte aquí las incidencias que hacen posible este resultado: se unen al sprint.",
   "Nouvel objectif : le résultat attendu à la fin du sprint":

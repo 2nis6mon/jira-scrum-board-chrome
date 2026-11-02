@@ -101,3 +101,53 @@ describe("filtres rapides du board Jira", () => {
     expect(jira.sent("GET", ISSUES)).toHaveLength(1);
   });
 });
+
+describe("filtres rapides du board Jira dans le Sprint Planning", () => {
+  const SCOPE =
+    "sprint in (51,42) OR sprint is EMPTY OR (sprint in closedSprints() AND statusCategory != Done)";
+
+  it("évalue chaque JQL sur le périmètre du planning, en intersection", async () => {
+    const { jira, client } = jiraAnswering({
+      [`(a = 1) AND (${SCOPE})`]: ["ABC-1", "ABC-2", "ABC-3"],
+      [`(b = 2) AND (${SCOPE})`]: ["ABC-2", "ABC-3", "ABC-9"],
+    });
+    const keys = await quickFilterKeys(client, {
+      boardId: 7,
+      scope: "planning",
+      filters: [filter(1, "a = 1 ORDER BY rank"), filter(2, "b = 2")],
+      sprintIds: [51, 42],
+    });
+    expect(keys).toEqual(new Set(["ABC-2", "ABC-3"]));
+    expect(jira.sent("GET", ISSUES)).toHaveLength(2);
+    expect(jira.requests.every((r) => r.method === "GET")).toBe(true);
+  });
+
+  it("sans aucun sprint : Jira est tout de même interrogé sur le backlog", async () => {
+    const { client } = jiraAnswering({
+      "(a = 1) AND (sprint is EMPTY OR (sprint in closedSprints() AND statusCategory != Done))": [
+        "ABC-4",
+      ],
+    });
+    expect(
+      await quickFilterKeys(client, {
+        boardId: 7,
+        scope: "planning",
+        filters: [filter(1, "a = 1")],
+        sprintIds: [],
+      }),
+    ).toEqual(new Set(["ABC-4"]));
+  });
+
+  it("JQL refusé : une seule lecture, l'erreur remonte sans rejeu", async () => {
+    const { jira, client } = jiraAnswering({});
+    await expect(
+      quickFilterKeys(client, {
+        boardId: 7,
+        scope: "planning",
+        filters: [filter(1, "champ ~ ")],
+        sprintIds: [51],
+      }),
+    ).rejects.toMatchObject({ info: { kind: "badRequest" } });
+    expect(jira.sent("GET", ISSUES)).toHaveLength(1);
+  });
+});

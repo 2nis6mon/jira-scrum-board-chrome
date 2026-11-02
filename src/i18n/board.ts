@@ -271,7 +271,6 @@ export const boardMessages = {
   "Aucune autre sous-tâche de son parent dans cette swimlane":
     "No other subtask of its parent in this swimlane",
   // ─── Sprint Planning en direct : écran ───
-  "Clé ou résumé, dans le sprint et ailleurs…": "Key or summary, in the sprint and elsewhere…",
   Raccourci: "Shortcut",
   "Écriture dans Jira…": "Writing to Jira…",
   "Clôture en cours dans Jira…": "Completing in Jira…",
@@ -305,8 +304,8 @@ export const boardMessages = {
   "Retirer l'épinglage de {name}": "Unpin {name}",
   "Retirer l'épinglage du sprint ; le Goal reste dans Atlassian":
     "Unpin from the sprint; the Goal stays in Atlassian",
-  "Aucun ticket de cet objectif ne correspond à la recherche.":
-    "No issue in this goal matches the search.",
+  "Aucun ticket ne correspond à la recherche ou aux filtres.":
+    "No issues match the search or filters.",
   "Déposez ici les tickets qui rendent ce résultat possible : ils rejoignent le sprint.":
     "Drop the issues that make this outcome possible here: they join the sprint.",
   "Nouvel objectif : le résultat attendu à la fin du sprint":
