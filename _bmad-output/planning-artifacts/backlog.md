@@ -57,6 +57,17 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   introduits par un ticket seulement, jamais les objectifs du texte d'un sprint ni les Goals épinglés ;
   test de régression sur un démarrage de sprint. Corrigé en 0.42.3, vérifié sur Jira fictif,
   confirmé par Denis le 02/11/2026.
+- [ ] Amélioration (demande de Denis, 02/11/2026) : menus de carte homogènes entre le Sprint
+  Planning et le Sprint Board. Aujourd'hui, celui du board (`CardMenu.tsx`, sous-menu « Envoyer vers
+  un goal › ») et celui du planning (`<details>` à plat dans `PlanningView.tsx`) diffèrent à l'écran.
+  À garder du planning : la pastille de couleur de chaque objectif, à gauche de son nom, à reprendre
+  aussi dans le menu du board. À ajouter au planning : « Mettre en top priorité » et « Mettre en basse
+  priorité » (rang, écriture déjà autorisée). Le périmètre du rang reste à préciser : tête ou fin de
+  la swimlane de l'objectif dans le sprint en préparation, ou du sprint entier. À ajouter aussi : les
+  destinations de sprint (« Renvoyer au backlog », « Vers {sprint} ») regroupées dans un sous-menu
+  dépliable, comme celui des objectifs. Piste : un seul composant de menu de carte partagé par les
+  deux écrans, avec le même comportement (survol, clavier, Échap). Mêmes écritures qu'aujourd'hui,
+  aucune nouvelle. Stories 3.1, 3.2, 8.4 et 8.13.
 - [ ] À investiguer (essai du 02/11/2026) : la colonne « Où sont les tickets » montre des tickets
   fermés, alors que Denis ne les voit pas dans le backlog Jira. Constat dans le code : `sections`
   (`PlanningModel.ts`) affiche tout ce que renvoient la lecture du backlog
