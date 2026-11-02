@@ -111,7 +111,8 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   vélocité dans le planning) : même gabarit visuel, mesures différentes. Lecture seule, aucune
   écriture. Côté planning : stories 8.6 et 8.16.
   Planifiée avec la suivante : story 8.20 (epics.md). Décision de Denis du 02/11/2026 : « terminé »
-  veut toujours dire dernière colonne visible du board, planning compris.
+  veut toujours dire dernière colonne visible du board, planning compris ; première colonne = à faire,
+  colonnes du milieu = en cours (jamais la catégorie de statut Jira).
 - [ ] Amélioration (demande de Denis, 02/11/2026), à traiter avec l'en-tête homogène ci-dessus : une
   seule barre de progression découpée par catégorie de statut, en couleur. Aujourd'hui, le Sprint
   Board montre une barre (part terminée seulement) et le planning une barre plus trois pastilles

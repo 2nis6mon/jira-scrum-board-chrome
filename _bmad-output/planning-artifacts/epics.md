@@ -928,9 +928,9 @@ So that je lis d'un coup d'œil où en est chaque objectif, en points, avec la m
 
 **Acceptance Criteria:**
 
-**Given** la décision de Denis du 02/11/2026 : « terminé » veut toujours dire « dans la dernière colonne visible du board »
+**Given** les décisions de Denis du 02/11/2026 : l'état d'un ticket vient des colonnes du board, jamais de la catégorie de statut Jira
 **When** l'avancement d'un objectif est calculé, sur le board comme dans le planning
-**Then** un ticket est terminé si son statut est dans la dernière colonne visible du board (règle de `goalProgress` et du report 8.7) ; hors de cette colonne, il est « à faire » si la catégorie de statut Jira est « à faire », sinon « en cours » ; la répartition de la story 8.16, aujourd'hui par catégorie de statut, adopte cette règle
+**Then** un ticket est « à faire » si son statut est dans la première colonne visible du board, « en cours » s'il est dans une colonne du milieu, « terminé » s'il est dans la dernière (règle de `goalProgress` et du report 8.7) ; un board à une seule colonne visible n'a que « terminé », un board à deux colonnes n'a pas d'« en cours » ; la répartition de la story 8.16, aujourd'hui par catégorie de statut, adopte cette règle
 
 **Given** une swimlane d'objectif sur le board ou dans le planning
 **When** son en-tête s'affiche
@@ -948,11 +948,11 @@ So that je lis d'un coup d'œil où en est chaque objectif, en points, avec la m
 **When** elle s'affiche
 **Then** elle prend le même gabarit visuel que la barre d'objectif ; ses mesures ne changent pas
 
-**Given** les données déjà lues (colonnes du board, statut et catégorie de chaque ticket)
+**Given** les données déjà lues (colonnes du board, statut de chaque ticket)
 **When** l'en-tête se calcule
 **Then** aucune lecture ni écriture n'est ajoutée
 
-*Notes :* demandes de Denis du 02/11/2026 (backlog : en-tête homogène, barre par catégorie). Ce que Denis veut garder : la barre du sprint en cours et les points par catégorie du planning. La règle « à faire / en cours » hors de la dernière colonne est une proposition de la table, à confirmer avec Denis. Un statut rattaché à aucune colonne visible n'est jamais terminé. `BoardIssue.statusCategoryKey` existe déjà (`src/core/boardIssue.ts`).
+*Notes :* demandes de Denis du 02/11/2026 (backlog : en-tête homogène, barre par catégorie). Ce que Denis veut garder : la barre du sprint en cours et les points par catégorie du planning. Un ticket du sprint en préparation dont le statut n'est dans aucune colonne visible compte « à faire » (proposition de la table, à confirmer en 8.10) ; dans « Où sont les tickets », il est masqué (story 8.22). Colonnes et statuts déjà lus (`visibleColumns`, `src/core/boardConfiguration.ts`).
 
 ### Story 8.21: Le déjà livré dans la partie terminée de la barre
 
