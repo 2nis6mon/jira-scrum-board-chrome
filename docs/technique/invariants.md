@@ -87,7 +87,13 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
   Une carte peut rejoindre tout objectif ou revenir uniquement dans sa destination par défaut.
   Pendant le glissé, sa destination vide réapparaît temporairement en fin de board pour préserver
   la position de la carte source ; elle reprend l'ordre configuré après détachement.
-  Le menu d'une carte (clic droit, Maj+F10, touche Menu) n'agit pas pendant une écriture ; sa liste
+  Le menu d'une carte (clic droit, Maj+F10, touche Menu) est le même composant sur le board et dans
+  le planning ([`ActionMenu`](../../src/app/views/ActionMenu.tsx), story 8.19) : pastille de couleur
+  de chaque objectif, sous-menus au survol et au clavier, Échap et Tab rendent le focus. Dans le
+  planning, il ajoute « Retirer du sprint › » et, pour un ticket seul du sprint en préparation, top /
+  basse priorité : une E2 avant le premier ou après le dernier autre ticket de la swimlane de son
+  objectif (« Sans objectif » compris), sprint et ordre relus avant, ordre relu après
+  (`rankPlanningIssue`). Il n'agit pas pendant une écriture ; sa liste
   d'objectifs, sous-menu à côté de lui, s'ouvre au survol sans prendre le focus. Toutes
   ses actions restent permises en Daily et en présentation. « Envoyer vers un goal » repasse par
   `dropIssue` sans changer colonne ni rang ; « Retirer du goal » exige que la destination par

@@ -55,6 +55,15 @@ export interface PlanningLane {
   readonly deliveredIncomplete: boolean;
 }
 
+/**
+ * Top et basse priorité d'une carte du sprint en préparation : raison de l'action désactivée
+ * (écriture en cours, déjà en tête, déjà en fin de sa swimlane), `null` si elle est permise.
+ */
+export interface PlanningRankOptions {
+  readonly top: "writing" | "first" | "last" | null;
+  readonly bottom: "writing" | "first" | "last" | null;
+}
+
 /** Tickets et somme de leurs estimations connues. */
 export interface PlanningTally {
   readonly count: number;
@@ -206,6 +215,10 @@ export interface PlanningViewModel {
   saveVelocity(velocity: number | null): Promise<void>;
   /** Estime un ticket (E11), validé par le champ de sa carte. */
   estimateIssue(key: string, value: number): Promise<void>;
+  /** Top et basse priorité d'un ticket du sprint en préparation ; `null` ailleurs (8.19). */
+  rankOptions(key: string): PlanningRankOptions | null;
+  /** Tête ou fin de la swimlane de son objectif dans le sprint en préparation (E2). */
+  rankIssue(key: string, edge: "top" | "bottom"): Promise<void>;
   searchGoals(query: string): Promise<void>;
   pinGoal(goalId: string): Promise<void>;
   unpinGoal(goalId: string): Promise<void>;

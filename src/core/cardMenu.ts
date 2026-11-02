@@ -14,6 +14,8 @@ export interface GoalTarget {
   readonly id: string;
   readonly title: string;
   readonly sprintName: string | null;
+  /** Couleur de sa swimlane : pastille à gauche de son nom (story 8.19). */
+  readonly color: string;
 }
 
 export interface GoalTargets {
@@ -48,7 +50,14 @@ export function goalTargets(
   }).flatMap((block) => {
     const goal = block.kind === "goal" ? byId.get(block.goalId) : undefined;
     return goal && goal.id !== current
-      ? [{ id: goal.id, title: goal.title, sprintName: sprintNameOf(snapshot, goal) }]
+      ? [
+          {
+            id: goal.id,
+            title: goal.title,
+            sprintName: sprintNameOf(snapshot, goal),
+            color: goal.color,
+          },
+        ]
       : [];
   });
   const destinationShown = issue.swimlaneId === null || swimlaneIds.includes(issue.swimlaneId);

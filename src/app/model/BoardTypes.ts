@@ -1,4 +1,5 @@
 import type { BoardBlock } from "../../core/boardBlocks";
+import type { GoalTarget } from "../../core/cardMenu";
 import type { WritablePinnedGoalsStorage } from "../../core/pinnedGoals";
 import type { TeamDocument } from "../../core/teamSettings";
 import type { JiraTransition } from "../../jira/models";
@@ -127,7 +128,7 @@ export type CardMenuBlocked = "writing" | "noGoal" | "first" | "last" | "subtask
 export interface CardMenuOptions {
   readonly sendToGoal: {
     readonly blocked: CardMenuBlocked | null;
-    readonly goals: readonly { id: string; title: string; sprintName: string | null }[];
+    readonly goals: readonly GoalTarget[];
     readonly canDetach: boolean;
   };
   /** Mettre en top priorité : avant le premier ticket de la swimlane. */

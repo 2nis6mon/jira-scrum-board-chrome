@@ -51,6 +51,7 @@ import {
   pinPlanningGoals,
   placePlanningIssue,
   placePlanningIssues,
+  rankPlanningIssue,
   removePlanningIssue,
   removePlanningIssues,
   savePlanningVelocity,
@@ -90,6 +91,7 @@ import type {
   PlanningLane,
   PlanningLoad,
   PlanningOrigin,
+  PlanningRankOptions,
   PlanningSection,
   PlanningTally,
   PlanningViewModel,
@@ -1168,6 +1170,61 @@ export class PlanningModel implements PlanningViewModel {
       });
       await this.#reread(generation);
     });
+  }
+
+  /**
+   * Top et basse priorité d'un ticket du sprint en préparation (story 8.19) : tête ou fin de la
+   * swimlane de son objectif (« Sans objectif » compris), dans l'ordre de Jira, filtres ignorés.
+   * `null` pour une carte qui n'est pas dans le sprint en préparation. Aucune écriture.
+   */
+  rankOptions(key: string): PlanningRankOptions | null {
+    const lane = this.#rankLane(key);
+    if (!lane) return null;
+    const writing = this.gesturesDisabled.value;
+    return {
+      top: writing ? "writing" : lane[0] === key ? "first" : null,
+      bottom: writing ? "writing" : lane.at(-1) === key ? "last" : null,
+    };
+  }
+
+  /**
+   * Met le ticket en tête ou en fin de la swimlane de son objectif dans le sprint en préparation :
+   * une seule écriture de rang (E2), avant le premier ou après le dernier autre ticket de la
+   * swimlane, relue. Rien si l'action est désactivée.
+   */
+  rankIssue(key: string, edge: "top" | "bottom"): Promise<void> {
+    const options = this.rankOptions(key);
+    const lane = this.#rankLane(key);
+    if (!SPRINT_PLANNING_ENABLED || !options || !lane || options[edge] !== null)
+      return Promise.resolve();
+    const others = lane.filter((other) => other !== key);
+    const reference = edge === "top" ? others[0] : others.at(-1);
+    if (reference === undefined) return Promise.resolve();
+    return this.#gesture({ issueKey: key }, ({ writer }, current) =>
+      rankPlanningIssue(this.client, writer, {
+        boardId: current.boardId,
+        sprintId: current.sprint.id,
+        query: current.query,
+        issueKey: key,
+        edge,
+        reference,
+      }),
+    );
+  }
+
+  /** Clés de la swimlane du ticket dans le sprint en préparation, dans l'ordre de Jira. */
+  #rankLane(key: string): readonly string[] | null {
+    if (!SPRINT_PLANNING_ENABLED) return null;
+    const { goals, links } = this.#goalView.value;
+    const shown = new Set(goals.map((goal) => goal.id));
+    const laneOf = (issueKey: string) => {
+      const goalId = links[issueKey];
+      return goalId !== undefined && shown.has(goalId) ? goalId : null;
+    };
+    const items = this.#sprintItems.value;
+    if (!items.some((item) => item.issue.key === key)) return null;
+    const lane = laneOf(key);
+    return items.map((item) => item.issue.key).filter((other) => laneOf(other) === lane);
   }
 
   /**

@@ -84,7 +84,7 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   introduits par un ticket seulement, jamais les objectifs du texte d'un sprint ni les Goals épinglés ;
   test de régression sur un démarrage de sprint. Corrigé en 0.42.3, vérifié sur Jira fictif,
   confirmé par Denis le 02/11/2026.
-- [ ] Amélioration (demande de Denis, 02/11/2026) : menus de carte homogènes entre le Sprint
+- [x] Amélioration (demande de Denis, 02/11/2026) : menus de carte homogènes entre le Sprint
   Planning et le Sprint Board. Aujourd'hui, celui du board (`CardMenu.tsx`, sous-menu « Envoyer vers
   un goal › ») et celui du planning (`<details>` à plat dans `PlanningView.tsx`) diffèrent à l'écran.
   À garder du planning : la pastille de couleur de chaque objectif, à gauche de son nom, à reprendre
@@ -96,7 +96,7 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   deux écrans, avec le même comportement (survol, clavier, Échap). Mêmes écritures qu'aujourd'hui,
   aucune nouvelle. Stories 3.1, 3.2, 8.4 et 8.13.
   Planifiée : story 8.19 (epics.md), 02/11/2026.
-- [ ] Amélioration (demande de Denis, 02/11/2026) : en-tête d'objectif homogène entre le Sprint
+- [x] Amélioration (demande de Denis, 02/11/2026) : en-tête d'objectif homogène entre le Sprint
   Planning et le Sprint Board, même apparence pour toute la barre, progression comprise. Écarts relevés
   dans le code : marqueur (`GoalMarker` avec état « atteint » et `lane-header-completed` sur le board,
   `goal-ring` sans état dans le planning) ; compteur et progression (« n/N terminés · x/y pts » et
@@ -114,7 +114,7 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   veut toujours dire dernière colonne visible du board, planning compris ; première colonne = à faire,
   colonnes du milieu = en cours (jamais la catégorie de statut Jira) ; un statut sans colonne est ignoré
   partout (ni affiché ni compté). Tous les calculs d'état passent aux colonnes dans la 8.20.
-- [ ] Amélioration (demande de Denis, 02/11/2026), à traiter avec l'en-tête homogène ci-dessus : une
+- [x] Amélioration (demande de Denis, 02/11/2026), à traiter avec l'en-tête homogène ci-dessus : une
   seule barre de progression découpée par catégorie de statut, en couleur. Aujourd'hui, le Sprint
   Board montre une barre (part terminée seulement) et le planning une barre plus trois pastilles
   à faire / en cours / terminé (`LaneProgress`, `PlanningView.tsx` ; couleurs

@@ -1552,6 +1552,52 @@ describe("Sprint Planning : déplacer plusieurs tickets ensemble (8.15)", () => 
   });
 });
 
+describe("Sprint Planning : top et basse priorité dans la swimlane (8.19)", () => {
+  const RANK = "/rest/agile/1.0/issue/rank";
+  const unassignedKeys = (planning: PlanningModel) =>
+    planning.unassigned.value.map((item) => item.issue.key);
+
+  it("une seule E2, avant le premier ticket de la swimlane, relue dans l'ordre de Jira", async () => {
+    const { planning, inspect } = context();
+    await planning.load();
+    await planning.placeIssue("ABC-201", null);
+    await planning.placeIssue("ABC-202", null);
+    const lane = unassignedKeys(planning);
+    expect(lane.length).toBeGreaterThanOrEqual(3);
+    const first = lane[0] ?? "";
+    const last = lane.at(-1) ?? "";
+    expect(planning.rankOptions(first)).toEqual({ top: "first", bottom: null });
+    expect(planning.rankOptions(last)).toEqual({ top: null, bottom: "last" });
+    const before = inspect().writes.length;
+    await planning.rankIssue(last, "top");
+    expect(inspect().writes.slice(before)).toEqual([
+      { method: "PUT", path: RANK, body: { issues: [last], rankBeforeIssue: first } },
+    ]);
+    expect(unassignedKeys(planning)[0]).toBe(last);
+    expect(planning.notice.value).toBeNull();
+
+    await planning.rankIssue(last, "bottom");
+    expect(inspect().writes.at(-1)).toEqual({
+      method: "PUT",
+      path: RANK,
+      body: { issues: [last], rankAfterIssue: unassignedKeys(planning).at(-2) },
+    });
+    expect(unassignedKeys(planning).at(-1)).toBe(last);
+  });
+
+  it("déjà à sa place, seul dans sa swimlane, ou carte d'une source : rien n'est écrit", async () => {
+    const { planning, inspect } = context();
+    await planning.load();
+    const lane = unassignedKeys(planning);
+    expect(lane).toHaveLength(1);
+    expect(planning.rankOptions(lane[0] ?? "")).toEqual({ top: "first", bottom: "last" });
+    expect(planning.rankOptions("ABC-201")).toBeNull();
+    await planning.rankIssue(lane[0] ?? "", "top");
+    await planning.rankIssue("ABC-201", "top");
+    expect(inspect().writes).toEqual([]);
+  });
+});
+
 describe("Sprint Planning : estimer un ticket pendant la séance (8.17)", () => {
   const estimationPath = (key: string) => `/rest/agile/1.0/issue/${key}/estimation`;
   const cardEstimate = (planning: PlanningModel, key: string) =>

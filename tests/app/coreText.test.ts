@@ -64,6 +64,7 @@ const REFUSALS: {
   estimateChanged: { reason: "estimateChanged", issueKey: "ABC-1" },
   estimateUnavailable: { reason: "estimateUnavailable", issueKey: "ABC-1" },
   invalidEstimate: { reason: "invalidEstimate" },
+  rankChanged: { reason: "rankChanged", issueKey: "ABC-1" },
   failed: { reason: "failed", error: new JiraError({ kind: "timeout" }) },
 };
 
@@ -77,6 +78,7 @@ const STEPS: Record<PlanningStep, true> = {
   pinned: true,
   velocity: true,
   estimate: true,
+  ranked: true,
 };
 
 const NOTHING_SENT = "Rien n'a été envoyé à Jira : le board a changé avant l'envoi.";

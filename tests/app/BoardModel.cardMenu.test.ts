@@ -58,7 +58,9 @@ describe("menu d'une carte — options", () => {
     expect(board.cardMenuOptions("ABC-102")).toEqual({
       sendToGoal: {
         blocked: null,
-        goals: [{ id: "g-stabilite", title: "Améliorer la stabilité", sprintName: null }],
+        goals: [
+          { id: "g-stabilite", title: "Améliorer la stabilité", sprintName: null, color: "goal2" },
+        ],
         canDetach: true,
       },
       // Ordre de lecture du sprint (ABC-101 puis ABC-102) : ABC-102 est déjà dernier.
@@ -171,7 +173,12 @@ describe("menu d'une carte — envoi vers un goal (texte du sprint)", () => {
     if (!configuration) throw new Error("configuration attendue");
     board.configuration.value = { ...configuration, hiddenGoalIds: ["g-stabilite"] };
     expect(board.cardMenuOptions("ABC-105")?.sendToGoal.goals).toEqual([
-      { id: "g-paiement", title: "Finaliser le parcours de paiement", sprintName: null },
+      {
+        id: "g-paiement",
+        title: "Finaliser le parcours de paiement",
+        sprintName: null,
+        color: "goal1",
+      },
     ]);
     await board.sendToGoal("ABC-105", "g-stabilite");
     await board.sendToGoal("ABC-102", "g-paiement");

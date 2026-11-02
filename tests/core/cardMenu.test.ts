@@ -112,8 +112,8 @@ describe("goalTargets", () => {
       goalSprintOf: { g1: 42, g2: 43, g3: 43 },
     };
     expect(goalTargets(multi, config, issue("ABC-1", multi)).goals).toEqual([
-      { id: "g2", title: "Stabilité", sprintName: "Sprint 43" },
-      { id: "g3", title: "Recherche", sprintName: "Sprint 43" },
+      { id: "g2", title: "Stabilité", sprintName: "Sprint 43", color: "goal1" },
+      { id: "g3", title: "Recherche", sprintName: "Sprint 43", color: "goal1" },
     ]);
     expect(goalTargets(board, config, issue("ABC-1")).goals[0]?.sprintName).toBeNull();
   });

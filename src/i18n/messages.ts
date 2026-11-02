@@ -583,6 +583,10 @@ export const businessMessages = {
   "Aucun sprint futur que vous pouvez modifier": "No future sprint you can edit",
   "1 ticket sélectionné": "1 issue selected",
   "Estimer {p0}": "Estimate {p0}",
+  "rang du ticket dans le sprint": "issue rank in the sprint",
+  "L'ordre du sprint a changé dans Jira depuis son affichage : {p0} n'a pas été classé.":
+    "The sprint order changed in Jira since it was shown: {p0} was not ranked.",
+  "Retirer du sprint": "Remove from sprint",
   "Terminé : {p0}, plus déjà livré : {p1}": "Done: {p0}, plus already delivered: {p1}",
   "Estimation de {p0}": "Estimate of {p0}",
   "Sans estimation : cliquez pour estimer": "No estimate: click to estimate",

@@ -12,6 +12,7 @@ import type {
   PlanningIssue,
   PlanningLane,
   PlanningLoad,
+  PlanningRankOptions,
   PlanningSection,
   PlanningViewModel,
 } from "../../src/app/model/PlanningTypes";
@@ -218,6 +219,8 @@ function setup(
     removeIssues: vi.fn(async () => {}),
     saveVelocity: vi.fn(async (_velocity: number | null) => {}),
     estimateIssue: vi.fn(async (_key: string, _value: number) => {}),
+    rankOptions: vi.fn((_key: string): PlanningRankOptions | null => null),
+    rankIssue: vi.fn(async (_key: string, _edge: "top" | "bottom") => {}),
     searchGoals: vi.fn(async (_query: string) => {}),
     pinGoal: vi.fn(async (_id: string) => {}),
     unpinGoal: vi.fn(async (_id: string) => {}),
@@ -279,13 +282,51 @@ function cardOf(issueKey: string) {
   return find<HTMLElement>(`[data-planning-issue="${issueKey}"]`);
 }
 
-/** Menu ⋯ d'une carte, ouvert. */
-function menuOf(issueKey: string) {
-  const details = cardOf(issueKey).querySelector<HTMLDetailsElement>("details");
-  if (!details) throw new Error(`Menu attendu : ${issueKey}`);
-  details.open = true;
-  return details;
+/** Menu de carte ouvert, commun au board (story 8.19). */
+const openedMenu = () => document.querySelector<HTMLElement>(".card-menu");
+
+/** Ouvre le menu d'une carte par son bouton ⋯ (un menu déjà ouvert est d'abord refermé). */
+async function menuOf(issueKey: string) {
+  const open = openedMenu();
+  if (open) {
+    key(document.activeElement ?? open, "Escape");
+    await tick();
+  }
+  menuButton(issueKey).click();
+  await tick();
+  const menu = openedMenu();
+  if (!menu) throw new Error(`Menu attendu : ${issueKey}`);
+  return menu;
 }
+
+function menuButton(issueKey: string) {
+  return find<HTMLButtonElement>(`[data-planning-issue="${issueKey}"] .planning-card-menu`);
+}
+
+/** Entrée d'un menu par le début de son libellé (sous-menus compris). */
+function entry(label: string, root: ParentNode = document) {
+  const found = [...root.querySelectorAll<HTMLElement>("[role='menuitem']")].find((element) =>
+    (element.textContent ?? "").trim().startsWith(label),
+  );
+  if (!found) throw new Error(`Entrée de menu attendue : ${label}`);
+  return found;
+}
+
+/** Ouvre un sous-menu (« Envoyer vers un goal », « Retirer du sprint »…) et rend sa liste. */
+async function openSub(label: string) {
+  entry(label, find(".card-menu")).click();
+  await tick();
+  return find<HTMLElement>(".card-menu-goals");
+}
+
+/** Choisit une entrée d'un sous-menu de la carte, menu ouvert par ⋯. */
+async function choose(issueKey: string, submenu: string, label: string) {
+  await menuOf(issueKey);
+  entry(label, await openSub(submenu)).click();
+  await tick();
+}
+
+const disabledEntry = (element: Element) => element.getAttribute("aria-disabled") === "true";
 
 function drop(zone: Element, issueKey: string, types: readonly string[]) {
   const event = new Event("drop", { bubbles: true, cancelable: true });
@@ -493,16 +534,25 @@ describe("Sprint Planning en direct : écran", () => {
     expect(planning.addGoal).toHaveBeenCalledWith("Livrer le suivi de colis");
   });
 
-  it("menu ⋯ d'un ticket du sprint : objectif, sans objectif, backlog, autre sprint futur", async () => {
+  it("menu ⋯ d'un ticket du sprint : même menu que le board, objectifs et sprints en sous-menus", async () => {
     const { planning } = setup();
     await tick();
-    const menu = menuOf("ABC-10");
-    expect(button("Simplifier les achats", menu).disabled).toBe(true);
-    button("Sécuriser le paiement", menu).click();
-    expect(menu.open).toBe(false);
-    button("Sans objectif", menuOf("ABC-10")).click();
-    button("Renvoyer au backlog", menuOf("ABC-10")).click();
-    button("Vers Sprint 44", menuOf("ABC-10")).click();
+    const menu = await menuOf("ABC-10");
+    expect(menu.getAttribute("role")).toBe("menu");
+    expect(menuButton("ABC-10").getAttribute("aria-expanded")).toBe("true");
+    const goals = await openSub("Envoyer vers un goal");
+    // Objectif courant marqué et désactivé ; pastille de couleur à gauche de chaque objectif.
+    const currentGoal = entry("Simplifier les achats", goals);
+    expect(disabledEntry(currentGoal)).toBe(true);
+    expect(currentGoal.getAttribute("aria-current")).toBe("true");
+    expect(currentGoal.getAttribute("data-goal-color")).toBe(GOALS[0]?.color);
+    expect(currentGoal.querySelector(".menu-goal-dot")).not.toBeNull();
+    entry("Sécuriser le paiement", goals).click();
+    await tick();
+    expect(openedMenu()).toBeNull();
+    await choose("ABC-10", "Envoyer vers un goal", "Sans objectif");
+    await choose("ABC-10", "Retirer du sprint", "Renvoyer au backlog");
+    await choose("ABC-10", "Retirer du sprint", "Vers Sprint 44");
     expect(planning.placeIssue.mock.calls).toEqual([
       ["ABC-10", "g2"],
       ["ABC-10", null],
@@ -511,30 +561,54 @@ describe("Sprint Planning en direct : écran", () => {
       ["ABC-10", { kind: "backlog" }],
       ["ABC-10", { kind: "sprint", sprintId: 44 }],
     ]);
-    expect(button("Sans objectif", menuOf("ABC-12")).disabled).toBe(true);
+    await menuOf("ABC-12");
+    expect(disabledEntry(entry("Sans objectif", await openSub("Envoyer vers un goal")))).toBe(true);
   });
 
-  it("menu ⋯ d'un ticket du backlog : le poser l'ajoute au sprint, sans retrait possible", async () => {
+  it("menu ⋯ d'un ticket du backlog : le poser l'ajoute au sprint, sans retrait ni priorité", async () => {
     const { planning } = setup();
     await tick();
-    const menu = menuOf("ABC-11");
-    expect(menu.textContent).toContain("Ajouter au sprint");
-    expect(() => button("Renvoyer au backlog", menu)).toThrow();
-    button("Simplifier les achats", menu).click();
-    button("Sans objectif", menuOf("ABC-15")).click();
+    const menu = await menuOf("ABC-11");
+    expect(() => entry("Retirer du sprint", menu)).toThrow();
+    expect(() => entry("Mettre en top priorité", menu)).toThrow();
+    entry("Simplifier les achats", await openSub("Ajouter au sprint")).click();
+    await tick();
+    await choose("ABC-15", "Ajouter au sprint", "Sans objectif");
     expect(planning.placeIssue.mock.calls).toEqual([
       ["ABC-11", "g1"],
       ["ABC-15", null],
     ]);
   });
 
+  it("top et basse priorité : ticket seul du sprint, raison si déjà à sa place (8.19)", async () => {
+    const { planning } = setup();
+    planning.rankOptions.mockImplementation((key: string) =>
+      key === "ABC-10" ? { top: null, bottom: "last" } : null,
+    );
+    await tick();
+    const menu = await menuOf("ABC-10");
+    const bottom = entry("Mettre en basse priorité", menu);
+    expect(disabledEntry(bottom)).toBe(true);
+    expect(bottom.textContent).toContain("Déjà en fin de sa swimlane");
+    bottom.click();
+    entry("Mettre en top priorité", menu).click();
+    await tick();
+    expect(planning.rankIssue.mock.calls).toEqual([["ABC-10", "top"]]);
+    // En lot, pas de priorité : un geste d'un seul ticket.
+    planning.selection.value = new Set(["ABC-10", "ABC-14"]);
+    await tick();
+    const batch = await menuOf("ABC-10");
+    expect(() => entry("Mettre en top priorité", batch)).toThrow();
+  });
+
   it("Échap referme le menu et rend le focus à son bouton", async () => {
     setup();
     await tick();
-    const menu = menuOf("ABC-10");
-    key(button("Renvoyer au backlog", menu), "Escape");
-    expect(menu.open).toBe(false);
-    expect(document.activeElement).toBe(menu.querySelector("summary"));
+    await menuOf("ABC-10");
+    key(document.activeElement as Element, "Escape");
+    await tick();
+    expect(openedMenu()).toBeNull();
+    expect(document.activeElement).toBe(menuButton("ABC-10"));
   });
 
   it("glisser-déposer : poser sur un objectif ou sans objectif, retirer vers le backlog ou un sprint", async () => {
@@ -575,7 +649,9 @@ describe("Sprint Planning en direct : écran", () => {
     expect(find<HTMLInputElement>(".planning-velocity input").disabled).toBe(true);
     expect(field("Titre de l’objectif 1").disabled).toBe(true);
     expect(button("Clôturer Sprint 42").disabled).toBe(true);
-    expect(button("Renvoyer au backlog", menuOf("ABC-10")).disabled).toBe(true);
+    const busy = entry("Retirer du sprint", await menuOf("ABC-10"));
+    expect(disabledEntry(busy)).toBe(true);
+    expect(busy.textContent).toContain("Une écriture est en cours");
     expect(cardOf("ABC-11").getAttribute("draggable")).not.toBe("true");
     drop(find('[data-planning-goal="g1"]'), "ABC-11", [PLANNING_DRAG_TYPE]);
     expect(planning.placeIssue).not.toHaveBeenCalled();
@@ -930,14 +1006,6 @@ describe("Sprint Planning en direct : carte (type, priorité, statut) et menu au
     target.dispatchEvent(event);
     return event;
   }
-  const detailsOf = (issueKey: string) => {
-    const details = cardOf(issueKey).querySelector<HTMLDetailsElement>("details");
-    if (!details) throw new Error(`Menu attendu : ${issueKey}`);
-    return details;
-  };
-  const panelOf = (issueKey: string) =>
-    find<HTMLElement>(`[data-planning-issue="${issueKey}"] .menu-panel`);
-
   it("icônes du type et de la priorité téléchargées avec la session, à gauche de la clé et dans les marques", async () => {
     const urls: string[] = [];
     const images = new ImageCache(async (url) => {
@@ -1011,7 +1079,7 @@ describe("Sprint Planning en direct : carte (type, priorité, statut) et menu au
     expect(status("ABC-12")).toEqual(["À faire", "new", "Jira status: À faire"]);
   });
 
-  it("clic droit sur une carte du sprint : menu ⋯ au point du pointeur, mêmes écritures", async () => {
+  it("clic droit sur une carte du sprint : menu au point du pointeur, mêmes écritures", async () => {
     const { planning } = setup();
     await tick();
     const event = contextMenu(find('[data-planning-issue="ABC-10"] .planning-card-title'), {
@@ -1020,25 +1088,27 @@ describe("Sprint Planning en direct : carte (type, priorité, statut) et menu au
       clientY: 200,
     });
     expect(event.defaultPrevented).toBe(true);
-    const details = detailsOf("ABC-10");
-    const panel = panelOf("ABC-10");
-    expect(details.open).toBe(true);
-    expect(details.hasAttribute("data-placed")).toBe(true);
-    expect(panel.hasAttribute("data-at-point")).toBe(true);
-    expect(panel.style.getPropertyValue("--menu-left")).toBe("300px");
-    expect(panel.style.getPropertyValue("--menu-top")).toBe("200px");
-    // Le focus va à la première entrée active : l'objectif courant est désactivé.
-    expect(document.activeElement).toBe(button("Sécuriser le paiement", details));
-    button("Sécuriser le paiement", details).click();
-    expect(details.open).toBe(false);
+    await tick();
+    const menu = find<HTMLElement>(".card-menu");
+    expect(menu.hasAttribute("data-placed")).toBe(true);
+    expect(menu.style.getPropertyValue("--menu-left")).toBe("300px");
+    expect(menu.style.getPropertyValue("--menu-top")).toBe("200px");
+    // Le focus va à la première entrée active.
+    expect(document.activeElement).toBe(entry("Envoyer vers un goal", menu));
+    entry("Sécuriser le paiement", await openSub("Envoyer vers un goal")).click();
+    await tick();
+    expect(openedMenu()).toBeNull();
     // Aucun élément de la carte n'avait le focus : il revient au ⋯.
-    expect(document.activeElement).toBe(details.querySelector("summary"));
+    expect(document.activeElement).toBe(menuButton("ABC-10"));
 
     contextMenu(cardOf("ABC-10"), { button: 2, clientX: 40, clientY: 60 });
-    button("Renvoyer au backlog", detailsOf("ABC-10")).click();
+    await tick();
+    entry("Renvoyer au backlog", await openSub("Retirer du sprint")).click();
+    await tick();
     contextMenu(cardOf("ABC-11"), { button: 2, clientX: 40, clientY: 60 });
-    expect(detailsOf("ABC-11").textContent).toContain("Ajouter au sprint");
-    button("Simplifier les achats", detailsOf("ABC-11")).click();
+    await tick();
+    entry("Simplifier les achats", await openSub("Ajouter au sprint")).click();
+    await tick();
     expect(planning.placeIssue.mock.calls).toEqual([
       ["ABC-10", "g2"],
       ["ABC-11", "g1"],
@@ -1049,63 +1119,76 @@ describe("Sprint Planning en direct : carte (type, priorité, statut) et menu au
   it("clic droit près du bord : le menu reste dans la fenêtre", async () => {
     setup();
     await tick();
-    const panel = panelOf("ABC-12");
-    panel.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, right: 240, bottom: 160, width: 240, height: 160 }) as DOMRect;
+    const original = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.classList.contains("card-menu")
+        ? ({ left: 0, top: 0, right: 240, bottom: 160, width: 240, height: 160 } as DOMRect)
+        : original.call(this);
+    });
     contextMenu(cardOf("ABC-12"), {
       button: 2,
       clientX: window.innerWidth - 20,
       clientY: window.innerHeight - 20,
     });
+    await tick();
+    const menu = find<HTMLElement>(".card-menu");
     // Faute de place à droite et en dessous : à gauche du point et au-dessus de lui.
-    expect(panel.style.getPropertyValue("--menu-left")).toBe(`${window.innerWidth - 260}px`);
-    expect(panel.style.getPropertyValue("--menu-top")).toBe(`${window.innerHeight - 180}px`);
+    expect(menu.style.getPropertyValue("--menu-left")).toBe(`${window.innerWidth - 260}px`);
+    expect(menu.style.getPropertyValue("--menu-top")).toBe(`${window.innerHeight - 180}px`);
+    vi.restoreAllMocks();
   });
 
   it("Maj+F10 et touche Menu : même menu sous la carte ; Échap le referme et rend le focus", async () => {
     setup();
     await tick();
-    const card = cardOf("ABC-12");
-    card.getBoundingClientRect = () =>
-      ({ left: 120, right: 320, top: 80, bottom: 180, width: 200, height: 100 }) as DOMRect;
-    const link = button("Ouvrir ABC-12 dans Jira");
-    link.focus();
+    const { card, link } = focusedCard();
     expect(shiftF10(link).defaultPrevented).toBe(true);
-    const details = detailsOf("ABC-12");
-    const panel = panelOf("ABC-12");
-    expect(details.open).toBe(true);
-    expect(panel.style.getPropertyValue("--menu-left")).toBe("120px");
-    expect(panel.style.getPropertyValue("--menu-top")).toBe("180px");
-    expect(panel.contains(document.activeElement)).toBe(true);
+    await tick();
+    let menu = find<HTMLElement>(".card-menu");
+    expect(menu.style.getPropertyValue("--menu-left")).toBe("120px");
+    expect(menu.style.getPropertyValue("--menu-top")).toBe("180px");
+    expect(menu.contains(document.activeElement)).toBe(true);
     key(document.activeElement as Element, "Escape");
-    expect(details.open).toBe(false);
+    await tick();
+    expect(openedMenu()).toBeNull();
     expect(document.activeElement).toBe(link);
 
     // Touche Menu depuis le ⋯ : le focus lui revient.
-    const summary = details.querySelector("summary") as HTMLElement;
-    summary.focus();
-    key(summary, "ContextMenu");
-    expect(details.open).toBe(true);
-    expect(panel.hasAttribute("data-at-point")).toBe(true);
+    const dots = menuButton("ABC-12");
+    dots.focus();
+    key(dots, "ContextMenu");
+    await tick();
+    expect(openedMenu()).not.toBeNull();
     key(document.activeElement as Element, "Escape");
-    expect(document.activeElement).toBe(summary);
+    await tick();
+    expect(document.activeElement).toBe(dots);
 
     // Menu du clavier transmis comme `contextmenu` sans bouton droit ni position : sous la carte.
     link.focus();
     expect(contextMenu(card).defaultPrevented).toBe(true);
-    expect(panel.style.getPropertyValue("--menu-top")).toBe("180px");
-    button("Renvoyer au backlog", details).click();
+    await tick();
+    menu = find<HTMLElement>(".card-menu");
+    expect(menu.style.getPropertyValue("--menu-top")).toBe("180px");
+    entry("Renvoyer au backlog", await openSub("Retirer du sprint")).click();
+    await tick();
     expect(document.activeElement).toBe(link);
   });
 
-  it("rouvert par son bouton après un clic droit : le menu retrouve sa place sous le ⋯", async () => {
+  it("bouton ⋯ : le menu s'ouvre sous lui, et un second clic le referme", async () => {
     setup();
     await tick();
-    contextMenu(cardOf("ABC-10"), { button: 2, clientX: 300, clientY: 200 });
-    key(document.activeElement as Element, "Escape");
-    const details = menuOf("ABC-10");
-    expect(details.open).toBe(true);
-    expect(panelOf("ABC-10").hasAttribute("data-at-point")).toBe(false);
+    const dots = menuButton("ABC-10");
+    dots.getBoundingClientRect = () =>
+      ({ left: 260, right: 284, top: 40, bottom: 62, width: 24, height: 22 }) as DOMRect;
+    const menu = await menuOf("ABC-10");
+    expect(menu.style.getPropertyValue("--menu-left")).toBe("260px");
+    expect(menu.style.getPropertyValue("--menu-top")).toBe("62px");
+    dots.click();
+    await tick();
+    expect(openedMenu()).toBeNull();
+    expect(document.activeElement).toBe(dots);
   });
 
   /** Carte ABC-12 posée à un endroit connu et son lien, qui a le focus. */
@@ -1118,39 +1201,25 @@ describe("Sprint Planning en direct : carte (type, priorité, statut) et menu au
     return { card, link };
   }
 
-  it("menu déjà ouvert : Maj+F10 ou clic droit sur une entrée ne le rouvre pas ailleurs", async () => {
+  it("menu déjà ouvert : un clic droit sur une entrée ne le rouvre pas ailleurs", async () => {
     setup();
     await tick();
     const { link } = focusedCard();
     shiftF10(link);
-    const panel = panelOf("ABC-12");
-    const entry = document.activeElement as Element;
-    expect(panel.contains(entry)).toBe(true);
-    expect(shiftF10(entry).defaultPrevented).toBe(true);
-    expect(contextMenu(entry, { button: 2, clientX: 500, clientY: 400 }).defaultPrevented).toBe(
+    await tick();
+    const menu = find<HTMLElement>(".card-menu");
+    const current = document.activeElement as Element;
+    expect(menu.contains(current)).toBe(true);
+    expect(contextMenu(current, { button: 2, clientX: 500, clientY: 400 }).defaultPrevented).toBe(
       true,
     );
-    expect(panel.style.getPropertyValue("--menu-left")).toBe("120px");
-    expect(panel.style.getPropertyValue("--menu-top")).toBe("180px");
-    expect(document.activeElement).toBe(entry);
-    key(entry, "Escape");
-    expect(document.activeElement).toBe(link);
-  });
-
-  it("pendant un geste, le `contextmenu` de la touche Menu reçu par ⋯ ne rouvre pas le menu", async () => {
-    const { planning } = setup();
-    planning.gesturesDisabled.value = true;
+    shiftF10(current);
     await tick();
-    const { link } = focusedCard();
-    shiftF10(link);
-    const details = detailsOf("ABC-12");
-    const summary = details.querySelector("summary") as HTMLElement;
-    expect(document.activeElement).toBe(summary);
-    // Blink envoie `contextmenu` au relâchement de la touche Menu, à la position de l'élément.
-    expect(contextMenu(summary, { clientX: 700, clientY: 30 }).defaultPrevented).toBe(true);
-    expect(details.open).toBe(true);
-    expect(panelOf("ABC-12").style.getPropertyValue("--menu-left")).toBe("120px");
-    key(summary, "Escape");
+    expect(find<HTMLElement>(".card-menu").style.getPropertyValue("--menu-left")).toBe("120px");
+    expect(find<HTMLElement>(".card-menu").style.getPropertyValue("--menu-top")).toBe("180px");
+    expect(document.activeElement).toBe(current);
+    key(current, "Escape");
+    await tick();
     expect(document.activeElement).toBe(link);
   });
 
@@ -1159,17 +1228,20 @@ describe("Sprint Planning en direct : carte (type, priorité, statut) et menu au
     await tick();
     const { link } = focusedCard();
     shiftF10(link);
-    const details = detailsOf("ABC-12");
+    await tick();
     window.dispatchEvent(new Event("scroll"));
-    expect(details.open).toBe(false);
+    await tick();
+    expect(openedMenu()).toBeNull();
     expect(document.activeElement).toBe(link);
 
     link.blur();
     contextMenu(cardOf("ABC-12"), { button: 2, clientX: 300, clientY: 200 });
-    expect(details.open).toBe(true);
+    await tick();
+    expect(openedMenu()).not.toBeNull();
     window.dispatchEvent(new Event("scroll"));
-    expect(details.open).toBe(false);
-    expect(document.activeElement).toBe(details.querySelector("summary"));
+    await tick();
+    expect(openedMenu()).toBeNull();
+    expect(document.activeElement).toBe(menuButton("ABC-12"));
   });
 
   it("carte en consultation : ni menu de l'extension, ni menu du navigateur empêché", async () => {
@@ -1180,8 +1252,9 @@ describe("Sprint Planning en direct : carte (type, priorité, statut) et menu au
       false,
     );
     expect(shiftF10(remaining).defaultPrevented).toBe(false);
-    expect(remaining.querySelector("details")).toBeNull();
-    expect(document.querySelector("details[open]")).toBeNull();
+    await tick();
+    expect(remaining.querySelector(".planning-card-menu")).toBeNull();
+    expect(openedMenu()).toBeNull();
   });
 
   it("pendant un geste, le menu ouvert au clic droit a ses entrées désactivées", async () => {
@@ -1189,15 +1262,19 @@ describe("Sprint Planning en direct : carte (type, priorité, statut) et menu au
     planning.gesturesDisabled.value = true;
     await tick();
     contextMenu(cardOf("ABC-10"), { button: 2, clientX: 50, clientY: 50 });
-    const details = detailsOf("ABC-10");
-    expect(details.open).toBe(true);
-    const entries = [...details.querySelectorAll<HTMLButtonElement>(".menu-panel button")];
+    await tick();
+    const menu = find<HTMLElement>(".card-menu");
+    const entries = [...menu.querySelectorAll<HTMLElement>("[role='menuitem']")];
     expect(entries.length).toBeGreaterThan(0);
-    expect(entries.every((entry) => entry.disabled)).toBe(true);
-    // Aucune entrée active : le focus va au ⋯, dans le menu, pour qu'Échap le referme.
-    expect(document.activeElement).toBe(details.querySelector("summary"));
+    expect(entries.every(disabledEntry)).toBe(true);
+    // Aucune entrée active : le focus va à la première, dans le menu, pour qu'Échap le referme.
+    expect(menu.contains(document.activeElement)).toBe(true);
+    entries[0]?.click();
+    await tick();
+    expect(document.querySelector(".card-menu-goals")).toBeNull();
     key(document.activeElement as Element, "Escape");
-    expect(details.open).toBe(false);
+    await tick();
+    expect(openedMenu()).toBeNull();
     expect(planning.placeIssue).not.toHaveBeenCalled();
     expect(planning.removeIssue).not.toHaveBeenCalled();
   });
@@ -1424,18 +1501,20 @@ describe("Sprint Planning en direct : plusieurs tickets ensemble (8.15)", () => 
     const { planning } = setup();
     planning.selection.value = new Set(["ABC-10", "ABC-11"]);
     await tick();
-    const menu = menuOf("ABC-10");
-    expect(menu.textContent).toContain("2 tickets sélectionnés");
-    // Un lot n'a pas d'objectif courant : aucun objectif n'est désactivé.
-    expect(button("Simplifier les achats", menu).disabled).toBe(false);
+    const menu = await menuOf("ABC-10");
+    expect(menu.querySelector(".card-menu-heading")?.textContent).toBe("2 tickets sélectionnés");
     // ABC-11 est au backlog : le lot ne peut pas quitter le sprint.
-    expect(() => button("Renvoyer au backlog", menu)).toThrow();
-    button("Sécuriser le paiement", menu).click();
+    expect(() => entry("Retirer du sprint", menu)).toThrow();
+    const goals = await openSub("Envoyer vers un goal");
+    // Un lot n'a pas d'objectif courant : aucun objectif n'est désactivé.
+    expect(disabledEntry(entry("Simplifier les achats", goals))).toBe(false);
+    entry("Sécuriser le paiement", goals).click();
+    await tick();
     expect(planning.placeIssues.mock.calls).toEqual([[["ABC-10", "ABC-11"], "g2"]]);
 
     planning.selection.value = new Set(["ABC-10", "ABC-14"]);
     await tick();
-    button("Vers Sprint 44", menuOf("ABC-14")).click();
+    await choose("ABC-14", "Retirer du sprint", "Vers Sprint 44");
     expect(planning.removeIssues.mock.calls).toEqual([
       [["ABC-10", "ABC-14"], { kind: "sprint", sprintId: 44 }],
     ]);

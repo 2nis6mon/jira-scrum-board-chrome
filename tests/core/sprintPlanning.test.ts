@@ -13,6 +13,7 @@ import {
   pinPlanningGoals,
   placePlanningIssue,
   placePlanningIssues,
+  rankPlanningIssue,
   removePlanningIssue,
   removePlanningIssues,
   savePlanningVelocity,
@@ -175,6 +176,19 @@ function fakeJira(options: FakeOptions = {}) {
       case "sprintProperty.put":
         state.properties[write.sprintId] = clone(write.value);
         return;
+      case "issue.rank": {
+        // Rang global : le ticket passe avant ou après sa référence, dans son sprint.
+        const reference = "before" in write ? write.before : write.after;
+        for (const [id, list] of Object.entries(state.issues)) {
+          const moved = list.find((candidate) => candidate.key === write.issueKey);
+          if (!moved) continue;
+          const rest = list.filter((candidate) => candidate.key !== write.issueKey);
+          const at = rest.findIndex((candidate) => candidate.key === reference);
+          rest.splice("before" in write ? at : at + 1, 0, moved);
+          state.issues[Number(id)] = rest;
+        }
+        return;
+      }
       default:
         throw new Error(`Écriture inattendue : ${write.kind}`);
     }
@@ -1650,6 +1664,77 @@ describe("retirer un lot du sprint en préparation (removePlanningIssues)", () =
     const result = await removeAll(f, ["ABC-210", "ABC-211"], { kind: "backlog" });
     expect(result.outcome.kind).toBe("partial");
     expect(result.remainingKeys).toEqual(["ABC-210", "ABC-211"]);
+    expect(f.writes).toHaveLength(1);
+  });
+});
+
+// ─── Top et basse priorité (story 8.19) ──────────────────────────────────────
+
+describe("classer un ticket dans sa swimlane (rankPlanningIssue)", () => {
+  const rank = (
+    f: ReturnType<typeof fakeJira>,
+    issueKey: string,
+    edge: "top" | "bottom",
+    reference: string,
+  ) =>
+    rankPlanningIssue(f.reader, f.writer, {
+      boardId: BOARD,
+      sprintId: PREPARED,
+      query,
+      issueKey,
+      edge,
+      reference,
+    });
+  const withThree = () => {
+    const f = fakeJira();
+    f.state.issues[PREPARED] = [todo("ABC-210"), todo("ABC-211"), todo("ABC-212")];
+    return f;
+  };
+
+  it("une seule E2 avant (ou après) la référence, puis l'ordre relu", async () => {
+    const f = withThree();
+    expect(await rank(f, "ABC-212", "top", "ABC-210")).toEqual({
+      kind: "done",
+      confirmed: ["ranked"],
+    });
+    expect(f.writes).toEqual([{ kind: "issue.rank", issueKey: "ABC-212", before: "ABC-210" }]);
+    expect(f.keysOf(PREPARED)).toEqual(["ABC-212", "ABC-210", "ABC-211"]);
+    expect((await rank(f, "ABC-212", "bottom", "ABC-211")).kind).toBe("done");
+    expect(f.writes.at(-1)).toEqual({ kind: "issue.rank", issueKey: "ABC-212", after: "ABC-211" });
+  });
+
+  it("déjà à sa place : rien n'est écrit", async () => {
+    const f = withThree();
+    expect(await rank(f, "ABC-210", "top", "ABC-211")).toEqual({ kind: "unchanged" });
+    expect(f.writes).toEqual([]);
+  });
+
+  it("ticket ou référence sortis du sprint, ou sprint plus futur : rien n'est écrit", async () => {
+    const f = withThree();
+    expect(await rank(f, "ABC-212", "top", "ABC-999")).toEqual({
+      kind: "refused",
+      reason: { reason: "rankChanged", issueKey: "ABC-212" },
+    });
+    expect(await rank(f, "ABC-999", "top", "ABC-210")).toEqual({
+      kind: "refused",
+      reason: { reason: "issueNotInSprint", issueKey: "ABC-999" },
+    });
+    f.state.sprints = f.state.sprints.map((candidate) =>
+      candidate.id === PREPARED ? { ...candidate, state: "active" } : candidate,
+    );
+    expect((await rank(f, "ABC-212", "top", "ABC-210")).kind).toBe("refused");
+    expect(f.writes).toEqual([]);
+  });
+
+  it("rang accepté mais non relu : partiel, sans nouvelle tentative", async () => {
+    const f = fakeJira({ ignore: ["issue.rank"] });
+    f.state.issues[PREPARED] = [todo("ABC-210"), todo("ABC-211")];
+    const outcome = await rank(f, "ABC-211", "top", "ABC-210");
+    expect(outcome.kind).toBe("partial");
+    expect(outcome.kind === "partial" && coreCode(outcome.error)).toEqual({
+      code: "planningIssueUnconfirmed",
+      issueKey: "ABC-211",
+    });
     expect(f.writes).toHaveLength(1);
   });
 });

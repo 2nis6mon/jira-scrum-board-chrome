@@ -377,13 +377,14 @@ try {
     assert(sprintCard, "La carte ABC-210 du sprint n'est pas accessible au clic droit");
     await rightClick(sprintCard);
     await wait(
-      `Boolean(document.querySelector('[data-planning-issue="ABC-210"] details.planning-card-menu[open][data-placed] .menu-panel[data-at-point]'))`,
+      "Boolean(document.querySelector('.card-menu[data-placed]'))",
       "Le clic droit sur ABC-210 n'a pas ouvert le menu de la carte",
     );
     const opened = await run(`(() => {
-      const panel = document.querySelector('[data-planning-issue="ABC-210"] .menu-panel');
+      const panel = document.querySelector('.card-menu');
       const r = panel.getBoundingClientRect();
-      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width,
+      const labels = [...panel.querySelectorAll('[role=menuitem]')].map(item => item.textContent.replace('›', '').trim());
+      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, labels,
         focusInside: panel.contains(document.activeElement),
         hit: panel.contains(document.elementFromPoint(r.left + r.width / 2, r.top + 12)) };
     })()`);
@@ -396,7 +397,10 @@ try {
         Math.abs(opened.left - sprintCard.x) <= 1 &&
         Math.abs(opened.top - sprintCard.y) <= 1 &&
         opened.focusInside &&
-        opened.hit,
+        opened.hit &&
+        opened.labels[0] === "Envoyer vers un goal" &&
+        opened.labels.includes("Retirer du sprint") &&
+        opened.labels.some((label) => label.startsWith("Mettre en top priorité")),
       `Menu du clic droit mal placé ou recouvert : ${JSON.stringify({ opened, sprintCard })}`,
     );
     assert(
@@ -406,8 +410,8 @@ try {
     await capture("planning-menu-clic-droit");
     await press("Escape", "Escape", 27);
     await wait(
-      `!document.querySelector('[data-planning-issue="ABC-210"] details[open]')
-        && document.activeElement?.matches('[data-planning-issue="ABC-210"] summary')`,
+      `!document.querySelector('.card-menu')
+        && document.activeElement?.matches('[data-planning-issue="ABC-210"] .planning-card-menu')`,
       "Échap ne referme pas le menu du clic droit ou ne rend pas le focus au ⋯",
     );
     // Au clavier : Maj+F10 puis la touche Menu, depuis le lien de la carte ; un seul menu, sous la
@@ -420,16 +424,16 @@ try {
       await run(`${link210}.focus()`);
       await press(key, key, keyCode, modifiers);
       await wait(
-        `Boolean(document.querySelector('[data-planning-issue="ABC-210"] details.planning-card-menu[open][data-placed] .menu-panel[data-at-point]'))`,
+        "Boolean(document.querySelector('.card-menu[data-placed]'))",
         `${label} n'a pas ouvert le menu de ABC-210`,
       );
       // Le « contextmenu » que Chrome envoie ensuite ne doit ni rouvrir ni déplacer le menu.
       await sleep(150);
       const below = await run(`(() => {
         const card = document.querySelector('[data-planning-issue="ABC-210"]').getBoundingClientRect();
-        const panel = document.querySelector('[data-planning-issue="ABC-210"] .menu-panel');
+        const panel = document.querySelector('.card-menu');
         const r = panel.getBoundingClientRect();
-        return { open: document.querySelectorAll('details[open]').length,
+        return { open: document.querySelectorAll('.card-menu').length,
           dx: r.left - card.left, dy: r.top - card.bottom, width: r.width,
           focusInside: panel.contains(document.activeElement) };
       })()`);
@@ -443,7 +447,7 @@ try {
       );
       await press("Escape", "Escape", 27);
       await wait(
-        `!document.querySelector('details[open]') && document.activeElement === ${link210}`,
+        `!document.querySelector('.card-menu') && document.activeElement === ${link210}`,
         `${label} : Échap ne referme pas le menu ou ne rend pas le focus au lien`,
       );
     }
@@ -455,7 +459,7 @@ try {
     await wait("window.__contextMenus.length === 1", "Le clic droit en consultation est absent");
     assert(
       JSON.stringify(await run("window.__contextMenus")) === JSON.stringify([false]) &&
-        !(await run("Boolean(document.querySelector('details[open]'))")),
+        !(await run("Boolean(document.querySelector('.card-menu'))")),
       "Une carte en consultation ne doit ouvrir aucun menu de l'extension",
     );
     assert(

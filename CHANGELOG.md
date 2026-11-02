@@ -3,6 +3,17 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.48.0 — Le même menu de carte sur le board et dans le planning
+
+- Demande de Denis du 02/11/2026 (story 8.19) : le Sprint Board et le Sprint Planning (builds
+  locaux) ouvrent le même menu de carte, au clic droit, par Maj+F10, la touche Menu ou le bouton ⋯
+  du planning : mêmes sous-menus au survol et au clavier, mêmes raisons quand une action n'est pas
+  possible. Chaque objectif a sa pastille de couleur à gauche de son nom, aussi sur le board.
+- Dans le planning, « Retirer du sprint › » regroupe « Renvoyer au backlog » et les autres sprints
+  futurs, et un ticket du sprint en préparation peut être mis en **top** ou en **basse priorité** :
+  en tête ou en fin de la swimlane de son objectif (« Sans objectif » compris), par la même
+  écriture de rang que le board, relue. Aucune nouvelle écriture.
+
 ## 0.47.2 — Sprint Planning : le déjà livré dans la partie terminée de la barre (builds locaux)
 
 - Demande de Denis du 02/11/2026 (story 8.21) : le déjà livré d'un objectif n'est plus une mention

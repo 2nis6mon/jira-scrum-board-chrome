@@ -29,8 +29,6 @@ export function placeFloatingMenu(
   closers.delete(details);
   delete details.dataset.placed;
   const panel = details.querySelector<HTMLElement>(".menu-panel");
-  // Rouvert par son bouton après un clic droit : il retrouve sa place sous le bouton.
-  if (panel) delete panel.dataset.atPoint;
   if (!details.open) return;
   const summary = details.querySelector("summary");
   if (!summary || !panel) return;
@@ -49,30 +47,6 @@ export function placeFloatingMenu(
     "--menu-max-height",
     `${Math.floor((viewport.height - 2 * MARGIN) / zoom)}px`,
   );
-  details.dataset.placed = "";
-  closeOnMove(details, panel);
-}
-
-/**
- * Menu `<details>` ouvert au pointeur (clic droit) ou sous sa carte (clavier) plutôt que sous son
- * bouton : le panneau, marqué `data-at-point`, est placé par `placeAtPoint` et se referme comme
- * au-dessus si la page défile ou si la fenêtre change de taille.
- */
-export function placeDetailsAtPoint(
-  details: HTMLDetailsElement,
-  point: Point,
-  viewport: Viewport = { width: window.innerWidth, height: window.innerHeight },
-): void {
-  closers.get(details)?.abort();
-  closers.delete(details);
-  delete details.dataset.placed;
-  const panel = details.querySelector<HTMLElement>(".menu-panel");
-  if (!details.open || !panel) return;
-  // Ancré à gauche et mesuré au coin de la fenêtre : une place précédente ne le rétrécit pas.
-  panel.dataset.atPoint = "";
-  panel.style.setProperty("--menu-left", "0px");
-  panel.style.setProperty("--menu-top", "0px");
-  placeAtPoint(panel, point, viewport);
   details.dataset.placed = "";
   closeOnMove(details, panel);
 }

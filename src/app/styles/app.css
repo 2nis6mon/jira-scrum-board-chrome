@@ -2872,6 +2872,27 @@ details.lane-menu:not([data-placed]) .menu-panel {
   cursor: default;
 }
 
+/* Choix actuel (objectif du ticket dans le planning) : marqué, sans action. */
+.card-menu-item[aria-current="true"] {
+  font-weight: 600;
+}
+
+/* Pastille de couleur d'un objectif, à gauche de son nom (story 8.19). */
+.menu-goal-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--goal-ring, var(--ink-4));
+}
+
+/* Nombre de tickets d'un lot, en tête du menu. */
+.card-menu-heading {
+  margin: 2px 10px 6px;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
 .card-menu-arrow {
   margin-left: auto;
   color: var(--ink-3);

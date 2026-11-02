@@ -72,6 +72,8 @@ export type PlanningRefusal =
   | { readonly reason: "estimateUnavailable"; readonly issueKey: string }
   /** Estimation hors des bornes : nombre de 0 à 10 000. */
   | { readonly reason: "invalidEstimate" }
+  /** Le ticket de référence du classement n'est plus dans le sprint en préparation (8.19). */
+  | { readonly reason: "rankChanged"; readonly issueKey: string }
   /** Lot de plus de 50 tickets (limite de E9 et E10) : refusé avant toute écriture. */
   | { readonly reason: "batchTooLarge"; readonly count: number }
   | { readonly reason: "failed"; readonly error: unknown };

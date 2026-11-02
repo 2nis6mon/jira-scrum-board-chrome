@@ -277,6 +277,25 @@ export function planningFixture(
       return { status: 200, json: sprint };
     })
     .on("POST", "/rest/agile/1.0/sprint/43/issue", addToSprint(selected, other))
+    // Rang du board (E2, story 8.19) : global, il réordonne le catalogue, donc sprints et backlog.
+    .on("PUT", "/rest/agile/1.0/issue/rank", (request) => {
+      const body = request.body as {
+        issues?: unknown;
+        rankBeforeIssue?: unknown;
+        rankAfterIssue?: unknown;
+      } | null;
+      const key =
+        Array.isArray(body?.issues) && body.issues.length === 1 ? String(body.issues[0]) : null;
+      const reference = body?.rankBeforeIssue ?? body?.rankAfterIssue;
+      const from = catalog.findIndex((issue) => issue.key === key);
+      if (from < 0 || typeof reference !== "string" || reference === key)
+        return { status: 400, json: { errorMessages: ["Classement invalide"] } };
+      const [moved] = catalog.splice(from, 1);
+      const at = catalog.findIndex((issue) => issue.key === reference);
+      if (!moved || at < 0) return { status: 400, json: { errorMessages: ["Référence inconnue"] } };
+      catalog.splice(body?.rankBeforeIssue !== undefined ? at : at + 1, 0, moved);
+      return { status: 204 };
+    })
     .on("POST", "/rest/agile/1.0/backlog/issue", (request) => {
       const body = request.body as { issues?: unknown } | null;
       if (!body || !Array.isArray(body.issues) || Object.keys(body).length !== 1)

@@ -212,6 +212,7 @@ const PLANNING_STEPS = {
   pinned: "Goals épinglés au sprint",
   velocity: "vélocité de l'équipe",
   estimate: "estimation du ticket",
+  ranked: "rang du ticket dans le sprint",
 } as const satisfies Record<PlanningStep, MessageKey>;
 
 /** Refus suivis d'une relecture : la page est à jour, l'utilisateur refait son geste. */
@@ -221,6 +222,7 @@ const PLANNING_CONFLICTS: ReadonlySet<PlanningRefusal["reason"]> = new Set([
   "linkChanged",
   "velocityChanged",
   "estimateChanged",
+  "rankChanged",
 ]);
 
 /** Ce qu'une relecture a constaté, sans dire ce qui a été écrit. */
@@ -267,6 +269,13 @@ export function planningRefusalCause(refusal: PlanningRefusal): AppMessage {
       });
     case "invalidEstimate":
       return message("L'estimation doit être un nombre entre 0 et 10 000.");
+    case "rankChanged":
+      return message(
+        "L'ordre du sprint a changé dans Jira depuis son affichage : {p0} n'a pas été classé.",
+        {
+          p0: refusal.issueKey,
+        },
+      );
     case "batchTooLarge":
       return message("Lot de {p0} tickets : au plus 50 par geste.", { p0: refusal.count });
     case "failed":

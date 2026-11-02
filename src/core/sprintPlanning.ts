@@ -10,6 +10,7 @@ import {
   type JiraWriter,
   linkToTextGoal,
   pinAtlassianGoals,
+  rankIssue,
   withTextGoalLink,
 } from "./boardWrites";
 import { columnStates } from "./columnState";
@@ -57,7 +58,9 @@ export type PlanningStep =
   | "pinned"
   | "velocity"
   /** Estimation du ticket écrite (E11) puis relue. */
-  | "estimate";
+  | "estimate"
+  /** Rang du ticket dans le sprint en préparation écrit (E2) puis relu (story 8.19). */
+  | "ranked";
 
 export type PlanningOutcome =
   /** Tout ce qui a été écrit a été relu et confirmé. */
@@ -933,6 +936,56 @@ export function estimatePlanningIssue(
     if (read.value !== value)
       throw new CoreError({ code: "planningEstimateUnconfirmed", issueKey });
     run.confirmed.push("estimate");
+  });
+}
+
+// ─── Top et basse priorité (story 8.19) ──────────────────────────────────────
+
+/**
+ * Met un ticket du sprint en préparation en tête (`top`, avant `reference`) ou en fin (`bottom`,
+ * après `reference`) de la swimlane de son objectif : `reference` est le premier (ou le dernier)
+ * autre ticket de cette swimlane à l'affichage. Sprint et ordre relus avant l'écriture : le ticket ou
+ * la référence sorti du sprint, rien n'est écrit ; déjà à sa place, rien non plus. Une seule écriture
+ * de rang (E2, réponse 207 lue), puis l'ordre est relu.
+ */
+export function rankPlanningIssue(
+  reader: PlanningReader,
+  writer: JiraWriter,
+  input: {
+    boardId: number;
+    sprintId: number;
+    query: IssueQuery;
+    issueKey: string;
+    edge: "top" | "bottom";
+    reference: string;
+  },
+): Promise<PlanningOutcome> {
+  return runIntention(writer, NO_GOAL_LINKS, async (run) => {
+    const { boardId, sprintId, issueKey, reference } = input;
+    const order = async () =>
+      (await reader.sprintIssues(boardId, sprintId, input.query)).map((issue) => issue.key);
+    const placed = (keys: readonly string[]) => {
+      const at = keys.indexOf(issueKey);
+      const ref = keys.indexOf(reference);
+      return input.edge === "top" ? at < ref : at > ref;
+    };
+    await futureSprint(reader, sprintId);
+    const before = await order();
+    if (!before.includes(issueKey)) refuse({ reason: "issueNotInSprint", issueKey });
+    if (reference === issueKey || !before.includes(reference))
+      refuse({ reason: "rankChanged", issueKey });
+    if (placed(before)) return;
+    await rankIssue(
+      run.writer,
+      issueKey,
+      input.edge === "top"
+        ? { kind: "before", issueKey: reference }
+        : { kind: "after", issueKey: reference },
+    );
+    const after = await order();
+    if (!after.includes(reference) || !placed(after))
+      throw new CoreError({ code: "planningIssueUnconfirmed", issueKey });
+    run.confirmed.push("ranked");
   });
 }
 

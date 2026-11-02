@@ -4,7 +4,6 @@ import {
   inCorridor,
   placeAtPoint,
   placeBeside,
-  placeDetailsAtPoint,
   placeFloatingMenu,
 } from "../../src/app/views/board/floatingMenu";
 
@@ -89,22 +88,6 @@ describe("menu d'une swimlane placé dans la fenêtre", () => {
     details.open = true;
     window.dispatchEvent(new Event("resize"));
     expect(details.open).toBe(true);
-  });
-
-  it("ouvert au point (clic droit) : ancré à gauche, refermé au défilement, rendu à son bouton ensuite", () => {
-    const { details, panel } = menu(100, 300);
-    panel.getBoundingClientRect = () => ({ top: 0, left: 0, width: 240, height: 300 }) as DOMRect;
-    placeDetailsAtPoint(details, { x: 400, y: 250 }, VIEWPORT);
-    expect(panel.dataset.atPoint).toBe("");
-    expect(panel.style.getPropertyValue("--menu-left")).toBe("400px");
-    expect(topOf(panel)).toBe("250px");
-    expect(details.dataset.placed).toBe("");
-    document.body.dispatchEvent(new Event("scroll"));
-    expect(details.open).toBe(false);
-    details.open = true;
-    placeFloatingMenu(details, VIEWPORT);
-    expect(panel.dataset.atPoint).toBeUndefined();
-    expect(topOf(panel)).toBe("128px");
   });
 });
 

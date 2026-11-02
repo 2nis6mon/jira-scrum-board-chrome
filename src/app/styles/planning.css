@@ -614,29 +614,22 @@ button.planning-issue-link:hover:not(:disabled) {
   color: #92400e;
 }
 
-details.planning-card-menu > summary {
-  height: 22px;
+/* Bouton ⋯ d'une carte : ouvre le menu commun au board (story 8.19), sous lui. */
+.planning-card-menu {
   width: 24px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-3);
+  line-height: 1;
 }
 
-.planning-card-menu .menu-panel > button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 340px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.planning-card-menu .menu-panel > button[aria-current="true"] {
-  font-weight: 600;
-}
-
-/* Ouvert au clic droit ou au clavier (floatingMenu.ts, placeDetailsAtPoint) : son coin supérieur
-   gauche au point demandé, et non plus aligné à droite sous le bouton ⋯. */
-details.planning-card-menu .menu-panel[data-at-point] {
-  left: var(--menu-left, 0);
-  right: auto;
+.planning-card-menu:hover,
+.planning-card-menu[aria-expanded="true"] {
+  background: var(--sidebar);
+  color: var(--ink);
 }
 
 /* Statut Jira, teinté selon sa catégorie comme les pastilles de Jira : à faire en gris, en cours
