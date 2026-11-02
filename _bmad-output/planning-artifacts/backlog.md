@@ -24,7 +24,12 @@ engagée tant qu'elle n'est pas décidée. Mise en conformité d'architecture :
   existantes. Les objectifs épinglés et les réglages d'équipe déjà publiés restent sous l'ancienne
   clé. Piste : lire la nouvelle clé, sinon l'ancienne ; écrire seulement la nouvelle au prochain geste
   explicite ; ne jamais supprimer l'ancienne automatiquement. Format `v1` inchangé, mêmes écritures,
-  aucune nouvelle. Mettre à jour `securite.md`, `donnees.md` (ou équivalent) et les tests exhaustifs.
+  aucune nouvelle. Références à mettre à jour (recensées le 02/11/2026, toutes sur ces trois clés) :
+  `src/jira/writes.ts`, `src/jira/diagnostics.ts`, `src/core/sprintGoals.ts`, `src/core/teamSettings.ts` ;
+  tests (`writes.test.ts` et sa garde de chemins, `BoardWriteGate`, `PlanningModel`, `App`, `sprintGoals`,
+  `teamSettings`, `BoardModel.*`), `scripts/verify-planning.mjs` ; `docs/technique/` (`securite.md`,
+  `donnees.md`, `index.md`), AGENTS.md, note d'architecture, `epics.md`, spec de conformité. Les specs
+  terminées et les `.memlog.md` gardent l'ancien nom (historique).
 
 ## Pistes produit à décider
 
