@@ -2,7 +2,7 @@
 title: 'Story 8.10 — Valider le Sprint Planning sur un vrai Jira'
 type: 'chore'
 created: '2026-11-03'
-status: 'draft'
+status: 'ready-for-dev'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -56,6 +56,7 @@ context:
 - `_bmad-output/implementation-artifacts/deferred-work.md` -- points « à constater en 8.10 » (relecture après chaque geste, délai de clôture, bouton « Terminer », fenêtre de suite, sélection masquée par un filtre) : le constat y est reporté.
 - `src/app/model/PlanningModel.ts` -- gestes et relectures ; `src/core/sprintPlanning.ts` -- lecture et écritures du planning.
 - Journal de diagnostic de l'extension (vue Diagnostic) et onglet Réseau de Chrome -- mesures.
+- Relecture : connecteur « claude.ai Atlassian MCP », `executeRead` seulement, `cloudId` = `mousquetaires-sandbox-860.atlassian.net` (vérifié le 03/11/2026 : `listJiraBoardSprints` du board 3013 renvoie 16142 actif et 17308 à 17310 futurs). Le connecteur « Atlassian Rovo » ne voit que la prod : ne pas l'utiliser.
 
 ## Tasks & Acceptance
 
