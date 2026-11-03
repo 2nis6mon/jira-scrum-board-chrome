@@ -578,7 +578,7 @@ So that leur origine est lisible.
 
 L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre. Chaque geste écrit aussitôt dans Jira, qui reste la seule source : la page se reconstruit à l'entrée depuis le texte de l'objectif du sprint, la propriété `sprintgoals.v1` et les tickets du sprint. Aujourd'hui, Sprint Planning n'existe que dans les builds locaux `dist/` et les tests (`SPRINT_PLANNING_ENABLED`) ; il le reste jusqu'à la story 8.11. Décisions : [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md) ; écran : maquette v2.
 
-Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments et correctifs issus des premiers essais (8.12 à 8.25), et enfin essai réel et activation. Les numéros 8.12 à 8.24 se jouent avant 8.10 ; 8.25 se joue avant 8.11, avec l'essai séparé des Goals Atlassian ; 8.26 à 8.28, défauts du constat de 8.10, se jouent avant 8.11.
+Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments et correctifs issus des premiers essais (8.12 à 8.25), et enfin essai réel et activation. Les numéros 8.12 à 8.24 se jouent avant 8.10 ; 8.25 se joue avant 8.11, avec l'essai séparé des Goals Atlassian ; 8.26 à 8.28, défauts du constat de 8.10, et 8.29, même défaut côté board, se jouent avant 8.11.
 
 ### Story 8.1: Vérifier les contrats Atlassian du planning en direct
 
@@ -1189,3 +1189,27 @@ So that l'en-tête et les filtres restent à l'écran, y compris pendant un glis
 **Then** un contrôle en Chrome réel (banc fictif) mesure `document.scrollingElement.scrollHeight` égal à la hauteur de la fenêtre avec une sélection en bas de colonne
 
 *Notes :* essai 8.10 : annonces placées jusqu'à 3 526 px pour 691 visibles, vue défilée de 2 835 px pendant un glisser. `.visually-hidden` est en `position: absolute` (`app.css`) sans bloc conteneur dans `.planning-card` ni la colonne.
+
+### Story 8.29: Garder à sa place un ticket classé sur le board malgré le délai d'indexation de Jira
+
+*Type : bug, signalé par Denis le 03/11/2026 ; même cause que la 8.26 (constat de 8.10), côté Sprint Board.*
+
+As a membre de l'équipe qui réordonne les tickets sur le board,
+I want que la carte reste là où je l'ai posée,
+So that je n'aie pas à actualiser pour voir le rang que Jira a pourtant enregistré.
+
+**Acceptance Criteria:**
+
+**Given** un changement de rang sur le board (glisser dans une colonne, ou top / basse priorité du menu), E2 acceptée par Jira
+**When** la route des tickets du board relue juste après montre encore l'ancien ordre
+**Then** le board relit cet ordre à intervalles bornés (quelques secondes au total), sans jamais rejouer l'écriture, et ne se relit en entier qu'une fois le nouveau rang visible : la carte ne revient pas à sa position initiale
+
+**Given** le nouveau rang toujours absent à la fin des relectures
+**When** le geste se termine
+**Then** l'avis dit que Jira a reçu le classement sans le montrer encore et invite à actualiser ; le journal garde le classement comme réussi
+
+**Given** le correctif
+**When** il est vérifié
+**Then** un test de `core` simule une route en retard d'une ou plusieurs relectures (Scrum et Kanban), et un test du board vérifie une seule E2 et l'avis
+
+*Notes :* `#runMovement` (`src/app/model/BoardModel.ts`) relit le board (`sync`) aussitôt après `executeMove` (`src/core/boardMove.ts`) puis efface la projection : l'ordre relu, encore ancien, ramène la carte. Mêmes délais que la 8.26 (`READ_BACK_DELAYS_MS`). Les transitions sont confirmées par la lecture directe du ticket ; leur affichage après relecture reste à observer à l'essai sur le sandbox.
