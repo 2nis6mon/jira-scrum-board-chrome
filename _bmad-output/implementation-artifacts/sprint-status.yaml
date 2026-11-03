@@ -95,7 +95,7 @@ development_status:
   8-20-un-seul-en-tete-d-objectif-avec-une-barre-par-etat: done
   8-21-le-deja-livre-dans-la-partie-terminee-de-la-barre: done
   8-22-ne-plus-voir-les-tickets-termines-dans-ou-sont-les-tickets: done
-  8-23-ne-plus-voir-les-tickets-termines-du-sprint-en-preparation: review
+  8-23-ne-plus-voir-les-tickets-termines-du-sprint-en-preparation: done
   8-10-valider-le-sprint-planning-sur-un-vrai-jira: backlog
   8-11-activer-le-sprint-planning-dans-le-paquet: backlog
   epic-8-retrospective: optional
