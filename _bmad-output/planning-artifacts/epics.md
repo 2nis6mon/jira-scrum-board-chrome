@@ -578,7 +578,7 @@ So that leur origine est lisible.
 
 L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre. Chaque geste écrit aussitôt dans Jira, qui reste la seule source : la page se reconstruit à l'entrée depuis le texte de l'objectif du sprint, la propriété `sprintgoals.v1` et les tickets du sprint. Aujourd'hui, Sprint Planning n'existe que dans les builds locaux `dist/` et les tests (`SPRINT_PLANNING_ENABLED`) ; il le reste jusqu'à la story 8.11. Décisions : [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md) ; écran : maquette v2.
 
-Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments et correctifs issus des premiers essais (8.12 à 8.25), et enfin essai réel et activation. Les numéros 8.12 à 8.25 se jouent avant 8.10 et 8.11.
+Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments et correctifs issus des premiers essais (8.12 à 8.25), et enfin essai réel et activation. Les numéros 8.12 à 8.24 se jouent avant 8.10 ; 8.25 se joue avant 8.11, avec l'essai séparé des Goals Atlassian.
 
 ### Story 8.1: Vérifier les contrats Atlassian du planning en direct
 
@@ -741,8 +741,9 @@ So that son activation repose sur un constat.
 **Acceptance Criteria:**
 
 **Given** l'autorisation de Denis et un site Jira de test (NFR9)
-**When** un cycle complet est joué (clôture, report, objectifs, tickets venant de plusieurs sprints, déplacement groupé, retrait, vélocité, estimation, démarrage), avec et sans droit de gérer les sprints, sur un backlog volumineux
+**When** un cycle complet est joué (clôture, report, objectifs, tickets venant de plusieurs sprints, déplacement groupé, glisser avec défilement, menu de carte, retrait, filtres rapides, vélocité, estimation, avancement des objectifs, tickets terminés masqués, démarrage), avec et sans droit de gérer les sprints, sur un backlog volumineux, avec la version qui livre 8.24
 **Then** le constat est consigné, et chaque défaut devient une story ou un correctif ; la décision sur les droits est prise à partir de ce constat
+**And** chaque point noté « à constater en 8.10 » dans `docs/technique/` et `deferred-work.md` reçoit son constat ; les Goals Atlassian, hors de cet essai, sont consignés « non couverts »
 
 ### Story 8.11: Activer le Sprint Planning dans le paquet
 
