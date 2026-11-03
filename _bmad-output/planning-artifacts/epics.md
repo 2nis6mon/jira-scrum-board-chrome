@@ -578,7 +578,7 @@ So that leur origine est lisible.
 
 L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre. Chaque geste écrit aussitôt dans Jira, qui reste la seule source : la page se reconstruit à l'entrée depuis le texte de l'objectif du sprint, la propriété `sprintgoals.v1` et les tickets du sprint. Aujourd'hui, Sprint Planning n'existe que dans les builds locaux `dist/` et les tests (`SPRINT_PLANNING_ENABLED`) ; il le reste jusqu'à la story 8.11. Décisions : [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md) ; écran : maquette v2.
 
-Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments et correctifs issus des premiers essais (8.12 à 8.25), et enfin essai réel et activation. Les numéros 8.12 à 8.24 se jouent avant 8.10 ; 8.25 se joue avant 8.11, avec l'essai séparé des Goals Atlassian.
+Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments et correctifs issus des premiers essais (8.12 à 8.25), et enfin essai réel et activation. Les numéros 8.12 à 8.24 se jouent avant 8.10 ; 8.25 se joue avant 8.11, avec l'essai séparé des Goals Atlassian ; 8.26 à 8.28, défauts du constat de 8.10, se jouent avant 8.11.
 
 ### Story 8.1: Vérifier les contrats Atlassian du planning en direct
 
@@ -753,7 +753,7 @@ So that je planifie mes sprints sans build local.
 
 **Acceptance Criteria:**
 
-**Given** les stories 8.1 à 8.10 et 8.12 à 8.25 terminées et le constat de 8.10 favorable
+**Given** les stories 8.1 à 8.10 et 8.12 à 8.28 terminées et le constat de 8.10 favorable
 **When** le paquet est construit (`npm run package`)
 **Then** `SPRINT_PLANNING_ENABLED` vaut vrai dans le paquet, `npm run verify:planning:package` le vérifie, et AGENTS.md, le manuel, le CHANGELOG et les captures Store sont à jour
 
@@ -1117,3 +1117,75 @@ So that je ne perds pas de vue des objectifs que je n'ai jamais choisi de masque
 **Then** ce Goal n'est pas masqué, et un test le vérifie avec un lecteur bloqué (l'épinglage est relu dans `latest`, pas dans `configuration`)
 
 *Notes :* cause dans `BoardLoadingService.ts` : `knownGoalIds` contient les objectifs texte et `goalColorIndex`, donc la grâce de la première lecture est consommée par la lecture texte. Aucune écriture dans Jira ; les préférences restent locales.
+
+### Story 8.26: Confirmer un geste du planning malgré le délai d'indexation de Jira
+
+*Type : bug, constaté à l'essai réel 8.10 (03/11/2026), défaut D1.*
+
+As a membre de l'équipe qui ajoute, classe ou retire des tickets pendant la séance,
+I want que le planning reconnaisse un geste que Jira a bien appliqué,
+So that le ticket arrive sur l'objectif visé sans « Write not confirmed » ni « To redo » trompeur.
+
+**Acceptance Criteria:**
+
+**Given** une E9 (ajout au sprint, depuis le backlog ou un autre sprint futur, ticket ou lot), une E2 (top ou basse priorité) ou une E10 (retour au backlog) acceptée par Jira
+**When** la relecture par la route des tickets du board ne voit pas encore le changement
+**Then** le planning relit de nouveau, à intervalles bornés (quelques secondes au total), sans jamais rejouer l'écriture, et poursuit le geste (E5 du lien vers l'objectif, retrait du lien) dès que le changement est relu
+
+**Given** le changement toujours absent à la fin des relectures
+**When** le geste se termine
+**Then** l'avis dit que Jira a reçu l'écriture sans l'avoir encore relue, ne demande pas de refaire des tickets déjà ajoutés, et la page n'affiche jamais un ticket à deux endroits
+
+**Given** le correctif
+**When** il est vérifié
+**Then** un test de `core` simule une route en retard d'une ou deux relectures (ticket seul, lot dont un seul ticket est relu, rang, retour au backlog), et un essai sur le sandbox le confirme
+
+*Notes :* essai 8.10 : 7 gestes sur 7 annoncés « non confirmés » alors qu'appliqués (JQL) ; CLIENT-7122 visible ~0,9 s après la réponse de l'E9, CLIENT-3693 du même lot pas encore ; ensuite, ticket déposé sur un objectif arrivé « Sans objectif », lien périmé laissé dans `sprintgoals.v1` après un retrait (le ticket rendu sur C réapparaît sous B), ticket affiché dans le backlog et le sprint. Relecture unique dans `placePlanningIssue`, `placePlanningIssues` et voisines (`src/core/sprintPlanning.ts`) ; même famille que les relectures bornées de la clôture (8.18). L'estimation (E11) et les E5 seules ne sont pas touchées.
+
+### Story 8.27: Ouvrir et isoler les fenêtres natives de clôture et de démarrage sur un vrai Jira
+
+*Type : bug, constaté à l'essai réel 8.10 (03/11/2026), défauts D3 et D4.*
+
+As a membre de l'équipe qui clôture puis démarre un sprint depuis le planning,
+I want que seule la fenêtre de Jira s'affiche, puis que la popin se referme d'elle-même,
+So that je ne me retrouve ni devant la page backlog entière ni devant le board de Jira dans la popin.
+
+**Acceptance Criteria:**
+
+**Given** « Terminer » sur un vrai Jira, page backlog encore en cours de chargement
+**When** l'unique bouton « Complete sprint » est reconnu
+**Then** il n'est cliqué qu'une fois la page prête à l'ouvrir, et la fenêtre native s'ouvre seule (essai : le clic partait, aucune fenêtre ; repli manuel nécessaire)
+
+**Given** la fenêtre « Start Sprint » avec son bandeau d'avertissement (estimations manquantes)
+**When** elle s'ouvre
+**Then** elle est reconnue et isolée comme celle de clôture (essai : `fenêtre de sprint non reconnue, page rendue à l'utilisateur 1`)
+
+**Given** une clôture ou un démarrage validés dans la fenêtre
+**When** Jira navigue dans la popin (après « Start », board natif avec `?sprintStarted=true`)
+**Then** la popin se referme et la vue relit Jira, comme à la fermeture de la fenêtre
+
+**Given** le correctif
+**When** il est vérifié
+**Then** une seule tentative de clic reste la règle, le repli (page rendue) est conservé, et un essai sur le sandbox couvre clôture et démarrage
+
+*Notes :* traces de `injectBoard.ts` relevées par la console de la page hôte ; S13 dans `docs/technique/securite.md`. La fenêtre de clôture du sandbox propose par défaut un sprint d'un autre board et coche « Join Confluence now to create a sprint retrospective » : l'extension ne remplit rien, ces valeurs restent à l'utilisateur.
+
+### Story 8.28: Garder la vue du planning immobile quand des cartes lointaines sont sélectionnées
+
+*Type : bug, constaté à l'essai réel 8.10 (03/11/2026), défaut D2.*
+
+As a membre de l'équipe qui sélectionne des cartes bas dans « Où sont les tickets »,
+I want que seule la colonne défile,
+So that l'en-tête et les filtres restent à l'écran, y compris pendant un glisser.
+
+**Acceptance Criteria:**
+
+**Given** des cartes sélectionnées loin dans une colonne qui défile
+**When** la vue s'affiche ou qu'un glisser approche du bas de la fenêtre
+**Then** le document de la vue ne défile pas : l'annonce « Selected » (`.visually-hidden`) reste contenue dans sa carte
+
+**Given** le correctif
+**When** il est vérifié
+**Then** un contrôle en Chrome réel (banc fictif) mesure `document.scrollingElement.scrollHeight` égal à la hauteur de la fenêtre avec une sélection en bas de colonne
+
+*Notes :* essai 8.10 : annonces placées jusqu'à 3 526 px pour 691 visibles, vue défilée de 2 835 px pendant un glisser. `.visually-hidden` est en `position: absolute` (`app.css`) sans bloc conteneur dans `.planning-card` ni la colonne.

@@ -37,9 +37,6 @@
   summary: L'état terminé ou sous-tâche d'un ticket est jugé sur l'affichage, pas relu avant E9.
   evidence: placePlanningIssue relit sprints et sprint actif mais teste input.issue ; un ticket terminé entre l'affichage et le geste peut être ajouté (sévérité medium non vérifiée sur Jira réel).
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
-  summary: Chaque geste relit tout le planning (backlog paginé jusqu'à 5 000 tickets, tous les sprints) : risque de limitation de débit sur un gros board.
-  evidence: PlanningModel.#reread appelle loadSprintPlanning après chaque geste ; à mesurer lors de l'essai réel 8.10 (backlog volumineux).
-- source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
   summary: Seul le premier sprint actif peut être clôturé depuis le planning (sprints parallèles).
   evidence: PlanningModel.activeSprint = activeSprints[0] ; la colonne de gauche les liste tous.
   status: couvert par la story 8.18 (0.42.1) : « Clôturer un sprint » propose chaque sprint actif ; fenêtre et report du sprint choisi.
@@ -51,22 +48,17 @@
   evidence: carryOverGoals ignore loaded.warnings ; à décider (refuser ou avertir).
   status: couvert par la story 8.18 (0.42.1) : le compte rendu du report signale la lecture incomplète (avertir, sans refuser).
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
-  summary: Relecture de l'état du sprint juste après la fenêtre native sans délai : un Jira lent à refléter la clôture ferait annoncer « toujours actif » (non vérifié).
-  evidence: maybe-false, medium ; à constater lors de l'essai réel 8.10.
-  status: couvert par la story 8.18 (0.42.1) : relectures à 0, 1, 3, 6 et 10 s ; le délai réel reste à constater en 8.10.
-- source_spec: `_bmad-output/implementation-artifacts/spec-8-2-a-8-9-planning-en-direct.md`
   summary: La fermeture de la fenêtre native est détectée sur sa disparition ; un remontage du dialogue par Jira pourrait fermer la popin trop tôt (non vérifié).
   evidence: maybe-false, medium ; monitorClosure dans injectBoard.ts, à constater en 8.10.
-  status: couvert par la story 8.18 (0.42.1) : une seule nouvelle fenêtre extérieure (remontée ou fenêtre de suite) est suivie ; à constater en 8.10.
+  status: couvert par la story 8.18 (0.42.1) : une seule nouvelle fenêtre extérieure (remontée ou fenêtre de suite) est suivie. Constat 8.10 (03/11/2026) : clôture conforme (popin refermée seule) ; au démarrage, Jira navigue vers son board dans la popin, qui reste ouverte : story 8.27.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-18-cloturer-le-bon-sprint.md`
   summary: Une clôture que Jira enregistre après la dernière relecture (10 s) laisse le compte rendu « toujours actif » et aucun report n'est possible depuis le planning.
   evidence: medium ; PlanningModel.#verifyClosure s'arrête à CLOSURE_CHECKS_MS, la relecture finale retire le sprint des actifs et le bouton de clôture disparaît. Délai réel à mesurer en 8.10 ; une relance manuelle explicite reste à décider.
-- source_spec: `_bmad-output/implementation-artifacts/spec-8-18-cloturer-le-bon-sprint.md`
-  summary: Pour terminer, un seul bouton visible non nommé est cliqué même si sa ligne porte un autre sprint ; avec plusieurs sprints actifs, la fenêtre d'un autre sprint pourrait s'ouvrir.
-  evidence: maybe-false, medium non vérifié ; sprintButtonChoice (injectBoard.ts) accepte `candidates.length === 1` pour `complete`. À constater en 8.10 : la ligne du backlog Jira porte-t-elle le nom du sprint autour de « Terminer le sprint » ?
+  status: délai constaté en 8.10 : sprint lu `closed` 6,1 s après la validation de la fenêtre, dans les 10 s ; la relance manuelle reste à décider.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-18-cloturer-le-bon-sprint.md`
   summary: La popin se ferme si la fenêtre de suite de Jira (rétrospective, Confluence) apparaît plus de 600 ms après la clôture ou si plusieurs fenêtres naissent ensemble ; à l'inverse une fenêtre Jira persistante née après le clic serait suivie sans fin.
   evidence: maybe-false, medium non vérifié ; monitorClosure adopte une seule nouvelle fenêtre extérieure, délai de 600 ms. À constater en 8.10 sur la vraie fenêtre de suite.
+  status: non observé en 8.10 : « Join Confluence » décoché sur décision de Denis, aucune fenêtre de suite ; reste à constater avec la case cochée.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-18-cloturer-le-bon-sprint.md`
   summary: « Démarrer » reste désactivé tant qu'un sprint est actif, même sur un board à sprints parallèles où Jira le permet, et son message est au singulier.
   evidence: medium ; startDisabledReason teste `activeSprints.length > 0` (règle antérieure à 8.18). Décision produit à prendre sur le démarrage avec sprints parallèles.
@@ -77,6 +69,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-15-deplacer-plusieurs-tickets.md`
   summary: Un ticket sélectionné puis masqué par un filtre reste dans la sélection et part avec le lot.
   evidence: medium non vérifié en usage ; le compteur de la barre montre le nombre réel. À constater en 8.10 : faut-il élaguer la sélection aux cartes visibles ?
+  status: constaté en 8.10 : CLIENT-5303, masqué par le filtre WEB, est parti avec CLIENT-6566 ; décision à prendre (backlog.md).
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-24-defiler-pendant-le-glisser.md`
   summary: Pendant un glisser, quitter une swimlane survolée retire son message « Rattacher à cet objectif » et décale la mise en page sous le pointeur.
   evidence: banc `verify:drag` de la 8.24 à 800 px — après survol d'autres swimlanes, le dépôt visé tombait sur un en-tête de swimlane décalé de 34 px ; antérieur à la 8.24, contourné dans le banc par un premier survol de la destination.

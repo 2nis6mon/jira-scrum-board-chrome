@@ -35,7 +35,25 @@ Depuis le 01/11/2026, le planning se fait en direct dans Jira, clôture et déma
 natives compris ([décisions](../forge/sprint-planning-complet/forged-idea.md)). La création de sprint
 et la création de Goals restent hors périmètre. Livré en 0.42.0 (stories 8.1 à 8.9), toujours désactivé
 dans le paquet ; contrats dans [intégration Jira](../../docs/technique/integration-jira.md).
-Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l'activation (8.11).
+Essai réel 8.10 joué le 03/11/2026 sur le sandbox (board 3013, constat dans
+[la spec 8.10](../implementation-artifacts/spec-8-10-valider-le-sprint-planning-sur-un-vrai-jira.md)) :
+défauts D1 à D4 planifiés en stories 8.26 à 8.28 ; restent ces stories, 8.25, l'essai des Goals
+Atlassian et la décision sur les droits, puis l'activation (8.11).
+
+- [ ] À décider (essai 8.10, 03/11/2026) : droits du planning. Partie sans droit non jouée (compte
+  administrateur du sandbox) ; seul le cas avec droit est constaté. Décider entre lecture seule
+  annoncée à l'ouverture et découverte au premier refus, ou rejouer l'étape 8 avec un compte sans
+  « Gérer les sprints » ni administration.
+- [ ] À décider (essai 8.10) : un ticket sélectionné puis masqué par un filtre part avec le lot,
+  sans autre signal que le compteur « 2 issues selected » (constaté : CLIENT-5303 ajouté au sprint
+  avec CLIENT-6566). Élaguer la sélection aux cartes visibles, ou l'annoncer avant le geste.
+- [ ] À investiguer (essai 8.10) : sur le Sprint Board, la barre latérale range les objectifs reportés
+  avant ceux créés au planning, contrairement à l'ordre de `goal` et `sprintgoals.v1`, et Goal 1 y
+  compte 0/5 contre 3 tickets dans le planning. Le compte rendu de clôture reste aussi affiché au-dessus
+  d'un autre sprint préparé après le démarrage.
+- [ ] Optimisation (essai 8.10) : chaque relecture du planning lit deux fois les tickets des sprints
+  futurs d'autres boards (menu des sprints, puis planning). Coût relevé : 18 à 24 requêtes par geste,
+  32 à 37 par actualisation, sans limitation de débit observée sur un backlog de 255 tickets.
 
 - [x] Bug (signalé par Denis, 02/11/2026) : un sprint vide qui n'appartient pas au board apparaît dans
   le Sprint Planning. On sait qu'il n'est pas au board par son `originBoardId` (API Agile). Décision :
@@ -59,7 +77,8 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   affiché au premier geste. Même règle pour les autres sprints futurs de la colonne de gauche, les cibles
   « Vers {sprint} » et les sprints actifs proposés à la clôture. À rapprocher de la décision sur les
   droits (8.10). Corrigé en 0.43.1 (contrats vérifiés dans l'OpenAPI, lectures seules), sur Jira
-  fictif ; à confirmer sur un vrai Jira en 8.10.
+  fictif. Essai 8.10 (03/11/2026) : menu conforme pour un administrateur (sprints du board et 2024T1.1
+  du board 2753 proposés, 3334 et 3707 écartés) ; cas sans droit non joué.
 - [x] Bug (essai du 02/11/2026) : après le démarrage du sprint préparé, ses nouveaux objectifs
   arrivent masqués (œil fermé) sur le Sprint Board. Cause : `BoardLoadingService.ts` masque, après
   la première lecture, tout objectif inconnu (absent de `goalColorIndex` et de la lecture
@@ -130,5 +149,5 @@ Restent l'essai sur un vrai Jira avec la décision sur les droits (8.10), puis l
   Investigué le 02/11/2026 : la base de connaissances Atlassian confirme que le backlog Jira masque
   les statuts de la colonne la plus à droite (filtre de l'écran, pas de la lecture). Décision de Denis :
   ne plus voir ces tickets, backlog et sprints futurs compris. Corrigé en 0.47.1 (story 8.22), sur
-  Jira fictif ; à confirmer sur un vrai Jira en 8.10. Essai sur le sandbox (02/11/2026) : décision de
+  Jira fictif ; confirmé en 8.10 (backlog de 255 tickets, 99 affichés comme dans Jira). Essai sur le sandbox (02/11/2026) : décision de
   Denis de les masquer aussi du sprint en préparation, ni affichés ni comptés (story 8.23, 0.48.4).
