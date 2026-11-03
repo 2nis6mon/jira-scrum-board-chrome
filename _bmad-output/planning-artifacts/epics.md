@@ -1086,7 +1086,7 @@ So that j'atteins un objectif qui est hors de l'écran.
 
 **Given** le Sprint Planning (`.planning-lanes`, `.planning-sources`)
 **When** je glisse une ou plusieurs cartes
-**Then** la zone survolée défile de la même façon, et la molette la fait défiler pendant le glisser
+**Then** la zone survolée défile de la même façon
 
 **Given** le correctif
 **When** il est vérifié
