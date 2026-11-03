@@ -15,6 +15,7 @@ import {
   withTextGoalLink,
 } from "./boardWrites";
 import { columnStates } from "./columnState";
+import { type ReadBackWait, readBack } from "./readBack";
 import { CoreError, type PlanningRefusal } from "./reasons";
 import {
   isVelocity,
@@ -46,36 +47,9 @@ export type PlanningReader = Pick<
 export type EstimateReader = Pick<JiraClient, "issueEstimation">;
 export type PlanningWriter = JiraWriter;
 export type PlanningGoalLinks = Pick<GoalsClient, "setLink">;
-/** Attente entre deux relectures, injectée : `core` n'a pas de minuterie. */
-export type PlanningWait = (ms: number) => Promise<void>;
-
-/**
- * Délais entre les relectures qui confirment une E9, une E2 ou une E10 (constat 8.10 : les routes
- * des tickets du board montrent l'écriture avec ~1 s de retard, variable d'un ticket à l'autre).
- * Cinq lectures au plus, ~5,5 s d'attente en tout ; jamais d'écriture rejouée.
- */
-export const READ_BACK_DELAYS_MS: readonly number[] = [500, 1000, 1500, 2500];
-
-/** Sans attente injectée, les relectures s'enchaînent sans délai. */
-const NO_WAIT: PlanningWait = () => Promise.resolve();
-
-/**
- * Relit Jira jusqu'à voir le changement (`seen`), au plus une fois après chaque délai de
- * `READ_BACK_DELAYS_MS` ; rend la dernière lecture, vue ou non. Une lecture en échec arrête tout.
- */
-async function readBack<T>(
-  read: () => Promise<T>,
-  seen: (value: T) => boolean,
-  wait: PlanningWait = NO_WAIT,
-): Promise<T> {
-  let value = await read();
-  for (const delay of READ_BACK_DELAYS_MS) {
-    if (seen(value)) return value;
-    await wait(delay);
-    value = await read();
-  }
-  return value;
-}
+/** Attente entre deux relectures qui confirment une E9, une E2 ou une E10 (story 8.26). */
+export type PlanningWait = ReadBackWait;
+export { READ_BACK_DELAYS_MS } from "./readBack";
 
 /** Étape confirmée par une relecture de Jira. */
 export type PlanningStep =

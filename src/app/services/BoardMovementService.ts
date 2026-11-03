@@ -4,6 +4,8 @@ import {
   executeMove,
   type GoalStepResult,
   type MoveStep,
+  type OrderReader,
+  type OrderScope,
   type RankStepResult,
   type TransitionStepResult,
 } from "../../core/boardMove";
@@ -31,6 +33,8 @@ export interface BoardMovementEffects {
   record: RecordWrite;
   openNative(key: string, transition: JiraTransition): boolean;
   sync(): Promise<void>;
+  /** Attente entre deux relectures de l'ordre après un rang (story 8.29). */
+  wait(ms: number): Promise<void>;
 }
 /** Cible d'une entrée du journal : contenu Jira brut, ou message de l'extension. */
 type AuditTarget = Pick<AuditEntry, "to" | "toMessage">;
@@ -49,6 +53,8 @@ export interface MovementCommand {
   selection?: TransitionSelection;
   plan: BoardDropPlan;
   rank: RankChange;
+  /** Route où confirmer le rang (story 8.29). */
+  orderScope: OrderScope;
 }
 /**
  * Déclenche le déplacement (`core/boardMove.ts` porte l'ordre transition → Goal → rang) et
@@ -56,16 +62,20 @@ export interface MovementCommand {
  * par la porte du board, pour la seule durée du geste.
  */
 export class BoardMovementService {
-  readonly #reader: WriteReader;
+  readonly #reader: WriteReader & OrderReader;
   readonly #state: BoardMovementState;
   readonly #effects: BoardMovementEffects;
-  constructor(reader: WriteReader, state: BoardMovementState, effects: BoardMovementEffects) {
+  constructor(
+    reader: WriteReader & OrderReader,
+    state: BoardMovementState,
+    effects: BoardMovementEffects,
+  ) {
     this.#reader = reader;
     this.#state = state;
     this.#effects = effects;
   }
   async execute(command: MovementCommand, access: BoardWriteAccess): Promise<boolean> {
-    const { issue, snapshot, column, drop, selection, plan, rank } = command;
+    const { issue, snapshot, column, drop, selection, plan, rank, orderScope } = command;
     if (
       plan.changesColumn &&
       drop.targetStatusId &&
@@ -74,7 +84,12 @@ export class BoardMovementService {
       return false;
     // La séquence et l'arrêt au premier échec sont portés par `core` ; ici, avis et journal.
     const result = await executeMove(
-      { reader: this.#reader, writer: access.writer, goals: access.goals },
+      {
+        reader: this.#reader,
+        writer: access.writer,
+        goals: access.goals,
+        order: { reader: this.#reader, wait: (ms) => this.#effects.wait(ms) },
+      },
       {
         issue,
         snapshot,
@@ -87,6 +102,7 @@ export class BoardMovementService {
           : null,
         ...(plan.goalChange.kind === "assign" ? { goal: { goalId: plan.goalChange.goalId } } : {}),
         rank,
+        orderScope,
         now: this.#effects.now(),
       },
     );
@@ -366,7 +382,17 @@ export class BoardMovementService {
         : change.kind === "after"
           ? { to: null, toMessage: message("après {p0}", { p0: change.issueKey }) }
           : { to: null };
-    if (step.kind === "ranked") {
+    if (step.kind === "ranked" || step.kind === "unseen") {
+      // E2 acceptée : écrite, même si Jira ne la montre pas encore (story 8.29).
+      if (step.kind === "unseen")
+        this.#state.writeNotice.value = {
+          tone: "warning",
+          text: `Jira a reçu le classement de ${issueKey}, mais ne le montre pas encore à sa nouvelle place.`,
+          suggestion:
+            "Actualisez le board dans quelques instants. Aucune écriture n’a été rejouée.",
+          sessionLost: false,
+          issueKey,
+        };
       await this.#effects.record({
         action: "classement",
         issueKey,

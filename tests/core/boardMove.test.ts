@@ -326,3 +326,121 @@ describe("changeAtlassianGoal", () => {
     expect(same.calls).toEqual([]);
   });
 });
+
+// ─── Confirmation du rang malgré le délai d'indexation (story 8.29) ──────────
+
+describe("executeMove : confirmation du rang (story 8.29)", () => {
+  /**
+   * Route des tickets FICTIVE : l'ancien ordre pendant `lag` attentes, puis le nouveau. `fail` :
+   * lecture en échec. Les appels sont notés par route.
+   */
+  function orderRoute(options: {
+    before: readonly string[];
+    after: readonly string[];
+    lag: number;
+    fail?: boolean;
+  }) {
+    let clock = 0;
+    const waits: number[] = [];
+    const reads: string[] = [];
+    const keys = () => (clock >= options.lag ? options.after : options.before);
+    const asIssues = () => keys().map((key) => ({ key })) as never;
+    const order: NonNullable<MovePorts["order"]> = {
+      reader: {
+        sprintIssues: async (_board, sprintId, query) => {
+          reads.push(`sprint ${sprintId} ${query.onlyFields?.join(",")}`);
+          if (options.fail) throw new JiraError({ kind: "timeout" });
+          return asIssues();
+        },
+        boardIssues: async (_board, jql) => {
+          reads.push(`board ${jql}`);
+          return asIssues();
+        },
+      },
+      wait: async (ms) => {
+        waits.push(ms);
+        clock += 1;
+      },
+    };
+    return { order, waits, reads };
+  }
+  const rankMove = (
+    setup: ReturnType<typeof ports>,
+    route: ReturnType<typeof orderRoute>,
+    options: { rank?: RankChange; sprintId?: number | null } = {},
+  ) =>
+    executeMove(
+      { ...setup.ports, order: route.order },
+      {
+        issue: { ...issue(), sprintId: options.sprintId === undefined ? 42 : options.sprintId },
+        snapshot: snapshot("atlassianGoals"),
+        transition: null,
+        rank: options.rank ?? { kind: "before", issueKey: "ABC-2" },
+        orderScope: { boardId: 7, kanbanSubQuery: "labels = flux" },
+        now: NOW,
+      },
+    );
+
+  it("ancien ordre relu, puis le nouveau : une seule E2, une attente, rang confirmé", async () => {
+    const setup = ports({});
+    const route = orderRoute({ before: ["ABC-2", "ABC-1"], after: ["ABC-1", "ABC-2"], lag: 1 });
+    const result = await rankMove(setup, route);
+    expect(result.rank).toEqual({ kind: "ranked" });
+    expect(result.completed).toEqual(["rank"]);
+    expect(setup.writes.map((write) => write.kind)).toEqual(["issue.rank"]);
+    expect(route.waits).toEqual([500]);
+    // Lecture légère de la route du sprint du ticket.
+    expect(route.reads).toEqual(["sprint 42 issuetype,status", "sprint 42 issuetype,status"]);
+  });
+
+  it("après la référence : l'ordre attendu est inversé", async () => {
+    const setup = ports({});
+    const route = orderRoute({ before: ["ABC-1", "ABC-2"], after: ["ABC-2", "ABC-1"], lag: 2 });
+    const result = await rankMove(setup, route, { rank: { kind: "after", issueKey: "ABC-2" } });
+    expect(result.rank).toEqual({ kind: "ranked" });
+    expect(route.waits).toEqual([500, 1000]);
+  });
+
+  it("Kanban (ticket sans sprint) : confirmation par la route des tickets du board", async () => {
+    const setup = ports({});
+    const route = orderRoute({ before: ["ABC-2", "ABC-1"], after: ["ABC-1", "ABC-2"], lag: 1 });
+    const result = await rankMove(setup, route, { sprintId: null });
+    expect(result.rank).toEqual({ kind: "ranked" });
+    expect(route.reads).toEqual(["board labels = flux", "board labels = flux"]);
+  });
+
+  it("rang jamais relu : écrit mais pas encore visible, relectures bornées, aucune E2 rejouée", async () => {
+    const setup = ports({});
+    const route = orderRoute({ before: ["ABC-2", "ABC-1"], after: ["ABC-1", "ABC-2"], lag: 99 });
+    const result = await rankMove(setup, route);
+    expect(result.rank).toEqual({ kind: "unseen" });
+    expect(result.completed).toEqual(["rank"]);
+    expect(setup.writes).toHaveLength(1);
+    expect(route.waits).toEqual([500, 1000, 1500, 2500]);
+  });
+
+  it("indécidable (référence absente de la route) : aucune attente, rang tenu pour confirmé", async () => {
+    const setup = ports({});
+    const route = orderRoute({ before: ["ABC-1", "ABC-9"], after: ["ABC-1", "ABC-9"], lag: 99 });
+    const result = await rankMove(setup, route);
+    expect(result.rank).toEqual({ kind: "ranked" });
+    expect(route.waits).toEqual([]);
+  });
+
+  it("lecture de confirmation en échec : rang gardé comme écrit, aucune attente", async () => {
+    const setup = ports({});
+    const route = orderRoute({ before: [], after: [], lag: 0, fail: true });
+    const result = await rankMove(setup, route);
+    expect(result.rank).toEqual({ kind: "ranked" });
+    expect(setup.writes).toHaveLength(1);
+    expect(route.waits).toEqual([]);
+  });
+
+  it("E2 refusée : aucune relecture de confirmation", async () => {
+    const setup = ports({ rankFails: true });
+    const route = orderRoute({ before: ["ABC-2", "ABC-1"], after: ["ABC-1", "ABC-2"], lag: 0 });
+    const result = await rankMove(setup, route);
+    expect(result.rank?.kind).toBe("failed");
+    expect(route.reads).toEqual([]);
+  });
+});

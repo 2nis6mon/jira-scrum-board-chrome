@@ -91,6 +91,9 @@ function movement(hasScreen = false) {
     issueStatus: vi.fn(async () => raw.fields.status),
     transitions: vi.fn(async () => [transition]),
     sprintProperty: vi.fn(async () => null),
+    // Ordre relu après le rang (story 8.29) : ABC-1 déjà avant ABC-2.
+    sprintIssues: vi.fn(async () => [{ key: "ABC-1" }, { key: "ABC-2" }] as never),
+    boardIssues: vi.fn(async () => [] as never),
   };
   const order: string[] = [];
   const writer: JiraWriter = {
@@ -117,6 +120,7 @@ function movement(hasScreen = false) {
     record,
     openNative,
     sync: async () => {},
+    wait: async () => {},
   });
   const command: MovementCommand = {
     issue,
@@ -130,6 +134,7 @@ function movement(hasScreen = false) {
     },
     plan: { changesColumn: true, goalChange: { kind: "assign", goalId: "new" } },
     rank: { kind: "before", issueKey: "ABC-2" },
+    orderScope: { boardId: 7, kanbanSubQuery: null },
   };
   return { service, command, writer, goals, state, record, openNative, order };
 }

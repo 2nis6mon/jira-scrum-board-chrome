@@ -4,7 +4,7 @@ import { BUILD_BLOCK, goalBlock } from "../../src/core/boardBlocks";
 import { encodeTeamDocument, type TeamDocument, teamSettingsOf } from "../../src/core/teamSettings";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { BOARD_PROPERTY_KEYS } from "../../src/jira/writes";
-import { BOARD_URL, boardSiteJira, SPRINT_ISSUES } from "../support/boardFixture";
+import { BOARD_URL, boardSiteJira, rankIssues, SPRINT_ISSUES } from "../support/boardFixture";
 import { isWriteRequest, type Reply } from "../support/fakeJira";
 import { fakePlatform } from "../support/fakePlatform";
 import { type FakeGoal, goalsGateway } from "../support/goalsGateway";
@@ -412,15 +412,14 @@ describe("BoardModel — Kanban sans sprint", () => {
 
   it("rang dans Build : une écriture de rang sans sprint", async () => {
     const { board, jira } = await kanbanBoard();
-    jira.on("PUT", "/rest/agile/1.0/issue/rank", { status: 204 });
-    // Deux cartes sans Goal dans la même colonne.
-    jira.on("GET", "/rest/agile/1.0/board/7/issue", {
-      status: 200,
-      json: {
-        issues: [SPRINT_ISSUES[4], { ...SPRINT_ISSUES[4], id: "ABC-106", key: "ABC-106" }],
-        total: 2,
-      },
-    });
+    // Deux cartes sans Goal dans la même colonne ; le rang est appliqué comme Jira.
+    const issues = [SPRINT_ISSUES[4], { ...SPRINT_ISSUES[4], id: "ABC-106", key: "ABC-106" }];
+    jira
+      .on("PUT", "/rest/agile/1.0/issue/rank", rankIssues(issues))
+      .on("GET", "/rest/agile/1.0/board/7/issue", {
+        status: 200,
+        json: { issues, total: issues.length },
+      });
     await board.sync();
     await board.dropIssue({
       issueKey: "ABC-106",

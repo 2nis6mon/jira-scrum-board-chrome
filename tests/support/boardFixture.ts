@@ -95,6 +95,31 @@ export const CORS_REFUSAL: Reply = {
   headers: { "Content-Type": "application/json", "X-Failure-Category": "FAILURE_CLIENT_CORS" },
 };
 
+/**
+ * Rang du board (E2) appliqué comme Jira, en place : le ticket passe avant ou après sa référence.
+ * Les routes qui servent `issues` relisent donc le nouvel ordre (story 8.29).
+ */
+export function rankIssues(issues: unknown[]): (request: RecordedRequest) => Reply {
+  return (request) => {
+    const body = request.body as {
+      issues?: string[];
+      rankBeforeIssue?: string;
+      rankAfterIssue?: string;
+    } | null;
+    const keyOf = (issue: unknown) => (issue as { key?: unknown } | null)?.key;
+    for (const key of body?.issues ?? []) {
+      const from = issues.findIndex((issue) => keyOf(issue) === key);
+      if (from < 0) continue;
+      const [moved] = issues.splice(from, 1);
+      const reference = body?.rankBeforeIssue ?? body?.rankAfterIssue;
+      const at = issues.findIndex((issue) => keyOf(issue) === reference);
+      if (at < 0) issues.splice(from, 0, moved);
+      else issues.splice(body?.rankBeforeIssue !== undefined ? at : at + 1, 0, moved);
+    }
+    return { status: 204 };
+  };
+}
+
 export function boardSiteJira(
   options: {
     sprintIssues?: unknown[];
@@ -106,7 +131,8 @@ export function boardSiteJira(
     canEdit?: boolean | null;
   } = {},
 ) {
-  const issues = options.sprintIssues ?? SPRINT_ISSUES;
+  // Copie : le rang du board réordonne cette liste en place.
+  const issues = [...(options.sprintIssues ?? SPRINT_ISSUES)];
   const property = `/rest/agile/1.0/board/7/properties/${BOARD_PROPERTY_KEYS.teamSettings}`;
   // Propriété des réglages d'équipe tenue comme dans Jira : ce qui est écrit est relu ensuite.
   let teamDocument: unknown = null;
@@ -129,6 +155,7 @@ export function boardSiteJira(
         return { status: 200, json: teamDocument };
       })
       .on("POST", "/gateway/api/graphql", options.graphql ?? CORS_REFUSAL)
+      .on("PUT", "/rest/agile/1.0/issue/rank", rankIssues(issues))
       .on(
         "GET",
         "/rest/api/3/myself",

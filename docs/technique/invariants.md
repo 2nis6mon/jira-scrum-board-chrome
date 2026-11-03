@@ -196,8 +196,10 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   dans une colonne conservent leurs zones de dépôt et, si nécessaire, un choix par statut.
   Cet ordre de présentation est documenté ; l'API ne garantit pas le défaut interne du board natif.
   Aucun réglage administratif supplémentaire. Ordre : **transition → Goal → rang**.
-  Arrêt au premier échec, réussite partielle indiquée, aucun rollback automatique. Cette séquence
-  (et détacher → lier pour un Goal Atlassian) est portée par `core/boardMove.ts` ; la publication
+  Arrêt au premier échec, réussite partielle indiquée, aucun rollback automatique. Une E2 acceptée
+  est relue par la route des tickets du board jusqu'à voir le nouvel ordre (relecture bornée de la
+  8.26, story 8.29) avant la relecture du board ; jamais relue : avis « Jira a reçu le classement… ».
+  Cette séquence (et détacher → lier pour un Goal Atlassian) est portée par `core/boardMove.ts` ; la publication
   des réglages partagés relit `boardsettings.v1` par `saveTeamSettings` (`core/teamSettings.ts`).
   Déplacement, rattachement, réglages, épinglage et publication du planning passent par la seule
   porte d'écriture du board (`app/model/BoardWriteGate.ts`) : un geste attend la fin du précédent ;

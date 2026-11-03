@@ -404,6 +404,10 @@ export const businessMessagesEs = {
     "{p0} ha cambiado en Jira: su estado ahora es «{p1}».",
   "L'affichage a été relu dans Jira. Relancez le déplacement si besoin.":
     "La vista se ha vuelto a cargar desde Jira. Repite el movimiento si es necesario.",
+  "Jira a reçu le classement de {p0}, mais ne le montre pas encore à sa nouvelle place.":
+    "Jira ha recibido la clasificación de {p0}, pero todavía no la muestra en su nuevo lugar.",
+  "Actualisez le board dans quelques instants. Aucune écriture n’a été rejouée.":
+    "Actualiza el board dentro de unos instantes. No se ha repetido ninguna escritura.",
   "conflit : statut modifié dans Jira": "conflicto: estado cambiado en Jira",
   "Ce ticket a été modifié par quelqu'un d'autre depuis le chargement.":
     "Otra persona ha modificado esta incidencia desde la carga.",

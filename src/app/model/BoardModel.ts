@@ -16,6 +16,7 @@ import {
 } from "../../core/boardConfiguration";
 import { allIssues, type BoardSnapshot, findIssue } from "../../core/boardIssue";
 import { buildBoardLayout, filterOptions } from "../../core/boardLayout";
+import type { OrderScope } from "../../core/boardMove";
 import {
   laneOrder,
   withAllBlocksCollapsed,
@@ -130,6 +131,8 @@ export interface BoardModelOptions {
   readonly loadDiagnostics?: LoadDiagnostics;
   readonly now?: () => Date;
   readonly audit?: AuditLog;
+  /** Attente entre deux relectures de Jira après une écriture ; `setTimeout` par défaut. */
+  readonly wait?: (ms: number) => Promise<void>;
 }
 
 /** Board du site connecté : configuration, synchronisation et gestes de l’utilisateur. */
@@ -359,6 +362,7 @@ export class BoardModel {
   readonly #client: JiraClient;
   readonly #goals: GoalsClient;
   readonly #now: () => Date;
+  readonly #wait: (ms: number) => Promise<void>;
   readonly #settings: BoardSettingsService;
   readonly #loading: BoardLoadingService;
   readonly #movements: BoardMovementService;
@@ -381,6 +385,7 @@ export class BoardModel {
     this.site = site;
     this.#platform = platform;
     this.#now = options.now ?? (() => new Date());
+    this.#wait = options.wait ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     this.audit = options.audit ?? new AuditLog(platform.store);
     this.loadDiagnostics = options.loadDiagnostics ?? new LoadDiagnostics(platform);
     const transport = new JiraTransport({
@@ -416,7 +421,7 @@ export class BoardModel {
       goals: this.#goals,
       write: (task) => this.#gate.run(task),
       record: (entry) => this.#record(entry),
-      wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      wait: (ms) => this.#wait(ms),
       jiraQuickFilters: () => this.jiraQuickFilters.value,
     });
     this.images = new ImageCache((url) => transport.fetchImage(url));
@@ -490,6 +495,7 @@ export class BoardModel {
         record: (entry) => this.#record(entry),
         openNative: (key, transition) => this.nativeTransitionHandler?.(key, transition) ?? false,
         sync: () => this.sync(),
+        wait: (ms) => this.#wait(ms),
       },
     );
   }
@@ -1063,7 +1069,16 @@ export class BoardModel {
         : this.#rankFor(input, column.id);
     if (isNoOpDrop(plan) && rank.kind === "none") return;
     await this.#runMovement(
-      { issue, snapshot, column, drop: input, ...(selection ? { selection } : {}), plan, rank },
+      {
+        issue,
+        snapshot,
+        column,
+        drop: input,
+        ...(selection ? { selection } : {}),
+        plan,
+        rank,
+        orderScope: orderScope(configuration),
+      },
       { issue, block: input.block, columnId: input.columnId, beforeKey: input.beforeKey },
     );
   }
@@ -1185,6 +1200,7 @@ export class BoardModel {
         drop: { issueKey, block, columnId, beforeKey },
         plan: { goalChange: { kind: "none" }, changesColumn: false },
         rank: result.change,
+        orderScope: orderScope(configuration),
       },
       { issue, block, columnId, beforeKey },
     );
@@ -1726,4 +1742,9 @@ function sameIds(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
 
 function sameIdOrder(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((id, index) => id === b[index]);
+}
+
+/** Route où confirmer un rang : celle que le board relit (story 8.29). */
+function orderScope(configuration: BoardConfiguration): OrderScope {
+  return { boardId: configuration.boardId, kanbanSubQuery: configuration.kanbanSubQuery };
 }

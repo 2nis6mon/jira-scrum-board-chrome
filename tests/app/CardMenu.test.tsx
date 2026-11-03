@@ -462,8 +462,7 @@ describe("menu d'une carte — top et basse priorité", () => {
   });
 
   it("au clavier : Flèche bas puis Entrée classe en tête, focus rendu à la carte", async () => {
-    const { jira, writes } = await connectedBoard();
-    jira.on("PUT", RANK, { status: 204 });
+    const { writes } = await connectedBoard();
     card("ABC-102").focus();
     press("F10", { shiftKey: true });
     await settle();

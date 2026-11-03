@@ -1,3 +1,4 @@
+import type { JiraClient } from "../jira/client";
 import type { GoalsClient } from "../jira/goals";
 import { type BoardIssue, type BoardSnapshot, goalsOfSprint, textLinkSprintId } from "./boardIssue";
 import {
@@ -10,6 +11,7 @@ import {
   type WriteReader,
 } from "./boardWrites";
 import type { RankChange } from "./dropPlan";
+import { type ReadBackWait, readBack } from "./readBack";
 
 // Intentions d'écriture du board (AD-2) : chaque séquence est portée ici, une seule fois. Les
 // services déclenchent sur geste, journalisent et traduisent le résultat typé en avis.
@@ -73,7 +75,14 @@ export type GoalStepResult =
   | { origin: "atlassianGoals"; outcome: AtlassianGoalOutcome }
   | { origin: "text"; outcome: TextGoalOutcome };
 
-export type RankStepResult = { kind: "ranked" } | { kind: "failed"; error: unknown };
+export type RankStepResult =
+  | { kind: "ranked" }
+  /**
+   * E2 acceptée par Jira, mais nouvel ordre toujours absent de la route des tickets au terme des
+   * relectures bornées (story 8.29) : le rang est écrit, l'affichage de Jira ne le montre pas encore.
+   */
+  | { kind: "unseen" }
+  | { kind: "failed"; error: unknown };
 
 export interface MoveResult {
   /** Étapes abouties, dans l'ordre d'exécution. La première non aboutie arrête la séquence. */
@@ -87,6 +96,20 @@ export interface MovePorts {
   reader: WriteReader;
   writer: JiraWriter;
   goals: Pick<GoalsClient, "setLink">;
+  /**
+   * Confirmation du rang (story 8.29) : routes des tickets lues par le board, et attente entre deux
+   * relectures. Sans elle, le rang accepté par Jira est tenu pour confirmé.
+   */
+  order?: { readonly reader: OrderReader; readonly wait?: ReadBackWait };
+}
+
+/** Routes des tickets du board, dans l'ordre de Jira : sprint (Scrum) ou board (Kanban). */
+export type OrderReader = Pick<JiraClient, "sprintIssues" | "boardIssues">;
+
+/** Route où relire l'ordre : `boardId` et sous-filtre Kanban de la configuration du board. */
+export interface OrderScope {
+  readonly boardId: number;
+  readonly kanbanSubQuery: string | null;
 }
 
 export interface MoveInput {
@@ -101,6 +124,8 @@ export interface MoveInput {
   /** Goal demandé (`null` : aucun), absent si le Goal ne change pas. */
   goal?: { goalId: string | null };
   rank: RankChange;
+  /** Route où confirmer le rang ; absente : pas de confirmation. */
+  orderScope?: OrderScope;
   now: Date;
 }
 
@@ -138,16 +163,56 @@ export async function executeMove(ports: MovePorts, input: MoveInput): Promise<M
   }
   const withGoal = goal ? { goal } : {};
   if (input.rank.kind === "none") return result(withGoal);
-  let rank: RankStepResult;
   try {
     await rankIssue(ports.writer, input.issue.issue.key, input.rank);
-    rank = { kind: "ranked" };
-    completed.push("rank");
   } catch (error) {
-    rank = { kind: "failed", error };
+    return result({ ...withGoal, rank: { kind: "failed", error } });
   }
+  completed.push("rank");
+  const rank: RankStepResult = (await rankSeen(ports, input, input.rank))
+    ? { kind: "ranked" }
+    : { kind: "unseen" };
   return result({ ...withGoal, rank });
 }
+
+/**
+ * Confirmation d'une E2 acceptée (story 8.29) : la route des tickets du board montre l'écriture
+ * avec un délai (constat 8.10) ; relue à intervalles bornés jusqu'à voir le ticket à sa place,
+ * sans jamais rejouer l'écriture. Indécidable (ticket ou référence absents de la route) ou
+ * lecture en échec : tenu pour vu, la relecture du board suit.
+ */
+async function rankSeen(
+  ports: MovePorts,
+  input: MoveInput,
+  change: Exclude<RankChange, { kind: "none" }>,
+): Promise<boolean> {
+  const order = ports.order;
+  const scope = input.orderScope;
+  if (!order || !scope) return true;
+  const issueKey = input.issue.issue.key;
+  const sprintId = input.issue.sprintId;
+  const query = { estimationFieldId: null, includeChangelog: false, onlyFields: ORDER_FIELDS };
+  const read = async () =>
+    (sprintId !== null
+      ? await order.reader.sprintIssues(scope.boardId, sprintId, query)
+      : await order.reader.boardIssues(scope.boardId, scope.kanbanSubQuery, query)
+    ).map((issue) => issue.key);
+  const placed = (keys: readonly string[]) => {
+    const at = keys.indexOf(issueKey);
+    const reference = keys.indexOf(change.issueKey);
+    // Ordre indécidable sur cette route : rien à attendre.
+    if (at < 0 || reference < 0) return true;
+    return change.kind === "before" ? at < reference : at > reference;
+  };
+  try {
+    return placed(await readBack(read, placed, order.wait));
+  } catch {
+    return true;
+  }
+}
+
+/** Champs réduits à ceux qu'exige le décodage d'un ticket (type et statut). */
+const ORDER_FIELDS = ["issuetype", "status"];
 
 /** Étape transition aboutie : le ticket est (déjà) dans la colonne visée. */
 function transitionDone(step: TransitionStepResult): boolean {

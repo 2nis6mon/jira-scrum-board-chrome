@@ -3,6 +3,17 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.48.7 — Sprint Board : un ticket classé reste à sa place
+
+- Signalé par Denis le 03/11/2026 (story 8.29) : après un changement de rang sur le board (glisser
+  dans une colonne, ou top / basse priorité du menu), la carte revenait à sa position initiale ; un
+  refresh la montrait au bon rang. Jira avait bien enregistré le rang, mais le board se relisait
+  avant que la route de ses tickets le montre (même délai d'indexation qu'en 0.48.6).
+- Le board relit désormais l'ordre jusqu'à voir le nouveau rang (cinq lectures légères au plus,
+  ~5,5 s), puis se relit une fois ; aucune écriture n'est rejouée. Si Jira ne le montre toujours pas,
+  un avis dit qu'il a reçu le classement et invite à actualiser. Nouveaux textes en français, anglais
+  et espagnol.
+
 ## 0.48.6 — Sprint Planning : un geste confirmé malgré le délai d'indexation de Jira (builds locaux)
 
 - Constaté lors de l'essai réel 8.10 du 03/11/2026 (story 8.26) : sur un vrai Jira, la route des

@@ -273,7 +273,6 @@ describe("menu d'une carte — top et basse priorité", () => {
   const RANK = "/rest/agile/1.0/issue/rank";
   it("top : UNE écriture de rang avant le premier de la swimlane, board relu, journal", async () => {
     const { board, jira, writes } = await boardWith();
-    jira.on("PUT", RANK, { status: 204 });
     const syncs = jira.sent("GET", SPRINT_READ).length;
     board.openCardMenu("ABC-102", POINT);
 
@@ -283,7 +282,8 @@ describe("menu d'une carte — top et basse priorité", () => {
     expect(writes().map((request) => [request.method, request.path, request.body])).toEqual([
       ["PUT", RANK, { issues: ["ABC-102"], rankBeforeIssue: "ABC-101" }],
     ]);
-    expect(jira.sent("GET", SPRINT_READ).length).toBe(syncs + 1);
+    // Une lecture de confirmation du rang (story 8.29), puis la relecture du board.
+    expect(jira.sent("GET", SPRINT_READ).length).toBe(syncs + 2);
     const [entry] = await board.audit.list(SITE.origin);
     expect(entry).toMatchObject({ action: "classement", issueKey: "ABC-102", outcome: "réussi" });
     expect(board.writeNotice.value).toBeNull();
@@ -292,8 +292,7 @@ describe("menu d'une carte — top et basse priorité", () => {
   });
 
   it("basse : après le dernier ; déjà dernier : rien n'est écrit", async () => {
-    const { board, jira, writes } = await boardWith();
-    jira.on("PUT", RANK, { status: 204 });
+    const { board, writes } = await boardWith();
     await board.rankToEdge("ABC-102", "bottom");
     expect(writes()).toEqual([]);
     await board.rankToEdge("ABC-101", "bottom");
@@ -303,8 +302,7 @@ describe("menu d'une carte — top et basse priorité", () => {
   });
 
   it("filtre actif : la référence est le premier ticket de la swimlane, même masqué", async () => {
-    const { board, jira, writes } = await boardWith();
-    jira.on("PUT", RANK, { status: 204 });
+    const { board, writes } = await boardWith();
     board.setSearch("ABC-102");
     expect(columnOf(board, "ABC-101")).toBeUndefined();
     await board.rankToEdge("ABC-102", "top");
@@ -351,10 +349,7 @@ describe("menu d'une carte — top et basse priorité", () => {
         statusName: "À faire",
         category: "new",
       });
-      const { board, jira } = await boardWith(
-        boardSiteJira({ sprintIssues: [...SPRINT_ISSUES, extra] }),
-      );
-      jira.on("PUT", RANK, { status: 204 });
+      const { board } = await boardWith(boardSiteJira({ sprintIssues: [...SPRINT_ISSUES, extra] }));
       const TODO = "col-0-À faire";
       const cellKeys = () =>
         board.layout.value?.lanes

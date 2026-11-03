@@ -150,6 +150,11 @@ l'écriture sans la montrer encore, et un lot classe ces tickets en « pas encor
 qu'« à refaire ». À chaque lecture du planning, la route du sprint en préparation fait foi : un ticket
 qu'elle contient n'est pas montré dans le backlog ni dans un autre sprint futur relu en retard.
 
+Sur le Sprint Board depuis 0.48.7 (story 8.29) : après une E2 (glisser ou top / basse priorité),
+`executeMove` relit l'ordre par la route que le board lit (sprint du ticket en Scrum, tickets du
+board en Kanban, type et statut seuls) selon les mêmes délais, puis le board est relu une fois. Ordre
+indécidable (ticket ou référence absents de la route) ou lecture en échec : aucune attente.
+
 | Usage | Contrat documenté | Droits et limites |
 |---|---|---|
 | Retour au backlog (E10) | `POST /rest/agile/1.0/backlog/issue`, corps `{"issues": [...]}` (clés uniques), 204 | « équivalent au retrait des sprints futurs et actifs », 50 tickets au plus ; 403 sans droit « d'affecter les tickets » au sprint, soit *Schedule issues* (`SCHEDULE_ISSUES`). Le ticket quitte aussi un sprint actif : son appartenance au sprint en préparation est relue juste avant. Variante `backlog/{boardId}/issue` écartée : elle sert à classer, inutile ici |

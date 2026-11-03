@@ -5,12 +5,14 @@ import { BUILD_BLOCK, goalBlock, swimlaneBlock } from "../../src/core/boardBlock
 const RUN_BLOCK = swimlaneBlock("1");
 
 import { auditText } from "../../src/app/model/auditLog";
+import { localize } from "../../src/i18n";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import {
   BOARD_URL,
   boardSiteJira,
   GOALS_DOCUMENT,
+  rankIssues,
   SPRINT_GOAL_TEXT,
   SPRINT_ISSUES,
 } from "../support/boardFixture";
@@ -43,9 +45,9 @@ const transitions = (...list: [id: string, toId: string, toName: string][]): Rep
   },
 });
 
-async function boardWith(jira: FakeJira = boardSiteJira()) {
+async function boardWith(jira: FakeJira = boardSiteJira(), wait?: (ms: number) => Promise<void>) {
   const platform = fakePlatform(jira);
-  const board = new BoardModel(SITE, platform, { now: () => NOW });
+  const board = new BoardModel(SITE, platform, { now: () => NOW, ...(wait ? { wait } : {}) });
   await board.load();
   await board.detect(BOARD_URL);
   const before = jira.requests.length;
@@ -313,8 +315,7 @@ describe("glisser-déposer — rang", () => {
     });
 
   it("devant une autre carte de la même case : PUT du rang", async () => {
-    const { board, jira, writes } = await boardWith(withExtra());
-    jira.on("PUT", RANK, { status: 204 });
+    const { board, writes } = await boardWith(withExtra());
     await board.dropIssue({
       issueKey: "ABC-106",
       block: BUILD_BLOCK,
@@ -335,6 +336,86 @@ describe("glisser-déposer — rang", () => {
     });
   });
 
+  /**
+   * Délai d'indexation (story 8.29) : après l'E2, la route du sprint montre l'ancien ordre pendant
+   * `lag` attentes, puis le nouveau ; le rang est appliqué comme Jira.
+   */
+  const lagging = (lag: number) => {
+    const issues: unknown[] = [
+      ...SPRINT_ISSUES,
+      issueJson("ABC-106", {
+        summary: "Sixième",
+        statusId: "1",
+        statusName: "À faire",
+        category: "new",
+      }),
+    ];
+    let stale: unknown[] = issues;
+    let pending = 0;
+    const apply = rankIssues(issues);
+    const jira = boardSiteJira({ sprintIssues: issues })
+      .on("PUT", RANK, (request) => {
+        stale = [...issues];
+        pending = lag;
+        return apply(request);
+      })
+      .on("GET", "/rest/agile/1.0/board/7/sprint/42/issue", () => {
+        const shown = pending > 0 ? stale : issues;
+        return { status: 200, json: { issues: shown, total: shown.length } };
+      });
+    const wait = vi.fn(async (_ms: number) => {
+      pending -= 1;
+    });
+    return { jira, wait };
+  };
+  const cellOf = (board: BoardModel, key: string) =>
+    board.layout.value?.lanes
+      .flatMap((lane) => lane.cells)
+      .find((cell) => cell.issues.some((item) => item.issue.key === key))
+      ?.issues.map((item) => item.issue.key);
+  const drop106 = (board: BoardModel) =>
+    board.dropIssue({
+      issueKey: "ABC-106",
+      block: BUILD_BLOCK,
+      columnId: TODO,
+      beforeKey: "ABC-105",
+    });
+
+  it("route en retard d'une relecture : la carte reste à sa nouvelle place, une seule E2 (story 8.29)", async () => {
+    const { jira, wait } = lagging(1);
+    const { board, writes } = await boardWith(jira, wait);
+    await drop106(board);
+    expect(writes().map((r) => r.path)).toEqual([RANK]);
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([500]);
+    const cell = cellOf(board, "ABC-106") ?? [];
+    expect(cell.indexOf("ABC-106")).toBeLessThan(cell.indexOf("ABC-105"));
+    expect(board.writeNotice.value).toBeNull();
+    expect(board.moveFeedback.value).toBeNull();
+  });
+
+  it("rang jamais relu : relectures bornées, avis « Jira a reçu le classement », journal réussi (story 8.29)", async () => {
+    const { jira, wait } = lagging(99);
+    const { board, writes } = await boardWith(jira, wait);
+    await drop106(board);
+    expect(writes().map((r) => r.path)).toEqual([RANK]);
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([500, 1000, 1500, 2500]);
+    expect(board.writeNotice.value).toMatchObject({
+      tone: "warning",
+      text: "Jira a reçu le classement de ABC-106, mais ne le montre pas encore à sa nouvelle place.",
+      issueKey: "ABC-106",
+    });
+    const notice = board.writeNotice.value;
+    expect(localize(notice?.text ?? "", "en")).toBe(
+      "Jira received the ranking of ABC-106, but does not show it in its new place yet.",
+    );
+    expect(localize(notice?.suggestion ?? "", "es")).toBe(
+      "Actualiza el board dentro de unos instantes. No se ha repetido ninguna escritura.",
+    );
+    const [entry] = await board.audit.list(SITE.origin);
+    expect(entry).toMatchObject({ action: "classement", outcome: "réussi" });
+    expect(board.moveFeedback.value).toMatchObject({ issueKey: "ABC-106", kind: "warning" });
+  });
+
   it("en bas alors qu'elle y est déjà : rien", async () => {
     const { board, writes } = await boardWith(withExtra());
     await board.dropIssue({
@@ -351,8 +432,7 @@ describe("glisser-déposer — rang", () => {
     jira
       .on("GET", "/rest/api/3/issue/ABC-106", statusReply("1", "À faire"))
       .on("GET", "/rest/api/3/issue/ABC-106/transitions", transitions(["21", "3", "En cours"]))
-      .on("POST", "/rest/api/3/issue/ABC-106/transitions", { status: 204 })
-      .on("PUT", RANK, { status: 204 });
+      .on("POST", "/rest/api/3/issue/ABC-106/transitions", { status: 204 });
     await board.dropIssue({
       issueKey: "ABC-106",
       block: BUILD_BLOCK,
@@ -435,7 +515,6 @@ describe("glisser-déposer — objectif prioritaire sur la swimlane par type", (
       links: { ...GOALS_DOCUMENT.links } as Record<string, string>,
     };
     const jira = boardSiteJira()
-      .on("PUT", RANK, { status: 204 })
       .on("GET", "/rest/api/3/issue/RUN-7/transitions", transitions())
       .on("GET", PROPERTY, () => ({ status: 200, json: { value: document } }))
       .on("PUT", PROPERTY, (request) => {
@@ -554,7 +633,6 @@ describe("choix du statut et de la transition avant toute écriture", () => {
 
   it("reprend tout le déplacement après choix : transition, Goal, rang", async () => {
     const { board, jira, writes } = await prepare();
-    jira.on("PUT", RANK, { status: 204 });
     await board.dropIssue({
       issueKey: drop.issueKey,
       columnId: drop.columnId,
