@@ -1139,7 +1139,7 @@ function BoardGrid(props: {
     <div class="lane-drop-line" data-goal-color={draggedLane?.goal?.color} aria-hidden="true" />
   );
   return (
-    <div class="board" style={{ "--column-count": String(layout.columns.length) }}>
+    <div class="board" data-drag-scroll style={{ "--column-count": String(layout.columns.length) }}>
       {layout.totalCount === 0 && !layout.filtersActive && configuration.boardType === "kanban" && (
         <p class="board-empty">{t("Aucun ticket à afficher dans le périmètre de ce board.")}</p>
       )}

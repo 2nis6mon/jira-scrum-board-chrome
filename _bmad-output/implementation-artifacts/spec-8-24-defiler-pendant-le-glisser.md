@@ -2,7 +2,8 @@
 title: 'Story 8.24 — Faire défiler le board et le planning pendant le glisser d''un ticket'
 type: 'bugfix'
 created: '2026-11-03'
-status: 'ready-for-dev'
+status: 'done'
+baseline_commit: 'a5890e055aff2d9c4487b312f928397489d12662'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -51,12 +52,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/app/views/dragAutoScroll.ts` -- fonction pure du pas de défilement (position, bornes du conteneur → pas signé par axe), et installation sur une fenêtre : `dragover` en capture (cible `closest('[data-drag-scroll]')`, position mémorisée, boucle `requestAnimationFrame`), arrêt sur `drop`, `dragend`, sortie de la vue (`dragleave` sans `relatedTarget`) ou 1 s sans `dragover` ; renvoie la fonction de désinstallation.
-- [ ] `src/app/App.tsx` -- installer une fois, désinstaller au démontage.
-- [ ] `BoardView.tsx`, `PlanningView.tsx` -- attribut `data-drag-scroll` sur `.board`, `.planning-sources`, `.planning-lanes`.
-- [ ] `tests/app/dragAutoScroll.test.ts` -- pas : milieu, bandes, au-delà du bord, petit conteneur ; boucle : arrêt au dépôt, à l'abandon, après 1 s, rien hors glisser, la zone survolée seule.
-- [ ] `scripts/verify-drag.mjs`, `scripts/verify-planning.mjs` -- en Chrome réel, `dragOver` répétés dans la bande basse : `scrollTop` augmente ; au milieu : stable ; puis dépôt normal.
-- [ ] `docs/manuel-utilisateur.md`, `CHANGELOG.md`, version 0.48.5 (`package.json`, `package-lock.json`, `public/manifest.json`).
+- [x] `src/app/views/dragAutoScroll.ts` -- fonction pure du pas de défilement (position, bornes du conteneur → pas signé par axe), et installation sur une fenêtre : `dragover` en capture (cible `closest('[data-drag-scroll]')`, position mémorisée, boucle `requestAnimationFrame`), arrêt sur `drop`, `dragend`, sortie de la vue (`dragleave` sans `relatedTarget`) ou 1 s sans `dragover` ; renvoie la fonction de désinstallation.
+- [x] `src/app/App.tsx` -- installer une fois, désinstaller au démontage.
+- [x] `BoardView.tsx`, `PlanningView.tsx` -- attribut `data-drag-scroll` sur `.board`, `.planning-sources`, `.planning-lanes`.
+- [x] `tests/app/dragAutoScroll.test.ts` -- pas : milieu, bandes, au-delà du bord, petit conteneur ; boucle : arrêt au dépôt, à l'abandon, après 1 s, rien hors glisser, la zone survolée seule.
+- [x] `scripts/verify-drag.mjs`, `scripts/verify-planning.mjs` -- en Chrome réel, `dragOver` répétés dans la bande basse : `scrollTop` augmente ; au milieu : stable ; puis dépôt normal.
+- [x] `docs/manuel-utilisateur.md`, `CHANGELOG.md`, version 0.48.5 (`package.json`, `package-lock.json`, `public/manifest.json`).
 
 **Acceptance Criteria:**
 - Given un board plus haut que la fenêtre, when je glisse une carte vers un objectif hors de l'écran en m'approchant du bord bas, then le board défile jusqu'à lui et le dépôt aboutit comme avant.
@@ -74,3 +75,14 @@ Bande = `min(56 px, taille du conteneur / 4)` ; pas = `ceil(18 × (bande − dis
 
 **Manual checks (if no CLI):**
 - Denis, dans `dist/` : glisser une carte vers le bas d'un board long, puis dans le planning.
+
+## Review Triage Log
+
+Relecture faite sans sous-agent (rythme de l'Epic 8), selon les trois angles : critique à l'aveugle, cas limites, manques de vérification.
+
+| # | Angle | Constat | Verdict | Suite |
+|---|-------|---------|---------|-------|
+| 1 | verification-gap | Le défilement horizontal (`scrollLeft`) n'était vérifié ni en test unitaire ni en Chrome réel. | low | patch : test « défile en largeur près du bord droit » ajouté. |
+| 2 | edge-case | Un `dragleave` sans `relatedTarget` à l'intérieur de la vue couperait le défilement. | false | Le journal du banc Chrome montre un `relatedTarget` sur chaque `dragleave` interne ; et le `dragover` suivant relance la boucle de toute façon. |
+| 3 | edge-case | Viser une case dans la bande basse fait défiler le board sous le pointeur avant le dépôt (cas RUN-7 à 800 px du banc). | false | Comportement voulu de la bande ; le banc vise désormais la case centrée, hors de la bande. |
+| 4 | blind | Après le survol d'autres swimlanes, leur message « Rattacher à cet objectif » disparaît au survol suivant et décale la mise en page de 34 px sous le pointeur. | low | defer : comportement antérieur du board, révélé par le banc ; le banc stabilise la mise en page avant de viser. |

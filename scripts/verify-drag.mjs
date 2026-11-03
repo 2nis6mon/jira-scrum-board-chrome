@@ -1,7 +1,7 @@
 // Régression du glisser-déposer sur les vues réelles, avec Jira fictif et profil Chrome vierge.
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
-import { launchIsolatedBrowser, sleep } from "./browser-check.mjs";
+import { checkDragAutoScroll, launchIsolatedBrowser, sleep } from "./browser-check.mjs";
 
 const server = await createServer({
   configFile: fileURLToPath(new URL("../vite.harness.config.ts", import.meta.url)),
@@ -73,6 +73,38 @@ try {
       after.connected && Math.abs(after.top - before.top) < 1,
       `${key} : la source s'est déplacée de ${after.top - before.top}px`,
     );
+    // Story 8.24 : board plus haut que la fenêtre, défilement par la bande basse pendant le glissé.
+    if (height === 800 && key === "ABC-102") {
+      const { scrolled, overflow } = await checkDragAutoScroll(
+        browser,
+        sessionId,
+        ".board",
+        intercepted.params.data,
+      );
+      // Les swimlanes survolées pendant le contrôle ont pu garder un message de dépôt, retiré au
+      // survol suivant : un premier survol de la destination stabilise la mise en page,
+      const zone = await evaluate(
+        sessionId,
+        `(() => {
+          const zone = document.querySelector('[data-lane-id="${before.lane}"] [data-status-id="3"]');
+          zone.scrollIntoView({block: 'center'});
+          const r = zone.getBoundingClientRect();
+          return {x: r.left + r.width / 2, y: r.top + r.height / 2};
+        })()`,
+      );
+      await send(
+        "Input.dispatchDragEvent",
+        { type: "dragOver", ...zone, data: intercepted.params.data },
+        sessionId,
+      );
+      await sleep(300);
+      // Puis la position de départ du glissé, comme les autres cas.
+      await evaluate(sessionId, "window.dragSource.scrollIntoView({block: 'center'})");
+      await sleep(100);
+      console.log(
+        `✓ Board plus haut que la fenêtre : immobile au milieu, défile dans la bande basse (${scrolled} px sur ${overflow}), s'arrête hors de la bande`,
+      );
+    }
     const target = await evaluate(
       sessionId,
       `(() => {
@@ -180,7 +212,8 @@ try {
         `(() => {
           const cell = document.querySelector('[data-lane-id="${laneId}"] .lane-cell:nth-child(2)');
           if (!cell) return null;
-          cell.scrollIntoView({block: 'nearest'});
+          // Hors de la bande de défilement du bas du board (story 8.24).
+          cell.scrollIntoView({block: 'center'});
           const rect = cell.getBoundingClientRect();
           const x = rect.left + rect.width / 2, y = rect.top + 25;
           return {x, y, reachable: cell.contains(document.elementFromPoint(x, y)),

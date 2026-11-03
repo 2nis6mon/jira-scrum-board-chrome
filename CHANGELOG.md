@@ -3,6 +3,17 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.48.5 — Le board et le planning défilent pendant le glisser d'un ticket
+
+- Signalé par Denis le 02/11/2026 (story 8.24) : pendant le glisser d'une carte, approcher le bord
+  haut ou bas du board (gauche ou droit s'il déborde en largeur) le fait défiler, d'autant plus vite
+  que le pointeur est près du bord ; un objectif hors de l'écran devient accessible. Même mécanisme
+  pour les deux colonnes du Sprint Planning (builds locaux) : seule la colonne survolée défile.
+  Arrêt au dépôt, à l'abandon, hors de la bande ou de la vue. Glisser natif inchangé (zones de
+  dépôt, données transmises) ; aucune lecture ni écriture Jira, aucun texte nouveau.
+- Décision de Denis du 03/11/2026 : la molette ne défile pas pendant le glisser natif ; la faire
+  fonctionner demanderait de remplacer ce glisser, hors de cette version.
+
 ## 0.48.4 — Sprint Planning : plus de tickets terminés dans le sprint en préparation (builds locaux)
 
 - Décision de Denis du 02/11/2026 après essai sur le sandbox (story 8.23) : le sprint en

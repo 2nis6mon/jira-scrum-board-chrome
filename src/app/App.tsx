@@ -6,6 +6,7 @@ import { BoardSetupView } from "./views/BoardSetupView";
 import { BoardView, type ScreenControls } from "./views/board/BoardView";
 import { ConnectionView } from "./views/ConnectionView";
 import { DiagnosticView } from "./views/DiagnosticView";
+import { installDragAutoScroll } from "./views/dragAutoScroll";
 import { exitFullscreen } from "./views/fullscreen";
 import { Icon } from "./views/Icon";
 import { PlanningView } from "./views/planning/PlanningView";
@@ -19,6 +20,9 @@ export function App({ model }: { model: AppModel }) {
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
+  // Pendant un glisser, le board et les colonnes du planning défilent quand le pointeur approche
+  // de leur bord.
+  useEffect(() => installDragAutoScroll(window), []);
   const connection = model.connection.value;
   if (connection.state === "connected") {
     return <Workspace model={model} connection={connection} />;

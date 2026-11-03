@@ -125,6 +125,10 @@ les objectifs restent affichés.
 - Glissez une carte dans une colonne pour changer son statut. Plusieurs statuts dans une colonne ?
   Déposez-la dans la zone du statut voulu.
 - Glissez-la vers un objectif pour l'y rattacher, ou vers sa ligne par défaut pour la détacher.
+- Destination hors de l'écran ? Pendant le glissement, approchez la carte du bord haut ou bas du
+  board (ou gauche et droit s'il est plus large que l'écran) : il défile, d'autant plus vite que
+  vous êtes près du bord, et s'arrête dès que vous vous en éloignez. La molette ne défile pas
+  pendant un glissement.
 - Déplacez-la à la position voulue lorsque Jira autorise le changement de rang.
 - Sans glisser : faites un clic droit sur la carte (ou **Maj+F10**, ou la touche **Menu**, la carte
   ayant le focus), puis passez sur **Envoyer vers un goal** : la liste des objectifs s'ouvre à

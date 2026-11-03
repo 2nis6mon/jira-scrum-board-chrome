@@ -77,3 +77,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-15-deplacer-plusieurs-tickets.md`
   summary: Un ticket sélectionné puis masqué par un filtre reste dans la sélection et part avec le lot.
   evidence: medium non vérifié en usage ; le compteur de la barre montre le nombre réel. À constater en 8.10 : faut-il élaguer la sélection aux cartes visibles ?
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-24-defiler-pendant-le-glisser.md`
+  summary: Pendant un glisser, quitter une swimlane survolée retire son message « Rattacher à cet objectif » et décale la mise en page sous le pointeur.
+  evidence: banc `verify:drag` de la 8.24 à 800 px — après survol d'autres swimlanes, le dépôt visé tombait sur un en-tête de swimlane décalé de 34 px ; antérieur à la 8.24, contourné dans le banc par un premier survol de la destination.

@@ -229,3 +229,68 @@ export function launchIsolatedBrowser(size = "1280,800") {
   }
   return { send, evaluate, waitFor, navigateToHarness, events, loadExtension, close };
 }
+
+/**
+ * Story 8.24, pendant un glissé natif intercepté (`data`) : le conteneur `selector`, qui doit
+ * déborder, reste immobile quand le pointeur est au milieu, défile vers le bas quand des `dragOver`
+ * répétés tombent dans sa bande basse, puis s'arrête dès que le pointeur revient au milieu.
+ * `others` : conteneurs voisins qui ne doivent pas bouger.
+ */
+export async function checkDragAutoScroll(browser, sessionId, selector, data, others = []) {
+  const { send, evaluate } = browser;
+  const element = `document.querySelector(${JSON.stringify(selector)})`;
+  const box = await evaluate(
+    sessionId,
+    `(() => {
+      const element = ${element};
+      if (!element) return null;
+      element.scrollTop = 0;
+      const r = element.getBoundingClientRect();
+      return { x: r.left + r.width / 2, middle: r.top + r.height / 2, bottom: r.bottom - 6,
+        overflow: element.scrollHeight - element.clientHeight };
+    })()`,
+  );
+  if (!box || box.overflow < 100)
+    throw new Error(
+      `${selector} ne déborde pas assez pour vérifier le défilement : ${JSON.stringify(box)}`,
+    );
+  const scrollTop = () => evaluate(sessionId, `${element}.scrollTop`);
+  const neighbours = () =>
+    evaluate(
+      sessionId,
+      `${JSON.stringify(others)}.map((selector) => document.querySelector(selector).scrollTop)`,
+    );
+  const neighboursBefore = JSON.stringify(await neighbours());
+  const over = async (y, times) => {
+    for (let index = 0; index < times; index++) {
+      await send("Input.dispatchDragEvent", { type: "dragOver", x: box.x, y, data }, sessionId);
+      await sleep(120);
+    }
+  };
+  await send(
+    "Input.dispatchDragEvent",
+    { type: "dragEnter", x: box.x, y: box.middle, data },
+    sessionId,
+  );
+  await over(box.middle, 3);
+  const still = await scrollTop();
+  if (still !== 0) throw new Error(`${selector} a défilé avec le pointeur au milieu : ${still}px`);
+  await over(box.bottom, 4);
+  const scrolled = await scrollTop();
+  if (!(scrolled > 0)) throw new Error(`${selector} n'a pas défilé dans sa bande basse`);
+  await over(box.middle, 1);
+  await sleep(200);
+  const settled = await scrollTop();
+  await sleep(300);
+  const after = await scrollTop();
+  if (after !== settled)
+    throw new Error(
+      `${selector} défile encore, pointeur revenu au milieu : ${settled} → ${after}px`,
+    );
+  const neighboursAfter = JSON.stringify(await neighbours());
+  if (neighboursAfter !== neighboursBefore)
+    throw new Error(
+      `${others.join(", ")} a défilé avec ${selector} : ${neighboursBefore} → ${neighboursAfter}`,
+    );
+  return { scrolled, overflow: box.overflow };
+}

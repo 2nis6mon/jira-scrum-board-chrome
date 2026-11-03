@@ -842,6 +842,7 @@ function SourcesColumn({ planning, images }: { planning: PlanningViewModel; imag
       class={`planning-sources${drop.over ? " planning-drop-active" : ""}`}
       aria-label={t("Où sont les tickets")}
       data-planning-drop="backlog"
+      data-drag-scroll
       {...drop.handlers}
     >
       <h2 class="planning-sources-title">{t("Où sont les tickets")}</h2>
@@ -971,7 +972,11 @@ function LanesColumn({
   const lanes = planning.lanes.value;
   const textMode = planning.goalMode.value === "text";
   return (
-    <section class="planning-lanes" aria-label={t("{name} par objectifs", { name: sprintName })}>
+    <section
+      class="planning-lanes"
+      data-drag-scroll
+      aria-label={t("{name} par objectifs", { name: sprintName })}
+    >
       <CarryOverReportPanel planning={planning} />
       {lanes.map((lane, index) => (
         <GoalLane

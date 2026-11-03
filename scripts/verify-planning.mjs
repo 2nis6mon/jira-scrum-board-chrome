@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
-import { launchIsolatedBrowser, sleep } from "./browser-check.mjs";
+import { checkDragAutoScroll, launchIsolatedBrowser, sleep } from "./browser-check.mjs";
 
 const PORT = 5205;
 const packageCheck = process.argv.includes("--package");
@@ -136,8 +136,10 @@ try {
   /**
    * Glissé natif de Chrome : carte `key` déposée sur `target` (qui doit signaler le survol) ;
    * `carried` : clés transmises, la seule carte par défaut, toute la sélection sinon.
+   * `scroll` (story 8.24) : conteneur dont le défilement par sa bande basse est vérifié pendant le
+   * glissé, l'autre colonne restant immobile ; il revient ensuite en haut avant le dépôt.
    */
-  const drag = async (key, target, activeSelector, carried = key) => {
+  const drag = async (key, target, activeSelector, carried = key, scroll = null) => {
     await wait(idle, "Un geste est encore en cours avant le glissé");
     const from = await point(`[data-planning-issue="${key}"] .planning-card-title`);
     assert(from, `La carte ${key} n'est pas accessible pour le glisser-déposer`);
@@ -165,6 +167,21 @@ try {
       ),
       "La carte n'a pas transmis son identifiant dans le glissement natif",
     );
+    if (scroll) {
+      const other = scroll === ".planning-lanes" ? ".planning-sources" : ".planning-lanes";
+      // Fenêtre plus basse que le planning le temps du contrôle.
+      await viewport(1440, 520);
+      await sleep(100);
+      const { scrolled, overflow } = await checkDragAutoScroll(browser, sessionId, scroll, data, [
+        other,
+      ]);
+      await run(`document.querySelector(${JSON.stringify(scroll)}).scrollTop = 0`);
+      await viewport(1440);
+      await sleep(100);
+      console.log(
+        `✓ ${scroll} pendant le glissé : immobile au milieu, défile dans sa bande basse (${scrolled} px sur ${overflow}), ${other} immobile`,
+      );
+    }
     const to = await point(target);
     assert(to, `Destination inaccessible : ${target}`);
     for (const type of ["dragEnter", "dragOver"]) {
@@ -506,7 +523,13 @@ try {
     console.log("✓ Renommage validé par Entrée : E8 puis E5, même identifiant");
 
     const laneCell = (id) => `[data-planning-goal="${id}"] .planning-lane-cell`;
-    await drag("ABC-201", laneCell(firstGoal), `[data-planning-goal="${firstGoal}"]`);
+    await drag(
+      "ABC-201",
+      laneCell(firstGoal),
+      `[data-planning-goal="${firstGoal}"]`,
+      "ABC-201",
+      ".planning-lanes",
+    );
     done = await expectWrites(done, [E9, E5], "Ticket du backlog posé");
     await wait(
       `document.querySelector('[data-planning-goal="${firstGoal}"] [data-planning-issue="ABC-201"] .planning-origin')?.textContent.includes('Vient du backlog')
@@ -534,7 +557,13 @@ try {
     );
     console.log("✓ Glissé depuis un autre sprint futur : E9 (déplacement) puis E5");
 
-    await drag("ABC-210", ".planning-sources-title", "aside.planning-sources");
+    await drag(
+      "ABC-210",
+      ".planning-sources-title",
+      "aside.planning-sources",
+      "ABC-210",
+      ".planning-sources",
+    );
     done = await expectWrites(done, [E10], "Retour au backlog");
     await wait(
       `Boolean(document.querySelector('[data-planning-section="backlog"] [data-planning-issue="ABC-210"]'))
