@@ -541,6 +541,30 @@ So that je diffuse en connaissant les risques.
 
 **En attente (Denis, 30/10/2026).** Si le besoin de déploiement IT se confirme : politique `storage.managed` imposant le site Jira (et éventuellement les boards), permission du site toujours demandée au clic, politique invalide ignorée avec un avis, comportement inchangé sans politique. L'ajout de `storage.managed_schema` au manifest est une décision produit préalable (NFR1).
 
+### Story 5.5: Des propriétés Jira au nom de l'extension
+
+*Type : correctif, demandé par Denis le 02/11/2026.* **En attente :** deux décisions avant de commencer, l'amendement de la règle d'AGENTS.md « préserver les clés `com.scrumboardmac.*` » et la reprise des données déjà publiées.
+
+As a équipe qui retrouve les propriétés de l'extension dans Jira,
+I want qu'elles portent le préfixe `com.mousquetaires.*` au lieu de `com.scrumboardmac.*`,
+So that leur origine est lisible.
+
+**Acceptance Criteria:**
+
+**Given** les trois clés de l'inventaire `src/jira/writes.ts` : `sprintgoals.v1` (E5, propriété de sprint), `boardsettings.v1` (E6, propriété du board) et `diagnostic` (E7, écrite puis supprimée)
+**When** l'extension lit une propriété
+**Then** elle lit la nouvelle clé, sinon l'ancienne ; les objectifs épinglés et les réglages d'équipe déjà publiés restent lisibles
+
+**Given** un geste explicite qui écrit une de ces propriétés
+**When** l'écriture part
+**Then** seule la nouvelle clé est écrite, au format `v1` inchangé, sans nouvelle écriture ; l'ancienne clé n'est jamais supprimée automatiquement
+
+**Given** le correctif livré
+**When** les références sont relues
+**Then** sont à jour : `src/jira/writes.ts`, `src/jira/diagnostics.ts`, `src/core/sprintGoals.ts`, `src/core/teamSettings.ts` ; les tests (`writes.test.ts` et sa garde de chemins, `BoardWriteGate`, `PlanningModel`, `App`, `sprintGoals`, `teamSettings`, `BoardModel.*`), `scripts/verify-planning.mjs` ; `docs/technique/` (`securite.md`, `donnees.md`, `index.md`), AGENTS.md, la note d'architecture et la spec de conformité. Les specs terminées et les `.memlog.md` gardent l'ancien nom (historique).
+
+*Notes :* références recensées le 02/11/2026, toutes sur ces trois clés.
+
 ## Epic 6: Des réglages qui suivent l'équipe
 
 **En attente (Denis, 30/10/2026) :** stories à écrire à la reprise de cet epic. Pistes esquissées, non validées : export JSON des réglages partagés (FR19), import avec validation locale, aperçu des différences et une seule écriture E6 par la porte du board (FR19), préférences personnelles entre postes via une propriété utilisateur Jira, nouvelle écriture soumise à décision produit (FR20). Questions à reprendre : auteur (`publishedBy`) dans l'export, import depuis un autre board, préférences concernées.
@@ -554,7 +578,7 @@ So that je diffuse en connaissant les risques.
 
 L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre. Chaque geste écrit aussitôt dans Jira, qui reste la seule source : la page se reconstruit à l'entrée depuis le texte de l'objectif du sprint, la propriété `sprintgoals.v1` et les tickets du sprint. Aujourd'hui, Sprint Planning n'existe que dans les builds locaux `dist/` et les tests (`SPRINT_PLANNING_ENABLED`) ; il le reste jusqu'à la story 8.11. Décisions : [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md) ; écran : maquette v2.
 
-Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments issus des premiers essais (8.12 à 8.18), et enfin essai réel et activation. Les numéros 8.12 à 8.18 se jouent avant 8.10 et 8.11.
+Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments et correctifs issus des premiers essais (8.12 à 8.25), et enfin essai réel et activation. Les numéros 8.12 à 8.25 se jouent avant 8.10 et 8.11.
 
 ### Story 8.1: Vérifier les contrats Atlassian du planning en direct
 
@@ -728,7 +752,7 @@ So that je planifie mes sprints sans build local.
 
 **Acceptance Criteria:**
 
-**Given** les stories 8.1 à 8.10 et 8.12 à 8.18 terminées et le constat de 8.10 favorable
+**Given** les stories 8.1 à 8.10 et 8.12 à 8.25 terminées et le constat de 8.10 favorable
 **When** le paquet est construit (`npm run package`)
 **Then** `SPRINT_PLANNING_ENABLED` vaut vrai dans le paquet, `npm run verify:planning:package` le vérifie, et AGENTS.md, le manuel, le CHANGELOG et les captures Store sont à jour
 
@@ -1043,3 +1067,52 @@ So that le sprint à planifier ne montre et ne compte que le travail qui reste �
 **Then** aucune lecture ni écriture n'est ajoutée ; le ticket reste lu dans Jira pour les gestes et le déjà livré
 
 *Notes :* filtre dans `PlanningModel.#sprintItems` (`shownInSprint`), pas dans `loadSprintPlanning`. La partie « terminé » des barres ne vient plus que du déjà livré (8.21).
+
+### Story 8.24: Faire défiler le board et le planning pendant le glisser d'un ticket
+
+*Type : bug, signalé par Denis le 02/11/2026.*
+
+As a membre de l'équipe qui glisse un ticket vers un objectif,
+I want que la zone défile quand j'approche la carte de son bord haut ou bas,
+So that j'atteins un objectif qui est hors de l'écran.
+
+**Acceptance Criteria:**
+
+**Given** un Sprint Board plus haut que la fenêtre
+**When** je glisse une carte et que le pointeur entre dans une bande en haut ou en bas du conteneur du board
+**Then** le conteneur défile vers ce bord, d'autant plus vite que le pointeur s'en approche
+**And** le défilement s'arrête au dépôt, à l'abandon du glisser ou quand le pointeur quitte la bande
+
+**Given** le Sprint Planning (`.planning-lanes`, `.planning-sources`)
+**When** je glisse une ou plusieurs cartes
+**Then** la zone survolée défile de la même façon, et la molette la fait défiler pendant le glisser
+
+**Given** le correctif
+**When** il est vérifié
+**Then** aucune lecture ni écriture n'est ajoutée, le dépôt est inchangé, et le constat est fait dans un Chrome réel sur le banc fictif, avec un board plus haut que la fenêtre
+
+*Notes :* glisser-déposer HTML natif (`draggable`, `onDragStart` dans `IssueCard.tsx`, `BoardView.tsx`), aucun défilement automatique de notre côté ; le board défile dans son propre conteneur (`.board`, `overflow: auto`, `app.css`), dans l'iframe injectée dans Jira. Piste à confirmer : la zone de défilement automatique de Chrome, au bord du conteneur, est trop étroite ou masquée (en-têtes, bord de l'iframe). Correctif envisagé : défilement piloté par `dragover`.
+
+### Story 8.25: Voir les Goals liés à la première lecture des Goals Atlassian
+
+*Type : bug, relevé par la revue du 02/11/2026 (correctif « objectifs masqués au démarrage »).*
+
+As a équipe dont le board passe de la source texte aux Goals Atlassian, ou sort d'un repli en texte,
+I want que la première lecture des Goals Atlassian ne masque aucun Goal lié,
+So that je ne perds pas de vue des objectifs que je n'ai jamais choisi de masquer.
+
+**Acceptance Criteria:**
+
+**Given** une lecture précédente en texte (source texte ou repli quand les Goals sont illisibles)
+**When** la première lecture des Goals Atlassian réussit
+**Then** elle se comporte comme une première lecture : aucun Goal lié, épinglé ou non, n'est ajouté à `hiddenGoalIds`
+
+**Given** les lectures suivantes des Goals Atlassian
+**When** un Goal inconnu, non épinglé, arrive par un ticket
+**Then** il est masqué, comme aujourd'hui (`docs/technique/invariants.md`)
+
+**Given** un board Kanban dont un Goal est épinglé pendant une lecture
+**When** la lecture se termine
+**Then** ce Goal n'est pas masqué, et un test le vérifie avec un lecteur bloqué (l'épinglage est relu dans `latest`, pas dans `configuration`)
+
+*Notes :* cause dans `BoardLoadingService.ts` : `knownGoalIds` contient les objectifs texte et `goalColorIndex`, donc la grâce de la première lecture est consommée par la lecture texte. Aucune écriture dans Jira ; les préférences restent locales.

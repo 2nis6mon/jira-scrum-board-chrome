@@ -71,12 +71,6 @@
   summary: « Démarrer » reste désactivé tant qu'un sprint est actif, même sur un board à sprints parallèles où Jira le permet, et son message est au singulier.
   evidence: medium ; startDisabledReason teste `activeSprints.length > 0` (règle antérieure à 8.18). Décision produit à prendre sur le démarrage avec sprints parallèles.
 
-- source_spec: `_bmad-output/implementation-artifacts/spec-bug-objectifs-masques-au-demarrage.md`
-  summary: Après une première lecture en texte (repli ou passage de la source texte aux Goals Atlassian), la première lecture Goals masque d'un coup tous les Goals liés non épinglés.
-  evidence: `knownGoalIds` (BoardLoadingService.ts) contient les objectifs texte et `goalColorIndex`, donc la grâce de la première lecture est consommée par la lecture texte ; comportement antérieur au correctif (revue du 02/11/2026).
-- source_spec: `_bmad-output/implementation-artifacts/spec-bug-objectifs-masques-au-demarrage.md`
-  summary: Aucun test de synchronisation Kanban ne couvre un épinglage du board enregistré pendant la lecture (`pinnedGoalIdsOfSnapshot(result.snapshot, latest)`).
-  evidence: le test de BoardModel.kanban.test.ts épingle avant `sync()` ; passer `configuration` au lieu de `latest` ne ferait échouer aucun test. Un lecteur bloqué (gated reader) fermerait le trou.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-15-deplacer-plusieurs-tickets.md`
   summary: La sélection de plusieurs cartes du planning ne se fait qu'à la souris (Ctrl/Cmd+clic, Maj+clic) ; aucun geste clavier ne sélectionne une carte.
   evidence: hors de la story 8.15, qui ne demande que les clics ; à décider avec l'accessibilité du glissé (le menu de carte reste le recours clavier, ticket par ticket).

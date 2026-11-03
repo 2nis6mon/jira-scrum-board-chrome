@@ -7,18 +7,6 @@ engagée tant qu'elle n'est pas décidée. Mise en conformité d'architecture :
 
 ## Fiabilité et distribution
 
-- [ ] Bug (signalé par Denis, 02/11/2026) : pendant le glisser d'un ticket à la souris, approcher la
-  carte du haut (ou du bas) du board ne le fait pas défiler ; un objectif hors de l'écran est alors
-  impossible à atteindre. Constat dans le code : glisser-déposer HTML natif (`draggable`,
-  `onDragStart` dans `IssueCard.tsx`, `BoardView.tsx`), aucun défilement automatique de notre côté ;
-  le board défile dans son propre conteneur (`.board`, `overflow: auto`, `app.css`), dans l'iframe
-  injectée dans Jira. Piste, à confirmer : la zone de défilement automatique de Chrome, au bord du
-  conteneur, est trop étroite ou inaccessible (en-têtes, bord de l'iframe). Correctif possible :
-  pendant un `dragover`, faire défiler le conteneur quand le pointeur entre dans une bande en haut
-  ou en bas (vitesse croissante vers le bord), arrêt au `drop`, au `dragend` ou à la sortie. Vérifier
-  aussi le Sprint Planning (`.planning-lanes` et `.planning-sources`, `overflow-y: auto`) et le
-  défilement à la molette pendant le glisser. Test : Chrome réel sur le banc fictif, board plus haut
-  que la fenêtre. Aucune écriture concernée.
 - [ ] Workflows réels : Time Spent, Story Points, Resolution, commentaires, plusieurs champs,
   widgets tiers ; validation et annulation. Améliorer le diagnostic des formulaires non reconnus sans données sensibles.
 - [ ] Schémas Goals réels : plus de 100 liens, absence de `workItems`, champ Goals manquant ;
@@ -28,20 +16,6 @@ engagée tant qu'elle n'est pas décidée. Mise en conformité d'architecture :
 - [ ] Étudier les lectures Software « enhanced » avant de remplacer les endpoints Agile ; préserver filtre, sprints et pagination.
 - [ ] Confirmer publication et canal de mise à jour ; fiche, empaquetage et politique existent.
 - [ ] Renouveler les captures Store après chaque évolution visuelle ; revue de sécurité indépendante avant diffusion large.
-- [ ] Correctif (demande de Denis, 02/11/2026) : renommer les clés des propriétés Jira écrites par
-  l'extension de `com.scrumboardmac.*` en `com.mousquetaires.*`. Clés concernées (inventaire
-  `src/jira/writes.ts`) : `sprintgoals.v1` (E5, propriété de sprint), `boardsettings.v1` (E6, propriété
-  du board) et `diagnostic` (E7, écrite puis supprimée). À trancher avant de commencer : la règle
-  d'AGENTS.md « préserver les clés `com.scrumboardmac.*` » (à amender), et la reprise des données
-  existantes. Les objectifs épinglés et les réglages d'équipe déjà publiés restent sous l'ancienne
-  clé. Piste : lire la nouvelle clé, sinon l'ancienne ; écrire seulement la nouvelle au prochain geste
-  explicite ; ne jamais supprimer l'ancienne automatiquement. Format `v1` inchangé, mêmes écritures,
-  aucune nouvelle. Références à mettre à jour (recensées le 02/11/2026, toutes sur ces trois clés) :
-  `src/jira/writes.ts`, `src/jira/diagnostics.ts`, `src/core/sprintGoals.ts`, `src/core/teamSettings.ts` ;
-  tests (`writes.test.ts` et sa garde de chemins, `BoardWriteGate`, `PlanningModel`, `App`, `sprintGoals`,
-  `teamSettings`, `BoardModel.*`), `scripts/verify-planning.mjs` ; `docs/technique/` (`securite.md`,
-  `donnees.md`, `index.md`), AGENTS.md, note d'architecture, `epics.md`, spec de conformité. Les specs
-  terminées et les `.memlog.md` gardent l'ancien nom (historique).
 
 ## Pistes produit à décider
 
