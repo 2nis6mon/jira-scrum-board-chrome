@@ -113,7 +113,10 @@ export interface PlanningContext {
   readonly write: BoardWriteGateway["run"];
   /** Journal du board. */
   readonly record: RecordWrite;
-  /** Attente entre deux relectures de l'état d'un sprint après une fenêtre native. */
+  /**
+   * Attente entre deux relectures : état d'un sprint après une fenêtre native, et tickets après un
+   * ajout, un retrait ou un rang (story 8.26).
+   */
   wait(ms: number): Promise<void>;
   /** Filtres rapides du board Jira, lus par le board ; leur JQL est évalué par Jira. */
   jiraQuickFilters(): readonly JiraQuickFilter[];
@@ -941,6 +944,7 @@ export class PlanningModel implements PlanningViewModel {
           target,
           accountId: this.context.accountId(),
           now: new Date(),
+          wait: (ms) => this.context.wait(ms),
         }),
       (outcome) => {
         if (origin === null || outcome.kind === "refused" || outcome.kind === "unchanged") return;
@@ -969,6 +973,7 @@ export class PlanningModel implements PlanningViewModel {
           query: base.query,
           issueKey: key,
           destination,
+          wait: (ms) => this.context.wait(ms),
         }),
       (outcome) => {
         if (outcome.kind !== "done") return;
@@ -1078,6 +1083,7 @@ export class PlanningModel implements PlanningViewModel {
           target,
           accountId: this.context.accountId(),
           now: new Date(),
+          wait: (ms) => this.context.wait(ms),
         }),
       (result) => {
         if (result.outcome.kind === "refused" || result.outcome.kind === "unchanged") return;
@@ -1118,6 +1124,7 @@ export class PlanningModel implements PlanningViewModel {
           query: base.query,
           issueKeys: unique,
           destination,
+          wait: (ms) => this.context.wait(ms),
         }),
       (result) => {
         const origins = { ...this.#origins.value };
@@ -1161,6 +1168,7 @@ export class PlanningModel implements PlanningViewModel {
           outcome: { kind: "refused", reason: { reason: "failed", error } },
           confirmedKeys: [],
           remainingKeys: keys,
+          unseenKeys: [],
         };
       }
       if (result.outcome.kind !== "unchanged")
@@ -1177,9 +1185,13 @@ export class PlanningModel implements PlanningViewModel {
       after?.(result);
       batch(() => {
         this.notice.value = planningBatchMessage(result);
-        // Lot confirmé : la sélection est vidée ; sinon elle garde les tickets à refaire.
+        // Lot confirmé : la sélection est vidée ; sinon elle garde les tickets à refaire, sans
+        // ceux dont Jira a reçu l'écriture sans les montrer encore (story 8.26).
+        const unseen = new Set(result.unseenKeys);
         this.selection.value = new Set(
-          result.outcome.kind === "refused" ? keys : result.remainingKeys,
+          result.outcome.kind === "refused"
+            ? keys
+            : result.remainingKeys.filter((key) => !unseen.has(key)),
         );
       });
       await this.#reread(generation);
@@ -1222,6 +1234,7 @@ export class PlanningModel implements PlanningViewModel {
         issueKey: key,
         edge,
         reference,
+        wait: (ms) => this.context.wait(ms),
       }),
     );
   }

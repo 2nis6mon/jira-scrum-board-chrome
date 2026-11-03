@@ -13,6 +13,7 @@ import {
   pinPlanningGoals,
   placePlanningIssue,
   placePlanningIssues,
+  READ_BACK_DELAYS_MS,
   rankPlanningIssue,
   removePlanningIssue,
   removePlanningIssues,
@@ -82,7 +83,15 @@ interface FakeOptions {
   readonly ignore?: readonly JiraWrite["kind"][];
   /** Changement simultané fait par un collègue juste après une écriture. */
   readonly afterWrite?: (write: JiraWrite, state: FakeState) => void;
+  /**
+   * Délai d'indexation (constat 8.10) : nombre d'attentes (`f.wait`) pendant lesquelles les routes
+   * des tickets montrent encore ce ticket à sa place d'avant l'écriture, qui est pourtant appliquée.
+   */
+  readonly lag?: Readonly<Record<string, number>>;
 }
+
+/** Place d'un ticket : backlog ou sprint, et rang dans la liste. */
+type Place = { readonly container: number | "backlog"; readonly index: number };
 
 interface FakeState {
   sprints: JiraSprint[];
@@ -123,6 +132,42 @@ function fakeJira(options: FakeOptions = {}) {
   const sprintCalls: (readonly string[])[] = [];
   const clone = <T>(value: T): T => structuredClone(value);
 
+  // Délai d'indexation : chaque attente fait avancer l'horloge ; tant qu'un ticket déplacé n'a pas
+  // atteint son échéance, les routes des tickets le montrent à sa place d'avant l'écriture.
+  let clock = 0;
+  const waits: number[] = [];
+  const stale: { key: string; until: number; place: Place }[] = [];
+  const wait = async (ms: number) => {
+    waits.push(ms);
+    clock += 1;
+  };
+  const placeOf = (key: string): Place | null => {
+    const inBacklog = state.backlog.findIndex((issue) => issue.key === key);
+    if (inBacklog >= 0) return { container: "backlog", index: inBacklog };
+    for (const [id, issues] of Object.entries(state.issues)) {
+      const index = issues.findIndex((issue) => issue.key === key);
+      if (index >= 0) return { container: Number(id), index };
+    }
+    return null;
+  };
+  const indexed = (container: number | "backlog"): JiraIssue[] => {
+    const lists = new Map<number | "backlog", JiraIssue[]>([["backlog", [...state.backlog]]]);
+    for (const [id, issues] of Object.entries(state.issues)) lists.set(Number(id), [...issues]);
+    for (const { key, until, place } of stale) {
+      if (clock >= until) continue;
+      let moved: JiraIssue | undefined;
+      for (const list of lists.values()) {
+        const at = list.findIndex((issue) => issue.key === key);
+        if (at >= 0) [moved] = list.splice(at, 1);
+      }
+      if (!moved) continue;
+      const target = lists.get(place.container) ?? [];
+      target.splice(Math.min(place.index, target.length), 0, moved);
+      lists.set(place.container, target);
+    }
+    return lists.get(container) ?? [];
+  };
+
   const reader: PlanningReader = {
     sprint: async (id) => {
       const found = state.sprints.find((candidate) => candidate.id === id);
@@ -133,8 +178,8 @@ function fakeJira(options: FakeOptions = {}) {
       sprintCalls.push([...states]);
       return state.sprints.filter((candidate) => states.includes(candidate.state));
     },
-    sprintIssues: async (_board, id) => [...(state.issues[id] ?? [])],
-    backlogIssues: async () => [...state.backlog],
+    sprintIssues: async (_board, id) => indexed(id),
+    backlogIssues: async () => indexed("backlog"),
     sprintProperty: async (id) => clone(state.properties[id] ?? null),
   };
 
@@ -200,6 +245,17 @@ function fakeJira(options: FakeOptions = {}) {
       writes.push(write);
       const failure = options.fail?.[write.kind];
       if (failure !== undefined) throw failure;
+      const moved =
+        "issueKeys" in write
+          ? write.issueKeys
+          : write.kind === "issue.rank"
+            ? [write.issueKey]
+            : [];
+      for (const key of moved) {
+        const place = placeOf(key);
+        const lag = options.lag?.[key] ?? 0;
+        if (place && lag > 0) stale.push({ key, until: clock + lag, place });
+      }
       if (!options.ignore?.includes(write.kind)) apply(write);
       options.afterWrite?.(write, state);
       return { status: 204, body: null };
@@ -217,7 +273,20 @@ function fakeJira(options: FakeOptions = {}) {
   const keysOf = (id: number) => (state.issues[id] ?? []).map((candidate) => candidate.key);
   const property = (id = PREPARED) => state.properties[id] as Record<string, unknown> | null;
   const goalOf = (id: number) => state.sprints.find((candidate) => candidate.id === id)?.goal;
-  return { state, reader, writer, writes, sprintCalls, load, issue, keysOf, property, goalOf };
+  return {
+    state,
+    reader,
+    writer,
+    writes,
+    sprintCalls,
+    wait,
+    waits,
+    load,
+    issue,
+    keysOf,
+    property,
+    goalOf,
+  };
 }
 
 /** Liens Goals fictifs : réponses données dans l'ordre, succès par défaut. */
@@ -1568,6 +1637,7 @@ describe("poser un lot de tickets sur un objectif (placePlanningIssues)", () => 
       outcome: { kind: "done", confirmed: ["issueAdded", "issueLinked"] },
       confirmedKeys: keys,
       remainingKeys: [],
+      unseenKeys: [],
     });
     expect(f.writes.map((write) => write.kind)).toEqual([
       "sprint.issues.add",
@@ -1700,6 +1770,7 @@ describe("retirer un lot du sprint en préparation (removePlanningIssues)", () =
       outcome: { kind: "done", confirmed: ["issueMoved"] },
       confirmedKeys: ["ABC-210", "ABC-211"],
       remainingKeys: [],
+      unseenKeys: [],
     });
     expect(f.writes).toEqual([{ kind: "backlog.issues.move", issueKeys: ["ABC-210", "ABC-211"] }]);
   });
@@ -1723,11 +1794,13 @@ describe("retirer un lot du sprint en préparation (removePlanningIssues)", () =
     expect(f.writes).toEqual([]);
   });
 
-  it("E10 non relu : tout le lot reste à refaire, rien n'est rejoué", async () => {
+  it("E10 non relu : tout le lot reste non confirmé, rien n'est rejoué", async () => {
     const f = fakeJira({ ignore: ["backlog.issues.move"] });
     const result = await removeAll(f, ["ABC-210", "ABC-211"], { kind: "backlog" });
     expect(result.outcome.kind).toBe("partial");
     expect(result.remainingKeys).toEqual(["ABC-210", "ABC-211"]);
+    // E10 reçue par Jira : les tickets ne sont pas à refaire (story 8.26).
+    expect(result.unseenKeys).toEqual(["ABC-210", "ABC-211"]);
     expect(f.writes).toHaveLength(1);
   });
 });
@@ -1893,5 +1966,180 @@ describe("estimer un ticket (estimatePlanningIssue)", () => {
       issueKey: "ABC-201",
     });
     expect(f.writes).toHaveLength(1);
+  });
+});
+
+// ─── Délai d'indexation de Jira (story 8.26) ─────────────────────────────────
+
+describe("relecture bornée après E9, E2 et E10 (story 8.26)", () => {
+  const placeOne = (f: ReturnType<typeof fakeJira>, snapshot: PlanningSnapshot, key: string) =>
+    placePlanningIssue(f.reader, f.writer, goalLinks().links, {
+      boardId: BOARD,
+      sprintId: PREPARED,
+      query,
+      issue: f.issue(key),
+      target: textTarget(snapshot, key, PANIER.id),
+      accountId: USER,
+      now: NOW,
+      wait: f.wait,
+    });
+  const placeMany = (
+    f: ReturnType<typeof fakeJira>,
+    snapshot: PlanningSnapshot,
+    keys: readonly string[],
+  ) =>
+    placePlanningIssues(f.reader, f.writer, goalLinks().links, {
+      boardId: BOARD,
+      sprintId: PREPARED,
+      query,
+      issues: keys.map((key) => f.issue(key)),
+      target: batchTextTarget(snapshot, keys, PANIER.id),
+      accountId: USER,
+      now: NOW,
+      wait: f.wait,
+    });
+  const linkOf = (f: ReturnType<typeof fakeJira>, key: string) =>
+    (f.property()?.links as Record<string, string> | undefined)?.[key];
+
+  it("délais bornés : quatre attentes au plus entre cinq lectures, ~5,5 s en tout", () => {
+    expect(READ_BACK_DELAYS_MS).toEqual([500, 1000, 1500, 2500]);
+  });
+
+  it("ajout sur un objectif : 1re relecture sans le ticket, 2e avec ; une seule E9, une seule E5", async () => {
+    const f = fakeJira({ lag: { "ABC-201": 1 } });
+    const snapshot = await f.load();
+    const outcome = await placeOne(f, snapshot, "ABC-201");
+    expect(outcome).toEqual({ kind: "done", confirmed: ["issueAdded", "issueLinked"] });
+    expect(f.writes.map((write) => write.kind)).toEqual([
+      "sprint.issues.add",
+      "sprintProperty.put",
+    ]);
+    expect(f.waits).toEqual([500]);
+    expect(linkOf(f, "ABC-201")).toBe(PANIER.id);
+  });
+
+  it("lot de 3 : un ticket relu tout de suite, les deux autres ensuite ; une seule E9", async () => {
+    const f = fakeJira({ lag: { "ABC-202": 1, "ABC-301": 2 } });
+    const snapshot = await f.load();
+    const keys = ["ABC-201", "ABC-202", "ABC-301"];
+    const result = await placeMany(f, snapshot, keys);
+    expect(result).toEqual({
+      outcome: { kind: "done", confirmed: ["issueAdded", "issueLinked"] },
+      confirmedKeys: keys,
+      remainingKeys: [],
+      unseenKeys: [],
+    });
+    expect(f.writes.map((write) => write.kind)).toEqual([
+      "sprint.issues.add",
+      "sprintProperty.put",
+    ]);
+    expect(f.waits).toEqual([500, 1000]);
+    for (const key of keys) expect(linkOf(f, key)).toBe(PANIER.id);
+  });
+
+  it.each([
+    ["le backlog", { kind: "backlog" } as const, "backlog.issues.move"],
+    ["un autre sprint futur", { kind: "sprint", sprintId: OTHER } as const, "sprint.issues.add"],
+  ])(
+    "retrait vers %s : le ticket reste lu dans le sprint, puis disparaît ; une seule écriture",
+    async (_label, destination, kind) => {
+      const f = fakeJira({ lag: { "ABC-210": 2 } });
+      const outcome = await removePlanningIssue(f.reader, f.writer, {
+        boardId: BOARD,
+        sprintId: PREPARED,
+        query,
+        issueKey: "ABC-210",
+        destination,
+        wait: f.wait,
+      });
+      expect(outcome).toEqual({ kind: "done", confirmed: ["issueMoved"] });
+      expect(f.writes.map((write) => write.kind)).toEqual([kind]);
+      expect(f.waits).toEqual([500, 1000]);
+    },
+  );
+
+  it("retrait d'un lot : confirmé à la relecture suivante, une seule E10", async () => {
+    const f = fakeJira({ lag: { "ABC-211": 1 } });
+    const result = await removePlanningIssues(f.reader, f.writer, {
+      boardId: BOARD,
+      sprintId: PREPARED,
+      query,
+      issueKeys: ["ABC-210", "ABC-211"],
+      destination: { kind: "backlog" },
+      wait: f.wait,
+    });
+    expect(result.outcome).toEqual({ kind: "done", confirmed: ["issueMoved"] });
+    expect(result.confirmedKeys).toEqual(["ABC-210", "ABC-211"]);
+    expect(f.writes).toHaveLength(1);
+  });
+
+  it("top priorité : ancien ordre relu, puis le nouveau ; une seule E2", async () => {
+    const f = fakeJira({ lag: { "ABC-211": 1 } });
+    const outcome = await rankPlanningIssue(f.reader, f.writer, {
+      boardId: BOARD,
+      sprintId: PREPARED,
+      query,
+      issueKey: "ABC-211",
+      edge: "top",
+      reference: "ABC-210",
+      wait: f.wait,
+    });
+    expect(outcome).toEqual({ kind: "done", confirmed: ["ranked"] });
+    expect(f.writes).toEqual([{ kind: "issue.rank", issueKey: "ABC-211", before: "ABC-210" }]);
+    expect(f.waits).toEqual([500]);
+  });
+
+  it("changement jamais relu : toutes les relectures bornées, partiel, aucune écriture rejouée", async () => {
+    const f = fakeJira({ lag: { "ABC-201": 99 } });
+    const snapshot = await f.load();
+    const outcome = await placeOne(f, snapshot, "ABC-201");
+    expect(outcome).toMatchObject({ kind: "partial", confirmed: [] });
+    if (outcome.kind !== "partial") return;
+    expect(coreCode(outcome.error)).toEqual({
+      code: "planningIssueUnconfirmed",
+      issueKey: "ABC-201",
+    });
+    expect(f.writes.map((write) => write.kind)).toEqual(["sprint.issues.add"]);
+    expect(f.waits).toEqual([...READ_BACK_DELAYS_MS]);
+  });
+
+  it("lot jamais relu en partie : les tickets non relus ne sont pas à refaire", async () => {
+    const f = fakeJira({ lag: { "ABC-202": 99 } });
+    const snapshot = await f.load();
+    const result = await placeMany(f, snapshot, ["ABC-201", "ABC-202"]);
+    expect(result.outcome).toMatchObject({ kind: "partial", confirmed: [] });
+    expect(result.remainingKeys).toEqual(["ABC-201", "ABC-202"]);
+    expect(result.unseenKeys).toEqual(["ABC-202"]);
+    expect(f.writes.map((write) => write.kind)).toEqual(["sprint.issues.add"]);
+    expect(f.waits).toEqual([...READ_BACK_DELAYS_MS]);
+  });
+
+  it("rang jamais relu : partiel après les relectures bornées, une seule E2", async () => {
+    const f = fakeJira({ lag: { "ABC-211": 99 } });
+    const outcome = await rankPlanningIssue(f.reader, f.writer, {
+      boardId: BOARD,
+      sprintId: PREPARED,
+      query,
+      issueKey: "ABC-211",
+      edge: "top",
+      reference: "ABC-210",
+      wait: f.wait,
+    });
+    expect(outcome.kind).toBe("partial");
+    expect(f.writes).toHaveLength(1);
+    expect(f.waits).toEqual([...READ_BACK_DELAYS_MS]);
+  });
+
+  it("relecture du planning en retard : un ticket du sprint en préparation n'apparaît que là", async () => {
+    const f = fakeJira();
+    // Backlog et sprint 44 relus avant leur indexation : ils lisent encore ABC-210 et ABC-211.
+    f.state.backlog = [...f.state.backlog, todo("ABC-210")];
+    f.state.issues[OTHER] = [...(f.state.issues[OTHER] ?? []), todo("ABC-211")];
+    const snapshot = await f.load();
+    expect(snapshot.sprintIssues.map((issue) => issue.key)).toEqual(["ABC-210", "ABC-211"]);
+    expect(snapshot.backlogIssues.map((issue) => issue.key)).not.toContain("ABC-210");
+    expect(
+      snapshot.futureSprints.flatMap(({ issues }) => issues.map((issue) => issue.key)),
+    ).toEqual(["ABC-301"]);
   });
 });

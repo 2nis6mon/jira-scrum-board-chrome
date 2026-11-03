@@ -646,7 +646,8 @@ export const businessMessagesEs = {
   // ─── Sprint Planning en direct ───
   "Jira n'a pas relu la propriété des objectifs du sprint telle qu'elle a été écrite.":
     "Jira no ha vuelto a leer la propiedad de objetivos del sprint tal como se escribió.",
-  "Jira n'a pas relu {p0} à sa nouvelle place.": "Jira no ha vuelto a leer {p0} en su nuevo lugar.",
+  "Jira a reçu l'écriture de {p0} mais ne le montre pas encore à sa nouvelle place ; actualisez dans quelques instants.":
+    "Jira ha recibido la escritura de {p0}, pero todavía no lo muestra en su nuevo lugar; actualiza dentro de unos instantes.",
   "Atlassian a refusé le rattachement au Goal : {p0}":
     "Atlassian ha rechazado la vinculación con el Goal: {p0}",
   "Atlassian a refusé le rattachement au Goal.":
@@ -688,6 +689,9 @@ export const businessMessagesEs = {
   "{p0} Tickets confirmés : {p1}. À refaire : {p2}.":
     "{p0} Tickets confirmados: {p1}. Por rehacer: {p2}.",
   "{p0} À refaire : {p1}.": "{p0} Por rehacer: {p1}.",
+  "{p0} Tickets confirmés : {p1}.": "{p0} Tickets confirmados: {p1}.",
+  "{p0} Pas encore relus à leur nouvelle place : {p1}.":
+    "{p0} Todavía no se han vuelto a leer en su nuevo lugar: {p1}.",
   "Tickets {p0} : {p1}": "Tickets {p0}: {p1}",
   "{p0} Rien n’a été écrit : la page a été relue, refaites votre modification.":
     "{p0} No se ha escrito nada: la página se ha vuelto a cargar, repite tu cambio.",

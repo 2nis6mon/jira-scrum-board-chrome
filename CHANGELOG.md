@@ -3,6 +3,20 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.48.6 — Sprint Planning : un geste confirmé malgré le délai d'indexation de Jira (builds locaux)
+
+- Constaté lors de l'essai réel 8.10 du 03/11/2026 (story 8.26) : sur un vrai Jira, la route des
+  tickets du board relue juste après un ajout au sprint (E9), un rang (E2) ou un retour au backlog
+  (E10) ne montrait pas encore le changement ; 7 gestes sur 7 étaient annoncés « Écriture non
+  confirmée », le lien vers l'objectif n'était jamais écrit et un ticket ajouté apparaissait à la
+  fois dans le backlog et dans le sprint.
+- Le planning relit désormais la même route jusqu'à voir le changement (cinq lectures au plus,
+  ~5,5 s), puis poursuit le geste ; aucune écriture n'est jamais rejouée. Si Jira ne montre toujours
+  pas le changement, l'avis dit qu'il a reçu l'écriture et invite à actualiser ; dans un lot, ces
+  tickets sont « pas encore relus » au lieu d'« à refaire » et quittent la sélection.
+- Un ticket relu dans le sprint en préparation n'apparaît plus dans le backlog ni dans un autre
+  sprint futur relus en retard. Nouveaux textes en français, anglais et espagnol.
+
 ## 0.48.5 — Le board et le planning défilent pendant le glisser d'un ticket
 
 - Signalé par Denis le 02/11/2026 (story 8.24) : pendant le glisser d'une carte, approcher le bord

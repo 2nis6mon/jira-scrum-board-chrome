@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { isAppMessage, renderMessage, sourceText } from "../../src/app/model/appMessage";
 import {
+  planningBatchMessage,
   planningCarryOverMessage,
   planningOutcomeMessage,
   reasonMessage,
 } from "../../src/app/model/coreText";
 import { BoardWriteRefused } from "../../src/app/services/ports";
-import type { CoreReason, PlanningRefusal } from "../../src/core/reasons";
+import { CoreError, type CoreReason, type PlanningRefusal } from "../../src/core/reasons";
 import type { PlanningStep } from "../../src/core/sprintPlanning";
 import { JiraError } from "../../src/jira/errors";
 
@@ -140,6 +141,45 @@ describe("avis du Sprint Planning", () => {
     expect(sourceText(notice)).toBe(
       "Les objectifs du sprint ont changé dans Jira depuis leur affichage.",
     );
+  });
+
+  it("geste reçu par Jira mais pas encore relu : ni « non confirmée » ni « À refaire » (story 8.26)", () => {
+    const unseen = new CoreError({ code: "planningIssueUnconfirmed", issueKey: "ABC-201" });
+    const notice = planningOutcomeMessage({ kind: "partial", confirmed: [], error: unseen });
+    expect(sourceText(notice)).toBe(
+      "Jira a reçu l'écriture de ABC-201 mais ne le montre pas encore à sa nouvelle place ; actualisez dans quelques instants. Aucune écriture n’a été rejouée ; la page a été relue dans Jira.",
+    );
+    expect(renderMessage(notice, "en")).toContain("does not show it in its new place yet");
+    expect(renderMessage(notice, "es")).toContain("todavía no lo muestra en su nuevo lugar");
+  });
+
+  it("lot : tickets confirmés, à refaire et pas encore relus, chacun à sa place (story 8.26)", () => {
+    const error = new CoreError({ code: "planningIssueUnconfirmed", issueKey: "ABC-202" });
+    const outcome = { kind: "partial", confirmed: [], error } as const;
+    const all = planningBatchMessage({
+      outcome,
+      confirmedKeys: ["ABC-210"],
+      remainingKeys: ["ABC-201", "ABC-202"],
+      unseenKeys: ["ABC-202"],
+    });
+    const text = all ? sourceText(all) : "";
+    expect(text).toContain("Tickets confirmés : ABC-210. À refaire : ABC-201.");
+    expect(text).toMatch(/Pas encore relus à leur nouvelle place : ABC-202\.$/);
+    const onlyUnseen = planningBatchMessage({
+      outcome: { kind: "partial", confirmed: ["issueMoved"], error },
+      confirmedKeys: ["ABC-210"],
+      remainingKeys: ["ABC-211"],
+      unseenKeys: ["ABC-211"],
+    });
+    const unseenText = onlyUnseen ? sourceText(onlyUnseen) : "";
+    expect(unseenText).not.toContain("À refaire");
+    expect(unseenText).toMatch(
+      /Tickets confirmés : ABC-210\. Pas encore relus à leur nouvelle place : ABC-211\.$/,
+    );
+    for (const language of ["en", "es"] as const)
+      expect(onlyUnseen && renderMessage(onlyUnseen, language)).not.toMatch(
+        /Tickets confirmés|relus/,
+      );
   });
 
   it("le report après clôture nomme le sprint en préparation", () => {

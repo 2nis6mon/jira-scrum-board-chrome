@@ -370,6 +370,51 @@ describe("Sprint Planning en direct : tickets", () => {
     expect(planning.sprintLoad.value?.total).toBe(5);
   });
 
+  it("E9 reçue mais jamais relue : relectures bornées, une seule E9, avis sans « À refaire » (story 8.26)", async () => {
+    const { planning, inspect, jira, wait } = context();
+    await planning.load();
+    const goal = planning.lanes.value[1]?.goal;
+    // Jira accepte l'ajout, mais sa route des tickets du sprint ne le montre pas encore.
+    jira.on("POST", "/rest/agile/1.0/sprint/43/issue", { status: 204 });
+    await planning.placeIssue("ABC-202", goal?.id ?? null);
+    expect(inspect().writes.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      "POST /rest/agile/1.0/sprint/43/issue",
+    ]);
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([500, 1000, 1500, 2500]);
+    expect(notice(planning)).toContain(
+      "Jira a reçu l'écriture de ABC-202 mais ne le montre pas encore à sa nouvelle place",
+    );
+    expect(notice(planning)).not.toContain("Écriture non confirmée");
+    expect(notice(planning)).not.toContain("À refaire");
+  });
+
+  it("lot reçu mais jamais relu : les tickets sont « pas encore relus » et quittent la sélection", async () => {
+    const { planning, jira, wait } = context();
+    await planning.load();
+    jira.on("POST", "/rest/agile/1.0/sprint/43/issue", { status: 204 });
+    planning.toggleSelection("ABC-201");
+    planning.toggleSelection("ABC-202");
+    await planning.placeIssues(["ABC-201", "ABC-202"], null);
+    expect(wait).toHaveBeenCalledTimes(4);
+    expect(notice(planning)).toContain(
+      "Pas encore relus à leur nouvelle place : ABC-201, ABC-202.",
+    );
+    expect(notice(planning)).not.toContain("À refaire");
+    expect([...planning.selection.value]).toEqual([]);
+  });
+
+  it("E10 reçue mais jamais relue : relectures bornées, une seule E10 (story 8.26)", async () => {
+    const { planning, inspect, jira, wait } = context();
+    await planning.load();
+    jira.on("POST", "/rest/agile/1.0/backlog/issue", { status: 204 });
+    await planning.removeIssue("ABC-210", { kind: "backlog" });
+    expect(inspect().writes.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      "POST /rest/agile/1.0/backlog/issue",
+    ]);
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([500, 1000, 1500, 2500]);
+    expect(notice(planning)).toContain("ne le montre pas encore à sa nouvelle place");
+  });
+
   it("« Sans objectif » depuis le backlog : E9 seulement", async () => {
     const { planning, inspect } = context();
     await planning.load();
@@ -1633,6 +1678,23 @@ describe("Sprint Planning : top et basse priorité dans la swimlane (8.19)", () 
       body: { issues: [last], rankAfterIssue: unassignedKeys(planning).at(-2) },
     });
     expect(unassignedKeys(planning).at(-1)).toBe(last);
+  });
+
+  it("E2 reçue mais jamais relue : relectures bornées, une seule E2 (story 8.26)", async () => {
+    const { planning, inspect, jira, wait } = context();
+    await planning.load();
+    await planning.placeIssue("ABC-201", null);
+    const last = unassignedKeys(planning).at(-1) ?? "";
+    jira.on("PUT", RANK, { status: 204 });
+    const before = inspect().writes.length;
+    await planning.rankIssue(last, "top");
+    expect(
+      inspect()
+        .writes.slice(before)
+        .map(({ method }) => method),
+    ).toEqual(["PUT"]);
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([500, 1000, 1500, 2500]);
+    expect(notice(planning)).toContain("ne le montre pas encore à sa nouvelle place");
   });
 
   it("déjà à sa place, seul dans sa swimlane, ou carte d'une source : rien n'est écrit", async () => {

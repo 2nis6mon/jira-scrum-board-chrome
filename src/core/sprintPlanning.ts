@@ -46,6 +46,36 @@ export type PlanningReader = Pick<
 export type EstimateReader = Pick<JiraClient, "issueEstimation">;
 export type PlanningWriter = JiraWriter;
 export type PlanningGoalLinks = Pick<GoalsClient, "setLink">;
+/** Attente entre deux relectures, injectée : `core` n'a pas de minuterie. */
+export type PlanningWait = (ms: number) => Promise<void>;
+
+/**
+ * Délais entre les relectures qui confirment une E9, une E2 ou une E10 (constat 8.10 : les routes
+ * des tickets du board montrent l'écriture avec ~1 s de retard, variable d'un ticket à l'autre).
+ * Cinq lectures au plus, ~5,5 s d'attente en tout ; jamais d'écriture rejouée.
+ */
+export const READ_BACK_DELAYS_MS: readonly number[] = [500, 1000, 1500, 2500];
+
+/** Sans attente injectée, les relectures s'enchaînent sans délai. */
+const NO_WAIT: PlanningWait = () => Promise.resolve();
+
+/**
+ * Relit Jira jusqu'à voir le changement (`seen`), au plus une fois après chaque délai de
+ * `READ_BACK_DELAYS_MS` ; rend la dernière lecture, vue ou non. Une lecture en échec arrête tout.
+ */
+async function readBack<T>(
+  read: () => Promise<T>,
+  seen: (value: T) => boolean,
+  wait: PlanningWait = NO_WAIT,
+): Promise<T> {
+  let value = await read();
+  for (const delay of READ_BACK_DELAYS_MS) {
+    if (seen(value)) return value;
+    await wait(delay);
+    value = await read();
+  }
+  return value;
+}
 
 /** Étape confirmée par une relecture de Jira. */
 export type PlanningStep =
@@ -160,7 +190,16 @@ export async function loadSprintPlanning(
         issues: await reader.sprintIssues(input.boardId, other.id, input.query),
       })),
     );
-  const [readFutures, readActives] = await Promise.all([issuesOf(others), issuesOf(actives)]);
+  const [readOthers, readActives] = await Promise.all([issuesOf(others), issuesOf(actives)]);
+  // Un seul sprint ouvert par ticket : la route du sprint en préparation fait foi. Celle du backlog
+  // ou d'un autre sprint futur, relue avant son indexation (constat 8.10), peut encore lire un
+  // ticket déjà relu dans le sprint en préparation : il n'apparaît que là (story 8.26).
+  const prepared = new Set(sprintIssues.map((issue) => issue.key));
+  const elsewhere = (issue: JiraIssue) => !prepared.has(issue.key);
+  const readFutures = readOthers.map(({ sprint: other, issues }) => ({
+    sprint: other,
+    issues: issues.filter(elsewhere),
+  }));
   // Colonne « Où sont les tickets » (backlog, autres sprints futurs, reste à faire actif) : comme
   // le backlog Jira, seulement les statuts d'une colonne visible autre que la dernière (stories
   // 8.20, 8.22). Le sprint en préparation garde tous ses tickets.
@@ -186,7 +225,7 @@ export async function loadSprintPlanning(
     velocity: document?.velocity ?? null,
     pinnedGoalIds: [...(document?.atlassianGoalIds ?? [])],
     sprintIssues,
-    backlogIssues: backlogIssues.filter(remaining),
+    backlogIssues: backlogIssues.filter((issue) => elsewhere(issue) && remaining(issue)),
     futureSprints: futureSprints.map(({ sprint: other, issues }) => ({
       sprint: other,
       issues: issues.filter(remaining),
@@ -541,6 +580,8 @@ export function placePlanningIssue(
     target: PlanningTarget;
     accountId: string | null;
     now: Date;
+    /** Attente entre les relectures de l'ajout (aucune par défaut). */
+    wait?: PlanningWait;
   },
 ): Promise<PlanningOutcome> {
   return runIntention(writer, goals, async (run) => {
@@ -556,9 +597,14 @@ export function placePlanningIssue(
       if ((await activeIssueKeys(reader, input.boardId, input.query)).has(key))
         refuse({ reason: "issueInActiveSprint", issueKey: key });
       await run.writer.write({ kind: "sprint.issues.add", sprintId, issueKeys: [key] });
-      const read = await reader.sprintIssues(input.boardId, sprintId, input.query);
-      if (!read.some((candidate) => candidate.key === key))
-        throw new CoreError({ code: "planningIssueUnconfirmed", issueKey: key });
+      const arrived = (issues: readonly JiraIssue[]) =>
+        issues.some((candidate) => candidate.key === key);
+      const read = await readBack(
+        () => reader.sprintIssues(input.boardId, sprintId, input.query),
+        arrived,
+        input.wait,
+      );
+      if (!arrived(read)) throw new CoreError({ code: "planningIssueUnconfirmed", issueKey: key });
       run.confirmed.push("issueAdded");
     }
     const target = input.target;
@@ -626,6 +672,8 @@ export function removePlanningIssue(
     query: IssueQuery;
     issueKey: string;
     destination: PlanningDestination;
+    /** Attente entre les relectures du retrait (aucune par défaut). */
+    wait?: PlanningWait;
   },
 ): Promise<PlanningOutcome> {
   return runIntention(writer, NO_GOAL_LINKS, async (run) => {
@@ -650,19 +698,30 @@ export function removePlanningIssue(
         ? { kind: "backlog.issues.move", issueKeys: [issueKey] }
         : { kind: "sprint.issues.add", sprintId: destination.sprintId, issueKeys: [issueKey] },
     );
-    const [left, arrived] = await Promise.all([
-      reader.sprintIssues(boardId, sprintId, input.query),
-      destination.kind === "sprint"
-        ? reader.sprintIssues(boardId, destination.sprintId, input.query)
-        : Promise.resolve(null),
-    ]);
-    if (
-      left.some((issue) => issue.key === issueKey) ||
-      (arrived !== null && !arrived.some((issue) => issue.key === issueKey))
-    )
-      throw new CoreError({ code: "planningIssueUnconfirmed", issueKey });
+    const moved = ([left, arrived]: MovedReads) =>
+      !left.some((issue) => issue.key === issueKey) &&
+      (arrived === null || arrived.some((issue) => issue.key === issueKey));
+    const read = await readBack(() => movedReads(reader, input), moved, input.wait);
+    if (!moved(read)) throw new CoreError({ code: "planningIssueUnconfirmed", issueKey });
     run.confirmed.push("issueMoved");
   });
+}
+
+/** Tickets relus du sprint en préparation, et du sprint de destination (`null` : backlog). */
+type MovedReads = readonly [JiraIssue[], JiraIssue[] | null];
+
+/** Relecture d'un retrait : sprint en préparation, et sprint de destination s'il y en a un. */
+function movedReads(
+  reader: PlanningReader,
+  input: { boardId: number; sprintId: number; query: IssueQuery; destination: PlanningDestination },
+): Promise<MovedReads> {
+  const { boardId, sprintId, destination } = input;
+  return Promise.all([
+    reader.sprintIssues(boardId, sprintId, input.query),
+    destination.kind === "sprint"
+      ? reader.sprintIssues(boardId, destination.sprintId, input.query)
+      : Promise.resolve(null),
+  ]);
 }
 
 // ─── Lots de tickets (story 8.15) ────────────────────────────────────────────
@@ -672,12 +731,15 @@ export const PLANNING_BATCH_LIMIT = 50;
 
 /**
  * Résultat d'un geste sur un lot : `confirmedKeys`, tickets dont tout le geste a été relu dans
- * Jira ; `remainingKeys`, ceux qui restent à refaire (rien n'est jamais rejoué).
+ * Jira ; `remainingKeys`, les autres (rien n'est jamais rejoué). Parmi eux, `unseenKeys` : écriture
+ * E9 ou E10 reçue par Jira, mais ticket pas encore relu à sa nouvelle place au terme des relectures
+ * bornées (story 8.26) ; il n'est pas à refaire.
  */
 export interface PlanningBatchOutcome {
   readonly outcome: PlanningOutcome;
   readonly confirmedKeys: readonly string[];
   readonly remainingKeys: readonly string[];
+  readonly unseenKeys: readonly string[];
 }
 
 export type PlanningBatchTarget =
@@ -702,11 +764,13 @@ function batchOutcome(
   keys: readonly string[],
   outcome: PlanningOutcome,
   done: ReadonlySet<string>,
+  unseen: ReadonlySet<string> = new Set(),
 ): PlanningBatchOutcome {
   return {
     outcome,
     confirmedKeys: keys.filter((key) => done.has(key)),
     remainingKeys: keys.filter((key) => !done.has(key)),
+    unseenKeys: keys.filter((key) => !done.has(key) && unseen.has(key)),
   };
 }
 
@@ -729,11 +793,14 @@ export async function placePlanningIssues(
     target: PlanningBatchTarget;
     accountId: string | null;
     now: Date;
+    /** Attente entre les relectures de l'ajout (aucune par défaut). */
+    wait?: PlanningWait;
   },
 ): Promise<PlanningBatchOutcome> {
   const keys = [...new Set(input.issues.map((issue) => issue.key))];
   const added = new Set<string>();
   const linked = new Set<string>();
+  const unseen = new Set<string>();
   const outcome = await runIntention(writer, goals, async (run) => {
     if (keys.length > PLANNING_BATCH_LIMIT) refuse({ reason: "batchTooLarge", count: keys.length });
     const { sprintId, target } = input;
@@ -776,10 +843,20 @@ export async function placePlanningIssues(
         sprintId,
         issueKeys: toAdd.map((issue) => issue.key),
       });
-      const read = new Set(
-        (await reader.sprintIssues(input.boardId, sprintId, input.query)).map((issue) => issue.key),
+      const read = await readBack(
+        async () =>
+          new Set(
+            (await reader.sprintIssues(input.boardId, sprintId, input.query)).map(
+              (issue) => issue.key,
+            ),
+          ),
+        (seen) => toAdd.every((issue) => seen.has(issue.key)),
+        input.wait,
       );
-      for (const issue of toAdd) if (read.has(issue.key)) added.add(issue.key);
+      for (const issue of toAdd) {
+        if (read.has(issue.key)) added.add(issue.key);
+        else unseen.add(issue.key);
+      }
       const missing = toAdd.find((issue) => !read.has(issue.key));
       if (missing) throw new CoreError({ code: "planningIssueUnconfirmed", issueKey: missing.key });
       run.confirmed.push("issueAdded");
@@ -840,7 +917,9 @@ export async function placePlanningIssues(
     }
   });
   const done = new Set(keys.filter((key) => added.has(key) && linked.has(key)));
-  return batchOutcome(keys, outcome, outcome.kind === "refused" ? new Set() : done);
+  return outcome.kind === "refused"
+    ? batchOutcome(keys, outcome, new Set())
+    : batchOutcome(keys, outcome, done, unseen);
 }
 
 /** Premier ticket du lot dont le lien relu n'est plus celui affiché. */
@@ -900,10 +979,13 @@ export async function removePlanningIssues(
     query: IssueQuery;
     issueKeys: readonly string[];
     destination: PlanningDestination;
+    /** Attente entre les relectures du retrait (aucune par défaut). */
+    wait?: PlanningWait;
   },
 ): Promise<PlanningBatchOutcome> {
   const keys = [...new Set(input.issueKeys)];
   const moved = new Set<string>();
+  let written = false;
   const outcome = await runIntention(writer, NO_GOAL_LINKS, async (run) => {
     if (keys.length > PLANNING_BATCH_LIMIT) refuse({ reason: "batchTooLarge", count: keys.length });
     const { boardId, sprintId, destination } = input;
@@ -930,21 +1012,26 @@ export async function removePlanningIssues(
         ? { kind: "backlog.issues.move", issueKeys: keys }
         : { kind: "sprint.issues.add", sprintId: destination.sprintId, issueKeys: keys },
     );
-    const [left, arrived] = await Promise.all([
-      reader.sprintIssues(boardId, sprintId, input.query),
-      destination.kind === "sprint"
-        ? reader.sprintIssues(boardId, destination.sprintId, input.query)
-        : Promise.resolve(null),
-    ]);
-    const stillThere = new Set(left.map((issue) => issue.key));
-    const there = arrived === null ? null : new Set(arrived.map((issue) => issue.key));
-    for (const key of keys)
-      if (!stillThere.has(key) && (there === null || there.has(key))) moved.add(key);
+    written = true;
+    const movedKeys = ([left, arrived]: MovedReads) => {
+      const stillThere = new Set(left.map((issue) => issue.key));
+      const there = arrived === null ? null : new Set(arrived.map((issue) => issue.key));
+      return keys.filter((key) => !stillThere.has(key) && (there === null || there.has(key)));
+    };
+    const read = await readBack(
+      () => movedReads(reader, input),
+      (reads) => movedKeys(reads).length === keys.length,
+      input.wait,
+    );
+    for (const key of movedKeys(read)) moved.add(key);
     const missing = keys.find((key) => !moved.has(key));
     if (missing) throw new CoreError({ code: "planningIssueUnconfirmed", issueKey: missing });
     run.confirmed.push("issueMoved");
   });
-  return batchOutcome(keys, outcome, outcome.kind === "refused" ? new Set() : moved);
+  // E10 ou E9 reçue : un ticket pas encore relu à sa nouvelle place n'est pas à refaire.
+  return outcome.kind === "refused"
+    ? batchOutcome(keys, outcome, new Set())
+    : batchOutcome(keys, outcome, moved, written ? new Set(keys) : new Set());
 }
 
 // ─── Estimation pendant la séance (story 8.17) ───────────────────────────────
@@ -1009,6 +1096,8 @@ export function rankPlanningIssue(
     issueKey: string;
     edge: "top" | "bottom";
     reference: string;
+    /** Attente entre les relectures de l'ordre (aucune par défaut). */
+    wait?: PlanningWait;
   },
 ): Promise<PlanningOutcome> {
   return runIntention(writer, NO_GOAL_LINKS, async (run) => {
@@ -1033,9 +1122,10 @@ export function rankPlanningIssue(
         ? { kind: "before", issueKey: reference }
         : { kind: "after", issueKey: reference },
     );
-    const after = await order();
-    if (!after.includes(reference) || !placed(after))
-      throw new CoreError({ code: "planningIssueUnconfirmed", issueKey });
+    const ranked = (keys: readonly string[]) =>
+      keys.includes(issueKey) && keys.includes(reference) && placed(keys);
+    const after = await readBack(order, ranked, input.wait);
+    if (!ranked(after)) throw new CoreError({ code: "planningIssueUnconfirmed", issueKey });
     run.confirmed.push("ranked");
   });
 }

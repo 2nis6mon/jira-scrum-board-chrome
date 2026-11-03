@@ -625,7 +625,8 @@ export const businessMessages = {
   // ─── Sprint Planning en direct ───
   "Jira n'a pas relu la propriété des objectifs du sprint telle qu'elle a été écrite.":
     "Jira did not read the sprint goals property back as it was written.",
-  "Jira n'a pas relu {p0} à sa nouvelle place.": "Jira did not read {p0} back in its new place.",
+  "Jira a reçu l'écriture de {p0} mais ne le montre pas encore à sa nouvelle place ; actualisez dans quelques instants.":
+    "Jira received the write for {p0} but does not show it in its new place yet; refresh in a few moments.",
   "Atlassian a refusé le rattachement au Goal : {p0}":
     "Atlassian refused the link to the Goal: {p0}",
   "Atlassian a refusé le rattachement au Goal.": "Atlassian refused the link to the Goal.",
@@ -666,6 +667,9 @@ export const businessMessages = {
   estimation: "estimate",
   "{p0} Tickets confirmés : {p1}. À refaire : {p2}.": "{p0} Confirmed issues: {p1}. To redo: {p2}.",
   "{p0} À refaire : {p1}.": "{p0} To redo: {p1}.",
+  "{p0} Tickets confirmés : {p1}.": "{p0} Confirmed issues: {p1}.",
+  "{p0} Pas encore relus à leur nouvelle place : {p1}.":
+    "{p0} Not yet read back in their new place: {p1}.",
   "Tickets {p0} : {p1}": "Issues {p0}: {p1}",
   "{p0} Rien n’a été écrit : la page a été relue, refaites votre modification.":
     "{p0} Nothing was written: the page was reloaded, make your change again.",
@@ -720,6 +724,8 @@ export const businessMessageParameters: Partial<
   "Étapes confirmées : {p0}. {p1}": ["p0", "p1"],
   "{p0} Tickets confirmés : {p1}. À refaire : {p2}.": ["p0"],
   "{p0} À refaire : {p1}.": ["p0"],
+  "{p0} Tickets confirmés : {p1}.": ["p0"],
+  "{p0} Pas encore relus à leur nouvelle place : {p1}.": ["p0"],
   "Tickets {p0} : {p1}": ["p1"],
   "Publication non confirmée. {p0}": ["p0"],
   "réponse {p0} au contenu inattendu, {p1}": ["p1"],

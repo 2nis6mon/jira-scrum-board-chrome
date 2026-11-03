@@ -176,7 +176,9 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   sprint en préparation que s'il y est tout entier. Un lot = une seule E9 (ou E10, ou E9 vers
   l'autre sprint), puis une seule E5 en texte ou un lien E3 par ticket (après E4) en Goals ; plus de
   50 tickets : refus avant toute écriture. Arrêt au premier échec, rien n'est rejoué ; l'avis
-  et le journal disent les tickets confirmés et ceux à refaire, qui restent sélectionnés.
+  et le journal disent les tickets confirmés et ceux à refaire, qui restent sélectionnés ; un
+  ticket dont Jira a reçu l'écriture sans le montrer encore à sa nouvelle place, au terme des
+  relectures bornées (8.26), est dit « pas encore relu » et quitte la sélection.
 - Sprints proposés (0.43.1) : seulement ceux que l'utilisateur peut modifier (administrateur, ou
   « Gérer les sprints » sur tous les projets du board d'origine) ; indécidable : proposé. Un sprint
   d'un autre board (`originBoardId`, `isForeignSprint`) sans aucun ticket du board restant (colonne

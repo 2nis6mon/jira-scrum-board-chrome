@@ -143,7 +143,10 @@ export function reasonMessage(reason: CoreReason): AppMessage {
         p0: goalsFailureMessage(reason.error),
       });
     case "planningIssueUnconfirmed":
-      return message("Jira n'a pas relu {p0} à sa nouvelle place.", { p0: reason.issueKey });
+      return message(
+        "Jira a reçu l'écriture de {p0} mais ne le montre pas encore à sa nouvelle place ; actualisez dans quelques instants.",
+        { p0: reason.issueKey },
+      );
     case "planningEstimateUnconfirmed":
       return message("Jira n'a pas relu l'estimation de {p0} telle qu'elle a été écrite.", {
         p0: reason.issueKey,
@@ -317,35 +320,56 @@ export function planningOutcomeMessage(outcome: PlanningOutcome): AppMessage {
         "{p0} Aucune écriture n’a été rejouée ; la page a été relue dans Jira.",
         { p0: planningCause(outcome.error) },
       );
-      return outcome.confirmed.length > 0
-        ? message("Étapes confirmées : {p0}. {p1}", {
-            p0: {
-              list: outcome.confirmed.map((step) => message(PLANNING_STEPS[step])),
-              separator: ", ",
-            },
-            p1: rest,
-          })
+      if (outcome.confirmed.length > 0)
+        return message("Étapes confirmées : {p0}. {p1}", {
+          p0: {
+            list: outcome.confirmed.map((step) => message(PLANNING_STEPS[step])),
+            separator: ", ",
+          },
+          p1: rest,
+        });
+      // Écriture reçue par Jira, pas encore visible à la relecture (story 8.26) : la cause le dit.
+      return isUnseenIssue(outcome.error)
+        ? rest
         : message("Écriture non confirmée. {p0}", { p0: rest });
     }
   }
 }
 
+function isUnseenIssue(error: unknown): boolean {
+  return error instanceof CoreError && error.reason.code === "planningIssueUnconfirmed";
+}
+
 /**
  * Résultat d'un geste sur un lot de tickets : celui d'un geste unique, puis, si tout n'a pas été
- * confirmé, les tickets confirmés et ceux qui restent à refaire. `null` : tout est confirmé.
+ * confirmé, les tickets confirmés, ceux qui restent à refaire et ceux que Jira ne montre pas encore
+ * à leur nouvelle place (à ne pas refaire, story 8.26). `null` : tout est confirmé.
  */
 export function planningBatchMessage(result: PlanningBatchOutcome): AppMessage | null {
   const { outcome, confirmedKeys, remainingKeys } = result;
   if (outcome.kind === "done") return null;
   const summary = planningOutcomeMessage(outcome);
   if (outcome.kind !== "partial" || remainingKeys.length === 0) return summary;
-  return confirmedKeys.length > 0
-    ? message("{p0} Tickets confirmés : {p1}. À refaire : {p2}.", {
-        p0: summary,
-        p1: confirmedKeys.join(", "),
-        p2: remainingKeys.join(", "),
-      })
-    : message("{p0} À refaire : {p1}.", { p0: summary, p1: remainingKeys.join(", ") });
+  const unseen = new Set(result.unseenKeys);
+  const redo = remainingKeys.filter((key) => !unseen.has(key));
+  const confirmed = confirmedKeys.join(", ");
+  const known =
+    redo.length === 0
+      ? confirmedKeys.length > 0
+        ? message("{p0} Tickets confirmés : {p1}.", { p0: summary, p1: confirmed })
+        : summary
+      : confirmedKeys.length > 0
+        ? message("{p0} Tickets confirmés : {p1}. À refaire : {p2}.", {
+            p0: summary,
+            p1: confirmed,
+            p2: redo.join(", "),
+          })
+        : message("{p0} À refaire : {p1}.", { p0: summary, p1: redo.join(", ") });
+  if (unseen.size === 0) return known;
+  return message("{p0} Pas encore relus à leur nouvelle place : {p1}.", {
+    p0: known,
+    p1: remainingKeys.filter((key) => unseen.has(key)).join(", "),
+  });
 }
 
 /** Entrée du journal d'un geste sur un lot : ses tickets, puis son résultat. */

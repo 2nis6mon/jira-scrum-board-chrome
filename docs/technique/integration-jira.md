@@ -142,6 +142,14 @@ Relevés dans les spécifications OpenAPI officielles de Jira Software Cloud et 
 (`swagger.v3.json`, opérations `moveIssuesToBacklog`, `moveIssuesToSprintAndRank`,
 `partiallyUpdateSprint`, `setProperty`, `getMyPermissions`), puis essayés sur le sandbox en 8.10 (03/11/2026) : écritures appliquées, mais la route des tickets du board relue juste après une E9, une E2 ou une E10 ne les voit pas encore (délai d'indexation ~1 s, story 8.26).
 
+Règle de relecture depuis 0.48.6 (story 8.26) : après une E9, une E2 ou une E10, le planning relit
+la même route jusqu'à voir le changement, au plus cinq lectures séparées de 0,5 s, 1 s, 1,5 s et
+2,5 s (`READ_BACK_DELAYS_MS`, attente injectée par le modèle), sans jamais rejouer l'écriture ;
+la suite du geste (E5) n'est écrite qu'après confirmation. Au-delà, l'avis dit que Jira a reçu
+l'écriture sans la montrer encore, et un lot classe ces tickets en « pas encore relus » plutôt
+qu'« à refaire ». À chaque lecture du planning, la route du sprint en préparation fait foi : un ticket
+qu'elle contient n'est pas montré dans le backlog ni dans un autre sprint futur relu en retard.
+
 | Usage | Contrat documenté | Droits et limites |
 |---|---|---|
 | Retour au backlog (E10) | `POST /rest/agile/1.0/backlog/issue`, corps `{"issues": [...]}` (clés uniques), 204 | « équivalent au retrait des sprints futurs et actifs », 50 tickets au plus ; 403 sans droit « d'affecter les tickets » au sprint, soit *Schedule issues* (`SCHEDULE_ISSUES`). Le ticket quitte aussi un sprint actif : son appartenance au sprint en préparation est relue juste avant. Variante `backlog/{boardId}/issue` écartée : elle sert à classer, inutile ici |

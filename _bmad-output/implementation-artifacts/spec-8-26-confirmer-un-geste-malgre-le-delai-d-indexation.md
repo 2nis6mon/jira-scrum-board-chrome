@@ -2,7 +2,8 @@
 title: 'Story 8.26 — Confirmer un geste du planning malgré le délai d''indexation de Jira'
 type: 'bugfix'
 created: '2026-11-03'
-status: 'ready-for-dev'
+status: 'done'
+baseline_commit: '094fcc6aeed34698f2913d061b084c4330bed0f4'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -48,12 +49,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/core/sprintPlanning.ts` -- délais exportés (`READ_BACK_DELAYS_MS`) et une aide de relecture « relire jusqu'à voir, sinon dernière lecture » ; option `wait` (défaut : aucune attente) dans les cinq gestes ; dédoublonnage dans `loadSprintPlanning` -- relire sans rejouer.
-- [ ] `src/app/model/PlanningModel.ts` -- transmettre `this.context.wait` aux cinq gestes -- vraies attentes dans l'extension.
-- [ ] `src/app/model/coreText.ts`, `src/i18n/messages.ts`, `src/i18n/es/messages.ts` -- avis du changement non relu et liste « Pas encore relus » au lieu de « À refaire » quand l'erreur est `planningIssueUnconfirmed` -- ne pas faire refaire un geste appliqué.
-- [ ] `tests/core/sprintPlanning.test.ts` -- un lecteur en retard d'une ou deux relectures pour chaque ligne de la matrice ; nombre d'écritures égal à un -- couverture de la matrice.
-- [ ] `tests/app/coreText.test.ts`, `tests/app/PlanningModel.test.ts` -- avis et `wait` transmis -- non-régression.
-- [ ] `docs/technique/integration-jira.md`, `CHANGELOG.md`, `package.json`, `package-lock.json`, `public/manifest.json` -- règle de relecture, version 0.48.6 -- livraison.
+- [x] `src/core/sprintPlanning.ts` -- délais exportés (`READ_BACK_DELAYS_MS`) et une aide de relecture « relire jusqu'à voir, sinon dernière lecture » ; option `wait` (défaut : aucune attente) dans les cinq gestes ; dédoublonnage dans `loadSprintPlanning` -- relire sans rejouer.
+- [x] `src/app/model/PlanningModel.ts` -- transmettre `this.context.wait` aux cinq gestes -- vraies attentes dans l'extension.
+- [x] `src/app/model/coreText.ts`, `src/i18n/messages.ts`, `src/i18n/es/messages.ts` -- avis du changement non relu et liste « Pas encore relus » au lieu de « À refaire » quand l'erreur est `planningIssueUnconfirmed` -- ne pas faire refaire un geste appliqué.
+- [x] `tests/core/sprintPlanning.test.ts` -- un lecteur en retard d'une ou deux relectures pour chaque ligne de la matrice ; nombre d'écritures égal à un -- couverture de la matrice.
+- [x] `tests/app/coreText.test.ts`, `tests/app/PlanningModel.test.ts` -- avis et `wait` transmis -- non-régression.
+- [x] `docs/technique/integration-jira.md`, `CHANGELOG.md`, `package.json`, `package-lock.json`, `public/manifest.json` -- règle de relecture, version 0.48.6 -- livraison.
 
 **Acceptance Criteria:**
 - Given le correctif, when `npm run check`, `npm run verify:planning` et `npm run verify:i18n` sont lancés, then ils passent.
@@ -61,9 +62,28 @@ context:
 
 ## Implementation Notes
 
+Choix faits seuls, à signaler à Denis :
+
+- Sans `wait`, les relectures s'enchaînent sans délai (même nombre de lectures) ; le modèle passe toujours `context.wait`.
+- `PlanningBatchOutcome.unseenKeys` (nouveau champ) : tickets dont E9/E10 a été reçue mais pas encore relue ; l'avis les classe « Pas encore relus à leur nouvelle place » et ils quittent la sélection. Dans un lot posé sur un objectif, un ticket relu dans le sprint mais dont le lien (E5) n'a pas été écrit reste « À refaire ».
+- Geste unique non relu : l'avis n'a plus le préfixe « Écriture non confirmée » ; la cause dit « Jira a reçu l'écriture de X mais ne le montre pas encore à sa nouvelle place ; actualisez dans quelques instants », suivie de « Aucune écriture n'a été rejouée ».
+- Rang : la confirmation exige aussi que le ticket soit relu dans le sprint (avant, un ticket absent passait pour « en tête »).
+- Le dédoublonnage ne touche ni le reste à faire des sprints actifs ni le sprint en préparation.
+- Vérifications : `npm run check` (2005 tests), `verify:planning`, `verify:i18n` et `verify:jira` verts. Le second critère (essai sur le sandbox) reste à faire après livraison.
+
 ## Spec Change Log
 
 ## Review Triage Log
+
+Relecture faite sans sous-agent (mode de travail de Denis), sur le diff de `src/` et les tests.
+
+| Constat | Verdict | Suite |
+|---|---|---|
+| `rankPlanningIssue` : `placed` donnait vrai pour un ticket absent de la relecture (index -1 en tête) | low, réel | patch : `ranked` exige le ticket et la référence |
+| Transmission de `wait` au retrait et au rang non vérifiée au niveau du modèle | low, réel | patch : deux tests de `PlanningModel` (E10, E2 jamais relues) |
+| Lot de retrait dont la relecture échoue après E10 : tickets classés « pas encore relus » | false | voulu : E10 reçue, rien à refaire ; une écriture en échec garde « À refaire » |
+| Geste unique vers un objectif non relu : le lien E5 n'est pas écrit, l'avis ne le dit pas | low, rejeté | l'avis invite à actualiser ; le ticket réapparaît « Sans objectif » et se repose en un geste |
+| Le geste garde la porte d'écriture jusqu'à ~5,5 s pendant les attentes | false | borné par la spec (« quelques secondes »), sablier affiché |
 
 ## Design Notes
 
