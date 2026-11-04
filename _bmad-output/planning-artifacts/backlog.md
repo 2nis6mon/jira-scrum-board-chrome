@@ -37,7 +37,7 @@ et la création de Goals restent hors périmètre. Livré en 0.42.0 (stories 8.1
 dans le paquet ; contrats dans [intégration Jira](../../docs/technique/integration-jira.md).
 Essai réel 8.10 joué le 03/11/2026 sur le sandbox (board 3013, constat dans
 [la spec 8.10](../implementation-artifacts/spec-8-10-valider-le-sprint-planning-sur-un-vrai-jira.md)) :
-défauts D1 à D4 planifiés en stories 8.26 à 8.28 (et 8.29 pour le même délai sur le board), puis 8.30 (mêmes gestes à la souris sur une carte du board et du planning, 04/11/2026) ; restent ces stories, 8.25, l'essai des Goals
+défauts D1 à D4 planifiés en stories 8.26 à 8.28 (et 8.29 pour le même délai sur le board), puis 8.30 (mêmes gestes à la souris sur une carte du board et du planning, 04/11/2026) et 8.31 (sprint actif retiré de « Où sont les tickets », 04/11/2026) ; restent ces stories, 8.25, l'essai des Goals
 Atlassian et la décision sur les droits, puis l'activation (8.11).
 
 - [ ] À décider (story 8.30, 04/11/2026) : actions groupées d'une sélection sur le Sprint Board

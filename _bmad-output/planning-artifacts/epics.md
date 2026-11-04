@@ -578,7 +578,7 @@ So that leur origine est lisible.
 
 L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre. Chaque geste écrit aussitôt dans Jira, qui reste la seule source : la page se reconstruit à l'entrée depuis le texte de l'objectif du sprint, la propriété `sprintgoals.v1` et les tickets du sprint. Aujourd'hui, Sprint Planning n'existe que dans les builds locaux `dist/` et les tests (`SPRINT_PLANNING_ENABLED`) ; il le reste jusqu'à la story 8.11. Décisions : [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md) ; écran : maquette v2.
 
-Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments et correctifs issus des premiers essais (8.12 à 8.25), et enfin essai réel et activation. Les numéros 8.12 à 8.24 se jouent avant 8.10 ; 8.25 se joue avant 8.11, avec l'essai séparé des Goals Atlassian ; 8.26 à 8.28, défauts du constat de 8.10, 8.29, même défaut côté board, et 8.30, mêmes gestes à la souris sur les deux écrans, se jouent avant 8.11.
+Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments et correctifs issus des premiers essais (8.12 à 8.25), et enfin essai réel et activation. Les numéros 8.12 à 8.24 se jouent avant 8.10 ; 8.25 se joue avant 8.11, avec l'essai séparé des Goals Atlassian ; 8.26 à 8.28, défauts du constat de 8.10, 8.29, même défaut côté board, 8.30, mêmes gestes à la souris sur les deux écrans, et 8.31, sprint actif retiré de « Où sont les tickets », se jouent avant 8.11.
 
 ### Story 8.1: Vérifier les contrats Atlassian du planning en direct
 
@@ -1241,3 +1241,31 @@ So that je n'ouvre pas un onglet en croyant sélectionner, ni l'inverse.
 **Then** aucune lecture ni écriture Jira n'est ajoutée, les bancs Chrome (`verify:drag`, `verify:planning`) jouent ces gestes sur les deux écrans, et la sélection du planning (8.15) reste inchangée
 
 *Notes :* board : la carte est un lien `a.card` (`IssueCard.tsx`, `target="_blank"`), le clic simple est intercepté par `src/integration/embedded.ts` (`onClick`, fiche native), les touches laissent faire le navigateur. Planning : `article.planning-card` gère Ctrl/Cmd+clic et Maj+clic (`PlanningView.tsx`, `PlanningModel.toggleSelection` / `extendSelection`), seule la clé ouvre la fiche (`planning.openIssue`), le clic du milieu ne fait rien. Sur le board, la sélection n'a encore aucune action groupée (glisser, menu) : périmètre de cette story limité à la sélection elle-même, actions groupées à décider (backlog).
+
+### Story 8.31: Ne plus montrer le sprint actif dans « Où sont les tickets »
+
+*Type : bug, signalé par Denis le 04/11/2026 en testant la 8.28. Décision de Denis du 04/11/2026 : le sprint actif n'a pas sa place dans la colonne de gauche du planning.*
+
+As a membre de l'équipe qui cherche des tickets à planifier,
+I want que « Où sont les tickets » ne montre que ce que je peux ajouter au sprint (sprints futurs et backlog),
+So that je ne perds pas de temps à essayer de sélectionner ou glisser des cartes du sprint actif qui ne réagissent pas.
+
+**Acceptance Criteria:**
+
+**Given** un board avec un ou plusieurs sprints actifs
+**When** j'ouvre Sprint Planning
+**Then** « Où sont les tickets » ne contient que les autres sprints futurs du board et le backlog : aucune section ni carte du reste à faire d'un sprint actif, et aucun compte qui l'inclut
+
+**Given** la clôture et le démarrage depuis le planning (8.7, 8.8, 8.18)
+**When** un sprint actif existe
+**Then** « Terminer », le menu des sprints actifs à clôturer, la raison de « Démarrer » désactivé, le report des objectifs non atteints et son compte rendu restent inchangés
+
+**Given** les filtres du planning (8.14)
+**When** un filtre rapide Jira est appliqué
+**Then** son périmètre n'inclut plus le reste à faire du sprint actif, et le résultat reste correct sur les autres sections
+
+**Given** le correctif
+**When** il est vérifié
+**Then** aucune écriture n'est ajoutée, `verify:planning` constate l'absence de la section du sprint actif (banc : « Sprint 42 ») et le cycle clôture/démarrage du banc passe toujours
+
+*Notes :* revient sur la story 8.2 (« le reste à faire du sprint actif (consultation) » dans la colonne de gauche), sur le dernier critère de la 8.4 et sur le périmètre des filtres rapides (8.14). Section rendue par `PlanningView.tsx` (`section.kind === "active"`, cartes `readOnly`) depuis `PlanningModel` (liste des sections, `activeSprints`) ; `loadSprintPlanning` (`src/core/sprintPlanning.ts`) lit les tickets des sprints actifs, dont dépendent aussi `closableSprintIds` et la clôture : n'abandonner cette lecture que si plus rien ne s'en sert (sinon la garder, et seulement ne plus l'afficher). Mettre à jour `docs/manuel-utilisateur.md`.
