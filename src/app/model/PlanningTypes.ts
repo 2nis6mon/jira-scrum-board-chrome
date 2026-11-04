@@ -77,13 +77,7 @@ export type PlanningSection =
       readonly sprint: JiraSprint;
       readonly issues: readonly PlanningIssue[];
     }
-  | { readonly kind: "backlog"; readonly issues: readonly PlanningIssue[] }
-  /** Reste à faire d'un sprint actif : consultation, jamais déplaçable. */
-  | {
-      readonly kind: "active";
-      readonly sprint: JiraSprint;
-      readonly issues: readonly PlanningIssue[];
-    };
+  | { readonly kind: "backlog"; readonly issues: readonly PlanningIssue[] };
 
 /** Charge du sprint en préparation comparée à la vélocité partagée. */
 export interface PlanningLoad {

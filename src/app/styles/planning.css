@@ -270,18 +270,12 @@
   color: #1d4ed8;
 }
 
-.planning-state-active {
-  background: #e3f5e9;
-  color: var(--done);
-}
-
 .planning-source-body {
   display: grid;
   gap: 6px;
   padding: 6px 0 2px;
 }
 
-.planning-source-note,
 .planning-source-empty {
   padding: 0 4px;
   color: var(--ink-3);

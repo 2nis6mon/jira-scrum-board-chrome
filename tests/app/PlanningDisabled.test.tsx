@@ -128,7 +128,7 @@ describe("Sprint Planning désactivé à la compilation", () => {
       sprintIssues: [makeIssue("ABC-210")],
       backlogIssues: [makeIssue("ABC-201")],
       futureSprints: [],
-      activeSprints: [{ sprint: active, issues: [] }],
+      activeSprints: [active],
       closableSprintIds: [42],
     };
     planning.selectedSprintId.value = 43;

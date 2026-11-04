@@ -55,6 +55,15 @@ const IN_OTHER_SPRINT = issueJson("ABC-220", {
   points: 3,
 });
 
+/** Sous-tâche du backlog (option `backlogSubtask`) : Jira refuse de l'ajouter au sprint. */
+const BACKLOG_SUBTASK = issueJson("ABC-205", {
+  summary: "Vérifier le libellé du bouton de paiement",
+  statusId: "1",
+  statusName: "À faire",
+  category: "new",
+  extraFields: { issuetype: { id: "10003", name: "Sous-tâche", subtask: true } },
+});
+
 /** Ticket non terminé du second sprint actif 45 (option `secondActiveSprint`). */
 const IN_SECOND_ACTIVE = issueJson("ABC-301", {
   summary: "Envoyer la confirmation de commande par SMS",
@@ -71,7 +80,8 @@ export const SECOND_ACTIVE_GOAL = "Fiabiliser les notifications";
  * Installe les routes après celles du board, pour préserver les lectures du sprint actif 42.
  * `issueFields` ajoute des champs à des tickets (par clé), sur une copie ; `otherFutureSprint`
  * ajoute le sprint futur 44 et son ticket, où l'on peut prendre ou envoyer des tickets ;
- * `secondActiveSprint` ajoute le sprint actif 45, dont l'objectif a un ticket non terminé.
+ * `secondActiveSprint` ajoute le sprint actif 45, dont l'objectif a un ticket non terminé ;
+ * `backlogSubtask` ajoute au backlog une sous-tâche, carte en consultation.
  */
 export function planningFixture(
   jira: FakeJira = boardSiteJira(),
@@ -79,6 +89,7 @@ export function planningFixture(
     issueFields?: Readonly<Record<string, Record<string, unknown>>>;
     otherFutureSprint?: boolean;
     secondActiveSprint?: boolean;
+    backlogSubtask?: boolean;
     /**
      * Sprints clos 41 et 40, dont l'objectif « Simplifier le paiement » (`g-pay`) a été reporté
      * jusqu'au sprint 43 ; sa propriété porte alors les identifiants `g-pay` et `g-cart`.
@@ -145,6 +156,7 @@ export function planningFixture(
   const catalog = [
     ALREADY_PLANNED,
     ...PLANNING_BACKLOG,
+    ...(options.backlogSubtask ? [BACKLOG_SUBTASK] : []),
     ...(otherSprint ? [IN_OTHER_SPRINT] : []),
   ].map((issue) => {
     // Copie par banc : une estimation écrite (E11) ne doit pas passer d'un test à l'autre.

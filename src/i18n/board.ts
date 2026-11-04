@@ -293,8 +293,6 @@ export const boardMessages = {
   "Où sont les tickets": "Where the issues are",
   "Déposez ici un ticket du sprint en préparation pour le renvoyer au backlog.":
     "Drop an issue from the sprint being prepared here to send it back to the backlog.",
-  "Reste à faire du sprint actif, en consultation : la fenêtre de clôture de Jira décide où il va.":
-    "Remaining work of the active sprint, read-only: the Jira completion dialog decides where it goes.",
   "Aucun ticket.": "No issues.",
   "{name} par objectifs": "{name} by goal",
   "Chaque geste est écrit aussitôt dans Jira, puis relu.":

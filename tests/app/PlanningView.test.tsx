@@ -30,7 +30,8 @@ import type { JiraQuickFilter } from "../../src/jira/client";
 import { type AtlassianGoal, decodeSprint, type JiraSprint } from "../../src/jira/models";
 import { type IssueOptions, makeIssue } from "../support/jiraFixtures";
 
-// Données FICTIVES : un sprint futur préparé, un autre sprint futur, le backlog et un sprint actif.
+// Données FICTIVES : un sprint futur préparé, un autre sprint futur, le backlog et un sprint actif
+// (clôture seulement, absent de « Où sont les tickets » depuis la story 8.31).
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 const text = () => document.body.textContent ?? "";
 // Happy DOM ne déclare pas les événements de glissé natifs ; Preact choisit leur casse via le DOM.
@@ -78,7 +79,10 @@ const BACKLOG = item("ABC-11", "Paiement en ligne", 5);
 const OTHER_SPRINT = item("ABC-15", "Suivi de colis", 2, null, {
   extraFields: { status: { id: "9", name: "Bloqué" } },
 });
-const REMAINING = item("ABC-13", "Ancienne story inachevée", 8);
+// Sous-tâche du backlog : Jira refuse de l'ajouter au sprint, elle reste en consultation.
+const REMAINING = item("ABC-13", "Ancienne story inachevée", 8, null, {
+  extraFields: { issuetype: { id: "10003", name: "Sub-task", subtask: true } },
+});
 const GOALS = [
   makeSprintGoal({ id: "g1", title: "Simplifier les achats", position: 0 }),
   makeSprintGoal({ id: "g2", title: "Sécuriser le paiement", color: "goal3", position: 1 }),
@@ -130,9 +134,9 @@ function setup(
     velocity: 20,
     pinnedGoalIds: options.pinnedGoalIds ?? [],
     sprintIssues: [IN_G1.issue, ARRIVED.issue, UNASSIGNED.issue],
-    backlogIssues: [BACKLOG.issue],
+    backlogIssues: [BACKLOG.issue, REMAINING.issue],
     futureSprints: [{ sprint: SPRINT_44, issues: [OTHER_SPRINT.issue] }],
-    activeSprints: [{ sprint: SPRINT_42, issues: [REMAINING.issue] }],
+    activeSprints: [SPRINT_42],
     closableSprintIds: [42],
   } satisfies PlanningSnapshot;
   const gesturesDisabled = signal(false);
@@ -165,8 +169,7 @@ function setup(
     unassigned: signal<readonly PlanningIssue[]>([UNASSIGNED]),
     sections: signal<readonly PlanningSection[]>([
       { kind: "sprint", sprint: SPRINT_44, issues: [OTHER_SPRINT] },
-      { kind: "backlog", issues: [BACKLOG] },
-      { kind: "active", sprint: SPRINT_42, issues: [REMAINING] },
+      { kind: "backlog", issues: [BACKLOG, REMAINING] },
     ]),
     unmappedCount: signal(0),
     sprintIssueCount: signal(snapshot.sprintIssues.length),
@@ -377,12 +380,12 @@ describe("Sprint Planning en direct : écran", () => {
     expect(find(".planning-load").textContent).toContain("1 ticket sans estimation");
 
     const sections = [...document.querySelectorAll<HTMLElement>("[data-planning-section]")];
+    // Le sprint actif n'est pas une source (story 8.31).
     expect(sections.map((section) => section.dataset.planningSection)).toEqual([
       "sprint-44",
       "backlog",
-      "active-42",
     ]);
-    expect(sections[2]?.textContent).toContain("en consultation");
+    expect(find(".planning-sources").textContent).not.toContain("Sprint 42");
     const lanes = [
       ...document.querySelectorAll<HTMLElement>(".planning-lanes [data-planning-goal]"),
     ];
@@ -406,7 +409,7 @@ describe("Sprint Planning en direct : écran", () => {
     expect(onToggleSidebar).toHaveBeenCalled();
   });
 
-  it("le reste à faire du sprint actif reste en consultation : ni menu ni glissé", async () => {
+  it("une carte en consultation (sous-tâche) : ni menu ni glissé", async () => {
     setup();
     await tick();
     const remaining = cardOf("ABC-13");
@@ -631,9 +634,8 @@ describe("Sprint Planning en direct : écran", () => {
     const sprintTypes = [PLANNING_DRAG_TYPE, PLANNING_SPRINT_DRAG_TYPE];
     drop(find('[data-planning-section="backlog"]'), "ABC-10", sprintTypes);
     drop(find('[data-planning-section="sprint-44"]'), "ABC-14", sprintTypes);
-    // Un ticket du backlog ou déposé sur le reste à faire actif ne déclenche aucun retrait.
+    // Un ticket du backlog déposé sur le backlog ne déclenche aucun retrait.
     drop(find('[data-planning-section="backlog"]'), "ABC-11", [PLANNING_DRAG_TYPE]);
-    drop(find('[data-planning-section="active-42"]'), "ABC-10", sprintTypes);
     expect(planning.removeIssue.mock.calls).toEqual([
       ["ABC-10", { kind: "backlog" }],
       ["ABC-14", { kind: "sprint", sprintId: 44 }],
@@ -1414,7 +1416,6 @@ describe("Sprint Planning en direct : filtres comme la page du sprint", () => {
     planning.sections.value = [
       { kind: "sprint", sprint: SPRINT_44, issues: [] },
       { kind: "backlog", issues: [BACKLOG] },
-      { kind: "active", sprint: SPRINT_42, issues: [] },
     ];
     await tick();
     const filtered = "Aucun ticket ne correspond à la recherche ou aux filtres.";

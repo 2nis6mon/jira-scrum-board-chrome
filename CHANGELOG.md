@@ -3,6 +3,17 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.48.9 — Sprint Planning : le sprint actif quitte « Où sont les tickets » (builds locaux)
+
+- Signalé par Denis le 04/11/2026 (story 8.31) : le reste à faire du sprint actif figurait en bas
+  de « Où sont les tickets », en consultation. Ses cartes ne se sélectionnaient ni ne se
+  glissaient, ce qui faisait perdre du temps à qui cherchait des tickets à planifier.
+- La colonne ne montre plus que les autres sprints futurs et le backlog : plus de section du
+  sprint actif, ni dans les comptes, les options de filtre ou le périmètre des filtres rapides Jira.
+  Clôture, démarrage et report des objectifs ne changent pas. Les tickets d'un sprint actif ne sont
+  plus lus, sauf pour un sprint d'un autre board, qu'il faut savoir vide pour ne pas le proposer à
+  la clôture. Aucune écriture ajoutée.
+
 ## 0.48.8 — Sprint Planning : la vue reste immobile avec une sélection lointaine (builds locaux)
 
 - Constaté lors de l'essai réel 8.10 du 03/11/2026 (story 8.28) : avec des cartes sélectionnées bas

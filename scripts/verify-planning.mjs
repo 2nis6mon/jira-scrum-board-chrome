@@ -1,6 +1,6 @@
 // Sprint Planning en direct, dans un vrai Chrome sur un profil vierge et un Jira FICTIF en mémoire.
 // Chaque geste écrit aussitôt dans le faux Jira : on vérifie les écritures exactes et leur ordre,
-// le conflit sans écriture, la consultation du sprint actif, les fenêtres natives simulées et le
+// le conflit sans écriture, l'absence du sprint actif à gauche, les fenêtres natives simulées et le
 // petit écran. `--package` : la compilation du paquet n'a ni entrée, ni lecture, ni écriture.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -266,10 +266,11 @@ try {
     assert(
       await run(`document.querySelector('select[aria-label="Sprint à préparer"]').value === '43'
         && Boolean(document.querySelector('[data-planning-section="sprint-44"] [data-planning-issue="ABC-220"]'))
-        && document.querySelectorAll('[data-planning-section="backlog"] [data-planning-issue]').length === 4
+        && document.querySelectorAll('[data-planning-section="backlog"] [data-planning-issue]').length === 5
         && Boolean(document.querySelector('[data-planning-goal="unassigned"] [data-planning-issue="ABC-210"]'))
-        && Boolean(document.querySelector('[data-planning-section="active-42"]'))`),
-      "Sprint préparé, autre sprint futur, backlog paginé ou ticket déjà planifié incorrect",
+        && [...document.querySelectorAll('[data-planning-section]')].map(section => section.dataset.planningSection).join() === 'sprint-44,backlog'
+        && !document.querySelector('.planning-sources').textContent.includes('Sprint 42')`),
+      "Sprint préparé, autre sprint futur, backlog paginé, ticket déjà planifié incorrect, ou sprint actif dans « Où sont les tickets »",
     );
     assert((await inspect()).writes.length === 0, "La lecture du planning a écrit dans Jira");
     await wait(
@@ -277,16 +278,16 @@ try {
       "L'ancien brouillon n'a pas été effacé à l'ouverture du planning",
     );
     console.log(
-      "✓ Ouverture : sprint 43, autre sprint futur, backlog paginé et sprint actif lus sans écriture ; ancien brouillon effacé",
+      "✓ Ouverture : sprint 43, autre sprint futur et backlog paginé lus sans écriture, sprint actif absent de « Où sont les tickets » (8.31) ; ancien brouillon effacé",
     );
 
     assert(
       await run(`(() => {
-        const cards = [...document.querySelectorAll('[data-planning-section="active-42"] article.planning-card')];
-        return cards.length > 0 && cards.every(card => card.classList.contains('planning-card-readonly')
-          && card.getAttribute('draggable') !== 'true' && !card.querySelector('details'));
+        const card = document.querySelector('[data-planning-section="backlog"] article.planning-card[data-planning-issue="ABC-205"]');
+        return Boolean(card) && card.classList.contains('planning-card-readonly')
+          && card.getAttribute('draggable') !== 'true' && !card.querySelector('details');
       })()`),
-      "Le reste à faire du sprint actif doit rester en consultation",
+      "La sous-tâche du backlog doit rester en consultation",
     );
     assert(
       await run(`document.querySelector('.planning-start-sprint').disabled
@@ -301,7 +302,7 @@ try {
     );
     await setValue('[aria-label="Rechercher un ticket à planifier"]', "");
     console.log(
-      "✓ Sprint actif en consultation ; « Démarrer » désactivé avec sa raison ; recherche partagée",
+      "✓ Sous-tâche en consultation ; « Démarrer » désactivé avec sa raison ; recherche partagée",
     );
 
     // Filtres de la page du sprint : menu Personne, puis filtre rapide Jira évalué par le faux
@@ -329,7 +330,7 @@ try {
       "[...document.querySelectorAll('.planning-filter-bar details.filter-menu[open] .filter-option')].find(option => option.textContent.startsWith('Camille Durand'))?.querySelector('input')";
     await click(camille);
     await wait(
-      `${shownCards} === 'ABC-101,RUN-7'`,
+      `${shownCards} === 'ABC-202'`,
       "Le menu Personne ne réduit pas les cartes du planning",
     );
     assert(
@@ -345,14 +346,14 @@ try {
     const beforeQuick = await run("window.__planning.requestCount()");
     await click(buttonNamed("Mes tickets"));
     await wait(
-      `${shownCards} === 'ABC-101,ABC-201,ABC-210' && !document.querySelector('.planning-filter-bar .chip-jira[disabled]')`,
+      `${shownCards} === 'ABC-201,ABC-210' && !document.querySelector('.planning-filter-bar .chip-jira[disabled]')`,
       "Le filtre rapide Jira ne réduit pas les cartes du planning",
     );
     const sentJql = await run(`window.__planning.quickFilterJql(${beforeQuick})`);
     assert(
       JSON.stringify(sentJql) ===
         JSON.stringify([
-          "(assignee = currentUser()) AND (sprint in (43,44,42) OR sprint is EMPTY OR (sprint in closedSprints() AND status not in (6)))",
+          "(assignee = currentUser()) AND (sprint in (43,44) OR sprint is EMPTY OR (sprint in closedSprints() AND status not in (6)))",
         ]),
       `JQL du filtre rapide inattendu : ${JSON.stringify(sentJql)}`,
     );
@@ -473,8 +474,8 @@ try {
         `${label} : Échap ne referme pas le menu ou ne rend pas le focus au lien`,
       );
     }
-    const readOnlyCard = await point('[data-planning-section="active-42"] .planning-card-title');
-    assert(readOnlyCard, "Aucune carte du sprint actif n'est accessible au clic droit");
+    const readOnlyCard = await point('[data-planning-issue="ABC-205"] .planning-card-title');
+    assert(readOnlyCard, "La sous-tâche du backlog n'est pas accessible au clic droit");
     // Les touches du clavier ont pu envoyer leurs propres « contextmenu » : seul ce clic compte.
     await run("window.__contextMenus = []");
     await rightClick(readOnlyCard);
@@ -791,7 +792,7 @@ try {
     // Clôture lente : Jira clôt le sprint 2 s après la fermeture de sa fenêtre.
     await run("window.__planning.closeNativeDialog(true, 2000)");
     await wait(
-      `!document.querySelector('[data-planning-section="active-42"]') && !document.querySelector('.planning-close-sprint') && document.querySelector('.planning-carry-over-summary')?.textContent.includes('reportés') && ${idle}`,
+      `!document.querySelector('.planning-close-sprint') && document.querySelector('.planning-carry-over-summary')?.textContent.includes('reportés') && ${idle}`,
       "Le planning n'a pas été relu après la clôture lente",
     );
     const lines = await run(`[...document.querySelectorAll('.planning-carry-over li')].map(line =>

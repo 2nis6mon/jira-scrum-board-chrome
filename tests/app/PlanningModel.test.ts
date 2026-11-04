@@ -168,7 +168,7 @@ const report = (planning: PlanningModel) =>
   planning.carryOverReport.value ? sourceText(planning.carryOverReport.value.summary) : null;
 
 describe("Sprint Planning en direct : lecture", () => {
-  it("lit à la demande sprint préparé, backlog, autres sprints et RAF actif, sans écrire ni lire les Goals", async () => {
+  it("lit à la demande sprint préparé, backlog, autres sprints et sprint actif, sans écrire ni lire les Goals", async () => {
     const { planning, jira } = context();
     expect(jira.requests).toHaveLength(0);
     await planning.load();
@@ -180,12 +180,11 @@ describe("Sprint Planning en direct : lecture", () => {
       "Rendre le panier plus rapide",
     ]);
     expect(planning.unassigned.value.map((item) => item.issue.key)).toEqual(["ABC-210"]);
-    const [backlog, active] = planning.sections.value;
+    // « Où sont les tickets » : le backlog seul, sans le sprint actif (story 8.31).
+    const [backlog, ...others] = planning.sections.value;
     expect(backlog?.kind).toBe("backlog");
     expect(backlog?.issues).toHaveLength(4);
-    expect(active).toMatchObject({ kind: "active", sprint: { id: 42 } });
-    // Reste à faire : les tickets terminés du sprint actif n'y figurent pas.
-    expect(active?.issues.map((item) => item.issue.key)).not.toContain("ABC-103");
+    expect(others).toEqual([]);
     expect(planning.sprintLoad.value).toEqual({
       total: 2,
       unestimated: 0,
@@ -495,7 +494,7 @@ describe("Sprint Planning en direct : tickets", () => {
     expect(planning.goalSearch.value).toMatchObject({ query: "pai", loading: false });
   });
 
-  it("le reste à faire du sprint actif et un objectif inconnu ne déclenchent rien", async () => {
+  it("un ticket du sprint actif et un objectif inconnu ne déclenchent rien", async () => {
     const { planning, jira } = context();
     await planning.load();
     const before = jira.requests.length;
@@ -530,9 +529,11 @@ describe("Sprint Planning en direct : tickets", () => {
     const { planning, openIssue } = context();
     await planning.load();
     planning.openIssue("ABC-201");
+    planning.openIssue("ABC-210");
+    // ABC-101 est dans le sprint actif, absent du planning depuis la story 8.31.
     planning.openIssue("ABC-101");
     planning.openIssue("FOREIGN-1");
-    expect(openIssue.mock.calls).toEqual([["ABC-201"], ["ABC-101"]]);
+    expect(openIssue.mock.calls).toEqual([["ABC-201"], ["ABC-210"]]);
   });
 });
 
@@ -972,7 +973,7 @@ describe("Sprint Planning en direct : fenêtres natives", () => {
 describe("Sprint Planning en direct : filtres (lecture seule)", () => {
   const BOARD_ISSUES = "/rest/agile/1.0/board/7/issue";
   const SCOPE =
-    "sprint in (43,42) OR sprint is EMPTY OR (sprint in closedSprints() AND status not in (6))";
+    "sprint in (43) OR sprint is EMPTY OR (sprint in closedSprints() AND status not in (6))";
   const ALEX = { assignee: { accountId: "acc-1", displayName: "Alex Martin" } };
   const BUG = { issuetype: { id: "10004", name: "Bug", subtask: false } };
   const BLOCKED = {
@@ -1061,8 +1062,8 @@ describe("Sprint Planning en direct : filtres (lecture seule)", () => {
     await planning.load();
     const options = planning.filterOptions.value;
     expect(options?.assignees).toContainEqual({ value: "acc-1", label: "Alex Martin", count: 2 });
-    // Deux Bugs du backlog et une anomalie du reste à faire du sprint actif.
-    expect(options?.issueTypes).toContainEqual({ value: "10004", label: "Bug", count: 3 });
+    // Deux Bugs du backlog ; ceux du sprint actif ne comptent plus (story 8.31).
+    expect(options?.issueTypes).toContainEqual({ value: "10004", label: "Bug", count: 2 });
     expect(options?.parents.map((option) => option.value)).toEqual(
       expect.arrayContaining(["ABC-90", "ABC-91"]),
     );
@@ -1075,8 +1076,8 @@ describe("Sprint Planning en direct : filtres (lecture seule)", () => {
     const { planning } = context({ issueFields });
     await planning.load();
     planning.toggleBlocked();
-    // Backlog, puis reste à faire du sprint actif.
-    expect(shown(planning)).toEqual({ lanes: [], unassigned: [], sources: ["ABC-203", "ABC-102"] });
+    // Backlog seulement : le ticket bloqué du sprint actif n'est plus montré (story 8.31).
+    expect(shown(planning)).toEqual({ lanes: [], unassigned: [], sources: ["ABC-203"] });
     planning.setFilters({
       ...planning.filters.value,
       quickFilters: new Set(["blocked", "addedAfterStart", "carriedOver"]),
@@ -1257,7 +1258,7 @@ describe("Sprint Planning en direct : filtres (lecture seule)", () => {
     expect(shown(planning)).toEqual({
       lanes: [],
       unassigned: ["ABC-210"],
-      sources: ["ABC-201", "ABC-104"],
+      sources: ["ABC-201"],
     });
   });
 });
@@ -1357,7 +1358,7 @@ describe("Sprint Planning : seuls les sprints que l'utilisateur peut modifier", 
     expect(planning.snapshot.value).toBeNull();
   });
 
-  it("ne propose pas à la clôture un sprint actif non modifiable, qui reste en consultation", async () => {
+  it("ne propose pas à la clôture un sprint actif non modifiable", async () => {
     const { planning, activeSprint, openSprintDialog } = context({
       permissions: { manageSprints: { ABC: true } },
     });
@@ -1366,7 +1367,6 @@ describe("Sprint Planning : seuls les sprints que l'utilisateur peut modifier", 
     await planning.load();
     expect(planning.activeSprints.value.map((sprint) => sprint.id)).toEqual([42]);
     expect(planning.closableSprints.value).toEqual([]);
-    expect(planning.sections.value.some((section) => section.kind === "active")).toBe(true);
     planning.closeActiveSprint(42);
     expect(openSprintDialog).not.toHaveBeenCalled();
   });
@@ -1552,7 +1552,7 @@ describe("Sprint Planning : déplacer plusieurs tickets ensemble (8.15)", () => 
   const goalOf = (planning: PlanningModel, title: string) =>
     planning.lanes.value.find((lane) => lane.goal.title === title)?.goal.id ?? "";
 
-  it("Ctrl+clic ajoute ou retire ; Maj+clic prend la plage de la section ; consultation exclue", async () => {
+  it("Ctrl+clic ajoute ou retire ; Maj+clic prend la plage de la section ; sprint actif exclu", async () => {
     const { planning } = context();
     await planning.load();
     planning.toggleSelection("ABC-201");
@@ -1565,11 +1565,9 @@ describe("Sprint Planning : déplacer plusieurs tickets ensemble (8.15)", () => 
     planning.toggleSelection("ABC-201");
     planning.extendSelection("ABC-203", ["ABC-201", "ABC-202", "ABC-203", "ABC-204"]);
     expect(selected(planning)).toEqual(["ABC-201", "ABC-202", "ABC-203"]);
-    // Reste à faire du sprint actif : en consultation, jamais sélectionnable.
-    const remaining = planning.sections.value.find((section) => section.kind === "active");
-    const readOnlyKey = remaining?.issues[0]?.issue.key ?? "";
-    planning.toggleSelection(readOnlyKey);
-    expect(selected(planning)).not.toContain(readOnlyKey);
+    // Ticket du sprint actif (ABC-101) : absent du planning, jamais sélectionnable (story 8.31).
+    planning.toggleSelection("ABC-101");
+    expect(selected(planning)).not.toContain("ABC-101");
     planning.clearSelection();
     expect(selected(planning)).toEqual([]);
   });
@@ -1762,7 +1760,7 @@ describe("Sprint Planning : estimer un ticket pendant la séance (8.17)", () => 
     expect(inspect().writes).toEqual([]);
   });
 
-  it("board sans champ d'estimation, ou reste à faire du sprint actif : pas d'estimation", async () => {
+  it("board sans champ d'estimation, ou ticket du sprint actif : pas d'estimation", async () => {
     const tickets = context({ configuration: { estimationFieldId: null } });
     await tickets.planning.load();
     expect(tickets.planning.canEstimate.value).toBe(false);
@@ -1771,8 +1769,7 @@ describe("Sprint Planning : estimer un ticket pendant la séance (8.17)", () => 
 
     const { planning, inspect } = context();
     await planning.load();
-    const remaining = planning.sections.value.find((section) => section.kind === "active");
-    await planning.estimateIssue(remaining?.issues[0]?.issue.key ?? "", 3);
+    await planning.estimateIssue("ABC-101", 3);
     expect(inspect().writes).toEqual([]);
   });
 });

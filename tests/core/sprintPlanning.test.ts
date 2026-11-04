@@ -130,6 +130,7 @@ function fakeJira(options: FakeOptions = {}) {
   };
   const writes: JiraWrite[] = [];
   const sprintCalls: (readonly string[])[] = [];
+  const issueReads: number[] = [];
   const clone = <T>(value: T): T => structuredClone(value);
 
   // Délai d'indexation : chaque attente fait avancer l'horloge ; tant qu'un ticket déplacé n'a pas
@@ -178,7 +179,10 @@ function fakeJira(options: FakeOptions = {}) {
       sprintCalls.push([...states]);
       return state.sprints.filter((candidate) => states.includes(candidate.state));
     },
-    sprintIssues: async (_board, id) => indexed(id),
+    sprintIssues: async (_board, id) => {
+      issueReads.push(id);
+      return indexed(id);
+    },
     backlogIssues: async () => indexed("backlog"),
     sprintProperty: async (id) => clone(state.properties[id] ?? null),
   };
@@ -279,6 +283,7 @@ function fakeJira(options: FakeOptions = {}) {
     writer,
     writes,
     sprintCalls,
+    issueReads,
     wait,
     waits,
     load,
@@ -320,7 +325,7 @@ const textGoalsInput = (snapshot: PlanningSnapshot, goals: readonly SprintGoal[]
 // ─── Lecture ─────────────────────────────────────────────────────────────────
 
 describe("lecture du Sprint Planning", () => {
-  it("réunit sprint préparé, objectifs, vélocité, backlog, autres sprints futurs et RAF actif, sans écrire", async () => {
+  it("réunit sprint préparé, objectifs, vélocité, backlog, autres sprints futurs et sprints actifs, sans écrire", async () => {
     const f = fakeJira();
     const snapshot = await f.load();
     expect(snapshot.sprint.id).toBe(PREPARED);
@@ -346,13 +351,9 @@ describe("lecture du Sprint Planning", () => {
         issues.map((issue) => issue.key),
       ]),
     ).toEqual([[OTHER, ["ABC-301"]]]);
-    // Reste à faire du sprint actif : les tickets terminés n'y figurent pas.
-    expect(
-      snapshot.activeSprints.map(({ sprint: active, issues }) => [
-        active.id,
-        issues.map((issue) => issue.key),
-      ]),
-    ).toEqual([[ACTIVE, ["ABC-101"]]]);
+    // Sprint actif : pour la clôture et le démarrage, sans ses tickets (story 8.31).
+    expect(snapshot.activeSprints.map((active) => active.id)).toEqual([ACTIVE]);
+    expect(snapshot.closableSprintIds).toEqual([ACTIVE]);
     expect(f.sprintCalls).toEqual([["active", "future"]]);
     expect(f.writes).toEqual([]);
   });
@@ -402,8 +403,12 @@ describe("lecture du Sprint Planning", () => {
       63,
       66,
     ]);
-    expect(snapshot.activeSprints.map(({ sprint: active }) => active.id)).toEqual([ACTIVE]);
+    expect(snapshot.activeSprints.map((active) => active.id)).toEqual([ACTIVE]);
     expect(snapshot.closableSprintIds).toEqual([ACTIVE]);
+    // Seuls les sprints actifs d'un autre board sont lus ticket par ticket (story 8.31).
+    expect(f.issueReads).toContain(62);
+    expect(f.issueReads).toContain(65);
+    expect(f.issueReads).not.toContain(ACTIVE);
   });
 
   it("menu des sprints : un sprint vide d'un autre board est écarté, une lecture en échec le garde", async () => {
@@ -438,21 +443,18 @@ describe("lecture du Sprint Planning", () => {
     expect(calls.sort()).toEqual([71, 72, 73, 74]);
   });
 
-  it("reste à faire actif par colonnes : catégorie Jira ignorée, statut sans colonne écarté", async () => {
+  it("sprint actif du board : ni lu ticket par ticket, ni montré, toujours proposé à la clôture (8.31)", async () => {
     const f = fakeJira();
-    f.state.issues[ACTIVE] = [
-      // « Recette » : catégorie done, mais colonne du milieu : il reste à faire.
-      makeIssue("ABC-105", { statusId: "3", statusName: "Recette", category: "done" }),
-      // « Annulé » : aucune colonne visible, ignoré.
-      makeIssue("ABC-106", { statusId: "77", statusName: "Annulé", category: "done" }),
-      done("ABC-107"),
-      todo("ABC-108"),
-    ];
     const snapshot = await f.load();
-    expect(snapshot.activeSprints[0]?.issues.map((issue) => issue.key)).toEqual([
-      "ABC-105",
-      "ABC-108",
-    ]);
+    expect(f.issueReads).not.toContain(ACTIVE);
+    expect(snapshot.activeSprints.map((active) => active.id)).toEqual([ACTIVE]);
+    expect(snapshot.closableSprintIds).toEqual([ACTIVE]);
+    const shown = [
+      ...snapshot.sprintIssues,
+      ...snapshot.backlogIssues,
+      ...snapshot.futureSprints.flatMap(({ issues }) => issues),
+    ].map((issue) => issue.key);
+    expect(shown).not.toContain("ABC-101");
   });
 
   it("objectifs saisis dans Jira sans propriété : identifiants stables d'une lecture à l'autre", async () => {

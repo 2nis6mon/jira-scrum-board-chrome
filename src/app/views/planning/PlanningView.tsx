@@ -293,10 +293,7 @@ function filterResult(planning: PlanningViewModel): string {
   const total =
     planning.sprintIssueCount.value +
     snapshot.backlogIssues.length +
-    [...snapshot.futureSprints, ...snapshot.activeSprints].reduce(
-      (sum, { issues }) => sum + issues.length,
-      0,
-    );
+    snapshot.futureSprints.reduce((sum, { issues }) => sum + issues.length, 0);
   const visible =
     planning.lanes.value.reduce((sum, lane) => sum + lane.issues.length, 0) +
     planning.unassigned.value.length +
@@ -821,8 +818,9 @@ function sectionId(section: PlanningSection): string {
 }
 
 /**
- * Autres sprints futurs, backlog et reste à faire du sprint actif (consultation). Un ticket du
- * sprint en préparation déposé sur la colonne retourne au backlog ; sur un sprint futur, il y va.
+ * Autres sprints futurs et backlog, d'où les tickets rejoignent le sprint en préparation ; le sprint
+ * actif n'y figure pas (story 8.31). Un ticket du sprint en préparation déposé sur la colonne
+ * retourne au backlog ; sur un sprint futur, il y va.
  */
 function SourcesColumn({ planning, images }: { planning: PlanningViewModel; images: ImageCache }) {
   const disabled = planning.gesturesDisabled.value;
@@ -881,25 +879,19 @@ function SourceSection({
   const name = section.kind === "backlog" ? "Backlog" : section.sprint.name;
   const drop = useDrop({
     type: PLANNING_SPRINT_DRAG_TYPE,
-    // Le reste à faire du sprint actif ne reçoit rien ; le backlog est la colonne entière.
+    // Le backlog est la colonne entière.
     disabled: disabled || section.kind !== "sprint",
     onDrop: (keys) => {
       if (section.kind === "sprint")
         void removeKeys(planning, keys, { kind: "sprint", sprintId: section.sprint.id });
     },
   });
-  const readOnlySection = section.kind === "active";
   return (
     <section
       class={`planning-source planning-source-${section.kind}${drop.over ? " planning-drop-active" : ""}`}
       data-planning-section={id}
       aria-label={name}
       {...drop.handlers}
-      // Un dépôt sur le reste à faire du sprint actif n'est pas un retour au backlog.
-      {...(readOnlySection && {
-        onDragOver: (event: DragEvent) => event.stopPropagation(),
-        onDrop: (event: DragEvent) => event.stopPropagation(),
-      })}
     >
       <button
         type="button"
@@ -913,29 +905,17 @@ function SourceSection({
         {section.kind === "sprint" && (
           <span class="planning-state planning-state-future">{t("futur")}</span>
         )}
-        {section.kind === "active" && (
-          <span class="planning-state planning-state-active">{t("actif")}</span>
-        )}
         <span class="planning-source-meta">{plural(section.issues.length, "ticket")}</span>
       </button>
       {!folded && (
         <div class="planning-source-body" id={`planning-source-${id}`}>
-          {readOnlySection && (
-            <p class="planning-source-note">
-              {t(
-                "Reste à faire du sprint actif, en consultation : la fenêtre de clôture de Jira décide où il va.",
-              )}
-            </p>
-          )}
           {section.issues.map((item) => (
             <PlanningCard
               key={item.issue.key}
               planning={planning}
               images={images}
               item={item}
-              place={
-                readOnlySection || !canJoinSprint(item) ? { kind: "readOnly" } : { kind: "source" }
-              }
+              place={canJoinSprint(item) ? { kind: "source" } : { kind: "readOnly" }}
               sectionKeys={section.issues.map((entry) => entry.issue.key)}
               compact
             />

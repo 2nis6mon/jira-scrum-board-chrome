@@ -110,10 +110,10 @@ export interface PlanningSnapshot {
   /** Autres sprints futurs du board, dans l'ordre de Jira, mêmes tickets que le backlog. */
   readonly futureSprints: readonly PlanningSprintIssues[];
   /**
-   * Sprints actifs du board et leur reste à faire (statut dans une colonne visible autre que la
-   * dernière), en consultation.
+   * Sprints actifs du board, pour la clôture et le démarrage seulement : leurs tickets ne sont pas
+   * montrés dans « Où sont les tickets » (story 8.31).
    */
-  readonly activeSprints: readonly PlanningSprintIssues[];
+  readonly activeSprints: readonly JiraSprint[];
   /** Sprints actifs que l'utilisateur peut modifier (ou indécidables) : proposés à la clôture. */
   readonly closableSprintIds: readonly number[];
 }
@@ -164,7 +164,12 @@ export async function loadSprintPlanning(
         issues: await reader.sprintIssues(input.boardId, other.id, input.query),
       })),
     );
-  const [readOthers, readActives] = await Promise.all([issuesOf(others), issuesOf(actives)]);
+  // Tickets d'un sprint actif lus seulement s'il vient d'un autre board, pour savoir s'il est vide
+  // (story 8.31 : le reste à faire actif n'est plus affiché).
+  const [readOthers, readForeignActives] = await Promise.all([
+    issuesOf(others),
+    issuesOf(actives.filter((active) => isForeignSprint(active, input.boardId))),
+  ]);
   // Un seul sprint ouvert par ticket : la route du sprint en préparation fait foi. Celle du backlog
   // ou d'un autre sprint futur, relue avant son indexation (constat 8.10), peut encore lire un
   // ticket déjà relu dans le sprint en préparation : il n'apparaît que là (story 8.26).
@@ -174,16 +179,19 @@ export async function loadSprintPlanning(
     sprint: other,
     issues: issues.filter(elsewhere),
   }));
-  // Colonne « Où sont les tickets » (backlog, autres sprints futurs, reste à faire actif) : comme
-  // le backlog Jira, seulement les statuts d'une colonne visible autre que la dernière (stories
-  // 8.20, 8.22). Le sprint en préparation garde tous ses tickets.
+  // Colonne « Où sont les tickets » (backlog, autres sprints futurs) : comme le backlog Jira,
+  // seulement les statuts d'une colonne visible autre que la dernière (stories 8.20, 8.22). Le
+  // sprint en préparation garde tous ses tickets.
   const remaining = remainingIssue(input.columns);
   // Sprint d'un autre board sans aucun ticket restant du board : ni colonne, ni destination, ni
   // clôture (0.48.1, 0.48.2).
   const shown = ({ sprint: other, issues }: PlanningSprintIssues) =>
     !(isForeignSprint(other, input.boardId) && !issues.some(remaining));
   const futureSprints = readFutures.filter(shown);
-  const activeSprints = readActives.filter(shown);
+  const emptyActives = new Set(
+    readForeignActives.filter((entry) => !shown(entry)).map(({ sprint: active }) => active.id),
+  );
+  const activeSprints = actives.filter((active) => !emptyActives.has(active.id));
   return {
     boardId: input.boardId,
     query: input.query,
@@ -204,13 +212,8 @@ export async function loadSprintPlanning(
       sprint: other,
       issues: issues.filter(remaining),
     })),
-    activeSprints: activeSprints.map(({ sprint: active, issues }) => ({
-      sprint: active,
-      issues: issues.filter(remaining),
-    })),
-    closableSprintIds: activeSprints
-      .map(({ sprint: active }) => active.id)
-      .filter((id) => proposable.has(id)),
+    activeSprints,
+    closableSprintIds: activeSprints.map((active) => active.id).filter((id) => proposable.has(id)),
   };
 }
 

@@ -299,8 +299,6 @@ export const boardMessagesEs = {
   "Où sont les tickets": "Dónde están las incidencias",
   "Déposez ici un ticket du sprint en préparation pour le renvoyer au backlog.":
     "Suelte aquí una incidencia del sprint en preparación para devolverla al backlog.",
-  "Reste à faire du sprint actif, en consultation : la fenêtre de clôture de Jira décide où il va.":
-    "Trabajo pendiente del sprint activo, solo lectura: la ventana de cierre de Jira decide adónde va.",
   "Aucun ticket.": "Ninguna incidencia.",
   "{name} par objectifs": "{name} por objetivos",
   "Chaque geste est écrit aussitôt dans Jira, puis relu.":

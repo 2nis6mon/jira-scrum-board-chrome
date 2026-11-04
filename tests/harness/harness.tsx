@@ -597,13 +597,19 @@ if (scenario.startsWith("board")) {
     ? planningFixture(jira, {
         otherFutureSprint: true,
         secondActiveSprint: scenario === "board-planning-deux-actifs",
+        // Carte en consultation de « Où sont les tickets », et une personne pour le menu Personne,
+        // depuis que le sprint actif n'y figure plus (story 8.31).
+        backlogSubtask: true,
+        issueFields: {
+          "ABC-202": { assignee: { accountId: "u1", displayName: "Camille Durand" } },
+        },
       })
     : null;
   if (planning) {
     // Filtres rapides FICTIFS évalués sur le périmètre du planning (sprints du board et backlog) ;
     // les autres JQL gardent la réponse du board.
     const planningScope =
-      "sprint in (43,44,42) OR sprint is EMPTY OR (sprint in closedSprints() AND status not in (6))";
+      "sprint in (43,44) OR sprint is EMPTY OR (sprint in closedSprints() AND status not in (6))";
     const planningAnswers: Record<string, string[]> = {
       [`(assignee = currentUser()) AND (${planningScope})`]: ["ABC-201", "ABC-210", "ABC-101"],
     };

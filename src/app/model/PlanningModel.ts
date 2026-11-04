@@ -210,10 +210,9 @@ export class PlanningModel implements PlanningViewModel {
     this.context.configuration()?.goalSource === "atlassianGoals" ? "atlassian" : "text",
   );
 
+  /** Sprints actifs du board : clôture et démarrage seulement, jamais affichés comme source. */
   readonly activeSprints = computed((): readonly JiraSprint[] =>
-    SPRINT_PLANNING_ENABLED
-      ? (this.snapshot.value?.activeSprints ?? []).map(({ sprint }) => sprint)
-      : [],
+    SPRINT_PLANNING_ENABLED ? (this.snapshot.value?.activeSprints ?? []) : [],
   );
 
   /**
@@ -374,11 +373,6 @@ export class PlanningModel implements PlanningViewModel {
         issues: items(issues),
       })),
       { kind: "backlog" as const, issues: items(snapshot.backlogIssues) },
-      ...snapshot.activeSprints.map(({ sprint, issues }) => ({
-        kind: "active" as const,
-        sprint,
-        issues: items(issues),
-      })),
     ];
   });
 
@@ -703,11 +697,7 @@ export class PlanningModel implements PlanningViewModel {
     this.applyingQuickFilters.value = true;
     try {
       const sprintIds = snapshot
-        ? [
-            snapshot.sprint.id,
-            ...snapshot.futureSprints.map(({ sprint }) => sprint.id),
-            ...snapshot.activeSprints.map(({ sprint }) => sprint.id),
-          ]
+        ? [snapshot.sprint.id, ...snapshot.futureSprints.map(({ sprint }) => sprint.id)]
         : this.sprints.value.map((sprint) => sprint.id);
       const keys = await quickFilterKeys(this.client, {
         boardId: configuration.boardId,
@@ -893,8 +883,7 @@ export class PlanningModel implements PlanningViewModel {
 
   /**
    * Pose un ticket sur un objectif du sprint en préparation (`null` : « Sans objectif »). Venu du
-   * backlog ou d'un autre sprint futur, il y est d'abord ajouté ; le reste à faire d'un sprint
-   * actif reste en consultation.
+   * backlog ou d'un autre sprint futur, il y est d'abord ajouté.
    */
   placeIssue(key: string, goalId: string | null): Promise<void> {
     if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
@@ -987,7 +976,7 @@ export class PlanningModel implements PlanningViewModel {
 
   /**
    * Ctrl/Cmd+clic : ajoute le ticket à la sélection, ou l'en retire. Une carte en consultation
-   * (reste à faire du sprint actif, sous-tâche, ticket terminé hors du sprint) n'est pas sélectionnable.
+   * (sous-tâche, ticket terminé hors du sprint) n'est pas sélectionnable.
    */
   toggleSelection(key: string): void {
     const snapshot = this.snapshot.value;
@@ -1256,8 +1245,8 @@ export class PlanningModel implements PlanningViewModel {
 
   /**
    * Estime un ticket du sprint en préparation ou d'une source (E11), validé par le champ de la
-   * carte. Une valeur égale à celle affichée n'écrit rien ; le reste à faire d'un sprint actif,
-   * une sous-tâche ou un ticket terminé hors du sprint restent en consultation.
+   * carte. Une valeur égale à celle affichée n'écrit rien ; une sous-tâche ou un ticket terminé
+   * hors du sprint restent en consultation.
    */
   estimateIssue(key: string, value: number): Promise<void> {
     if (!SPRINT_PLANNING_ENABLED || !this.canEstimate.value) return Promise.resolve();
@@ -1571,7 +1560,7 @@ export class PlanningModel implements PlanningViewModel {
   openIssue(key: string): void {
     if (!SPRINT_PLANNING_ENABLED) return;
     const snapshot = this.snapshot.value;
-    if (!snapshot || this.busy.value || !isIssueKey(key) || !locate(snapshot, key, true)) return;
+    if (!snapshot || this.busy.value || !isIssueKey(key) || !locate(snapshot, key)) return;
     this.context.openIssue(key);
   }
 
@@ -1635,7 +1624,6 @@ function planningIssues(snapshot: PlanningSnapshot, states: ColumnStates): JiraI
     ...snapshot.sprintIssues.filter((issue) => shownInSprint(states, issue)),
     ...snapshot.futureSprints.flatMap(({ issues }) => issues),
     ...snapshot.backlogIssues,
-    ...snapshot.activeSprints.flatMap(({ issues }) => issues),
   ];
 }
 
@@ -1667,7 +1655,7 @@ function shownInSprint(states: ColumnStates, issue: JiraIssue): boolean {
 
 /**
  * Ticket qu'un geste peut déplacer : affiché dans le sprint en préparation, ou dans une source
- * d'où il peut le rejoindre. Le reste à faire d'un sprint actif reste en consultation.
+ * d'où il peut le rejoindre.
  */
 function selectable(snapshot: PlanningSnapshot, key: string, states: ColumnStates): boolean {
   const located = locate(snapshot, key);
@@ -1689,13 +1677,11 @@ function freeColor(goals: readonly SprintGoal[]): string {
 
 /**
  * Ticket du board visible dans le planning et sa provenance : `origin` à `null` s'il est déjà
- * dans le sprint en préparation. Le reste à faire d'un sprint actif n'est trouvé qu'en
- * consultation (`readOnly`).
+ * dans le sprint en préparation.
  */
 function locate(
   snapshot: PlanningSnapshot,
   key: string,
-  readOnly = false,
 ): { issue: JiraIssue; origin: PlanningOrigin | null } | null {
   const inSprint = snapshot.sprintIssues.find((issue) => issue.key === key);
   if (inSprint) return { issue: inSprint, origin: null };
@@ -1708,11 +1694,6 @@ function locate(
         issue: found,
         origin: { kind: "sprint", sprintId: sprint.id, sprintName: sprint.name },
       };
-  }
-  if (!readOnly) return null;
-  for (const { issues } of snapshot.activeSprints) {
-    const found = issues.find((issue) => issue.key === key);
-    if (found) return { issue: found, origin: null };
   }
   return null;
 }

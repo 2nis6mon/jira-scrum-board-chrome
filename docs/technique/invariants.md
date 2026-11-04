@@ -73,8 +73,8 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
   compté : objectifs, barres, charge, santé, vieillissement, sous-tâches, reste à faire), avec l'avis
   « non affichés, comme dans Jira ». Restent à la catégorie : les refus de Jira lui-même (ajout au
   sprint d'un ticket résolu), les bloquants (souvent hors du board) et la couleur de la pastille de
-  statut. « Où sont les tickets » du planning (backlog, autres sprints futurs, reste à faire actif)
-  ne garde, comme le backlog Jira, que les statuts d'une colonne autre que la dernière (8.22) ; le
+  statut. « Où sont les tickets » du planning (backlog et autres sprints futurs, sans le sprint
+  actif depuis 8.31) ne garde, comme le backlog Jira, que les statuts d'une colonne autre que la dernière (8.22) ; le
   sprint en préparation aussi (8.23) : ses tickets terminés restent lus pour les gestes et le déjà
   livré, mais ne sont ni affichés ni comptés (charge, avancement, filtres, sélection). En-tête d'objectif et barre empilée par état (gris, bleu, vert) communs aux deux écrans
   ([`LaneHeader`](../../src/app/views/LaneHeader.tsx)).
@@ -140,8 +140,8 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   après chaque geste, sans brouillon ; `core/sprintPlanning.ts` porte une fonction par intention
   (objectifs texte, placer ou retirer un ticket, vélocité, report après clôture) au résultat typé
   (`done`, `unchanged`, `refused`, `partial` avec étapes confirmées) ; `views/planning/` présente le
-  sprint futur choisi, les autres sprints futurs, le backlog paginé et le reste à faire du sprint
-  actif (consultation, statut hors Done). Chaque geste passe par la porte du board, une seule
+  sprint futur choisi, les autres sprints futurs et le backlog paginé ; le sprint actif n'y figure
+  plus (8.31), il ne sert qu'à la clôture et au démarrage. Chaque geste passe par la porte du board, une seule
   tentative par écriture, et chaque écriture est conditionnée par une relecture : sprint encore futur,
   texte `goal` identique à l'affichage avant E8 (sinon rien n'est écrit, la page est relue et l'avis
   demande de refaire), zone modifiée de `sprintgoals.v1` inchangée avant E5. Objectifs texte : E8
