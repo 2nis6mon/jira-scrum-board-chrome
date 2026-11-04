@@ -6,7 +6,12 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
-import { checkDragAutoScroll, launchIsolatedBrowser, sleep } from "./browser-check.mjs";
+import {
+  checkDocumentStill,
+  checkDragAutoScroll,
+  launchIsolatedBrowser,
+  sleep,
+} from "./browser-check.mjs";
 
 const PORT = 5205;
 const packageCheck = process.argv.includes("--package");
@@ -573,6 +578,28 @@ try {
     assert(!(await inspect()).issueKeys.includes("ABC-210"), "ABC-210 est encore dans le sprint");
     console.log("✓ Renvoi au backlog par glissé : E10 seul, relu");
 
+    // Story 8.28 : une carte sélectionnée en bas de « Où sont les tickets », fenêtre basse ; seule
+    // la colonne défile, le document de la vue garde la hauteur de la fenêtre.
+    await viewport(1440, 520);
+    await sleep(100);
+    const lastSource = await run(
+      `[...document.querySelectorAll('.planning-sources [data-planning-issue][draggable="true"]')].at(-1)?.dataset.planningIssue`,
+    );
+    assert(lastSource, "Aucune carte sélectionnable dans « Où sont les tickets »");
+    await clickCard(lastSource, 2);
+    await wait(
+      "document.querySelector('.planning-selection')?.textContent.includes('1 ticket sélectionné')",
+      `${lastSource} n'a pas été sélectionné`,
+    );
+    await checkDocumentStill(evaluate, sessionId, `Sélection de ${lastSource} en bas de colonne`);
+    await press("Escape", "Escape", 27);
+    await wait("!document.querySelector('.planning-selection')", "Échap n'a pas vidé la sélection");
+    await viewport(1440);
+    await sleep(100);
+    console.log(
+      `✓ Sélection de ${lastSource} en bas de colonne : seule la colonne défile, pas la vue`,
+    );
+
     // Story 8.15 : Ctrl+clic sur deux cartes du backlog, puis un seul glissé pour le lot.
     await clickCard("ABC-202", 2);
     await clickCard("ABC-204", 2);
@@ -585,6 +612,7 @@ try {
       laneCell(secondGoal),
       `[data-planning-goal="${secondGoal}"]`,
       "ABC-202 ABC-204",
+      ".planning-sources",
     );
     done = await expectWrites(done, [E9, E5], "Lot posé sur un objectif");
     state = await inspect();

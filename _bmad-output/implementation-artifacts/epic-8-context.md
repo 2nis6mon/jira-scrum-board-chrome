@@ -4,7 +4,7 @@
 
 ## Goal
 
-Permettre à l'équipe de clôturer son sprint, de construire le suivant par objectifs avec des tickets trouvés partout sur le board, puis de le démarrer, sans quitter l'extension. Chaque geste écrit aussitôt dans Jira, qui reste la seule source : la page se reconstruit depuis le texte de l'objectif du sprint, la propriété `sprintgoals.v1` et les tickets du sprint, sans brouillon local. État au 02/11/2026 : socle livré en 0.42.0 (8.1 à 8.9), clôture du bon sprint en 0.42.1 (8.18), type, statut et clic droit sur la carte en 0.42.2 (8.12, 8.13), tous acceptés après essai ; compléments 8.14 à 8.17 livrés et acceptés (0.43.1 à 0.46.0). Homogénéité board/planning et règle d'état par colonnes livrées et acceptées (8.19 à 8.23, 0.48.0 à 0.48.4, avec les correctifs du sprint d'un autre board) ; défilement pendant le glisser livré (8.24, 0.48.5). Essai réel sur le sandbox joué et accepté le 03/11/2026 (8.10) : cycle conforme sur le fond, défauts planifiés en 8.26 (relecture avant indexation de Jira), 8.27 (fenêtres natives de clôture et de démarrage) et 8.28 (vue qui défile avec une sélection lointaine). Restent 8.25 à 8.28, l'essai des Goals Atlassian et la décision sur les droits, puis l'activation dans le paquet distribué (8.11). Création de sprint et création de Goals Atlassian restent hors périmètre.
+Permettre à l'équipe de clôturer son sprint, de construire le suivant par objectifs avec des tickets trouvés partout sur le board, puis de le démarrer, sans quitter l'extension. Chaque geste écrit aussitôt dans Jira, qui reste la seule source : la page se reconstruit depuis le texte de l'objectif du sprint, la propriété `sprintgoals.v1` et les tickets du sprint, sans brouillon local. État au 02/11/2026 : socle livré en 0.42.0 (8.1 à 8.9), clôture du bon sprint en 0.42.1 (8.18), type, statut et clic droit sur la carte en 0.42.2 (8.12, 8.13), tous acceptés après essai ; compléments 8.14 à 8.17 livrés et acceptés (0.43.1 à 0.46.0). Homogénéité board/planning et règle d'état par colonnes livrées et acceptées (8.19 à 8.23, 0.48.0 à 0.48.4, avec les correctifs du sprint d'un autre board) ; défilement pendant le glisser livré (8.24, 0.48.5). Essai réel sur le sandbox joué et accepté le 03/11/2026 (8.10) : cycle conforme sur le fond, défauts planifiés en 8.26 (relecture avant indexation de Jira, livrée et acceptée), 8.27 (fenêtres natives de clôture et de démarrage) et 8.28 (vue qui défile avec une sélection lointaine) ; 8.29 (même délai côté board) livrée et acceptée. Restent 8.25, 8.27, 8.28, l'essai des Goals Atlassian et la décision sur les droits, puis l'activation dans le paquet distribué (8.11). Création de sprint et création de Goals Atlassian restent hors périmètre.
 
 ## Stories
 
@@ -34,6 +34,7 @@ Permettre à l'équipe de clôturer son sprint, de construire le suivant par obj
 - Story 8.26: Confirmer un geste du planning malgré le délai d'indexation de Jira
 - Story 8.27: Ouvrir et isoler les fenêtres natives de clôture et de démarrage sur un vrai Jira
 - Story 8.28: Garder la vue du planning immobile quand des cartes lointaines sont sélectionnées
+- Story 8.29: Garder à sa place un ticket classé sur le board malgré le délai d’indexation de Jira
 - Story 8.10: Valider le Sprint Planning sur un vrai Jira
 - Story 8.11: Activer le Sprint Planning dans le paquet
 
@@ -76,4 +77,4 @@ Permettre à l'équipe de clôturer son sprint, de construire le suivant par obj
 - 8.15 reprend les écritures du menu de carte (8.4, 8.13) ; 8.17 dépend de la vérification préalable du contrat E11 ; 8.16 remonte la chaîne des reports (8.7, 8.18).
 - 8.14 à 8.17 se jouent avant 8.10. L'essai 8.10, avec l'autorisation de Denis, couvre aussi déplacement groupé, estimation et coût des lectures de 8.16, et fonde la décision sur les droits. 8.11 suit un constat favorable.
 - 8.20 pose la fonction d'état par colonnes dans `core` ; 8.22 et 8.21 la réutilisent ; 8.21 dépend aussi du composant d'en-tête de 8.20. 8.19 est indépendante.
-- 8.26 à 8.28, issues du constat de 8.10, et 8.25 se jouent avant 8.11 ; 8.26 et 8.27 se revérifient sur le sandbox.
+- 8.26 à 8.29, issues du constat de 8.10, et 8.25 se jouent avant 8.11 ; 8.26 et 8.27 se revérifient sur le sandbox. 8.28 complète le défilement pendant le glisser de 8.24.

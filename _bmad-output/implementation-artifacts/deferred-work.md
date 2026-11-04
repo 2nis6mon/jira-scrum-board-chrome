@@ -73,3 +73,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-24-defiler-pendant-le-glisser.md`
   summary: Pendant un glisser, quitter une swimlane survolée retire son message « Rattacher à cet objectif » et décale la mise en page sous le pointeur.
   evidence: banc `verify:drag` de la 8.24 à 800 px — après survol d'autres swimlanes, le dépôt visé tombait sur un en-tête de swimlane décalé de 34 px ; antérieur à la 8.24, contourné dans le banc par un premier survol de la destination.
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-28-garder-la-vue-du-planning-immobile.md`
+  summary: Les bancs Chrome `verify:drag` et `verify:planning` échouent par intermittence sur des étapes de timing antérieures à la 8.28.
+  evidence: maybe-false (medium si réel) ; le 03/11/2026, 2 échecs sur 8 passages : « .board n'a pas défilé dans sa bande basse » et « .planning-sources défile encore » (contrôle 8.24, boucle `requestAnimationFrame`, sans doute ralentie quand la fenêtre du banc est masquée), puis `scrollIntoView` sur un élément absent à l'étape 640 px. Les relances passent ; à confirmer en lançant les bancs en série, fenêtre visible puis masquée.

@@ -231,6 +231,21 @@ export function launchIsolatedBrowser(size = "1280,800") {
 }
 
 /**
+ * Story 8.28 : le document de la vue garde la hauteur de la fenêtre et ne défile pas ; seuls ses
+ * conteneurs (board, colonnes du planning) défilent.
+ */
+export async function checkDocumentStill(evaluate, sessionId, label) {
+  const page = await evaluate(
+    sessionId,
+    "({ height: document.scrollingElement.scrollHeight, top: document.scrollingElement.scrollTop, inner: innerHeight })",
+  );
+  if (page.height !== page.inner || page.top !== 0)
+    throw new Error(
+      `${label} : la vue déborde ou a défilé (${page.height} px pour ${page.inner} visibles, défilée de ${page.top} px)`,
+    );
+}
+
+/**
  * Story 8.24, pendant un glissé natif intercepté (`data`) : le conteneur `selector`, qui doit
  * déborder, reste immobile quand le pointeur est au milieu, défile vers le bas quand des `dragOver`
  * répétés tombent dans sa bande basse, puis s'arrête dès que le pointeur revient au milieu.
@@ -278,6 +293,8 @@ export async function checkDragAutoScroll(browser, sessionId, selector, data, ot
   await over(box.bottom, 4);
   const scrolled = await scrollTop();
   if (!(scrolled > 0)) throw new Error(`${selector} n'a pas défilé dans sa bande basse`);
+  // Story 8.28 : seul le conteneur défile, jamais le document de la vue.
+  await checkDocumentStill(evaluate, sessionId, `Glissé dans ${selector}`);
   await over(box.middle, 1);
   await sleep(200);
   const settled = await scrollTop();

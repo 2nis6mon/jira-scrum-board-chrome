@@ -177,6 +177,9 @@
 .planning-sources {
   min-height: 0;
   overflow-y: auto;
+  /* Bloc conteneur des textes masqués positionnés (annonce « Sélectionné ») : rognés par la
+     colonne, ils n'allongent plus le document de la vue (story 8.28). */
+  position: relative;
   padding: 14px 12px 24px 16px;
   border-right: 1px solid var(--line);
   background: var(--background);
@@ -288,6 +291,8 @@
 .planning-lanes {
   min-height: 0;
   overflow-y: auto;
+  /* Idem pour les cartes et les libellés masqués des pastilles d'état des objectifs (8.28). */
+  position: relative;
   padding: 4px 20px 32px;
 }
 
@@ -554,6 +559,8 @@ details.planning-close-menu > summary[aria-disabled="true"] {
 /* ─── Cartes ─────────────────────────────────────────────────────────────── */
 
 .planning-card {
+  /* L'annonce « Sélectionné » reste dans sa carte (story 8.28). */
+  position: relative;
   min-width: 0;
   cursor: grab;
 }

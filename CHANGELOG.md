@@ -3,6 +3,17 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.48.8 — Sprint Planning : la vue reste immobile avec une sélection lointaine (builds locaux)
+
+- Constaté lors de l'essai réel 8.10 du 03/11/2026 (story 8.28) : avec des cartes sélectionnées bas
+  dans « Où sont les tickets », la page entière du planning s'allongeait et défilait (jusqu'à
+  2 835 px pendant un glisser), emportant l'en-tête et les filtres. En cause, l'annonce
+  « Sélectionné » destinée aux lecteurs d'écran, qui échappait à sa colonne.
+- Seules les colonnes défilent désormais : cette annonce reste dans sa carte, et les libellés
+  masqués des pastilles d'état des objectifs dans leur colonne. Aucun texte visible ni aucune
+  lecture ou écriture Jira ne change. Le banc Chrome mesure la hauteur de la vue après une
+  sélection en bas de colonne et pendant un glisser.
+
 ## 0.48.7 — Sprint Board : un ticket classé reste à sa place
 
 - Signalé par Denis le 03/11/2026 (story 8.29) : après un changement de rang sur le board (glisser
