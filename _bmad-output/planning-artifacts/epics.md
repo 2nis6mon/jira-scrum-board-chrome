@@ -578,7 +578,7 @@ So that leur origine est lisible.
 
 L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre. Chaque geste écrit aussitôt dans Jira, qui reste la seule source : la page se reconstruit à l'entrée depuis le texte de l'objectif du sprint, la propriété `sprintgoals.v1` et les tickets du sprint. Aujourd'hui, Sprint Planning n'existe que dans les builds locaux `dist/` et les tests (`SPRINT_PLANNING_ENABLED`) ; il le reste jusqu'à la story 8.11. Décisions : [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md) ; écran : maquette v2.
 
-Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments et correctifs issus des premiers essais (8.12 à 8.25), et enfin essai réel et activation. Les numéros 8.12 à 8.24 se jouent avant 8.10 ; 8.25 se joue avant 8.11, avec l'essai séparé des Goals Atlassian ; 8.26 à 8.28, défauts du constat de 8.10, et 8.29, même défaut côté board, se jouent avant 8.11.
+Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments et correctifs issus des premiers essais (8.12 à 8.25), et enfin essai réel et activation. Les numéros 8.12 à 8.24 se jouent avant 8.10 ; 8.25 se joue avant 8.11, avec l'essai séparé des Goals Atlassian ; 8.26 à 8.28, défauts du constat de 8.10, 8.29, même défaut côté board, et 8.30, mêmes gestes à la souris sur les deux écrans, se jouent avant 8.11.
 
 ### Story 8.1: Vérifier les contrats Atlassian du planning en direct
 
@@ -1213,3 +1213,31 @@ So that je n'aie pas à actualiser pour voir le rang que Jira a pourtant enregis
 **Then** un test de `core` simule une route en retard d'une ou plusieurs relectures (Scrum et Kanban), et un test du board vérifie une seule E2 et l'avis
 
 *Notes :* `#runMovement` (`src/app/model/BoardModel.ts`) relit le board (`sync`) aussitôt après `executeMove` (`src/core/boardMove.ts`) puis efface la projection : l'ordre relu, encore ancien, ramène la carte. Mêmes délais que la 8.26 (`READ_BACK_DELAYS_MS`). Les transitions sont confirmées par la lecture directe du ticket ; leur affichage après relecture reste à observer à l'essai sur le sandbox.
+
+### Story 8.30: Les mêmes gestes à la souris sur une carte du board et du planning
+
+*Type : bug, signalé par Denis le 04/11/2026 en testant la 8.28. Décision de Denis du 04/11/2026 : clic = fiche, Ctrl = sélection, sur les deux écrans.*
+
+As a membre de l'équipe qui passe du Sprint Board au Sprint Planning,
+I want qu'un même geste sur une carte fasse la même chose sur les deux écrans,
+So that je n'ouvre pas un onglet en croyant sélectionner, ni l'inverse.
+
+**Acceptance Criteria:**
+
+**Given** une carte du board ou du planning, hors consultation
+**When** je clique n'importe où sur la carte, sans touche
+**Then** la fiche native Jira du ticket s'ouvre, comme aujourd'hui sur le board (dans le planning, plus seulement sur la clé) ; un clic sur un bouton de la carte (⋯, estimation) garde son action
+
+**Given** une carte du board
+**When** je fais Ctrl/Cmd+clic ou Maj+clic
+**Then** la carte est ajoutée à la sélection ou en est retirée (Maj+clic : plage dans la même colonne et swimlane), avec le même repère visuel et le même compteur que le planning, et Échap vide la sélection ; aucun onglet ni fenêtre ne s'ouvre
+
+**Given** une carte du board ou du planning
+**When** je fais un clic du milieu
+**Then** le ticket s'ouvre dans un nouvel onglet sur les deux écrans
+
+**Given** le correctif
+**When** il est vérifié
+**Then** aucune lecture ni écriture Jira n'est ajoutée, les bancs Chrome (`verify:drag`, `verify:planning`) jouent ces gestes sur les deux écrans, et la sélection du planning (8.15) reste inchangée
+
+*Notes :* board : la carte est un lien `a.card` (`IssueCard.tsx`, `target="_blank"`), le clic simple est intercepté par `src/integration/embedded.ts` (`onClick`, fiche native), les touches laissent faire le navigateur. Planning : `article.planning-card` gère Ctrl/Cmd+clic et Maj+clic (`PlanningView.tsx`, `PlanningModel.toggleSelection` / `extendSelection`), seule la clé ouvre la fiche (`planning.openIssue`), le clic du milieu ne fait rien. Sur le board, la sélection n'a encore aucune action groupée (glisser, menu) : périmètre de cette story limité à la sélection elle-même, actions groupées à décider (backlog).

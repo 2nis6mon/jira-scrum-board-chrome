@@ -37,9 +37,12 @@ et la création de Goals restent hors périmètre. Livré en 0.42.0 (stories 8.1
 dans le paquet ; contrats dans [intégration Jira](../../docs/technique/integration-jira.md).
 Essai réel 8.10 joué le 03/11/2026 sur le sandbox (board 3013, constat dans
 [la spec 8.10](../implementation-artifacts/spec-8-10-valider-le-sprint-planning-sur-un-vrai-jira.md)) :
-défauts D1 à D4 planifiés en stories 8.26 à 8.28 (et 8.29 pour le même délai sur le board) ; restent ces stories, 8.25, l'essai des Goals
+défauts D1 à D4 planifiés en stories 8.26 à 8.28 (et 8.29 pour le même délai sur le board), puis 8.30 (mêmes gestes à la souris sur une carte du board et du planning, 04/11/2026) ; restent ces stories, 8.25, l'essai des Goals
 Atlassian et la décision sur les droits, puis l'activation (8.11).
 
+- [ ] À décider (story 8.30, 04/11/2026) : actions groupées d'une sélection sur le Sprint Board
+  (glisser du lot, menu de carte), une fois Ctrl/Cmd+clic et Maj+clic devenus la sélection sur les
+  deux écrans.
 - [ ] À décider (essai 8.10, 03/11/2026) : droits du planning. Partie sans droit non jouée (compte
   administrateur du sandbox) ; seul le cas avec droit est constaté. Décider entre lecture seule
   annoncée à l'ouverture et découverte au premier refus, ou rejouer l'étape 8 avec un compte sans

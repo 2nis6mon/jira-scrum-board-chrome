@@ -35,6 +35,7 @@ Permettre à l'équipe de clôturer son sprint, de construire le suivant par obj
 - Story 8.27: Ouvrir et isoler les fenêtres natives de clôture et de démarrage sur un vrai Jira
 - Story 8.28: Garder la vue du planning immobile quand des cartes lointaines sont sélectionnées
 - Story 8.29: Garder à sa place un ticket classé sur le board malgré le délai d’indexation de Jira
+- Story 8.30: Les mêmes gestes à la souris sur une carte du board et du planning
 - Story 8.10: Valider le Sprint Planning sur un vrai Jira
 - Story 8.11: Activer le Sprint Planning dans le paquet
 
