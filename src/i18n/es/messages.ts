@@ -621,6 +621,7 @@ export const businessMessagesEs = {
   Sélectionné: "Seleccionado",
   "Glissez-les ou ouvrez le menu de l'une d'elles ; Échap vide la sélection.":
     "Arrástralos o abre el menú de uno de ellos; Escape vacía la selección.",
+  "Échap vide la sélection.": "Escape vacía la selección.",
   "À faire : {p0}": "Por hacer: {p0}",
   "En cours : {p0}": "En curso: {p0}",
   "Terminé : {p0}": "Terminado: {p0}",

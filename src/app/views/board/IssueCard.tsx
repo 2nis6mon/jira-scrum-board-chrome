@@ -43,9 +43,20 @@ interface Props {
    * (sous la carte). Le menu du navigateur n'apparaît pas sur une carte qui en a un.
    */
   onContextMenu?: (point: { x: number; y: number }) => void;
+  /** Carte sélectionnée au Ctrl/Cmd+clic ou au Maj+clic (story 8.30). */
+  selected?: boolean;
+  /**
+   * Ctrl/Cmd+clic (`range` faux) ou Maj+clic (`range` vrai) : sélection, sans ouvrir d'onglet.
+   * Sans lui, ces clics restent ceux du navigateur.
+   */
+  onSelect?: (range: boolean) => void;
 }
 
-/** Carte d'un ticket. Un clic ouvre le ticket dans Jira, dans un nouvel onglet. */
+/**
+ * Carte d'un ticket, lien vers sa page Jira. Dans Jira, un clic simple ouvre la fiche native
+ * (`integration/embedded.ts`), le clic du milieu un nouvel onglet ; Ctrl/Cmd+clic et Maj+clic
+ * sélectionnent (story 8.30).
+ */
 export function IssueCard(props: Props) {
   const { issue } = props;
   const fields = issue.issue.fields;
@@ -66,16 +77,26 @@ export function IssueCard(props: Props) {
 
   return (
     <a
-      class={`card${issue.isBlocked ? " card-blocked" : ""}${props.pending ? " card-pending" : ""}${props.dragging ? " card-dragging" : ""}${props.highlighted ? " card-family" : ""}`}
+      class={`card${issue.isBlocked ? " card-blocked" : ""}${props.pending ? " card-pending" : ""}${props.dragging ? " card-dragging" : ""}${props.highlighted ? " card-family" : ""}${props.selected ? " card-selected" : ""}`}
       href={browseUrl(props.siteOrigin, issue.issue.key)}
       target="_blank"
       rel="noopener noreferrer"
       data-move-feedback={props.feedback}
       data-issue-key={issue.issue.key}
+      data-selected={props.selected ? "true" : undefined}
       data-card-color={props.tint ?? undefined}
       draggable={props.onDragStart !== undefined && !props.pending}
       onDragStart={props.onDragStart}
       onDragEnd={props.onDragEnd}
+      onClick={
+        props.onSelect &&
+        ((event) => {
+          if (event.button !== 0 || !(event.ctrlKey || event.metaKey || event.shiftKey)) return;
+          // Ni onglet ni fenêtre : la carte entre dans la sélection ou en sort.
+          event.preventDefault();
+          props.onSelect?.(event.shiftKey);
+        })
+      }
       onMouseEnter={() => props.onHoverChange?.(true)}
       onMouseLeave={() => props.onHoverChange?.(false)}
       onContextMenu={
@@ -100,6 +121,7 @@ export function IssueCard(props: Props) {
       }
       aria-busy={props.pending ? true : undefined}
     >
+      {props.selected && <span class="visually-hidden">{t("Sélectionné")}</span>}
       {props.pending && <span class="card-pending-label">{t("Déplacement en cours…")}</span>}
       {props.feedback && (
         <span class="card-move-label" role="status">

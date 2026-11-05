@@ -170,6 +170,12 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   est évalué par Jira sur le périmètre du planning (`inPlanningScope`), réévalué après chaque
   relecture, puis croisé avec les cartes ; un JQL refusé désactive les filtres rapides, sans
   nouvelle tentative.
+- Gestes à la souris sur une carte, communs au board et au planning (story 8.30) : clic simple,
+  fiche native (lien `a.card` intercepté par `integration/embedded.ts` sur le board, toute la
+  carte dans le planning, ses boutons gardant leur action) ; clic du milieu, nouvel onglet (lien du
+  board, `window.open` de l'adresse Jira dans le planning) ; Ctrl/Cmd+clic et Maj+clic, sélection
+  (`CardSelection` sur le board, sans action groupée ; repère `.card-selected` et compteur
+  `SelectionChip` partagés), jamais d'onglet.
 - Lots du Sprint Planning (story 8.15) : Ctrl/Cmd+clic et Maj+clic (plage dans la même section)
   sélectionnent les cartes déplaçables, jamais celles en consultation ; Échap vide la sélection. Une
   carte sélectionnée emmène toute la sélection, au glissé comme par son menu ; un lot ne quitte le

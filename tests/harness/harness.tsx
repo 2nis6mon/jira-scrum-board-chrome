@@ -638,6 +638,8 @@ if (scenario.startsWith("board")) {
   let planningReady = false;
   /** Fenêtres natives de clôture et de démarrage demandées à la « page hôte » du banc. */
   const sprintDialogs: { action: string; sprintId: number }[] = [];
+  /** Fiches natives demandées à la page hôte simulée (clé du ticket). */
+  const openedIssues: string[] = [];
   const platform = {
     ...fakePlatform(jira),
     // Le banc affiche la version réellement construite, sans modifier ensuite son rendu.
@@ -728,6 +730,7 @@ if (scenario.startsWith("board")) {
           });
         },
         sprintDialogs: () => sprintDialogs,
+        openedIssues: () => openedIssues,
         /**
          * Fermeture simulée de la fenêtre native (message `refresh` de la page hôte) : validée,
          * le sprint actif `sprintId` est clos dans le faux Jira, `lagMs` après la fermeture
@@ -939,6 +942,9 @@ if (scenario.startsWith("board")) {
       connection.board.nativeSprintDialogHandler = (action, sprint) => {
         sprintDialogs.push({ action, sprintId: sprint.id });
         return true;
+      };
+      connection.board.nativeIssueHandler = (key) => {
+        openedIssues.push(key);
       };
     }
     if (automaticTransitionDrag) {

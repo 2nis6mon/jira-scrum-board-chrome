@@ -38,6 +38,7 @@ const text = () => document.body.textContent ?? "";
 Object.defineProperty(HTMLElement.prototype, "ondrop", { value: null, configurable: true });
 Object.defineProperty(HTMLElement.prototype, "ondragstart", { value: null, configurable: true });
 Object.defineProperty(HTMLElement.prototype, "ondragover", { value: null, configurable: true });
+Object.defineProperty(HTMLElement.prototype, "onauxclick", { value: null, configurable: true });
 
 const SPRINT_43 = decodeSprint({
   id: 43,
@@ -234,6 +235,7 @@ function setup(
     }),
     startSprint: vi.fn(),
     openIssue: vi.fn(),
+    issueUrl: vi.fn((key: string) => `https://acme.atlassian.net/browse/${key}`),
   } satisfies PlanningViewModel;
   const onBack = vi.fn();
   const onToggleSidebar = vi.fn();
@@ -1441,20 +1443,69 @@ describe("Sprint Planning en direct : plusieurs tickets ensemble (8.15)", () => 
   const click = (element: Element, init: MouseEventInit = {}) =>
     element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ...init }));
 
-  it("Ctrl/Cmd+clic et Maj+clic sélectionnent ; ni un clic simple ni une carte en consultation", async () => {
+  it("Ctrl/Cmd+clic et Maj+clic sélectionnent, sans ouvrir la fiche ; jamais une carte en consultation", async () => {
     const { planning } = setup();
     await tick();
     click(cardOf("ABC-10"), { ctrlKey: true });
     click(cardOf("ABC-11"), { metaKey: true });
     click(cardOf("ABC-12"), { shiftKey: true });
     click(cardOf("ABC-13"), { ctrlKey: true });
-    click(cardOf("ABC-14"));
     expect(planning.toggleSelection.mock.calls).toEqual([["ABC-10"], ["ABC-11"]]);
     expect(planning.extendSelection.mock.calls).toEqual([["ABC-12", ["ABC-12"]]]);
     // Ctrl+clic sur la clé : sélection, pas d'ouverture de la fiche.
     click(find('[data-planning-issue="ABC-14"] .planning-issue-link'), { ctrlKey: true });
     expect(planning.openIssue).not.toHaveBeenCalled();
     expect(planning.toggleSelection).toHaveBeenLastCalledWith("ABC-14");
+  });
+
+  it("clic simple n'importe où sur la carte : fiche native, comme sur le board (8.30)", async () => {
+    const { planning } = setup();
+    planning.canEstimate.value = true;
+    await tick();
+    click(find('[data-planning-issue="ABC-14"] .planning-card-title'));
+    click(cardOf("ABC-10"));
+    // Carte en consultation : la fiche s'ouvre aussi.
+    click(cardOf("ABC-13"));
+    expect(planning.openIssue.mock.calls).toEqual([["ABC-14"], ["ABC-10"], ["ABC-13"]]);
+    // Les boutons de la carte gardent leur action : ni fiche, ni sélection.
+    click(find('[data-planning-issue="ABC-12"] button.planning-estimate'));
+    click(find('[data-planning-issue="ABC-12"] button.planning-card-menu'));
+    expect(planning.openIssue).toHaveBeenCalledTimes(3);
+    expect(planning.toggleSelection).not.toHaveBeenCalled();
+    // Clic droit ou du milieu : jamais la fiche.
+    click(cardOf("ABC-11"), { button: 2 });
+    expect(planning.openIssue).toHaveBeenCalledTimes(3);
+  });
+
+  it("clic du milieu : le ticket dans un nouvel onglet, comme sur le board (8.30)", async () => {
+    const { planning } = setup();
+    await tick();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    try {
+      const middle = (element: Element) => {
+        const down = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 1 });
+        element.dispatchEvent(down);
+        expect(down.defaultPrevented).toBe(true);
+        element.dispatchEvent(
+          new MouseEvent("auxclick", { bubbles: true, cancelable: true, button: 1 }),
+        );
+      };
+      middle(find('[data-planning-issue="ABC-11"] .planning-card-title'));
+      expect(planning.issueUrl).toHaveBeenCalledWith("ABC-11");
+      expect(open).toHaveBeenCalledExactlyOnceWith(
+        "https://acme.atlassian.net/browse/ABC-11",
+        "_blank",
+        "noopener,noreferrer",
+      );
+      // Bouton droit : rien.
+      cardOf("ABC-11").dispatchEvent(
+        new MouseEvent("auxclick", { bubbles: true, cancelable: true, button: 2 }),
+      );
+      expect(open).toHaveBeenCalledTimes(1);
+      expect(planning.openIssue).not.toHaveBeenCalled();
+    } finally {
+      open.mockRestore();
+    }
   });
 
   it("le nombre de tickets sélectionnés s'affiche ; « Vider » et Échap vident la sélection", async () => {

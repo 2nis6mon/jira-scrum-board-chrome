@@ -95,6 +95,7 @@ import {
   removeBoard,
   saveBoard,
 } from "./boardStore";
+import { CardSelection } from "./CardSelection";
 import { ImageCache } from "./ImageCache";
 import { LoadDiagnostics } from "./LoadDiagnostics";
 import { toMessage, type UserMessage } from "./messages";
@@ -208,6 +209,18 @@ export class BoardModel {
   readonly dropTarget = signal<DropTarget | null>(null);
   /** Swimlane en cours de glisser-déposer (identifiant de bloc). */
   readonly draggingLane = signal<string | null>(null);
+  /** Cartes choisies au Ctrl/Cmd+clic et au Maj+clic, comme dans le planning (story 8.30). */
+  readonly cardSelection = new CardSelection();
+  /** Cartes sélectionnées encore présentes sur le board : un ticket parti n'est plus compté. */
+  readonly selectedKeys = computed((): ReadonlySet<string> => {
+    const keys = this.cardSelection.keys.value;
+    const snapshot = this.snapshot.value;
+    if (keys.size === 0 || !snapshot) return new Set();
+    const present = new Set(
+      [...snapshot.goalIssues, ...snapshot.swimlaneIssues].map((issue) => issue.issue.key),
+    );
+    return new Set([...keys].filter((key) => present.has(key)));
+  });
   /**
    * Place visée par la swimlane glissée : avant cette swimlane, `null` = en dernier. Absente
    * (`undefined`) quand le dépôt ne changerait rien.
@@ -1656,6 +1669,7 @@ export class BoardModel {
    */
   #enterBoard(configuration: BoardConfiguration | null): void {
     this.planning.reset();
+    this.cardSelection.clear();
     this.#clearMoveFeedback();
     this.pendingMove.value = null;
     this.nativeTransitionPending.value = false;

@@ -1349,6 +1349,34 @@ fieldset.filter-menu-panel {
   margin: 0;
 }
 
+/* Sélection de plusieurs cartes, même repère et même compteur sur le board et le planning
+   (stories 8.15, 8.30). La carte sélectionnée contient son annonce masquée « Sélectionné » (8.28). */
+.card-selected {
+  position: relative;
+  outline: 2px solid var(--in-progress);
+  outline-offset: 1px;
+  background: #f1f5ff;
+}
+
+.selection-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 2px 0 10px;
+  border-radius: 14px;
+  background: #e7eefd;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.selection-chip .icon-button {
+  width: 24px;
+  height: 24px;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

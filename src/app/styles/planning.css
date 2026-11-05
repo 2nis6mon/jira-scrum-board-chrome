@@ -688,32 +688,6 @@ button.planning-issue-link:hover:not(:disabled) {
   font-size: 12px;
 }
 
-/* Sélection de plusieurs tickets (story 8.15) : contour d'accent, compteur dans la barre. */
-.planning-card-selected {
-  outline: 2px solid var(--in-progress);
-  outline-offset: 1px;
-  background: #f1f5ff;
-}
-
-.planning-selection {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 28px;
-  padding: 0 2px 0 10px;
-  border-radius: 14px;
-  background: #e7eefd;
-  color: #1d4ed8;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.planning-selection .icon-button {
-  width: 24px;
-  height: 24px;
-}
-
 /* Avancement d'un objectif (story 8.16) : « n/N terminés », sa barre, puis la répartition à
    faire, en cours, terminé dans les teintes des statuts. Les actions restent à droite. */
 .planning-screen .planning-lane .lane-progress {

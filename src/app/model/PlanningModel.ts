@@ -5,6 +5,7 @@ import {
   loadAtlassianSprintGoals,
 } from "../../core/atlassianGoals";
 import type { BoardConfiguration } from "../../core/boardConfiguration";
+import { browseUrl } from "../../core/boardIssue";
 import { type IssueFilterOptions, issueFilterOptions } from "../../core/boardLayout";
 import { type ColumnStates, columnStates, tallyByState } from "../../core/columnState";
 import {
@@ -1562,6 +1563,13 @@ export class PlanningModel implements PlanningViewModel {
     const snapshot = this.snapshot.value;
     if (!snapshot || this.busy.value || !isIssueKey(key) || !locate(snapshot, key)) return;
     this.context.openIssue(key);
+  }
+
+  issueUrl(key: string): string | null {
+    const snapshot = this.snapshot.value;
+    if (!SPRINT_PLANNING_ENABLED || !snapshot || !isIssueKey(key) || !locate(snapshot, key))
+      return null;
+    return browseUrl(this.client.site.origin, key);
   }
 
   // ─── Cycle de vie ────────────────────────────────────────────────────────────

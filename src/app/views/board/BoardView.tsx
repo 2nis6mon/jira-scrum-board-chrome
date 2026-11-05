@@ -55,6 +55,7 @@ import { GoalMarker } from "../GoalMarker";
 import { HealthPanel } from "../health/HealthPanel";
 import { Icon, type IconName } from "../Icon";
 import { LaneHeader, StateBar } from "../LaneHeader";
+import { SelectionChip, useEscapeClearsSelection } from "../SelectionChip";
 import { CardMenu } from "./CardMenu";
 import { FilterMenu } from "./FilterMenu";
 import { placeFloatingMenu } from "./floatingMenu";
@@ -94,6 +95,10 @@ export function BoardView({
   const exit = presenting ? <PresentationExit onExit={controls.onExitPresentation} /> : null;
   const showFilters =
     snapshot !== null && (kanban || snapshot.sprint !== null) && board.options.value !== null;
+  useEscapeClearsSelection(
+    () => board.selectedKeys.peek().size > 0,
+    () => board.cardSelection.clear(),
+  );
 
   return (
     <main
@@ -794,6 +799,12 @@ function FilterBar({ board, trailing }: { board: BoardModel; trailing?: Componen
           </button>
         </>
       )}
+      <SelectionChip
+        count={board.selectedKeys.value.size}
+        hint={t("Échap vide la sélection.")}
+        className="board-selection"
+        onClear={() => board.cardSelection.clear()}
+      />
       {trailing}
     </div>
   );
@@ -1511,6 +1522,15 @@ function LaneView(props: {
                           }}
                           onDragEnd={() => board.endDrag()}
                           onContextMenu={(point) => board.openCardMenu(key, point)}
+                          selected={board.selectedKeys.value.has(key)}
+                          onSelect={(range) =>
+                            range
+                              ? board.cardSelection.extend(
+                                  key,
+                                  shownIssues.map((shown) => shown.issue.key),
+                                )
+                              : board.cardSelection.toggle(key)
+                          }
                         />
                       </li>
                     </Fragment>

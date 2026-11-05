@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-31-2026 09:00
-last_updated: 11-04-2026 18:30
+last_updated: 11-05-2026 10:00
 project: Sprint Goals Board pour Jira
 project_key: NOKEY
 tracking_system: file-system
@@ -103,7 +103,7 @@ development_status:
   8-27-ouvrir-et-isoler-les-fenetres-natives-sur-un-vrai-jira: backlog
   8-28-garder-la-vue-du-planning-immobile-avec-une-selection-lointaine: done
   8-29-garder-a-sa-place-un-ticket-classe-sur-le-board: done
-  8-30-les-memes-gestes-a-la-souris-sur-une-carte-du-board-et-du-planning: backlog
+  8-30-les-memes-gestes-a-la-souris-sur-une-carte-du-board-et-du-planning: review
   8-31-ne-plus-montrer-le-sprint-actif-dans-ou-sont-les-tickets: review
   8-10-valider-le-sprint-planning-sur-un-vrai-jira: done
   8-11-activer-le-sprint-planning-dans-le-paquet: backlog

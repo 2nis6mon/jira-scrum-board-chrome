@@ -600,6 +600,7 @@ export const businessMessages = {
   Sélectionné: "Selected",
   "Glissez-les ou ouvrez le menu de l'une d'elles ; Échap vide la sélection.":
     "Drag them or open the menu of one of them; Escape clears the selection.",
+  "Échap vide la sélection.": "Escape clears the selection.",
   "À faire : {p0}": "To do: {p0}",
   "En cours : {p0}": "In progress: {p0}",
   "Terminé : {p0}": "Done: {p0}",

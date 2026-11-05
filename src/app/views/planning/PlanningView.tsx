@@ -27,6 +27,7 @@ import { GoalMarker } from "../GoalMarker";
 import { Icon } from "../Icon";
 import { LaneHeader, StackedBar } from "../LaneHeader";
 import { ErrorMessage } from "../Message";
+import { isTyping, SelectionChip, useEscapeClearsSelection } from "../SelectionChip";
 import "../../styles/planning.css";
 
 /** Ticket glissé dans le planning : sa clé. */
@@ -81,17 +82,10 @@ export function PlanningView({
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  // Échap vide la sélection, sauf dans un champ, un menu ou une fenêtre ouverts (ils s'en servent).
-  useEffect(() => {
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      if (planning.selection.peek().size === 0 || isTyping(event.target)) return;
-      if (document.querySelector('[role="dialog"], dialog[open], details[open]')) return;
-      planning.clearSelection();
-    };
-    document.addEventListener("keydown", onEscape);
-    return () => document.removeEventListener("keydown", onEscape);
-  }, [planning]);
+  useEscapeClearsSelection(
+    () => planning.selection.peek().size > 0,
+    () => planning.clearSelection(),
+  );
 
   return (
     <main class="planning-screen" aria-label="Sprint Planning" aria-busy={busy}>
@@ -121,7 +115,12 @@ export function PlanningView({
           <kbd title={t("Raccourci")}>/</kbd>
         </label>
         <PlanningFilters planning={planning} />
-        <SelectionChip planning={planning} />
+        <SelectionChip
+          count={planning.selection.value.size}
+          hint={t("Glissez-les ou ouvrez le menu de l'une d'elles ; Échap vide la sélection.")}
+          className="planning-selection"
+          onClear={() => planning.clearSelection()}
+        />
       </div>
       <PlanningMessages planning={planning} />
       {snapshot ? (
@@ -162,30 +161,6 @@ export function PlanningView({
 }
 
 // ─── Sélection ───────────────────────────────────────────────────────────────
-
-/** Nombre de tickets sélectionnés ; Échap ou le bouton vident la sélection. */
-function SelectionChip({ planning }: { planning: PlanningViewModel }) {
-  const count = planning.selection.value.size;
-  if (count === 0) return null;
-  return (
-    <span
-      class="planning-selection"
-      role="status"
-      title={t("Glissez-les ou ouvrez le menu de l'une d'elles ; Échap vide la sélection.")}
-    >
-      {count === 1 ? t("1 ticket sélectionné") : t("{count} tickets sélectionnés", { count })}
-      <button
-        type="button"
-        class="icon-button"
-        aria-label={t("Vider la sélection")}
-        title={t("Vider la sélection")}
-        onClick={() => planning.clearSelection()}
-      >
-        <Icon name="close" />
-      </button>
-    </span>
-  );
-}
 
 /** Tickets déplacés par un geste sur la carte `key` : toute la sélection si elle en fait partie. */
 function gestureKeys(planning: PlanningViewModel, key: string): string[] {
@@ -365,15 +340,6 @@ function keepFilterPanelInView(details: HTMLDetailsElement): void {
   if (overflow <= 0) return;
   const shift = Math.min(overflow, Math.max(0, box.left - PANEL_MARGIN));
   panel.style.left = `${-shift}px`;
-}
-
-function isTyping(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement ||
-    (target instanceof HTMLElement && target.isContentEditable)
-  );
 }
 
 // ─── En-tête ─────────────────────────────────────────────────────────────────
@@ -1417,6 +1383,19 @@ interface MenuRequest {
   readonly returnFocus: HTMLElement | null;
 }
 
+/**
+ * Élément de la carte qui a sa propre action (bouton ⋯, estimation, champ, menu) : son clic n'ouvre
+ * pas la fiche. La clé, bouton d'accès au clavier, laisse la carte ouvrir la fiche.
+ */
+function ownControl(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest(
+      "button:not(.planning-issue-link), input, select, textarea, a, summary, [role='menu']",
+    ) !== null
+  );
+}
+
 /** Catégories de statut d'Atlassian ; toute autre valeur reçoit la teinte neutre. */
 const STATUS_CATEGORIES = new Set(["new", "indeterminate", "done"]);
 
@@ -1468,24 +1447,36 @@ function PlanningCard({
   return (
     <>
       <article
-        class={`card planning-card${compact ? " planning-card-compact" : ""}${readOnly ? " planning-card-readonly" : ""}${origin ? " planning-card-arrived" : ""}${selected ? " planning-card-selected" : ""}`}
+        class={`card planning-card${compact ? " planning-card-compact" : ""}${readOnly ? " planning-card-readonly" : ""}${origin ? " planning-card-arrived" : ""}${selected ? " card-selected planning-card-selected" : ""}`}
         data-planning-issue={issue.key}
         data-selected={selected ? "true" : undefined}
         draggable={draggable}
-        onClick={
-          readOnly
-            ? undefined
-            : (event) => {
-                // Ctrl/Cmd+clic : ajoute ou retire ; Maj+clic : plage dans la même section.
-                if (event.shiftKey) {
-                  event.preventDefault();
-                  planning.extendSelection(issue.key, sectionKeys);
-                } else if (event.ctrlKey || event.metaKey) {
-                  event.preventDefault();
-                  planning.toggleSelection(issue.key);
-                }
-              }
-        }
+        onClick={(event) => {
+          // Ctrl/Cmd+clic : ajoute ou retire ; Maj+clic : plage dans la même section (8.15). Une
+          // carte en consultation ne se sélectionne pas.
+          if (event.shiftKey || event.ctrlKey || event.metaKey) {
+            event.preventDefault();
+            if (readOnly) return;
+            if (event.shiftKey) planning.extendSelection(issue.key, sectionKeys);
+            else planning.toggleSelection(issue.key);
+            return;
+          }
+          // Clic simple n'importe où sur la carte, clé comprise : fiche native, comme sur le board
+          // (story 8.30). Boutons (⋯, estimation), champ et menu de la carte gardent leur action.
+          if (event.button !== 0 || event.altKey || ownControl(event.target)) return;
+          planning.openIssue(issue.key);
+        }}
+        // Clic du milieu : nouvel onglet, comme le lien d'une carte du board (story 8.30), sans le
+        // défilement automatique que le bouton du milieu lance sous Windows.
+        onMouseDown={(event) => {
+          if (event.button === 1) event.preventDefault();
+        }}
+        onAuxClick={(event) => {
+          if (event.button !== 1 || ownControl(event.target)) return;
+          event.preventDefault();
+          const url = planning.issueUrl(issue.key);
+          if (url) window.open(url, "_blank", "noopener,noreferrer");
+        }}
         onDragStart={(event) => {
           if (!draggable || !event.dataTransfer) {
             event.preventDefault();
@@ -1539,11 +1530,7 @@ function PlanningCard({
             class="card-key planning-issue-link"
             aria-label={t("Ouvrir {p0} dans Jira", { p0: issue.key })}
             title={t("Ouvrir {p0} dans Jira", { p0: issue.key })}
-            onClick={(event) => {
-              // Avec Ctrl, Cmd ou Maj, le clic sélectionne : la carte s'en charge.
-              if (event.ctrlKey || event.metaKey || event.shiftKey) return;
-              planning.openIssue(issue.key);
-            }}
+            // Clic, Entrée ou Espace : la carte ouvre la fiche, ou sélectionne avec une touche.
           >
             {issue.key}
           </button>

@@ -106,7 +106,11 @@ stays visible.
 
 ### Open and move issues
 
-- Click a card to open its native Jira issue dialog. Closing it refreshes the board.
+- Click a card to open its native Jira issue dialog. Closing it refreshes the board. A middle
+  click opens the issue in a new tab.
+- Ctrl+click (Cmd+click on Mac) adds a card to the selection or removes it; Shift+click adds the
+  cards between the last one chosen and this one, in the same column. The number of selected
+  issues appears in the filter bar; Escape clears the selection.
 - Drag a card into a column to change its status. If the column has several statuses,
   drop it into the area for the status you want.
 - Drag it to a goal to link it, or to its default row to unlink it.

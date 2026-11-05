@@ -121,7 +121,11 @@ les objectifs restent affichés.
 
 ### Ouvrir et déplacer les tickets
 
-- Cliquez sur une carte pour ouvrir sa fiche native Jira. Sa fermeture actualise le board.
+- Cliquez sur une carte pour ouvrir sa fiche native Jira. Sa fermeture actualise le board. Un clic
+  du milieu ouvre le ticket dans un nouvel onglet.
+- Ctrl+clic (Cmd+clic sur Mac) ajoute une carte à la sélection ou l'en retire ; Maj+clic ajoute
+  les cartes entre la dernière choisie et celle-ci, dans la même colonne. Le nombre de tickets
+  sélectionnés s'affiche dans la barre des filtres ; Échap vide la sélection.
 - Glissez une carte dans une colonne pour changer son statut. Plusieurs statuts dans une colonne ?
   Déposez-la dans la zone du statut voulu.
 - Glissez-la vers un objectif pour l'y rattacher, ou vers sa ligne par défaut pour la détacher.

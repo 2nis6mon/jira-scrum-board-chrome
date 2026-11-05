@@ -111,7 +111,11 @@ incidencias de un sprint; todos los objetivos siguen visibles.
 
 ### Abrir y mover incidencias
 
-- Pulsa una tarjeta para abrir su ventana nativa de Jira. Al cerrarla se actualiza el tablero.
+- Pulsa una tarjeta para abrir su ventana nativa de Jira. Al cerrarla se actualiza el tablero. Un
+  clic con el botón central abre la incidencia en una pestaña nueva.
+- Ctrl+clic (Cmd+clic en Mac) añade una tarjeta a la selección o la quita; Mayús+clic añade las
+  tarjetas entre la última elegida y esta, en la misma columna. El número de incidencias
+  seleccionadas aparece en la barra de filtros; Escape vacía la selección.
 - Arrastra una tarjeta a una columna para cambiar su estado. Si la columna contiene varios
   estados, suéltala en la zona del estado que quieras.
 - Arrástrala a un objetivo para vincularla o a su fila predeterminada para desvincularla.

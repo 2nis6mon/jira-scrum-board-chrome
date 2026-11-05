@@ -571,6 +571,94 @@ try {
   console.log(
     "✓ Menu de carte : liste ouverte au survol à droite, gardée en diagonale, envoi vers un goal (une écriture), à gauche près du bord, refermée en partant",
   );
+
+  // Story 8.30 : sur le board, Ctrl/Cmd+clic et Maj+clic sélectionnent comme dans le planning, sans
+  // onglet ni fenêtre ; Échap vide la sélection ; le clic du milieu reste celui du lien (nouvel
+  // onglet), intercepté ici après coup pour ne rien ouvrir.
+  await navigateToHarness(sessionId, "http://127.0.0.1:5201/?scenario=board");
+  await waitFor(
+    sessionId,
+    "document.querySelectorAll('li.lane-item > a.card').length >= 3",
+    "Le scénario de la sélection n'est pas prêt",
+  );
+  const picked = await evaluate(
+    sessionId,
+    `(() => {
+      // Le board fictif n'a qu'une carte par colonne : un Maj+clic sans départ dans sa colonne
+      // ajoute la carte, comme Ctrl+clic ; la plage d'une colonne est couverte par les tests.
+      const cards = [...document.querySelectorAll('li.lane-item > a.card')].slice(0, 3);
+      window.__cardClicks = [];
+      window.addEventListener('click', (event) => {
+        if (event.target.closest?.('a.card')) window.__cardClicks.push(['click', event.defaultPrevented]);
+      });
+      window.addEventListener('auxclick', (event) => {
+        const card = event.target.closest?.('a.card');
+        if (!card) return;
+        window.__cardClicks.push(['auxclick', event.defaultPrevented, card.target, card.dataset.issueKey]);
+        event.preventDefault();
+      });
+      cards[0].scrollIntoView({ block: 'center' });
+      return cards.map((card) => {
+        const r = card.querySelector('.card-summary').getBoundingClientRect();
+        return { key: card.dataset.issueKey, x: r.left + 20, y: r.top + r.height / 2 };
+      });
+    })()`,
+  );
+  const clickAt = async ({ x, y }, modifiers, button = "left", buttons = 1) => {
+    await mouse("mouseMoved", x, y);
+    await mouse("mousePressed", x, y, { button, buttons, clickCount: 1, modifiers });
+    await mouse("mouseReleased", x, y, { button, buttons: 0, clickCount: 1, modifiers });
+  };
+  const targetsBefore = (await send("Target.getTargets", {})).targetInfos.length;
+  await clickAt(picked[0], 2);
+  await clickAt(picked[1], 4);
+  await clickAt(picked[2], 8);
+  const selectedKeys = JSON.stringify(
+    picked
+      .map((card) => card.key)
+      .sort()
+      .join(),
+  );
+  await waitFor(
+    sessionId,
+    `document.querySelector('.board-selection')?.textContent.includes('3 tickets sélectionnés')
+      && [...document.querySelectorAll('a.card.card-selected')].map((card) => card.dataset.issueKey).sort().join() === ${selectedKeys}`,
+    "Ctrl+clic, Cmd+clic et Maj+clic ne sélectionnent pas les trois cartes",
+  );
+  assert(
+    JSON.stringify(await evaluate(sessionId, "window.__cardClicks")) ===
+      JSON.stringify([
+        ["click", true],
+        ["click", true],
+        ["click", true],
+      ]) && (await send("Target.getTargets", {})).targetInfos.length === targetsBefore,
+    "Une sélection au Ctrl+clic ou Maj+clic a ouvert un onglet ou une fenêtre",
+  );
+  for (const type of ["keyDown", "keyUp"])
+    await send(
+      "Input.dispatchKeyEvent",
+      { type, key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 },
+      sessionId,
+    );
+  await waitFor(
+    sessionId,
+    "!document.querySelector('.board-selection') && !document.querySelector('a.card.card-selected')",
+    "Échap ne vide pas la sélection du board",
+  );
+  await clickAt(picked[1], 0, "middle", 4);
+  await waitFor(
+    sessionId,
+    "window.__cardClicks.length === 4",
+    "Le clic du milieu n'a pas atteint la carte",
+  );
+  assert(
+    JSON.stringify((await evaluate(sessionId, "window.__cardClicks"))[3]) ===
+      JSON.stringify(["auxclick", false, "_blank", picked[1].key]),
+    "Le clic du milieu sur une carte du board doit rester celui du lien (nouvel onglet)",
+  );
+  console.log(
+    "✓ Sélection du board (8.30) : Ctrl+clic, Cmd+clic et Maj+clic, repère et compteur, aucun onglet ; Échap vide ; clic du milieu laissé au lien",
+  );
 } finally {
   await browser.close();
   await server.close();

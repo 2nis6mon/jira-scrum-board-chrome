@@ -120,8 +120,11 @@ try {
       || !element.contains(document.elementFromPoint(x, y))) return null;
     return { x, y };
   })()`);
-  /** Clic réel sur la carte `key` avec des touches (2 : Ctrl, 4 : Cmd, 8 : Maj). */
-  const clickCard = async (key, modifiers) => {
+  /**
+   * Clic réel sur la carte `key` avec des touches (2 : Ctrl, 4 : Cmd, 8 : Maj), du bouton gauche ou
+   * du milieu (`button`).
+   */
+  const clickCard = async (key, modifiers, button = "left") => {
     const at = await point(`[data-planning-issue="${key}"] .planning-card-title`);
     assert(at, `La carte ${key} n'est pas accessible pour le clic`);
     for (const type of ["mousePressed", "mouseReleased"])
@@ -130,8 +133,8 @@ try {
         {
           type,
           ...at,
-          button: "left",
-          buttons: type === "mousePressed" ? 1 : 0,
+          button,
+          buttons: type === "mousePressed" ? (button === "middle" ? 4 : 1) : 0,
           clickCount: 1,
           modifiers,
         },
@@ -625,6 +628,34 @@ try {
     );
     await wait("!document.querySelector('.planning-selection')", "La sélection n'a pas été vidée");
     console.log("✓ Lot : Ctrl+clic sur deux cartes, un glissé, une seule E9 puis une seule E5");
+
+    // Story 8.30 : comme sur le board, un clic simple n'importe où sur la carte ouvre la fiche native
+    // et le clic du milieu un nouvel onglet (intercepté ici pour ne rien ouvrir).
+    await run(
+      "window.__openedTabs = []; window.open = (...args) => { window.__openedTabs.push(args); return null; }",
+    );
+    const openedBefore = await run("window.__planning.openedIssues().length");
+    await clickCard("ABC-203", 0);
+    await wait(
+      `window.__planning.openedIssues().length === ${openedBefore + 1}
+        && window.__planning.openedIssues().at(-1) === 'ABC-203'
+        && !document.querySelector('.planning-selection')`,
+      "Un clic simple sur la carte n'ouvre pas la fiche native",
+    );
+    await clickCard("ABC-203", 0, "middle");
+    await wait(
+      `window.__openedTabs.length === 1 && window.__openedTabs[0][0].endsWith('/browse/ABC-203')
+        && window.__openedTabs[0][1] === '_blank'`,
+      "Le clic du milieu n'ouvre pas le ticket dans un nouvel onglet",
+    );
+    assert(
+      (await run("window.__planning.openedIssues().length")) === openedBefore + 1 &&
+        JSON.stringify(await writes()) === JSON.stringify(done),
+      "Le clic du milieu a ouvert la fiche native ou écrit dans Jira",
+    );
+    console.log(
+      "✓ Clic simple sur la carte : fiche native ; clic du milieu : nouvel onglet ; sans écriture (8.30)",
+    );
 
     // Story 8.17 : estimation saisie sur la carte d'un ticket du backlog, E11 seule puis relue.
     const estimateOf = (key) =>

@@ -3,6 +3,20 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.49.0 — Les mêmes gestes à la souris sur une carte du board et du planning
+
+- Signalé par Denis le 04/11/2026 (story 8.30) : sur le Sprint Board, un Ctrl+clic sur une carte
+  ouvrait le ticket dans un nouvel onglet, alors que le même geste sélectionne la carte dans le
+  Sprint Planning. Dans le planning, seule la clé ouvrait la fiche.
+- Décision de Denis du 04/11/2026, appliquée aux deux écrans : un clic simple n'importe où sur la
+  carte ouvre la fiche native Jira (les boutons de la carte gardent leur action) ; le clic du
+  milieu ouvre le ticket dans un nouvel onglet ; Ctrl/Cmd+clic et Maj+clic (plage dans la même
+  colonne) sélectionnent, sans onglet ni fenêtre.
+- Sur le board, la sélection a le même repère et le même compteur que dans le planning ; Échap ou
+  « Vider la sélection » la vident. Elle n'a pas encore d'action groupée (glisser, menu), qui
+  reste à décider. Aucune lecture ni écriture Jira ajoutée. Nouveau texte « Échap vide la
+  sélection. » en français, anglais et espagnol.
+
 ## 0.48.9 — Sprint Planning : le sprint actif quitte « Où sont les tickets » (builds locaux)
 
 - Signalé par Denis le 04/11/2026 (story 8.31) : le reste à faire du sprint actif figurait en bas

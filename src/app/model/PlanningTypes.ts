@@ -227,4 +227,6 @@ export interface PlanningViewModel {
   dismissCarryOverReport(): void;
   startSprint(): void;
   openIssue(key: string): void;
+  /** Adresse Jira d'un ticket du planning, pour un nouvel onglet (clic du milieu) ; sinon `null`. */
+  issueUrl(key: string): string | null;
 }

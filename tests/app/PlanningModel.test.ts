@@ -534,6 +534,10 @@ describe("Sprint Planning en direct : tickets", () => {
     planning.openIssue("ABC-101");
     planning.openIssue("FOREIGN-1");
     expect(openIssue.mock.calls).toEqual([["ABC-201"], ["ABC-210"]]);
+    // Clic du milieu (8.30) : adresse Jira des seuls tickets du planning.
+    expect(planning.issueUrl("ABC-201")).toBe("https://acme.atlassian.net/browse/ABC-201");
+    expect(planning.issueUrl("ABC-101")).toBeNull();
+    expect(planning.issueUrl("FOREIGN-1")).toBeNull();
   });
 });
 
