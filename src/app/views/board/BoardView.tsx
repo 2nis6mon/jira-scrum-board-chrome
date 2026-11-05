@@ -1233,24 +1233,69 @@ function LaneView(props: {
   const states = columnStates(configuration.columns);
   const parentColors = board.parentColors.value;
   const stockExpanded = dailyStock?.expandedIds.includes(lane.id) ?? false;
+  const drag = board.dragging.value;
+  // Story 8.32 : hors de sa swimlane de départ, la carte glissée ne change que d'objectif. Toute
+  // la swimlane, en-tête compris, est alors une seule zone de dépôt, sans colonne ni statut.
+  const elsewhere = drag !== null && drag.laneId !== lane.id;
+  const laneDroppable = elsewhere && board.accepts(lane.block, drag.lane);
+  const laneTarget = board.dropTarget.value;
+  const laneHovered = elsewhere && laneTarget?.laneId === lane.id && laneTarget.columnId === null;
+  const laneTargeted = laneDroppable && laneHovered;
 
   return (
     <section
-      class={`lane lane-${lane.block.kind}${board.draggingLane.value === lane.id ? " lane-dragging" : ""}`}
+      class={`lane lane-${lane.block.kind}${board.draggingLane.value === lane.id ? " lane-dragging" : ""}${laneDroppable ? " lane-drop-zone" : ""}${laneTargeted ? " lane-drop-target" : ""}${elsewhere && !laneDroppable ? " lane-drop-unavailable" : ""}`}
       data-goal-color={goal?.color}
       data-lane-id={lane.id}
       aria-label={lane.title}
+      aria-disabled={(elsewhere && !laneDroppable) || undefined}
       onDragOver={(event) => {
-        // Seul le glissé d'une swimlane est traité ici ; celui des cartes l'est par les cases.
-        if (board.draggingLane.value === null) return;
+        if (board.draggingLane.value === null) {
+          // Carte glissée hors de sa swimlane de départ ; dans celle-ci, les cases s'en chargent.
+          const current = board.dragging.value;
+          if (current === null || current.laneId === lane.id) return;
+          if (!laneDroppable) {
+            // Refusée : son message au survol, aucun dépôt possible.
+            if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+            board.setDropTarget({
+              laneId: lane.id,
+              columnId: null,
+              beforeKey: null,
+              refused: true,
+            });
+            return;
+          }
+          event.preventDefault();
+          if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+          board.setDropTarget({ laneId: lane.id, columnId: null, beforeKey: null });
+          return;
+        }
         event.preventDefault();
         if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
         const box = event.currentTarget.getBoundingClientRect();
         board.setLaneDropTarget(event.clientY < box.top + box.height / 2 ? lane.id : nextLaneId);
       }}
+      onDragLeave={(event) => {
+        if (
+          elsewhere &&
+          !event.currentTarget.contains(event.relatedTarget as Node | null) &&
+          board.dropTarget.value?.laneId === lane.id
+        ) {
+          board.setDropTarget(null);
+        }
+      }}
       onDrop={(event) => {
         const dragged = board.draggingLane.value;
-        if (dragged === null) return;
+        if (dragged === null) {
+          const current = board.dragging.value;
+          if (current === null || current.laneId === lane.id) return;
+          event.preventDefault();
+          const key = event.dataTransfer?.getData(DRAG_TYPE) ?? "";
+          // Seule la carte dont le glissement a commencé sur ce board est acceptée.
+          if (key === current.issueKey && laneDroppable) void board.dropOnLane(key, lane.block);
+          board.endDrag();
+          return;
+        }
         event.preventDefault();
         const target = board.laneDropTarget.value;
         // Seule la swimlane dont le glissé a commencé sur ce board est acceptée.
@@ -1345,10 +1390,23 @@ function LaneView(props: {
         )}
         {!daily && <LaneMenu board={board} lane={lane} onShowSettings={props.onShowSettings} />}
       </LaneHeader>
+      {laneHovered && !laneDroppable && (
+        <p class="lane-drop-message lane-drop-message-unavailable">
+          <span>{t("Utilisez un objectif ou la swimlane par défaut de ce type")}</span>
+        </p>
+      )}
+      {laneTargeted && (
+        <p class="lane-drop-message">
+          <span>
+            {lane.block.kind === "goal"
+              ? t("Rattacher à cet objectif")
+              : t("Retour dans la swimlane par défaut")}
+          </span>
+        </p>
+      )}
       {!lane.collapsed && (
         <div class="board-row lane-cells">
           {lane.cells.map((cell, cellIndex) => {
-            const drag = board.dragging.value;
             // Daily : stock de la première colonne plafonné, dans l'ordre de Jira.
             const stock =
               dailyStock && cellIndex === 0
@@ -1357,13 +1415,13 @@ function LaneView(props: {
             const shownIssues = stock?.shown ?? cell.issues;
             // Un dépôt après la dernière carte affichée se place avant les cartes cachées.
             const firstHidden = stock?.hidden[0]?.issue.key ?? null;
-            const compatible = drag !== null && board.accepts(lane.block, drag.lane);
+            // Colonnes, statuts et rang : dans la swimlane de départ seulement (story 8.32).
+            const fromHere = drag !== null && !elsewhere;
             const destination = board.columnDrop(cell.column);
-            const droppable = compatible && destination.kind === "same";
-            const statusZones = compatible && destination.kind === "statuses";
+            const droppable = fromHere && destination.kind === "same";
+            const statusZones = fromHere && destination.kind === "statuses";
             const unavailable =
-              drag !== null &&
-              (!compatible || ["blocked", "loading", "error"].includes(destination.kind));
+              fromHere && ["blocked", "loading", "error"].includes(destination.kind);
             const target = board.dropTarget.value;
             const targeted =
               (droppable || statusZones) &&
@@ -1378,6 +1436,8 @@ function LaneView(props: {
                 aria-disabled={unavailable || undefined}
                 onDragOver={(event) => {
                   const current = board.dragging.value;
+                  // Ailleurs, toute la swimlane reçoit le dépôt.
+                  if (elsewhere) return;
                   if (!current || !droppable) {
                     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
                     board.setDropTarget(null);
@@ -1394,11 +1454,15 @@ function LaneView(props: {
                   });
                 }}
                 onDragLeave={(event) => {
-                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  if (
+                    !elsewhere &&
+                    !event.currentTarget.contains(event.relatedTarget as Node | null)
+                  ) {
                     board.setDropTarget(null);
                   }
                 }}
                 onDrop={(event) => {
+                  if (elsewhere) return;
                   event.preventDefault();
                   const current = board.dragging.value;
                   const key = event.dataTransfer?.getData(DRAG_TYPE) ?? "";
@@ -1416,18 +1480,7 @@ function LaneView(props: {
                 }}
               >
                 {unavailable && (
-                  <li class="drop-unavailable-message">
-                    {!compatible
-                      ? t("Utilisez un objectif ou la swimlane par défaut de ce type")
-                      : localize(destination.message)}
-                  </li>
-                )}
-                {targeted && droppable && (
-                  <li class="drop-goal-message">
-                    {lane.block.kind === "goal"
-                      ? t("Rattacher à cet objectif")
-                      : t("Retour dans la swimlane par défaut")}
-                  </li>
+                  <li class="drop-unavailable-message">{localize(destination.message)}</li>
                 )}
                 {statusZones && (
                   <li class="status-drop-zones">

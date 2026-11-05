@@ -15,7 +15,7 @@ import {
   isGoalHidden,
 } from "../../core/boardConfiguration";
 import { allIssues, type BoardSnapshot, findIssue } from "../../core/boardIssue";
-import { buildBoardLayout, filterOptions } from "../../core/boardLayout";
+import { buildBoardLayout, filterOptions, laneKey } from "../../core/boardLayout";
 import type { OrderScope } from "../../core/boardMove";
 import {
   laneOrder,
@@ -913,10 +913,11 @@ export class BoardModel {
     )
       return;
     const snapshot = this.snapshot.value;
+    const configuration = this.configuration.value;
     const issue = snapshot ? findIssue(snapshot, issueKey) : null;
-    if (!issue) return;
+    if (!issue || !configuration) return;
     const knownStatusId = issue.issue.fields.status.id;
-    const drag = { issueKey, lane, knownStatusId };
+    const drag = { issueKey, lane, knownStatusId, laneId: laneKey(configuration, issue) };
     this.dragging.value = drag;
     this.dragTransitions.value = { kind: "loading" };
     void this.#client.transitions(issueKey).then(
@@ -987,7 +988,8 @@ export class BoardModel {
       current?.laneId === target?.laneId &&
       current?.columnId === target?.columnId &&
       current?.beforeKey === target?.beforeKey &&
-      current?.statusId === target?.statusId
+      current?.statusId === target?.statusId &&
+      current?.refused === target?.refused
     ) {
       return;
     }
@@ -1059,6 +1061,10 @@ export class BoardModel {
           ? { kind: "goal", goalId: input.block.goalId }
           : { kind: "build" },
     });
+    // Changer d'objectif ne change jamais l'état (décision de Denis du 05/11/2026, story 8.32) :
+    // un dépôt qui changerait les deux n'écrit rien. La vue ne le propose pas.
+    const changesGoal = plan.goalChange.kind !== "none";
+    if (changesGoal && plan.changesColumn) return;
     if (plan.changesColumn && !selection && this.dragging.value?.issueKey === input.issueKey) {
       const state = this.dragTransitions.value;
       if (state.kind !== "ready" || state.issueKey !== input.issueKey) return;
@@ -1075,9 +1081,10 @@ export class BoardModel {
         input = { ...input, targetStatusId: chosen.to.id };
       }
     }
-    // Une zone de statut sans position précise conserve le rang global.
+    // Une zone de statut sans position précise conserve le rang global ; un changement
+    // d'objectif ne classe jamais le ticket.
     const rank =
-      plan.changesColumn && input.beforeKey === null
+      changesGoal || (plan.changesColumn && input.beforeKey === null)
         ? { kind: "none" as const }
         : this.#rankFor(input, column.id);
     if (isNoOpDrop(plan) && rank.kind === "none") return;
@@ -1237,6 +1244,19 @@ export class BoardModel {
       columnId: issue.columnId,
       beforeKey: null,
     });
+  }
+
+  /**
+   * Dépôt de la carte glissée sur une autre swimlane que celle de départ, n'importe où : seul son
+   * objectif change (story 8.32), ni transition ni rang. Même chemin que le dépôt.
+   */
+  async dropOnLane(issueKey: string, block: BoardBlock): Promise<void> {
+    const drag = this.dragging.value;
+    const snapshot = this.snapshot.value;
+    const issue = snapshot ? findIssue(snapshot, issueKey) : null;
+    if (drag?.issueKey !== issueKey || !issue || issue.columnId === null) return;
+    if (blockIdentifier(block) === drag.laneId || !this.accepts(block, drag.lane)) return;
+    await this.dropIssue({ issueKey, block, columnId: issue.columnId, beforeKey: null });
   }
 
   /** Une écriture est en cours : ticket en attente, choix de transition ou formulaire natif. */

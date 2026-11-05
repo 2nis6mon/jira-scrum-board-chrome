@@ -113,7 +113,9 @@ stays visible.
   issues appears in the filter bar; Escape clears the selection.
 - Drag a card into a column to change its status. If the column has several statuses,
   drop it into the area for the status you want.
-- Drag it to a goal to link it, or to its default row to unlink it.
+- Drag it to a goal to link it, or to its default row to unlink it: drop it anywhere in the
+  row, header included. Only its goal changes; it keeps its column, status and rank. To change
+  its status, drag it within its own row.
 - Move it to the position you want when Jira allows rank changes.
 
 If Jira opens a transition form, fill it in and submit it yourself. After an error, read

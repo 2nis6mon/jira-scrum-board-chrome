@@ -3150,18 +3150,60 @@ details.lane-menu:not([data-placed]) .menu-panel {
   color: var(--text-muted, #5e6675);
   font-size: 12px;
 }
-.drop-goal-message {
-  position: absolute;
-  bottom: 5px;
-  right: 5px;
-  z-index: 3;
-  max-width: calc(100% - 10px);
+/* Story 8.32 : hors de sa swimlane de départ, la carte glissée vise toute une swimlane (objectif
+   seul). Contours et message ne changent jamais la hauteur des lignes pendant le glissement. */
+.lane {
+  position: relative;
+}
+.lane-drop-zone {
+  outline: 1px dashed #b7c0cd;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.lane-drop-target {
+  outline: 2px solid var(--goal-ring, var(--in-progress));
+}
+.lane-drop-target .lane-cell {
+  background: #e4e8ee;
+}
+.lane-drop-unavailable {
+  cursor: not-allowed;
+}
+.lane-drop-unavailable .lane-cell {
+  background: var(--surface-muted, #e9ebef);
+}
+.lane-drop-unavailable .lane-item {
+  opacity: 0.3;
+}
+/* Sans hauteur et collant sous l'en-tête : visible pendant tout le survol d'une longue swimlane,
+   sans décaler les cases quand il paraît ou disparaît. */
+.lane-drop-message {
+  position: sticky;
+  top: calc(var(--column-band-height) + 22px + var(--lane-header-height) + 18px);
+  z-index: 5;
+  height: 0;
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+.lane-drop-message > span {
+  max-width: calc(100% - 16px);
+  margin: 4px 8px 0 0;
   padding: 4px 8px;
   border-radius: 5px;
   background: var(--in-progress);
   color: white;
   font-size: 11px;
-  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lane-drop-message-unavailable > span {
+  background: var(--surface, white);
+  color: var(--text-muted, #5e6675);
+  border: 1px solid var(--line, #d0d5dd);
 }
 .lane-cell-statuses > .lane-item {
   opacity: 0.25;

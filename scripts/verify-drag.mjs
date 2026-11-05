@@ -207,24 +207,33 @@ try {
         after.connected && Math.abs(after.top - before.top) < 1,
         `RUN-7 : la révélation de sa destination a déplacé la source de ${after.top - before.top}px`,
       );
+      // Story 8.32 : RUN-7 est « En cours » ; on vise la colonne « Terminé » de l'autre swimlane,
+      // qui n'est qu'une seule zone de dépôt : seul l'objectif change, jamais la colonne.
       const target = await evaluate(
         sessionId,
         `(() => {
-          const cell = document.querySelector('[data-lane-id="${laneId}"] .lane-cell:nth-child(2)');
+          const lane = document.querySelector('[data-lane-id="${laneId}"]');
+          const cell = lane?.querySelector('.lane-cell:last-child');
           if (!cell) return null;
           // Hors de la bande de défilement du bas du board (story 8.24).
           cell.scrollIntoView({block: 'center'});
           const rect = cell.getBoundingClientRect();
           const x = rect.left + rect.width / 2, y = rect.top + 25;
           return {x, y, reachable: cell.contains(document.elementFromPoint(x, y)),
-            allowed: cell.classList.contains('lane-cell-droppable'),
-            disabled: cell.getAttribute('aria-disabled') === 'true'};
+            column: cell.getAttribute('aria-label'),
+            allowed: lane.classList.contains('lane-drop-zone'),
+            disabled: lane.getAttribute('aria-disabled') === 'true',
+            cellZones: lane.querySelectorAll('.lane-cell-droppable, .status-drop-zone').length};
         })()`,
       );
       assert(target?.reachable, `RUN-7 : destination ${laneId} absente ou inaccessible`);
       assert(
-        target.allowed === allowed && target.disabled === !allowed,
-        `RUN-7 : la destination ${laneId} n'affiche pas la bonne permission`,
+        target.column.endsWith("— Terminé"),
+        `RUN-7 : colonne visée inattendue ${target.column}`,
+      );
+      assert(
+        target.allowed === allowed && target.disabled === !allowed && target.cellZones === 0,
+        `RUN-7 : la destination ${laneId} n'affiche pas la bonne permission : ${JSON.stringify(target)}`,
       );
       for (const type of ["dragEnter", "dragOver", "drop"]) {
         await send(
@@ -252,7 +261,7 @@ try {
           const card = document.querySelector('[data-issue-key="RUN-7"]');
           return card?.closest('.lane')?.dataset.laneId === '${expectedLane}' &&
             card.getAttribute('aria-busy') !== 'true' && !card.dataset.moveFeedback &&
-            !document.querySelector('.lane-cell-droppable');
+            !document.querySelector('.lane-cell-droppable, .lane-drop-zone');
         })()`,
         `RUN-7 : déplacement vers ${laneId} non confirmé`,
       );
@@ -261,6 +270,7 @@ try {
         `({writes: window.__goalPriority.writes(), otherWrites: window.__goalPriority.otherWrites(),
           goal: window.__goalPriority.document().links['RUN-7'] ?? null,
           count: document.querySelectorAll('[data-issue-key="RUN-7"]').length,
+          column: document.querySelector('[data-issue-key="RUN-7"]').closest('.lane-cell').getAttribute('aria-label'),
           defaultVisible: Boolean(document.querySelector('[data-lane-id="swimlane:1"]')),
           firstLane: document.querySelector('[data-lane-id]')?.dataset.laneId})`,
       );
@@ -268,7 +278,8 @@ try {
         result.writes === expectedWrites &&
           result.otherWrites === 0 &&
           result.goal === expectedGoal &&
-          result.count === 1,
+          result.count === 1 &&
+          result.column.endsWith("— En cours"),
         `RUN-7 : rattachement ou nombre d'écritures incorrect : ${JSON.stringify(result)}`,
       );
       assert(
@@ -283,7 +294,7 @@ try {
     await moveRun("swimlane:2", false, "goal:g-stabilite", 1, "g-stabilite");
     await moveRun("swimlane:1", true, "swimlane:1", 2, null);
     console.log(
-      `✓ RUN ↔ objectif (hauteur ${height}px) : source stable, retour dans RUN vide, refus de Build et OPS sans écriture`,
+      `✓ RUN ↔ objectif (hauteur ${height}px) : swimlane entière lâchée sur « Terminé », objectif seul (colonne « En cours » et rang inchangés, story 8.32), retour dans RUN vide, refus de Build et OPS sans écriture`,
     );
   }
   // Plusieurs chemins Jira vers un même statut : une zone, premier chemin disponible dans

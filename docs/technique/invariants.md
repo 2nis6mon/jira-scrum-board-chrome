@@ -201,7 +201,11 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   destination ; la relecture refuse une action disparue ou modifiée, sans repli. Plusieurs statuts
   dans une colonne conservent leurs zones de dépôt et, si nécessaire, un choix par statut.
   Cet ordre de présentation est documenté ; l'API ne garantit pas le défaut interne du board natif.
-  Aucun réglage administratif supplémentaire. Ordre : **transition → Goal → rang**.
+  Aucun réglage administratif supplémentaire. Ordre : **transition → Goal → rang**. Depuis 0.49.1
+  (story 8.32), un même dépôt ne change jamais objectif et colonne : dans la swimlane de départ,
+  transition et rang ; toute autre swimlane compatible est une seule zone de dépôt (en-tête
+  compris) qui ne change que l'objectif, sans transition ni rang (`BoardModel.dropOnLane`) ; le
+  modèle refuse sans requête un dépôt qui changerait les deux.
   Arrêt au premier échec, réussite partielle indiquée, aucun rollback automatique. Une E2 acceptée
   est relue par la route des tickets du board jusqu'à voir le nouvel ordre (relecture bornée de la
   8.26, story 8.29) avant la relecture du board ; jamais relue : avis « Jira a reçu le classement… ».

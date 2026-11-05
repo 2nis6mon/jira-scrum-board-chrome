@@ -118,7 +118,9 @@ incidencias de un sprint; todos los objetivos siguen visibles.
   seleccionadas aparece en la barra de filtros; Escape vacía la selección.
 - Arrastra una tarjeta a una columna para cambiar su estado. Si la columna contiene varios
   estados, suéltala en la zona del estado que quieras.
-- Arrástrala a un objetivo para vincularla o a su fila predeterminada para desvincularla.
+- Arrástrala a un objetivo para vincularla o a su fila predeterminada para desvincularla:
+  suéltala en cualquier punto de la fila, encabezado incluido. Solo cambia su objetivo; conserva
+  su columna, su estado y su orden. Para cambiar su estado, arrástrala dentro de su propia fila.
 - Colócala en la posición que quieras cuando Jira permita cambiar su orden.
 
 Si Jira abre un formulario de transición, rellénalo y envíalo tú mismo. Si se produce un error,

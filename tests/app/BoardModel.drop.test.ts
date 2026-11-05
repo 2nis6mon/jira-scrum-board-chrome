@@ -124,7 +124,7 @@ describe("glisser-déposer — changement de colonne", () => {
       .on("GET", "/rest/api/3/issue/ABC-102/transitions", transitions(["21", "3", "En cours"]));
     await board.dropIssue({
       issueKey: "ABC-102",
-      block: goalBlock("g-stabilite"),
+      block: goalBlock("g-paiement"),
       columnId: DONE,
       beforeKey: null,
     });
@@ -246,46 +246,30 @@ describe("glisser-déposer — rattachement à un objectif du texte du sprint", 
     expect(links).toHaveProperty("ABC-102", "g-paiement");
   });
 
-  it("objectif et colonne : transition avant le rattachement", async () => {
+  it("objectif et colonne d'un même dépôt : rien n'est lu ni écrit (story 8.32)", async () => {
     const { board, jira, writes } = await boardWith();
-    jira
-      .on("PUT", PROPERTY, { status: 200 })
-      .on("GET", "/rest/api/3/issue/ABC-105", statusReply("1", "À faire"))
-      .on("GET", "/rest/api/3/issue/ABC-105/transitions", transitions(["21", "3", "En cours"]))
-      .on("POST", "/rest/api/3/issue/ABC-105/transitions", { status: 204 });
-
+    const before = jira.requests.length;
     await board.dropIssue({
       issueKey: "ABC-105",
       block: goalBlock("g-stabilite"),
       columnId: DOING,
       beforeKey: null,
     });
-    expect(writes().map((r) => r.path)).toEqual([
-      "/rest/api/3/issue/ABC-105/transitions",
-      PROPERTY,
-    ]);
+    expect(writes()).toEqual([]);
+    expect(jira.requests.slice(before)).toEqual([]);
+    expect(board.transitionChoice.value).toBeNull();
   });
 
-  it("rattachement refusé après la transition : réussite partielle explicite", async () => {
+  it("vers un autre objectif devant une carte : objectif seul, aucun rang (story 8.32)", async () => {
     const { board, jira, writes } = await boardWith();
-    jira
-      .on("PUT", PROPERTY, { status: 403, json: {} })
-      .on("GET", "/rest/api/3/issue/ABC-105", statusReply("1", "À faire"))
-      .on("GET", "/rest/api/3/issue/ABC-105/transitions", transitions(["21", "3", "En cours"]))
-      .on("POST", "/rest/api/3/issue/ABC-105/transitions", { status: 204 });
+    jira.on("PUT", PROPERTY, { status: 200 });
     await board.dropIssue({
       issueKey: "ABC-105",
-      block: goalBlock("g-stabilite"),
-      columnId: DOING,
-      beforeKey: null,
+      block: goalBlock("g-paiement"),
+      columnId: TODO,
+      beforeKey: "ABC-102",
     });
-    expect(writes().map((r) => r.path)).toEqual([
-      "/rest/api/3/issue/ABC-105/transitions",
-      PROPERTY,
-    ]);
-    expect(board.writeNotice.value?.text).toContain("Déjà effectué : statut modifié");
-    expect(board.moveFeedback.value?.kind).toBe("warning");
-    expect(board.pendingMove.value).toBeNull();
+    expect(writes().map((r) => r.path)).toEqual([PROPERTY]);
   });
 
   it("déposer dans le même bloc, même colonne, à la même place : rien n'est écrit", async () => {
@@ -568,18 +552,18 @@ describe("glisser-déposer — objectif prioritaire sur la swimlane par type", (
       board.snapshot.value?.swimlaneIssues.find((issue) => issue.issue.key === "RUN-7")?.goalId,
     ).toBeNull();
     expect(writes().filter((request) => request.path === PROPERTY)).toHaveLength(3);
-    expect(writes().every((request) => request.path === PROPERTY || request.path === RANK)).toBe(
-      true,
-    );
+    // Changer d'objectif ne classe jamais le ticket, même déposé devant une carte (story 8.32).
+    expect(writes().every((request) => request.path === PROPERTY)).toBe(true);
     board.dispose();
   });
 });
 
 describe("choix du statut et de la transition avant toute écriture", () => {
   const path = "/rest/api/3/issue/ABC-102/transitions";
+  // Swimlane de départ d'ABC-102 : un changement de colonne ne change jamais l'objectif (8.32).
   const drop = {
     issueKey: "ABC-102",
-    block: goalBlock("g-stabilite"),
+    block: goalBlock("g-paiement"),
     columnId: DOING,
     beforeKey: null,
     targetStatusId: "3",
@@ -602,7 +586,7 @@ describe("choix du statut et de la transition avant toute écriture", () => {
     const { board, writes } = await prepare();
     await board.dropIssue(drop);
     expect(board.transitionChoice.value).toBeNull();
-    expect(writes().map((request) => request.path)).toEqual([path, PROPERTY]);
+    expect(writes().map((request) => request.path)).toEqual([path]);
     expect(writes()[0]?.body).toEqual({ transition: { id: "21" } });
     expect(board.canSwitchBoard.value).toBe(true);
   });
@@ -631,18 +615,18 @@ describe("choix du statut et de la transition avant toute écriture", () => {
     expect(board.canSwitchBoard.value).toBe(true);
   });
 
-  it("reprend tout le déplacement après choix : transition, Goal, rang", async () => {
+  it("reprend tout le déplacement après choix : transition, puis rang", async () => {
     const { board, jira, writes } = await prepare();
     await board.dropIssue({
       issueKey: drop.issueKey,
       columnId: drop.columnId,
-      block: BUILD_BLOCK,
-      beforeKey: "ABC-104",
+      block: drop.block,
+      beforeKey: "ABC-101",
     });
     const chosen = board.transitionChoice.value?.available[1];
     if (!chosen) throw new Error("choix attendu");
     await board.chooseTransition(chosen);
-    expect(writes().map((r) => r.path)).toEqual([path, PROPERTY, RANK]);
+    expect(writes().map((r) => r.path)).toEqual([path, RANK]);
     expect(writes()[0]?.body).toEqual({ transition: { id: "23" } });
     expect(jira.sent("GET", path)).toHaveLength(2);
   });
@@ -718,11 +702,11 @@ describe("choix du statut et de la transition avant toute écriture", () => {
     await board.dropIssue(drop);
     expect(writes()[0]?.body).toEqual({ transition: { id: "21" } });
     expect(board.transitionChoice.value).toBeNull();
-    expect(writes().map((request) => request.path)).toEqual([path, PROPERTY]);
+    expect(writes().map((request) => request.path)).toEqual([path]);
   });
 
   it.each(["disparaît", "change de destination"])(
-    "la transition montrée au glissé %s : aucune alternative, aucun objectif ni rang écrit",
+    "la transition montrée au glissé %s : aucune alternative, aucun rang écrit",
     async (change) => {
       const { board, jira, writes } = await prepare();
       board.startDrag("ABC-102", null);
@@ -734,7 +718,7 @@ describe("choix du statut et de la transition avant toute écriture", () => {
           ? transitions(["22", "3", "En cours"])
           : transitions(["21", "4", "Revue"], ["22", "3", "En cours"]),
       );
-      await board.dropIssue({ ...drop, block: BUILD_BLOCK, beforeKey: "ABC-104" });
+      await board.dropIssue({ ...drop, beforeKey: "ABC-101" });
       expect(writes()).toEqual([]);
       expect(board.transitionChoice.value).toBeNull();
       expect(board.writeNotice.value).not.toBeNull();
@@ -762,7 +746,7 @@ describe("choix du statut et de la transition avant toute écriture", () => {
         .status.id,
     ).toBe("4");
     expect(board.columnDrop(doing).kind).toBe("error");
-    await board.dropIssue({ ...drop, block: BUILD_BLOCK, beforeKey: "ABC-104" });
+    await board.dropIssue({ ...drop, beforeKey: "ABC-101" });
     expect(writes()).toEqual([]);
     expect(board.writeNotice.value?.text).toContain("statut");
     expect(board.transitionChoice.value).toBeNull();
@@ -781,22 +765,17 @@ describe("choix du statut et de la transition avant toute écriture", () => {
     expect(jira.sent("GET", "/rest/api/3/issue/ABC-101/transitions")).toEqual([]);
   });
 
-  it("échec de la transition : ni objectif ni rang modifié", async () => {
+  it("échec de la transition : rang non modifié", async () => {
     const { board, jira, writes } = await prepare();
     jira.on("POST", path, { status: 400, json: { errorMessages: ["Refus du validateur"] } });
-    await board.dropIssue({
-      ...drop,
-      targetStatusId: "4",
-      beforeKey: "ABC-104",
-      block: BUILD_BLOCK,
-    });
+    await board.dropIssue({ ...drop, targetStatusId: "4", beforeKey: "ABC-101" });
     expect(writes().map((r) => r.path)).toEqual([path]);
   });
 
   it("zone sans position précise : conserve le rang même si la destination contient une carte", async () => {
     const { board, writes } = await prepare();
-    await board.dropIssue({ ...drop, targetStatusId: "4", block: BUILD_BLOCK });
-    expect(writes().map((r) => r.path)).toEqual([path, PROPERTY]);
+    await board.dropIssue({ ...drop, targetStatusId: "4", beforeKey: null });
+    expect(writes().map((r) => r.path)).toEqual([path]);
   });
 
   it("précharge les statuts, distingue la colonne actuelle et les destinations interdites", async () => {

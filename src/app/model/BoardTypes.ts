@@ -58,13 +58,24 @@ export interface DragState {
   readonly knownStatusId: string;
   /** Destination sans objectif : swimlane par type, ou Build si `null`. */
   readonly lane: string | null;
+  /**
+   * Swimlane où la carte est affichée au début du geste (`laneKey`). Seule celle-ci propose
+   * colonnes, statuts et rang ; toute autre est une seule zone de dépôt qui ne change que
+   * l'objectif (story 8.32).
+   */
+  readonly laneId: string;
 }
 
-/** Emplacement visé : une case (swimlane × colonne), devant un ticket ou à la fin. */
+/**
+ * Emplacement visé : une case (swimlane × colonne), devant un ticket ou à la fin ; ou, avec
+ * `columnId` à `null`, toute une autre swimlane (changement d'objectif seul, story 8.32).
+ */
 export interface DropTarget {
   readonly statusId?: string;
+  /** Swimlane survolée qui refuse la carte (règle `accepts`) : son message s'affiche, sans dépôt. */
+  readonly refused?: boolean;
   readonly laneId: string;
-  readonly columnId: string;
+  readonly columnId: string | null;
   readonly beforeKey: string | null;
 }
 

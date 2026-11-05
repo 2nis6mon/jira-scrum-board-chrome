@@ -3,6 +3,19 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.49.1 — Changer d'objectif sur le board sans changer d'état
+
+- Demandé par Denis le 05/11/2026 (story 8.32) : glisser une carte vers un autre objectif proposait
+  une zone par colonne, et un même dépôt pouvait changer à la fois l'objectif, le statut et le rang.
+- Décision de Denis du 05/11/2026 : changer d'objectif ou de swimlane ne change jamais l'état.
+  Pendant un glisser, toute swimlane autre que celle de départ est une seule zone de dépôt, en-tête
+  compris (swimlane repliée aussi), avec « Rattacher à cet objectif » ou « Retour dans la swimlane par
+  défaut ». Lâchée n'importe où, la carte ne change que d'objectif et garde sa colonne et son rang.
+  Une swimlane refusée pour ce type reste indisponible, avec son message au survol.
+- Dans la swimlane de départ, rien ne change : zones de statut, formulaire natif et rang.
+- Aucune lecture ni écriture Jira ajoutée ; le chemin « objectif et colonne » d'un même dépôt n'est
+  plus emprunté. Aucun nouveau texte.
+
 ## 0.49.0 — Les mêmes gestes à la souris sur une carte du board et du planning
 
 - Signalé par Denis le 04/11/2026 (story 8.30) : sur le Sprint Board, un Ctrl+clic sur une carte

@@ -213,11 +213,16 @@ it("affiche RUN dans son Goal et propose le retour dans sa swimlane vide pendant
   expect(
     document.querySelector('[data-lane-id="swimlane:1"] .lane-default-label')?.textContent,
   ).toBe("Par défaut");
-  const destination = document.querySelector('[data-lane-id="swimlane:1"] .lane-cell');
-  expect(destination?.classList.contains("lane-cell-droppable")).toBe(true);
-  board.setDropTarget({ laneId: "swimlane:1", columnId: "col-0-À faire", beforeKey: null });
+  // Story 8.32 : toute la swimlane est une seule zone de dépôt, sans zone par colonne.
+  const destination = document.querySelector('[data-lane-id="swimlane:1"]');
+  expect(destination?.classList.contains("lane-drop-zone")).toBe(true);
+  expect(destination?.querySelector(".lane-cell-droppable")).toBeNull();
+  board.setDropTarget({ laneId: "swimlane:1", columnId: null, beforeKey: null });
   await tick();
-  expect(destination?.textContent).toContain("Retour dans la swimlane par défaut");
+  expect(destination?.classList.contains("lane-drop-target")).toBe(true);
+  expect(destination?.querySelector(".lane-drop-message")?.textContent).toBe(
+    "Retour dans la swimlane par défaut",
+  );
   board.endDrag();
   await tick();
   expect(lanes()).toEqual([goal.name]);

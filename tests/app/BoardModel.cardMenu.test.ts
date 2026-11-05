@@ -212,7 +212,7 @@ describe("menu d'une carte — envoi vers un goal (texte du sprint)", () => {
     // Colonne « En cours » à deux statuts : Jira demande de choisir avant toute écriture.
     await board.dropIssue({
       issueKey: "ABC-102",
-      block: goalBlock("g-stabilite"),
+      block: goalBlock("g-paiement"),
       columnId: "col-1-En cours",
       beforeKey: null,
     });

@@ -128,7 +128,9 @@ les objectifs restent affichés.
   sélectionnés s'affiche dans la barre des filtres ; Échap vide la sélection.
 - Glissez une carte dans une colonne pour changer son statut. Plusieurs statuts dans une colonne ?
   Déposez-la dans la zone du statut voulu.
-- Glissez-la vers un objectif pour l'y rattacher, ou vers sa ligne par défaut pour la détacher.
+- Glissez-la vers un objectif pour l'y rattacher, ou vers sa ligne par défaut pour la détacher :
+  lâchez-la n'importe où dans la ligne, en-tête compris. Seul son objectif change ; elle garde sa
+  colonne, son statut et son rang. Pour changer son statut, glissez-la dans sa propre ligne.
 - Destination hors de l'écran ? Pendant le glissement, approchez la carte du bord haut ou bas du
   board (ou gauche et droit s'il est plus large que l'écran) : il défile, d'autant plus vite que
   vous êtes près du bord, et s'arrête dès que vous vous en éloignez. La molette ne défile pas
