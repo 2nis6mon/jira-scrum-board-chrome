@@ -2,8 +2,8 @@ import { type ReadonlySignal, signal } from "@preact/signals";
 
 /**
  * Cartes sélectionnées au Ctrl/Cmd+clic et au Maj+clic sur le Sprint Board (story 8.30), avec les
- * mêmes gestes que le Sprint Planning (story 8.15). Aucune action groupée sur le board pour l'instant :
- * la sélection se voit, se compte et se vide.
+ * mêmes gestes que le Sprint Planning (story 8.15). Depuis la story 8.33, elle se glisse vers un
+ * objectif ou passe par le menu d'une de ses cartes : seul l'objectif de ses tickets change.
  */
 export class CardSelection {
   readonly #keys = signal<ReadonlySet<string>>(new Set());
@@ -38,6 +38,12 @@ export class CardSelection {
     const next = new Set(this.#keys.value);
     for (const candidate of rangeKeys.slice(start, end + 1)) next.add(candidate);
     this.#keys.value = next;
+  }
+
+  /** Ne garde que ces cartes (tickets d'un lot restant à refaire, story 8.33). */
+  keep(keys: readonly string[]): void {
+    this.#anchor = null;
+    this.#keys.value = new Set(keys);
   }
 
   /** Échap, « Vider la sélection » ou changement de board. */

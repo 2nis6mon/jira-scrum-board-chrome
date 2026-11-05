@@ -670,6 +670,125 @@ try {
   console.log(
     "✓ Sélection du board (8.30) : Ctrl+clic, Cmd+clic et Maj+clic, repère et compteur, aucun onglet ; Échap vide ; clic du milieu laissé au lien",
   );
+
+  // Story 8.33 : deux cartes sélectionnées glissées vers un objectif, puis refus d'une swimlane
+  // qui n'accepte pas tout le lot.
+  await send(
+    "Emulation.setDeviceMetricsOverride",
+    { width: 1600, height: 1200, deviceScaleFactor: 1, mobile: false },
+    sessionId,
+  );
+  await navigateToHarness(sessionId, "http://127.0.0.1:5201/?scenario=board-drag-goal-priority");
+  await waitFor(
+    sessionId,
+    "window.__goalPriority?.ready && document.querySelector('[data-issue-key=\"ABC-105\"]')",
+    "Le scénario du lot n'est pas prêt",
+  );
+  const cardPoint = (key) =>
+    evaluate(
+      sessionId,
+      `(() => {
+        const card = document.querySelector('a.card[data-issue-key="${key}"]');
+        card.scrollIntoView({ block: 'center' });
+        const r = card.querySelector('.card-summary').getBoundingClientRect();
+        return { x: r.left + 20, y: r.top + r.height / 2 };
+      })()`,
+    );
+  const selectCards = async (keys) => {
+    for (const key of keys) {
+      const point = await cardPoint(key);
+      await clickAt(point, 2);
+    }
+    await waitFor(
+      sessionId,
+      `[...document.querySelectorAll('a.card.card-selected')].map((card) => card.dataset.issueKey).sort().join() === ${JSON.stringify([...keys].sort().join())}`,
+      `Sélection de ${keys.join(", ")} non faite`,
+    );
+  };
+  // Glisser réel de la carte `key`, survol de la case visée ; rend la cible et les données du glisser.
+  const dragTo = async (key, laneId) => {
+    const start = await cardPoint(key);
+    const since = events.length;
+    await mouse("mouseMoved", start.x, start.y);
+    await mouse("mousePressed", start.x, start.y, { button: "left", buttons: 1, clickCount: 1 });
+    await mouse("mouseMoved", start.x + 20, start.y + 5, { button: "left", buttons: 1 });
+    await sleep(300);
+    const intercepted = events
+      .slice(since)
+      .find((event) => event.method === "Input.dragIntercepted");
+    assert(intercepted, `${key} : le navigateur n'a pas démarré le glissement du lot`);
+    const target = await evaluate(
+      sessionId,
+      `(() => {
+        const lane = document.querySelector('[data-lane-id="${laneId}"]');
+        const cell = lane.querySelector('.lane-cell:last-child');
+        cell.scrollIntoView({ block: 'center' });
+        const r = cell.getBoundingClientRect();
+        const x = r.left + r.width / 2, y = r.top + 25;
+        return { x, y, reachable: cell.contains(document.elementFromPoint(x, y)),
+          zone: lane.classList.contains('lane-drop-zone'),
+          unavailable: lane.classList.contains('lane-drop-unavailable'),
+          cellZones: document.querySelectorAll('.lane-cell-droppable, .status-drop-zone').length,
+          dragging: [...document.querySelectorAll('.card-dragging')].map((card) => card.dataset.issueKey).sort().join() };
+      })()`,
+    );
+    assert(target.reachable, `Lot : swimlane ${laneId} inaccessible`);
+    for (const type of ["dragEnter", "dragOver", "drop"]) {
+      await send(
+        "Input.dispatchDragEvent",
+        { type, x: target.x, y: target.y, data: intercepted.params.data },
+        sessionId,
+      );
+      await sleep(100);
+    }
+    await mouse("mouseReleased", target.x, target.y, { button: "left", buttons: 0, clickCount: 1 });
+    return target;
+  };
+  await selectCards(["ABC-104", "ABC-105"]);
+  const toGoal = await dragTo("ABC-105", "goal:g-stabilite");
+  assert(
+    toGoal.zone && toGoal.cellZones === 0 && toGoal.dragging === "ABC-104,ABC-105",
+    `Lot : la swimlane de l'objectif n'est pas une zone entière, ou le lot ne part pas entier : ${JSON.stringify(toGoal)}`,
+  );
+  await waitFor(
+    sessionId,
+    `(() => {
+      const links = window.__goalPriority.document().links;
+      return links['ABC-104'] === 'g-stabilite' && links['ABC-105'] === 'g-stabilite' &&
+        !document.querySelector('a.card.card-selected') && !document.querySelector('[aria-busy="true"]');
+    })()`,
+    "Lot : rattachement des deux tickets non confirmé",
+  );
+  const lotResult = await evaluate(
+    sessionId,
+    `({ writes: window.__goalPriority.writes(), otherWrites: window.__goalPriority.otherWrites(),
+      column: document.querySelector('[data-issue-key="ABC-104"]').closest('.lane-cell').getAttribute('aria-label') })`,
+  );
+  assert(
+    lotResult.writes === 1 &&
+      lotResult.otherWrites === 0 &&
+      lotResult.column.endsWith("— En cours"),
+    `Lot : une seule écriture de la propriété, ni transition ni rang, colonne gardée : ${JSON.stringify(lotResult)}`,
+  );
+  // RUN-7 (RUN) et OPS-20 (OPS) : OPS refuse RUN-7, donc le lot ; rien n'est écrit.
+  await selectCards(["RUN-7", "OPS-20"]);
+  const refused = await dragTo("RUN-7", "swimlane:2");
+  assert(
+    refused.unavailable && !refused.zone,
+    `Lot : OPS devrait refuser le lot : ${JSON.stringify(refused)}`,
+  );
+  await sleep(500);
+  const afterRefusal = await evaluate(
+    sessionId,
+    "({ writes: window.__goalPriority.writes(), otherWrites: window.__goalPriority.otherWrites(), run: window.__goalPriority.document().links['RUN-7'] ?? null })",
+  );
+  assert(
+    afterRefusal.writes === 1 && afterRefusal.otherWrites === 0 && afterRefusal.run === null,
+    `Lot refusé : rien ne devait être écrit : ${JSON.stringify(afterRefusal)}`,
+  );
+  console.log(
+    "✓ Lot du board (8.33) : deux cartes sélectionnées glissées vers un objectif (une écriture, ni transition ni rang, colonne gardée), sélection vidée ; OPS refuse un lot RUN + OPS sans écriture",
+  );
 } finally {
   await browser.close();
   await server.close();

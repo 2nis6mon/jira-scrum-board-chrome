@@ -183,6 +183,8 @@ export const boardMessagesEs = {
   "Utilisez un objectif ou la swimlane par défaut de ce type":
     "Usa un objetivo o el carril predeterminado de este tipo",
   "Rattacher à cet objectif": "Vincular a este objetivo",
+  "Indisponible pour une sélection de plusieurs tickets":
+    "No disponible para una selección de varias incidencias",
   "Retour dans la swimlane par défaut": "Volver al carril predeterminado",
   "Déposer pour choisir ce statut": "Suelta para elegir este estado",
   "N'afficher que les {count} premiers dans l'ordre de Jira":

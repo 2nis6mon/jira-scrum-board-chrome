@@ -116,6 +116,13 @@ incidencias de un sprint; todos los objetivos siguen visibles.
 - Ctrl+clic (Cmd+clic en Mac) añade una tarjeta a la selección o la quita; Mayús+clic añade las
   tarjetas entre la última elegida y esta, en la misma columna. El número de incidencias
   seleccionadas aparece en la barra de filtros; Escape vacía la selección.
+- Arrastra una tarjeta seleccionada: toda la selección se va con ella, a un objetivo o a una fila
+  predeterminada, soltada en cualquier punto de la fila. Solo cambia el objetivo de las
+  incidencias; conservan su columna, su estado y su orden. El menú de una tarjeta seleccionada (clic
+  derecho) también envía todo el lote a un objetivo; la prioridad máxima y mínima están
+  desactivadas. Como máximo 50 incidencias por gesto. Una fila que rechaza una incidencia del lote
+  no está disponible. Tras un fallo, el aviso indica las incidencias confirmadas y las que hay que
+  rehacer, que siguen seleccionadas.
 - Arrastra una tarjeta a una columna para cambiar su estado. Si la columna contiene varios
   estados, suéltala en la zona del estado que quieras.
 - Arrástrala a un objetivo para vincularla o a su fila predeterminada para desvincularla:

@@ -9,9 +9,11 @@ import {
   moveToColumn,
   rankIssue,
   type WriteReader,
+  withTextGoalLink,
 } from "./boardWrites";
 import type { RankChange } from "./dropPlan";
 import { type ReadBackWait, readBack } from "./readBack";
+import { makeSprintGoalDocument, updateSprintGoalProperty } from "./sprintGoals";
 
 // Intentions d'écriture du board (AD-2) : chaque séquence est portée ici, une seule fois. Les
 // services déclenchent sur geste, journalisent et traduisent le résultat typé en avis.
@@ -298,4 +300,126 @@ async function assignGoal(
   } catch (error) {
     return { origin: "text", outcome: { kind: "failed", error } };
   }
+}
+
+// ─── Rattachement d'un lot de cartes du board (story 8.33) ──────────────────
+
+/** Limite d'un lot de cartes, comme les lots du planning (E9 et E10) : 50 tickets par geste. */
+export const BOARD_BATCH_LIMIT = 50;
+
+export interface GoalBatchResult {
+  /** Tickets dont le lien demandé est confirmé par Jira (ou déjà en place). */
+  readonly confirmedKeys: readonly string[];
+  /** Tickets non rattachés : rien n'est rejoué. */
+  readonly remainingKeys: readonly string[];
+  /** Première étape non aboutie, et son ticket ; absente si tout le lot est confirmé. */
+  readonly failure?: { readonly issueKey: string; readonly step: GoalStepResult };
+}
+
+/**
+ * Rattache un lot de tickets du board à un même objectif (`goalId` à `null` : le détache), sans
+ * transition ni rang (story 8.33). En texte, UNE écriture E5 par sprint de la propriété, dans
+ * l'ordre des sprints du lot, fusionnée sur Jira frais et refusée si le lien d'un ticket du lot y a
+ * changé depuis le chargement. En Goals Atlassian, détacher (E4) puis lier (E3) ticket par ticket.
+ * Arrêt au premier échec ; aucune écriture n'est rejouée.
+ */
+export async function assignGoalBatch(
+  ports: Pick<MovePorts, "reader" | "writer" | "goals">,
+  input: {
+    snapshot: BoardSnapshot;
+    issues: readonly BoardIssue[];
+    goalId: string | null;
+    now: Date;
+  },
+): Promise<GoalBatchResult> {
+  const { snapshot, issues, goalId } = input;
+  const keys = issues.map((issue) => issue.issue.key);
+  const confirmed = new Set<string>();
+  const result = (failure?: GoalBatchResult["failure"]): GoalBatchResult => ({
+    confirmedKeys: keys.filter((key) => confirmed.has(key)),
+    remainingKeys: keys.filter((key) => !confirmed.has(key)),
+    ...(failure ? { failure } : {}),
+  });
+
+  if (snapshot.goalsOrigin === "atlassianGoals") {
+    for (const issue of issues) {
+      const step: GoalStepResult = {
+        origin: "atlassianGoals",
+        outcome: await changeAtlassianGoal(ports.goals, {
+          issueId: issue.issue.id,
+          previousGoalId: issue.goalId,
+          goalId,
+        }),
+      };
+      if (!goalDone(step)) return result({ issueKey: issue.issue.key, step });
+      confirmed.add(issue.issue.key);
+    }
+    return result();
+  }
+
+  // Texte : un groupe par sprint où le lien est stocké, dans l'ordre du lot.
+  const groups = new Map<number | null, BoardIssue[]>();
+  for (const issue of issues) {
+    const sprintId = textLinkSprintId(snapshot, issue);
+    groups.set(sprintId, [...(groups.get(sprintId) ?? []), issue]);
+  }
+  for (const [sprintId, group] of groups) {
+    const first = group[0]?.issue.key ?? "";
+    if (sprintId === null)
+      return result({ issueKey: first, step: { origin: "text", outcome: { kind: "noSprint" } } });
+    const groupKeys = group.map((issue) => issue.issue.key);
+    const known = snapshot.storedTextLinks?.[sprintId];
+    const goals = goalsOfSprint(snapshot, sprintId);
+    const linkableGoalIds = snapshot.goals
+      .filter((goal) => !goals.some((own) => own.id === goal.id))
+      .map((goal) => goal.id);
+    const accountId = snapshot.currentUser?.accountId ?? null;
+    try {
+      const outcome = await updateSprintGoalProperty(ports.reader, ports.writer, {
+        sprintId,
+        // Sans propriété lue au chargement, la base est inconnue : fusion sans contrôle.
+        unchangedSince: (fresh) =>
+          known === undefined ||
+          groupKeys.every((key) => (fresh?.links[key] ?? null) === (known[key] ?? null)),
+        mutate: (fresh) => {
+          let document = fresh;
+          for (const key of groupKeys) {
+            document = withTextGoalLink(document, {
+              issueKey: key,
+              goalId,
+              goals,
+              ...(snapshot.storedTextGoalIds?.[sprintId]
+                ? { knownGoalIds: snapshot.storedTextGoalIds[sprintId] }
+                : {}),
+              linkableGoalIds,
+              accountId,
+              now: input.now,
+            });
+          }
+          return document ?? makeSprintGoalDocument();
+        },
+        accountId,
+        now: input.now,
+      });
+      if (outcome.kind === "conflict") {
+        const changed =
+          groupKeys.find((key) => (outcome.fresh?.links[key] ?? null) !== (known?.[key] ?? null)) ??
+          first;
+        return result({
+          issueKey: changed,
+          step: {
+            origin: "text",
+            outcome: { kind: "conflict", current: outcome.fresh?.links[changed] ?? null },
+          },
+        });
+      }
+      for (const key of groupKeys) confirmed.add(key);
+    } catch (error) {
+      return result({
+        issueKey: first,
+        step: { origin: "text", outcome: { kind: "failed", error } },
+      });
+    }
+  }
+  return result();
 }

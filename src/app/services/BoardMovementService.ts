@@ -1,7 +1,9 @@
 import type { BoardIssue, BoardSnapshot } from "../../core/boardIssue";
 import {
   type AtlassianGoalOutcome,
+  assignGoalBatch,
   executeMove,
+  type GoalBatchResult,
   type GoalStepResult,
   type MoveStep,
   type OrderReader,
@@ -131,20 +133,91 @@ export class BoardMovementService {
     }
   }
 
-  /** Avis et journal de l'étape Goal. */
+  /**
+   * Rattache un lot de cartes à un même objectif (story 8.33) : `core/boardMove.ts` porte les
+   * écritures (une E5 par sprint, ou E4 puis E3 par ticket) et l'arrêt au premier échec ; ici, l'avis
+   * (échec du premier ticket non rattaché, tickets confirmés et à refaire) et UNE entrée de journal
+   * pour le lot. Vrai si tout le lot est confirmé.
+   */
+  async executeGoalBatch(
+    command: { snapshot: BoardSnapshot; issues: readonly BoardIssue[]; goalId: string | null },
+    access: BoardWriteAccess,
+  ): Promise<GoalBatchResult> {
+    const { snapshot, issues, goalId } = command;
+    const result = await assignGoalBatch(
+      { reader: this.#reader, writer: access.writer, goals: access.goals },
+      { snapshot, issues, goalId, now: this.#effects.now() },
+    );
+    const keys = issues.map((issue) => issue.issue.key).join(", ");
+    const title: AuditTarget =
+      goalId === null
+        ? { to: null, toMessage: message("aucun objectif") }
+        : { to: snapshot.goals.find((goal) => goal.id === goalId)?.title ?? goalId };
+    const failure = result.failure;
+    if (!failure) {
+      const where =
+        snapshot.goalsOrigin === "atlassianGoals"
+          ? goalId === null
+            ? "lien Goal retiré"
+            : "lien Goal Atlassian natif"
+          : "propriété du sprint";
+      await this.#effects.record({
+        action: "rattachement",
+        issueKey: null,
+        from: null,
+        ...title,
+        outcome: "réussi",
+        detail: null,
+        detailMessage: message("Tickets {p0} : {p1}", { p0: keys, p1: message(where) }),
+      });
+      return result;
+    }
+    const failed = issues.find((issue) => issue.issue.key === failure.issueKey);
+    if (failed) await this.#reportGoal(failed, snapshot, goalId, failure.step, false);
+    const notice = this.#state.writeNotice.peek();
+    if (!notice) return result;
+    const confirmed = result.confirmedKeys.join(", ");
+    const redo = result.remainingKeys.join(", ");
+    const text =
+      result.confirmedKeys.length > 0
+        ? `${notice.text} Tickets confirmés : ${confirmed}. À refaire : ${redo}.`
+        : `${notice.text} À refaire : ${redo}.`;
+    this.#state.writeNotice.value = { ...notice, text };
+    const uncertain =
+      failure.step.outcome.kind === "failed" &&
+      failure.step.outcome.error instanceof JiraError &&
+      failure.step.outcome.error.isOutcomeUnknown;
+    await this.#effects.record({
+      action: "rattachement",
+      issueKey: null,
+      from: null,
+      ...title,
+      outcome: uncertain ? "incertain" : "échec",
+      detail: null,
+      detailMessage: message("Tickets {p0} : {p1}", { p0: keys, p1: { text } }),
+    });
+    return result;
+  }
+
+  /**
+   * Avis et journal de l'étape Goal. Sans `journal` (lot de cartes, story 8.33), seul l'avis est
+   * posé : le lot a sa propre entrée.
+   */
   async #reportGoal(
     issue: BoardIssue,
     snapshot: BoardSnapshot,
     goalId: string | null,
     step: GoalStepResult,
+    journal = true,
   ): Promise<void> {
+    const record: RecordWrite = journal ? (entry) => this.#effects.record(entry) : async () => {};
     const issueKey = issue.issue.key;
     const title: AuditTarget =
       goalId === null
         ? { to: null, toMessage: message("aucun objectif") }
         : { to: snapshot.goals.find((goal) => goal.id === goalId)?.title ?? goalId };
     if (step.origin === "atlassianGoals") {
-      await this.#reportAtlassianGoal(issue, title, step.outcome);
+      await this.#reportAtlassianGoal(issue, title, step.outcome, journal);
       return;
     }
     const outcome = step.outcome;
@@ -158,6 +231,7 @@ export class BoardMovementService {
           title,
           outcome.error,
           "Rattacher un ticket à un objectif du sprint exige en général la permission Jira de gérer les sprints.",
+          journal,
         );
         return;
       case "conflict":
@@ -169,7 +243,7 @@ export class BoardMovementService {
           sessionLost: false,
           issueKey,
         };
-        await this.#effects.record({
+        await record({
           action: "rattachement",
           issueKey,
           from: null,
@@ -181,7 +255,7 @@ export class BoardMovementService {
         return;
       case "linked":
       case "unchanged":
-        await this.#effects.record({
+        await record({
           action: "rattachement",
           issueKey,
           from: null,
@@ -199,8 +273,10 @@ export class BoardMovementService {
     issue: BoardIssue,
     title: AuditTarget,
     outcome: AtlassianGoalOutcome,
+    journal = true,
   ): Promise<void> {
     const issueKey = issue.issue.key;
+    const record: RecordWrite = journal ? (entry) => this.#effects.record(entry) : async () => {};
     const refused = async (text: string, messages: readonly string[], detached: boolean) => {
       // Les messages d'Atlassian sont un contenu Jira : ils restent tels quels.
       const atlassian = messages.join(" ");
@@ -212,7 +288,7 @@ export class BoardMovementService {
         sessionLost: false,
         issueKey,
       };
-      await this.#effects.record({
+      await record({
         action: "rattachement",
         issueKey,
         from: null,
@@ -229,7 +305,7 @@ export class BoardMovementService {
         return;
       case "unlinked":
       case "linked":
-        await this.#effects.record({
+        await record({
           action: "rattachement",
           issueKey,
           from: null,
@@ -256,7 +332,7 @@ export class BoardMovementService {
         );
         return;
       case "failed": {
-        await this.#fail("rattachement", issueKey, title, outcome.error);
+        await this.#fail("rattachement", issueKey, title, outcome.error, undefined, journal);
         const notice = this.#state.writeNotice.peek();
         if (outcome.detached && notice) {
           this.#state.writeNotice.value = {
@@ -420,6 +496,7 @@ export class BoardMovementService {
     target: AuditTarget,
     error: unknown,
     forbiddenHint?: string,
+    journal = true,
   ): Promise<void> {
     const jiraError = error instanceof JiraError ? error : null;
     const uncertain = jiraError?.isOutcomeUnknown ?? false;
@@ -443,6 +520,7 @@ export class BoardMovementService {
           sessionLost: isSessionLost(error),
           issueKey,
         };
+    if (!journal) return;
     await this.#effects.record({
       action,
       issueKey,

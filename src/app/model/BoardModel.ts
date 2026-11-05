@@ -17,6 +17,7 @@ import {
 import { allIssues, type BoardSnapshot, findIssue } from "../../core/boardIssue";
 import { buildBoardLayout, filterOptions, laneKey } from "../../core/boardLayout";
 import type { OrderScope } from "../../core/boardMove";
+import { BOARD_BATCH_LIMIT } from "../../core/boardMove";
 import {
   laneOrder,
   withAllBlocksCollapsed,
@@ -29,7 +30,13 @@ import {
 import { customFieldChoices } from "../../core/boardSettings";
 import { detectBoard, refreshBoardStructure } from "../../core/boardSync";
 import { type CardColorRule, resolveCardColors } from "../../core/cardColors";
-import { defaultBlock, edgeRank, goalTargets, type RankEdge } from "../../core/cardMenu";
+import {
+  batchGoalTargets,
+  defaultBlock,
+  edgeRank,
+  goalTargets,
+  type RankEdge,
+} from "../../core/cardMenu";
 import { isNoOpDrop, planRank, type RankChange, resolveDrop } from "../../core/dropPlan";
 import {
   type BoardFilters,
@@ -917,9 +924,21 @@ export class BoardModel {
     const issue = snapshot ? findIssue(snapshot, issueKey) : null;
     if (!issue || !configuration) return;
     const knownStatusId = issue.issue.fields.status.id;
-    const drag = { issueKey, lane, knownStatusId, laneId: laneKey(configuration, issue) };
+    // Carte d'une sélection de plusieurs cartes : toute la sélection part avec elle (story 8.33).
+    const keys = this.#gestureKeys(issueKey);
+    const lanes = keys.map((key) => (snapshot && findIssue(snapshot, key)?.swimlaneId) ?? null);
+    const drag: DragState = {
+      issueKey,
+      lane,
+      knownStatusId,
+      laneId: laneKey(configuration, issue),
+      keys,
+      lanes,
+    };
     this.dragging.value = drag;
     this.dragTransitions.value = { kind: "loading" };
+    // Un lot ne change jamais de colonne : aucune transition à lire.
+    if (keys.length > 1) return;
     void this.#client.transitions(issueKey).then(
       (transitions) => {
         if (this.dragging.value === drag) {
@@ -1011,6 +1030,18 @@ export class BoardModel {
   accepts(block: BoardBlock, lane: string | null): boolean {
     if (block.kind === "goal") return true;
     return block.kind === "swimlane" ? block.swimlaneId === lane : lane === null;
+  }
+
+  /** La swimlane accepte tous les tickets glissés (la carte seule, ou son lot). */
+  acceptsDrag(block: BoardBlock): boolean {
+    const drag = this.dragging.value;
+    return drag?.lanes.every((lane) => this.accepts(block, lane)) ?? false;
+  }
+
+  /** Tickets d'un geste sur la carte : toute la sélection si elle en fait partie (8.30, 8.33). */
+  #gestureKeys(issueKey: string): string[] {
+    const selected = this.selectedKeys.value;
+    return selected.has(issueKey) && selected.size > 1 ? [...selected] : [issueKey];
   }
 
   dismissWriteNotice(): void {
@@ -1167,6 +1198,27 @@ export class BoardModel {
     const configuration = this.configuration.value;
     const issue = snapshot ? findIssue(snapshot, issueKey) : null;
     if (!snapshot || !configuration || !issue) return null;
+    const keys = this.#gestureKeys(issueKey);
+    if (keys.length > 1) {
+      const issues = keys.flatMap((key) => findIssue(snapshot, key) ?? []);
+      const targets = batchGoalTargets(snapshot, configuration, issues);
+      const writing = this.#writing();
+      const selection = { blocked: writing ? ("writing" as const) : ("selection" as const) };
+      return {
+        keys,
+        sendToGoal: {
+          blocked: writing
+            ? "writing"
+            : targets.goals.length === 0 && !targets.canDetach
+              ? "noGoal"
+              : null,
+          goals: targets.goals,
+          canDetach: targets.canDetach,
+        },
+        top: selection,
+        bottom: selection,
+      };
+    }
     const targets = goalTargets(snapshot, configuration, issue);
     const writing = this.#writing();
     const blocked = writing
@@ -1180,6 +1232,7 @@ export class BoardModel {
       return { blocked: result.kind === "blocked" ? result.reason : null };
     };
     return {
+      keys,
       sendToGoal: { blocked, goals: targets.goals, canDetach: targets.canDetach },
       top: edge("top"),
       bottom: edge("bottom"),
@@ -1238,6 +1291,11 @@ export class BoardModel {
     if (!options || options.blocked !== null || !issue || issue.columnId === null) return;
     if (goalId === null ? !options.canDetach : !options.goals.some((goal) => goal.id === goalId))
       return;
+    const keys = this.cardMenuOptions(issueKey)?.keys ?? [issueKey];
+    if (keys.length > 1) {
+      await this.#sendBatchToGoal(keys, goalId);
+      return;
+    }
     await this.dropIssue({
       issueKey,
       block: goalId === null ? defaultBlock(issue) : goalBlock(goalId),
@@ -1255,8 +1313,73 @@ export class BoardModel {
     const snapshot = this.snapshot.value;
     const issue = snapshot ? findIssue(snapshot, issueKey) : null;
     if (drag?.issueKey !== issueKey || !issue || issue.columnId === null) return;
-    if (blockIdentifier(block) === drag.laneId || !this.accepts(block, drag.lane)) return;
+    if (!this.acceptsDrag(block)) return;
+    if (drag.keys.length > 1) {
+      await this.#sendBatchToGoal(drag.keys, block.kind === "goal" ? block.goalId : null);
+      return;
+    }
+    if (blockIdentifier(block) === drag.laneId) return;
     await this.dropIssue({ issueKey, block, columnId: issue.columnId, beforeKey: null });
+  }
+
+  /**
+   * Rattache un lot de cartes à un objectif (`null` : chacune vers sa destination par défaut), sans
+   * transition ni rang (story 8.33). Plus de 50 tickets : refus avant toute écriture. Seuls les
+   * tickets dont l'objectif affiché change sont écrits ; une seule tentative, arrêt au premier échec,
+   * relecture du board. La sélection est vidée si tout est confirmé, sinon elle garde les tickets à
+   * refaire.
+   */
+  async #sendBatchToGoal(keys: readonly string[], goalId: string | null): Promise<void> {
+    const snapshot = this.snapshot.value;
+    const configuration = this.configuration.value;
+    if (!snapshot || !configuration || this.#writing()) return;
+    if (keys.length > BOARD_BATCH_LIMIT) {
+      this.writeNotice.value = {
+        tone: "warning",
+        text: `Lot de ${keys.length} tickets : au plus ${BOARD_BATCH_LIMIT} par geste.`,
+        suggestion: "Rien n'a été modifié.",
+        sessionLost: false,
+        issueKey: null,
+      };
+      return;
+    }
+    if (goalId !== null && !snapshot.goals.some((goal) => goal.id === goalId)) return;
+    const issues = keys.flatMap((key) => findIssue(snapshot, key) ?? []);
+    const accepted = issues.every((issue) =>
+      this.accepts(goalId === null ? defaultBlock(issue) : goalBlock(goalId), issue.swimlaneId),
+    );
+    if (issues.length !== keys.length || !accepted) return;
+    // Un ticket déjà affiché sous cet objectif (ou déjà sans objectif) n'est pas réécrit.
+    const toChange = issues.filter(
+      (issue) => displayedGoalId(configuration, issue.goalId) !== goalId,
+    );
+    if (toChange.length === 0) {
+      this.cardSelection.clear();
+      return;
+    }
+    const generation = this.#generation;
+    this.#clearMoveFeedback();
+    this.writeNotice.value = null;
+    for (const issue of toChange) this.#setPending(issue.issue.key, true);
+    let remaining: readonly string[] = toChange.map((issue) => issue.issue.key);
+    try {
+      const result = await this.#gate.run((access) =>
+        this.#movements.executeGoalBatch({ snapshot, issues: toChange, goalId }, access),
+      );
+      remaining = result.remainingKeys;
+    } finally {
+      try {
+        await this.sync();
+      } finally {
+        batch(() => {
+          for (const issue of toChange) this.#setPending(issue.issue.key, false);
+          if (generation === this.#generation) {
+            if (remaining.length === 0) this.cardSelection.clear();
+            else this.cardSelection.keep(remaining);
+          }
+        });
+      }
+    }
   }
 
   /** Une écriture est en cours : ticket en attente, choix de transition ou formulaire natif. */

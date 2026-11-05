@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { BoardIssue, BoardSnapshot } from "../../src/core/boardIssue";
-import { changeAtlassianGoal, executeMove, type MovePorts } from "../../src/core/boardMove";
+import {
+  assignGoalBatch,
+  changeAtlassianGoal,
+  executeMove,
+  type MovePorts,
+} from "../../src/core/boardMove";
 import type { RankChange } from "../../src/core/dropPlan";
 import {
   encodeSprintGoalDocument,
@@ -442,5 +447,79 @@ describe("executeMove : confirmation du rang (story 8.29)", () => {
     const result = await rankMove(setup, route);
     expect(result.rank?.kind).toBe("failed");
     expect(route.reads).toEqual([]);
+  });
+});
+
+describe("assignGoalBatch — lot de cartes du board (story 8.33)", () => {
+  const card = (key: string, sprintId: number, goalId: string | null = null): BoardIssue =>
+    ({
+      issue: { id: `id-${key}`, key, fields: { status: status("3") } },
+      goalId,
+      sprintId,
+    }) as unknown as BoardIssue;
+  const twoSprints = {
+    sprint: { id: 42 },
+    goals: [
+      makeSprintGoal({ id: "g1", title: "Payer", position: 0, color: "blue" }),
+      makeSprintGoal({ id: "g2", title: "Livrer", position: 1, color: "green" }),
+    ],
+    goalsOrigin: "sprintGoal",
+    goalSprintIds: [42, 43],
+    goalSprintOf: { g1: 42, g2: 43 },
+    storedTextLinks: { 42: {}, 43: {} },
+    currentUser: null,
+  } as unknown as BoardSnapshot;
+
+  function propertyPorts(fail?: number) {
+    const writes: JiraWrite[] = [];
+    const stored = new Map<number, unknown>();
+    const value = {
+      reader: {
+        sprintProperty: async (sprintId: number) => stored.get(sprintId) ?? null,
+      },
+      writer: {
+        write: async (write: JiraWrite) => {
+          if (write.kind === "sprintProperty.put" && write.sprintId === fail)
+            throw new Error("refus");
+          writes.push(write);
+          if (write.kind === "sprintProperty.put") stored.set(write.sprintId, write.value);
+          return null;
+        },
+      },
+      goals: { setLink: async () => ({ success: true, messages: [] }) },
+    } as unknown as Pick<MovePorts, "reader" | "writer" | "goals">;
+    return { value, writes };
+  }
+
+  it("texte : UNE écriture par sprint du lot, tous les liens du sprint dans la même", async () => {
+    const { value, writes } = propertyPorts();
+    const result = await assignGoalBatch(value, {
+      snapshot: twoSprints,
+      issues: [card("ABC-1", 42), card("ABC-2", 43), card("ABC-3", 42)],
+      goalId: "g1",
+      now: NOW,
+    });
+    expect(result).toEqual({ confirmedKeys: ["ABC-1", "ABC-2", "ABC-3"], remainingKeys: [] });
+    expect(
+      writes.map((write) => (write.kind === "sprintProperty.put" ? write.sprintId : 0)),
+    ).toEqual([42, 43]);
+    const first = writes[0];
+    expect(first?.kind === "sprintProperty.put" && first.value).toMatchObject({
+      links: { "ABC-1": "g1", "ABC-3": "g1" },
+    });
+  });
+
+  it("échec sur le second sprint : premier sprint confirmé, la suite à refaire, rien de rejoué", async () => {
+    const { value, writes } = propertyPorts(43);
+    const result = await assignGoalBatch(value, {
+      snapshot: twoSprints,
+      issues: [card("ABC-1", 42), card("ABC-2", 43)],
+      goalId: null,
+      now: NOW,
+    });
+    expect(result.confirmedKeys).toEqual(["ABC-1"]);
+    expect(result.remainingKeys).toEqual(["ABC-2"]);
+    expect(result.failure).toMatchObject({ issueKey: "ABC-2", step: { origin: "text" } });
+    expect(writes).toHaveLength(1);
   });
 });

@@ -64,6 +64,45 @@ export function goalTargets(
   return { goals: ordered, canDetach: current !== null && destinationShown };
 }
 
+/**
+ * Cibles du menu d'une carte d'une sélection de plusieurs cartes (story 8.33) : tous les objectifs
+ * non masqués, dans l'ordre des swimlanes, chacun s'appliquant au lot. « Retirer du goal » est
+ * proposé si un ticket du lot est affiché sous un objectif et que chacun de ceux-là a sa
+ * destination par défaut affichée. Ne lit ni n'écrit rien dans Jira.
+ */
+export function batchGoalTargets(
+  snapshot: BoardSnapshot,
+  configuration: BoardConfiguration,
+  issues: readonly BoardIssue[],
+): GoalTargets {
+  const visible = snapshot.goals.filter((goal) => !isGoalHidden(configuration, goal.id));
+  const byId = new Map(visible.map((goal) => [goal.id, goal]));
+  const swimlaneIds = shownSwimlaneIds(configuration);
+  const goals = resolveBlocks({
+    goals: visible,
+    storedOrder: configuration.blockOrder,
+    includeBuild: false,
+    swimlaneIds,
+  }).flatMap((block) => {
+    const goal = block.kind === "goal" ? byId.get(block.goalId) : undefined;
+    return goal
+      ? [
+          {
+            id: goal.id,
+            title: goal.title,
+            sprintName: sprintNameOf(snapshot, goal),
+            color: goal.color,
+          },
+        ]
+      : [];
+  });
+  const underGoal = issues.filter((issue) => displayedGoalId(configuration, issue.goalId) !== null);
+  const canDetach =
+    underGoal.length > 0 &&
+    underGoal.every((issue) => issue.swimlaneId === null || swimlaneIds.includes(issue.swimlaneId));
+  return { goals, canDetach };
+}
+
 /** Destination d'un ticket sans objectif : la swimlane de son type, sinon Build. */
 export function defaultBlock(issue: BoardIssue): BoardBlock {
   return issue.swimlaneId === null ? BUILD_BLOCK : swimlaneBlock(issue.swimlaneId);

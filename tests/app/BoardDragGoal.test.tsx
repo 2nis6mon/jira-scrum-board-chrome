@@ -171,3 +171,28 @@ it("swimlane refusée pour le type : indisponible avec son message, rien n'est �
   expect(board.dragging.value).toBeNull();
   expect(writes()).toEqual([]);
 });
+
+it("lot sélectionné (story 8.33) : toutes les swimlanes, départ compris, sont des zones entières", async () => {
+  const { board, links, writes } = await connectedBoard();
+  board.cardSelection.toggle("ABC-104");
+  board.cardSelection.toggle("ABC-105");
+  await tick();
+  const data = startDrag("ABC-105");
+  await tick();
+  // Swimlane de départ (Build) comprise : ni zone de colonne, ni zone de statut.
+  expect(lane("build").classList.contains("lane-drop-zone")).toBe(true);
+  expect(document.querySelector(".lane-cell-droppable, .lane-cell-statuses")).toBeNull();
+  expect(
+    [...document.querySelectorAll(".card-dragging")]
+      .map((card) => card.getAttribute("data-issue-key"))
+      .sort(),
+  ).toEqual(["ABC-104", "ABC-105"]);
+  const target = cell("Améliorer la stabilité — À faire");
+  target.dispatchEvent(dragEvent("dragover", data));
+  target.dispatchEvent(dragEvent("drop", data));
+  await expect.poll(() => board.pendingKeys.value.size).toBe(0);
+  expect(writes().map((request) => request.path)).toEqual([PROPERTY]);
+  expect(links()).toMatchObject({ "ABC-104": "g-stabilite", "ABC-105": "g-stabilite" });
+  expect(cellOf("ABC-104")).toBe("Améliorer la stabilité — En cours");
+  expect(board.selectedKeys.value.size).toBe(0);
+});

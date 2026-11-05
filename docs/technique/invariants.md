@@ -174,8 +174,19 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   fiche native (lien `a.card` intercepté par `integration/embedded.ts` sur le board, toute la
   carte dans le planning, ses boutons gardant leur action) ; clic du milieu, nouvel onglet (lien du
   board, `window.open` de l'adresse Jira dans le planning) ; Ctrl/Cmd+clic et Maj+clic, sélection
-  (`CardSelection` sur le board, sans action groupée ; repère `.card-selected` et compteur
-  `SelectionChip` partagés), jamais d'onglet.
+  (`CardSelection` sur le board ; repère `.card-selected` et compteur `SelectionChip`
+  partagés), jamais d'onglet.
+- Lots du Sprint Board (story 8.33, décision de Denis du 05/11/2026) : une carte de la sélection
+  emmène toute la sélection (`DragState.keys`), au glissé comme par son menu, et ne change que
+  d'objectif ou de swimlane, jamais d'état ni de rang : toutes les swimlanes, celle de départ
+  comprise, sont des zones entières ; une swimlane qui refuse un ticket du lot (`accepts`) est
+  indisponible. Aucune transition lue. Seuls les tickets dont l'objectif affiché change sont écrits
+  (`assignGoalBatch`, `core/boardMove.ts`) : une seule E5 par sprint de la propriété en texte, E4
+  puis E3 par ticket en Goals ; plus de 50 tickets : refus avant toute écriture. Arrêt au premier
+  échec, rien n'est rejoué ; une seule entrée de journal par lot ; l'avis dit les tickets confirmés
+  et ceux à refaire, qui restent sélectionnés. Le menu d'une carte du lot désactive top et basse
+  priorité (« Indisponible pour une sélection de plusieurs tickets »). Comme dans le planning, un
+  ticket sélectionné puis masqué par un filtre reste dans le lot (question ouverte au backlog).
 - Lots du Sprint Planning (story 8.15) : Ctrl/Cmd+clic et Maj+clic (plage dans la même section)
   sélectionnent les cartes déplaçables, jamais celles en consultation ; Échap vide la sélection. Une
   carte sélectionnée emmène toute la sélection, au glissé comme par son menu ; un lot ne quitte le

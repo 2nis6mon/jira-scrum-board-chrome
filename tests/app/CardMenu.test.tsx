@@ -491,3 +491,46 @@ describe("menu d'une carte — top et basse priorité", () => {
     expect(writes()).toEqual([]);
   });
 });
+
+describe("menu d'une carte d'une sélection de plusieurs cartes (story 8.33)", () => {
+  const rootItems = () => [
+    ...(menu()?.querySelectorAll<HTMLElement>(":scope > [role='menuitem']") ?? []),
+  ];
+
+  it("nombre de tickets, objectifs pour tout le lot, rang désactivé avec sa raison", async () => {
+    const { board, writes, links } = await connectedBoard();
+    board.cardSelection.toggle("ABC-102");
+    board.cardSelection.toggle("ABC-105");
+    rightClick(card("ABC-105"));
+    await settle();
+    expect(menu()?.querySelector(".card-menu-heading")?.textContent).toBe("2 tickets sélectionnés");
+    const [send, top, bottom] = rootItems();
+    for (const entry of [top, bottom]) {
+      expect(entry?.getAttribute("aria-disabled")).toBe("true");
+      expect(entry?.textContent).toContain("Indisponible pour une sélection de plusieurs tickets");
+    }
+    top?.click();
+    await settle();
+    expect(writes()).toEqual([]);
+
+    rightClick(card("ABC-105"));
+    await settle();
+    rootItems()[0]?.click();
+    await settle();
+    const goals = items(menu()?.querySelector(".card-menu-goals"));
+    expect(goals).toEqual([
+      "Finaliser le parcours de paiement",
+      "Améliorer la stabilité",
+      "Retirer du goal",
+    ]);
+    const stability = [
+      ...(menu()?.querySelectorAll<HTMLElement>(".card-menu-goals [role='menuitem']") ?? []),
+    ].find((item) => item.textContent?.includes("Améliorer la stabilité"));
+    stability?.click();
+    await expect.poll(() => board.pendingKeys.value.size).toBe(0);
+    await settle();
+    expect(writes().map((request) => request.path)).toEqual([PROPERTY]);
+    expect(links()).toMatchObject({ "ABC-102": "g-stabilite", "ABC-105": "g-stabilite" });
+    expect(send).toBeDefined();
+  });
+});

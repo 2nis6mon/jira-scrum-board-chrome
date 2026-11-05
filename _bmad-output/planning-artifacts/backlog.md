@@ -50,6 +50,7 @@ Atlassian et la décision sur les droits, puis l'activation (8.11).
 - [ ] À décider (essai 8.10) : un ticket sélectionné puis masqué par un filtre part avec le lot,
   sans autre signal que le compteur « 2 issues selected » (constaté : CLIENT-5303 ajouté au sprint
   avec CLIENT-6566). Élaguer la sélection aux cartes visibles, ou l'annoncer avant le geste.
+  Même comportement sur le Sprint Board depuis la 8.33 (lot vers un objectif), à trancher ensemble.
 - [ ] À investiguer (essai 8.10) : sur le Sprint Board, la barre latérale range les objectifs reportés
   avant ceux créés au planning, contrairement à l'ordre de `goal` et `sprintgoals.v1`, et Goal 1 y
   compte 0/5 contre 3 tickets dans le planning. Le compte rendu de clôture reste aussi affiché au-dessus

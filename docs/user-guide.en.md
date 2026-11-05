@@ -111,6 +111,12 @@ stays visible.
 - Ctrl+click (Cmd+click on Mac) adds a card to the selection or removes it; Shift+click adds the
   cards between the last one chosen and this one, in the same column. The number of selected
   issues appears in the filter bar; Escape clears the selection.
+- Drag a selected card: the whole selection goes with it, to a goal or a default row, dropped
+  anywhere in the row. Only the issues' goal changes; they keep their column, status and rank. The
+  menu of a selected card (right-click) also sends the whole batch to a goal; top and bottom
+  priority are disabled there. At most 50 issues per gesture. A row that refuses an issue of the
+  batch is unavailable. After a failure, the notice lists the confirmed issues and those to redo,
+  which stay selected.
 - Drag a card into a column to change its status. If the column has several statuses,
   drop it into the area for the status you want.
 - Drag it to a goal to link it, or to its default row to unlink it: drop it anywhere in the

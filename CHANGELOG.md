@@ -3,6 +3,24 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.50.0 — Déplacer plusieurs cartes du board vers un objectif
+
+- Demandé par Denis le 05/11/2026 (story 8.33) : la sélection du board (Ctrl/Cmd+clic, Maj+clic,
+  story 8.30) n'avait pas d'action groupée.
+- Décision de Denis du 05/11/2026 : une sélection de plusieurs cartes ne change que d'objectif ou
+  de swimlane, jamais d'état ni de rang. Glisser une carte de la sélection emmène tout le lot ;
+  toutes les swimlanes, celle de départ comprise, sont alors des zones entières. Une swimlane qui
+  refuse un ticket du lot est indisponible, et rien n'est écrit.
+- Le menu d'une carte de la sélection affiche le nombre de tickets ; ses objectifs s'appliquent à
+  tout le lot, top et basse priorité sont désactivés avec leur raison (nouveau texte en français,
+  anglais et espagnol).
+- Écritures : une seule écriture de la propriété du sprint par sprint en texte, détacher puis lier
+  ticket par ticket en Goals Atlassian, aucune nouvelle route. 50 tickets au plus par geste. Une
+  seule tentative, arrêt au premier échec ; l'avis dit les tickets confirmés et ceux à refaire, qui
+  restent sélectionnés ; une entrée de journal par lot.
+- Comme dans le planning, un ticket sélectionné puis masqué par un filtre reste dans le lot : la
+  question reste ouverte au backlog.
+
 ## 0.49.1 — Changer d'objectif sur le board sans changer d'état
 
 - Demandé par Denis le 05/11/2026 (story 8.32) : glisser une carte vers un autre objectif proposait

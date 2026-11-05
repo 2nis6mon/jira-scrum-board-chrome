@@ -7,7 +7,9 @@ import { ActionMenu, type MenuEntry } from "../ActionMenu";
  * Menu de l'extension sur une carte du board (clic droit, Maj+F10, touche Menu), dessiné par le
  * menu commun au board et au planning (story 8.19). Son état d'ouverture appartient au board :
  * « Envoyer vers un goal › » (pastille de couleur de chaque objectif), « Retirer du goal », puis
- * top et basse priorité. Une action referme le menu et rend le focus à la carte.
+ * top et basse priorité. Sur une carte d'une sélection de plusieurs cartes (story 8.33), les
+ * objectifs s'appliquent à tout le lot et le rang est désactivé. Une action referme le menu et rend
+ * le focus à la carte.
  */
 export function CardMenu(props: { board: BoardModel }) {
   const menu = props.board.cardMenu.value;
@@ -78,12 +80,22 @@ function BoardCardMenu({ board, menu }: { board: BoardModel; menu: CardMenuState
     };
   };
 
+  const many = options.keys.length > 1;
   return (
     <ActionMenu
       label={t("Actions sur {key}", { key: issueKey })}
       point={menu}
       onClose={close}
       entries={[
+        ...(many
+          ? [
+              {
+                kind: "heading" as const,
+                id: "batch",
+                label: t("{count} tickets sélectionnés", { count: options.keys.length }),
+              },
+            ]
+          : []),
         {
           kind: "submenu",
           id: "goals",
@@ -110,6 +122,8 @@ function reasonText(reason: CardMenuBlocked): string {
       return t("Déjà en fin de sa swimlane");
     case "subtaskAlone":
       return t("Aucune autre sous-tâche de son parent dans cette swimlane");
+    case "selection":
+      return t("Indisponible pour une sélection de plusieurs tickets");
   }
 }
 

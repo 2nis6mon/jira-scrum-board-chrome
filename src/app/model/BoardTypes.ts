@@ -59,6 +59,13 @@ export interface DragState {
   /** Destination sans objectif : swimlane par type, ou Build si `null`. */
   readonly lane: string | null;
   /**
+   * Tickets glissés : la carte seule, ou toute la sélection dont elle fait partie (story 8.33).
+   * Un lot ne change que d'objectif : aucune colonne, aucun statut, aucun rang.
+   */
+  readonly keys: readonly string[];
+  /** Destination sans objectif de chaque ticket glissé, dans l'ordre de `keys`. */
+  readonly lanes: readonly (string | null)[];
+  /**
    * Swimlane où la carte est affichée au début du geste (`laneKey`). Seule celle-ci propose
    * colonnes, statuts et rang ; toute autre est une seule zone de dépôt qui ne change que
    * l'objectif (story 8.32).
@@ -133,10 +140,19 @@ export interface CardMenuState {
  * Raison d'une action du menu de carte désactivée : une écriture est en cours, aucun objectif où
  * l'envoyer, ticket déjà en tête ou en fin de sa swimlane, ou sous-tâche seule de son parent.
  */
-export type CardMenuBlocked = "writing" | "noGoal" | "first" | "last" | "subtaskAlone";
+export type CardMenuBlocked =
+  | "writing"
+  | "noGoal"
+  | "first"
+  | "last"
+  | "subtaskAlone"
+  /** Carte d'une sélection de plusieurs cartes : le rang ne vaut que pour un ticket (8.33). */
+  | "selection";
 
 /** Actions du menu d'une carte, sans écriture tant qu'aucune n'est choisie. */
 export interface CardMenuOptions {
+  /** Tickets auxquels s'appliquent les objectifs : la carte, ou toute sa sélection (8.33). */
+  readonly keys: readonly string[];
   readonly sendToGoal: {
     readonly blocked: CardMenuBlocked | null;
     readonly goals: readonly GoalTarget[];

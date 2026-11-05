@@ -179,6 +179,8 @@ export const boardMessages = {
   "Utilisez un objectif ou la swimlane par défaut de ce type":
     "Use a goal or this issue type’s default swimlane",
   "Rattacher à cet objectif": "Link to this goal",
+  "Indisponible pour une sélection de plusieurs tickets":
+    "Unavailable for a selection of several issues",
   "Retour dans la swimlane par défaut": "Return to the default swimlane",
   "Déposer pour choisir ce statut": "Drop to choose this status",
   "N'afficher que les {count} premiers dans l'ordre de Jira":

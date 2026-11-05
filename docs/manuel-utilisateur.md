@@ -126,6 +126,12 @@ les objectifs restent affichés.
 - Ctrl+clic (Cmd+clic sur Mac) ajoute une carte à la sélection ou l'en retire ; Maj+clic ajoute
   les cartes entre la dernière choisie et celle-ci, dans la même colonne. Le nombre de tickets
   sélectionnés s'affiche dans la barre des filtres ; Échap vide la sélection.
+- Glissez une carte de la sélection : toute la sélection part avec elle, vers un objectif ou une
+  ligne par défaut, que vous lâchez n'importe où dans la ligne. Seul l'objectif des tickets change ;
+  ils gardent colonne, statut et rang. Le menu d'une carte de la sélection (clic droit) envoie lui
+  aussi tout le lot vers un objectif ; top et basse priorité y sont désactivés. 50 tickets au plus
+  par geste. Une ligne qui refuse un ticket du lot est indisponible. Après un échec, l'avis dit les
+  tickets confirmés et ceux à refaire, qui restent sélectionnés.
 - Glissez une carte dans une colonne pour changer son statut. Plusieurs statuts dans une colonne ?
   Déposez-la dans la zone du statut voulu.
 - Glissez-la vers un objectif pour l'y rattacher, ou vers sa ligne par défaut pour la détacher :

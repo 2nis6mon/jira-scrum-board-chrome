@@ -1235,9 +1235,10 @@ function LaneView(props: {
   const stockExpanded = dailyStock?.expandedIds.includes(lane.id) ?? false;
   const drag = board.dragging.value;
   // Story 8.32 : hors de sa swimlane de départ, la carte glissée ne change que d'objectif. Toute
-  // la swimlane, en-tête compris, est alors une seule zone de dépôt, sans colonne ni statut.
-  const elsewhere = drag !== null && drag.laneId !== lane.id;
-  const laneDroppable = elsewhere && board.accepts(lane.block, drag.lane);
+  // la swimlane, en-tête compris, est alors une seule zone de dépôt, sans colonne ni statut. Un lot
+  // (story 8.33) ne change que d'objectif, partout, swimlane de départ comprise.
+  const elsewhere = drag !== null && wholeLaneDrag(drag, lane.id);
+  const laneDroppable = elsewhere && board.acceptsDrag(lane.block);
   const laneTarget = board.dropTarget.value;
   const laneHovered = elsewhere && laneTarget?.laneId === lane.id && laneTarget.columnId === null;
   const laneTargeted = laneDroppable && laneHovered;
@@ -1251,9 +1252,9 @@ function LaneView(props: {
       aria-disabled={(elsewhere && !laneDroppable) || undefined}
       onDragOver={(event) => {
         if (board.draggingLane.value === null) {
-          // Carte glissée hors de sa swimlane de départ ; dans celle-ci, les cases s'en chargent.
+          // Carte glissée hors de sa swimlane de départ, ou lot ; sinon, les cases s'en chargent.
           const current = board.dragging.value;
-          if (current === null || current.laneId === lane.id) return;
+          if (current === null || !wholeLaneDrag(current, lane.id)) return;
           if (!laneDroppable) {
             // Refusée : son message au survol, aucun dépôt possible.
             if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
@@ -1288,7 +1289,7 @@ function LaneView(props: {
         const dragged = board.draggingLane.value;
         if (dragged === null) {
           const current = board.dragging.value;
-          if (current === null || current.laneId === lane.id) return;
+          if (current === null || !wholeLaneDrag(current, lane.id)) return;
           event.preventDefault();
           const key = event.dataTransfer?.getData(DRAG_TYPE) ?? "";
           // Seule la carte dont le glissement a commencé sur ce board est acceptée.
@@ -1566,7 +1567,7 @@ function LaneView(props: {
                               : undefined
                           }
                           tint={board.cardColors.value[key] ?? null}
-                          dragging={drag?.issueKey === key}
+                          dragging={drag?.keys.includes(key) ?? false}
                           onDragStart={(event) => {
                             if (!event.dataTransfer) return;
                             event.dataTransfer.setData(DRAG_TYPE, key);
@@ -1759,6 +1760,14 @@ function LaneMenu({
       </div>
     </details>
   );
+}
+
+/**
+ * Le glisser vise des swimlanes entières (changement d'objectif seul) : hors de la swimlane de
+ * départ de la carte (story 8.32), ou partout pour un lot de plusieurs cartes (story 8.33).
+ */
+function wholeLaneDrag(drag: { keys: readonly string[]; laneId: string }, laneId: string): boolean {
+  return drag.keys.length > 1 || drag.laneId !== laneId;
 }
 
 /** Type de donnée du glisser-déposer : propre à l'extension, il ne porte qu'une clé de ticket. */

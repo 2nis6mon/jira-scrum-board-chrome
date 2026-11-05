@@ -56,6 +56,7 @@ describe("menu d'une carte — options", () => {
   it("ticket sous un objectif : les autres objectifs puis le retrait", async () => {
     const { board } = await boardWith();
     expect(board.cardMenuOptions("ABC-102")).toEqual({
+      keys: ["ABC-102"],
       sendToGoal: {
         blocked: null,
         goals: [

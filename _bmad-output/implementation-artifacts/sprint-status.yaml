@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-31-2026 09:00
-last_updated: 11-05-2026 14:00
+last_updated: 11-05-2026 15:00
 project: Sprint Goals Board pour Jira
 project_key: NOKEY
 tracking_system: file-system
@@ -106,7 +106,7 @@ development_status:
   8-30-les-memes-gestes-a-la-souris-sur-une-carte-du-board-et-du-planning: done
   8-31-ne-plus-montrer-le-sprint-actif-dans-ou-sont-les-tickets: done
   8-32-changer-d-objectif-sur-le-board-sans-changer-d-etat: review
-  8-33-deplacer-plusieurs-cartes-du-board-vers-un-objectif: backlog
+  8-33-deplacer-plusieurs-cartes-du-board-vers-un-objectif: review
   8-10-valider-le-sprint-planning-sur-un-vrai-jira: done
   8-11-activer-le-sprint-planning-dans-le-paquet: backlog
   epic-8-retrospective: optional
