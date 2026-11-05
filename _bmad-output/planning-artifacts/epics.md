@@ -578,7 +578,7 @@ So that leur origine est lisible.
 
 L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre. Chaque geste écrit aussitôt dans Jira, qui reste la seule source : la page se reconstruit à l'entrée depuis le texte de l'objectif du sprint, la propriété `sprintgoals.v1` et les tickets du sprint. Aujourd'hui, Sprint Planning n'existe que dans les builds locaux `dist/` et les tests (`SPRINT_PLANNING_ENABLED`) ; il le reste jusqu'à la story 8.11. Décisions : [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md) ; écran : maquette v2.
 
-Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments et correctifs issus des premiers essais (8.12 à 8.25), et enfin essai réel et activation. Les numéros 8.12 à 8.24 se jouent avant 8.10 ; 8.25 se joue avant 8.11, avec l'essai séparé des Goals Atlassian ; 8.26 à 8.28, défauts du constat de 8.10, 8.29, même défaut côté board, 8.30, mêmes gestes à la souris sur les deux écrans, et 8.31, sprint actif retiré de « Où sont les tickets », se jouent avant 8.11.
+Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments et correctifs issus des premiers essais (8.12 à 8.25), et enfin essai réel et activation. Les numéros 8.12 à 8.24 se jouent avant 8.10 ; 8.25 se joue avant 8.11, avec l'essai séparé des Goals Atlassian ; 8.26 à 8.28, défauts du constat de 8.10, 8.29, même défaut côté board, 8.30, mêmes gestes à la souris sur les deux écrans, 8.31, sprint actif retiré de « Où sont les tickets », puis 8.32 (changer d'objectif sur le board sans changer d'état) et 8.33 (déplacer une sélection du board vers un objectif, après 8.32) se jouent avant 8.11.
 
 ### Story 8.1: Vérifier les contrats Atlassian du planning en direct
 
@@ -1269,3 +1269,71 @@ So that je ne perds pas de temps à essayer de sélectionner ou glisser des cart
 **Then** aucune écriture n'est ajoutée, `verify:planning` constate l'absence de la section du sprint actif (banc : « Sprint 42 ») et le cycle clôture/démarrage du banc passe toujours
 
 *Notes :* revient sur la story 8.2 (« le reste à faire du sprint actif (consultation) » dans la colonne de gauche), sur le dernier critère de la 8.4 et sur le périmètre des filtres rapides (8.14). Section rendue par `PlanningView.tsx` (`section.kind === "active"`, cartes `readOnly`) depuis `PlanningModel` (liste des sections, `activeSprints`) ; `loadSprintPlanning` (`src/core/sprintPlanning.ts`) lit les tickets des sprints actifs, dont dépendent aussi `closableSprintIds` et la clôture : n'abandonner cette lecture que si plus rien ne s'en sert (sinon la garder, et seulement ne plus l'afficher). Mettre à jour `docs/manuel-utilisateur.md`.
+
+### Story 8.32: Changer d'objectif sur le board sans changer d'état
+
+*Type : amélioration, demandée par Denis le 05/11/2026. Décision de Denis du 05/11/2026 : changer d'objectif ou de swimlane ne change jamais l'état ; la swimlane d'arrivée est une seule zone de dépôt.*
+
+As a membre de l'équipe qui range les tickets par objectif pendant le sprint,
+I want qu'une carte glissée vers un autre objectif ou une autre swimlane garde sa colonne,
+So that je change son objectif sans risquer de changer aussi son état par un dépôt dans la mauvaise colonne.
+
+**Acceptance Criteria:**
+
+**Given** une carte du Sprint Board que je glisse
+**When** je survole la swimlane d'un autre objectif, ou la swimlane par défaut de son type
+**Then** toute la swimlane d'arrivée est une seule zone de dépôt, avec le message « Rattacher à cet objectif » ou « Retour dans la swimlane par défaut », sans zone par colonne ni zone de statut
+
+**Given** ce dépôt
+**When** je lâche la carte n'importe où dans cette swimlane
+**Then** seul son objectif change (E5 en mode texte, E4 puis E3 en Goals Atlassian, selon les règles actuelles) : ni transition, ni rang ; la carte apparaît dans sa colonne actuelle de la nouvelle swimlane
+
+**Given** un glisser dans la swimlane de départ de la carte
+**When** je la dépose dans une autre colonne ou à un autre rang
+**Then** le comportement reste celui d'aujourd'hui : transition (zones de statut, formulaire natif) et rang, sans changer d'objectif
+
+**Given** une swimlane refusée pour ce type de ticket (règle actuelle `accepts`)
+**When** je la survole
+**Then** elle reste indisponible, avec son message actuel
+
+**Given** le changement
+**When** il est vérifié
+**Then** aucune lecture ni écriture Jira n'est ajoutée (le chemin « objectif + colonne » d'un même dépôt n'est plus emprunté), `verify:drag` joue un glisser vers un autre objectif depuis une colonne et constate l'objectif changé, l'état et le rang inchangés, en Scrum comme en Kanban ; le manuel et ses guides EN/ES le disent
+
+*Notes :* aujourd'hui, `BoardView.tsx` (`LaneView`) propose une zone par cellule `lane-cell` dans toutes les swimlanes compatibles, et `BoardModel.dropIssue` passe par `resolveDrop` (`src/core/dropPlan.ts`), qui sait changer l'objectif et la colonne d'un seul dépôt (`changesColumn`), puis rang et transition. La swimlane de départ est celle du glisser (`DragState.lane`). Le défilement pendant le glisser (8.24) et l'anomalie de mise en page du message « Rattacher à cet objectif » relevée en 8.24 (deferred-work) sont à revoir avec la zone unique. Le Sprint Planning n'est pas concerné : ses swimlanes n'ont pas de colonnes.
+
+### Story 8.33: Déplacer plusieurs cartes du board vers un objectif
+
+*Type : amélioration, demandée par Denis le 05/11/2026 ; tranche la question « actions groupées d'une sélection sur le Sprint Board » ouverte par la 8.30. Décision de Denis du 05/11/2026 : une sélection de plusieurs cartes ne change que d'objectif ou de swimlane, jamais d'état ni de rang.*
+
+As a membre de l'équipe qui réorganise le sprint par objectif,
+I want glisser d'un coup plusieurs cartes sélectionnées vers un objectif ou une swimlane,
+So that je n'ai pas à rattacher chaque ticket un par un.
+
+**Acceptance Criteria:**
+
+**Given** plusieurs cartes sélectionnées sur le board (Ctrl/Cmd+clic, Maj+clic, story 8.30)
+**When** je glisse l'une d'elles
+**Then** toute la sélection part avec elle, et seules les swimlanes d'objectif ou par défaut sont des zones de dépôt, en entier, comme en 8.32 ; aucune zone de colonne ni de statut n'est proposée, même dans la swimlane de départ
+
+**Given** ce dépôt sur une swimlane qui accepte tous les tickets du lot
+**When** je lâche
+**Then** seul l'objectif de chaque ticket change, en une écriture du lot quand c'est possible (une seule E5 par sprint en mode texte ; E4 si besoin puis E3 par ticket en Goals Atlassian) : ni transition, ni rang ; chaque carte garde sa colonne ; la sélection est vidée
+
+**Given** un lot dont un ticket n'est pas accepté par la swimlane visée (règle `accepts`)
+**When** je la survole puis lâche
+**Then** la swimlane est indisponible pour le lot, avec un message, et rien n'est écrit
+
+**Given** un échec ou un résultat incertain au milieu du lot
+**When** Jira répond
+**Then** une seule tentative par écriture, arrêt au premier échec, relecture ; l'avis dit quels tickets sont confirmés et lesquels restent à refaire, comme le lot du planning (8.15), en français, anglais et espagnol
+
+**Given** une carte d'une sélection de plusieurs cartes
+**When** j'ouvre son menu (clic droit, ⋯)
+**Then** ses entrées d'objectif s'appliquent à tout le lot ; ses entrées de statut et de rang sont désactivées, avec leur raison
+
+**Given** le changement
+**When** il est vérifié
+**Then** aucune nouvelle route d'écriture (E3, E4, E5 seulement), au plus 50 tickets par lot (refus avant toute écriture au-delà), journal du board avec une entrée par lot ; `verify:drag` joue la sélection de deux cartes, leur glisser vers un objectif et le refus d'une swimlane incompatible
+
+*Notes :* dépend de la 8.32 (swimlane entière comme zone de dépôt) et de la 8.30 (`CardSelection`, `BoardModel.selectedKeys`). Le glisser du board transmet aujourd'hui une seule clé (`DRAG_TYPE`, `BoardModel.startDrag`) ; le planning transmet le lot (`gestureKeys`, `PLANNING_DRAG_TYPE`). Les liens passent par les écritures de `src/core/boardWrites.ts` (`withTextGoalLink`, liens Goals) et la porte du board. Un ticket sélectionné puis masqué par un filtre part-il avec le lot ? Même question qu'en 8.15 (backlog) : à trancher avec elle.

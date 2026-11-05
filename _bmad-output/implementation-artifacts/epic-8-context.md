@@ -37,6 +37,8 @@ Permettre à l'équipe de clôturer son sprint, de construire le suivant par obj
 - Story 8.29: Garder à sa place un ticket classé sur le board malgré le délai d’indexation de Jira
 - Story 8.30: Les mêmes gestes à la souris sur une carte du board et du planning
 - Story 8.31: Ne plus montrer le sprint actif dans « Où sont les tickets »
+- Story 8.32: Changer d'objectif sur le board sans changer d'état
+- Story 8.33: Déplacer plusieurs cartes du board vers un objectif
 - Story 8.10: Valider le Sprint Planning sur un vrai Jira
 - Story 8.11: Activer le Sprint Planning dans le paquet
 
@@ -70,6 +72,7 @@ Permettre à l'équipe de clôturer son sprint, de construire le suivant par obj
 - Filtres (8.14) : recherche `/` (règle du board), Personne, Type, Parent, Statut, Label, pastille « Bloqués » et filtres rapides du board, comme la page du sprint (décision de Denis du 02/11/2026 : ni Priorité ni Composant). Ils s'appliquent aux swimlanes, à « Sans objectif » et à la colonne de gauche ; totaux et charge restent calculés sans filtre. « Ajoutés » et « Reportés » ne sont pas proposés.
 - Sélection multiple (8.15) : Ctrl/Cmd+clic et Maj+clic (plage dans la même section), nombre affiché, Échap vide la sélection ; la sélection se glisse ou passe par le menu d'une de ses cartes.
 - Gestes communs au board et au planning (8.30) : clic simple, fiche native ; clic du milieu, nouvel onglet ; Ctrl/Cmd+clic et Maj+clic, sélection (sur le board, sans action groupée pour l'instant).
+- Board (décisions de Denis du 05/11/2026) : changer d'objectif ou de swimlane ne change jamais l'état ; la swimlane d'arrivée est une seule zone de dépôt (8.32). Une sélection de plusieurs cartes ne change que d'objectif ou de swimlane, sans état ni rang ; son menu applique les objectifs au lot et désactive statut et rang (8.33).
 - Avancement d'un objectif (8.16) : à faire, en cours, terminé, en tickets et en points, dans la grammaire de l'avancement de la page du sprint ; le déjà livré avant ce sprint est indiqué à part.
 - Homogénéité (8.19, 8.20) : un composant de menu de carte et un composant d'en-tête d'objectif partagés par le board et le planning ; barre empilée gris / bleu / vert proportionnelle aux points, pastilles de 8.16 en légende, rien par la couleur seule ; déjà livré en segment vert hachuré, hors charge et hors « n/N » (8.21). Top / basse priorité dans le planning : tête ou fin de la swimlane de l'objectif dans le sprint en préparation.
 - Estimation sur la carte (8.17) : clic sur la valeur (« ? » si vide), Entrée ou sortie du champ valide, Échap annule, valeur inchangée n'écrit rien ; non modifiable sans champ d'estimation, en consultation ou si le champ est verrouillé (la fiche native reste le recours).
