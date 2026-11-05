@@ -490,3 +490,34 @@ function propertySettings(board: BoardModel): TeamDocument["settings"] | null {
   const state = board.team.value;
   return state.kind === "published" ? state.document.settings : null;
 }
+
+describe("Goal épinglé pendant une lecture (story 8.25)", () => {
+  it("épinglé au board pendant la lecture des Goals : pas masqué (épinglage relu en fin de lecture)", async () => {
+    const goals = kanbanGoals();
+    const { board, jira } = await kanbanBoard({ goals });
+    expect(board.snapshot.value?.goals.map((goal) => goal.id)).toEqual([PAIEMENT, STABILITE]);
+    const securite = goals.find((goal) => goal.id === SECURITE);
+    if (!securite) throw new Error("Goal attendu");
+    securite.workItems = ["ABC-104"];
+
+    // La lecture est arrêtée sur sa requête Goals : l'épinglage arrive à ce moment, après le début
+    // de la lecture et avant sa fin, comme par un autre geste de l'utilisateur.
+    const gateway = goalsGateway({ goals });
+    let pinned = false;
+    jira.on("POST", "/gateway/api/graphql", (request) => {
+      const current = board.configuration.value;
+      if (!pinned && current) {
+        pinned = true;
+        board.configuration.value = { ...current, boardPinnedGoalIds: [SECURITE] };
+      }
+      return gateway(request);
+    });
+
+    await board.sync();
+
+    expect(pinned).toBe(true);
+    expect(board.snapshot.value?.goals.some((goal) => goal.id === SECURITE)).toBe(true);
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([]);
+    expect(board.hiddenGoals.value).toEqual([]);
+  });
+});

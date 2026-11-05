@@ -5,6 +5,14 @@ import type { BoardConfiguration } from "./boardConfiguration";
 import { CoreError, type GoalsFieldGap, type GoalsWarning } from "./reasons";
 import { goalColorName, makeSprintGoal, type SprintGoal } from "./sprintGoals";
 
+/**
+ * Identifiant d'un Goal Atlassian : un ARI (`ari:cloud:…`), tel que le renvoie l'API Goals. Les
+ * objectifs du texte d'un sprint ont un identifiant tiré par l'extension (UUID), jamais un ARI.
+ */
+export function isAtlassianGoalId(id: string): boolean {
+  return id.startsWith("ari:");
+}
+
 /** Lectures de l'API Goals dont le board a besoin. `GoalsClient` les fournit. */
 export type GoalsReader = Pick<
   GoalsClient,

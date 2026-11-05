@@ -3,6 +3,17 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.50.1 — Goals Atlassian visibles à leur première lecture
+
+- Relevé par la revue du 02/11/2026 (story 8.25) : un board qui passait de la source texte aux
+  Goals Atlassian, ou sortait d'un repli en texte, masquait à la première lecture des Goals tous les
+  Goals liés à ses tickets. Les objectifs du texte, déjà connus du board, faisaient croire que cette
+  première lecture avait déjà eu lieu.
+- La première lecture des Goals Atlassian se reconnaît désormais à l'absence de Goal Atlassian
+  connu : aucun Goal lié n'y est masqué. Ensuite, un Goal inconnu, non épinglé, introduit par un
+  ticket arrive masqué comme avant. Un Goal épinglé au board Kanban pendant une lecture n'est pas
+  masqué (test ajouté). Aucune lecture ni écriture Jira ajoutée.
+
 ## 0.50.0 — Déplacer plusieurs cartes du board vers un objectif
 
 - Demandé par Denis le 05/11/2026 (story 8.33) : la sélection du board (Ctrl/Cmd+clic, Maj+clic,

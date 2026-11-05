@@ -6,7 +6,13 @@ import { withLocalPins } from "../../src/core/boardPreferences";
 import { normalizeSiteUrl } from "../../src/jira/site";
 import { SPRINT_PROPERTY_KEYS } from "../../src/jira/writes";
 import { atlassianGoalsPlatform } from "../support/atlassianGoalsBoard";
-import { BOARD_URL, boardSiteJira, GOALS_DOCUMENT, SPRINT_ISSUES } from "../support/boardFixture";
+import {
+  BOARD_URL,
+  boardSiteJira,
+  CORS_REFUSAL,
+  GOALS_DOCUMENT,
+  SPRINT_ISSUES,
+} from "../support/boardFixture";
 import { isWriteRequest, type Reply } from "../support/fakeJira";
 import { type FakeGoal, goalsGateway } from "../support/goalsGateway";
 import { issueJson } from "../support/jiraFixtures";
@@ -393,4 +399,36 @@ describe("changement de Goal partiel", () => {
       if (uncertain) expect(mutations).toHaveLength(2);
     },
   );
+});
+
+describe("première lecture des Goals Atlassian après une lecture en texte (story 8.25)", () => {
+  it("repli texte puis Goals lisibles : aucun Goal lié n'est masqué ; les suivants le sont", async () => {
+    const goals = [...GOALS];
+    const gateway = goalsGateway({ goals });
+    let readable = false;
+    const jira = boardSiteJira({
+      graphql: (request) => (readable ? gateway(request) : CORS_REFUSAL),
+    });
+    const board = new BoardModel(SITE, await atlassianGoalsPlatform(jira), {
+      now: () => new Date("2026-09-18T10:00:00Z"),
+    });
+    await board.load();
+    await board.detect(BOARD_URL);
+    // Repli : les objectifs du texte du sprint reçoivent des couleurs, et sont donc « connus ».
+    expect(board.snapshot.value?.goalsOrigin).toBe("sprintText");
+    expect(Object.keys(board.configuration.value?.goalColorIndex ?? {}).length).toBeGreaterThan(0);
+
+    readable = true;
+    await board.sync();
+    expect(board.snapshot.value?.goalsOrigin).toBe("atlassianGoals");
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([]);
+    expect(board.hiddenGoals.value).toEqual([]);
+
+    // Lecture suivante : un Goal inconnu, non épinglé, introduit par un ticket arrive masqué.
+    const NOUVEAU = "ari:cloud:townsquare:c:goal/nouveau";
+    goals.push({ id: NOUVEAU, key: "GOAL-3", name: "Nouveau Goal", workItems: ["ABC-104"] });
+    await board.sync();
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([NOUVEAU]);
+    expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+  });
 });

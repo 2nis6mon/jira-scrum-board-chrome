@@ -1,3 +1,4 @@
+import { isAtlassianGoalId } from "../../core/atlassianGoals";
 import type { BoardConfiguration } from "../../core/boardConfiguration";
 import { allIssues, type BoardSnapshot } from "../../core/boardIssue";
 import { type AtlassianGoalsLoader, type BoardReader, loadSnapshot } from "../../core/boardSync";
@@ -176,7 +177,10 @@ export class BoardLoadingService {
       const linkedGoalIds = new Set(
         result.snapshot.goalIssues.flatMap((issue) => (issue.goalId ? [issue.goalId] : [])),
       );
-      // À la toute première lecture, les Goals constituent le board initial et restent visibles.
+      // À la première lecture des Goals Atlassian, les Goals constituent le board initial et restent
+      // visibles, même après une lecture en texte (source texte, ou repli quand les Goals étaient
+      // illisibles) : seuls des Goals Atlassian déjà connus en comptent pour l'avoir consommée
+      // (story 8.25).
       // Ensuite, un Goal Atlassian inconnu introduit par un ticket seulement (non épinglé) arrive
       // masqué : le ticket reste dans son bloc par défaut jusqu'à ce que l'utilisateur le
       // réaffiche depuis « Masqués du board ». Jamais un objectif du texte d'un sprint, y compris
@@ -184,7 +188,7 @@ export class BoardLoadingService {
       // créés pendant le planning). Épinglage illisible : rien n'est masqué.
       const pinnedGoalIds = pinnedGoalIdsOfSnapshot(result.snapshot, latest);
       const newLinkedGoalIds =
-        knownGoalIds.size === 0 ||
+        ![...knownGoalIds].some(isAtlassianGoalId) ||
         result.snapshot.goalsOrigin !== "atlassianGoals" ||
         pinnedGoalIds === null
           ? []

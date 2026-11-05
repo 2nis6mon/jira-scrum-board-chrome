@@ -58,8 +58,9 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
 - Kanban exige les Goals Atlassian. Si leur lecture est inexploitable, la photographie précédente
   reste affichée avec l'erreur : aucun repli qui placerait à tort tous les tickets dans Build.
   `boardPinnedGoalIds` est partagé sur le board, sans propriété de sprint, et exige son droit d'édition.
-- Un ticket lié à plusieurs Goals suit le premier Goal résolu. Après la première lecture, un Goal
-  Atlassian nouvellement découvert par un ticket, non épinglé (ni sur un sprint réuni, ni dans le
+- Un ticket lié à plusieurs Goals suit le premier Goal résolu. Après la première lecture des Goals
+  Atlassian (tant qu'aucun Goal Atlassian, identifiant ARI, n'est connu du board, même après une
+  lecture en texte ou un repli : story 8.25, 0.50.1), un Goal Atlassian nouvellement découvert par un ticket, non épinglé (ni sur un sprint réuni, ni dans le
   repli local, ni dans `boardPinnedGoalIds`), arrive masqué ; ses tickets restent dans leur
   destination par défaut jusqu'à réaffichage, sans modifier le rattachement. Jamais un objectif
   texte, y compris en repli texte : ceux d'un sprint qui démarre peuvent avoir un identifiant neuf
