@@ -6,6 +6,12 @@ import { dirname, join, resolve } from "node:path";
 
 export const sleep = (duration) => new Promise((resolve) => setTimeout(resolve, duration));
 
+/**
+ * Touche de sélection d'une carte pour `Input.dispatchMouseEvent` : Cmd (4) sous macOS, où
+ * Ctrl+clic ouvre le menu contextuel de la carte, Ctrl (2) ailleurs.
+ */
+export const SELECT_MODIFIER = process.platform === "darwin" ? 4 : 2;
+
 function browserPath() {
   const candidates = process.env.CHROME_PATH
     ? [process.env.CHROME_PATH]

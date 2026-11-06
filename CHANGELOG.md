@@ -13,6 +13,8 @@ sont dans la [documentation technique](docs/technique/index.md).
   referme la popin. Jira qui quitte la page (son board après « Start ») referme aussi la popin et
   la vue relit Jira. Page rendue au bout de 15 s au lieu de 10. Aucune écriture ajoutée ; essai
   sur le sandbox à refaire.
+- Bancs `verify:planning` et `verify:drag` : sélection par Cmd+clic sous macOS, où Ctrl+clic ouvre
+  le menu de la carte ; ils échouaient en local sur Mac, pas en CI.
 
 ## 0.50.2 — Revue de la story 8.25
 
