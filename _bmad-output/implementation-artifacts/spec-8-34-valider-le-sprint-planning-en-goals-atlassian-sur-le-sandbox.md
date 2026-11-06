@@ -2,7 +2,7 @@
 title: 'Story 8.34 — Valider le Sprint Planning en Goals Atlassian sur le sandbox'
 type: 'chore'
 created: '2026-11-06'
-status: 'in-review'
+status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
 context:

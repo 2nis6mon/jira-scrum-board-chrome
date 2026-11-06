@@ -108,8 +108,8 @@ development_status:
   8-32-changer-d-objectif-sur-le-board-sans-changer-d-etat: done
   8-33-deplacer-plusieurs-cartes-du-board-vers-un-objectif: done
   8-10-valider-le-sprint-planning-sur-un-vrai-jira: done
-  8-34-valider-le-sprint-planning-en-goals-atlassian-sur-le-sandbox: review
-  8-35-relire-chaque-ticket-d-un-lot-renvoye-au-backlog: review
+  8-34-valider-le-sprint-planning-en-goals-atlassian-sur-le-sandbox: done
+  8-35-relire-chaque-ticket-d-un-lot-renvoye-au-backlog: done
   8-36-planifier-les-tickets-d-un-sprint-futur-non-modifiable: backlog
   8-37-pas-de-sprint-planning-sans-le-droit-de-gerer-les-sprints: backlog
   8-38-gestes-d-un-ticket-desactives-sans-droit-sur-son-projet: backlog
