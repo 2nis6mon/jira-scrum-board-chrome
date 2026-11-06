@@ -26,6 +26,11 @@ engagée tant qu'elle n'est pas décidée. Mise en conformité d'architecture :
 - [ ] WIP en points et minimums de colonne ; présentation des sources Goals selon capacités du site.
 - [ ] Déploiement IT via `storage.managed` si besoin ; déplacement clavier si la décision d'abandon est réouverte.
 
+## Bilan des Sprint Goals
+
+- [ ] Bilan OK / KO des objectifs d'un ou plusieurs sprints fermés, à la date de fermeture, en lecture seule :
+  Epic 9 de [epics.md](epics.md), avec le constat manuel du 06/11/2026 (board 3013) et les questions ouvertes.
+
 ## Sprint Planning
 
 Sprint Planning est réservé au `dist/` local. Son amélioration, sa validation sur une instance

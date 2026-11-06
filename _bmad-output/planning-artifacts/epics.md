@@ -19,6 +19,7 @@ decisions:
   - "La mise en conformité d'architecture précède le menu contextuel, prochaine fonction qui écrit dans Jira (Denis, 30/10/2026)."
   - "Sprint Planning, fonction cachée du paquet, a son propre epic (Epic 8) pour être retravaillé puis activé ; FR17 quitte l'Epic 4 et la question de concurrence de la publication (action 5 de la rétrospective de l'Epic 1) y est reprise (Denis, 31/10/2026)."
   - "Sprint Planning en direct (Denis, 01/11/2026) : remplace la décision produit du 14/10/2026 ; Epic 8 redéfinie depuis _bmad-output/forge/sprint-planning-complet/forged-idea.md (proposition sprint-change-proposal-2026-11-01.md)."
+  - "Bilan des Sprint Goals d'un sprint fermé (Denis, 06/11/2026) : Epic 9, en lecture seule, mode texte du sprint d'abord ; issue d'un bilan manuel du board 3013 (sprints Accueil-26T3.5 à Accueil-26T4.1)."
 ---
 
 # Sprint Goals Board pour Jira - Epic Breakdown
@@ -70,6 +71,13 @@ Ajouts de Denis (30/10/2026) :
 
 FR23: Avec plusieurs sprints actifs du board, l'éditeur d'épinglage des Goals Atlassian permet de choisir le sprint concerné ; l'épinglage s'écrit dans la propriété de ce sprint (E5). Aujourd'hui, les épinglages de tous les sprints sont lus, mais seul celui du sprint principal se modifie (point partiel de la 0.36.0).
 FR24: Le board montre les tickets reportés depuis le sprint précédent du board (nombre et liste, via un filtre rapide « Reportés »), calculés sans lecture Jira supplémentaire à partir de l'historique Sprint déjà chargé (`sprintScope`) ; sprints étrangers exclus.
+
+Ajouts de Denis (06/11/2026), bilan des Sprint Goals :
+
+FR25: Pour un sprint fermé du board en mode « texte du sprint », l'extension affiche un tableau à deux colonnes, « Sprint Goals {nom du sprint} » et « OK / KO », avec une ligne par objectif de la propriété `sprintgoals.v1` de ce sprint (dans l'ordre `position`) ; une ligne OK est en vert ; sous chaque objectif, ses tickets et leur état à la fermeture.
+FR26: Le verdict se calcule à la date de fermeture du sprint (`completeDate`) : un ticket compte s'il est rattaché à l'objectif (`links`) et était dans le sprint à cette date (historique du champ Sprint) ; il est terminé s'il était alors dans un statut de catégorie Done (historique du statut, à la seconde) ; OK = tous les tickets comptés terminés, KO sinon ; objectif sans ticket compté = « Pas de données ».
+FR27: L'utilisateur choisit un ou plusieurs sprints fermés du board et obtient un tableau par sprint, du plus ancien au plus récent ; un sprint sans objectif (texte natif vide, propriété absente ou sans objectif) affiche « Pas de données ».
+FR28: Le bilan affiché peut être gardé ou partagé hors de l'extension (copie ou export, format à décider), sans rien écrire dans Jira.
 
 ### NonFunctional Requirements
 
@@ -134,6 +142,10 @@ FR21: Epic 7 - WIP en points, minimums de colonne, sources Goals
 FR22: Epic 5 - Déploiement `storage.managed` (déplacement clavier abandonné)
 FR23: Epic 2 - Épinglage par sprint avec plusieurs sprints actifs
 FR24: Epic 2 - Tickets reportés, via un filtre rapide « Reportés »
+FR25: Epic 9 - Tableau OK / KO des objectifs d'un sprint fermé
+FR26: Epic 9 - Verdict à la date de fermeture, d'après l'historique des tickets
+FR27: Epic 9 - Bilan de plusieurs sprints fermés, « Pas de données » si aucun objectif
+FR28: Epic 9 - Copier ou exporter le bilan
 
 ## Epic List
 
@@ -178,6 +190,11 @@ L'équipe règle ses limites WIP en points et des minimums par colonne, et voit 
 L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre, sans quitter l'extension ; chaque geste est aussitôt dans Jira, et la fonction, validée sur un vrai Jira, est activée dans le paquet distribué.
 **FRs covered:** FR17
 *Notes :* créé le 31/10/2026, redéfini le 01/11/2026 (Denis) depuis [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md), qui remplace la décision du 14/10/2026. Création de sprint et de Goals hors périmètre. Droits (lecture seule annoncée ou découverte au premier refus) : décision en attente. Écran de référence : maquette v2.
+
+### Epic 9: Bilan des Sprint Goals d'un sprint fermé
+Après la clôture, l'équipe voit pour chaque sprint fermé choisi si ses objectifs ont été atteints (OK / KO) à la date de fermeture, avec les tickets qui l'expliquent, et peut garder ou partager ce bilan.
+**FRs covered:** FR25, FR26, FR27, FR28
+*Notes :* créé le 06/11/2026 (Denis) depuis un bilan manuel du board 3013. Lecture seule : aucune nouvelle écriture, aucun bilan enregistré dans Jira. Indépendant des Epics 2 à 8 ; s'appuie sur le format `sprintgoals.v1` de l'Epic 1. Mode « texte du sprint » d'abord ; Goals Atlassian en question ouverte.
 
 ## Epic 1: Des écritures Jira sûres et cohérentes
 
@@ -731,3 +748,158 @@ So that je planifie mes sprints sans build local.
 **Given** les stories 8.1 à 8.10 terminées et le constat de 8.10 favorable
 **When** le paquet est construit (`npm run package`)
 **Then** `SPRINT_PLANNING_ENABLED` vaut vrai dans le paquet, `npm run verify:planning:package` le vérifie, et AGENTS.md, le manuel, le CHANGELOG et les captures Store sont à jour
+
+## Epic 9: Bilan des Sprint Goals d'un sprint fermé
+
+Après la clôture, l'équipe veut savoir, sprint par sprint, si ses objectifs ont été atteints, sans reconstituer le bilan à la main. L'extension n'enregistre aucun état à la fermeture et n'écrit rien de nouveau : le bilan est recalculé à chaque demande depuis ce que Jira garde déjà. En mode « texte du sprint », la propriété `sprintgoals.v1` d'un sprint fermé n'est plus modifiée par l'extension (le board ne charge que les sprints `active`, `src/core/boardSync.ts`, et le planning n'écrit que dans un sprint futur) : ses objectifs (`goals`) et rattachements (`links`) sont ceux de la fermeture. L'état des tickets à la fermeture se lit dans leur historique.
+
+Ordre : contrats de lecture, calcul, écran d'un sprint, plusieurs sprints, partage, puis essai réel et activation. Chaque story ne dépend que des précédentes.
+
+**Constat de départ (06/11/2026, essai réel autorisé par Denis, lecture seule par le connecteur Atlassian) :** bilan manuel du board 3013 (`mousquetaires.atlassian.net`, projet CLIENT). La propriété `sprintgoals.v1` n'était pas lisible par le connecteur : les rattachements ont été **déduits des titres des tickets**, l'état à la fermeture tiré de JQL `status WAS IN (…) ON "<date>"`. Résultat, à confirmer par la story 9.6 avec les vrais rattachements :
+
+| Sprint (id) | Fermeture (Paris) | Objectifs | Bilan déduit |
+|---|---|---|---|
+| Accueil-26T3.5 (19288) | 15/09/2026 15:50 | 3 | 2 OK, 1 KO (APP, parcours d'activation MFA : CLIENT-10415, 10260, 10053, 10455 terminés après la fermeture) |
+| Accueil-26T3.6 (19289) | 29/09/2026 18:05 | 0 (texte natif vide) | Pas de données |
+| Accueil-26T3.7 I&P (19290) | 13/10/2026 10:51 | 4 | 2 OK, 1 KO (custom actions Batch, CLIENT-10138), 1 sans ticket identifié (plan d'action tests de connexion) |
+| Accueil-26T4.1 (22620) | 27/10/2026 10:45 | 7 | 6 OK, 1 KO (accessibilité de la modale, CLIENT-8287 terminé le 28/10) |
+
+Pièges relevés pendant ce bilan, à couvrir par les tests de la story 9.2 :
+- tickets rouverts après la fermeture (PITM-18813 fermé à la clôture de 26T4.1 puis rouvert ; CLIENT-10315 terminé à la clôture de 26T3.5, refermé le 03/11) : seul compte l'état à la fermeture ;
+- ticket terminé quelques secondes avant la fermeture (CLIENT-10522, 10:51:42 pour une fermeture à 10:51:57) : la précision de JQL `WAS … ON` (minute, fuseau de l'utilisateur) ne suffit pas, il faut les horodatages de l'historique comparés à `completeDate` ;
+- statuts de catégorie Done propres à l'équipe : To Deliver, TO DELIVER IN PROD, In Delivery, Pour recette, Pret pour MEP, Closed, Corrigée, Canceled ; la catégorie fait foi, pas une liste de noms ;
+- ticket annulé (CLIENT-10316, Canceled) : compté terminé par la catégorie Done (question ouverte) ;
+- un ticket n'a qu'un objectif dans `links` ; la déduction par les titres en avait placé un (CLIENT-10317) sous deux objectifs ;
+- ticket reporté : terminé dans le sprint suivant (CLIENT-10138, KO en 26T3.7 puis OK en 26T4.1), il reste KO dans le bilan du premier.
+
+*Questions ouvertes (Denis) :*
+- Un ticket Canceled compte-t-il comme terminé, ou est-il exclu du calcul de l'objectif ?
+- Où ouvrir le bilan : menu du board, page dédiée à côté du planning, ou section du Sprint Planning après la clôture ?
+- Format de partage (story 9.5) : tableau copié pour Confluence ou un e-mail, fichier HTML téléchargé, ou les deux ?
+- Mode Goals Atlassian : le lien Goal → ticket est porté par le ticket et peut changer après la fermeture, et `atlassianStatus` est celui de la dernière écriture ; bilan exclu, ou affiché avec cette réserve ?
+- Règle « terminé » partagée avec le report des objectifs non atteints de la story 8.7 (catégorie Done ici ; la note de l'Epic 8 du 02/11/2026 relève une règle par colonne côté board) : une seule fonction de `core` si l'Epic 8 l'adopte (AD-2).
+
+### Story 9.1: Vérifier les lectures d'un sprint fermé
+
+As a développeur qui prépare le bilan,
+I want savoir quelles lectures Jira donnent, pour un sprint fermé, ses objectifs, ses tickets et leur historique,
+So that le bilan ne repose que sur des contrats Atlassian vérifiés, sans nouvelle écriture.
+
+**Acceptance Criteria:**
+
+**Given** les lectures existantes de `src/jira/client.ts` : `sprints(boardId, ["closed"])`, `sprint(sprintId)`, `sprintProperty(sprintId, "com.scrumboardmac.sprintgoals.v1")` et les tickets avec `includeChangelog`
+**When** leur contrat est vérifié dans les références officielles (Sprint, Board, Issue search, Issue changelog)
+**Then** une note dans `docs/technique/integration-jira.md` dit, pour un sprint fermé : la lecture de sa propriété, la liste de ses tickets (terminés compris, reportés compris), la présence de `completeDate`, et si l'historique fourni par `expand=changelog` peut être tronqué
+**And** si l'historique peut être tronqué, la note désigne la lecture paginée de l'historique d'un ticket à utiliser et vérifie qu'elle reste une lecture passant par `transport.ts`
+**And** l'API interne du rapport de sprint (`greenhopper`) est écartée, et aucune écriture n'est ajoutée à `writes.ts`
+
+**Given** l'autorisation de Denis pour un essai réel en lecture seule
+**When** ces lectures sont jouées sur le sprint 22620 du board 3013
+**Then** le constat (propriété présente ou non, nombre de tickets, historique complet ou non) est ajouté à la note, sans donnée personnelle
+
+*Notes :* `sprints` accepte déjà `closed` ; `sprintScope` et `CARRY_OVER_WINDOW_MS` (`src/jira/models.ts`) lisent déjà l'historique Sprint pour les tickets reportés (story 2.2).
+
+### Story 9.2: Calculer l'état de chaque objectif à la fermeture
+
+As a membre de l'équipe qui fait le bilan d'un sprint,
+I want que chaque objectif reçoive OK, KO ou « Pas de données » selon l'état de ses tickets à la fermeture,
+So that le verdict ne dépend ni de ce qui s'est passé après, ni d'une lecture à la main.
+
+**Acceptance Criteria:**
+
+**Given** le document `sprintgoals.v1` d'un sprint fermé, sa `completeDate`, ses tickets et leur historique
+**When** une fonction pure de `core` (sans DOM, sans `chrome.*`, sans phrase) calcule le bilan
+**Then** chaque objectif de `goals`, dans l'ordre `position`, reçoit ses tickets comptés (rattachés par `links` et dans le sprint à `completeDate` d'après l'historique Sprint) et, pour chacun, terminé ou non (catégorie Done du statut en vigueur à `completeDate`, à la seconde)
+**And** OK si tous les tickets comptés étaient terminés, KO si au moins un ne l'était pas, « Pas de données » si aucun ticket n'est compté
+
+**Given** un ticket rouvert après la fermeture, ou terminé après la fermeture
+**When** le bilan est calculé
+**Then** seul son statut à `completeDate` compte (cas PITM-18813, CLIENT-10315, CLIENT-8287)
+
+**Given** un ticket terminé quelques secondes avant `completeDate`
+**When** le bilan est calculé
+**Then** il est terminé (cas CLIENT-10522), et un ticket terminé une seconde après ne l'est pas
+
+**Given** un ticket présent dans `links` mais retiré du sprint avant la fermeture, un ticket du sprint sans rattachement, ou un lien vers un objectif absent de `goals`
+**When** le bilan est calculé
+**Then** le premier n'est pas compté, le deuxième n'apparaît sous aucun objectif, le troisième est ignoré ; aucun ne fait échouer le calcul
+
+**Given** une propriété absente, illisible ou de version inconnue
+**When** le bilan est calculé
+**Then** le sprint donne « Pas de données » avec la raison, sans rien écrire (NFR3)
+
+*Notes :* tests sur données fictives sous `tests/` reprenant les pièges du constat de départ. `goalProgress` (`src/core/boardIssue.ts`) mesure l'avancement en direct (colonne ou statut actuel) : le bilan est un calcul distinct, à la date de fermeture.
+
+### Story 9.3: Voir le bilan d'un sprint fermé
+
+As a Scrum Master qui prépare la rétrospective,
+I want ouvrir le bilan d'un sprint fermé du board,
+So that je vois d'un coup d'œil quels objectifs ont été atteints.
+
+**Acceptance Criteria:**
+
+**Given** un board Scrum en mode « texte du sprint » avec des sprints fermés
+**When** j'ouvre le bilan et choisis un sprint fermé
+**Then** un tableau à deux colonnes s'affiche : en-tête « Sprint Goals {nom du sprint} » et « OK / KO », une ligne par objectif, les lignes OK en vert
+**And** sous chaque objectif, ses tickets avec leur clé (lien vers la fiche Jira) et leur état à la fermeture ; sous le tableau, la date et l'heure de fermeture
+**And** un sprint sans objectif affiche une seule ligne « Pas de données »
+
+**Given** un utilisateur sans droit `canEdit`
+**When** il ouvre le bilan
+**Then** le bilan est le même : il ne demande aucune écriture
+
+**Given** le bilan affiché
+**When** je regarde l'interface en français, anglais ou espagnol
+**Then** les libellés viennent des catalogues `src/i18n/` ; titres d'objectifs, noms de sprint et de statuts restent ceux de Jira (NFR10)
+
+*Notes :* derrière un interrupteur déclaré dans `app/featureFlags.ts`, désactivé dans le paquet jusqu'à la story 9.6 (AD-5, NFR8). Emplacement de l'écran : question ouverte de l'epic. Manuel à mettre à jour.
+
+### Story 9.4: Faire le bilan de plusieurs sprints d'un coup
+
+As a manager qui suit plusieurs sprints,
+I want choisir plusieurs sprints fermés du board,
+So that j'obtiens un tableau par sprint sans recommencer pour chacun.
+
+**Acceptance Criteria:**
+
+**Given** la liste des sprints fermés du board, du plus récent au plus ancien
+**When** j'en coche plusieurs
+**Then** un tableau par sprint s'affiche, du plus ancien au plus récent, chacun selon la story 9.3
+
+**Given** un sprint dont la lecture échoue ou dont la propriété manque
+**When** les bilans se chargent
+**Then** ce sprint affiche « Pas de données » avec la raison, et les autres s'affichent normalement
+
+**Given** beaucoup de sprints choisis
+**When** les bilans se chargent
+**Then** les lectures restent celles de la story 9.1, sans relecture inutile d'un ticket présent dans plusieurs sprints, et l'interface signale le chargement en cours
+
+### Story 9.5: Garder ou partager le bilan
+
+As a Scrum Master qui envoie le bilan à l'équipe,
+I want copier ou exporter les tableaux affichés,
+So that je les colle dans Confluence ou un e-mail sans les recopier.
+
+**Acceptance Criteria:**
+
+**Given** un ou plusieurs bilans affichés
+**When** j'utilise l'action de partage retenue (copie ou fichier, décision ouverte)
+**Then** le contenu reprend les mêmes tableaux (en-têtes, verdicts, couleur verte des OK, date de fermeture), lisible hors de l'extension
+**And** rien n'est écrit dans Jira, aucune donnée n'est envoyée à un service tiers, aucune permission Chrome n'est ajoutée (NFR1, NFR12)
+
+### Story 9.6: Valider le bilan sur un vrai Jira et l'activer
+
+As a mainteneur qui distribue l'extension,
+I want comparer le bilan de l'extension au bilan manuel du 06/11/2026,
+So that la fonction n'est activée dans le paquet qu'une fois juste sur de vraies données.
+
+**Acceptance Criteria:**
+
+**Given** l'autorisation de Denis et le board 3013
+**When** le bilan est produit pour Accueil-26T3.5, Accueil-26T3.6, Accueil-26T3.7 I&P et Accueil-26T4.1
+**Then** chaque écart avec le tableau du constat de départ est expliqué (rattachement réel différent de la déduction par les titres, ticket annulé, horodatage)
+**And** le constat est consigné dans cet epic, et les défauts trouvés deviennent des stories
+
+**Given** un constat favorable
+**When** le paquet est construit (`npm run package`)
+**Then** l'interrupteur du bilan est actif dans le paquet, un contrôle `verify:` le vérifie sur faux Jira, et le manuel, le CHANGELOG et les captures Store sont à jour
