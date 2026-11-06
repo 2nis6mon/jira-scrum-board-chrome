@@ -3,6 +3,17 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.50.3 — Fenêtres natives de clôture et de démarrage (story 8.27)
+
+- Défauts D3 et D4 de l'essai 8.10. Le bouton « Terminer/Démarrer le sprint » n'est cliqué qu'une
+  fois la page backlog chargée et le même bouton affiché 1,2 s ; toujours un seul clic.
+- La fenêtre de Jira est attendue 20 s et reconnue quand la même reste affichée, même si son
+  bandeau d'avertissement la redimensionne (« Start Sprint »).
+- Page rendue après une fenêtre non reconnue : la fenêtre déjà ouverte est suivie et sa fermeture
+  referme la popin. Jira qui quitte la page (son board après « Start ») referme aussi la popin et
+  la vue relit Jira. Page rendue au bout de 15 s au lieu de 10. Aucune écriture ajoutée ; essai
+  sur le sandbox à refaire.
+
 ## 0.50.2 — Revue de la story 8.25
 
 - Revue du 06/11/2026 : un Goal Atlassian que le champ Goals d'un ticket désigne par sa clé

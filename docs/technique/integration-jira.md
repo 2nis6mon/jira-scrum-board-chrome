@@ -74,14 +74,20 @@ inutilisable lors de l'essai réel. Le DOM et la politique d'iframe de Jira rest
 Fenêtres natives de clôture et de démarrage (S13) : l'hôte charge, cachée dans la même popin, la page
 `…/boards/<id>/backlog` construite depuis sa propre adresse, puis clique le seul bouton visible au
 libellé exact « Terminer/Démarrer le sprint » (fr/en/es) ; pour démarrer, la ligne qui ne contient que
-ce bouton doit nommer le sprint ; pour terminer, ce nom départage plusieurs sprints actifs. La
-fenêtre de Jira est isolée comme un formulaire de transition. Quand elle disparaît, une seule nouvelle
+ce bouton doit nommer le sprint ; pour terminer, ce nom départage plusieurs sprints actifs. Le clic
+attend la page chargée et le même bouton affiché 1,2 s : un clic trop tôt part sans ouvrir de fenêtre
+(essai 8.10). La fenêtre de Jira, attendue 20 s, est reconnue quand la même reste affichée près
+d'une seconde, quelle que soit sa taille (le bandeau d'avertissement de « Start Sprint » la redimensionne),
+puis isolée comme un formulaire de transition. Quand elle disparaît, une seule nouvelle
 fenêtre extérieure, absente avant le clic, est suivie à sa place : fenêtre remontée par Jira, ou
 fenêtre de suite ouverte après la validation de la clôture (création d'une rétrospective, page
 Confluence de récapitulatif), montrée seule et laissée à l'utilisateur. Aucune fenêtre suivante
 pendant 600 ms : la popin se ferme (`refresh`), et le report part donc quand plus aucune fenêtre de
-Jira n'est ouverte. Bouton absent, ambigu ou autre langue : backlog montré tel quel au bout de 10 s,
-sans clic ; la fenêtre que l'utilisateur y ouvre est suivie de même, sans rien masquer. Rien n'est
+Jira n'est ouverte. Bouton absent, ambigu ou autre langue : backlog montré tel quel au bout de 15 s,
+sans clic ; la fenêtre que l'utilisateur y ouvre est suivie de même, sans rien masquer, comme celle
+qu'un clic a ouverte sans être reconnue. Une page qui quitte le chemin du backlog après le clic ou
+la page rendue (board de Jira avec `?sprintStarted=true` après « Start », ou lien suivi par
+l'utilisateur) referme aussi la popin (`refresh`) ; un simple paramètre (`?selectedIssue=`) non. Rien n'est
 cliqué, rempli ni validé par l'extension dans ces fenêtres. Côté vue, la clôture est relue à 0, 1, 3,
 6 et 10 s après le `refresh` (voir [invariants](invariants.md)).
 
