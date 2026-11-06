@@ -1696,6 +1696,52 @@ describe("Sprint Planning : déplacer plusieurs tickets ensemble (8.15)", () => 
     expect(notice(planning)).toBeNull();
   });
 
+  /**
+   * Route des tickets du sprint 43 qui, après l'E9, ne montre pas encore `late` (constat D6) : la
+   * relecture de `core` le voit, puis les `lateReads` lectures suivantes ne le voient plus.
+   */
+  function lateArrival(jira: ReturnType<typeof context>["jira"], late: string, lateReads: number) {
+    let reads = -1;
+    jira.intercept("GET", "/rest/agile/1.0/board/7/sprint/43/issue", (reply) => {
+      const json = "json" in reply ? (reply.json as { issues: { key: string }[] }) : null;
+      if (!json?.issues.some((issue) => issue.key === late)) return reply;
+      reads += 1;
+      if (reads === 0 || reads > lateReads) return reply;
+      const issues = json.issues.filter((issue) => issue.key !== late);
+      return { status: 200, json: { issues, total: issues.length } };
+    });
+  }
+
+  it("lot ajouté au sprint, un ticket pas encore montré par la relecture du planning : relu jusqu'à son arrivée (story 8.35, D6)", async () => {
+    const { planning, inspect, jira, wait } = context();
+    await planning.load();
+    lateArrival(jira, "ABC-202", 2);
+    wait.mockClear();
+    await planning.placeIssues(["ABC-201", "ABC-202"], null);
+    expect(inspect().writes.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      "POST /rest/agile/1.0/sprint/43/issue",
+    ]);
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([500, 1000]);
+    expect(planning.snapshot.value?.sprintIssues.map((issue) => issue.key)).toContain("ABC-202");
+    expect(notice(planning)).toBeNull();
+  });
+
+  it("ticket seul ajouté, jamais montré par la relecture du planning : annoncé « pas encore relu », une seule E9 (story 8.35, D6)", async () => {
+    const { planning, inspect, jira, wait } = context();
+    await planning.load();
+    lateArrival(jira, "ABC-202", Infinity);
+    wait.mockClear();
+    await planning.placeIssue("ABC-202", null);
+    expect(inspect().writes.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      "POST /rest/agile/1.0/sprint/43/issue",
+    ]);
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([500, 1000, 1500, 2500]);
+    expect(notice(planning)).toContain(
+      "Jira a reçu l'écriture de ABC-202 mais ne le montre pas encore à sa nouvelle place",
+    );
+    expect(notice(planning)).not.toContain("confirmé");
+  });
+
   it("ticket seul renvoyé, encore montré par la relecture du planning : annoncé « pas encore relu » (story 8.35)", async () => {
     const { planning, inspect, jira, wait } = context();
     await planning.load();

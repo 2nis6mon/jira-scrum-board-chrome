@@ -39,6 +39,28 @@ export class FakeJira {
     return this;
   }
 
+  /**
+   * Transforme les réponses d'une route déjà prévue : `transform` reçoit la réponse qu'elle aurait
+   * donnée (simuler une lecture en retard sans recopier la route).
+   */
+  intercept(
+    method: string,
+    path: string,
+    transform: (reply: Reply, request: RecordedRequest) => Reply,
+  ): this {
+    const queue = this.#routes.get(`${method} ${path}`);
+    if (!queue || queue.length === 0)
+      throw new Error(`FakeJira : route à intercepter absente ${path}`);
+    const next = () => (queue.length > 1 ? queue.shift() : queue[0]) as Responder;
+    this.#routes.set(`${method} ${path}`, [
+      (request) => {
+        const responder = next();
+        return transform(typeof responder === "function" ? responder(request) : responder, request);
+      },
+    ]);
+    return this;
+  }
+
   sent(method: string, path?: string): RecordedRequest[] {
     return this.requests.filter(
       (r) => r.method === method && (path === undefined || r.path === path),

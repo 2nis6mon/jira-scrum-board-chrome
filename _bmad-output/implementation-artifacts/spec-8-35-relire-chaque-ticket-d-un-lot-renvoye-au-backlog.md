@@ -15,6 +15,8 @@ context:
 
 **Problem:** Essai 8.34 (D5) : trois tickets renvoyés ensemble au backlog, E10 appliquée pour les trois, mais CLIENT-5800 est resté affiché dans sa swimlane, absent du backlog, sans l'avis « pas encore relu » de 8.26, jusqu'à l'actualisation.
 
+**Extension décidée par Denis le 06/11/2026 (rejeu sur le sandbox, défaut D6) :** même défaut en miroir sur l'ajout au sprint : trois tickets ajoutés en lot à 17311, appliqués par Jira, montrés ni dans le sprint ni dans le backlog, sans avis, jusqu'à l'actualisation. Les ajouts confirmés (ticket seul ou lot) suivent la même règle : relecture refaite tant que le sprint en préparation ne les montre pas, puis « pas encore relus ».
+
 **Approach:** Après un retrait confirmé (lot ou ticket seul, vers le backlog ou un autre sprint futur), la relecture du planning qui suit doit elle aussi ne plus voir les tickets dans le sprint en préparation. Tant qu'elle les y voit, elle est refaite avec les délais de 8.26 ; au terme, les tickets encore affichés sont annoncés « pas encore relus à leur nouvelle place », sans nouvelle écriture. Un test reproduit un lecteur en retard pour un seul ticket du lot ; l'essai sur le sandbox rejouera le renvoi de trois tickets.
 
 </frozen-after-approval>
@@ -26,6 +28,15 @@ context:
 - Tests (`tests/app/PlanningModel.test.ts`) : lot dont un ticket est relu en retard puis parti, lot dont un ticket reste montré, lot vers un autre sprint futur, ticket seul ; les trois premiers ajoutés échouent sur l'ancien modèle.
 - Docs : `integration-jira.md` (règle de relecture), `invariants.md`, `CHANGELOG.md`, version 0.50.4.
 - Vérifications : typage, Biome, 2052 tests, `verify:planning`, `verify:i18n`, `verify:jira` verts. Renvoi de trois tickets à rejouer sur le sandbox.
+
+- Extension D6 (0.50.5) : `#rereadAfterMove` reçoit un `PlanningMove` (`leaving` ou `arriving`) ; `placeIssue` et `placeIssues` attendent leurs tickets confirmés dans le sprint en préparation. `FakeJira.intercept` (tests) transforme la réponse d'une route existante. Deux tests (lot et ticket seul ajoutés, relus en retard) échouent sur la 0.50.4. Pas de nouvelle revue en sous-agent : même mécanisme que la partie revue, direction inverse.
+
+## Constat sur le sandbox
+
+Rejeu du 06/11/2026, extension 0.50.4, sprint 17311 « Accueil-26T2.10 » créé par Denis, CLIENT-7121, -5800 et -5294.
+- Renvoi groupé au backlog : conforme sur 3 passages (tickets au backlog en ~6 s, aucun avis, Jira juste) ; le retard d'indexation ne s'est pas reproduit, le correctif n'a donc pas été vu à l'œuvre.
+- **D6 :** sur 1 ajout en lot sur 4, les trois tickets, appliqués dans 17311 par Jira, n'étaient montrés ni dans le sprint ni dans le backlog, sans avis, jusqu'à « Refresh ». Même mécanisme que D5 en miroir : il confirme la cause supposée. Corrigé en 0.50.5 (extension de l'intention, décision de Denis).
+- Fenêtre d'essai en arrière-plan pendant une partie du rejeu (`document.hidden`) : minuteurs de la page ralentis, gestes plus lents (~10 s), sans effet sur le résultat.
 
 ## Review Triage Log
 

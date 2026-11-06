@@ -3,6 +3,14 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.50.5 — Lot ajouté au sprint relu ticket par ticket (story 8.35, suite)
+
+- Défaut D6, rejeu sur le sandbox du 06/11/2026 : un lot ajouté au sprint, appliqué par Jira,
+  n'était plus montré ni dans le sprint ni dans le backlog, sans avis, jusqu'à l'actualisation.
+  Même règle que pour un retrait : après un ajout confirmé (lot ou ticket seul), la relecture du
+  planning est refaite tant que le sprint en préparation ne montre pas le ticket, puis il est dit
+  « pas encore relu ». Renvoi groupé au backlog (0.50.4) conforme sur 3 passages au rejeu.
+
 ## 0.50.4 — Lot renvoyé au backlog relu ticket par ticket (story 8.35)
 
 - Défaut D5 de l'essai 8.34 : après un renvoi groupé au backlog appliqué par Jira, un ticket restait
