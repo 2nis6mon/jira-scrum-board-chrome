@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { sourceText } from "../../src/app/model/appMessage";
 import { goalsWarningMessage } from "../../src/app/model/coreText";
 import { toMessage } from "../../src/app/model/messages";
-import { type GoalsReader, loadAtlassianSprintGoals } from "../../src/core/atlassianGoals";
+import {
+  type GoalsReader,
+  isAtlassianGoalId,
+  loadAtlassianSprintGoals,
+} from "../../src/core/atlassianGoals";
 import { CoreError } from "../../src/core/reasons";
 import { JiraError } from "../../src/jira/errors";
 import type { AtlassianGoal } from "../../src/jira/models";
@@ -340,5 +344,14 @@ describe("loadAtlassianSprintGoals", () => {
     await expect(
       load({ reader: r, pinnedGoalIds: [], issues, configuration: config }),
     ).rejects.toThrowError("Invalid CORS request");
+  });
+});
+
+describe("isAtlassianGoalId", () => {
+  it("reconnaît un ARI de Goal et une clé, jamais un identifiant d'objectif texte", () => {
+    expect(isAtlassianGoalId("ari:cloud:townsquare:c:goal/paiement")).toBe(true);
+    expect(isAtlassianGoalId("GOAL-42")).toBe(true);
+    expect(isAtlassianGoalId("text-42-a1b2c3")).toBe(false);
+    expect(isAtlassianGoalId("0f8e2d3c-5b6a-4c7d-8e9f-0a1b2c3d4e5f")).toBe(false);
   });
 });

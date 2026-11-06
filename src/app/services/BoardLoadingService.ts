@@ -180,7 +180,9 @@ export class BoardLoadingService {
       // À la première lecture des Goals Atlassian, les Goals constituent le board initial et restent
       // visibles, même après une lecture en texte (source texte, ou repli quand les Goals étaient
       // illisibles) : seuls des Goals Atlassian déjà connus en comptent pour l'avoir consommée
-      // (story 8.25).
+      // (story 8.25). `goalColorIndex` sert donc aussi de mémoire des Goals déjà lus : jamais
+      // élagué et fusionné avec la propriété du board, il garde consommée la grâce d'un board qui
+      // a déjà lu des Goals Atlassian, même après une période en texte (limite acceptée).
       // Ensuite, un Goal Atlassian inconnu introduit par un ticket seulement (non épinglé) arrive
       // masqué : le ticket reste dans son bloc par défaut jusqu'à ce que l'utilisateur le
       // réaffiche depuis « Masqués du board ». Jamais un objectif du texte d'un sprint, y compris

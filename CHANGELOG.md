@@ -3,6 +3,18 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.50.2 — Revue de la story 8.25
+
+- Revue du 06/11/2026 : un Goal Atlassian que le champ Goals d'un ticket désigne par sa clé
+  (`GOAL-42`) n'était pas reconnu comme tel ; sur un site qui renvoie des clés, la première lecture
+  ne se terminait jamais et plus aucun Goal neuf n'était masqué. Une seule définition de
+  l'identifiant d'un Goal (ARI ou clé) sert désormais au décodage des tickets et à ce critère.
+- Limite acceptée par Denis le 06/11/2026 : les couleurs des Goals (`goalColorIndex`, fusionnées
+  avec la propriété du board) gardent la mémoire des Goals Atlassian déjà lus ; un board qui en a
+  déjà lu ne refait pas de première lecture après une période en texte.
+- Tests ajoutés : bascule de la source texte vers les Goals Atlassian, rechargement après une
+  session en texte, Goal connu par sa clé. Aucune lecture ni écriture Jira ajoutée.
+
 ## 0.50.1 — Goals Atlassian visibles à leur première lecture
 
 - Relevé par la revue du 02/11/2026 (story 8.25) : un board qui passait de la source texte aux
