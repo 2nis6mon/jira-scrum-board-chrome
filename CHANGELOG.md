@@ -3,6 +3,15 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.50.4 — Lot renvoyé au backlog relu ticket par ticket (story 8.35)
+
+- Défaut D5 de l'essai 8.34 : après un renvoi groupé au backlog appliqué par Jira, un ticket restait
+  affiché dans sa swimlane, sans avis, jusqu'à l'actualisation. Après un retrait confirmé (lot ou
+  ticket seul, vers le backlog ou un autre sprint futur), la relecture du planning est refaite avec
+  les délais de 8.26 tant qu'elle montre encore un de ces tickets dans le sprint en préparation ;
+  au terme, il est dit « pas encore relu à sa nouvelle place ». Aucune écriture ajoutée ni rejouée ;
+  cause déduite du code, renvoi de trois tickets à rejouer sur le sandbox.
+
 ## 0.50.3 — Fenêtres natives de clôture et de démarrage (story 8.27)
 
 - Défauts D3 et D4 de l'essai 8.10. Le bouton « Terminer/Démarrer le sprint » n'est cliqué qu'une

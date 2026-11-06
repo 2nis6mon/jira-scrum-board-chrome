@@ -201,6 +201,8 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   et le journal disent les tickets confirmés et ceux à refaire, qui restent sélectionnés ; un
   ticket dont Jira a reçu l'écriture sans le montrer encore à sa nouvelle place, au terme des
   relectures bornées (8.26), est dit « pas encore relu » et quitte la sélection.
+- Retrait confirmé, lot ou ticket seul (8.35) : si la relecture du planning le montre encore dans le
+  sprint en préparation, elle est refaite avec les délais de 8.26, puis il est dit « pas encore relu ».
 - Sprints proposés (0.43.1) : seulement ceux que l'utilisateur peut modifier (administrateur, ou
   « Gérer les sprints » sur tous les projets du board d'origine) ; indécidable : proposé. Un sprint
   d'un autre board (`originBoardId`, `isForeignSprint`) sans aucun ticket du board restant (colonne

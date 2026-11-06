@@ -17,6 +17,7 @@ import {
   searchNeedle,
 } from "../../core/filters";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
+import { CoreError } from "../../core/reasons";
 import {
   atlassianGoalHistory,
   type ClosedSprintCache,
@@ -43,6 +44,7 @@ import {
   estimatePlanningIssue,
   loadSprintPlanning,
   PLANNING_BATCH_LIMIT,
+  READ_BACK_DELAYS_MS,
   type PlanningBatchOutcome,
   type PlanningBatchTarget,
   type PlanningDestination,
@@ -740,6 +742,8 @@ export class PlanningModel implements PlanningViewModel {
     entry: { issueKey: string | null },
     intention: (access: BoardWriteAccess, snapshot: PlanningSnapshot) => Promise<PlanningOutcome>,
     after?: (outcome: PlanningOutcome) => void,
+    /** Retrait : tickets qui doivent avoir quitté le sprint en préparation si le geste est confirmé. */
+    leaving: readonly string[] = [],
   ): Promise<void> {
     if (!SPRINT_PLANNING_ENABLED || this.gesturesDisabled.value) return;
     const snapshot = this.snapshot.value;
@@ -755,8 +759,32 @@ export class PlanningModel implements PlanningViewModel {
       if (this.#stale(generation)) return;
       after?.(outcome);
       this.notice.value = outcome.kind === "done" ? null : planningOutcomeMessage(outcome);
-      await this.#reread(generation);
+      const unseen = await this.#rereadAfterMove(
+        generation,
+        outcome.kind === "done" ? leaving : [],
+      );
+      if (unseen.length > 0)
+        this.notice.value = planningOutcomeMessage(unseenOutcome(outcome, unseen));
     });
+  }
+
+  /**
+   * Relecture après un geste. Un retrait confirmé par `core` peut encore être montré à son ancienne
+   * place par la relecture du planning (indexation de Jira, story 8.35) : elle est refaite avec les
+   * délais de 8.26 tant que le sprint en préparation contient un de ces tickets. Rend ceux qu'il
+   * contient encore au terme ; rien n'est réécrit.
+   */
+  async #rereadAfterMove(generation: number, leaving: readonly string[]): Promise<string[]> {
+    const shown = () =>
+      leaving.filter((key) => this.snapshot.value?.sprintIssues.some((issue) => issue.key === key));
+    await this.#reread(generation);
+    for (const delay of READ_BACK_DELAYS_MS) {
+      if (this.#stale(generation) || this.error.value || shown().length === 0) break;
+      await this.context.wait(delay);
+      if (this.#stale(generation)) break;
+      await this.#reread(generation);
+    }
+    return this.#stale(generation) || this.error.value ? [] : shown();
   }
 
   async #busyWhile(task: (generation: number) => Promise<void>): Promise<void> {
@@ -970,6 +998,7 @@ export class PlanningModel implements PlanningViewModel {
         const { [key]: _left, ...rest } = this.#origins.value;
         this.#origins.value = rest;
       },
+      [key],
     );
   }
 
@@ -1121,6 +1150,7 @@ export class PlanningModel implements PlanningViewModel {
         for (const key of result.confirmedKeys) delete origins[key];
         this.#origins.value = origins;
       },
+      true,
     );
   }
 
@@ -1145,6 +1175,8 @@ export class PlanningModel implements PlanningViewModel {
       snapshot: PlanningSnapshot,
     ) => Promise<PlanningBatchOutcome>,
     after?: (result: PlanningBatchOutcome) => void,
+    /** Retrait d'un lot : ses tickets confirmés doivent avoir quitté le sprint en préparation. */
+    leaving = false,
   ): Promise<void> {
     if (!SPRINT_PLANNING_ENABLED || this.gesturesDisabled.value) return;
     const snapshot = this.snapshot.value;
@@ -1184,7 +1216,19 @@ export class PlanningModel implements PlanningViewModel {
             : result.remainingKeys.filter((key) => !unseen.has(key)),
         );
       });
-      await this.#reread(generation);
+      const late = await this.#rereadAfterMove(
+        generation,
+        leaving && result.outcome.kind !== "refused" ? result.confirmedKeys : [],
+      );
+      if (late.length > 0) {
+        const pending = new Set(late);
+        this.notice.value = planningBatchMessage({
+          outcome: unseenOutcome(result.outcome, late),
+          confirmedKeys: result.confirmedKeys.filter((key) => !pending.has(key)),
+          remainingKeys: [...result.remainingKeys, ...late],
+          unseenKeys: [...result.unseenKeys, ...late],
+        });
+      }
     });
   }
 
@@ -1704,4 +1748,20 @@ function locate(
       };
   }
   return null;
+}
+
+/**
+ * Résultat d'un retrait confirmé par `core` dont la relecture du planning montre encore des tickets
+ * à leur ancienne place (story 8.35) : écriture reçue, ticket pas encore relu, rien à refaire. Le
+ * retrait n'est plus donné pour confirmé ; un arrêt antérieur garde sa propre cause.
+ */
+function unseenOutcome(outcome: PlanningOutcome, keys: readonly string[]): PlanningOutcome {
+  if (outcome.kind === "partial") return outcome;
+  const [issueKey = ""] = keys;
+  return {
+    kind: "partial",
+    confirmed:
+      outcome.kind === "done" ? outcome.confirmed.filter((step) => step !== "issueMoved") : [],
+    error: new CoreError({ code: "planningIssueUnconfirmed", issueKey }),
+  };
 }

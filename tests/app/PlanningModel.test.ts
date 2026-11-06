@@ -1612,6 +1612,105 @@ describe("Sprint Planning : déplacer plusieurs tickets ensemble (8.15)", () => 
     expect(inspect().issueKeys).toEqual([]);
   });
 
+  /**
+   * Route des tickets du sprint 43 en retard sur l'E10 (story 8.35, constat 8.34) : la relecture de
+   * `core` voit le lot parti, puis la relecture du planning montre encore `late`, `lateReads` fois
+   * (indéfiniment si `Infinity`).
+   */
+  async function lateSprintRoute(
+    jira: ReturnType<typeof context>["jira"],
+    removed: readonly string[],
+    late: string,
+    lateReads: number,
+  ) {
+    const read = await jira.fetch(
+      "https://acme.atlassian.net/rest/agile/1.0/board/7/sprint/43/issue",
+      { method: "GET" },
+    );
+    const before = (await read.json()) as { issues: { key: string }[] };
+    const reply = (keep: (key: string) => boolean) => {
+      const issues = before.issues.filter((issue) => keep(issue.key));
+      return { status: 200, json: { issues, total: issues.length } };
+    };
+    const fresh = reply((key) => !removed.includes(key));
+    const stale = reply((key) => !removed.includes(key) || key === late);
+    const lagging = Number.isFinite(lateReads) ? Array(lateReads).fill(stale) : [stale];
+    // Avant l'écriture (contrôle de `core`), relecture de `core`, puis relectures du planning.
+    jira.on(
+      "GET",
+      "/rest/agile/1.0/board/7/sprint/43/issue",
+      reply(() => true),
+      fresh,
+      ...lagging,
+      ...(Number.isFinite(lateReads) ? [fresh] : []),
+    );
+  }
+
+  it("lot renvoyé, un ticket encore montré par la relecture du planning : relu jusqu'à son départ (story 8.35)", async () => {
+    const { planning, inspect, jira, wait } = context();
+    await planning.load();
+    await planning.placeIssues(["ABC-201", "ABC-202"], null);
+    const before = inspect().writes.length;
+    await lateSprintRoute(jira, ["ABC-201", "ABC-202", "ABC-210"], "ABC-202", 2);
+    wait.mockClear();
+    await planning.removeIssues(["ABC-201", "ABC-202", "ABC-210"], { kind: "backlog" });
+    expect(inspect().writes.length - before).toBe(1);
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([500, 1000]);
+    expect(planning.snapshot.value?.sprintIssues.map((issue) => issue.key)).toEqual([]);
+    expect(notice(planning)).toBeNull();
+  });
+
+  it("lot renvoyé, un ticket toujours montré à son ancienne place : annoncé « pas encore relu », rien n'est rejoué (story 8.35)", async () => {
+    const { planning, inspect, jira, wait } = context();
+    await planning.load();
+    await planning.placeIssues(["ABC-201", "ABC-202"], null);
+    const before = inspect().writes.length;
+    await lateSprintRoute(jira, ["ABC-201", "ABC-202", "ABC-210"], "ABC-202", Infinity);
+    wait.mockClear();
+    await planning.removeIssues(["ABC-201", "ABC-202", "ABC-210"], { kind: "backlog" });
+    expect(inspect().writes.length - before).toBe(1);
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([500, 1000, 1500, 2500]);
+    expect(notice(planning)).toContain("Tickets confirmés : ABC-201, ABC-210.");
+    expect(notice(planning)).toContain("Pas encore relus à leur nouvelle place : ABC-202.");
+    expect(notice(planning)).not.toContain("À refaire");
+    expect([...planning.selection.value]).toEqual([]);
+  });
+
+  it("lot envoyé vers un autre sprint futur, un ticket encore montré : relu jusqu'à son départ (story 8.35)", async () => {
+    const { planning, inspect, jira, wait } = context({ otherFutureSprint: true });
+    await planning.load();
+    await planning.placeIssues(["ABC-201", "ABC-202"], null);
+    const before = inspect().writes.length;
+    await lateSprintRoute(jira, ["ABC-201", "ABC-202"], "ABC-201", 1);
+    wait.mockClear();
+    await planning.removeIssues(["ABC-201", "ABC-202"], { kind: "sprint", sprintId: 44 });
+    expect(
+      inspect()
+        .writes.slice(before)
+        .map(({ method, path }) => `${method} ${path}`),
+    ).toEqual(["POST /rest/agile/1.0/sprint/44/issue"]);
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([500]);
+    expect(planning.snapshot.value?.sprintIssues.map((issue) => issue.key)).not.toContain(
+      "ABC-201",
+    );
+    expect(notice(planning)).toBeNull();
+  });
+
+  it("ticket seul renvoyé, encore montré par la relecture du planning : annoncé « pas encore relu » (story 8.35)", async () => {
+    const { planning, inspect, jira, wait } = context();
+    await planning.load();
+    const before = inspect().writes.length;
+    await lateSprintRoute(jira, ["ABC-210"], "ABC-210", Infinity);
+    wait.mockClear();
+    await planning.removeIssue("ABC-210", { kind: "backlog" });
+    expect(inspect().writes.length - before).toBe(1);
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([500, 1000, 1500, 2500]);
+    expect(notice(planning)).toContain(
+      "Jira a reçu l'écriture de ABC-210 mais ne le montre pas encore à sa nouvelle place",
+    );
+    expect(notice(planning)).not.toContain("confirmé");
+  });
+
   it("plus de 50 tickets : refusé avant toute écriture, avec un avis", async () => {
     const { planning, inspect } = context();
     await planning.load();

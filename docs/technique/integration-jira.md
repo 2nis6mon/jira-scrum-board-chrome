@@ -155,6 +155,10 @@ la suite du geste (E5) n'est écrite qu'après confirmation. Au-delà, l'avis di
 l'écriture sans la montrer encore, et un lot classe ces tickets en « pas encore relus » plutôt
 qu'« à refaire ». À chaque lecture du planning, la route du sprint en préparation fait foi : un ticket
 qu'elle contient n'est pas montré dans le backlog ni dans un autre sprint futur relu en retard.
+Depuis 0.50.4 (story 8.35, constat 8.34) : un retrait confirmé peut encore être montré dans le sprint
+en préparation par la relecture du planning qui suit (indexation non monotone) ; elle est refaite
+avec les mêmes délais tant qu'elle le montre (jusqu'à ~5,5 s de plus, sablier affiché), puis le
+ticket est dit « pas encore relu ». Une relecture en échec affiche son erreur, sans cet avis.
 
 Sur le Sprint Board depuis 0.48.7 (story 8.29) : après une E2 (glisser ou top / basse priorité),
 `executeMove` relit l'ordre par la route que le board lit (sprint du ticket en Scrum, tickets du
