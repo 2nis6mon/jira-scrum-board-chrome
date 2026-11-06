@@ -11,8 +11,9 @@ sont dans la [documentation technique](docs/technique/index.md).
   bandeau d'avertissement la redimensionne (« Start Sprint »).
 - Page rendue après une fenêtre non reconnue : la fenêtre déjà ouverte est suivie et sa fermeture
   referme la popin. Jira qui quitte la page (son board après « Start ») referme aussi la popin et
-  la vue relit Jira. Page rendue au bout de 15 s au lieu de 10. Aucune écriture ajoutée ; essai
-  sur le sandbox à refaire.
+  la vue relit Jira. Page rendue au bout de 15 s au lieu de 10. Aucune écriture ajoutée.
+- Essai sur le sandbox le 06/11/2026 : clôture et démarrage conformes, fenêtres ouvertes seules et
+  isolées, popin refermée après la clôture et après « Start ».
 - Bancs `verify:planning` et `verify:drag` : sélection par Cmd+clic sous macOS, où Ctrl+clic ouvre
   le menu de la carte ; ils échouaient en local sur Mac, pas en CI.
 

@@ -45,3 +45,13 @@ Revue Blind Hunter (sous-agent, sans contexte) sur le diff non commité.
 | Bords des 20 s et bouton désactivé non testés | low, rejeté | bouton désactivé couvert par les tests existants ; le bord des 20 s suit le chemin déjà testé à 10/15 s |
 | Suivi et spec non à jour | false | mis à jour en fin de workflow |
 | `.claude/launch.json` non suivi | false | fichier personnel de Denis, non commité |
+
+## Constat sur le sandbox
+
+Essai du 06/11/2026, autorisé par Denis : extension 0.50.3 (copie de `dist/`), Chrome visible sur profil temporaire piloté par CDP, board 3013 du sandbox `mousquetaires-sandbox-860`, interface en anglais. Denis s'est connecté et a autorisé le site lui-même ; feu vert donné avant la clôture et avant le démarrage. Relecture par le MCP en lecture seule.
+
+- **Clôture de 17308 « Accueil-26T2.7 » — conforme (D3 corrigé).** Traces : `boutons de sprint reconnus 1/1`, `bouton de sprint cliqué Complete sprint après 3036 ms`, `fenêtre de sprint de Jira isolée 600x693` 1,5 s plus tard ; la fenêtre seule est montrée par-dessus le planning. Valeurs choisies dans la fenêtre comme un utilisateur : destination « Accueil-26T2.8 » (Jira proposait « APP : Backlog tech/dette »), « Join Confluence… » décochée (cochée par défaut, décision de Denis), Rovo décochée. Après « Complete sprint », popin refermée seule, vue relue ; Jira : plus de sprint actif, 59 tickets dans 17309. Compte rendu : « Unmet goals carried over to Accueil-26T2.8 » ; objectifs A, C, B renomme et Goal 2 reportés, Goal 1 et Goal 3 non reportés (tickets tous dans la dernière colonne).
+- **Démarrage de 17309 « Accueil-26T2.8 » — conforme (D4 corrigé).** `boutons de sprint reconnus 5/1`, `bouton de sprint cliqué Start sprint après 5411 ms`, puis `fenêtre de sprint de Jira isolée 600x755` **12 s après le clic** : au-delà des 10 s d'avant la 8.27, ce qui explique aussi D4 (fenêtre « Start Sprint » avec bandeau « 44 others do not have a value for the 'Estimate' field », 52 tickets, « Sprint goal » prérempli des 4 objectifs reportés). Valeurs de Jira gardées, « Start » cliqué : `Jira a quitté la page du sprint, popin refermée /jira/software/c/projects/CLIENT/boards/3013` environ 1 s après ; vue relue, « Complete Accueil-26T2.8 » proposé. Jira : 17309 actif (06/11 → 20/11), `goal` des 4 objectifs.
+- Une seule tentative de clic à chaque fois ; rien n'a été rempli ni validé par l'extension. Fenêtre de suite de Jira (Confluence cochée) toujours non observée.
+
+**État laissé dans le sandbox.** 17308 clos ; 17309 « Accueil-26T2.8 » actif avec 4 objectifs ; 17310 « Accueil-26T2.9 » futur, vide.
