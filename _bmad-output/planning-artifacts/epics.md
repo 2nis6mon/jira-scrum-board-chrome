@@ -1337,3 +1337,30 @@ So that je n'ai pas à rattacher chaque ticket un par un.
 **Then** aucune nouvelle route d'écriture (E3, E4, E5 seulement), au plus 50 tickets par lot (refus avant toute écriture au-delà), journal du board avec une entrée par lot ; `verify:drag` joue la sélection de deux cartes, leur glisser vers un objectif et le refus d'une swimlane incompatible
 
 *Notes :* dépend de la 8.32 (swimlane entière comme zone de dépôt) et de la 8.30 (`CardSelection`, `BoardModel.selectedKeys`). Le glisser du board transmet aujourd'hui une seule clé (`DRAG_TYPE`, `BoardModel.startDrag`) ; le planning transmet le lot (`gestureKeys`, `PLANNING_DRAG_TYPE`). Les liens passent par les écritures de `src/core/boardWrites.ts` (`withTextGoalLink`, liens Goals) et la porte du board. Un ticket sélectionné puis masqué par un filtre part-il avec le lot ? Même question qu'en 8.15 (backlog) : à trancher avec elle.
+
+### Story 8.34: Valider le Sprint Planning en Goals Atlassian sur le sandbox
+
+*Type : essai réel, demandé par l'essai 8.10 (Goals Atlassian non couverts) avant l'activation (8.11). Décisions de Denis du 06/11/2026.*
+
+As a Scrum Master d'un board en Goals Atlassian,
+I want préparer, clôturer et démarrer un sprint avec des Goals épinglés,
+So that le planning est vérifié sur un vrai Jira dans les deux sources d'objectifs avant d'être livré.
+
+**Acceptance Criteria:**
+
+**Given** le board 3013 du sandbox passé par Denis en source « Goals Atlassian » dans les réglages
+**When** le planning s'ouvre sur 17310 « Accueil-26T2.9 »
+**Then** les Goals se cherchent par nom, MOUSQ1-16, MOUSQ1-17 et MOUSQ1-18 s'épinglent au sprint préparé (E5) et aucun Goal n'est créé
+
+**Given** des tickets posés sur un Goal (depuis le backlog, un autre sprint futur, en lot)
+**When** chaque geste est relu
+**Then** le ticket est dans le sprint (E9) et lié au Goal par le champ Goals (E3, après E4 si besoin), confirmé malgré le délai d'indexation (8.26) ; l'avancement de chaque Goal suit les colonnes du board
+
+**Given** la clôture de 17309 puis le démarrage de 17310 par les fenêtres natives, avec le feu vert de Denis avant chaque geste
+**When** la popin se referme
+**Then** les Goals non atteints sont reportés sur 17310 et le compte rendu est juste ; le sprint démarré montre ses Goals sur le Sprint Board
+
+**Given** la fin de l'essai
+**When** Denis remet le board 3013 en source texte
+**Then** le board relit ses objectifs texte sans perte ; le constat (coûts, défauts devenus stories) est consigné dans la spec
+
