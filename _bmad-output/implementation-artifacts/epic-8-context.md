@@ -44,6 +44,7 @@ Permettre à l'équipe de clôturer son sprint, de construire le suivant par obj
 - Story 8.36: Planifier les tickets d'un sprint futur que je ne peux pas modifier
 - Story 8.37: Pas de Sprint Planning sans le droit de gérer les sprints du board
 - Story 8.38: Gestes d'un ticket désactivés sans droit sur son projet
+- Story 8.39: Rattachement à un Goal désactivé sur le Sprint Board sans droit sur le projet
 - Story 8.10: Valider le Sprint Planning sur un vrai Jira
 - Story 8.11: Activer le Sprint Planning dans le paquet
 

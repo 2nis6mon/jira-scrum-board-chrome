@@ -1461,3 +1461,23 @@ So that je ne découvre pas un refus en pleine séance.
 **Then** il part comme aujourd'hui, une seule tentative, refus de Jira affiché
 
 *Notes :* mêmes gestes sur le Sprint Board quand ils écrivent les mêmes routes (rattachement à un objectif en Goals : E3/E4). Aucune nouvelle route ; textes en fr/en/es.
+
+### Story 8.39: Rattachement à un Goal désactivé sur le Sprint Board sans droit sur le projet
+
+*Type : évolution, séparée de la 8.38 par décision de Denis du 06/11/2026 (le Sprint Board est dans le paquet distribué).*
+
+As a membre de l'équipe sur un board en Goals Atlassian,
+I want que le rattachement d'une carte à un Goal soit désactivé quand je n'ai pas *Edit issues* sur son projet,
+So that je ne découvre pas le refus de Jira en déplaçant la carte.
+
+**Acceptance Criteria:**
+
+**Given** un board en Goals Atlassian et une carte d'un projet sans *Edit issues* (lecture de la 8.38, en cache)
+**When** je la glisse vers une autre swimlane d'objectif ou ouvre son menu
+**Then** le dépôt et les entrées d'objectif sont refusés avec la raison, sans écriture (E3, E4) ; les autres gestes ne changent pas
+
+**Given** des droits indécidables
+**When** le geste est tenté
+**Then** il part comme aujourd'hui, une seule tentative, refus de Jira affiché
+
+*Notes :* réutilise la lecture des droits de ticket de la 8.38 ; coût au chargement du board (une requête par projet) à mesurer, le board étant livré.
