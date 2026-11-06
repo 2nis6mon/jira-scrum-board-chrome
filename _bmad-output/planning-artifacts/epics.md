@@ -1383,3 +1383,81 @@ So that la page ne montre jamais un ticket à une place qu'il n'occupe plus sans
 **Then** un test reproduit un lecteur en retard pour un seul ticket du lot, et un essai sur le sandbox rejoue le renvoi de trois tickets
 
 *Notes :* essai 8.34 : CLIENT-7121, -5800 et -5294 renvoyés ensemble ; E10 appliquée pour les trois, CLIENT-5800 resté dans « Goal 2 » sans avis jusqu'à l'actualisation. Voir `removePlanningIssues` (`src/core/sprintPlanning.ts`) et `unseenKeys` (8.26).
+
+### Story 8.36: Planifier les tickets d'un sprint futur que je ne peux pas modifier
+
+*Type : évolution, décision de Denis du 06/11/2026 (droits du planning, point 1).*
+
+As a membre de l'équipe qui prépare son sprint,
+I want voir dans « Où sont les tickets » un sprint futur que je n'ai pas le droit de modifier, s'il contient des tickets du board, et en tirer ces tickets,
+So that aucun ticket du board ne m'échappe, sans pour autant préparer un sprint qui ne m'appartient pas.
+
+**Acceptance Criteria:**
+
+**Given** un sprint futur non modifiable par l'utilisateur (règle de 0.43.1 : ni administrateur, ni « Gérer les sprints » sur les projets de son board d'origine) qui contient des tickets restants du board
+**When** le planning s'ouvre
+**Then** il apparaît dans « Où sont les tickets » avec ses tickets, marqué en consultation ; il n'apparaît ni dans le menu des sprints à préparer, ni comme destination « Vers… », ni à la clôture
+
+**Given** un ticket de ce sprint
+**When** je le pose sur un objectif ou dans le sprint préparé (glisser, menu, lot)
+**Then** il rejoint le sprint préparé comme depuis un autre sprint futur (E9, puis E5 ou E3/E4), si les droits sur son projet le permettent (story 8.38)
+
+**Given** un tel sprint sans ticket restant du board
+**When** le planning s'ouvre
+**Then** il n'est pas affiché (règle de 0.48.1 et 0.48.2 inchangée)
+
+**Given** le changement
+**When** il est vérifié
+**Then** aucune nouvelle route ; le sprint non modifiable est lu par la route des tickets déjà utilisée ; l'essai sur le sandbox confirme que Jira accepte de sortir un ticket d'un sprint que l'utilisateur ne peut pas modifier (contrat à constater, refus 403 affiché sinon)
+
+*Notes :* aujourd'hui `loadSprintPlanning` (`src/core/sprintPlanning.ts`) ne lit que les sprints futurs `proposable` (`proposableSprintIds`, `src/core/sprintPermissions.ts`) ; il faut distinguer « lisible comme source » et « proposable à la préparation ».
+
+### Story 8.37: Pas de Sprint Planning sans le droit de gérer les sprints du board
+
+*Type : évolution, décision de Denis du 06/11/2026 (droits du planning, point 3), à confirmer par l'essai sans droit.*
+
+As a membre de l'équipe sans droit sur les sprints du board,
+I want que l'entrée « Sprint Planning » me dise pourquoi elle m'est fermée,
+So that je n'ouvre pas une page vide ou des gestes qui échoueront.
+
+**Acceptance Criteria:**
+
+**Given** un utilisateur ni administrateur Jira, ni titulaire de « Gérer les sprints » sur les projets du board, ou sans *Schedule issues* sur aucun de ces projets
+**When** il affiche le board
+**Then** l'entrée « Sprint Planning » est désactivée avec sa raison ; le Sprint Board reste entier ; aucune lecture du planning n'est faite
+
+**Given** des droits indécidables (lecture refusée, board sans projet)
+**When** le board s'affiche
+**Then** l'entrée reste ouverte et le refus de Jira s'affiche au premier geste, sans nouvelle tentative (règle actuelle)
+
+**Given** le changement
+**When** il est vérifié
+**Then** lectures seules (`mypermissions`, `board/{id}/project`), textes en fr/en/es ; essai sur le sandbox avec un compte sans ces droits, avec l'accord de Denis
+
+### Story 8.38: Gestes d'un ticket désactivés sans droit sur son projet
+
+*Type : évolution, décision de Denis du 06/11/2026 (droits du planning, point 4).*
+
+As a membre de l'équipe sur un board qui mélange plusieurs projets,
+I want que les gestes que Jira me refuserait soient désactivés sur la carte, avec leur raison,
+So that je ne découvre pas un refus en pleine séance.
+
+**Acceptance Criteria:**
+
+**Given** les droits lus une fois par projet du board (`GET /rest/api/3/mypermissions`, déjà au contrat, en cache jusqu'à l'actualisation)
+**When** un ticket appartient à un projet sans *Schedule issues* (`SCHEDULE_ISSUES`)
+**Then** sa carte ne se glisse pas, et l'ajout au sprint, le retrait vers le backlog ou un autre sprint (E9, E10) sont désactivés dans son menu, avec la raison
+
+**Given** un ticket d'un projet sans *Edit issues* (`EDIT_ISSUES`)
+**When** j'affiche sa carte
+**Then** l'estimation sur la carte (E11) et le lien à un Goal Atlassian (E3/E4) sont désactivés, avec la raison ; la fiche native reste le recours
+
+**Given** une sélection qui mêle des tickets permis et refusés
+**When** je la déplace
+**Then** le geste est refusé avant toute écriture en nommant les tickets en cause
+
+**Given** des droits indécidables
+**When** le geste est tenté
+**Then** il part comme aujourd'hui, une seule tentative, refus de Jira affiché
+
+*Notes :* mêmes gestes sur le Sprint Board quand ils écrivent les mêmes routes (rattachement à un objectif en Goals : E3/E4). Aucune nouvelle route ; textes en fr/en/es.
