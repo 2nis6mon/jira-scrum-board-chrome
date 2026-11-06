@@ -38,8 +38,8 @@ dans le paquet ; contrats dans [intégration Jira](../../docs/technique/integrat
 Essai réel 8.10 joué le 03/11/2026 sur le sandbox (board 3013, constat dans
 [la spec 8.10](../implementation-artifacts/spec-8-10-valider-le-sprint-planning-sur-un-vrai-jira.md)) :
 défauts D1 à D4 planifiés en stories 8.26 à 8.28 (et 8.29 pour le même délai sur le board), puis 8.30 (mêmes gestes à la souris sur une carte du board et du planning, 04/11/2026) et 8.31 (sprint actif retiré de « Où sont les tickets », 04/11/2026), puis 8.32 (changer d'objectif sur le board sans changer d'état) et 8.33 (déplacer une sélection du board vers un objectif), 05/11/2026, toutes livrées ; 8.27 vérifiée sur le sandbox le 06/11/2026 (clôture et démarrage
-conformes). Restent l'essai des Goals Atlassian (story 8.34, préparée le 06/11/2026) et la décision
-sur les droits, puis l'activation (8.11).
+conformes). Essai des Goals Atlassian joué le 06/11/2026 (story 8.34) : conforme sur le fond, défaut D5
+planifié en story 8.35. Restent 8.35 et la décision sur les droits, puis l'activation (8.11).
 
 - [x] Décidé par Denis le 05/11/2026 (question ouverte par la story 8.30) : une sélection de
   plusieurs cartes du Sprint Board ne change que d'objectif ou de swimlane, jamais d'état ni de rang
@@ -56,6 +56,12 @@ sur les droits, puis l'activation (8.11).
   avant ceux créés au planning, contrairement à l'ordre de `goal` et `sprintgoals.v1`, et Goal 1 y
   compte 0/5 contre 3 tickets dans le planning. Le compte rendu de clôture reste aussi affiché au-dessus
   d'un autre sprint préparé après le démarrage.
+- [ ] À investiguer (essai 8.34, 06/11/2026) : sur le sandbox, l'introspection ne trouve pas de lien
+  Goal → tickets (`workItems`) exploitable ; avertissement permanent « partially loaded », déjà livré
+  et report signalés incomplets, liens lus par le seul champ Goals des tickets. Vérifier le schéma
+  GraphQL réel (variante de `workItems` non reconnue, ou absente du site) avant 8.11. Le même essai
+  confirme la seconde partie de l'observation ci-dessus : le Sprint Board compte les sous-tâches dans
+  l'avancement d'un objectif, le planning non.
 - [ ] Optimisation (essai 8.10) : chaque relecture du planning lit deux fois les tickets des sprints
   futurs d'autres boards (menu des sprints, puis planning). Coût relevé : 18 à 24 requêtes par geste,
   32 à 37 par actualisation, sans limitation de débit observée sur un backlog de 255 tickets.

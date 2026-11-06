@@ -1364,3 +1364,22 @@ So that le planning est vérifié sur un vrai Jira dans les deux sources d'objec
 **When** Denis remet le board 3013 en source texte
 **Then** le board relit ses objectifs texte sans perte ; le constat (coûts, défauts devenus stories) est consigné dans la spec
 
+### Story 8.35: Relire chaque ticket d'un lot renvoyé au backlog
+
+*Type : bug, constaté à l'essai 8.34 (06/11/2026), défaut D5.*
+
+As a membre de l'équipe qui renvoie plusieurs tickets au backlog,
+I want que chaque ticket du lot quitte sa swimlane ou soit annoncé « pas encore relu »,
+So that la page ne montre jamais un ticket à une place qu'il n'occupe plus sans le dire.
+
+**Acceptance Criteria:**
+
+**Given** un lot du sprint en préparation renvoyé au backlog (E10), en texte ou en Goals Atlassian
+**When** la relecture ne voit pas encore l'un des tickets hors du sprint
+**Then** il est classé « pas encore relu » avec l'avis de 8.26, sans nouvelle écriture ; sinon il apparaît dans le backlog
+
+**Given** le correctif
+**When** il est vérifié
+**Then** un test reproduit un lecteur en retard pour un seul ticket du lot, et un essai sur le sandbox rejoue le renvoi de trois tickets
+
+*Notes :* essai 8.34 : CLIENT-7121, -5800 et -5294 renvoyés ensemble ; E10 appliquée pour les trois, CLIENT-5800 resté dans « Goal 2 » sans avis jusqu'à l'actualisation. Voir `removePlanningIssues` (`src/core/sprintPlanning.ts`) et `unseenKeys` (8.26).
