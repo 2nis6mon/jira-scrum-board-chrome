@@ -17,7 +17,6 @@ import {
   searchNeedle,
 } from "../../core/filters";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
-import { CoreError } from "../../core/reasons";
 import {
   atlassianGoalHistory,
   type ClosedSprintCache,
@@ -25,6 +24,7 @@ import {
   type GoalHistory,
   textGoalHistory,
 } from "../../core/planningProgress";
+import { CoreError } from "../../core/reasons";
 import {
   GOAL_COLOR_COUNT,
   goalColorName,
@@ -44,7 +44,6 @@ import {
   estimatePlanningIssue,
   loadSprintPlanning,
   PLANNING_BATCH_LIMIT,
-  READ_BACK_DELAYS_MS,
   type PlanningBatchOutcome,
   type PlanningBatchTarget,
   type PlanningDestination,
@@ -54,6 +53,7 @@ import {
   pinPlanningGoals,
   placePlanningIssue,
   placePlanningIssues,
+  READ_BACK_DELAYS_MS,
   rankPlanningIssue,
   removePlanningIssue,
   removePlanningIssues,
