@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-31-2026 09:00
-last_updated: 11-24-2026 17:21
+last_updated: 11-24-2026 17:23
 project: Sprint Goals Board pour Jira
 project_key: NOKEY
 tracking_system: file-system
@@ -128,7 +128,7 @@ development_status:
   9-6-valider-le-bilan-sur-un-vrai-jira-et-l-activer: backlog
   epic-9-retrospective: optional
 
-  epic-10: in-progress
+  epic-10: done
   10-1-chercher-un-parent-dans-le-filtre-parent: done
   epic-10-retrospective: optional
 action_items:
