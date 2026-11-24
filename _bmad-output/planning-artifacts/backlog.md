@@ -25,6 +25,12 @@ engagée tant qu'elle n'est pas décidée. Mise en conformité d'architecture :
 - [ ] Préférences personnelles entre postes : propriété utilisateur Jira = nouvelle écriture à autoriser ; `storage.sync` exclu.
 - [ ] WIP en points et minimums de colonne ; présentation des sources Goals selon capacités du site.
 - [ ] Déploiement IT via `storage.managed` si besoin ; déplacement clavier si la décision d'abandon est réouverte.
+- [ ] En standby (24/11/2026, Denis) : renommer les propriétés Jira `com.scrumboardmac.*` en
+  `sprintgoals.dashboard.v1`, `boardsettings.dashboard.v1` et `diagnostic.dashboard`, pour que le nom de l'ancienne
+  application macOS disparaisse du code, des données et des docs. Trois solutions proposées (lecture double,
+  migration par copie puis bascule recommandée, renommage d'affichage seul), aucune retenue ; lève la règle
+  « préserver les clés `com.scrumboardmac.*` » d'AGENTS.md si elle l'est. Story rédigée :
+  [story-standby-proprietes-jira-sans-scrumboardmac.md](story-standby-proprietes-jira-sans-scrumboardmac.md).
 
 ## Bilan des Sprint Goals
 
