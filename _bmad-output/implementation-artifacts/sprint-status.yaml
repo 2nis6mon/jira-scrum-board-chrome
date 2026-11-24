@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-31-2026 09:00
-last_updated: 11-24-2026 17:27
+last_updated: 11-24-2026 17:40
 project: Sprint Goals Board pour Jira
 project_key: NOKEY
 tracking_system: file-system
@@ -117,7 +117,7 @@ development_status:
   8-38-gestes-d-un-ticket-desactives-sans-droit-sur-son-projet: ready-for-dev
   8-39-rattachement-a-un-goal-desactive-sur-le-sprint-board-sans-droit: backlog
   8-11-activer-le-sprint-planning-dans-le-paquet: done
-  epic-8-retrospective: optional
+  epic-8-retrospective: done
 
   epic-9: backlog
   9-1-verifier-les-lectures-d-un-sprint-ferme: backlog
@@ -312,3 +312,52 @@ action_items:
     owner: "dev"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-10-retro-2026-11-24.md"
+  - id: "epic-8-retro-item-27-une-seule-règle-de-comptage-des-sous-tâc"
+    epic: 8
+    action: "Une seule règle de comptage des sous-tâches dans l avancement d un objectif,
+      board et planning, avec un test commun"
+    owner: "Denis (décision), dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-24.md"
+  - id: "epic-8-retro-item-28-vérifier-le-lien-goal-vers-tickets-worki"
+    epic: 8
+    action: "Vérifier le lien Goal vers tickets (workItems) sur le sandbox et reformuler
+      l entrée « avant 8.11 » du backlog"
+    owner: "dev, essai autorisé par Denis"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-24.md"
+  - id: "epic-8-retro-item-29-découper-planningview-tsx-et-planningmod"
+    epic: 8
+    action: "Découper PlanningView.tsx et PlanningModel.ts avant 8.36 à 8.39, regrouper
+      sameIds et sameOrder"
+    owner: "dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-24.md"
+  - id: "epic-8-retro-item-30-fiabiliser-verify-drag-compter-les-seuls"
+    epic: 8
+    action: "Fiabiliser verify:drag (compter les seuls nouveaux onglets ou fenêtres)
+      et statuer sur les bancs intermittents"
+    owner: "dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-24.md"
+  - id: "epic-8-retro-item-31-réserver-les-numéros-de-story-dans-epics"
+    epic: 8
+    action: "Réserver les numéros de story dans epics.md avant un build en parallèle
+      ; noter 8.34 vers 8.40 et 8.35 vers 8.41 pour 6eaed19 et 16bd2a5"
+    owner: "Denis (règle), dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-24.md"
+  - id: "epic-8-retro-item-32-trier-les-points-différés-ouverts-de-l-e"
+    epic: 8
+    action: "Trier les points différés ouverts de l Epic 8 : story, backlog ou clos
+      avec sa raison"
+    owner: "Denis, dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-24.md"
+  - id: "epic-8-retro-item-33-vérifier-à-chaque-relecture-de-story-les"
+    epic: 8
+    action: "Vérifier à chaque relecture de story les écrans partagés board et planning
+      quand un composant commun est touché"
+    owner: "dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-24.md"
