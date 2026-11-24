@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-31-2026 09:00
-last_updated: 11-24-2026 17:23
+last_updated: 11-24-2026 17:27
 project: Sprint Goals Board pour Jira
 project_key: NOKEY
 tracking_system: file-system
@@ -130,7 +130,7 @@ development_status:
 
   epic-10: done
   10-1-chercher-un-parent-dans-le-filtre-parent: done
-  epic-10-retrospective: optional
+  epic-10-retrospective: done
 action_items:
   - id: "epic-1-retro-item-1-faire-attendre-la-porte-d-écriture-et-la"
     epic: 1
@@ -186,7 +186,7 @@ action_items:
     action: "Tenir à jour Implementation Notes et résultats de vérification de chaque
       spec, créer sprint-status.yaml avant le premier build d'un epic"
     owner: "dev"
-    status: open
+    status: done
     ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-1-retro-2026-10-31.md"
   - id: "epic-1-retro-item-9-ajouter-à-la-revue-de-chaque-story-une-p"
     epic: 1
@@ -240,7 +240,7 @@ action_items:
     epic: 2
     action: "Reprendre la convention (story N.M) dans le sujet des commits"
     owner: "dev"
-    status: open
+    status: done
     ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-2-retro-2026-10-31.md"
   - id: "epic-2-retro-item-17-décider-d-un-marqueur-de-carte-ou-d-une"
     epic: 2
@@ -284,3 +284,31 @@ action_items:
     owner: "dev"
     status: open
     ref: "C:/ClaudeCode/jira-scrum-board-chrome/_bmad-output/implementation-artifacts/epic-3-retro-2026-10-31.md"
+  - id: "epic-10-retro-item-23-décider-du-libellé-espagnol-des-menus-ty"
+    epic: 10
+    action: "Décider du libellé espagnol des menus Type, Parent et Label (traduire
+      ou aligner le guide ES), puis corriger guide, nom accessible du champ et verify:i18n"
+    owner: "Denis (décision), dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-10-retro-2026-11-24.md"
+  - id: "epic-10-retro-item-24-rapprocher-epics-md-story-10-1-critère-c"
+    epic: 10
+    action: "Rapprocher epics.md (story 10.1, critère clavier) de la réalisation :
+      Échap efface le texte, puis ferme le menu"
+    owner: "Denis (relecture), dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-10-retro-2026-11-24.md"
+  - id: "epic-10-retro-item-25-mettre-un-banc-chrome-dans-les-vérificat"
+    epic: 10
+    action: "Mettre un banc Chrome dans les vérifications de la spec dès la planification
+      quand une story touche focus, clavier ou affichage"
+    owner: "dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-10-retro-2026-11-24.md"
+  - id: "epic-10-retro-item-26-contrôler-que-les-noms-de-menus-cités-pa"
+    epic: 10
+    action: "Contrôler que les noms de menus cités par les guides EN/ES sont ceux
+      de l interface dans la même langue"
+    owner: "dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-10-retro-2026-11-24.md"
