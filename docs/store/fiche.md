@@ -8,7 +8,7 @@ Un seul paquet contient le français, l'anglais et l'espagnol. Les fiches tradui
 Sprint Planning est **actif** dans le paquet 0.54.0 (story 8.11). Les textes de ce dossier le décrivent :
 voir la section suivante avant de copier quoi que ce soit.
 
-## Sprint Planning dans ce paquet (stories 8.35 et 8.11)
+## Sprint Planning dans ce paquet (stories 8.41 et 8.11)
 
 Le paquet 0.54.0 active Sprint Planning (`npm run verify:planning:package` rejoue son parcours sur le banc compilé en
 mode package). Ses textes se publient **ensemble**, avec ce paquet et après la publication du site (guide « Préparer

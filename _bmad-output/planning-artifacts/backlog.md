@@ -28,25 +28,30 @@ engagée tant qu'elle n'est pas décidée. Mise en conformité d'architecture :
 
 ## Sprint Planning
 
-Sprint Planning est réservé au `dist/` local. Son amélioration, sa validation sur une instance
-réelle (droits, volumes) et son activation dans le paquet sont planifiées dans l'Epic 8 de
+Sprint Planning est actif dans `dist/` et dans le paquet depuis 0.54.0 (story 8.11). Son amélioration
+et sa validation sur une instance réelle (droits, volumes) sont planifiées dans l'Epic 8 de
 [epics.md](epics.md).
 Depuis le 01/11/2026, le planning se fait en direct dans Jira, clôture et démarrage par les fenêtres
 natives compris ([décisions](../forge/sprint-planning-complet/forged-idea.md)). La création de sprint
-et la création de Goals restent hors périmètre. Livré en 0.42.0 (stories 8.1 à 8.9), toujours désactivé
-dans le paquet ; contrats dans [intégration Jira](../../docs/technique/integration-jira.md).
+et la création de Goals restent hors périmètre. Livré en 0.42.0 (stories 8.1 à 8.9), actif dans le paquet
+depuis 0.54.0 ; contrats dans [intégration Jira](../../docs/technique/integration-jira.md).
 Essai réel 8.10 joué le 03/11/2026 sur le sandbox (board 3013, constat dans
 [la spec 8.10](../implementation-artifacts/spec-8-10-valider-le-sprint-planning-sur-un-vrai-jira.md)) :
-défauts D1 à D4 planifiés en stories 8.26 à 8.28 (et 8.29 pour le même délai sur le board), puis 8.30 (mêmes gestes à la souris sur une carte du board et du planning, 04/11/2026) et 8.31 (sprint actif retiré de « Où sont les tickets », 04/11/2026), puis 8.32 (changer d'objectif sur le board sans changer d'état) et 8.33 (déplacer une sélection du board vers un objectif), 05/11/2026 ; restent ces stories, 8.25, l'essai des Goals
-Atlassian et la décision sur les droits, puis l'activation (8.11).
+défauts D1 à D4 planifiés en stories 8.26 à 8.28 (et 8.29 pour le même délai sur le board), puis 8.30 (mêmes gestes à la souris sur une carte du board et du planning, 04/11/2026) et 8.31 (sprint actif retiré de « Où sont les tickets », 04/11/2026), puis 8.32 (changer d'objectif sur le board sans changer d'état) et 8.33 (déplacer une sélection du board vers un objectif), 05/11/2026, toutes livrées ; 8.27 vérifiée sur le sandbox le 06/11/2026 (clôture et démarrage
+conformes). Essai des Goals Atlassian joué le 06/11/2026 (story 8.34) : conforme sur le fond, défaut D5
+planifié en story 8.35. 8.35 livrée en 0.50.4 et 0.50.5 (D5, puis D6 constaté au rejeu), conforme au rejeu du 06/11/2026.
+Restent les stories des droits (8.36 à 8.38). L'activation (8.11), d'abord prévue après elles, a été faite avant,
+sur demande de Denis du 24/11/2026 (0.54.0) ; 8.40 (swimlanes par type) et 8.41 (documentation) sont livrées.
 
 - [x] Décidé par Denis le 05/11/2026 (question ouverte par la story 8.30) : une sélection de
   plusieurs cartes du Sprint Board ne change que d'objectif ou de swimlane, jamais d'état ni de rang
   (story 8.33) ; changer d'objectif ne change jamais l'état, même pour une seule carte (story 8.32).
-- [ ] À décider (essai 8.10, 03/11/2026) : droits du planning. Partie sans droit non jouée (compte
-  administrateur du sandbox) ; seul le cas avec droit est constaté. Décider entre lecture seule
-  annoncée à l'ouverture et découverte au premier refus, ou rejouer l'étape 8 avec un compte sans
-  « Gérer les sprints » ni administration.
+- [x] Décidé par Denis le 06/11/2026 : droits du planning (question ouverte par l'essai 8.10). Un sprint
+  futur non modifiable qui contient des tickets du board est montré dans « Où sont les tickets » et
+  ses tickets se planifient, sans qu'on puisse préparer ce sprint (story 8.36) ; pas de Sprint
+  Planning sans le droit de gérer les sprints du board (story 8.37, à confirmer par un essai sans
+  droit, compte à trouver) ; gestes d'un ticket désactivés sans *Schedule issues* ou *Edit issues*
+  sur son projet (story 8.38).
 - [ ] À décider (essai 8.10) : un ticket sélectionné puis masqué par un filtre part avec le lot,
   sans autre signal que le compteur « 2 issues selected » (constaté : CLIENT-5303 ajouté au sprint
   avec CLIENT-6566). Élaguer la sélection aux cartes visibles, ou l'annoncer avant le geste.
@@ -55,6 +60,12 @@ Atlassian et la décision sur les droits, puis l'activation (8.11).
   avant ceux créés au planning, contrairement à l'ordre de `goal` et `sprintgoals.v1`, et Goal 1 y
   compte 0/5 contre 3 tickets dans le planning. Le compte rendu de clôture reste aussi affiché au-dessus
   d'un autre sprint préparé après le démarrage.
+- [ ] À investiguer (essai 8.34, 06/11/2026) : sur le sandbox, l'introspection ne trouve pas de lien
+  Goal → tickets (`workItems`) exploitable ; avertissement permanent « partially loaded », déjà livré
+  et report signalés incomplets, liens lus par le seul champ Goals des tickets. Vérifier le schéma
+  GraphQL réel (variante de `workItems` non reconnue, ou absente du site) avant 8.11. Le même essai
+  confirme la seconde partie de l'observation ci-dessus : le Sprint Board compte les sous-tâches dans
+  l'avancement d'un objectif, le planning non.
 - [ ] Optimisation (essai 8.10) : chaque relecture du planning lit deux fois les tickets des sprints
   futurs d'autres boards (menu des sprints, puis planning). Coût relevé : 18 à 24 requêtes par geste,
   32 à 37 par actualisation, sans limitation de débit observée sur un backlog de 255 tickets.

@@ -158,7 +158,7 @@ describe("manuel public trilingue", () => {
       documentFor("es/guide/demarrer.html").querySelector(".guide-prose a")?.getAttribute("href"),
     ).toContain("?hl=es");
     // Sprint Planning n'est décrit que dans la fiche « Préparer le sprint » et l'accueil du guide
-    // (recherche), jamais dans les autres fiches (story 8.35).
+    // (recherche), jamais dans les autres fiches (story 8.41).
     for (const [path, html] of pages) {
       if (/(?:^|\/)guide\.html$|preparer-sprint\.html$/.test(path)) continue;
       expect(html, path).not.toMatch(/Sprint Planning/);

@@ -1,16 +1,18 @@
 import { JiraError } from "../jira/errors";
 import type { GoalsClient } from "../jira/goals";
-import { goalDisplayName, type JiraIssue, linkedGoalIds } from "../jira/models";
+import { goalDisplayName, isGoalIdentifier, type JiraIssue, linkedGoalIds } from "../jira/models";
 import type { BoardConfiguration } from "./boardConfiguration";
 import { CoreError, type GoalsFieldGap, type GoalsWarning } from "./reasons";
 import { goalColorName, makeSprintGoal, type SprintGoal } from "./sprintGoals";
 
 /**
- * Identifiant d'un Goal Atlassian : un ARI (`ari:cloud:…`), tel que le renvoie l'API Goals. Les
- * objectifs du texte d'un sprint ont un identifiant tiré par l'extension (UUID), jamais un ARI.
+ * Identifiant d'un Goal Atlassian, sous les formes que lit le champ Goals des tickets
+ * (`isGoalIdentifier`) : un ARI de Goal ou une clé `ABC-123`. Les objectifs du texte d'un sprint
+ * ont un identifiant tiré par l'extension (`text-<sprint>-<empreinte>` ou UUID), jamais l'une de
+ * ces formes.
  */
 export function isAtlassianGoalId(id: string): boolean {
-  return id.startsWith("ari:");
+  return isGoalIdentifier(id);
 }
 
 /** Lectures de l'API Goals dont le board a besoin. `GoalsClient` les fournit. */

@@ -1703,7 +1703,7 @@ describe("Sprint Planning en direct : estimation sur la carte (8.17)", () => {
   });
 });
 
-describe("Sprint Planning : swimlanes par type dans « Sans objectif » (story 8.34)", () => {
+describe("Sprint Planning : swimlanes par type dans « Sans objectif » (story 8.40)", () => {
   const anomalies = [
     item("ABC-13", "Panne de paiement", 3, null, { typeId: "10004", typeName: "Anomalie Prod" }),
     item("ABC-14", "Lenteur du panier", 2, null, { typeId: "10004", typeName: "Anomalie Prod" }),

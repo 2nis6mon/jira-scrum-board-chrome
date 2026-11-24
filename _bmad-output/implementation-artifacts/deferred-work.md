@@ -76,3 +76,10 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-28-garder-la-vue-du-planning-immobile.md`
   summary: Les bancs Chrome `verify:drag` et `verify:planning` échouent par intermittence sur des étapes de timing antérieures à la 8.28.
   evidence: maybe-false (medium si réel) ; le 03/11/2026, 2 échecs sur 8 passages : « .board n'a pas défilé dans sa bande basse » et « .planning-sources défile encore » (contrôle 8.24, boucle `requestAnimationFrame`, sans doute ralentie quand la fenêtre du banc est masquée), puis `scrollIntoView` sur un élément absent à l'étape 640 px. Les relances passent ; à confirmer en lançant les bancs en série, fenêtre visible puis masquée.
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-27-ouvrir-et-isoler-les-fenetres-natives-sur-un-vrai-jira.md`
+  summary: `npm run verify:planning` échoue de façon reproductible à l'étape de sélection (« ABC-204 n'a pas été sélectionné »), avant ses étapes de fenêtres natives, qui ne sont donc plus exercées dans Chrome.
+  evidence: deux échecs sur deux passages avec la 8.27, et un échec identique sur le commit précédent `4ca339c` (06/11/2026) ; antérieur à la 8.27, sans doute depuis les gestes communs de 8.30 ou 8.32/8.33. À corriger avant l'essai sur le sandbox et avant 8.11.
+  status: corrigé le 06/11/2026 : sous macOS, le Ctrl+clic des bancs ouvrait le menu contextuel de la carte (comportement voulu) au lieu de sélectionner ; `verify:planning` et `verify:drag` sélectionnent désormais par Cmd+clic sous macOS (`SELECT_MODIFIER`, `scripts/browser-check.mjs`), Ctrl+clic ailleurs (CI Linux et Windows inchangée). Les deux bancs passent en local, étapes des fenêtres natives comprises.
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-38-gestes-d-un-ticket-desactives-sans-droit-sur-son-projet.md`
+  summary: Désactiver sur le Sprint Board le rattachement d'une carte à un Goal Atlassian sans *Edit issues* sur son projet.
+  evidence: séparé de la 8.38 par décision de Denis (06/11/2026) : le Sprint Board est livré dans le paquet et la spec dépassait la taille recommandée ; devenu la story 8.39.

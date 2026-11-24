@@ -1037,7 +1037,7 @@ function LaneCards({
 }
 
 /**
- * Sous-section de « Sans objectif » (story 8.34) : une swimlane par type, avec le même en-tête que
+ * Sous-section de « Sans objectif » (story 8.40) : une swimlane par type, avec le même en-tête que
  * sur le board (chevron pour replier ou déplier ses tickets, nom, nombre, « Par défaut »).
  */
 function TypeLane({
@@ -1388,7 +1388,7 @@ function PinGoal({ planning }: { planning: PlanningViewModel }) {
 
 function UnassignedLane({ planning, images }: { planning: PlanningViewModel; images: ImageCache }) {
   const issues = planning.unassigned.value;
-  // Sous-sections par swimlane de type (story 8.34), comme les swimlanes du board.
+  // Sous-sections par swimlane de type (story 8.40), comme les swimlanes du board.
   const typeLanes = planning.unassignedLanes.value;
   const drop = useDrop({
     type: PLANNING_DRAG_TYPE,

@@ -733,12 +733,18 @@ export function injectBoard(
     backlog.src = address.href;
 
     type SprintStep =
-      | { kind: "searching"; deadline: number; last: HTMLElement | null; traced: string }
+      | {
+          kind: "searching";
+          deadline: number;
+          last: HTMLElement | null;
+          stableTicks: number;
+          traced: string;
+        }
       | {
           kind: "waiting-dialog";
           deadline: number;
           dialogsBefore: Set<Element>;
-          lastSize: string;
+          last: HTMLElement | null;
           stableTicks: number;
         }
       | {
@@ -757,23 +763,41 @@ export function injectBoard(
       | { kind: "closed" };
     let step: SprintStep = {
       kind: "searching",
-      deadline: Date.now() + 10000,
+      // Le clic attend la page chargée et 1,2 s de stabilité : 15 s pour un backlog volumineux.
+      deadline: Date.now() + 15000,
       last: null,
+      stableTicks: 0,
       traced: "",
+    };
+    /**
+     * Chemin de la page au clic ou à la page rendue. Jira qui en sort (après « Start », son board
+     * avec `?sprintStarted=true`) a fini avec sa fenêtre : la popin se ferme et la vue relit Jira.
+     */
+    let departure: string | null = null;
+    const opened = Date.now();
+    /** Chemin d'une page backlog ; pas celui du cadre encore vide (`about:blank`). */
+    const backlogPath = () => {
+      const path = backlog.contentWindow?.location.pathname ?? "";
+      return path.endsWith("/backlog") ? path : null;
     };
     let reachable = false;
     const expires = Date.now() + 20000;
     const escapeWatched = new WeakSet<Document>();
 
-    /** Page montrée telle quelle ; la prochaine fenêtre de Jira refermée referme aussi la popin. */
-    const handOver = (doc: Document, why: string, detail: unknown) => {
+    /**
+     * Page montrée telle quelle ; la prochaine fenêtre de Jira refermée referme aussi la popin.
+     * Après le clic, `before` reste l'état d'avant : une fenêtre ouverte mais non reconnue est
+     * alors suivie elle aussi.
+     */
+    const handOver = (
+      doc: Document,
+      why: string,
+      detail: unknown,
+      before = new Set(doc.querySelectorAll('[role="dialog"]')),
+    ) => {
       trace(why, detail);
-      step = {
-        kind: "manual",
-        dialogsBefore: new Set(doc.querySelectorAll('[role="dialog"]')),
-        dialog: null,
-        missingSince: null,
-      };
+      departure ??= backlogPath();
+      step = { kind: "manual", dialogsBefore: before, dialog: null, missingSince: null };
       reveal();
     };
 
@@ -784,25 +808,30 @@ export function injectBoard(
         current.traced = seen;
         trace("boutons de sprint reconnus (tous/nommés)", seen);
       }
-      // Même bouton sur deux passages : la page backlog a fini de dessiner ses sprints.
-      if (choice && choice === current.last) {
+      // Même bouton pendant 1,2 s, page chargée : Jira a fini de dessiner ses sprints et répond
+      // au clic. Un clic trop tôt part sans ouvrir de fenêtre et n'est jamais rejoué (essai 8.10).
+      current.stableTicks = choice && choice === current.last ? current.stableTicks + 1 : 0;
+      current.last = choice;
+      if (choice && current.stableTicks >= 4 && doc.readyState === "complete") {
         if (choice.hasAttribute("disabled") || choice.getAttribute("aria-disabled") === "true") {
           handOver(doc, "bouton de sprint désactivé dans Jira", label(choice));
           return;
         }
         // Avant le seul clic : mémoriser les fenêtres existantes et interdire un second clic.
+        // Jira met 4 à 6 s à ouvrir sa fenêtre (essai 8.10) : l'attente lui laisse 20 s.
         step = {
           kind: "waiting-dialog",
-          deadline: Date.now() + 10000,
+          deadline: Date.now() + 20000,
           dialogsBefore: new Set(doc.querySelectorAll('[role="dialog"]')),
-          lastSize: "",
+          last: null,
           stableTicks: 0,
         };
-        trace("bouton de sprint cliqué", label(choice));
+        departure = backlogPath();
+        // Constat à vérifier sur un vrai Jira : délai entre l'ouverture et le clic (essai 8.10).
+        trace("bouton de sprint cliqué", `${label(choice)} après ${Date.now() - opened} ms`);
         choice.click();
         return;
       }
-      current.last = choice;
       if (Date.now() > current.deadline)
         handOver(doc, "aucun bouton de sprint sûr, page rendue à l'utilisateur", {
           action,
@@ -817,13 +846,17 @@ export function injectBoard(
     ) => {
       // Une fenêtre peut en imbriquer une autre (calendrier) : seule compte la plus extérieure.
       const fresh = outermost(freshDialogs(doc, current.dialogsBefore));
-      const candidate = fresh.length === 1 ? fresh[0] : null;
-      const box = candidate?.getBoundingClientRect();
-      const size = box ? `${Math.round(box.width)}x${Math.round(box.height)}` : "";
-      current.stableTicks = candidate && size === current.lastSize ? current.stableTicks + 1 : 0;
-      current.lastSize = size;
+      const candidate = fresh.length === 1 ? (fresh[0] ?? null) : null;
+      // La même fenêtre sur trois passages, quelle que soit sa taille : un bandeau d'avertissement
+      // (« Start Sprint ») peut la redimensionner sans fin (essai 8.10).
+      current.stableTicks = candidate && candidate === current.last ? current.stableTicks + 1 : 0;
+      current.last = candidate;
       if (candidate && current.stableTicks >= 3) {
-        trace("fenêtre de sprint de Jira isolée", size);
+        const box = candidate.getBoundingClientRect();
+        trace(
+          "fenêtre de sprint de Jira isolée",
+          `${Math.round(box.width)}x${Math.round(box.height)}`,
+        );
         step = {
           kind: "dialog-visible",
           dialogsBefore: current.dialogsBefore,
@@ -833,7 +866,12 @@ export function injectBoard(
         reveal();
         isolateSprintDialog(doc, candidate);
       } else if (Date.now() > current.deadline) {
-        handOver(doc, "fenêtre de sprint non reconnue, page rendue à l'utilisateur", fresh.length);
+        handOver(
+          doc,
+          "fenêtre de sprint non reconnue, page rendue à l'utilisateur",
+          fresh.length,
+          current.dialogsBefore,
+        );
       }
     };
 
@@ -889,7 +927,7 @@ export function injectBoard(
         });
       }
       if (current.dialog === null) {
-        const fresh = freshDialogs(doc, current.dialogsBefore);
+        const fresh = outermost(freshDialogs(doc, current.dialogsBefore));
         if (fresh.length === 1) current.dialog = fresh[0] ?? null;
       }
       // Page rendue telle quelle : la fenêtre suivante est suivie sans rien masquer.
@@ -906,6 +944,14 @@ export function injectBoard(
         const doc = backlog.contentDocument;
         if (!doc || !backlog.contentWindow) throw new Error("frame inaccessible");
         reachable = true;
+        // Page rendue sur un cadre encore vide : le départ est le backlog, une fois chargé.
+        if (step.kind === "manual") departure ??= backlogPath();
+        const path = backlog.contentWindow.location.pathname;
+        if (departure !== null && path !== departure) {
+          trace("Jira a quitté la page du sprint, popin refermée", path);
+          closeTicket();
+          return;
+        }
         if (step.kind === "searching") search(step, doc);
         if (step.kind === "waiting-dialog") recognizeDialog(step, doc);
         else if (step.kind === "dialog-visible") monitorClosure(step, doc, true);

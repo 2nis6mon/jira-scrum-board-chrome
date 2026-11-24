@@ -11,6 +11,7 @@ import {
   checkDocumentStill,
   checkDragAutoScroll,
   launchIsolatedBrowser,
+  SELECT_MODIFIER,
   sleep,
 } from "./browser-check.mjs";
 
@@ -254,7 +255,7 @@ try {
         && !document.querySelector('.planning-sources').textContent.includes('Sprint 42')`),
       "Sprint préparé, autre sprint futur, backlog paginé, ticket déjà planifié incorrect, ou sprint actif dans « Où sont les tickets »",
     );
-    // 8.34 : « Sans objectif » est rangée par swimlane de type, avec l'en-tête du board (chevron) ;
+    // 8.40 : « Sans objectif » est rangée par swimlane de type, avec l'en-tête du board (chevron) ;
     // plier une sous-section masque ses cartes, la déplier les rend, sans écriture.
     assert(
       await run(`(() => {
@@ -597,7 +598,7 @@ try {
       `[...document.querySelectorAll('.planning-sources [data-planning-issue][draggable="true"]')].at(-1)?.dataset.planningIssue`,
     );
     assert(lastSource, "Aucune carte sélectionnable dans « Où sont les tickets »");
-    await clickCard(lastSource, 2);
+    await clickCard(lastSource, SELECT_MODIFIER);
     await wait(
       "document.querySelector('.planning-selection')?.textContent.includes('1 ticket sélectionné')",
       `${lastSource} n'a pas été sélectionné`,
@@ -612,8 +613,8 @@ try {
     );
 
     // Story 8.15 : Ctrl+clic sur deux cartes du backlog, puis un seul glissé pour le lot.
-    await clickCard("ABC-202", 2);
-    await clickCard("ABC-204", 2);
+    await clickCard("ABC-202", SELECT_MODIFIER);
+    await clickCard("ABC-204", SELECT_MODIFIER);
     await wait(
       "document.querySelector('.planning-selection')?.textContent.includes('2 tickets sélectionnés')",
       "Le nombre de tickets sélectionnés n'est pas affiché",

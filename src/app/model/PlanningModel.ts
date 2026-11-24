@@ -25,6 +25,7 @@ import {
   type GoalHistory,
   textGoalHistory,
 } from "../../core/planningProgress";
+import { CoreError } from "../../core/reasons";
 import {
   GOAL_COLOR_COUNT,
   goalColorName,
@@ -53,6 +54,7 @@ import {
   pinPlanningGoals,
   placePlanningIssue,
   placePlanningIssues,
+  READ_BACK_DELAYS_MS,
   rankPlanningIssue,
   removePlanningIssue,
   removePlanningIssues,
@@ -359,7 +361,7 @@ export class PlanningModel implements PlanningViewModel {
     return this.#unassignedAll.value.filter((item) => matches(item.issue));
   });
 
-  /** « Sans objectif » rangé dans les swimlanes par type du board, dans son ordre (story 8.34). */
+  /** « Sans objectif » rangé dans les swimlanes par type du board, dans son ordre (story 8.40). */
   readonly unassignedLanes = computed((): readonly PlanningTypeLane[] => {
     const configuration = this.context.configuration();
     const all = this.#unassignedAll.value;
@@ -772,6 +774,8 @@ export class PlanningModel implements PlanningViewModel {
     entry: { issueKey: string | null },
     intention: (access: BoardWriteAccess, snapshot: PlanningSnapshot) => Promise<PlanningOutcome>,
     after?: (outcome: PlanningOutcome) => void,
+    /** Ticket qui doit avoir quitté le sprint en préparation, ou y être arrivé, si le geste est confirmé. */
+    moved?: PlanningMove,
   ): Promise<void> {
     if (this.gesturesDisabled.value) return;
     const snapshot = this.snapshot.value;
@@ -787,8 +791,37 @@ export class PlanningModel implements PlanningViewModel {
       if (this.#stale(generation)) return;
       after?.(outcome);
       this.notice.value = outcome.kind === "done" ? null : planningOutcomeMessage(outcome);
-      await this.#reread(generation);
+      const unseen = await this.#rereadAfterMove(
+        generation,
+        outcome.kind === "done" && moved ? moved : { keys: [], direction: "leaving" },
+      );
+      if (unseen.length > 0)
+        this.notice.value = planningOutcomeMessage(unseenOutcome(outcome, unseen));
     });
+  }
+
+  /**
+   * Relecture après un geste. Un retrait ou un ajout confirmé par `core` peut encore être montré à
+   * son ancienne place par la relecture du planning (indexation de Jira, story 8.35) : elle est
+   * refaite avec les délais de 8.26 tant que le sprint en préparation contient un ticket parti, ou
+   * ne contient pas un ticket arrivé. Rend ceux qui ne sont pas encore à leur place au terme ; rien
+   * n'est réécrit.
+   */
+  async #rereadAfterMove(generation: number, moved: PlanningMove): Promise<string[]> {
+    const shown = () =>
+      moved.keys.filter(
+        (key) =>
+          this.snapshot.value?.sprintIssues.some((issue) => issue.key === key) ===
+          (moved.direction === "leaving"),
+      );
+    await this.#reread(generation);
+    for (const delay of READ_BACK_DELAYS_MS) {
+      if (this.#stale(generation) || this.error.value || shown().length === 0) break;
+      await this.context.wait(delay);
+      if (this.#stale(generation)) break;
+      await this.#reread(generation);
+    }
+    return this.#stale(generation) || this.error.value ? [] : shown();
   }
 
   async #busyWhile(task: (generation: number) => Promise<void>): Promise<void> {
@@ -968,6 +1001,7 @@ export class PlanningModel implements PlanningViewModel {
         if (!outcome.confirmed.includes("issueAdded")) return;
         this.#origins.value = { ...this.#origins.value, [key]: origin };
       },
+      { keys: [key], direction: "arriving" },
     );
   }
 
@@ -996,6 +1030,7 @@ export class PlanningModel implements PlanningViewModel {
         const { [key]: _left, ...rest } = this.#origins.value;
         this.#origins.value = rest;
       },
+      { keys: [key], direction: "leaving" },
     );
   }
 
@@ -1106,6 +1141,7 @@ export class PlanningModel implements PlanningViewModel {
         for (const { issue, origin } of located) if (origin) origins[issue.key] = origin;
         this.#origins.value = origins;
       },
+      "arriving",
     );
   }
 
@@ -1144,6 +1180,7 @@ export class PlanningModel implements PlanningViewModel {
         for (const key of result.confirmedKeys) delete origins[key];
         this.#origins.value = origins;
       },
+      "leaving",
     );
   }
 
@@ -1168,6 +1205,8 @@ export class PlanningModel implements PlanningViewModel {
       snapshot: PlanningSnapshot,
     ) => Promise<PlanningBatchOutcome>,
     after?: (result: PlanningBatchOutcome) => void,
+    /** Lot retiré ou ajouté : ses tickets confirmés doivent avoir quitté le sprint ou y être. */
+    direction?: PlanningMove["direction"],
   ): Promise<void> {
     if (this.gesturesDisabled.value) return;
     const snapshot = this.snapshot.value;
@@ -1207,7 +1246,19 @@ export class PlanningModel implements PlanningViewModel {
             : result.remainingKeys.filter((key) => !unseen.has(key)),
         );
       });
-      await this.#reread(generation);
+      const late = await this.#rereadAfterMove(generation, {
+        keys: direction && result.outcome.kind !== "refused" ? result.confirmedKeys : [],
+        direction: direction ?? "leaving",
+      });
+      if (late.length > 0) {
+        const pending = new Set(late);
+        this.notice.value = planningBatchMessage({
+          outcome: unseenOutcome(result.outcome, late),
+          confirmedKeys: result.confirmedKeys.filter((key) => !pending.has(key)),
+          remainingKeys: [...result.remainingKeys, ...late],
+          unseenKeys: [...result.unseenKeys, ...late],
+        });
+      }
     });
   }
 
@@ -1720,4 +1771,28 @@ function locate(
       };
   }
   return null;
+}
+
+/** Tickets d'un geste confirmé qui doivent avoir quitté le sprint en préparation, ou y être. */
+interface PlanningMove {
+  readonly keys: readonly string[];
+  readonly direction: "leaving" | "arriving";
+}
+
+/**
+ * Résultat d'un retrait ou d'un ajout confirmé par `core` dont la relecture du planning
+ * montre encore des tickets à leur ancienne place (story 8.35) : écriture reçue, ticket pas encore relu, rien à refaire. Le
+ * retrait n'est plus donné pour confirmé ; un arrêt antérieur garde sa propre cause.
+ */
+function unseenOutcome(outcome: PlanningOutcome, keys: readonly string[]): PlanningOutcome {
+  if (outcome.kind === "partial") return outcome;
+  const [issueKey = ""] = keys;
+  return {
+    kind: "partial",
+    confirmed:
+      outcome.kind === "done"
+        ? outcome.confirmed.filter((step) => step !== "issueMoved" && step !== "issueAdded")
+        : [],
+    error: new CoreError({ code: "planningIssueUnconfirmed", issueKey }),
+  };
 }

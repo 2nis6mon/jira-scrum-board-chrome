@@ -14,6 +14,7 @@ import {
   SPRINT_ISSUES,
 } from "../support/boardFixture";
 import { isWriteRequest, type Reply } from "../support/fakeJira";
+import { type FakePlatform, fakePlatform } from "../support/fakePlatform";
 import { type FakeGoal, goalsGateway } from "../support/goalsGateway";
 import { issueJson } from "../support/jiraFixtures";
 
@@ -430,5 +431,57 @@ describe("première lecture des Goals Atlassian après une lecture en texte (sto
     await board.sync();
     expect(board.configuration.value?.hiddenGoalIds).toEqual([NOUVEAU]);
     expect(jira.requests.filter(isWriteRequest)).toEqual([]);
+  });
+
+  it("source texte puis bascule vers les Goals Atlassian : aucun Goal lié n'est masqué", async () => {
+    const jira = boardSiteJira({ graphql: goalsGateway({ goals: [...GOALS] }) });
+    const board = new BoardModel(SITE, fakePlatform(jira), {
+      now: () => new Date("2026-09-18T10:00:00Z"),
+    });
+    await board.load();
+    await board.detect(BOARD_URL);
+    expect(board.snapshot.value?.goalsOrigin).toBe("sprintText");
+    expect(Object.keys(board.configuration.value?.goalColorIndex ?? {}).length).toBeGreaterThan(0);
+
+    await board.applySettings((current) => ({ ...current, goalSource: "atlassianGoals" }), {
+      resync: true,
+    });
+
+    expect(board.snapshot.value?.goalsOrigin).toBe("atlassianGoals");
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([]);
+    expect(board.hiddenGoals.value).toEqual([]);
+  });
+
+  /** Board réglé sur les Goals Atlassian dont les préférences locales connaissent ces couleurs. */
+  async function boardWithKnownColors(goalColorIndex: Record<string, number>) {
+    const platform: FakePlatform = await atlassianGoalsPlatform(
+      boardSiteJira({ graphql: goalsGateway({ goals: [...GOALS] }) }),
+    );
+    const boards = (await platform.store.get("boards.v1")) as Record<
+      string,
+      { boards: Record<string, object> }
+    >;
+    const site = boards[SITE.origin];
+    if (!site) throw new Error("site attendu");
+    site.boards["7"] = { ...site.boards["7"], goalColorIndex };
+    await platform.store.set("boards.v1", boards);
+    const board = new BoardModel(SITE, platform, { now: () => new Date("2026-09-18T10:00:00Z") });
+    await board.load();
+    await board.detect(BOARD_URL);
+    return board;
+  }
+
+  it("rechargement après une session en texte : première lecture, rien n'est masqué", async () => {
+    const board = await boardWithKnownColors({ "text-42-a1b2c3": 0, "0f8e2d3c-uuid": 1 });
+
+    expect(board.snapshot.value?.goalsOrigin).toBe("atlassianGoals");
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([]);
+  });
+
+  it("un Goal Atlassian connu par sa clé consomme la première lecture", async () => {
+    const board = await boardWithKnownColors({ "GOAL-9": 0 });
+
+    expect(board.snapshot.value?.goalsOrigin).toBe("atlassianGoals");
+    expect(board.configuration.value?.hiddenGoalIds).toEqual([PAIEMENT, STABILITE]);
   });
 });

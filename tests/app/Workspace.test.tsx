@@ -403,7 +403,7 @@ describe("en-tête du sprint", () => {
     const goalHeader = document.querySelector(".lane-goal .lane-header");
     expect(goalHeader?.querySelector(".lane-progress .state-bar")).not.toBeNull();
     expect(goalHeader?.querySelectorAll(".state-legend .state-chip")).toHaveLength(3);
-    // Build et les swimlanes par type : le même avancement qu'un objectif (retour sur la story 8.34).
+    // Build et les swimlanes par type : le même avancement qu'un objectif (retour sur la story 8.40).
     const otherHeaders = [...document.querySelectorAll(".lane:not(.lane-goal) .lane-header")];
     expect(otherHeaders.length).toBeGreaterThan(0);
     for (const header of otherHeaders) {

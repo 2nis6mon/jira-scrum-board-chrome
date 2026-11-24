@@ -118,7 +118,7 @@ for (const capture of captures.captures) {
   assert.equal(sha256(data), capture.sha256, "Capture différente de son manifeste");
   files.set(`captures/${capture.file}`, data);
 }
-// Captures du Sprint Planning (story 8.35) : prises avec Sprint Planning actif, jointes au kit.
+// Captures du Sprint Planning (story 8.41) : prises avec Sprint Planning actif, jointes au kit.
 for (const capture of captures.planning?.captures ?? []) {
   assert.match(capture.file, /^\d{2}-[a-z]+\.png$/);
   const data = read(`docs/store/captures/${capture.file}`);

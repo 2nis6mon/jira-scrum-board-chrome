@@ -24,6 +24,8 @@ function page(frame: HTMLIFrameElement): Page {
   const base = doc.createElement("base");
   base.href = SITE;
   doc.head.append(base);
+  // Page déjà chargée ; un test peut la remettre en chargement.
+  Object.defineProperty(doc, "readyState", { configurable: true, value: "complete" });
   const postMessage = vi.fn();
   value = {
     doc,
@@ -732,7 +734,7 @@ describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => 
     });
     const submitted = vi.fn();
     current.doc.addEventListener("submit", submitted);
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(1500);
     expect(target.clicked).toHaveBeenCalledTimes(1);
     expect(other.clicked).not.toHaveBeenCalled();
     expect(current.backlog.style.visibility).toBe("hidden");
@@ -763,7 +765,7 @@ describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => 
     const current = request(send, "start", "Sprint 1");
     const longer = sprintRow(current.doc, "Sprint 13", "Démarrer le sprint");
     const target = sprintRow(current.doc, "Sprint 1", "Démarrer le sprint");
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(1500);
     expect(target.clicked).toHaveBeenCalledTimes(1);
     expect(longer.clicked).not.toHaveBeenCalled();
   });
@@ -776,7 +778,7 @@ describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => 
     const active = sprintRow(current.doc, "Sprint 12", "Complete sprint");
     const future = sprintRow(current.doc, "Sprint 13", "Start sprint");
     active.element.addEventListener("click", () => sprintWindow(current.doc, "Complete sprint"));
-    await vi.advanceTimersByTimeAsync(2100);
+    await vi.advanceTimersByTimeAsync(3000);
     expect(active.clicked).toHaveBeenCalledTimes(1);
     expect(future.clicked).not.toHaveBeenCalled();
     expect(current.backlog.style.visibility).toBe("visible");
@@ -793,7 +795,7 @@ describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => 
     active.element.addEventListener("click", () =>
       opened.push(sprintWindow(current.doc, "Terminer le sprint")),
     );
-    await vi.advanceTimersByTimeAsync(2100);
+    await vi.advanceTimersByTimeAsync(3000);
     expect(opened[0]?.hasAttribute("data-sprint-goals-sprint-dialog")).toBe(true);
 
     // Validation par l'utilisateur : Jira ferme sa fenêtre et ouvre celle de la rétrospective.
@@ -826,13 +828,138 @@ describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => 
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("ne clique qu'une fois la page chargée et le même bouton affiché 1,2 s (essai 8.10, D3)", async () => {
+    const { send } = mount();
+    const current = request(send, "complete", "Sprint 12");
+    Object.defineProperty(current.doc, "readyState", { configurable: true, value: "interactive" });
+    const first = sprintRow(current.doc, "Sprint 12", "Terminer le sprint");
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(first.clicked).not.toHaveBeenCalled();
+    // Jira redessine sa ligne : le nouveau bouton doit à son tour rester affiché.
+    first.row.remove();
+    const redrawn = sprintRow(current.doc, "Sprint 12", "Terminer le sprint");
+    redrawn.element.addEventListener("click", () =>
+      sprintWindow(current.doc, "Terminer le sprint"),
+    );
+    Object.defineProperty(current.doc, "readyState", { configurable: true, value: "complete" });
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(redrawn.clicked).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(300);
+    expect(redrawn.clicked).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(redrawn.clicked).toHaveBeenCalledTimes(1);
+    expect(first.clicked).not.toHaveBeenCalled();
+    expect(current.backlog.style.visibility).toBe("visible");
+  });
+
+  it("isole une fenêtre lente à venir et redimensionnée par son bandeau (essai 8.10, D4)", async () => {
+    const { send, board } = mount();
+    const current = request(send, "start", "Sprint 13");
+    const target = sprintRow(current.doc, "Sprint 13", "Démarrer le sprint");
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(target.clicked).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(12000);
+    expect(current.backlog.style.visibility).toBe("hidden");
+    // Fenêtre apparue 12 s après le clic, dont la hauteur change à chaque mesure.
+    const opened = sprintWindow(current.doc, "Démarrer le sprint");
+    let height = 420;
+    Object.defineProperty(opened, "getBoundingClientRect", {
+      configurable: true,
+      value: () => {
+        height += 7;
+        return new DOMRect(0, 0, 600, height);
+      },
+    });
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(current.backlog.style.visibility).toBe("visible");
+    expect(opened.hasAttribute("data-sprint-goals-sprint-dialog")).toBe(true);
+    expect(board.postMessage).not.toHaveBeenCalled();
+  });
+
+  it("referme la popin quand Jira quitte la page du backlog après « Start », une seule relecture", async () => {
+    const { send, board } = mount();
+    const current = request(send, "start", "Sprint 13");
+    const target = sprintRow(current.doc, "Sprint 13", "Démarrer le sprint");
+    const opened: HTMLElement[] = [];
+    target.element.addEventListener("click", () =>
+      opened.push(sprintWindow(current.doc, "Démarrer le sprint")),
+    );
+    await vi.advanceTimersByTimeAsync(2700);
+    expect(opened[0]?.hasAttribute("data-sprint-goals-sprint-dialog")).toBe(true);
+    // Jira garde une fenêtre de suite ouverte mais charge son board dans le cadre.
+    opened[0]?.remove();
+    sprintWindow(current.doc, "Sprint démarré");
+    current.win.location.href = `${SITE}/jira/software/c/projects/ABC/boards/7?sprintStarted=true`;
+    await vi.advanceTimersByTimeAsync(300);
+    expect(current.dialog.isConnected).toBe(false);
+    expect(board.postMessage).toHaveBeenCalledExactlyOnceWith(
+      { type: "sprint-goals:refresh" },
+      EXTENSION,
+    );
+    expect(target.clicked).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("page rendue après une fenêtre non reconnue : suit la fenêtre restante et la navigation", async () => {
+    const { send, board } = mount();
+    const current = request(send, "start", "Sprint 13");
+    const target = sprintRow(current.doc, "Sprint 13", "Démarrer le sprint");
+    const opened: HTMLElement[] = [];
+    target.element.addEventListener("click", () => {
+      opened.push(sprintWindow(current.doc, "Démarrer le sprint"));
+      opened.push(sprintWindow(current.doc, "Avertissement"));
+    });
+    await vi.advanceTimersByTimeAsync(1500);
+    await vi.advanceTimersByTimeAsync(20100);
+    expect(current.backlog.style.visibility).toBe("visible");
+    expect(current.doc.querySelector("style[data-sprint-goals-sprint-dialog-style]")).toBeNull();
+    // L'avertissement fermé, la fenêtre déjà ouverte est suivie : sa fermeture referme la popin.
+    opened[1]?.remove();
+    await vi.advanceTimersByTimeAsync(300);
+    expect(current.dialog.isConnected).toBe(true);
+    opened[0]?.remove();
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(current.dialog.isConnected).toBe(false);
+    expect(board.postMessage).toHaveBeenCalledTimes(1);
+
+    // Page rendue sans clic : Jira qui navigue ailleurs referme aussi la popin.
+    const again = request(send, "start", "Sprint 99");
+    await vi.advanceTimersByTimeAsync(15500);
+    expect(again.backlog.style.visibility).toBe("visible");
+    again.win.location.href = `${SITE}/jira/software/c/projects/ABC/boards/7?sprintStarted=true`;
+    await vi.advanceTimersByTimeAsync(300);
+    expect(again.dialog.isConnected).toBe(false);
+    expect(board.postMessage).toHaveBeenCalledTimes(2);
+    expect(target.clicked).toHaveBeenCalledTimes(1);
+  });
+
+  it("page rendue : un cadre encore vide puis le backlog chargé, ou un simple paramètre, gardent la popin", async () => {
+    const { send, board } = mount();
+    const current = request(send, "complete", "Sprint 12");
+    // Backlog lent : le cadre est encore sur about:blank quand la page est rendue.
+    current.win.location.href = "about:blank";
+    await vi.advanceTimersByTimeAsync(15500);
+    expect(current.backlog.style.visibility).toBe("visible");
+    current.win.location.href = BACKLOG;
+    await vi.advanceTimersByTimeAsync(600);
+    expect(current.dialog.isConnected).toBe(true);
+    // Ticket ouvert dans le panneau du backlog : seule la requête change.
+    current.win.location.href = `${BACKLOG}?selectedIssue=ABC-102`;
+    await vi.advanceTimersByTimeAsync(600);
+    expect(current.dialog.isConnected).toBe(true);
+    current.win.location.href = `${SITE}/jira/software/c/projects/ABC/boards/7`;
+    await vi.advanceTimersByTimeAsync(300);
+    expect(current.dialog.isConnected).toBe(false);
+    expect(board.postMessage).toHaveBeenCalledTimes(1);
+  });
+
   it("deux sprints actifs : termine par le seul bouton de la ligne du sprint nommé", async () => {
     const { send } = mount();
     const current = request(send, "complete", "Sprint 45");
     const other = sprintRow(current.doc, "Sprint 42", "Terminer le sprint");
     const named = sprintRow(current.doc, "Sprint 45", "Terminer le sprint");
     named.element.addEventListener("click", () => sprintWindow(current.doc, "Terminer le sprint"));
-    await vi.advanceTimersByTimeAsync(2100);
+    await vi.advanceTimersByTimeAsync(3000);
     expect(named.clicked).toHaveBeenCalledTimes(1);
     expect(other.clicked).not.toHaveBeenCalled();
     expect(current.backlog.style.visibility).toBe("visible");
@@ -841,10 +968,10 @@ describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => 
   it("page rendue telle quelle : la fenêtre suivante est suivie sans rien masquer, une seule relecture", async () => {
     const { send, board } = mount();
     const current = request(send, "complete", "Sprint 12");
-    // Deux boutons sans nom de sprint reconnu : rien n'est cliqué, la page est rendue à 10 s.
+    // Deux boutons sans nom de sprint reconnu : rien n'est cliqué, la page est rendue à 15 s.
     sprintRow(current.doc, "Autre", "Terminer le sprint");
     sprintRow(current.doc, "Encore", "Terminer le sprint");
-    await vi.advanceTimersByTimeAsync(10500);
+    await vi.advanceTimersByTimeAsync(15500);
     expect(current.backlog.style.visibility).toBe("visible");
     const first = sprintWindow(current.doc, "Terminer le sprint");
     await vi.advanceTimersByTimeAsync(300);
@@ -872,7 +999,7 @@ describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => 
     active.element.addEventListener("click", () =>
       opened.push(sprintWindow(current.doc, "Terminer le sprint")),
     );
-    await vi.advanceTimersByTimeAsync(2100);
+    await vi.advanceTimersByTimeAsync(3000);
     // Jira détache sa fenêtre et en monte une copie : elle est reprise, la popin reste.
     opened[0]?.remove();
     const remounted = sprintWindow(current.doc, "Terminer le sprint");
@@ -898,9 +1025,9 @@ describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => 
       sprintRow(current.doc, "Sprint 14", "Sprint starten"),
       sprintRow(current.doc, "Sprint 15", "Démarrer le sprint maintenant"),
     ];
-    await vi.advanceTimersByTimeAsync(9900);
+    await vi.advanceTimersByTimeAsync(14900);
     expect(current.backlog.style.visibility).toBe("hidden");
-    await vi.advanceTimersByTimeAsync(300);
+    await vi.advanceTimersByTimeAsync(600);
     expect(current.backlog.style.visibility).toBe("visible");
     for (const row of rows) expect(row.clicked).not.toHaveBeenCalled();
 
@@ -921,7 +1048,7 @@ describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => 
   it("referme la page rendue par Échap dans Jira ou sur la popin, avec une seule relecture", async () => {
     const { send, board } = mount();
     let current = request(send, "complete", "Sprint 12");
-    await vi.advanceTimersByTimeAsync(10500);
+    await vi.advanceTimersByTimeAsync(15500);
     expect(current.backlog.style.visibility).toBe("visible");
     current.doc.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(current.dialog.isConnected).toBe(false);
@@ -943,7 +1070,7 @@ describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => 
     const current = request(send, "start", full.slice(0, 199));
     const other = sprintRow(current.doc, "Sprint 14", "Démarrer le sprint");
     const target = sprintRow(current.doc, full, "Démarrer le sprint");
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(1500);
     expect(target.clicked).toHaveBeenCalledTimes(1);
     expect(other.clicked).not.toHaveBeenCalled();
   });
@@ -977,7 +1104,7 @@ describe("hôte Jira — fenêtres natives de clôture et de démarrage", () => 
       const current = request(send, "start", "Sprint 13");
       const target = sprintRow(current.doc, "Sprint 13", "Démarrer le sprint");
       target.element.setAttribute(attribute, value);
-      await vi.advanceTimersByTimeAsync(600);
+      await vi.advanceTimersByTimeAsync(1500);
       expect(current.backlog.style.visibility).toBe("visible");
       await vi.advanceTimersByTimeAsync(3000);
       expect(target.clicked).not.toHaveBeenCalled();

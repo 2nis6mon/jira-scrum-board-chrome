@@ -1,5 +1,5 @@
 ---
-title: 'Story 8.34 — Voir les swimlanes par type dans « Sans objectif » du planning'
+title: 'Story 8.40 — Voir les swimlanes par type dans « Sans objectif » du planning'
 type: 'feature'
 created: '2026-11-24'
 status: 'done'
@@ -35,7 +35,7 @@ Denis : les sous-sections doivent être le même composant de swimlane que sur l
 
 ## Retour du 24/11/2026 (0.52.0)
 
-Denis : ajouter aux swimlanes par type l'avancement d'un objectif (« n/N terminés · x/y pts », barre, légende), sur le Sprint Board et dans le Sprint Planning. Fait : `Lane.tally` (`boardLayout.ts`, Build et swimlanes par type du board), `PlanningTypeLane.issueCount` / `progress` (`PlanningModel.unassignedLanes`, recherche et filtres ignorés) ; les deux en-têtes passent `progress` à `LaneHeader`. Tests : `boardLayout.test.ts`, `Workspace.test.tsx`, `PlanningModel.test.ts`, `PlanningView.test.tsx`. Cela étend la story 8.34 hors Sprint Planning (board) : choix fait sur demande explicite.
+Denis : ajouter aux swimlanes par type l'avancement d'un objectif (« n/N terminés · x/y pts », barre, légende), sur le Sprint Board et dans le Sprint Planning. Fait : `Lane.tally` (`boardLayout.ts`, Build et swimlanes par type du board), `PlanningTypeLane.issueCount` / `progress` (`PlanningModel.unassignedLanes`, recherche et filtres ignorés) ; les deux en-têtes passent `progress` à `LaneHeader`. Tests : `boardLayout.test.ts`, `Workspace.test.tsx`, `PlanningModel.test.ts`, `PlanningView.test.tsx`. Cela étend la story 8.40 hors Sprint Planning (board) : choix fait sur demande explicite.
 
 ## Review Triage Log
 

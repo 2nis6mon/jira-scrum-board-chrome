@@ -58,9 +58,13 @@ la règle Jira ci-dessus. Les deux catalogues sont embarqués, sans service de t
 - Kanban exige les Goals Atlassian. Si leur lecture est inexploitable, la photographie précédente
   reste affichée avec l'erreur : aucun repli qui placerait à tort tous les tickets dans Build.
   `boardPinnedGoalIds` est partagé sur le board, sans propriété de sprint, et exige son droit d'édition.
-- Un ticket lié à plusieurs Goals suit le premier Goal résolu. Après la première lecture des Goals
-  Atlassian (tant qu'aucun Goal Atlassian, identifiant ARI, n'est connu du board, même après une
-  lecture en texte ou un repli : story 8.25, 0.50.1), un Goal Atlassian nouvellement découvert par un ticket, non épinglé (ni sur un sprint réuni, ni dans le
+- Un ticket lié à plusieurs Goals suit le premier Goal résolu. La première lecture des Goals
+  Atlassian ne masque rien : c'est toute lecture faite alors qu'aucun Goal Atlassian (ARI ou clé)
+  n'est connu du board, même après une lecture en texte ou un repli. Les Goals connus sont ceux de
+  `goalColorIndex` et de la lecture précédente ; `goalColorIndex`, jamais élagué et fusionné avec
+  la propriété du board, garde consommée cette première lecture sur un board qui a déjà lu des
+  Goals Atlassian, même après une période en texte. Ensuite, un Goal Atlassian nouvellement
+  découvert par un ticket, non épinglé (ni sur un sprint réuni, ni dans le
   repli local, ni dans `boardPinnedGoalIds`), arrive masqué ; ses tickets restent dans leur
   destination par défaut jusqu'à réaffichage, sans modifier le rattachement. Jamais un objectif
   texte, y compris en repli texte : ceux d'un sprint qui démarre peuvent avoir un identifiant neuf
@@ -168,7 +172,7 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   rien à reporter, `échec` si toujours actif ou refusé, `incertain` si le résultat est inconnu).
   Les droits sprint et tickets sont appliqués par Jira, distincts du `canEdit` des réglages du board ;
   pendant un geste, changement de board et rafraîchissement automatique attendent.
-- « Sans objectif » du planning (story 8.34) : rangée par swimlane de type des réglages du board
+- « Sans objectif » du planning (story 8.40) : rangée par swimlane de type des réglages du board
   ([`splitByTypeLane`](../../src/core/planningLanes.ts), `PlanningModel.unassignedLanes`), dans l'ordre
   de `settingsLaneOrder`. Un type ignoré ou sans swimlane rejoint Build, une swimlane masquée sur le
   board reste affichée : aucun ticket du sprint ne disparaît. Sous-sections vides omises ; la section n'a plus d'en-tête propre (0.51.2). Chaque sous-section, comme Build et les swimlanes par type du Sprint Board (`Lane.tally`), montre l'avancement d'un objectif (`GoalProgressSummary`), sur tous ses tickets, filtres ignorés (0.52.0). Chaque
@@ -208,6 +212,9 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   et le journal disent les tickets confirmés et ceux à refaire, qui restent sélectionnés ; un
   ticket dont Jira a reçu l'écriture sans le montrer encore à sa nouvelle place, au terme des
   relectures bornées (8.26), est dit « pas encore relu » et quitte la sélection.
+- Retrait ou ajout confirmé, lot ou ticket seul (8.35) : si la relecture du planning le montre
+  encore à son ancienne place, elle est refaite avec les délais de 8.26, puis il est dit « pas
+  encore relu ».
 - Sprints proposés (0.43.1) : seulement ceux que l'utilisateur peut modifier (administrateur, ou
   « Gérer les sprints » sur tous les projets du board d'origine) ; indécidable : proposé. Un sprint
   d'un autre board (`originBoardId`, `isForeignSprint`) sans aucun ticket du board restant (colonne

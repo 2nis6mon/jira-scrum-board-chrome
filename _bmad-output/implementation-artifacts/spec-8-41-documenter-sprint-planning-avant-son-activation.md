@@ -1,5 +1,5 @@
 ---
-title: 'Story 8.35 — Documenter Sprint Planning avant son activation'
+title: 'Story 8.41 — Documenter Sprint Planning avant son activation'
 type: 'feature'
 created: '2026-11-24'
 status: 'done'

@@ -23,7 +23,7 @@ sont dans la [documentation technique](docs/technique/index.md).
   puis le même parcours que `verify:planning` sur le banc compilé en mode package.
 - Résumés du Store (`_locales` FR/EN/ES) : « … Daily et préparation du sprint ». La fiche de publication
   (`docs/store/fiche.md`), les notes de version du planning, les descriptions et la politique de
-  confidentialité, écrits en 8.35, se publient avec ce paquet, après le site (guide « Préparer le sprint »).
+  confidentialité, écrits en 8.41, se publient avec ce paquet, après le site (guide « Préparer le sprint »).
 - Captures du planning renouvelées en mode package (`npm run store:screenshots:planning`) ; le script des
   captures du board attend maintenant l'entrée Sprint Planning sur un board Scrum.
 - Aucun nouvel hôte, droit Chrome, endpoint d'écriture ni assouplissement de CSP. Droits du planning :
@@ -31,7 +31,7 @@ sont dans la [documentation technique](docs/technique/index.md).
 
 ## 0.53.1 — Sprint Planning documenté avant son activation
 
-- Demandé par Denis le 24/11/2026 (story 8.35) : toute la documentation de la vue Sprint Planning est
+- Demandé par Denis le 24/11/2026 (story 8.41) : toute la documentation de la vue Sprint Planning est
   prête avant l'activation (8.11). Aucun code de l'extension n'est modifié ; rien n'est publié.
 - Manuel en français, anglais et espagnol : section « Préparer le sprint », et neuvième fiche du guide du
   site (« 9 fiches »), avec deux captures du planning sur données fictives
@@ -68,7 +68,7 @@ sont dans la [documentation technique](docs/technique/index.md).
 
 ## 0.52.0 — Avancement des swimlanes par type, sur le board et dans le planning
 
-- Retour de Denis sur la story 8.34 : Build et les swimlanes par type affichent, comme un objectif,
+- Retour de Denis sur la story 8.40 : Build et les swimlanes par type affichent, comme un objectif,
   « n/N terminés · x/y pts », la barre par état (gris, bleu, vert) et sa légende (à faire, en cours,
   terminé), sur le Sprint Board et dans les sous-sections de « Sans objectif » du Sprint Planning.
 - Le compte porte sur tous les tickets de la swimlane, recherche et filtres ignorés, comme pour un
@@ -78,14 +78,14 @@ sont dans la [documentation technique](docs/technique/index.md).
 
 ## 0.51.2 — « Sans objectif » du planning sans en-tête propre
 
-- Retour de Denis sur la story 8.34 : l'en-tête de la section (« Sans objectif », nombre de tickets,
+- Retour de Denis sur la story 8.40 : l'en-tête de la section (« Sans objectif », nombre de tickets,
   « Dans le sprint, rattachés à aucun objectif ») faisait double emploi avec ceux des sous-sections
   par type. Il est retiré ; la section reste la zone de dépôt « sans objectif » (nom accessible
   inchangé). Le texte du sous-titre quitte les catalogues anglais et espagnol.
 
 ## 0.51.1 — « Sans objectif » du planning : même swimlane que sur le board
 
-- Retour de Denis sur la story 8.34 : les sous-sections de « Sans objectif » reprennent l'en-tête
+- Retour de Denis sur la story 8.40 : les sous-sections de « Sans objectif » reprennent l'en-tête
   d'une swimlane du board (chevron, nom, nombre de tickets, « Par défaut » pour une swimlane de type,
   teinte de la swimlane) et se plient ou se déplient pour laisser les tickets à la vue ou non. Build
   seule a aussi son en-tête. Le repli est celui de la séance : vidé au changement de board, sans lien
@@ -93,7 +93,7 @@ sont dans la [documentation technique](docs/technique/index.md).
 
 ## 0.51.0 — Swimlanes par type dans « Sans objectif » du planning
 
-- Demandé par Denis le 24/11/2026 (story 8.34) : dans le Sprint Planning, les tickets du sprint en
+- Demandé par Denis le 24/11/2026 (story 8.40) : dans le Sprint Planning, les tickets du sprint en
   préparation sans objectif étaient une liste plate. Ils sont rangés dans les swimlanes par type des
   réglages du board (Build, RUN, etc.), dans l'ordre du board, chaque sous-section avec son nom et son
   nombre de tickets ; les sous-sections vides ne sont pas affichées.
@@ -101,6 +101,48 @@ sont dans la [documentation technique](docs/technique/index.md).
   aucun ticket du sprint ne disparaît. Build seule garde le rendu d'avant. Gestes, totaux, charge et
   filtres inchangés ; aucune lecture ni écriture Jira, aucun nouveau texte. Sprint Planning reste
   expérimental (builds locaux et tests).
+## 0.50.5 — Lot ajouté au sprint relu ticket par ticket (story 8.35, suite)
+
+- Défaut D6, rejeu sur le sandbox du 06/11/2026 : un lot ajouté au sprint, appliqué par Jira,
+  n'était plus montré ni dans le sprint ni dans le backlog, sans avis, jusqu'à l'actualisation.
+  Même règle que pour un retrait : après un ajout confirmé (lot ou ticket seul), la relecture du
+  planning est refaite tant que le sprint en préparation ne montre pas le ticket, puis il est dit
+  « pas encore relu ». Renvoi groupé au backlog (0.50.4) conforme sur 3 passages au rejeu.
+
+## 0.50.4 — Lot renvoyé au backlog relu ticket par ticket (story 8.35)
+
+- Défaut D5 de l'essai 8.34 : après un renvoi groupé au backlog appliqué par Jira, un ticket restait
+  affiché dans sa swimlane, sans avis, jusqu'à l'actualisation. Après un retrait confirmé (lot ou
+  ticket seul, vers le backlog ou un autre sprint futur), la relecture du planning est refaite avec
+  les délais de 8.26 tant qu'elle montre encore un de ces tickets dans le sprint en préparation ;
+  au terme, il est dit « pas encore relu à sa nouvelle place ». Aucune écriture ajoutée ni rejouée ;
+  cause déduite du code, renvoi de trois tickets à rejouer sur le sandbox.
+
+## 0.50.3 — Fenêtres natives de clôture et de démarrage (story 8.27)
+
+- Défauts D3 et D4 de l'essai 8.10. Le bouton « Terminer/Démarrer le sprint » n'est cliqué qu'une
+  fois la page backlog chargée et le même bouton affiché 1,2 s ; toujours un seul clic.
+- La fenêtre de Jira est attendue 20 s et reconnue quand la même reste affichée, même si son
+  bandeau d'avertissement la redimensionne (« Start Sprint »).
+- Page rendue après une fenêtre non reconnue : la fenêtre déjà ouverte est suivie et sa fermeture
+  referme la popin. Jira qui quitte la page (son board après « Start ») referme aussi la popin et
+  la vue relit Jira. Page rendue au bout de 15 s au lieu de 10. Aucune écriture ajoutée.
+- Essai sur le sandbox le 06/11/2026 : clôture et démarrage conformes, fenêtres ouvertes seules et
+  isolées, popin refermée après la clôture et après « Start ».
+- Bancs `verify:planning` et `verify:drag` : sélection par Cmd+clic sous macOS, où Ctrl+clic ouvre
+  le menu de la carte ; ils échouaient en local sur Mac, pas en CI.
+
+## 0.50.2 — Revue de la story 8.25
+
+- Revue du 06/11/2026 : un Goal Atlassian que le champ Goals d'un ticket désigne par sa clé
+  (`GOAL-42`) n'était pas reconnu comme tel ; sur un site qui renvoie des clés, la première lecture
+  ne se terminait jamais et plus aucun Goal neuf n'était masqué. Une seule définition de
+  l'identifiant d'un Goal (ARI ou clé) sert désormais au décodage des tickets et à ce critère.
+- Limite acceptée par Denis le 06/11/2026 : les couleurs des Goals (`goalColorIndex`, fusionnées
+  avec la propriété du board) gardent la mémoire des Goals Atlassian déjà lus ; un board qui en a
+  déjà lu ne refait pas de première lecture après une période en texte.
+- Tests ajoutés : bascule de la source texte vers les Goals Atlassian, rechargement après une
+  session en texte, Goal connu par sa clé. Aucune lecture ni écriture Jira ajoutée.
 
 ## 0.50.1 — Goals Atlassian visibles à leur première lecture
 

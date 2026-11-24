@@ -1,7 +1,12 @@
 // Régression du glisser-déposer sur les vues réelles, avec Jira fictif et profil Chrome vierge.
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
-import { checkDragAutoScroll, launchIsolatedBrowser, sleep } from "./browser-check.mjs";
+import {
+  checkDragAutoScroll,
+  launchIsolatedBrowser,
+  SELECT_MODIFIER,
+  sleep,
+} from "./browser-check.mjs";
 
 const server = await createServer({
   configFile: fileURLToPath(new URL("../vite.harness.config.ts", import.meta.url)),
@@ -621,7 +626,8 @@ try {
     await mouse("mouseReleased", x, y, { button, buttons: 0, clickCount: 1, modifiers });
   };
   const targetsBefore = (await send("Target.getTargets", {})).targetInfos.length;
-  await clickAt(picked[0], 2);
+  // Ctrl+clic hors macOS ; sous macOS, Ctrl+clic ouvre le menu de la carte : Cmd+clic deux fois.
+  await clickAt(picked[0], SELECT_MODIFIER);
   await clickAt(picked[1], 4);
   await clickAt(picked[2], 8);
   const selectedKeys = JSON.stringify(
@@ -697,7 +703,7 @@ try {
   const selectCards = async (keys) => {
     for (const key of keys) {
       const point = await cardPoint(key);
-      await clickAt(point, 2);
+      await clickAt(point, SELECT_MODIFIER);
     }
     await waitFor(
       sessionId,

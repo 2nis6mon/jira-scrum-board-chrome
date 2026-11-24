@@ -344,7 +344,7 @@ async function checkGuide(session, language = "fr") {
         "La navigation marque la bonne fiche active",
       );
     }
-    // Sprint Planning (story 8.35) n'est décrit que dans sa fiche, publiée avec la version qui l'active.
+    // Sprint Planning (story 8.41) n'est décrit que dans sa fiche, publiée avec la version qui l'active.
     if (!path.includes("preparer-sprint"))
       assert.doesNotMatch(
         article.text,

@@ -135,7 +135,7 @@ FR21: Epic 7 - WIP en points, minimums de colonne, sources Goals
 FR22: Epic 5 - Déploiement `storage.managed` (déplacement clavier abandonné)
 FR23: Epic 2 - Épinglage par sprint avec plusieurs sprints actifs
 FR24: Epic 2 - Tickets reportés, via un filtre rapide « Reportés »
-FR25: Epic 9 - Rechercher un parent dans le filtre Parent
+FR25: Epic 10 - Rechercher un parent dans le filtre Parent
 
 ## Epic List
 
@@ -181,7 +181,7 @@ L'équipe clôture son sprint, construit le suivant par objectifs avec des ticke
 **FRs covered:** FR17
 *Notes :* créé le 31/10/2026, redéfini le 01/11/2026 (Denis) depuis [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md), qui remplace la décision du 14/10/2026. Création de sprint et de Goals hors périmètre. Droits (lecture seule annoncée ou découverte au premier refus) : décision en attente. Écran de référence : maquette v2. Complété le 02/11/2026 (Denis, retours d'essai) par les stories 8.12 à 8.18 ; décision produit du même jour : l'estimation d'un ticket s'écrit depuis le planning (E11, story 8.17), sous réserve de la vérification du contrat Atlassian.
 
-### Epic 9: Retrouver ses tickets plus vite
+### Epic 10: Retrouver ses tickets plus vite
 L'équipe trouve vite ce qu'elle cherche sur le board, même quand un sprint compte beaucoup de tickets, de parents ou de valeurs de filtre ; aucune écriture dans Jira.
 **FRs covered:** FR25
 *Notes :* créé le 24/11/2026 (Denis), hors Sprint Planning : les améliorations de filtres et de recherche du board. Indépendant des autres epics. Le menu de filtre est un composant partagé avec le Sprint Planning, qui en bénéficie sans story propre.
@@ -760,9 +760,9 @@ So that je planifie mes sprints sans build local.
 
 **Acceptance Criteria:**
 
-**Given** les stories 8.1 à 8.10 et 8.12 à 8.35 terminées (dont 8.35, la documentation) et le constat de 8.10 favorable
+**Given** les stories 8.1 à 8.10, 8.12 à 8.35, 8.40 et 8.41 terminées (dont 8.41, la documentation) et le constat de 8.10 favorable ; les stories de droits 8.36 à 8.38 étaient prévues avant l'activation (décision du 06/11/2026), qui a été faite avant elles sur demande de Denis du 24/11/2026
 **When** le paquet est construit (`npm run package`)
-**Then** `SPRINT_PLANNING_ENABLED` vaut vrai dans le paquet, `npm run verify:planning:package` le vérifie, et AGENTS.md, le CHANGELOG, la version et les notes de publication sont à jour ; les résumés `_locales` et le tableau de `fiche.md` reprennent ceux de la section « Activation de Sprint Planning », `fiche.md` ne dit plus que Sprint Planning est désactivé, et le manuel, le site, la politique de confidentialité et la fiche du Store écrits en 8.35 sont publiés avec cette version
+**Then** `SPRINT_PLANNING_ENABLED` vaut vrai dans le paquet, `npm run verify:planning:package` le vérifie, et AGENTS.md, le CHANGELOG, la version et les notes de publication sont à jour ; les résumés `_locales` et le tableau de `fiche.md` reprennent ceux de la section « Activation de Sprint Planning », `fiche.md` ne dit plus que Sprint Planning est désactivé, et le manuel, le site, la politique de confidentialité et la fiche du Store écrits en 8.41 sont publiés avec cette version
 
 ### Story 8.12: La carte du planning montre le type et le statut du ticket
 
@@ -1345,7 +1345,150 @@ So that je n'ai pas à rattacher chaque ticket un par un.
 
 *Notes :* dépend de la 8.32 (swimlane entière comme zone de dépôt) et de la 8.30 (`CardSelection`, `BoardModel.selectedKeys`). Le glisser du board transmet aujourd'hui une seule clé (`DRAG_TYPE`, `BoardModel.startDrag`) ; le planning transmet le lot (`gestureKeys`, `PLANNING_DRAG_TYPE`). Les liens passent par les écritures de `src/core/boardWrites.ts` (`withTextGoalLink`, liens Goals) et la porte du board. Un ticket sélectionné puis masqué par un filtre part-il avec le lot ? Même question qu'en 8.15 (backlog) : à trancher avec elle.
 
-### Story 8.34: Voir les swimlanes par type dans « Sans objectif » du planning
+### Story 8.34: Valider le Sprint Planning en Goals Atlassian sur le sandbox
+
+*Type : essai réel, demandé par l'essai 8.10 (Goals Atlassian non couverts) avant l'activation (8.11). Décisions de Denis du 06/11/2026.*
+
+As a Scrum Master d'un board en Goals Atlassian,
+I want préparer, clôturer et démarrer un sprint avec des Goals épinglés,
+So that le planning est vérifié sur un vrai Jira dans les deux sources d'objectifs avant d'être livré.
+
+**Acceptance Criteria:**
+
+**Given** le board 3013 du sandbox passé par Denis en source « Goals Atlassian » dans les réglages
+**When** le planning s'ouvre sur 17310 « Accueil-26T2.9 »
+**Then** les Goals se cherchent par nom, MOUSQ1-16, MOUSQ1-17 et MOUSQ1-18 s'épinglent au sprint préparé (E5) et aucun Goal n'est créé
+
+**Given** des tickets posés sur un Goal (depuis le backlog, un autre sprint futur, en lot)
+**When** chaque geste est relu
+**Then** le ticket est dans le sprint (E9) et lié au Goal par le champ Goals (E3, après E4 si besoin), confirmé malgré le délai d'indexation (8.26) ; l'avancement de chaque Goal suit les colonnes du board
+
+**Given** la clôture de 17309 puis le démarrage de 17310 par les fenêtres natives, avec le feu vert de Denis avant chaque geste
+**When** la popin se referme
+**Then** les Goals non atteints sont reportés sur 17310 et le compte rendu est juste ; le sprint démarré montre ses Goals sur le Sprint Board
+
+**Given** la fin de l'essai
+**When** Denis remet le board 3013 en source texte
+**Then** le board relit ses objectifs texte sans perte ; le constat (coûts, défauts devenus stories) est consigné dans la spec
+
+### Story 8.35: Relire chaque ticket d'un lot renvoyé au backlog
+
+*Type : bug, constaté à l'essai 8.34 (06/11/2026), défaut D5.*
+
+As a membre de l'équipe qui renvoie plusieurs tickets au backlog,
+I want que chaque ticket du lot quitte sa swimlane ou soit annoncé « pas encore relu »,
+So that la page ne montre jamais un ticket à une place qu'il n'occupe plus sans le dire.
+
+**Acceptance Criteria:**
+
+**Given** un lot du sprint en préparation renvoyé au backlog (E10), en texte ou en Goals Atlassian
+**When** la relecture ne voit pas encore l'un des tickets hors du sprint
+**Then** il est classé « pas encore relu » avec l'avis de 8.26, sans nouvelle écriture ; sinon il apparaît dans le backlog
+
+**Given** le correctif
+**When** il est vérifié
+**Then** un test reproduit un lecteur en retard pour un seul ticket du lot, et un essai sur le sandbox rejoue le renvoi de trois tickets
+
+*Notes :* essai 8.34 : CLIENT-7121, -5800 et -5294 renvoyés ensemble ; E10 appliquée pour les trois, CLIENT-5800 resté dans « Goal 2 » sans avis jusqu'à l'actualisation. Voir `removePlanningIssues` (`src/core/sprintPlanning.ts`) et `unseenKeys` (8.26).
+
+### Story 8.36: Planifier les tickets d'un sprint futur que je ne peux pas modifier
+
+*Type : évolution, décision de Denis du 06/11/2026 (droits du planning, point 1).*
+
+As a membre de l'équipe qui prépare son sprint,
+I want voir dans « Où sont les tickets » un sprint futur que je n'ai pas le droit de modifier, s'il contient des tickets du board, et en tirer ces tickets,
+So that aucun ticket du board ne m'échappe, sans pour autant préparer un sprint qui ne m'appartient pas.
+
+**Acceptance Criteria:**
+
+**Given** un sprint futur non modifiable par l'utilisateur (règle de 0.43.1 : ni administrateur, ni « Gérer les sprints » sur les projets de son board d'origine) qui contient des tickets restants du board
+**When** le planning s'ouvre
+**Then** il apparaît dans « Où sont les tickets » avec ses tickets, marqué en consultation ; il n'apparaît ni dans le menu des sprints à préparer, ni comme destination « Vers… », ni à la clôture
+
+**Given** un ticket de ce sprint
+**When** je le pose sur un objectif ou dans le sprint préparé (glisser, menu, lot)
+**Then** il rejoint le sprint préparé comme depuis un autre sprint futur (E9, puis E5 ou E3/E4), si les droits sur son projet le permettent (story 8.38)
+
+**Given** un tel sprint sans ticket restant du board
+**When** le planning s'ouvre
+**Then** il n'est pas affiché (règle de 0.48.1 et 0.48.2 inchangée)
+
+**Given** le changement
+**When** il est vérifié
+**Then** aucune nouvelle route ; le sprint non modifiable est lu par la route des tickets déjà utilisée ; l'essai sur le sandbox confirme que Jira accepte de sortir un ticket d'un sprint que l'utilisateur ne peut pas modifier (contrat à constater, refus 403 affiché sinon)
+
+*Notes :* aujourd'hui `loadSprintPlanning` (`src/core/sprintPlanning.ts`) ne lit que les sprints futurs `proposable` (`proposableSprintIds`, `src/core/sprintPermissions.ts`) ; il faut distinguer « lisible comme source » et « proposable à la préparation ».
+
+### Story 8.37: Pas de Sprint Planning sans le droit de gérer les sprints du board
+
+*Type : évolution, décision de Denis du 06/11/2026 (droits du planning, point 3), à confirmer par l'essai sans droit.*
+
+As a membre de l'équipe sans droit sur les sprints du board,
+I want que l'entrée « Sprint Planning » me dise pourquoi elle m'est fermée,
+So that je n'ouvre pas une page vide ou des gestes qui échoueront.
+
+**Acceptance Criteria:**
+
+**Given** un utilisateur ni administrateur Jira, ni titulaire de « Gérer les sprints » sur les projets du board, ou sans *Schedule issues* sur aucun de ces projets
+**When** il affiche le board
+**Then** l'entrée « Sprint Planning » est désactivée avec sa raison ; le Sprint Board reste entier ; aucune lecture du planning n'est faite
+
+**Given** des droits indécidables (lecture refusée, board sans projet)
+**When** le board s'affiche
+**Then** l'entrée reste ouverte et le refus de Jira s'affiche au premier geste, sans nouvelle tentative (règle actuelle)
+
+**Given** le changement
+**When** il est vérifié
+**Then** lectures seules (`mypermissions`, `board/{id}/project`), textes en fr/en/es ; essai sur le sandbox avec un compte sans ces droits, avec l'accord de Denis
+
+### Story 8.38: Gestes d'un ticket désactivés sans droit sur son projet
+
+*Type : évolution, décision de Denis du 06/11/2026 (droits du planning, point 4).*
+
+As a membre de l'équipe sur un board qui mélange plusieurs projets,
+I want que les gestes que Jira me refuserait soient désactivés sur la carte, avec leur raison,
+So that je ne découvre pas un refus en pleine séance.
+
+**Acceptance Criteria:**
+
+**Given** les droits lus une fois par projet du board (`GET /rest/api/3/mypermissions`, déjà au contrat, en cache jusqu'à l'actualisation)
+**When** un ticket appartient à un projet sans *Schedule issues* (`SCHEDULE_ISSUES`)
+**Then** sa carte ne se glisse pas, et l'ajout au sprint, le retrait vers le backlog ou un autre sprint (E9, E10) sont désactivés dans son menu, avec la raison
+
+**Given** un ticket d'un projet sans *Edit issues* (`EDIT_ISSUES`)
+**When** j'affiche sa carte
+**Then** l'estimation sur la carte (E11) et le lien à un Goal Atlassian (E3/E4) sont désactivés, avec la raison ; la fiche native reste le recours
+
+**Given** une sélection qui mêle des tickets permis et refusés
+**When** je la déplace
+**Then** le geste est refusé avant toute écriture en nommant les tickets en cause
+
+**Given** des droits indécidables
+**When** le geste est tenté
+**Then** il part comme aujourd'hui, une seule tentative, refus de Jira affiché
+
+*Notes :* mêmes gestes sur le Sprint Board quand ils écrivent les mêmes routes (rattachement à un objectif en Goals : E3/E4). Aucune nouvelle route ; textes en fr/en/es.
+
+### Story 8.39: Rattachement à un Goal désactivé sur le Sprint Board sans droit sur le projet
+
+*Type : évolution, séparée de la 8.38 par décision de Denis du 06/11/2026 (le Sprint Board est dans le paquet distribué).*
+
+As a membre de l'équipe sur un board en Goals Atlassian,
+I want que le rattachement d'une carte à un Goal soit désactivé quand je n'ai pas *Edit issues* sur son projet,
+So that je ne découvre pas le refus de Jira en déplaçant la carte.
+
+**Acceptance Criteria:**
+
+**Given** un board en Goals Atlassian et une carte d'un projet sans *Edit issues* (lecture de la 8.38, en cache)
+**When** je la glisse vers une autre swimlane d'objectif ou ouvre son menu
+**Then** le dépôt et les entrées d'objectif sont refusés avec la raison, sans écriture (E3, E4) ; les autres gestes ne changent pas
+
+**Given** des droits indécidables
+**When** le geste est tenté
+**Then** il part comme aujourd'hui, une seule tentative, refus de Jira affiché
+
+*Notes :* réutilise la lecture des droits de ticket de la 8.38 ; coût au chargement du board (une requête par projet) à mesurer, le board étant livré.
+### Story 8.40: Voir les swimlanes par type dans « Sans objectif » du planning
 
 *Type : amélioration, demandée par Denis le 24/11/2026.*
 
@@ -1381,7 +1524,7 @@ So that je retrouve dans le planning le même classement que sur le Sprint Board
 
 *Notes :* lecture à confirmer avec Denis avant le build : « swimlanes définies dans le sprint par rapport au type de tickets » est comprise comme les swimlanes par type des réglages du board (`normalizeSwimlanes`, `swimlaneId` conserve la destination par défaut du ticket, voir `docs/technique/invariants.md`), et non les swimlanes JQL de Jira (aucune API de swimlanes Jira n'est lue ; ne pas en inventer). `PlanningModel.unassigned` renvoie aujourd'hui une liste plate ; le découpage se fait dans le modèle (pur, testable), la vue ne fait que le rendre. Ce découpage ne s'applique qu'à « Sans objectif » : les swimlanes d'objectif restent par objectif. À trancher au build : sous-sections repliables ou non ; nom affiché quand la swimlane Default est vide de nom ; rôle des types `IGNORED` dans le planning. Réutiliser le composant d'en-tête de `LaneHeader` si cela suffit, sans barre d'avancement (hors objectif).
 
-### Story 8.35: Documenter Sprint Planning avant son activation
+### Story 8.41: Documenter Sprint Planning avant son activation
 
 *Type : documentation et données de publication, demandée par Denis le 24/11/2026 ; se joue avant l'activation (8.11), qui en dépend.*
 
@@ -1417,11 +1560,11 @@ So that je sais à quoi elle sert, ce qu'elle écrit dans Jira et comment l'util
 
 *Notes :* le manuel est la source du site (`render-guide.mjs`) : écrire d'abord `docs/manuel-utilisateur.md`, puis `docs/user-guide.en.md` et `docs/user-guide.es.md`, avec les boutons et libellés réels des catalogues `src/i18n/`. Le manuel et le site sont publiés avec la version qui active la fonction (8.11), pas avant : tant que le paquet l'a désactivée, le texte décrirait une fonction absente du Store. `store-screenshots.mjs` construit aujourd'hui en mode `package` et affirme l'absence du planning (`planningViewAbsent`) : ajouter un second jeu de captures, sans modifier la preuve des cinq premières. Le constat de l'essai réel 8.10, la décision sur les droits du planning (lecture seule annoncée ou découverte au premier refus) et la 8.27, close sans code, sont à citer fidèlement dans le manuel.
 
-## Epic 9: Retrouver ses tickets plus vite
+## Epic 10: Retrouver ses tickets plus vite
 
 L'équipe trouve vite ce qu'elle cherche sur le board, même quand un sprint compte beaucoup de tickets, de parents ou de valeurs de filtre. Lecture seule : aucune écriture, aucune nouvelle lecture Jira.
 
-### Story 9.1: Chercher un parent dans le filtre Parent
+### Story 10.1: Chercher un parent dans le filtre Parent
 
 *Type : amélioration, demandée par Denis le 24/11/2026, à faire à part du Sprint Planning.*
 

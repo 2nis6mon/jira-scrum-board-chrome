@@ -422,7 +422,7 @@ export function linkedGoalIds(fields: JiraIssueFields, fieldId: string | null): 
 
 function collectGoalIdentifiers(value: JsonValue, result: string[]): void {
   if (typeof value === "string") {
-    if (looksLikeGoalIdentifier(value)) result.push(value);
+    if (isGoalIdentifier(value)) result.push(value);
     return;
   }
   if (Array.isArray(value)) {
@@ -434,7 +434,7 @@ function collectGoalIdentifiers(value: JsonValue, result: string[]): void {
   // Un objet décrivant un Goal porte son identifiant sous l'une de ces clés.
   for (const key of ["id", "ari", "goalId", "key"]) {
     const text = value[key];
-    if (typeof text === "string" && looksLikeGoalIdentifier(text)) {
+    if (typeof text === "string" && isGoalIdentifier(text)) {
       result.push(text);
       return;
     }
@@ -443,7 +443,7 @@ function collectGoalIdentifiers(value: JsonValue, result: string[]): void {
 }
 
 /** Un identifiant de Goal est un ARI Atlassian, ou une clé de la forme `ABC-123`. */
-function looksLikeGoalIdentifier(text: string): boolean {
+export function isGoalIdentifier(text: string): boolean {
   if (text.startsWith("ari:") && text.includes("goal")) return true;
   return /^[A-Z][A-Z0-9]*-\d+$/.test(text);
 }

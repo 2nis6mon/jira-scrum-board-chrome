@@ -51,7 +51,7 @@ sur cette sortie déjà construite. Aucun compte ni session Jira n'est utilisé.
   `guide.css` et `guide.js` portent la présentation et la recherche. L’installation est exclusivement
   décrite depuis le Chrome Web Store ; aucun lien vers le dépôt privé n’est publié.
 - Les sept captures de `docs/store/captures/` sont copiées dans `assets/screenshots/` : cinq du board
-  (mode package) et deux du Sprint Planning (`06-planning.png`, `07-cloture.png`, story 8.35). Elles
+  (mode package) et deux du Sprint Planning (`06-planning.png`, `07-cloture.png`, story 8.41). Elles
   montrent des données fictives en PNG RGB opaque, 1280 × 800 ; leur version et leur provenance
   figurent dans `captures.json`, non publié. Après un changement de marque ou d'interface, régénérer
   les captures du board avec `npm run store:screenshots` et celles du planning (banc compilé avec

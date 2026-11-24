@@ -1,4 +1,4 @@
-// Captures Web Store de Sprint Planning (story 8.35) : interface réelle, données FICTIVES, banc
+// Captures Web Store de Sprint Planning (story 8.41) : interface réelle, données FICTIVES, banc
 // compilé en mode package, Sprint Planning ACTIF depuis la story 8.11. Les cinq captures du board
 // (`npm run store:screenshots`) ne sont ni régénérées ni modifiées : seules 06-planning.png et 07-cloture.png s'ajoutent,
 // avec leur preuve dans captures.json (clé `planning`). Aucun accès à une session Jira réelle.

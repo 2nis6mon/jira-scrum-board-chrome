@@ -21,7 +21,7 @@ function configuration(parts: Parameters<typeof makeConfiguration>[0] = {}) {
   return makeConfiguration({ issueTypes: TYPES, ticketSwimlanes: swimlanes, ...parts });
 }
 
-describe("splitByTypeLane (story 8.34)", () => {
+describe("splitByTypeLane (story 8.40)", () => {
   it("range les tickets dans la swimlane de leur type, Build d'abord", () => {
     const groups = splitByTypeLane(
       configuration(),
