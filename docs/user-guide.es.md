@@ -101,6 +101,8 @@ Las filas organizan las incidencias en **objetivos**, **Build** y grupos por tip
 Las columnas y sus estados proceden de Jira. Pulsa una fila en la barra lateral para ir a ella.
 
 Utiliza **Buscar** y los filtros **Persona**, **Tipo**, **Principal**, **Estado** o **Etiqueta**.
+En **Principal**, un campo busca un principal por clave o resumen; un
+principal marcado que la búsqueda oculta sigue marcado.
 Los filtros rápidos proceden de Jira. **Restablecer (N)** elimina los filtros;
 **Actualizar** vuelve a cargar los datos.
 

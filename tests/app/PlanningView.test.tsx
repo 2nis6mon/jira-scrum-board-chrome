@@ -1475,7 +1475,9 @@ describe("Sprint Planning en direct : filtres comme la page du sprint", () => {
       ].find((details) => details.querySelector("summary")?.textContent?.startsWith(label));
       if (!menu) throw new Error(`Menu attendu : ${label}`);
       menu.open = true;
-      menu.querySelectorAll("input")[index]?.dispatchEvent(new Event("change", { bubbles: true }));
+      menu
+        .querySelectorAll("input[type=checkbox]")
+        [index]?.dispatchEvent(new Event("change", { bubbles: true }));
       expect(planning.setFilters, `${label} n° ${index}`).toHaveBeenCalledTimes(1);
       expect(planning.setFilters.mock.calls[0]?.[0]).toEqual({
         ...NO_PLANNING_FILTERS,
@@ -1483,6 +1485,36 @@ describe("Sprint Planning en direct : filtres comme la page du sprint", () => {
       });
       menu.open = false;
     }
+  });
+
+  it("seul le menu Parent propose une recherche (story 10.1)", async () => {
+    const { planning } = setup();
+    planning.filterOptions.value = {
+      assignees: [{ value: "acc-1", label: "Alex Martin", count: 1 }],
+      unassignedCount: 0,
+      issueTypes: [{ value: "10004", label: "Bug", count: 1 }],
+      priorities: [],
+      statuses: [{ value: "3", label: "En cours", count: 2 }],
+      labels: [{ value: "tech", label: "tech", count: 1 }],
+      components: [],
+      parents: [
+        { value: "ABC-90", label: "ABC-90 · Activation MFA", count: 1 },
+        { value: "ABC-91", label: "ABC-91 · Paiement", count: 2 },
+      ],
+      withoutParentCount: 0,
+    };
+    await tick();
+    const searches = Object.fromEntries(
+      [
+        ...document.querySelectorAll<HTMLDetailsElement>(
+          ".planning-filter-bar details.filter-menu",
+        ),
+      ].map((menu) => [
+        menu.querySelector("summary")?.textContent ?? "",
+        menu.querySelectorAll('input[type="search"]').length,
+      ]),
+    );
+    expect(searches).toEqual({ Personne: 0, Type: 0, Parent: 1, Statut: 0, Label: 0 });
   });
 
   it("filtres actifs sans recherche : messages des zones vidées et « visibles / total »", async () => {

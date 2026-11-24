@@ -97,6 +97,8 @@ Rows organize issues into **goals**, **Build** and groups by issue type, such as
 Columns and their statuses come from Jira. Click a row in the sidebar to jump to it.
 
 Use **Search**, then the **Person**, **Type**, **Parent**, **Status** or **Label** filters.
+In **Parent**, a field finds a parent by key or summary; a checked parent
+hidden by the search stays checked.
 Quick filters come from Jira. **Reset (N)** clears the filters; **Refresh** reloads the data.
 
 With several active sprints, the board combines their issues and the goals of the board's sprints,

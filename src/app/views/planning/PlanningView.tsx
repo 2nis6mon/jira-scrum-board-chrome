@@ -221,6 +221,7 @@ function PlanningFilters({ planning }: { planning: PlanningViewModel }) {
         label="Parent"
         icon="parent"
         options={options.parents}
+        searchable
         selected={filters.parentKeys}
         onToggle={(value) => set({ ...filters, parentKeys: toggled(filters.parentKeys, value) })}
         extra={{

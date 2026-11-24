@@ -3,6 +3,20 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.55.0 — Chercher un parent dans le filtre Parent
+
+- Story 10.1 : le menu **Parent** du Sprint Board et du Sprint Planning commence par un champ de
+  recherche. Il réduit la liste par clé ou résumé, accents et casse ignorés (règle de la recherche du
+  board) ; le nombre de tickets de chaque parent ne change pas et « Sans parent » reste toujours affiché.
+- Décisions de Denis (24/11/2026) : un parent coché que le texte ne trouve pas disparaît de la liste
+  sans se décocher, le badge du menu le compte toujours ; les menus Personne, Type, Statut, Label et
+  Sprint restent sans recherche.
+- Le champ prend le focus à l'ouverture et se vide à chaque fermeture ; Échap efface le texte, puis
+  ferme le menu. Nom du champ et nombre de résultats annoncés aux lecteurs d'écran, textes FR/EN/ES.
+- `npm run verify:planning` contrôle aussi dans Chrome le menu Parent : seul à chercher, focus à
+  l'ouverture, liste réduite, Échap en deux temps.
+- Aucune lecture ni écriture Jira ajoutée ; `core/filters.ts` et les filtres des modèles sont inchangés.
+
 ## 0.54.1 — Sprint Planning sans interrupteur de compilation
 
 - Demandé par Denis : l'interrupteur `SPRINT_PLANNING_ENABLED` (`__SPRINT_PLANNING_ENABLED__`) est supprimé.

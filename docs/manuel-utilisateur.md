@@ -107,6 +107,8 @@ gris / bleu / vert : première colonne (à faire), colonnes du milieu (en cours)
 colonne n'est ni affiché ni compté, comme dans Jira.
 
 Utilisez **Rechercher**, puis les filtres **Personne**, **Type**, **Parent**, **Statut** ou **Label**.
+Dans **Parent**, un champ cherche un parent par clé ou résumé ; un parent
+coché que la recherche masque reste coché.
 En Scrum, **Bloqués**, **Ajoutés** et **Reportés** sont des filtres rapides de l'extension :
 **Reportés (N)** ne garde que les tickets reportés du sprint précédent du board (ceux que Jira y a
 déplacés à la clôture d'un sprint du board, pas ceux remis depuis le backlog), tous sprints du board

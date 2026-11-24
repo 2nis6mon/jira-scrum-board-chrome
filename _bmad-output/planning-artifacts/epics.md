@@ -1751,7 +1751,7 @@ So that je n'ai pas à parcourir une longue liste quand le sprint compte beaucou
 
 **Given** des parents déjà cochés
 **When** je cherche un autre parent
-**Then** les parents cochés restent cochés, et visibles même si le texte ne les trouve pas (ou comptés dans le bouton du menu) ; cocher ou décocher un parent trouvé change le filtre comme aujourd'hui, et « Sans parent » reste accessible
+**Then** un parent coché que le texte ne trouve pas disparaît de la liste mais reste coché : le filtre du board ne change pas et le badge du bouton du menu le compte toujours (décision de Denis, 24/11/2026) ; cocher ou décocher un parent trouvé change le filtre comme aujourd'hui, et « Sans parent » reste toujours affiché, hors de la recherche
 
 **Given** le menu fermé puis rouvert
 **When** je l'ouvre de nouveau
@@ -1763,10 +1763,10 @@ So that je n'ai pas à parcourir une longue liste quand le sprint compte beaucou
 
 **Given** les autres menus (Personne, Type, Statut, Label)
 **When** ils s'ouvrent
-**Then** ils sont inchangés, sauf décision de l'étendre (voir Notes)
+**Then** ils sont inchangés : la recherche est réservée au menu Parent (décision de Denis, 24/11/2026)
 
 **Given** le changement
 **When** il est vérifié
 **Then** aucune lecture ni écriture Jira n'est ajoutée, le Sprint Board et le Sprint Planning proposent la même recherche dans leur menu Parent, les tests de `FilterMenu` couvrent recherche, parents cochés cachés par le texte et réouverture, `verify:i18n` est vert, le manuel et ses guides EN/ES le disent
 
-*Notes :* `FilterMenu` (`src/app/views/board/FilterMenu.tsx`) est un composant partagé, utilisé par le board (`BoardView.tsx`) et par le planning (`PlanningView.tsx`, filtres de la story 8.14) : la recherche s'ajoute au composant, activée pour Parent par une propriété (`searchable`), sans nouvelle logique de filtrage dans `core/filters.ts` (la sélection reste `parentKeys`). Les parents viennent de `issueFilterOptions` (`parents`, `withoutParentCount`) : leur libellé porte clé et résumé, à vérifier. À trancher au build, sans bloquer : étendre la recherche aux menus Personne et Label si leur liste est longue (décision par défaut : Parent seul, comme demandé). Mettre à jour `docs/manuel-utilisateur.md` et ses guides EN/ES (ligne « Utilisez **Rechercher**, puis les filtres… »).
+*Notes :* `FilterMenu` (`src/app/views/board/FilterMenu.tsx`) est un composant partagé, utilisé par le board (`BoardView.tsx`) et par le planning (`PlanningView.tsx`, filtres de la story 8.14) : la recherche s'ajoute au composant, activée pour Parent par une propriété (`searchable`), sans nouvelle logique de filtrage dans `core/filters.ts` (la sélection reste `parentKeys`). Les parents viennent de `issueFilterOptions` (`parents`, `withoutParentCount`) : leur libellé porte déjà clé et résumé (`CLE · résumé`, `src/core/boardLayout.ts`), la recherche porte donc sur le libellé. Le menu est un `<details>` qui n'est pas démonté à la fermeture : vider le champ à l'événement `toggle`. Étendre la recherche aux menus Personne et Label : écarté (Denis, 24/11/2026). Mettre à jour `docs/manuel-utilisateur.md` et ses guides EN/ES (ligne « Utilisez **Rechercher**, puis les filtres… »).

@@ -354,6 +354,39 @@ try {
       `${shownCards} === ${JSON.stringify(allCards)}`,
       "Réinitialiser ne vide pas les filtres",
     );
+    // Story 10.1 : le menu Parent, et lui seul, cherche un parent ; focus à l'ouverture, Échap en deux temps.
+    const parentMenu =
+      "[...document.querySelectorAll('.planning-filter-bar details.filter-menu')].find(menu => menu.querySelector('summary').textContent.trim() === 'Parent')";
+    const parentOptions = `[...${parentMenu}.querySelectorAll('.filter-option:not(.filter-option-extra) .filter-option-label')].map(label => label.textContent)`;
+    assert(
+      (await run(
+        "document.querySelectorAll('.planning-filter-bar details.filter-menu input[type=search]').length",
+      )) === 1,
+      "Seul le menu Parent doit proposer une recherche",
+    );
+    await click(`${parentMenu}.querySelector('summary')`);
+    await wait(
+      `document.activeElement === ${parentMenu}.querySelector('input[type=search]')`,
+      "Le champ de recherche du menu Parent n'a pas le focus à l'ouverture",
+    );
+    const allParents = await run(parentOptions);
+    assert(allParents.length >= 2, `Parents du banc : ${JSON.stringify(allParents)}`);
+    await setValue(".planning-filter-bar details.filter-menu[open] input[type=search]", "abc-91");
+    await wait(
+      `JSON.stringify(${parentOptions}) === ${JSON.stringify(JSON.stringify(allParents.filter((label) => label.startsWith("ABC-91"))))}`,
+      "La recherche du menu Parent ne réduit pas la liste à ABC-91",
+    );
+    await capture("planning-recherche-parent");
+    await press("Escape", "Escape", 27);
+    await wait(
+      `${parentMenu}.open && ${parentMenu}.querySelector('input[type=search]').value === '' && ${parentOptions}.length === ${allParents.length}`,
+      "Échap n'efface pas d'abord la recherche du menu Parent",
+    );
+    await press("Escape", "Escape", 27);
+    await wait(
+      `!${parentMenu}.open && document.activeElement === ${parentMenu}.querySelector('summary')`,
+      "Le second Échap ne ferme pas le menu Parent en rendant le focus à son bouton",
+    );
     const beforeQuick = await run("window.__planning.requestCount()");
     await click(buttonNamed("Mes tickets"));
     await wait(

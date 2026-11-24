@@ -359,6 +359,11 @@ describe("App", () => {
       (summary) => summary.textContent,
     );
     expect(menus).not.toContain("Composant");
+    // Story 10.1 : seul le menu Parent du board propose une recherche.
+    const searchable = [...document.querySelectorAll("details.filter-menu")]
+      .filter((menu) => menu.querySelector('input[type="search"]'))
+      .map((menu) => menu.querySelector("summary")?.textContent);
+    expect(searchable).toEqual(["Parent"]);
 
     // Le statut n'est plus écrit, même dans une colonne qui en regroupe plusieurs.
     expect(card("ABC-104")?.textContent).not.toContain("Revue");
