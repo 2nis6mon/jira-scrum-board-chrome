@@ -3,6 +3,13 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.51.2 — « Sans objectif » du planning sans en-tête propre
+
+- Retour de Denis sur la story 8.34 : l'en-tête de la section (« Sans objectif », nombre de tickets,
+  « Dans le sprint, rattachés à aucun objectif ») faisait double emploi avec ceux des sous-sections
+  par type. Il est retiré ; la section reste la zone de dépôt « sans objectif » (nom accessible
+  inchangé). Le texte du sous-titre quitte les catalogues anglais et espagnol.
+
 ## 0.51.1 — « Sans objectif » du planning : même swimlane que sur le board
 
 - Retour de Denis sur la story 8.34 : les sous-sections de « Sans objectif » reprennent l'en-tête

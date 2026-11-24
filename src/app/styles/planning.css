@@ -474,11 +474,6 @@ details.planning-close-menu > summary[aria-disabled="true"] {
   background: #fbf3e8;
 }
 
-.planning-lane-sub {
-  color: var(--ink-3);
-  font-size: 12px;
-}
-
 .planning-add-goal {
   margin-top: 12px;
   padding: 8px 14px;

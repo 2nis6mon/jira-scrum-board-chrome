@@ -319,7 +319,6 @@ export const boardMessages = {
   "Les Goals se créent dans Atlassian ; le planning épingle les Goals existants.":
     "Goals are created in Atlassian; planning pins existing Goals.",
   "Sans objectif": "No goal",
-  "Dans le sprint, rattachés à aucun objectif": "In the sprint, not linked to any goal",
   "Tous les tickets du sprint servent un objectif.": "Every issue in the sprint serves a goal.",
   "Vient du backlog": "From the backlog",
   "Vient de {name}": "From {name}",

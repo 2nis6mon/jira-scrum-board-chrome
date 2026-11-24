@@ -1406,11 +1406,6 @@ function UnassignedLane({ planning, images }: { planning: PlanningViewModel; ima
       aria-label={t("Sans objectif")}
       {...drop.handlers}
     >
-      <header class="lane-header">
-        <span class="lane-title">{t("Sans objectif")}</span>
-        <span class="lane-count">{plural(issues.length, "ticket")}</span>
-        <span class="planning-lane-sub">{t("Dans le sprint, rattachés à aucun objectif")}</span>
-      </header>
       {typeLanes.length === 0 ? (
         <LaneCards
           planning={planning}

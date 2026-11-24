@@ -1661,6 +1661,15 @@ describe("Sprint Planning : swimlanes par type dans « Sans objectif » (story 8
     expect(build.querySelector('[data-planning-issue="ABC-12"]')).not.toBeNull();
   });
 
+  it("la section n'a pas d'en-tête propre : ni titre « Sans objectif », ni compteur, ni sous-titre", async () => {
+    setup();
+    await tick();
+    const section = find('[data-planning-goal="unassigned"]');
+    expect(section.querySelector(":scope > header")).toBeNull();
+    expect(section.textContent).not.toContain("Dans le sprint, rattachés à aucun objectif");
+    expect(section.getAttribute("aria-label")).toBe("Sans objectif");
+  });
+
   it("une swimlane par type : sous-sections nommées, comptées et dans l'ordre", async () => {
     const { planning } = setup();
     planning.unassigned.value = [UNASSIGNED, ...anomalies];

@@ -325,7 +325,6 @@ export const boardMessagesEs = {
   "Les Goals se créent dans Atlassian ; le planning épingle les Goals existants.":
     "Los Goals se crean en Atlassian; la planificación fija los Goals existentes.",
   "Sans objectif": "Sin objetivo",
-  "Dans le sprint, rattachés à aucun objectif": "En el sprint, sin vínculo con ningún objetivo",
   "Tous les tickets du sprint servent un objectif.":
     "Todas las incidencias del sprint sirven a un objetivo.",
   "Vient du backlog": "Viene del backlog",
