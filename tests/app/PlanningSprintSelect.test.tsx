@@ -60,7 +60,6 @@ async function shownSprints(foreignFutureSprint: boolean | "empty" | "done") {
       images={new ImageCache(() => Promise.reject(new Error("aucun téléchargement")))}
       sidebarCollapsed={false}
       onToggleSidebar={() => {}}
-      onBack={() => {}}
     />,
     document.body,
   );

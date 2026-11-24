@@ -275,19 +275,17 @@ function setup(
     openIssue: vi.fn(),
     issueUrl: vi.fn((key: string) => `https://acme.atlassian.net/browse/${key}`),
   } satisfies PlanningViewModel;
-  const onBack = vi.fn();
   const onToggleSidebar = vi.fn();
   render(
     <PlanningView
       planning={planning}
       images={options.images ?? noImages()}
       sidebarCollapsed={false}
-      onBack={onBack}
       onToggleSidebar={onToggleSidebar}
     />,
     document.body,
   );
-  return { planning, onBack, onToggleSidebar };
+  return { planning, onToggleSidebar };
 }
 
 function find<T extends Element>(selector: string): T {
@@ -400,7 +398,7 @@ afterEach(() => {
 
 describe("Sprint Planning en direct : écran", () => {
   it("montre le sprint préparé, la vélocité, la charge, les sources et les swimlanes", async () => {
-    const { planning, onBack, onToggleSidebar } = setup();
+    const { planning, onToggleSidebar } = setup();
     await tick();
     expect(find(".sprint-name h2").textContent).toBe("Sprint 43");
     expect(find(".sprint-future").textContent).toBe("futur");
@@ -448,8 +446,8 @@ describe("Sprint Planning en direct : écran", () => {
     expect(planning.openIssue).toHaveBeenCalledWith("ABC-13");
     button("Actualiser").click();
     expect(planning.refresh).toHaveBeenCalled();
-    button("Retour au board").click();
-    expect(onBack).toHaveBeenCalled();
+    // Pas de bouton de retour dans l'en-tête : la barre latérale ramène au board.
+    expect(() => button("Retour au board")).toThrow();
     button("Masquer la barre latérale").click();
     expect(onToggleSidebar).toHaveBeenCalled();
   });
@@ -469,9 +467,10 @@ describe("Sprint Planning en direct : écran", () => {
     await tick();
     const start = button("Démarrer Sprint 43");
     expect(start.disabled).toBe(true);
-    expect(find("#planning-start-reason").textContent).toBe(
-      "Un sprint est actif : clôturez-le avant de démarrer celui-ci.",
-    );
+    // La raison n'est plus écrite sous le bouton : elle reste dans son infobulle.
+    expect(start.title).toBe("Un sprint est actif : clôturez-le avant de démarrer celui-ci.");
+    expect(document.querySelector(".planning-start-reason")).toBeNull();
+    expect(document.querySelector("#planning-start-reason")).toBeNull();
     button("Clôturer Sprint 42").click();
     expect(planning.closeActiveSprint).toHaveBeenCalledExactlyOnceWith(42);
     expect(document.querySelector(".planning-close-menu")).toBeNull();
@@ -1033,7 +1032,7 @@ describe("Sprint Planning en direct : écran", () => {
     planning.closableSprints.value = [];
     await tick();
     expect(() => button("Clôturer Sprint 42")).toThrow();
-    expect(find("#planning-start-reason").textContent).toContain("Un sprint est actif");
+    expect(button("Démarrer Sprint 43").title).toContain("Un sprint est actif");
   });
 });
 

@@ -146,13 +146,6 @@
   --icon-color: currentColor;
 }
 
-.planning-start-reason {
-  max-width: 260px;
-  color: var(--ink-3);
-  font-size: 11px;
-  text-align: right;
-}
-
 .planning-filter-bar kbd {
   padding: 0 5px;
   border: 1px solid var(--line);

@@ -45,14 +45,12 @@ export function PlanningView({
   images,
   sidebarCollapsed,
   onToggleSidebar,
-  onBack,
 }: {
   planning: PlanningViewModel;
   /** Icônes Jira (type, priorité) du board, téléchargées une fois avec la session. */
   images: ImageCache;
   sidebarCollapsed: boolean;
   onToggleSidebar(): void;
-  onBack(): void;
 }) {
   const snapshot = planning.snapshot.value;
   const busy = planning.loading.value || planning.busy.value;
@@ -94,7 +92,6 @@ export function PlanningView({
         planning={planning}
         sidebarCollapsed={sidebarCollapsed}
         onToggleSidebar={onToggleSidebar}
-        onBack={onBack}
       />
       <div ref={filterBar} class="filter-bar planning-filter-bar">
         <label class="filter-search">
@@ -349,12 +346,10 @@ function PlanningHeader({
   planning,
   sidebarCollapsed,
   onToggleSidebar,
-  onBack,
 }: {
   planning: PlanningViewModel;
   sidebarCollapsed: boolean;
   onToggleSidebar(): void;
-  onBack(): void;
 }) {
   const snapshot = planning.snapshot.value;
   const sprints = planning.sprints.value;
@@ -447,15 +442,6 @@ function PlanningHeader({
         >
           <Icon name="refresh" size={17} />
         </button>
-        <button
-          type="button"
-          class="icon-button"
-          aria-label={t("Retour au board")}
-          title={t("Retour au board")}
-          onClick={onBack}
-        >
-          <Icon name="arrowLeft" size={17} />
-        </button>
         {single && (
           <button
             type="button"
@@ -476,7 +462,6 @@ function PlanningHeader({
               type="button"
               class="primary planning-start-sprint"
               disabled={disabled || startReason !== null}
-              aria-describedby={startReason ? "planning-start-reason" : undefined}
               title={
                 startReason
                   ? text(startReason)
@@ -487,11 +472,6 @@ function PlanningHeader({
               <Icon name="play" size={15} />
               {t("Démarrer {name}", { name: snapshot.sprint.name })}
             </button>
-            {startReason && (
-              <small id="planning-start-reason" class="planning-start-reason">
-                {text(startReason)}
-              </small>
-            )}
           </span>
         )}
       </div>

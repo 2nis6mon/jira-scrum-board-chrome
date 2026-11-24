@@ -183,7 +183,6 @@ function Workspace({
             images={board.images}
             sidebarCollapsed={sidebarCollapsed}
             onToggleSidebar={() => model.toggleSidebar()}
-            onBack={() => model.showBoard()}
           />
         )}
         {view === "settings" && configuration && settingsAvailable && (

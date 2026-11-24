@@ -322,8 +322,9 @@ try {
     );
     assert(
       await run(`document.querySelector('.planning-start-sprint').disabled
-        && document.querySelector('#planning-start-reason')?.textContent.includes('Un sprint est actif')`),
-      "« Démarrer » doit être désactivé avec sa raison tant qu'un sprint est actif",
+        && document.querySelector('.planning-start-sprint').title.includes('Un sprint est actif')
+        && !document.querySelector('#planning-start-reason, .host-return[aria-label="Retour au board"]')`),
+      "« Démarrer » doit être désactivé, avec sa raison en infobulle seulement, tant qu'un sprint est actif",
     );
     await setValue('[aria-label="Rechercher un ticket à planifier"]', "ABC-203");
     assert(
@@ -794,7 +795,6 @@ try {
         ".planning-velocity input",
         ".planning-close-sprint",
         ".planning-start-sprint",
-        "#planning-start-reason",
         "form.planning-add-goal input",
         '[data-planning-section="backlog"] .planning-source-head',
       ]) {

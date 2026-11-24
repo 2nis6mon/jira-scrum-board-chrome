@@ -3,6 +3,13 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.52.2 — En-tête du planning allégé
+
+- Retour de Denis : dans le Sprint Planning, le bouton « Retour au board » de l'en-tête et le texte
+  « Un sprint est actif : clôturez-le avant de démarrer celui-ci. » sous « Démarrer » sont retirés.
+  La barre latérale ramène au board ; « Démarrer » reste désactivé tant qu'un sprint est actif, et sa
+  raison reste dans son infobulle. Aucune lecture ni écriture Jira.
+
 ## 0.52.1 — Le titre du sprint est le sélecteur du planning
 
 - Retour de Denis : le planning écrivait le nom du sprint deux fois, dans le titre et dans la liste
