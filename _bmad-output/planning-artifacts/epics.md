@@ -1337,3 +1337,39 @@ So that je n'ai pas à rattacher chaque ticket un par un.
 **Then** aucune nouvelle route d'écriture (E3, E4, E5 seulement), au plus 50 tickets par lot (refus avant toute écriture au-delà), journal du board avec une entrée par lot ; `verify:drag` joue la sélection de deux cartes, leur glisser vers un objectif et le refus d'une swimlane incompatible
 
 *Notes :* dépend de la 8.32 (swimlane entière comme zone de dépôt) et de la 8.30 (`CardSelection`, `BoardModel.selectedKeys`). Le glisser du board transmet aujourd'hui une seule clé (`DRAG_TYPE`, `BoardModel.startDrag`) ; le planning transmet le lot (`gestureKeys`, `PLANNING_DRAG_TYPE`). Les liens passent par les écritures de `src/core/boardWrites.ts` (`withTextGoalLink`, liens Goals) et la porte du board. Un ticket sélectionné puis masqué par un filtre part-il avec le lot ? Même question qu'en 8.15 (backlog) : à trancher avec elle.
+
+### Story 8.34: Voir les swimlanes par type dans « Sans objectif » du planning
+
+*Type : amélioration, demandée par Denis le 24/11/2026.*
+
+As a membre de l'équipe qui prépare le sprint,
+I want que la partie « Sans objectif » du sprint en préparation montre les tickets rangés dans les swimlanes définies pour leur type (Build, RUN, etc.),
+So that je retrouve dans le planning le même classement que sur le Sprint Board, et que je vois d'un coup d'œil ce qui reste à rattacher à un objectif, type par type.
+
+**Acceptance Criteria:**
+
+**Given** le sprint en préparation avec des tickets sans objectif, et des swimlanes définies dans Board → Swimlanes (Default / Build et groupes dédiés, un type dans une seule swimlane)
+**When** j'ouvre le planning
+**Then** « Sans objectif » est découpée en sous-sections, une par swimlane de type, dans l'ordre des swimlanes du board (`settingsLaneOrder`), chacune avec son nom et le nombre de tickets ; les tickets d'un type Default sont dans la sous-section Default, ceux d'un type de groupe dédié dans ce groupe
+
+**Given** une sous-section sans ticket (ou dont tous les tickets sont masqués par les filtres)
+**When** le planning s'affiche
+**Then** elle n'est pas affichée, comme les lignes vides du board ; si « Sans objectif » entière est vide, son comportement actuel est inchangé
+
+**Given** un ticket d'un type `IGNORED` dans les réglages du board
+**When** le planning s'affiche
+**Then** il reste traité comme aujourd'hui par le planning (règle du board appliquée à l'identique sur les deux écrans, voir Notes)
+
+**Given** les gestes actuels sur une carte de « Sans objectif » (glisser, lot, menu, top / basse priorité, estimation, clic, sélection)
+**When** je les joue dans une sous-section
+**Then** ils se comportent comme avant ; déposer un ticket sur « Sans objectif » le range dans la sous-section de son type ; le rang (top / basse priorité) s'entend dans la sous-section de son type ; une Maj+clic couvre une plage dans la même sous-section
+
+**Given** les totaux, la charge, l'avancement et les filtres du planning
+**When** « Sans objectif » est découpée
+**Then** ils sont inchangés (charge et totaux calculés sur toute la section, filtres appliqués aux sous-sections)
+
+**Given** le changement
+**When** il est vérifié
+**Then** aucune lecture ni écriture Jira n'est ajoutée, aucune écriture des réglages (préférences et réglages partagés en lecture seule ici) ; tests de `PlanningModel` (découpage, ordre, sous-sections vides, filtre) et de vue ; `verify:planning` constate les sous-sections sur le banc avec au moins deux swimlanes de type ; manuel et guides EN/ES mis à jour ; nouveaux textes dans les trois langues
+
+*Notes :* lecture à confirmer avec Denis avant le build : « swimlanes définies dans le sprint par rapport au type de tickets » est comprise comme les swimlanes par type des réglages du board (`normalizeSwimlanes`, `swimlaneId` conserve la destination par défaut du ticket, voir `docs/technique/invariants.md`), et non les swimlanes JQL de Jira (aucune API de swimlanes Jira n'est lue ; ne pas en inventer). `PlanningModel.unassigned` renvoie aujourd'hui une liste plate ; le découpage se fait dans le modèle (pur, testable), la vue ne fait que le rendre. Ce découpage ne s'applique qu'à « Sans objectif » : les swimlanes d'objectif restent par objectif. À trancher au build : sous-sections repliables ou non ; nom affiché quand la swimlane Default est vide de nom ; rôle des types `IGNORED` dans le planning. Réutiliser le composant d'en-tête de `LaneHeader` si cela suffit, sans barre d'avancement (hors objectif).
