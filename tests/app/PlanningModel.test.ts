@@ -1777,3 +1777,41 @@ describe("Sprint Planning : estimer un ticket pendant la séance (8.17)", () => 
     expect(inspect().writes).toEqual([]);
   });
 });
+
+describe("Sprint Planning : swimlanes par type dans « Sans objectif » (story 8.34)", () => {
+  it("range les tickets sans objectif dans la swimlane de leur type, Build d'abord", async () => {
+    const { planning } = context({
+      issueFields: {
+        "ABC-204": { issuetype: { id: "10004", name: "Anomalie Prod", subtask: false } },
+      },
+    });
+    await planning.load();
+    // Un seul ticket sans objectif au départ : Build.
+    expect(planning.unassignedLanes.value.map((group) => group.name)).toEqual(["Build"]);
+    await planning.placeIssue("ABC-204", null);
+    expect(
+      planning.unassignedLanes.value.map((group) => [
+        group.swimlaneId,
+        group.name,
+        group.items.map((entry) => entry.issue.key),
+      ]),
+    ).toEqual([
+      [null, "Build", ["ABC-210"]],
+      ["1", "Anomalie Prod", ["ABC-204"]],
+    ]);
+    // La liste plate reste celle d'avant : compteurs et sélection n'en dépendent pas.
+    expect(planning.unassigned.value.map((item) => item.issue.key)).toEqual(["ABC-210", "ABC-204"]);
+  });
+
+  it("applique les filtres aux sous-sections et omet celles qui se vident", async () => {
+    const { planning } = context({
+      issueFields: {
+        "ABC-204": { issuetype: { id: "10004", name: "Anomalie Prod", subtask: false } },
+      },
+    });
+    await planning.load();
+    await planning.placeIssue("ABC-204", null);
+    planning.setSearch("ABC-204");
+    expect(planning.unassignedLanes.value.map((group) => group.name)).toEqual(["Anomalie Prod"]);
+  });
+});

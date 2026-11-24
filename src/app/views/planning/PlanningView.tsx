@@ -1017,15 +1017,27 @@ function LaneCards({
   issues,
   goalId,
   empty,
+  heading,
 }: {
   planning: PlanningViewModel;
   images: ImageCache;
   issues: readonly PlanningIssue[];
   goalId: string | null;
   empty: ComponentChildren;
+  /** Sous-section de « Sans objectif » (story 8.34) : nom de la swimlane par type, avant ses cartes. */
+  heading?: { readonly id: string | null; readonly name: string };
 }) {
   return (
-    <div class="lane-cell planning-lane-cell">
+    <div
+      class="lane-cell planning-lane-cell"
+      data-planning-type-lane={heading ? (heading.id ?? "build") : undefined}
+    >
+      {heading && (
+        <h4 class="planning-type-lane-title">
+          <span>{heading.name}</span>
+          <span class="lane-count">{plural(issues.length, "ticket")}</span>
+        </h4>
+      )}
       {issues.map((item) => (
         <PlanningCard
           key={item.issue.key}
@@ -1331,6 +1343,9 @@ function PinGoal({ planning }: { planning: PlanningViewModel }) {
 
 function UnassignedLane({ planning, images }: { planning: PlanningViewModel; images: ImageCache }) {
   const issues = planning.unassigned.value;
+  // Sous-sections par swimlane de type (story 8.34) ; Build seule : rendu plat d'avant.
+  const typeLanes = planning.unassignedLanes.value;
+  const onlyBuild = typeLanes.length === 1 && typeLanes[0]?.swimlaneId === null;
   const drop = useDrop({
     type: PLANNING_DRAG_TYPE,
     disabled: planning.gesturesDisabled.value,
@@ -1348,17 +1363,31 @@ function UnassignedLane({ planning, images }: { planning: PlanningViewModel; ima
         <span class="lane-count">{plural(issues.length, "ticket")}</span>
         <span class="planning-lane-sub">{t("Dans le sprint, rattachés à aucun objectif")}</span>
       </header>
-      <LaneCards
-        planning={planning}
-        images={images}
-        issues={issues}
-        goalId={null}
-        empty={
-          planning.activeFilterCount.value > 0
-            ? t("Aucun ticket ne correspond à la recherche ou aux filtres.")
-            : t("Tous les tickets du sprint servent un objectif.")
-        }
-      />
+      {typeLanes.length === 0 || onlyBuild ? (
+        <LaneCards
+          planning={planning}
+          images={images}
+          issues={issues}
+          goalId={null}
+          empty={
+            planning.activeFilterCount.value > 0
+              ? t("Aucun ticket ne correspond à la recherche ou aux filtres.")
+              : t("Tous les tickets du sprint servent un objectif.")
+          }
+        />
+      ) : (
+        typeLanes.map((lane) => (
+          <LaneCards
+            key={lane.swimlaneId ?? "build"}
+            planning={planning}
+            images={images}
+            issues={lane.items}
+            goalId={null}
+            empty={null}
+            heading={{ id: lane.swimlaneId, name: lane.name }}
+          />
+        ))
+      )}
     </section>
   );
 }

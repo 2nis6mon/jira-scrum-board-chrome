@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { signal } from "@preact/signals";
+import { computed, signal } from "@preact/signals";
 import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type AppMessage, message } from "../../src/app/model/appMessage";
@@ -14,6 +14,7 @@ import type {
   PlanningLoad,
   PlanningRankOptions,
   PlanningSection,
+  PlanningTypeLane,
   PlanningViewModel,
 } from "../../src/app/model/PlanningTypes";
 import {
@@ -141,6 +142,7 @@ function setup(
     closableSprintIds: [42],
   } satisfies PlanningSnapshot;
   const gesturesDisabled = signal(false);
+  const unassigned = signal<readonly PlanningIssue[]>([UNASSIGNED]);
   const planning = {
     sprints: signal<readonly JiraSprint[]>([SPRINT_43, SPRINT_44]),
     selectedSprintId: signal<number | null>(43),
@@ -167,7 +169,16 @@ function setup(
     activeFilterCount: signal(0),
     goalMode: signal<"text" | "atlassian">(options.goalMode ?? "text"),
     lanes: signal<readonly PlanningLane[]>([lane(0, [IN_G1]), lane(1, [ARRIVED])]),
-    unassigned: signal<readonly PlanningIssue[]>([UNASSIGNED]),
+    unassigned,
+    // Swimlane par type : le type 10004 est la swimlane « Anomalie Prod », les autres vont dans Build.
+    unassignedLanes: computed((): readonly PlanningTypeLane[] => {
+      const run = unassigned.value.filter((entry) => entry.issue.fields.issuetype.id === "10004");
+      const build = unassigned.value.filter((entry) => !run.includes(entry));
+      return [
+        ...(build.length > 0 ? [{ swimlaneId: null, name: "Build", items: build }] : []),
+        ...(run.length > 0 ? [{ swimlaneId: "1", name: "Anomalie Prod", items: run }] : []),
+      ];
+    }),
     sections: signal<readonly PlanningSection[]>([
       { kind: "sprint", sprint: SPRINT_44, issues: [OTHER_SPRINT] },
       { kind: "backlog", issues: [BACKLOG, REMAINING] },
@@ -1624,5 +1635,50 @@ describe("Sprint Planning en direct : estimation sur la carte (8.17)", () => {
     await tick();
     expect(estimateButton("ABC-10")).not.toBeNull();
     expect(estimateButton("ABC-13")).toBeNull();
+  });
+});
+
+describe("Sprint Planning : swimlanes par type dans « Sans objectif » (story 8.34)", () => {
+  it("Build seule : rendu plat, sans titre de sous-section", async () => {
+    setup();
+    await tick();
+    const lane = find('[data-planning-goal="unassigned"]');
+    expect(lane.querySelector(".planning-type-lane-title")).toBeNull();
+    expect(lane.querySelector('[data-planning-issue="ABC-12"]')).not.toBeNull();
+  });
+
+  it("une swimlane par type : sous-sections nommées, comptées et dans l'ordre", async () => {
+    const { planning } = setup();
+    planning.unassigned.value = [
+      UNASSIGNED,
+      item("ABC-13", "Panne de paiement", 3, null, { typeId: "10004", typeName: "Anomalie Prod" }),
+      item("ABC-14", "Lenteur du panier", 2, null, { typeId: "10004", typeName: "Anomalie Prod" }),
+    ];
+    await tick();
+    const lane = find('[data-planning-goal="unassigned"]');
+    const groups = [...lane.querySelectorAll("[data-planning-type-lane]")];
+    expect(groups.map((group) => group.getAttribute("data-planning-type-lane"))).toEqual([
+      "build",
+      "1",
+    ]);
+    expect(
+      groups.map((group) => group.querySelector(".planning-type-lane-title")?.textContent),
+    ).toEqual(["Build1 ticket", "Anomalie Prod2 tickets"]);
+    expect(
+      [...(groups[1]?.querySelectorAll("[data-planning-issue]") ?? [])].map((card) =>
+        card.getAttribute("data-planning-issue"),
+      ),
+    ).toEqual(["ABC-13", "ABC-14"]);
+  });
+
+  it("déposer sur « Sans objectif » reste un dépôt sur toute la section", async () => {
+    const { planning } = setup();
+    planning.unassigned.value = [
+      item("ABC-13", "Panne de paiement", 3, null, { typeId: "10004", typeName: "Anomalie Prod" }),
+    ];
+    await tick();
+    drop(find('[data-planning-type-lane="1"]'), "ABC-15", [PLANNING_DRAG_TYPE]);
+    await tick();
+    expect(planning.placeIssue.mock.calls).toEqual([["ABC-15", null]]);
   });
 });

@@ -3,6 +3,17 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.51.0 — Swimlanes par type dans « Sans objectif » du planning
+
+- Demandé par Denis le 24/11/2026 (story 8.34) : dans le Sprint Planning, les tickets du sprint en
+  préparation sans objectif étaient une liste plate. Ils sont rangés dans les swimlanes par type des
+  réglages du board (Build, RUN, etc.), dans l'ordre du board, chaque sous-section avec son nom et son
+  nombre de tickets ; les sous-sections vides ne sont pas affichées.
+- Un type ignoré ou sans swimlane rejoint Build et une swimlane masquée sur le board reste visible :
+  aucun ticket du sprint ne disparaît. Build seule garde le rendu d'avant. Gestes, totaux, charge et
+  filtres inchangés ; aucune lecture ni écriture Jira, aucun nouveau texte. Sprint Planning reste
+  expérimental (builds locaux et tests).
+
 ## 0.50.1 — Goals Atlassian visibles à leur première lecture
 
 - Relevé par la revue du 02/11/2026 (story 8.25) : un board qui passait de la source texte aux

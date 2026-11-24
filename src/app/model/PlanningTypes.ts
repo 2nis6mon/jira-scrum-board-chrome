@@ -1,6 +1,7 @@
 import type { ReadonlySignal } from "@preact/signals";
 import type { IssueFilterOptions } from "../../core/boardLayout";
 import type { PlanningFilters } from "../../core/filters";
+import type { TypeLaneGroup } from "../../core/planningLanes";
 import type { SprintGoal } from "../../core/sprintGoals";
 import type {
   CarryOverGoalReport,
@@ -54,6 +55,9 @@ export interface PlanningLane {
   /** Lecture du déjà livré incomplète : il peut en manquer. */
   readonly deliveredIncomplete: boolean;
 }
+
+/** Sous-section de « Sans objectif » : la swimlane par type, ou Build (`swimlaneId` nul). */
+export type PlanningTypeLane = TypeLaneGroup<PlanningIssue>;
 
 /**
  * Top et basse priorité d'une carte du sprint en préparation : raison de l'action désactivée
@@ -158,6 +162,8 @@ export interface PlanningViewModel {
   readonly lanes: ReadonlySignal<readonly PlanningLane[]>;
   /** Tickets du sprint en préparation sans objectif (recherche et filtres appliqués). */
   readonly unassigned: ReadonlySignal<readonly PlanningIssue[]>;
+  /** Les mêmes tickets rangés dans les swimlanes par type du board, sous-sections vides omises. */
+  readonly unassignedLanes: ReadonlySignal<readonly PlanningTypeLane[]>;
   readonly sections: ReadonlySignal<readonly PlanningSection[]>;
   readonly sprintLoad: ReadonlySignal<PlanningLoad | null>;
   /**

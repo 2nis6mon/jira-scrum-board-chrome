@@ -464,6 +464,20 @@ details.planning-close-menu > summary[aria-disabled="true"] {
   background: var(--sidebar);
 }
 
+.planning-type-lane-title {
+  margin: 8px 0 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.planning-type-lane-title:first-child {
+  margin-top: 0;
+}
+
 .planning-lane-sub {
   color: var(--ink-3);
   font-size: 12px;

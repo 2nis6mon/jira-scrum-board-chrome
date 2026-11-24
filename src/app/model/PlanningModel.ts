@@ -17,6 +17,7 @@ import {
   searchNeedle,
 } from "../../core/filters";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
+import { splitByTypeLane } from "../../core/planningLanes";
 import {
   atlassianGoalHistory,
   type ClosedSprintCache,
@@ -96,6 +97,7 @@ import type {
   PlanningRankOptions,
   PlanningSection,
   PlanningTally,
+  PlanningTypeLane,
   PlanningViewModel,
   SprintDialogAction,
 } from "./PlanningTypes";
@@ -359,6 +361,16 @@ export class PlanningModel implements PlanningViewModel {
       const goalId = links[item.issue.key];
       return (goalId === undefined || !ids.has(goalId)) && matches(item.issue);
     });
+  });
+
+  /** « Sans objectif » rangé dans les swimlanes par type du board, dans son ordre (story 8.34). */
+  readonly unassignedLanes = computed((): readonly PlanningTypeLane[] => {
+    const configuration = this.context.configuration();
+    const issues = this.unassigned.value;
+    if (!configuration) {
+      return issues.length > 0 ? [{ swimlaneId: null, name: "Build", items: issues }] : [];
+    }
+    return splitByTypeLane(configuration, issues, (item) => item.issue.fields.issuetype.id);
   });
 
   readonly sections = computed((): readonly PlanningSection[] => {
