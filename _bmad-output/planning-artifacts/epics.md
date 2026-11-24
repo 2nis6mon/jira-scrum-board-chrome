@@ -70,6 +70,7 @@ Ajouts de Denis (30/10/2026) :
 
 FR23: Avec plusieurs sprints actifs du board, l'éditeur d'épinglage des Goals Atlassian permet de choisir le sprint concerné ; l'épinglage s'écrit dans la propriété de ce sprint (E5). Aujourd'hui, les épinglages de tous les sprints sont lus, mais seul celui du sprint principal se modifie (point partiel de la 0.36.0).
 FR24: Le board montre les tickets reportés depuis le sprint précédent du board (nombre et liste, via un filtre rapide « Reportés »), calculés sans lecture Jira supplémentaire à partir de l'historique Sprint déjà chargé (`sprintScope`) ; sprints étrangers exclus.
+FR25: Le menu de filtre Parent permet de chercher un parent par texte (clé ou résumé) parmi ceux du sprint, car un sprint peut en compter beaucoup (Sprint Board et Sprint Planning).
 
 ### NonFunctional Requirements
 
@@ -134,6 +135,7 @@ FR21: Epic 7 - WIP en points, minimums de colonne, sources Goals
 FR22: Epic 5 - Déploiement `storage.managed` (déplacement clavier abandonné)
 FR23: Epic 2 - Épinglage par sprint avec plusieurs sprints actifs
 FR24: Epic 2 - Tickets reportés, via un filtre rapide « Reportés »
+FR25: Epic 9 - Rechercher un parent dans le filtre Parent
 
 ## Epic List
 
@@ -178,6 +180,11 @@ L'équipe règle ses limites WIP en points et des minimums par colonne, et voit 
 L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre, sans quitter l'extension ; chaque geste est aussitôt dans Jira, et la fonction, validée sur un vrai Jira, est activée dans le paquet distribué.
 **FRs covered:** FR17
 *Notes :* créé le 31/10/2026, redéfini le 01/11/2026 (Denis) depuis [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md), qui remplace la décision du 14/10/2026. Création de sprint et de Goals hors périmètre. Droits (lecture seule annoncée ou découverte au premier refus) : décision en attente. Écran de référence : maquette v2. Complété le 02/11/2026 (Denis, retours d'essai) par les stories 8.12 à 8.18 ; décision produit du même jour : l'estimation d'un ticket s'écrit depuis le planning (E11, story 8.17), sous réserve de la vérification du contrat Atlassian.
+
+### Epic 9: Retrouver ses tickets plus vite
+L'équipe trouve vite ce qu'elle cherche sur le board, même quand un sprint compte beaucoup de tickets, de parents ou de valeurs de filtre ; aucune écriture dans Jira.
+**FRs covered:** FR25
+*Notes :* créé le 24/11/2026 (Denis), hors Sprint Planning : les améliorations de filtres et de recherche du board. Indépendant des autres epics. Le menu de filtre est un composant partagé avec le Sprint Planning, qui en bénéficie sans story propre.
 
 ## Epic 1: Des écritures Jira sûres et cohérentes
 
@@ -1373,3 +1380,43 @@ So that je retrouve dans le planning le même classement que sur le Sprint Board
 **Then** aucune lecture ni écriture Jira n'est ajoutée, aucune écriture des réglages (préférences et réglages partagés en lecture seule ici) ; tests de `PlanningModel` (découpage, ordre, sous-sections vides, filtre) et de vue ; `verify:planning` constate les sous-sections sur le banc avec au moins deux swimlanes de type ; manuel et guides EN/ES mis à jour ; nouveaux textes dans les trois langues
 
 *Notes :* lecture à confirmer avec Denis avant le build : « swimlanes définies dans le sprint par rapport au type de tickets » est comprise comme les swimlanes par type des réglages du board (`normalizeSwimlanes`, `swimlaneId` conserve la destination par défaut du ticket, voir `docs/technique/invariants.md`), et non les swimlanes JQL de Jira (aucune API de swimlanes Jira n'est lue ; ne pas en inventer). `PlanningModel.unassigned` renvoie aujourd'hui une liste plate ; le découpage se fait dans le modèle (pur, testable), la vue ne fait que le rendre. Ce découpage ne s'applique qu'à « Sans objectif » : les swimlanes d'objectif restent par objectif. À trancher au build : sous-sections repliables ou non ; nom affiché quand la swimlane Default est vide de nom ; rôle des types `IGNORED` dans le planning. Réutiliser le composant d'en-tête de `LaneHeader` si cela suffit, sans barre d'avancement (hors objectif).
+
+## Epic 9: Retrouver ses tickets plus vite
+
+L'équipe trouve vite ce qu'elle cherche sur le board, même quand un sprint compte beaucoup de tickets, de parents ou de valeurs de filtre. Lecture seule : aucune écriture, aucune nouvelle lecture Jira.
+
+### Story 9.1: Chercher un parent dans le filtre Parent
+
+*Type : amélioration, demandée par Denis le 24/11/2026, à faire à part du Sprint Planning.*
+
+As a membre de l'équipe qui filtre le board par parent,
+I want taper du texte dans le menu Parent pour retrouver un parent par sa clé ou son résumé,
+So that je n'ai pas à parcourir une longue liste quand le sprint compte beaucoup de parents.
+
+**Acceptance Criteria:**
+
+**Given** le menu de filtre Parent ouvert, avec plus de parents que de lignes visibles
+**When** je tape du texte dans son champ de recherche
+**Then** la liste ne montre que les parents dont la clé ou le résumé contient ce texte, accents et casse ignorés (même règle que la recherche du board, `searchNeedle`), avec le nombre de tickets de chaque parent inchangé ; un texte sans résultat affiche « Aucun résultat » ; vider le champ rend toute la liste
+
+**Given** des parents déjà cochés
+**When** je cherche un autre parent
+**Then** les parents cochés restent cochés, et visibles même si le texte ne les trouve pas (ou comptés dans le bouton du menu) ; cocher ou décocher un parent trouvé change le filtre comme aujourd'hui, et « Sans parent » reste accessible
+
+**Given** le menu fermé puis rouvert
+**When** je l'ouvre de nouveau
+**Then** le champ de recherche est vide ; la sélection de parents, elle, est conservée
+
+**Given** le clavier ou un lecteur d'écran
+**When** j'ouvre le menu Parent
+**Then** le champ prend le focus, Échap ferme le menu comme aujourd'hui, le champ a un nom accessible et le nombre de résultats est annoncé (nouveaux textes en français, anglais et espagnol)
+
+**Given** les autres menus (Personne, Type, Statut, Label)
+**When** ils s'ouvrent
+**Then** ils sont inchangés, sauf décision de l'étendre (voir Notes)
+
+**Given** le changement
+**When** il est vérifié
+**Then** aucune lecture ni écriture Jira n'est ajoutée, le Sprint Board et le Sprint Planning proposent la même recherche dans leur menu Parent, les tests de `FilterMenu` couvrent recherche, parents cochés cachés par le texte et réouverture, `verify:i18n` est vert, le manuel et ses guides EN/ES le disent
+
+*Notes :* `FilterMenu` (`src/app/views/board/FilterMenu.tsx`) est un composant partagé, utilisé par le board (`BoardView.tsx`) et par le planning (`PlanningView.tsx`, filtres de la story 8.14) : la recherche s'ajoute au composant, activée pour Parent par une propriété (`searchable`), sans nouvelle logique de filtrage dans `core/filters.ts` (la sélection reste `parentKeys`). Les parents viennent de `issueFilterOptions` (`parents`, `withoutParentCount`) : leur libellé porte clé et résumé, à vérifier. À trancher au build, sans bloquer : étendre la recherche aux menus Personne et Label si leur liste est longue (décision par défaut : Parent seul, comme demandé). Mettre à jour `docs/manuel-utilisateur.md` et ses guides EN/ES (ligne « Utilisez **Rechercher**, puis les filtres… »).

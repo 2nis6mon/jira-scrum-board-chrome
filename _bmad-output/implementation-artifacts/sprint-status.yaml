@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-31-2026 09:00
-last_updated: 11-24-2026 10:00
+last_updated: 11-24-2026 12:00
 project: Sprint Goals Board pour Jira
 project_key: NOKEY
 tracking_system: file-system
@@ -111,6 +111,10 @@ development_status:
   8-10-valider-le-sprint-planning-sur-un-vrai-jira: done
   8-11-activer-le-sprint-planning-dans-le-paquet: backlog
   epic-8-retrospective: optional
+
+  epic-9: backlog
+  9-1-chercher-un-parent-dans-le-filtre-parent: backlog
+  epic-9-retrospective: optional
 action_items:
   - id: "epic-1-retro-item-1-faire-attendre-la-porte-d-écriture-et-la"
     epic: 1
