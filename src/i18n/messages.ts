@@ -553,8 +553,6 @@ export const businessMessages = {
     "Local report: no names, URLs, JQL, issue content, Jira identifiers or raw error messages.",
   "non mesuré": "not measured",
   tickets: "issues",
-  "Sprint Planning est désactivé dans cette version.":
-    "Sprint Planning is disabled in this version.",
   "Choisissez un sprint futur à préparer.": "Choose a future sprint to prepare.",
   "Ce sprint n'est plus un sprint futur.": "This is no longer a future sprint.",
   "Chaque objectif doit avoir un titre sur une seule ligne.":

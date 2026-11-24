@@ -232,10 +232,6 @@ try {
       // Le paquet a la même fonction que dist/ : l'interrupteur compilé est vrai, l'entrée est
       // présente, et le parcours ci-dessous est celui de dist/.
       assert(
-        (await run("window.__storeCapture.inspect().planningEnabled")) === true,
-        "Le paquet doit être compilé avec Sprint Planning actif",
-      );
-      assert(
         await run(buttonNamed("Sprint Planning")),
         "Le paquet doit proposer l'entrée Sprint Planning",
       );

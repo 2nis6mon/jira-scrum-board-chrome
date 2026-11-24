@@ -12,11 +12,7 @@ import { JiraClient } from "../../jira/client";
 import { isRecord } from "../../jira/json";
 import { type JiraSite, normalizeSiteUrl, parseBoardUrl } from "../../jira/site";
 import { JiraTransport } from "../../jira/transport";
-import {
-  DIAGNOSTIC_ENABLED,
-  SPRINT_HEALTH_ENABLED,
-  SPRINT_PLANNING_ENABLED,
-} from "../featureFlags";
+import { DIAGNOSTIC_ENABLED, SPRINT_HEALTH_ENABLED } from "../featureFlags";
 import type { Platform } from "../platform/types";
 import { AuditLog } from "./auditLog";
 import { BoardModel } from "./BoardModel";
@@ -284,7 +280,6 @@ export class AppModel {
 
   /** Ouvre le planning sans charger son backlog pour les autres vues. */
   showPlanning(): void {
-    if (!SPRINT_PLANNING_ENABLED) return;
     const current = this.connection.value;
     if (
       current.state !== "connected" ||
@@ -301,9 +296,7 @@ export class AppModel {
 
   #planningBusy(): boolean {
     const current = this.connection.value;
-    return (
-      SPRINT_PLANNING_ENABLED && current.state === "connected" && current.board.planning.busy.value
-    );
+    return current.state === "connected" && current.board.planning.busy.value;
   }
 
   /** Quitter le diagnostic replie le menu « Site Jira » qui le contient. */

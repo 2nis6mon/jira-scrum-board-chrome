@@ -33,13 +33,10 @@ conservation des formats et effacement des données n'en dépendent jamais.
 - `DIAGNOSTIC_ENABLED` (`__DIAGNOSTIC_ENABLED__`) vaut `true` dans tous les modes. Coupé, il
   retire l'entrée et bloque l'ouverture, les sondes, le test d'écriture et la lecture du journal.
 
-Feature flag `SPRINT_PLANNING_ENABLED` : Vite injecte `__SPRINT_PLANNING_ENABLED__` à la compilation.
-Il vaut `true` pour les modes `dist` (`npm run build`), `package` (`npm run package`, depuis la story 8.11),
-`development` (`watch` et banc) et `test` ; `false` pour `production` et tout mode inconnu. `npm run package` reconstruit
-toujours dans un dossier temporaire avec `--mode package`, sans reprendre ni remplacer `dist/`.
-Le code garde le garde-fou : si le drapeau est faux (mode inconnu, test `PlanningDisabled`), l'entrée est masquée et l'ouverture,
-les lectures, les gestes et les fenêtres natives du planning sont bloqués.
-Ce flag ne provient ni de `.env`, ni d'un paramètre d'URL, ni d'une préférence Chrome.
+Sprint Planning n'a pas d'interrupteur : il est présent dans `dist/`, dans le paquet et dans les tests (l'ancien
+`SPRINT_PLANNING_ENABLED`, actif dans le paquet en 0.54.0, a été retiré en 0.54.1). `npm run package` reconstruit toujours
+dans un dossier temporaire avec `--mode package`, sans reprendre ni remplacer `dist/`. Les autres interrupteurs
+(santé du sprint, diagnostic) ne proviennent ni de `.env`, ni d'un paramètre d'URL, ni d'une préférence Chrome.
 
 ## Commandes
 
@@ -54,7 +51,7 @@ Ce flag ne provient ni de `.env`, ni d'un paramètre d'URL, ni d'une préférenc
 | `npm run verify:settings` | Glissés des réglages : swimlanes, types, champs et règles de couleur |
 | `npm run verify:i18n` | Rendu FR/EN/ES et préférence de langue (voir [invariants](invariants.md#langue-de-linterface)) |
 | `npm run verify:planning` | Planning en direct sur le faux Jira : ouverture sans écriture, ancien brouillon effacé ; ajout et renommage d'objectif (E8 puis E5), glissés depuis le backlog et un autre sprint futur (E9 puis E5), renvoi au backlog (E10), défilement de chaque colonne par sa bande basse pendant un glissé (l'autre et le document de la vue immobiles), carte sélectionnée en bas de colonne sans allonger la vue, clic simple sur la carte (fiche native) et clic du milieu (nouvel onglet), vélocité (E5) ; conflit de texte sans écriture ; clic droit réel sur une carte du sprint (menu au pointeur, à l'écran, Échap rend le focus), aucun menu de l'extension en consultation (sous-tâche du backlog) ; sprint actif absent de « Où sont les tickets », « Démarrer » désactivé avec sa raison ; fenêtres natives simulées (clôture annulée annoncée après 10 s, clôture lente validée avec report et compte rendu, démarrage ; deux sprints actifs : menu, fenêtre et report du sprint choisi) ; 640 et 390 px sans débordement |
-| `npm run verify:planning:package` | Banc compilé en mode `package` : interrupteur actif, entrée présente, puis le même parcours que `verify:planning` (écritures exactes, fenêtres natives simulées, petit écran) |
+| `npm run verify:planning:package` | Banc compilé en mode `package` : entrée présente, puis le même parcours que `verify:planning` (écritures exactes, fenêtres natives simulées, petit écran) |
 | `npm run verify:loading` | Diagnostic de chargement du banc fictif |
 | `npm run package` | Archive `release/sprint-goals-board-<version>.zip` vérifiée |
 | `npm run store:screenshots` | Cinq captures Store du board, 1280 × 800, du banc en mode `package` |

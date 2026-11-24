@@ -158,7 +158,6 @@ try {
     assert.equal(proof.version, version);
     assert.equal(proof.referenceDate, referenceDate);
     assert.equal(proof.versionDisplayed, version);
-    assert.equal(proof.planningEnabled, true, "Sprint Planning doit être actif dans ce banc");
     assert.equal(proof.view, "planning");
     assert.equal(proof.planningScreen, true);
     assert.deepEqual(proof.viewport, { width: WIDTH, height: HEIGHT });
@@ -203,7 +202,6 @@ try {
     build: {
       mode: "package",
       production: true,
-      sprintPlanningEnabled: true,
       distributionZipLoaded: false,
     },
     browser: browserVersion.product,

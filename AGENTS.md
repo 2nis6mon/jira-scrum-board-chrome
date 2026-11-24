@@ -26,9 +26,8 @@ projet : [README](README.md). Éviter les copies entre documents. L'historique d
   des objectifs non atteints. Création de sprint exclue. Relecture du texte des objectifs avant écriture.
   Mise en œuvre : Epic 8, livrée en 0.42.0 (stories 8.1 à 8.9), essai réel 8.10, documentation 8.35 et
   activation 8.11 en 0.54.0.
-- Sprint Planning est actif dans `dist/`, le paquet de distribution (`npm run package`) et les tests :
-  le mode de compilation fixe l'interrupteur `SPRINT_PLANNING_ENABLED`, sans réglage ni option Chrome.
-  Son manuel, la politique de confidentialité et la fiche du Store se publient avec le paquet qui l'active.
+- Sprint Planning n'a plus d'interrupteur de compilation : il est toujours présent (`dist/`, paquet,
+  tests). Son manuel, la politique de confidentialité et la fiche du Store se publient avec le paquet.
 - Réglages partagés relus à chaque chargement, écrits seulement sur modification explicite.
   Aucun calcul automatique ne publie dans Jira. Sans `canEdit`, ils restent en lecture seule ;
   les préférences personnelles restent locales.

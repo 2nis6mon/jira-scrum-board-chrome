@@ -4,12 +4,8 @@
  * et les points d'entrée des modèles qui lisent ou écrivent pour sa fonction ; décodage,
  * conservation des formats et effacement des données n'en dépendent jamais.
  */
-declare const __SPRINT_PLANNING_ENABLED__: boolean;
 declare const __SPRINT_HEALTH_ENABLED__: boolean;
 declare const __DIAGNOSTIC_ENABLED__: boolean;
-
-/** Sprint Planning : actif dans dist/, le paquet et les tests ; un mode de compilation inconnu le coupe. */
-export const SPRINT_PLANNING_ENABLED = __SPRINT_PLANNING_ENABLED__;
 
 /**
  * Santé du sprint : bouton de l'en-tête et panneau. Masquée pour l'instant ; le code reste, il

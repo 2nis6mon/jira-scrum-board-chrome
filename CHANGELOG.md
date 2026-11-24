@@ -3,6 +3,16 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.54.1 — Sprint Planning sans interrupteur de compilation
+
+- Demandé par Denis : l'interrupteur `SPRINT_PLANNING_ENABLED` (`__SPRINT_PLANNING_ENABLED__`) est supprimé.
+  Sprint Planning est toujours présent, dans `dist/`, le paquet et les tests ; ses gardes dans
+  `PlanningModel`, `AppModel`, `App`, la barre latérale et l'intégration Jira disparaissent, ainsi que le texte
+  « Sprint Planning est désactivé dans cette version. » des catalogues anglais et espagnol.
+- Retirés avec lui : le test `PlanningDisabled` et le test du paquet « coupé », les définitions des deux
+  configurations Vite et l'entrée de la liste des interrupteurs. Santé du sprint et diagnostic gardent les leurs.
+- Aucun changement visible ni d'écriture Jira : le paquet 0.54.0 avait déjà Sprint Planning actif.
+
 ## 0.54.0 — Sprint Planning activé dans le paquet
 
 - Story 8.11 : Sprint Planning, jusque-là réservé à `dist/` et aux tests, est actif dans le paquet de

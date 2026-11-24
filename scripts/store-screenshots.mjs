@@ -143,7 +143,6 @@ try {
     assert.equal(proof.version, version);
     assert.equal(proof.referenceDate, referenceDate);
     assert.equal(proof.versionDisplayed, proof.dailyImmersive ? null : version);
-    assert.equal(proof.planningEnabled, true, "Sprint Planning doit être compilé actif");
     assert.equal(proof.viewUnchanged, true);
     // L'entrée Sprint Planning n'existe que sur un board Scrum, hors Daily immersive.
     if (/kanban/i.test(scenario)) assert.equal(proof.planningNavigationPresent, false);
@@ -279,7 +278,6 @@ try {
     build: {
       mode: "package",
       production: true,
-      sprintPlanningEnabled: true,
       distributionZipLoaded: false,
     },
     browser: browserVersion.product,

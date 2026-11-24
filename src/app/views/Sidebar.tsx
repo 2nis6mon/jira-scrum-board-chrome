@@ -2,7 +2,7 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import type { BoardConfiguration } from "../../core/boardConfiguration";
 import { type LaneSummary, laneSummaries } from "../../core/boardPreferences";
-import { DIAGNOSTIC_ENABLED, SPRINT_PLANNING_ENABLED } from "../featureFlags";
+import { DIAGNOSTIC_ENABLED } from "../featureFlags";
 import { t } from "../i18n";
 import { type AppModel, clampSidebarWidth, SIDEBAR_WIDTH } from "../model/AppModel";
 import type { BoardModel, BoardSummary } from "../model/BoardModel";
@@ -25,8 +25,7 @@ export function Sidebar({
   board: BoardModel;
   returnToJira?: ComponentChildren;
 }) {
-  const view =
-    !SPRINT_PLANNING_ENABLED && model.view.value === "planning" ? "board" : model.view.value;
+  const view = model.view.value;
   const configuration = board.configuration.value;
   const snapshot = board.snapshot.value;
   const kanban = configuration?.boardType === "kanban";
@@ -56,7 +55,7 @@ export function Sidebar({
           disabled={board.planning.busy.value}
           onClick={() => model.showBoard()}
         />
-        {SPRINT_PLANNING_ENABLED && configuration?.boardType === "scrum" && (
+        {configuration?.boardType === "scrum" && (
           <NavButton
             icon="goal"
             label="Sprint Planning"

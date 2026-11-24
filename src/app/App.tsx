@@ -1,5 +1,4 @@
 import { useEffect, useState } from "preact/hooks";
-import { SPRINT_PLANNING_ENABLED } from "./featureFlags";
 import { language, t } from "./i18n";
 import type { AppModel, Connection } from "./model/AppModel";
 import { BoardSetupView } from "./views/BoardSetupView";
@@ -54,8 +53,7 @@ function Workspace({
   connection: Extract<Connection, { state: "connected" }>;
 }) {
   const { board } = connection;
-  const requestedView = model.view.value;
-  const view = !SPRINT_PLANNING_ENABLED && requestedView === "planning" ? "board" : requestedView;
+  const view = model.view.value;
   const sidebarCollapsed = model.sidebarCollapsed.value;
   const presenting = model.presenting.value && view === "board";
   const daily = view === "board" ? model.daily.value : null;
@@ -65,9 +63,6 @@ function Workspace({
   // peut tomber (403) pendant qu'ils sont ouverts, le board peut être retiré. On revient alors au
   // sprint.
   const settingsAvailable = configuration !== null && board.canEditSettings.value;
-  useEffect(() => {
-    if (!SPRINT_PLANNING_ENABLED && requestedView === "planning") model.showBoard();
-  }, [model, requestedView]);
   useEffect(() => {
     if (view === "settings" && !settingsAvailable) model.showBoard();
   }, [model, view, settingsAvailable]);
@@ -177,7 +172,7 @@ function Workspace({
       {presenting && <PresentationHint />}
       <div class="workspace-main">
         {view === "board" && <BoardScreen connection={connection} controls={controls} />}
-        {SPRINT_PLANNING_ENABLED && view === "planning" && configuration?.boardType === "scrum" && (
+        {view === "planning" && configuration?.boardType === "scrum" && (
           <PlanningView
             planning={board.planning}
             images={board.images}

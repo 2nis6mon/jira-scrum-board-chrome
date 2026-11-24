@@ -573,8 +573,6 @@ export const businessMessagesEs = {
     "Informe local: sin nombres, URL, JQL, contenido de incidencias, identificadores de Jira ni mensajes de error sin procesar.",
   "non mesuré": "sin medir",
   tickets: "incidencias",
-  "Sprint Planning est désactivé dans cette version.":
-    "Sprint Planning está desactivado en esta versión.",
   "Choisissez un sprint futur à préparer.": "Elige un sprint futuro para prepararlo.",
   "Ce sprint n'est plus un sprint futur.": "Este sprint ya no es futuro.",
   "Chaque objectif doit avoir un titre sur une seule ligne.":

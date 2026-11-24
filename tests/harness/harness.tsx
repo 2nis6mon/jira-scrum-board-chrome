@@ -12,7 +12,6 @@
 import { render } from "preact";
 import packageDocument from "../../package.json?raw";
 import { App } from "../../src/app/App";
-import { SPRINT_PLANNING_ENABLED } from "../../src/app/featureFlags";
 import { AppModel } from "../../src/app/model/AppModel";
 import { resolveLanguage, setLanguage } from "../../src/i18n/language";
 import "../../src/app/styles/app.css";
@@ -691,7 +690,6 @@ if (scenario.startsWith("board")) {
       ready: () => planningReady,
       inspect: () => ({
         version: model.extensionVersion,
-        planningEnabled: SPRINT_PLANNING_ENABLED,
         view: model.view.value,
       }),
       canOpenPlanning() {

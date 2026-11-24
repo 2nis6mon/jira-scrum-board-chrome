@@ -241,7 +241,6 @@ describe("code de production", () => {
     expect(found.map((match) => match[1]).sort()).toEqual([
       "DIAGNOSTIC_ENABLED",
       "SPRINT_HEALTH_ENABLED",
-      "SPRINT_PLANNING_ENABLED",
     ]);
     for (const match of found) expect(match[2]?.trim(), match[1]).toBe(`__${match[1]}__`);
   });

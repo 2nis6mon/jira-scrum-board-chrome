@@ -9,18 +9,6 @@ describe.each([
   const resolve = async (mode: string) =>
     typeof config === "function" ? config({ command: "build", mode }) : config;
 
-  it.each([
-    ["dist", true],
-    ["development", true],
-    ["test", true],
-    ["package", true],
-    ["production", false],
-    ["autre-mode", false],
-  ])("mode %s : Sprint Planning actif = %s", async (mode, enabled) => {
-    const resolved = await resolve(mode);
-    expect(resolved.define?.__SPRINT_PLANNING_ENABLED__).toBe(enabled);
-  });
-
   // Comportement visible identique dans dist/ et dans le paquet : santé masquée, diagnostic actif.
   it.each(["dist", "package", "development", "test", "production", "autre-mode"])(
     "mode %s : santé du sprint masquée, diagnostic actif",
@@ -30,4 +18,10 @@ describe.each([
       expect(resolved.define?.__DIAGNOSTIC_ENABLED__).toBe(true);
     },
   );
+
+  // Sprint Planning n'a plus d'interrupteur : il est dans tous les modes (story 8.11 puis retrait).
+  it("n'injecte plus d'interrupteur Sprint Planning", async () => {
+    const resolved = await resolve("package");
+    expect(Object.keys(resolved.define ?? {})).not.toContain("__SPRINT_PLANNING_ENABLED__");
+  });
 });

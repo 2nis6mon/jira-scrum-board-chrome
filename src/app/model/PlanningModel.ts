@@ -72,7 +72,6 @@ import {
   linkedGoalIds,
 } from "../../jira/models";
 import { isIssueKey } from "../../jira/writes";
-import { SPRINT_PLANNING_ENABLED } from "../featureFlags";
 import type { LocalStore, Platform } from "../platform/types";
 import type { BoardWriteAccess, BoardWriteGateway, RecordWrite } from "../services/ports";
 import { type AppMessage, message } from "./appMessage";
@@ -214,18 +213,16 @@ export class PlanningModel implements PlanningViewModel {
   );
 
   /** Sprints actifs du board : clôture et démarrage seulement, jamais affichés comme source. */
-  readonly activeSprints = computed((): readonly JiraSprint[] =>
-    SPRINT_PLANNING_ENABLED ? (this.snapshot.value?.activeSprints ?? []) : [],
+  readonly activeSprints = computed(
+    (): readonly JiraSprint[] => this.snapshot.value?.activeSprints ?? [],
   );
 
   /**
    * Estimation modifiable sur les cartes : le board a un champ d'estimation personnalisé (story
    * points). Sans champ, ou avec le temps estimé, la fiche native reste le recours.
    */
-  readonly canEstimate = computed(
-    () =>
-      SPRINT_PLANNING_ENABLED &&
-      canEstimateWith(this.context.configuration()?.estimationFieldId ?? null),
+  readonly canEstimate = computed(() =>
+    canEstimateWith(this.context.configuration()?.estimationFieldId ?? null),
   );
 
   /** Sprints actifs proposés à la clôture : ceux que l'utilisateur peut modifier. */
@@ -235,7 +232,6 @@ export class PlanningModel implements PlanningViewModel {
   });
 
   readonly gesturesDisabled = computed(() => {
-    if (!SPRINT_PLANNING_ENABLED) return true;
     const snapshot = this.snapshot.value;
     return (
       this.loading.value ||
@@ -247,8 +243,6 @@ export class PlanningModel implements PlanningViewModel {
   });
 
   readonly startDisabledReason = computed((): AppMessage | null => {
-    if (!SPRINT_PLANNING_ENABLED)
-      return message("Sprint Planning est désactivé dans cette version.");
     const snapshot = this.snapshot.value;
     if (!snapshot) return message("Choisissez un sprint futur à préparer.");
     if (snapshot.sprint.state !== "future") return message("Ce sprint n'est plus un sprint futur.");
@@ -260,7 +254,7 @@ export class PlanningModel implements PlanningViewModel {
   /** Objectifs et liens affichés, selon la source des objectifs du board. */
   readonly #goalView = computed(() => {
     const snapshot = this.snapshot.value;
-    if (!SPRINT_PLANNING_ENABLED || !snapshot) return { goals: [], links: {} };
+    if (!snapshot) return { goals: [], links: {} };
     if (this.goalMode.value === "text") return { goals: snapshot.goals, links: snapshot.links };
     const loaded = this.atlassianGoals.value;
     return { goals: loaded?.goals ?? [], links: loaded?.links ?? {} };
@@ -275,19 +269,19 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Filtres rapides du board Jira proposés dans le planning. */
   readonly jiraQuickFilters = computed((): readonly JiraQuickFilter[] =>
-    SPRINT_PLANNING_ENABLED ? this.context.jiraQuickFilters() : [],
+    this.context.jiraQuickFilters(),
   );
 
   /** Valeurs présentes dans le sprint en préparation et ses sources, avec leur nombre. */
   readonly filterOptions = computed((): IssueFilterOptions | null => {
     const snapshot = this.snapshot.value;
-    if (!SPRINT_PLANNING_ENABLED || !snapshot) return null;
+    if (!snapshot) return null;
     return issueFilterOptions(planningIssues(snapshot, this.#states.value));
   });
 
   /** Critères actifs, recherche comprise : « Réinitialiser (n) ». */
   readonly activeFilterCount = computed(() =>
-    SPRINT_PLANNING_ENABLED ? planningFilterCount(this.filters.value, this.search.value) : 0,
+    planningFilterCount(this.filters.value, this.search.value),
   );
 
   #item(issue: JiraIssue): PlanningIssue {
@@ -308,7 +302,6 @@ export class PlanningModel implements PlanningViewModel {
    * tickets » en 8.22) : ils ne sont ni affichés ni comptés.
    */
   readonly #sprintItems = computed((): readonly PlanningIssue[] => {
-    if (!SPRINT_PLANNING_ENABLED) return [];
     const states = this.#states.value;
     return (this.snapshot.value?.sprintIssues ?? [])
       .filter((issue) => shownInSprint(states, issue))
@@ -321,11 +314,9 @@ export class PlanningModel implements PlanningViewModel {
   /** Tickets du sprint en préparation ignorés faute de colonne visible pour leur statut. */
   readonly unmappedCount = computed(() => {
     const states = this.#states.value;
-    return SPRINT_PLANNING_ENABLED
-      ? (this.snapshot.value?.sprintIssues ?? []).filter(
-          (issue) => states.ofStatus(issue.fields.status?.id) === null,
-        ).length
-      : 0;
+    return (this.snapshot.value?.sprintIssues ?? []).filter(
+      (issue) => states.ofStatus(issue.fields.status?.id) === null,
+    ).length;
   });
 
   readonly lanes = computed((): readonly PlanningLane[] => {
@@ -411,7 +402,7 @@ export class PlanningModel implements PlanningViewModel {
 
   readonly sections = computed((): readonly PlanningSection[] => {
     const snapshot = this.snapshot.value;
-    if (!SPRINT_PLANNING_ENABLED || !snapshot) return [];
+    if (!snapshot) return [];
     const matches = this.#matches.value;
     const items = (issues: readonly JiraIssue[]) =>
       issues.filter(matches).map((issue) => this.#item(issue));
@@ -427,7 +418,7 @@ export class PlanningModel implements PlanningViewModel {
 
   readonly sprintLoad = computed((): PlanningLoad | null => {
     const snapshot = this.snapshot.value;
-    if (!SPRINT_PLANNING_ENABLED || !snapshot) return null;
+    if (!snapshot) return null;
     const items = this.#sprintItems.value;
     return {
       total: items.reduce((sum, item) => sum + (item.estimate ?? 0), 0),
@@ -441,7 +432,6 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Aucune lecture du backlog à l'ouverture ordinaire du board : seulement à la demande. */
   async load(): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return;
     const configuration = this.context.configuration();
     if (configuration?.boardType !== "scrum" || this.#disposed) return;
     if (this.#boardId === configuration.boardId && (this.loading.value || this.snapshot.value))
@@ -523,7 +513,6 @@ export class PlanningModel implements PlanningViewModel {
   }
 
   async selectSprint(id: number): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return;
     const configuration = this.context.configuration();
     if (
       !configuration ||
@@ -551,7 +540,6 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Relit les sprints futurs et le sprint en préparation. */
   async refresh(): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return;
     if (this.busy.value || this.loading.value || this.#disposed) return;
     this.#permissions = sprintPermissionCache();
     this.#closedSprints = closedSprintCache();
@@ -666,7 +654,6 @@ export class PlanningModel implements PlanningViewModel {
   }
 
   setSearch(text: string): void {
-    if (!SPRINT_PLANNING_ENABLED) return;
     this.search.value = text;
   }
 
@@ -677,7 +664,6 @@ export class PlanningModel implements PlanningViewModel {
    * `toggleJiraQuickFilter`, et des pastilles seule « Bloqués » est retenue.
    */
   setFilters(next: PlanningFilters): void {
-    if (!SPRINT_PLANNING_ENABLED) return;
     const current = this.filters.value;
     this.filters.value = {
       ...next,
@@ -689,7 +675,6 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Pastille « Bloqués » : lien Jira « est bloqué par », règle du board. */
   toggleBlocked(): void {
-    if (!SPRINT_PLANNING_ENABLED) return;
     const current = this.filters.value;
     this.filters.value = {
       ...current,
@@ -699,7 +684,6 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Vide la recherche et tous les filtres, filtres rapides Jira compris. */
   resetFilters(): void {
-    if (!SPRINT_PLANNING_ENABLED) return;
     this.#quickFilterRun += 1;
     batch(() => {
       this.search.value = "";
@@ -710,7 +694,7 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Active ou désactive un filtre rapide du board Jira. Son JQL est évalué par Jira. */
   async toggleJiraQuickFilter(id: number): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED || this.#disposed) return;
+    if (this.#disposed) return;
     if (!this.jiraQuickFilters.value.some((filter) => filter.id === id)) return;
     const ids = new Set(this.filters.value.jiraQuickFilterIds);
     if (ids.has(id)) ids.delete(id);
@@ -789,7 +773,7 @@ export class PlanningModel implements PlanningViewModel {
     intention: (access: BoardWriteAccess, snapshot: PlanningSnapshot) => Promise<PlanningOutcome>,
     after?: (outcome: PlanningOutcome) => void,
   ): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED || this.gesturesDisabled.value) return;
+    if (this.gesturesDisabled.value) return;
     const snapshot = this.snapshot.value;
     if (!snapshot) return;
     await this.#busyWhile(async (generation) => {
@@ -884,7 +868,6 @@ export class PlanningModel implements PlanningViewModel {
   }
 
   addGoal(title: string): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
     return this.#textGoals((goals) => [
       ...goals,
       makeSprintGoal({
@@ -898,7 +881,6 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Renommage validé (Entrée ou sortie du champ) : même identifiant, ses tickets le suivent. */
   renameGoal(id: string, title: string): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
     return this.#textGoals((goals) => {
       const goal = goals.find((candidate) => candidate.id === id);
       if (!goal || goal.title === title.trim()) return null;
@@ -909,7 +891,6 @@ export class PlanningModel implements PlanningViewModel {
   }
 
   removeGoal(id: string): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
     if (this.goalMode.value === "atlassian") return this.unpinGoal(id);
     return this.#textGoals((goals) =>
       goals.some((goal) => goal.id === id) ? goals.filter((goal) => goal.id !== id) : null,
@@ -917,7 +898,6 @@ export class PlanningModel implements PlanningViewModel {
   }
 
   moveGoal(id: string, delta: -1 | 1): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
     return this.#textGoals((goals) => {
       const index = goals.findIndex((goal) => goal.id === id);
       const current = goals[index];
@@ -935,7 +915,6 @@ export class PlanningModel implements PlanningViewModel {
    * backlog ou d'un autre sprint futur, il y est d'abord ajouté.
    */
   placeIssue(key: string, goalId: string | null): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
     const snapshot = this.snapshot.value;
     if (!snapshot) return Promise.resolve();
     const { goals, links } = this.#goalView.value;
@@ -994,7 +973,6 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Retire un ticket du sprint en préparation, vers le backlog ou un autre sprint futur. */
   removeIssue(key: string, destination: PlanningDestination): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
     const snapshot = this.snapshot.value;
     if (!snapshot?.sprintIssues.some((issue) => issue.key === key)) return Promise.resolve();
     if (
@@ -1029,8 +1007,7 @@ export class PlanningModel implements PlanningViewModel {
    */
   toggleSelection(key: string): void {
     const snapshot = this.snapshot.value;
-    if (!SPRINT_PLANNING_ENABLED || !snapshot || !selectable(snapshot, key, this.#states.value))
-      return;
+    if (!snapshot || !selectable(snapshot, key, this.#states.value)) return;
     const next = new Set(this.selection.value);
     if (!next.delete(key)) next.add(key);
     this.selection.value = next;
@@ -1043,7 +1020,7 @@ export class PlanningModel implements PlanningViewModel {
    */
   extendSelection(key: string, sectionKeys: readonly string[]): void {
     const snapshot = this.snapshot.value;
-    if (!SPRINT_PLANNING_ENABLED || !snapshot) return;
+    if (!snapshot) return;
     const from = this.#anchor === null ? -1 : sectionKeys.indexOf(this.#anchor);
     const to = sectionKeys.indexOf(key);
     if (from < 0 || to < 0) {
@@ -1059,7 +1036,7 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Échap ou « Vider la sélection ». */
   clearSelection(): void {
-    if (!SPRINT_PLANNING_ENABLED || this.selection.value.size === 0) return;
+    if (this.selection.value.size === 0) return;
     this.selection.value = new Set();
     this.#anchor = null;
   }
@@ -1070,7 +1047,6 @@ export class PlanningModel implements PlanningViewModel {
    * Goals Atlassian. Un seul ticket : `placeIssue`.
    */
   placeIssues(keys: readonly string[], goalId: string | null): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
     const unique = [...new Set(keys)];
     const [single] = unique;
     if (unique.length === 1 && single !== undefined) return this.placeIssue(single, goalId);
@@ -1139,7 +1115,6 @@ export class PlanningModel implements PlanningViewModel {
    * `removeIssue`.
    */
   removeIssues(keys: readonly string[], destination: PlanningDestination): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
     const unique = [...new Set(keys)];
     const [single] = unique;
     if (unique.length === 1 && single !== undefined) return this.removeIssue(single, destination);
@@ -1194,7 +1169,7 @@ export class PlanningModel implements PlanningViewModel {
     ) => Promise<PlanningBatchOutcome>,
     after?: (result: PlanningBatchOutcome) => void,
   ): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED || this.gesturesDisabled.value) return;
+    if (this.gesturesDisabled.value) return;
     const snapshot = this.snapshot.value;
     if (!snapshot) return;
     await this.#busyWhile(async (generation) => {
@@ -1259,8 +1234,7 @@ export class PlanningModel implements PlanningViewModel {
   rankIssue(key: string, edge: "top" | "bottom"): Promise<void> {
     const options = this.rankOptions(key);
     const lane = this.#rankLane(key);
-    if (!SPRINT_PLANNING_ENABLED || !options || !lane || options[edge] !== null)
-      return Promise.resolve();
+    if (!options || !lane || options[edge] !== null) return Promise.resolve();
     const others = lane.filter((other) => other !== key);
     const reference = edge === "top" ? others[0] : others.at(-1);
     if (reference === undefined) return Promise.resolve();
@@ -1279,7 +1253,6 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Clés de la swimlane du ticket dans le sprint en préparation, dans l'ordre de Jira. */
   #rankLane(key: string): readonly string[] | null {
-    if (!SPRINT_PLANNING_ENABLED) return null;
     const { goals, links } = this.#goalView.value;
     const shown = new Set(goals.map((goal) => goal.id));
     const laneOf = (issueKey: string) => {
@@ -1298,7 +1271,7 @@ export class PlanningModel implements PlanningViewModel {
    * hors du sprint restent en consultation.
    */
   estimateIssue(key: string, value: number): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED || !this.canEstimate.value) return Promise.resolve();
+    if (!this.canEstimate.value) return Promise.resolve();
     const snapshot = this.snapshot.value;
     if (!snapshot || !selectable(snapshot, key, this.#states.value)) return Promise.resolve();
     const located = locate(snapshot, key);
@@ -1319,7 +1292,6 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Vélocité partagée de l'équipe, validée par le champ (Entrée ou sortie). */
   saveVelocity(velocity: number | null): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
     const snapshot = this.snapshot.value;
     if (!snapshot || snapshot.velocity === velocity) return Promise.resolve();
     return this.#gesture({ issueKey: null }, ({ writer }, base) =>
@@ -1337,7 +1309,7 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Cherche par nom des Goals existants à épingler. Aucun Goal n'est jamais créé. */
   async searchGoals(query: string): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED || this.goalMode.value !== "atlassian" || this.#disposed) return;
+    if (this.goalMode.value !== "atlassian" || this.#disposed) return;
     const run = ++this.#goalSearchRun;
     const generation = this.#generation;
     // Planning relu pendant la recherche : la réponse est ignorée, mais cette recherche, si elle
@@ -1382,7 +1354,6 @@ export class PlanningModel implements PlanningViewModel {
   }
 
   pinGoal(goalId: string): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
     const snapshot = this.snapshot.value;
     if (!snapshot || this.goalMode.value !== "atlassian") return Promise.resolve();
     if (snapshot.pinnedGoalIds.includes(goalId)) return Promise.resolve();
@@ -1392,7 +1363,6 @@ export class PlanningModel implements PlanningViewModel {
   }
 
   unpinGoal(goalId: string): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED) return Promise.resolve();
     const snapshot = this.snapshot.value;
     if (!snapshot || this.goalMode.value !== "atlassian") return Promise.resolve();
     if (!snapshot.pinnedGoalIds.includes(goalId)) return Promise.resolve();
@@ -1418,7 +1388,7 @@ export class PlanningModel implements PlanningViewModel {
    * fermeture.
    */
   closeActiveSprint(sprintId: number): void {
-    if (!SPRINT_PLANNING_ENABLED || this.gesturesDisabled.value || this.#closureCheck) return;
+    if (this.gesturesDisabled.value || this.#closureCheck) return;
     const snapshot = this.snapshot.value;
     const active = this.closableSprints.value.find((sprint) => sprint.id === sprintId);
     if (!snapshot || !active) return;
@@ -1444,7 +1414,7 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Ouvre la fenêtre native « Démarrer le sprint », que l'utilisateur seul remplit. */
   startSprint(): void {
-    if (!SPRINT_PLANNING_ENABLED || this.gesturesDisabled.value) return;
+    if (this.gesturesDisabled.value) return;
     const snapshot = this.snapshot.value;
     if (!snapshot || this.startDisabledReason.value !== null) return;
     this.notice.value = null;
@@ -1461,7 +1431,7 @@ export class PlanningModel implements PlanningViewModel {
    * reste affiché jusqu'à sa fermeture et le journal garde une entrée. Puis tout est relu.
    */
   async afterNativeDialog(): Promise<void> {
-    if (!SPRINT_PLANNING_ENABLED || this.#disposed) return;
+    if (this.#disposed) return;
     // Vérification déjà en cours : un second `refresh` ne lance pas un second report.
     if (this.#closureCheck) return;
     const pending = this.pendingClosure.value;
@@ -1602,12 +1572,10 @@ export class PlanningModel implements PlanningViewModel {
 
   /** Ferme le compte rendu de la dernière clôture. */
   dismissCarryOverReport(): void {
-    if (!SPRINT_PLANNING_ENABLED) return;
     this.carryOverReport.value = null;
   }
 
   openIssue(key: string): void {
-    if (!SPRINT_PLANNING_ENABLED) return;
     const snapshot = this.snapshot.value;
     if (!snapshot || this.busy.value || !isIssueKey(key) || !locate(snapshot, key)) return;
     this.context.openIssue(key);
@@ -1615,8 +1583,7 @@ export class PlanningModel implements PlanningViewModel {
 
   issueUrl(key: string): string | null {
     const snapshot = this.snapshot.value;
-    if (!SPRINT_PLANNING_ENABLED || !snapshot || !isIssueKey(key) || !locate(snapshot, key))
-      return null;
+    if (!snapshot || !isIssueKey(key) || !locate(snapshot, key)) return null;
     return browseUrl(this.client.site.origin, key);
   }
 

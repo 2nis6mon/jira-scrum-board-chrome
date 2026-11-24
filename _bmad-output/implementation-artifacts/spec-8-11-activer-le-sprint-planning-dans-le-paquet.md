@@ -39,3 +39,7 @@ Relecture faite sans sous-agent (rythme de l'Epic 8).
 | 1 | `store-screenshots.mjs` affirmait que le planning est absent et échouait sur Kanban après l'activation. | medium | Corrigé : drapeau vrai attendu, entrée seulement hors Kanban ; exécution validée. |
 | 2 | Le test `PlanningDisabled` suppose un drapeau faux alors que le paquet l'active. | false | Voulu : il garde le comportement du garde-fou (mode inconnu). |
 | 3 | `backlog.md` garde « réservé au `dist/` local ». | low | Reporté : fichier modifié par Denis, non committé ici. |
+
+## Retour du 24/11/2026 (0.54.1)
+
+Denis : supprimer le flag qui permet d'ignorer Sprint Planning. Fait : `SPRINT_PLANNING_ENABLED` et `__SPRINT_PLANNING_ENABLED__` n'existent plus ; leurs gardes (`PlanningModel`, `AppModel`, `App`, `Sidebar`, `embedded.ts`) et le texte « Sprint Planning est désactivé dans cette version. » des catalogues EN/ES sont retirés, ainsi que `PlanningDisabled.test.tsx`, le test du paquet « coupé » (`hostBoardSwitch.test.ts`), les `define` de `vite.config.ts` et `vite.harness.config.ts` et l'entrée de la garde de sources. `buildModes.test.ts` vérifie qu'aucun interrupteur Sprint Planning n'est injecté. Les scripts de captures et de `verify:planning` ne lisent plus `planningEnabled`. Santé du sprint et diagnostic gardent leurs interrupteurs. `npm run check` (2041 tests), `verify:planning:package`, `verify:planning`, `verify:jira` et `verify:i18n` verts.
