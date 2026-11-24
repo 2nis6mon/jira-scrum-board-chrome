@@ -5,7 +5,57 @@ Dossier préparé le **1er novembre 2026** pour mettre à jour l'article existan
 identifiant `pepbknjnielcbfcoefcdmadmomapicgp`. Rien n'est soumis au Store par la préparation de ce dossier.
 
 Un seul paquet contient le français, l'anglais et l'espagnol. Les fiches traduites appartiennent au **même article**.
-Sprint Planning est désactivé dans ce paquet et ne figure pas dans les descriptions publiques.
+Sprint Planning est désactivé dans le paquet 0.41.1. Les textes de ce dossier ont été complétés
+(story 8.35) pour la **publication qui l'active** : voir la section suivante, à lire avant de copier quoi que ce soit.
+
+## Activation de Sprint Planning (story 8.35, à publier avec la story 8.11)
+
+Tant que le paquet distribué a Sprint Planning désactivé, **ne pas publier** les textes ci-dessous : ils décrivent
+une fonction absente du Store. Ils se publient ensemble, avec le paquet qui l'active (story 8.11), après la
+publication du site (guide « Préparer le sprint » et politique de confidentialité mise à jour).
+
+| Élément | Où | État |
+| --- | --- | --- |
+| Descriptions détaillées FR/EN/ES | [listing-fr.txt](listing-fr.txt), [listing-en.txt](listing-en.txt), [listing-es.txt](listing-es.txt) | Section « Préparez le sprint suivant (Scrum) » ajoutée ; décrit une fonction active seulement avec 8.11 |
+| Notes de version de l'activation FR/EN/ES | [release-notes-planning-fr.txt](release-notes-planning-fr.txt), [-en](release-notes-planning-en.txt), [-es](release-notes-planning-es.txt) | Prêtes ; à faire précéder de la ligne « Version x.y.z — » du paquet publié |
+| Manuel et guide du site | [manuel](../manuel-utilisateur.md), [EN](../user-guide.en.md), [ES](../user-guide.es.md) : section « Préparer le sprint » | Écrits ; la fiche du guide se publie avec le site de l'activation |
+| Politique de confidentialité | [docs/privacy/index.html](../privacy/index.html), trois langues | À jour du 24/11/2026 : plus de brouillons, écritures de Sprint Planning listées |
+| Captures du planning | [06-planning.png](captures/06-planning.png), [07-cloture.png](captures/07-cloture.png) | Prises sur banc fictif avec Sprint Planning actif ; preuve dans `captures.json` (clé `planning`) |
+
+**Résumés du Store à appliquer par la story 8.11** (`public/_locales/*/messages.json`, `extensionDescription`,
+puis le tableau ci-dessous, 132 caractères au plus ; ils ne sont pas appliqués avant l'activation, pour ne pas promettre
+Sprint Planning dans un paquet qui l'a désactivé) :
+
+| Langue | Résumé proposé |
+| --- | --- |
+| Français | Boards Scrum et Kanban Jira Cloud : swimlanes par objectif, glisser-déposer, Daily et préparation du sprint. |
+| English | Jira Cloud Scrum and Kanban boards: goal swimlanes, drag and drop, Daily mode and sprint planning. |
+| Español | Tableros Scrum y Kanban de Jira Cloud: carriles por objetivo, arrastrar y soltar, Daily y preparación del sprint. |
+
+**Objectif unique** à renseigner (ajout) : « … et préparer le prochain sprint d'un board Scrum (objectifs, tickets,
+clôture et démarrage par les fenêtres natives de Jira) ».
+
+**Permissions** : aucune nouvelle (même hôte facultatif `https://*.atlassian.net/*`, mêmes API, aucun endpoint
+d'écriture ajouté). Les écritures de Sprint Planning sont celles que la décision du 01/11/2026 autorise : texte
+`goal` du sprint, ajout au sprint en préparation et retour au backlog, rattachements, estimation d'un ticket,
+vélocité du sprint, report des objectifs. La clôture et le démarrage restent dans les fenêtres natives de Jira.
+Aucune nouvelle donnée n'est collectée ni transmise à l'éditeur ; la déclaration « Code distant : Non » ne change pas.
+
+**Captures** : le Store accepte **cinq** captures au plus. Proposition pour la publication qui active Sprint Planning,
+dans cet ordre : `01-board.png`, `06-planning.png`, `07-cloture.png`, `03-swimlanes.png`, `05-daily.png`
+(les cinq du board restent toutes sur le site). Le choix final revient à l'éditeur. Les captures du board datent de
+la version 0.34.9 ; le planning est montré dans les deux nouvelles.
+
+**Instructions de revue (Test instructions)** — texte anglais à ajouter à celui de la section dédiée pour le paquet
+qui active la fonction. Retirer alors la phrase « no new kind of Jira write » du texte existant : elle devient fausse.
+
+```text
+This update adds Sprint Planning for Scrum boards. In the extension sidebar, open Sprint Planning, pick the future sprint
+by clicking its title, add a goal, move a backlog issue onto it (drag and drop or the card menu), then use "Complete" or
+"Start": Jira's own dialog opens, you fill it in and confirm it; the extension never fills it. Each action is written to Jira
+once, then read again. It uses the same Jira integration and Chrome permissions; it creates neither sprints nor Goals.
+Writes are limited to what the privacy policy lists for Sprint Planning.
+```
 
 ## Textes prêts à copier
 
@@ -138,7 +188,7 @@ Test site, Scrum board, Kanban board and test account access: provided separatel
 8. Open Personal preferences from the Jira site menu. Select English, then Français, then Español. Labels change immediately, while Jira issue content, names and native dialogs keep their original language. The preference is personal and does not change shared settings.
 9. Select Auto. With Jira in French the extension is French; with Jira in Spanish it is Spanish; with Jira in English or another language it is English. Reload the Jira page after changing Jira's own language. An unavailable Jira language falls back to English.
 10. Run Daily, move between swimlanes, then finish the Daily. Open the provided Kanban board and check its goals and issues without a sprint.
-11. Sprint Planning is disabled in the distributed package and cannot be enabled through the interface. Back to Jira returns to the native board; it is hidden while the extension sidebar is collapsed.
+11. Sprint Planning is disabled in the 0.41.1 package and cannot be enabled through the interface (the activation package is covered by the activation section above). Back to Jira returns to the native board; it is hidden while the extension sidebar is collapsed.
 ```
 
 ## Mettre à jour l'article existant, pas à pas

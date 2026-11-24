@@ -17,6 +17,12 @@ TRABAJA CON TU EQUIPO
 • Dirige la Daily a pantalla completa, un carril cada vez, con temporizador ajustable y tarjetas que puedes mover.
 • Comparte la configuración del tablero en Jira. Modificarla requiere permiso para editar el tablero; las preferencias personales permanecen en local.
 
+PREPARA EL PRÓXIMO SPRINT (SCRUM)
+• Sprint Planning prepara el próximo sprint en una vista propia: elige el sprint futuro, escribe o fija sus objetivos y coloca incidencias del backlog o de otro sprint futuro del tablero, arrastrando, con el menú de la tarjeta o con la selección múltiple.
+• Cada gesto se escribe de inmediato en Jira, que sigue siendo la única fuente: un solo intento por escritura y luego una nueva lectura, sin anunciar el éxito antes de confirmarlo.
+• Compara la carga del sprint con la velocidad del equipo, estima una incidencia desde su tarjeta y sigue el avance de cada objetivo y de cada carril por tipo.
+• Cierra el sprint activo e inicia el siguiente desde las ventanas nativas de Jira: las rellenas y las validas tú, y los objetivos no alcanzados pasan al sprint preparado.
+
 ESPAÑOL, FRANCÉS E INGLÉS
 La interfaz sigue el idioma de Jira: español si Jira está en español, francés si está en francés e inglés para los demás idiomas. También puedes elegir Auto, Français, English o Español en las preferencias personales, accesibles desde el menú Sitio Jira o la administración del tablero. El cambio es inmediato. Tu elección permanece en este navegador y no cambia el idioma de tu equipo.
 Los contenidos de Jira (incidencias, objetivos, estados y nombres de tableros) mantienen su idioma original. Las ventanas nativas siguen el idioma de Jira.

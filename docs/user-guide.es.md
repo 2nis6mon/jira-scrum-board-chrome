@@ -1,10 +1,10 @@
 # Sprint Goals Board para Jira — guía de usuario
 
-Ocho fichas sencillas para utilizar tu tablero, organizar el trabajo por objetivos y encontrar
+Nueve fichas sencillas para utilizar tu tablero, organizar el trabajo por objetivos y encontrar
 los ajustes adecuados. Las capturas utilizan datos ficticios. Las instrucciones corresponden
 a los textos de la interfaz en español; también hay versiones en
 [francés](manuel-utilisateur.md) e [inglés](user-guide.en.md).
-Las capturas del tablero se mantienen en francés en las tres versiones.
+Las capturas del tablero y de la planificación se mantienen en francés en las tres versiones.
 
 ## Instalar la extensión
 
@@ -172,6 +172,98 @@ los Goals y pulsa **Guardar en Jira** para mantener sus filas aunque estén vac�
 
 Ocultar un objetivo conserva sus vínculos y devuelve las incidencias a su fila predeterminada.
 Utiliza **Ocultos en el tablero** para volver a mostrarlo.
+
+## Preparar el sprint
+
+![Sprint Planning: sprint en preparación, objetivos e incidencias del backlog](store/captures/06-planning.png)
+
+**Sprint Planning** prepara el próximo sprint de un tablero Scrum: eliges sus objetivos, colocas
+incidencias del backlog o de otro sprint futuro y, después, cierras el sprint activo e inicias el
+siguiente. Cada gesto se escribe de inmediato en Jira y luego se vuelve a leer Jira: Jira sigue siendo
+la única fuente y la página se reconstruye cada vez que la abres. Sprint Planning no crea sprints ni
+Goals de Atlassian: crea el sprint futuro en el backlog de Jira y actualiza.
+
+### Abrir la planificación y elegir el sprint
+
+1. En la barra lateral, haz clic en **Sprint Planning**. La vista solo existe en un tablero Scrum.
+2. El título de la página es también el selector: haz clic en el nombre del sprint y en su pequeña
+   flecha para elegir otro **Sprint por preparar**. Solo se ofrecen los sprints futuros que puedes
+   modificar. Sin ellos, la vista te pide crear un sprint en el backlog de Jira o pedir a un
+   administrador el permiso **Gestionar sprints**.
+3. **Actualizar** vuelve a cargar las incidencias desde Jira. **Pantalla completa** amplía la vista,
+   como la Daily; **Escape** sale de ella.
+
+A la izquierda, **Dónde están las incidencias** muestra el backlog y los demás sprints futuros del
+tablero. Como el backlog de Jira, la lista no muestra las incidencias de la última columna. A la
+derecha, el sprint en preparación: una fila por objetivo y después **Sin objetivo**.
+
+### Escribir los objetivos
+
+- **Texto del sprint**: escribe un título en **Nuevo objetivo del sprint** y haz clic en **Añadir el
+  objetivo**. Puedes renombrar un objetivo, subirlo, bajarlo o eliminarlo; sus incidencias siguen en
+  el sprint, sin objetivo. Los objetivos se escriben en el campo **Objetivo** del sprint, una línea
+  cada uno. Si ese texto cambia en Jira durante la sesión, no se escribe nada: aparece un aviso, la
+  página se vuelve a leer y se conserva lo que habías escrito.
+- **Goals de Atlassian**: **Buscar un Goal para fijar** por su nombre y después **Fijar**; **Dejar de
+  fijar** deja el Goal en Atlassian. Los Goals se crean en Atlassian.
+
+### Colocar las incidencias
+
+- Arrastra una tarjeta sobre un objetivo: una incidencia del backlog o de un sprint futuro se une al
+  sprint y al objetivo; una incidencia del sprint cambia de objetivo. Suéltala en **Sin objetivo**
+  para separarla de su objetivo.
+- El menú de una tarjeta (clic derecho o **⋯**) ofrece **Enviar a un objetivo**, **Añadir al
+  sprint**, **Quitar del sprint** o **Devolver al backlog**, y **Poner en prioridad máxima** o
+  **Poner en prioridad baja** (principio o final de su fila en el sprint).
+- Una incidencia solo se quita del sprint en preparación: arrástrala al backlog o a otro sprint
+  futuro. Las subtareas son de solo lectura.
+- **Ctrl/Cmd+clic** añade o quita una tarjeta de la selección, **Mayús+clic** selecciona un rango de
+  la misma sección y **Escape** vacía la selección. Arrastra una de las tarjetas, o abre su menú, para
+  actuar sobre toda la selección (como máximo 50 incidencias por gesto).
+- Un clic simple abre la incidencia nativa de Jira; el clic central la abre en una pestaña nueva.
+
+### Ver la carga y el avance
+
+- **Velocidad del equipo** (en puntos) se comparte con el equipo en los datos del sprint. Se escribe
+  al validar el campo (Intro o al salir de él); **Escape** restablece el valor de Jira. La carga del
+  sprint, «x / y pts» y su porcentaje, se compara con esa velocidad; las incidencias sin estimación se
+  cuentan aparte.
+- Haz clic en el valor de una tarjeta («?» sin estimación) para **estimar** la incidencia en el campo
+  de estimación del tablero: **Intro** valida, **Escape** cancela y un valor sin cambios no escribe
+  nada. Sin campo de estimación, o en solo lectura, la incidencia nativa de Jira sigue siendo el
+  recurso.
+- La cabecera de un objetivo muestra sus incidencias terminadas y la barra gris / azul / verde del
+  tablero. Lo ya entregado antes de este sprint (objetivo arrastrado) se indica aparte, rayado, y no
+  entra en la carga.
+- **Sin objetivo** se ordena por carril de tipo (Build, RUN…), en el orden del tablero y con la misma
+  cabecera: el chevron contrae o expande sus incidencias durante la sesión y cada fila muestra su
+  avance como un objetivo.
+- La búsqueda (tecla **/**) y los filtros **Persona**, **Tipo**, **Principal**, **Estado**,
+  **Etiqueta**, **Bloqueadas** y los filtros rápidos del tablero se aplican a los objetivos, a **Sin
+  objetivo** y a la columna izquierda; los totales y la carga se calculan sin filtros. **Añadidas** y
+  **Arrastradas** no se ofrecen.
+
+### Cerrar y después iniciar el sprint
+
+![Sprint Planning: varios sprints activos, el menú «Cerrar un sprint»](store/captures/07-cloture.png)
+
+**Cerrar** e **Iniciar** se alternan. Si el tablero tiene un sprint activo, solo se ofrece **Cerrar
+«sprint»** e **Iniciar** queda oculto; con varios sprints activos, **Cerrar un sprint** abre la lista
+de sus nombres. Sin sprint activo, solo se ofrece **Iniciar «sprint»**.
+
+1. Haz clic en **Cerrar** o **Iniciar**: la extensión abre la ventana nativa de Jira. La rellenas y
+   la validas tú; la extensión no escribe nada en ella.
+2. Cuando se cierra la ventana, la extensión vuelve a leer el sprint durante unos diez segundos. Si
+   Jira lo ha cerrado, los objetivos no alcanzados (al menos una incidencia vinculada fuera de la
+   última columna) pasan al sprint en preparación y se muestra un informe por objetivo hasta que lo
+   cierres. Si sigue activo, no se escribe nada.
+3. Cuando se cierra la ventana de inicio, la vista vuelve a leer Jira.
+
+### Permisos, rechazos y resultado incierto
+
+Los permisos son los de Jira: **Gestionar sprints** para los sprints y modificar incidencias. Si Jira
+rechaza un gesto, se avisa y la página se vuelve a leer. Cada escritura se intenta una sola vez; si su
+resultado es incierto, la extensión vuelve a leer Jira y no anuncia el éxito antes de confirmarlo.
 
 ## Configurar el tablero
 

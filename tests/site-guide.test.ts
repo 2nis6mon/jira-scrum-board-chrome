@@ -29,8 +29,8 @@ const languageOf = (path: string) =>
 const localPathOf = (path: string) => path.replace(/^(?:en|es)\//, "");
 
 describe("manuel public trilingue", () => {
-  it("génère les huit mêmes fiches et leur accueil dans les trois langues", () => {
-    expect(pages.size).toBe(27);
+  it("génère les neuf mêmes fiches et leur accueil dans les trois langues", () => {
+    expect(pages.size).toBe(30);
     expect([...pages.keys()]).toEqual(guidePaths);
     for (const [path, html] of pages) {
       const language = languageOf(path);
@@ -41,7 +41,7 @@ describe("manuel public trilingue", () => {
         document.querySelector('meta[name="description"]')?.getAttribute("content"),
       ).toBeTruthy();
       if (path.endsWith("guide.html")) {
-        expect(document.querySelectorAll("[data-guide-card]")).toHaveLength(8);
+        expect(document.querySelectorAll("[data-guide-card]")).toHaveLength(9);
       } else {
         expect(document.querySelectorAll(".guide-prose h2").length).toBeGreaterThanOrEqual(2);
         const counterpart = documentFor(localPathOf(path));
@@ -157,9 +157,15 @@ describe("manuel public trilingue", () => {
     expect(
       documentFor("es/guide/demarrer.html").querySelector(".guide-prose a")?.getAttribute("href"),
     ).toContain("?hl=es");
+    // Sprint Planning n'est décrit que dans la fiche « Préparer le sprint » et l'accueil du guide
+    // (recherche), jamais dans les autres fiches (story 8.35).
+    for (const [path, html] of pages) {
+      if (/(?:^|\/)guide\.html$|preparer-sprint\.html$/.test(path)) continue;
+      expect(html, path).not.toMatch(/Sprint Planning/);
+    }
     for (const html of pages.values()) {
       expect(html).not.toMatch(
-        /github\.com\/2nis6mon|chrome:\/\/extensions|\.zip\b|Sprint Planning|Référence fonctionnelle|Functional reference|Referencia funcional/i,
+        /github\.com\/2nis6mon|chrome:\/\/extensions|\.zip\b|Référence fonctionnelle|Functional reference|Referencia funcional/i,
       );
     }
   });
@@ -170,7 +176,7 @@ describe("manuel public trilingue", () => {
       query: "langue interface",
       found: "1 fiche trouvée",
       none: "0 fiches trouvées",
-      all: "8 fiches pour prendre vos repères",
+      all: "9 fiches pour prendre vos repères",
       title: "Configurer le board",
     },
     {
@@ -178,7 +184,7 @@ describe("manuel public trilingue", () => {
       query: "interface language",
       found: "1 guide found",
       none: "0 guides found",
-      all: "8 guides to help you get started",
+      all: "9 guides to help you get started",
       title: "Configure the board",
     },
     {
@@ -186,7 +192,7 @@ describe("manuel public trilingue", () => {
       query: "IDIÓMA interfaz",
       found: "1 ficha encontrada",
       none: "0 fichas encontradas",
-      all: "8 fichas para empezar",
+      all: "9 fichas para empezar",
       title: "Configurar el tablero",
     },
   ])(

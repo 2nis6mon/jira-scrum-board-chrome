@@ -1,10 +1,10 @@
 # Sprint Goals Board pour Jira — guide utilisateur
 
-Huit fiches pour prendre en main votre board, organiser le travail par objectifs et retrouver
+Neuf fiches pour prendre en main votre board, organiser le travail par objectifs et retrouver
 les bons réglages. Les captures montrent l'interface avec des données fictives.
 Les instructions utilisent les libellés français ; des versions en [anglais](user-guide.en.md)
-et en [espagnol](user-guide.es.md) sont également disponibles. Les captures du board restent
-en français dans les trois versions.
+et en [espagnol](user-guide.es.md) sont également disponibles. Les captures du board et du planning
+restent en français dans les trois versions.
 
 ## Installer l'extension
 
@@ -199,6 +199,97 @@ qu'une sélection n'est ni enregistrée ni annulée.
 
 Masquer un objectif conserve ses liens et renvoie ses tickets vers leur ligne par défaut.
 La rubrique **Masqués du board** permet de le réafficher.
+
+## Préparer le sprint
+
+![Sprint Planning : sprint en préparation, objectifs et tickets du backlog](store/captures/06-planning.png)
+
+**Sprint Planning** prépare le prochain sprint d'un board Scrum : vous choisissez ses objectifs, y
+placez des tickets du backlog ou d'un autre sprint futur, puis vous clôturez le sprint actif et
+démarrez le suivant. Chaque geste est écrit aussitôt dans Jira, puis Jira est relu : Jira reste la
+seule source, la page se reconstruit à chaque ouverture. Sprint Planning ne crée ni sprint ni Goal
+Atlassian : créez le sprint futur dans le backlog Jira, puis actualisez.
+
+### Ouvrir le planning et choisir le sprint
+
+1. Dans la barre latérale, cliquez sur **Sprint Planning**. La vue n'existe que sur un board Scrum.
+2. Le titre de la page est aussi le sélecteur : cliquez sur le nom du sprint et sa petite flèche pour
+   choisir un autre **Sprint à préparer**. Seuls les sprints futurs que vous pouvez modifier sont
+   proposés. Sans eux, la vue vous dit de créer un sprint dans le backlog Jira, ou de demander le droit
+   **Gérer les sprints** à un administrateur.
+3. **Actualiser** relit les tickets depuis Jira. **Plein écran** agrandit la vue, comme la Daily ;
+   **Échap** en sort.
+
+À gauche, **Où sont les tickets** liste le backlog et les autres sprints futurs du board. Comme le
+backlog de Jira, la liste n'affiche pas les tickets de la dernière colonne. À droite, le sprint en
+préparation : une ligne par objectif, puis **Sans objectif**.
+
+### Écrire les objectifs
+
+- **Texte du sprint** : saisissez un titre dans **Nouvel objectif du sprint**, puis **Ajouter
+  l'objectif**. Vous pouvez renommer un objectif, le monter, le descendre ou le supprimer ; ses tickets
+  restent alors dans le sprint, sans objectif. Les objectifs sont écrits dans le champ **Objectif** du
+  sprint, une ligne chacun. Si ce texte change dans Jira pendant la séance, rien n'est écrit : un avis
+  s'affiche, la page est relue et votre saisie est gardée.
+- **Goals Atlassian** : **Chercher un Goal à épingler** par son nom, puis **Épingler** ; **Retirer
+  l'épinglage** laisse le Goal dans Atlassian. Les Goals se créent dans Atlassian.
+
+### Placer les tickets
+
+- Glissez une carte sur un objectif : un ticket du backlog ou d'un sprint futur rejoint le sprint et
+  l'objectif ; un ticket du sprint change d'objectif. Déposez-la sur **Sans objectif** pour la
+  détacher de son objectif.
+- Le menu d'une carte (clic droit, ou **⋯**) propose **Envoyer vers un goal**, **Ajouter au sprint**,
+  **Retirer du sprint** ou **Renvoyer au backlog**, et **Mettre en top priorité** ou **Mettre en
+  basse priorité** (tête ou fin de sa ligne dans le sprint).
+- Un ticket ne se retire que du sprint en préparation : glissez-le vers le backlog ou un autre sprint
+  futur. Les sous-tâches se consultent seulement.
+- **Ctrl/Cmd+clic** ajoute ou retire une carte de la sélection, **Maj+clic** sélectionne une plage de
+  la même section, **Échap** vide la sélection. Glissez l'une des cartes, ou ouvrez son menu, pour
+  agir sur toute la sélection (au plus 50 tickets par geste).
+- Un clic simple ouvre la fiche native de Jira ; le clic du milieu l'ouvre dans un nouvel onglet.
+
+### Voir la charge et l'avancement
+
+- **Vélocité de l'équipe** (en points) est partagée avec l'équipe dans les données du sprint. Elle est
+  écrite quand vous validez le champ (Entrée ou sortie) ; **Échap** rend la valeur de Jira. La charge du
+  sprint, « x / y pts » et son pourcentage, se compare à cette vélocité ; les tickets sans estimation
+  sont comptés à part.
+- Cliquez sur la valeur d'une carte (« ? » sans estimation) pour **estimer** le ticket dans le champ
+  d'estimation du board : **Entrée** valide, **Échap** annule, une valeur inchangée n'écrit rien. Sans
+  champ d'estimation, ou en consultation seule, la fiche native de Jira reste le recours.
+- L'en-tête d'un objectif montre ses tickets terminés et la barre gris / bleu / vert du board. Le déjà
+  livré avant ce sprint (objectif reporté) est indiqué à part, hachuré, et n'entre pas dans la charge.
+- **Sans objectif** est rangée par swimlane de type (Build, RUN…), dans l'ordre du board, avec le même
+  en-tête : le chevron plie ou déplie ses tickets le temps de la séance, et chaque ligne montre son
+  avancement comme un objectif.
+- La recherche (touche **/**) et les filtres **Personne**, **Type**, **Parent**, **Statut**, **Label**,
+  **Bloqués** et les filtres rapides du board s'appliquent aux objectifs, à **Sans objectif** et à la
+  colonne de gauche ; les totaux et la charge restent calculés sans filtre. **Ajoutés** et **Reportés**
+  ne sont pas proposés.
+
+### Clôturer, puis démarrer le sprint
+
+![Sprint Planning : plusieurs sprints actifs, le menu « Clôturer un sprint »](store/captures/07-cloture.png)
+
+**Clôturer** et **Démarrer** s'alternent. S'il y a un sprint actif sur le board, seul **Clôturer
+« sprint »** est proposé, et **Démarrer** est caché ; avec plusieurs sprints actifs, **Clôturer un
+sprint** ouvre la liste de leurs noms. Sans sprint actif, seul **Démarrer « sprint »** est proposé.
+
+1. Cliquez sur **Clôturer** ou **Démarrer** : l'extension ouvre la fenêtre native de Jira. C'est vous
+   qui la remplissez et la validez, l'extension n'y écrit rien.
+2. Après la fermeture de la fenêtre, l'extension relit le sprint pendant une dizaine de secondes.
+   Si Jira l'a bien clôturé, les objectifs non atteints (au moins un ticket lié hors de la dernière
+   colonne) sont reportés dans le sprint en préparation, et un compte rendu par objectif s'affiche
+   jusqu'à sa fermeture. S'il est encore actif, rien n'est écrit.
+3. Après la fermeture de la fenêtre de démarrage, la vue relit Jira.
+
+### Droits, refus et résultat incertain
+
+Les droits sont ceux de Jira : **Gérer les sprints** pour les sprints, et modifier les tickets. Un
+geste que Jira refuse est signalé et la page est relue. Chaque écriture n'est tentée qu'une fois ; si
+son résultat est incertain, l'extension relit Jira et n'annonce pas de réussite avant de l'avoir
+confirmée.
 
 ## Configurer le board
 

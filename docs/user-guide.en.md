@@ -1,9 +1,9 @@
 # Sprint Goals Board for Jira — user guide
 
-Eight short guides to help you use your board, organize work around goals and find the right
+Nine short guides to help you use your board, organize work around goals and find the right
 settings. Screenshots use sample data. Instructions use the English interface labels; a
 [French](manuel-utilisateur.md) and [Spanish](user-guide.es.md) versions of the guide are also
-available. Board screenshots remain in French in all three versions.
+available. Board and planning screenshots remain in French in all three versions.
 
 ## Install the extension
 
@@ -165,6 +165,96 @@ click **Save to Jira** to keep their rows even when empty.
 
 Hiding a goal preserves its links and returns its issues to their default row. Use
 **Hidden from the board** to show it again.
+
+## Prepare the sprint
+
+![Sprint Planning: sprint being prepared, goals and backlog issues](store/captures/06-planning.png)
+
+**Sprint Planning** prepares the next sprint of a Scrum board: you choose its goals, place issues
+from the backlog or from another future sprint, then complete the active sprint and start the next
+one. Every action is written to Jira immediately, then Jira is read again: Jira stays the only
+source, and the page is rebuilt each time you open it. Sprint Planning creates neither sprints nor
+Atlassian Goals: create the future sprint in the Jira backlog, then refresh.
+
+### Open the planning and choose the sprint
+
+1. In the sidebar, click **Sprint Planning**. The view only exists on a Scrum board.
+2. The page title is also the selector: click the sprint name and its small arrow to choose another
+   **Sprint to prepare**. Only the future sprints you can edit are offered. Without any, the view
+   asks you to create a sprint in the Jira backlog, or to ask an administrator for the **Manage
+   sprints** permission.
+3. **Refresh** reloads the issues from Jira. **Fullscreen** enlarges the view, like the Daily;
+   **Escape** leaves it.
+
+On the left, **Where the issues are** lists the backlog and the other future sprints of the board.
+Like the Jira backlog, the list does not show issues in the last column. On the right, the sprint
+being prepared: one row per goal, then **No goal**.
+
+### Write the goals
+
+- **Sprint text**: type a title in **New sprint goal**, then **Add goal**. You can rename a goal,
+  move it up or down, or delete it; its issues then stay in the sprint, without a goal. Goals are
+  written to the sprint's **Goal** field, one line each. If that text changes in Jira during the
+  session, nothing is written: a notice appears, the page is read again and what you typed is kept.
+- **Atlassian Goals**: **Search for a Goal to pin** by name, then **Pin**; **Unpin** leaves the Goal
+  in Atlassian. Goals are created in Atlassian.
+
+### Place the issues
+
+- Drag a card onto a goal: an issue from the backlog or a future sprint joins the sprint and the
+  goal; an issue already in the sprint changes goal. Drop it on **No goal** to detach it from its
+  goal.
+- A card's menu (right-click, or **⋯**) offers **Send to a goal**, **Add to the sprint**, **Remove
+  from sprint** or **Send back to the backlog**, and **Move to top priority** or **Move to low
+  priority** (top or bottom of its row in the sprint).
+- An issue can only be removed from the sprint being prepared: drag it to the backlog or to another
+  future sprint. Subtasks are read-only.
+- **Ctrl/Cmd+click** adds or removes a card from the selection, **Shift+click** selects a range in the
+  same section, **Escape** clears the selection. Drag one of the cards, or open its menu, to act on
+  the whole selection (at most 50 issues per action).
+- A single click opens the native Jira issue; a middle click opens it in a new tab.
+
+### See the load and the progress
+
+- **Team velocity** (in points) is shared with the team in the sprint data. It is written when you
+  confirm the field (Enter or leaving it); **Escape** restores Jira's value. The sprint load, "x / y
+  pts" and its percentage, is compared with this velocity; issues without an estimate are counted
+  separately.
+- Click the value on a card ("?" without an estimate) to **estimate** the issue in the board's
+  estimation field: **Enter** confirms, **Escape** cancels, an unchanged value writes nothing. Without
+  an estimation field, or in read-only mode, the native Jira issue remains the way to do it.
+- A goal's header shows its finished issues and the board's grey / blue / green bar. What was already
+  delivered before this sprint (a carried-over goal) is shown separately, hatched, and does not count
+  in the load.
+- **No goal** is arranged by issue-type swimlane (Build, RUN…), in the board's order, with the same
+  header: the chevron collapses or expands its issues for the session, and each row shows its progress
+  like a goal.
+- Search (the **/** key) and the **Person**, **Type**, **Parent**, **Status**, **Label** and
+  **Blocked** filters and the board's quick filters apply to the goals, to **No goal** and to the left
+  column; totals and load stay computed without filters. **Added** and **Carried over** are not
+  offered.
+
+### Complete, then start the sprint
+
+![Sprint Planning: several active sprints, the “Complete a sprint” menu](store/captures/07-cloture.png)
+
+**Complete** and **Start** take turns. When the board has an active sprint, only **Complete
+"sprint"** is offered and **Start** is hidden; with several active sprints, **Complete a sprint**
+opens the list of their names. Without an active sprint, only **Start "sprint"** is offered.
+
+1. Click **Complete** or **Start**: the extension opens Jira's native dialog. You fill it in and
+   confirm it; the extension writes nothing in it.
+2. After the dialog closes, the extension reads the sprint again for about ten seconds. If Jira did
+   complete it, the unreached goals (at least one linked issue outside the last column) are carried
+   over to the sprint being prepared, and a report per goal stays on screen until you close it. If the
+   sprint is still active, nothing is written.
+3. After the start dialog closes, the view reads Jira again.
+
+### Permissions, refusals and uncertain results
+
+Permissions are Jira's: **Manage sprints** for the sprints, and editing issues. An action that Jira
+refuses is reported and the page is read again. Each write is attempted only once; if its result is
+uncertain, the extension reads Jira again and does not announce success before confirming it.
 
 ## Configure the board
 

@@ -48,8 +48,18 @@ export const guideCards = [
     sourceHeading: "Organiser les objectifs",
   },
   {
-    slug: "administration",
+    slug: "preparer-sprint",
     number: "06",
+    eyebrow: "VOTRE PROCHAIN SPRINT",
+    title: "Préparer le sprint",
+    description:
+      "Choisissez les objectifs, placez les tickets, puis clôturez et démarrez le sprint dans Jira.",
+    icon: "calendar",
+    sourceHeading: "Préparer le sprint",
+  },
+  {
+    slug: "administration",
+    number: "07",
     eyebrow: "À VOTRE FAÇON",
     title: "Configurer le board",
     description: "Adaptez les swimlanes, les champs et les couleurs à votre équipe.",
@@ -58,7 +68,7 @@ export const guideCards = [
   },
   {
     slug: "daily",
-    number: "07",
+    number: "08",
     eyebrow: "LE RENDEZ-VOUS D'ÉQUIPE",
     title: "Animer la Daily",
     description: "Parcourez le travail ligne par ligne et facilitez la discussion.",
@@ -67,7 +77,7 @@ export const guideCards = [
   },
   {
     slug: "aide",
-    number: "08",
+    number: "09",
     eyebrow: "UN COUP DE MAIN",
     title: "Trouver de l'aide",
     description: "Retrouvez un élément manquant et préparez un retour utile.",
@@ -101,6 +111,11 @@ const englishCards = [
     eyebrow: "A SHARED DIRECTION",
     title: "Organize goals",
     description: "Choose your goals, link issues and keep priorities visible.",
+  },
+  {
+    eyebrow: "YOUR NEXT SPRINT",
+    title: "Prepare the sprint",
+    description: "Choose goals, place issues, then complete and start the sprint in Jira.",
   },
   {
     eyebrow: "MAKE IT YOURS",
@@ -144,6 +159,11 @@ const spanishCards = [
     eyebrow: "UN RUMBO COMÚN",
     title: "Organizar los objetivos",
     description: "Elige tus objetivos, vincula incidencias y mantén visibles las prioridades.",
+  },
+  {
+    eyebrow: "TU PRÓXIMO SPRINT",
+    title: "Preparar el sprint",
+    description: "Elige objetivos, coloca incidencias y después cierra e inicia el sprint en Jira.",
   },
   {
     eyebrow: "A TU MANERA",

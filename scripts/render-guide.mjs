@@ -32,6 +32,7 @@ const symbols = {
     '<path d="M3 6h7m5 0h6M3 12h2m5 0h11M3 18h11m5 0h2"/><circle cx="12" cy="6" r="2"/><circle cx="7" cy="12" r="2"/><circle cx="16" cy="18" r="2"/>',
   users:
     '<circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3m2-16a3 3 0 0 1 0 6m2 3a6 6 0 0 1 2 4v3"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4m8-4v4"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 4 3c-1 0-1 1-1 2m0 3h.01"/>',
 };
 const icon = (name) =>
@@ -59,7 +60,7 @@ const copy = {
     open: "Ouvrir la fiche",
     homeTitle: "Le guide, à votre rythme",
     homeDescription:
-      "Huit fiches simples pour installer Sprint Goals depuis le Chrome Web Store, connecter Jira et organiser votre board par objectifs.",
+      "Neuf fiches simples pour installer Sprint Goals depuis le Chrome Web Store, connecter Jira et organiser votre board par objectifs.",
     heroEyebrow: "LE GUIDE SPRINT GOALS",
     heroTitle: "Les bons gestes.<br><span>Au bon endroit.</span>",
     heroDescription:
@@ -70,7 +71,7 @@ const copy = {
     search: "Rechercher dans les fiches",
     searchPlaceholder: "Un objectif, une couleur, un board…",
     searchClear: "Effacer la recherche",
-    count: "8 fiches pour prendre vos repères",
+    count: "9 fiches pour prendre vos repères",
     noMatch: "Aucune fiche ne correspond.",
     searchExamples: "Essayez « board », « objectif » ou « couleur ».",
     showAll: "Afficher toutes les fiches",
@@ -116,7 +117,7 @@ const copy = {
     open: "Open the guide",
     homeTitle: "The guide, at your own pace",
     homeDescription:
-      "Eight short guides to install Sprint Goals from the Chrome Web Store, connect Jira and organize your board around goals.",
+      "Nine short guides to install Sprint Goals from the Chrome Web Store, connect Jira and organize your board around goals.",
     heroEyebrow: "THE SPRINT GOALS GUIDE",
     heroTitle: "The right steps.<br><span>In the right place.</span>",
     heroDescription:
@@ -127,7 +128,7 @@ const copy = {
     search: "Search the guides",
     searchPlaceholder: "A goal, a color, a board…",
     searchClear: "Clear search",
-    count: "8 guides to help you get started",
+    count: "9 guides to help you get started",
     noMatch: "No guides match your search.",
     searchExamples: "Try “board”, “goal” or “color”.",
     showAll: "Show all guides",
@@ -172,7 +173,7 @@ const copy = {
     open: "Abrir la ficha",
     homeTitle: "La guía, a tu ritmo",
     homeDescription:
-      "Ocho fichas sencillas para instalar Sprint Goals desde Chrome Web Store, conectar Jira y organizar tu tablero por objetivos.",
+      "Nueve fichas sencillas para instalar Sprint Goals desde Chrome Web Store, conectar Jira y organizar tu tablero por objetivos.",
     heroEyebrow: "LA GUÍA DE SPRINT GOALS",
     heroTitle: "Los pasos adecuados.<br><span>En el lugar indicado.</span>",
     heroDescription:
@@ -183,7 +184,7 @@ const copy = {
     search: "Buscar en las fichas",
     searchPlaceholder: "Un objetivo, un color, un tablero…",
     searchClear: "Borrar la búsqueda",
-    count: "8 fichas para empezar",
+    count: "9 fichas para empezar",
     noMatch: "Ninguna ficha coincide con tu búsqueda.",
     searchExamples: "Prueba con «tablero», «objetivo» o «color».",
     showAll: "Mostrar todas las fichas",

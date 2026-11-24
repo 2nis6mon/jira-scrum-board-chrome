@@ -24,6 +24,8 @@ const screenshots = [
   "03-swimlanes.png",
   "04-couleurs.png",
   "05-daily.png",
+  "06-planning.png",
+  "07-cloture.png",
 ];
 const icons = ["icon-16.png", "icon-32.png", "icon-48.png", "icon-64.png", "icon-128.png"];
 const assetExtensions = new Set([

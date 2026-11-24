@@ -15,6 +15,7 @@ const guidePages = [
   "ajouter-board",
   "utiliser-board",
   "objectifs",
+  "preparer-sprint",
   "administration",
   "daily",
   "aide",
@@ -272,7 +273,7 @@ async function checkGuide(session, language = "fr") {
   assert.deepEqual(
     [...cards].sort(),
     localizedPages.map((path) => new URL(path, server.url).href).sort(),
-    "Le guide présente exactement les huit fiches prévues",
+    "Le guide présente exactement les neuf fiches prévues",
   );
   checked(
     await evaluate(
@@ -288,7 +289,7 @@ async function checkGuide(session, language = "fr") {
   await send("Input.insertText", { text: "Daily" }, session);
   await waitFor(
     session,
-    `${visibleCards}.length > 0 && ${visibleCards}.length < 8 && ${visibleCards}.some(card => card.href.endsWith('/guide/daily.html'))`,
+    `${visibleCards}.length > 0 && ${visibleCards}.length < 9 && ${visibleCards}.some(card => card.href.endsWith('/guide/daily.html'))`,
     "La recherche retrouve la fiche Daily",
   );
   checked(
@@ -307,8 +308,8 @@ async function checkGuide(session, language = "fr") {
   await click(session, "[data-guide-reset]");
   await waitFor(
     session,
-    `${visibleCards}.length === 8 && document.querySelector('[data-guide-search]').value === '' && document.querySelector('[data-guide-empty]').hidden`,
-    "Réinitialiser retrouve les huit fiches",
+    `${visibleCards}.length === 9 && document.querySelector('[data-guide-search]').value === '' && document.querySelector('[data-guide-empty]').hidden`,
+    "Réinitialiser retrouve les neuf fiches",
   );
   await click(session, "[data-guide-card][href$='demarrer.html']");
   await waitFor(
@@ -343,11 +344,13 @@ async function checkGuide(session, language = "fr") {
         "La navigation marque la bonne fiche active",
       );
     }
-    assert.doesNotMatch(
-      article.text,
-      /Sprint Planning/i,
-      "Le guide public décrit la version distribuée",
-    );
+    // Sprint Planning (story 8.35) n'est décrit que dans sa fiche, publiée avec la version qui l'active.
+    if (!path.includes("preparer-sprint"))
+      assert.doesNotMatch(
+        article.text,
+        /Sprint Planning/i,
+        "Seule la fiche « Préparer le sprint » décrit Sprint Planning",
+      );
     await checkStoreLinks(session);
     await checkPageImages(session);
     await noOverflow(session, `${path} 1440 px`);
@@ -389,8 +392,8 @@ async function checkGuide(session, language = "fr") {
     );
   }
   checked(
-    titles.size === 8,
-    "Les huit fiches ont un contenu identifié et une navigation cohérente",
+    titles.size === 9,
+    "Les neuf fiches ont un contenu identifié et une navigation cohérente",
   );
 }
 

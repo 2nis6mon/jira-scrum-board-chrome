@@ -35,13 +35,13 @@
 
 <article id="fr" lang="fr">
 <h1>Politique de confidentialité — Sprint Goals Board pour Jira</h1>
-<p class="meta">Dernière mise à jour : 15 octobre 2026 · Éditeur : Denis Simon Consulting · Contact : <a href="mailto:denis.simon.consulting@gmail.com">denis.simon.consulting@gmail.com</a></p>
+<p class="meta">Dernière mise à jour : 24 novembre 2026 · Éditeur : Denis Simon Consulting · Contact : <a href="mailto:denis.simon.consulting@gmail.com">denis.simon.consulting@gmail.com</a></p>
 
 <p>Sprint Goals Board pour Jira (« l'extension ») est une extension Chrome qui affiche les boards
 Scrum et Kanban de Jira Cloud en swimlanes par objectif, directement dans leur page Jira. Cette page explique quelles données elle utilise,
 où elles vont et comment les effacer.</p>
-<p>Les mentions de Sprint Planning ci-dessous concernent uniquement la version locale de développement
-chargée depuis <code>dist/</code>. Cette fonction expérimentale est désactivée dans le paquet distribué.</p>
+<p>Sprint Planning, la préparation du sprint suivant d'un board Scrum, fait partie de l'extension : ses
+lectures, ses écritures et ses données locales sont décrites ci-dessous comme le reste.</p>
 
 <h2>En résumé</h2>
 <ul>
@@ -61,7 +61,7 @@ et seulement après votre accord dans la fenêtre d'autorisation de Chrome :</p>
   <li>les tickets des sprints actifs en Scrum, ou du périmètre du board en Kanban : clé, résumé, statut, type, priorité, personne assignée, story points, étiquettes, liens, historique des statuts et les champs que vous choisissez d'afficher ;</li>
   <li>les Goals Atlassian associés aux tickets ou épinglés au sprint ou au board Kanban, lus par la passerelle de votre site Atlassian ;</li>
   <li>les requêtes JQL des couleurs et leurs suggestions : la saisie est envoyée à Jira pour la validation, les propositions de valeurs et la recherche des tickets correspondants, avant même d'appliquer les réglages ;</li>
-  <li>dans Sprint Planning, les sprints futurs, leurs objectifs texte et tickets, le backlog du board et le reste à faire des sprints actifs ;</li>
+  <li>dans Sprint Planning, les sprints futurs du board, leurs objectifs et tickets, le backlog du board, l'état des sprints actifs (pour les clôturer) et vos droits sur les sprints ;</li>
   <li>les icônes de types et de priorités de Jira.</li>
 </ul>
 <p>Le code de l'extension échange ces données avec les API de votre site Jira autorisé, en HTTPS.
@@ -80,7 +80,7 @@ jamais synchronisé avec votre compte Google :</p>
   <li>la dernière URL de board choisie dans le lanceur, pour la prochaine ouverture ;</li>
   <li>les boards ajoutés et une copie de leurs réglages d'affichage : colonnes, ordre et couleurs des swimlanes, champs des cartes, règles de couleur, durée de la daily, etc. ;</li>
   <li>des préférences d'interface : langue choisie (Auto, Français, English ou Español), filtres, swimlanes repliées, largeur de la barre latérale, panneau de santé ouvert ou fermé, position du bouton Sprint Goals et messages déjà fermés. La langue choisie est personnelle, commune aux boards dans ce navigateur et n'est pas enregistrée dans Jira ;</li>
-  <li>les brouillons du Sprint Planning : texte et ordre des objectifs, clés des tickets retenus et leurs rattachements, capacité envisagée et copie de référence pour détecter les modifications dans Jira. Ils sont effacés en oubliant le board ou en se déconnectant du site ;</li>
+  <li>aucun brouillon du Sprint Planning : chaque geste est écrit aussitôt dans Jira, qui reste la seule source. Les brouillons des anciennes versions sont effacés à l'ouverture du planning ;</li>
   <li>un journal des écritures faites dans Jira depuis l'extension (500 au plus) : date, site, action, clé du ticket, avant et après, résultat. Il sert à vérifier ce que l'extension a fait ;</li>
   <li>un réglage technique pour la passerelle des Goals Atlassian ;</li>
   <li>les cinq dernières mesures techniques de chargement, enregistrées automatiquement : date, version, durées, compteurs et catégories d'erreur, sans contenu des tickets, URL, JQL ni identifiants Jira. Elles restent locales, sont remplacées au fil des chargements et supprimées à la déconnexion. Leur fenêtre de consultation n'est pas affichée dans la vue Jira actuelle.</li>
@@ -93,7 +93,7 @@ jamais synchronisé avec votre compte Google :</p>
   <li>le rang (l'ordre) d'un ticket ;</li>
   <li>le rattachement d'un ticket à un Goal Atlassian, ou son retrait ;</li>
   <li>les Goals épinglés au sprint, dans une propriété du sprint ;</li>
-  <li>sur confirmation du Sprint Planning, le texte des objectifs d'un sprint futur, l'ajout des tickets retenus du backlog et leurs rattachements aux objectifs dans la propriété du sprint, visibles aux lecteurs autorisés dans Jira ;</li>
+  <li>dans Sprint Planning, à chacun de vos gestes : le texte des objectifs d'un sprint futur, l'ajout au sprint en préparation de tickets du backlog ou d'un autre sprint futur et leur retour au backlog, leur rattachement aux objectifs, l'estimation d'un ticket dans le champ d'estimation du board, et la vélocité de l'équipe dans la propriété du sprint, visibles aux lecteurs autorisés dans Jira. La clôture et le démarrage d'un sprint passent par les fenêtres natives de Jira, que vous remplissez et validez vous-même ; l'extension reporte ensuite les objectifs non atteints dans le sprint préparé ;</li>
   <li>les réglages du board (groupes de types, ordre et couleurs des swimlanes, Goals épinglés au board Kanban, champs des cartes, règles JQL de couleur, daily…), à chaque modification que vous en faites, dans une propriété du board, et seulement si vous avez le droit de modifier ce board. Ils contiennent des réglages d'affichage ainsi que le nom et l'identifiant de compte de la dernière personne qui les a modifiés, <strong>visibles par toute personne qui peut voir ce board</strong>.</li>
 </ul>
 <p>L'outil de diagnostic peut aussi, sur votre clic, écrire puis supprimer aussitôt une propriété de test sur un sprint.</p>
@@ -134,12 +134,12 @@ demande d'assistance, ils peuvent être lus pour traiter cette demande.</p>
 
 <article id="en" lang="en">
 <h1>Privacy Policy — Sprint Goals Board for Jira</h1>
-<p class="meta">Last updated: October 15, 2026 · Publisher: Denis Simon Consulting · Contact: <a href="mailto:denis.simon.consulting@gmail.com">denis.simon.consulting@gmail.com</a></p>
+<p class="meta">Last updated: November 24, 2026 · Publisher: Denis Simon Consulting · Contact: <a href="mailto:denis.simon.consulting@gmail.com">denis.simon.consulting@gmail.com</a></p>
 
 <p>Sprint Goals Board for Jira (“the extension”) is a Chrome extension that displays Jira Cloud Scrum
 and Kanban boards as swimlanes grouped by Goal, directly within their Jira pages. This page explains which data it uses, where it goes and how to delete it.</p>
-<p>The Sprint Planning references below apply only to the local development version loaded from
-<code>dist/</code>. This experimental feature is disabled in the distributed package.</p>
+<p>Sprint Planning, the preparation of the next sprint of a Scrum board, is part of the extension: its
+reads, writes and local data are described below like the rest.</p>
 
 <h2>Summary</h2>
 <ul>
@@ -158,7 +158,7 @@ and Kanban boards as swimlanes grouped by Goal, directly within their Jira pages
   <li>issues in active sprints for Scrum, or in the board scope for Kanban: key, summary, status, type, priority, assignee, story points, labels, links, status history and the fields you choose to display;</li>
   <li>Atlassian Goals linked to issues or pinned to the sprint or Kanban board, read through your Atlassian site's gateway;</li>
   <li>card color JQL queries and their suggestions: text is sent to Jira for validation, value suggestions and matching issues, even before applying settings;</li>
-  <li>in Sprint Planning, future sprints, their text objectives and issues, the board backlog and unfinished issues from active sprints;</li>
+  <li>in Sprint Planning, the board's future sprints, their goals and issues, the board backlog, the state of active sprints (to complete them) and your permissions on sprints;</li>
   <li>Jira issue type and priority icons.</li>
 </ul>
 <p>The extension code exchanges this data with your authorized Jira site's APIs over HTTPS.
@@ -176,7 +176,7 @@ uses your Jira session to authenticate requests.</p>
   <li>the last board URL chosen in the launcher, for the next launch;</li>
   <li>the boards you added and a copy of their display settings: columns, swimlane order and colors, card fields, color rules, daily duration, etc.;</li>
   <li>interface preferences: selected language (Auto, Français, English or Español), filters, collapsed swimlanes, sidebar width, health panel open or closed, Sprint Goals button position and dismissed messages. The selected language is personal, applies across boards in this browser and is not saved to Jira;</li>
-  <li>Sprint Planning drafts: objective text and order, selected issue keys and assignments, planned capacity and a baseline used to detect changes in Jira. They are removed when forgetting the board or disconnecting from the site;</li>
+  <li>no Sprint Planning drafts: every action is written to Jira immediately, and Jira remains the only source. Drafts from earlier versions are erased when the planning is opened;</li>
   <li>a log of the writes made to Jira from the extension (500 at most): date, site, action, issue key, before and after, outcome. It lets you check what the extension did;</li>
   <li>a technical setting for the Atlassian Goals gateway;</li>
   <li>the five latest technical loading measurements, recorded automatically: date, version, timings, counts and error categories, without issue content, URLs, JQL or Jira identifiers. They stay local, are replaced as further loads occur and are removed on disconnect. Their viewing dialog is not shown in the current Jira view.</li>
@@ -189,7 +189,7 @@ uses your Jira session to authenticate requests.</p>
   <li>an issue's rank (order);</li>
   <li>linking an issue to an Atlassian Goal, or unlinking it;</li>
   <li>the Goals pinned to the sprint, in a sprint property;</li>
-  <li>after confirming Sprint Planning, a future sprint's objective text, additions of selected backlog issues and their objective assignments in the sprint property, visible to authorized Jira readers;</li>
+  <li>in Sprint Planning, at each of your actions: a future sprint's goal text, adding backlog issues or issues from another future sprint to the sprint being prepared and sending them back to the backlog, their assignment to goals, an issue's estimate in the board's estimation field, and the team velocity in the sprint property, visible to authorized Jira readers. Completing and starting a sprint go through Jira's native dialogs, which you fill in and confirm yourself; the extension then carries unreached goals over to the prepared sprint;</li>
   <li>board settings (issue type groups, swimlane order and colors, Goals pinned to the Kanban board, card fields, JQL color rules, daily…), each time you change them, in a board property, and only if you are allowed to edit that board. They contain display settings plus the name and account ID of the last person who changed them, <strong>visible to anyone who can view that board</strong>.</li>
 </ul>
 <p>When you click it, the diagnostic tool can also write a test property on a sprint and delete it immediately.</p>
@@ -231,13 +231,13 @@ for a support request, it may be read to handle that request.</p>
 </article>
 <article id="es" lang="es">
 <h1>Política de privacidad — Sprint Goals Board para Jira</h1>
-<p class="meta">Última actualización: 15 de octubre de 2026 · Editor: Denis Simon Consulting · Contacto: <a href="mailto:denis.simon.consulting@gmail.com">denis.simon.consulting@gmail.com</a></p>
+<p class="meta">Última actualización: 24 de noviembre de 2026 · Editor: Denis Simon Consulting · Contacto: <a href="mailto:denis.simon.consulting@gmail.com">denis.simon.consulting@gmail.com</a></p>
 
 <p>Sprint Goals Board para Jira («la extensión») es una extensión de Chrome que muestra los tableros
 Scrum y Kanban de Jira Cloud en carriles agrupados por objetivo, directamente dentro de sus páginas
 de Jira. Esta página explica qué datos utiliza, adónde se envían y cómo eliminarlos.</p>
-<p>Las referencias a Sprint Planning que aparecen a continuación solo se aplican a la versión local
-de desarrollo cargada desde <code>dist/</code>. Esta función experimental está desactivada en el paquete distribuido.</p>
+<p>Sprint Planning, la preparación del próximo sprint de un tablero Scrum, forma parte de la extensión: sus
+lecturas, sus escrituras y sus datos locales se describen a continuación como el resto.</p>
 
 <h2>Resumen</h2>
 <ul>
@@ -256,7 +256,7 @@ de desarrollo cargada desde <code>dist/</code>. Esta función experimental está
   <li>las incidencias de los sprints activos en Scrum o del alcance del tablero en Kanban: clave, resumen, estado, tipo, prioridad, persona asignada, puntos de historia, etiquetas, vínculos, historial de estados y los campos que elijas mostrar;</li>
   <li>los Goals de Atlassian vinculados a incidencias o fijados al sprint o al tablero Kanban, leídos a través de la pasarela de tu sitio Atlassian;</li>
   <li>las consultas JQL de los colores y sus sugerencias: el texto se envía a Jira para validarlo, proponer valores y buscar incidencias coincidentes, incluso antes de aplicar los ajustes;</li>
-  <li>en Sprint Planning, los sprints futuros, sus objetivos de texto e incidencias, el backlog del tablero y las incidencias pendientes de los sprints activos;</li>
+  <li>en Sprint Planning, los sprints futuros del tablero, sus objetivos e incidencias, el backlog del tablero, el estado de los sprints activos (para cerrarlos) y tus permisos sobre los sprints;</li>
   <li>los iconos de tipos de incidencia y de prioridades de Jira.</li>
 </ul>
 <p>El código de la extensión intercambia estos datos con las API de tu sitio Jira autorizado mediante
@@ -274,7 +274,7 @@ valores de cookies: el navegador utiliza tu sesión Jira para autenticar las sol
   <li>la última URL de tablero elegida en el lanzador, para la próxima apertura;</li>
   <li>los tableros añadidos y una copia de sus ajustes de visualización: columnas, orden y colores de carriles, campos de las tarjetas, reglas de color, duración de la Daily, etc.;</li>
   <li>preferencias de interfaz: idioma elegido (Auto, Français, English o Español), filtros, carriles plegados, ancho de la barra lateral, panel de salud abierto o cerrado, posición del botón Sprint Goals y mensajes descartados. El idioma elegido es personal, se aplica a los tableros de este navegador y no se guarda en Jira;</li>
-  <li>los borradores de Sprint Planning: texto y orden de los objetivos, claves de las incidencias seleccionadas y sus asignaciones, capacidad prevista y una copia de referencia para detectar cambios en Jira. Se eliminan al quitar el tablero o desconectar el sitio;</li>
+  <li>ningún borrador de Sprint Planning: cada gesto se escribe de inmediato en Jira, que sigue siendo la única fuente. Los borradores de versiones anteriores se eliminan al abrir la planificación;</li>
   <li>un registro de las escrituras realizadas en Jira desde la extensión (500 como máximo): fecha, sitio, acción, clave de la incidencia, valores anteriores y posteriores y resultado. Permite comprobar lo que ha hecho la extensión;</li>
   <li>un ajuste técnico para la pasarela de Goals de Atlassian;</li>
   <li>las cinco últimas mediciones técnicas de carga, guardadas automáticamente: fecha, versión, duraciones, contadores y categorías de error, sin contenido de incidencias, URL, JQL ni identificadores Jira. Permanecen en local, se sustituyen con las nuevas cargas y se eliminan al desconectar. Su ventana de consulta no se muestra en la vista Jira actual.</li>
@@ -287,7 +287,7 @@ valores de cookies: el navegador utiliza tu sesión Jira para autenticar las sol
   <li>el rango (orden) de una incidencia;</li>
   <li>la vinculación de una incidencia a un Goal de Atlassian o su desvinculación;</li>
   <li>los Goals fijados al sprint, en una propiedad del sprint;</li>
-  <li>tras confirmar Sprint Planning, el texto de objetivos de un sprint futuro, la incorporación de las incidencias seleccionadas del backlog y su asignación a objetivos en la propiedad del sprint, visibles para las personas autorizadas a consultarlos en Jira;</li>
+  <li>en Sprint Planning, en cada uno de tus gestos: el texto de objetivos de un sprint futuro, la incorporación al sprint en preparación de incidencias del backlog o de otro sprint futuro y su devolución al backlog, su asignación a objetivos, la estimación de una incidencia en el campo de estimación del tablero y la velocidad del equipo en la propiedad del sprint, visibles para las personas autorizadas a consultarlos en Jira. El cierre y el inicio de un sprint pasan por las ventanas nativas de Jira, que rellenas y validas tú; después la extensión pasa los objetivos no alcanzados al sprint preparado;</li>
   <li>los ajustes del tablero (grupos de tipos, orden y colores de carriles, Goals fijados al tablero Kanban, campos de las tarjetas, reglas JQL de color, Daily…), cada vez que los modificas, en una propiedad del tablero y solo si tienes permiso para editarlo. Contienen ajustes de visualización y el nombre e identificador de cuenta de la última persona que los modificó, <strong>visibles para cualquier persona que pueda ver ese tablero</strong>.</li>
 </ul>
 <p>Al pulsarlo, el diagnóstico también puede escribir una propiedad de prueba en un sprint y eliminarla inmediatamente.</p>

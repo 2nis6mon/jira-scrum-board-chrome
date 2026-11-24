@@ -41,19 +41,23 @@ sur cette sortie déjà construite. Aucun compte ni session Jira n'est utilisé.
   Seul l'accueil français sans choix explicite redirige à partir de la préférence mémorisée ou
   de la langue du navigateur (français → FR, espagnol → ES, autre langue → EN). Les liens directs vers une
   fiche respectent toujours leur langue. Les liens fonctionnent aussi sans JavaScript ou stockage.
-- `guide.html` est l’accueil du mini-site d’aide, avec une recherche locale et huit fiches.
+- `guide.html` est l’accueil du mini-site d’aide, avec une recherche locale et neuf fiches.
   Les pages `guide/*.html` sont générées avec Marked depuis [le manuel utilisateur](manuel-utilisateur.md),
   source des textes français. `en/guide.html` et `en/guide/*.html` sont générés depuis le
   [manuel anglais](user-guide.en.md). `es/guide.html` et `es/guide/*.html` viennent du
-  [manuel espagnol](user-guide.es.md). Les slugs des huit fiches sont identiques dans les trois
+  [manuel espagnol](user-guide.es.md). Les slugs des neuf fiches sont identiques dans les trois
   langues pour conserver des correspondances stables. `site/guide-content.mjs` définit les titres courts, résumés
   et identifiants de navigation ; `sourceHeading` doit correspondre au H2 du Markdown.
   `guide.css` et `guide.js` portent la présentation et la recherche. L’installation est exclusivement
   décrite depuis le Chrome Web Store ; aucun lien vers le dépôt privé n’est publié.
-- Les cinq captures de `docs/store/captures/` sont copiées dans `assets/screenshots/`. Elles montrent
-  des données fictives en PNG RGB opaque, 1280 × 800 ; leur version et leur provenance figurent
-  dans `captures.json`, non publié. Après un changement de marque ou d'interface, régénérer les
-  captures avec `npm run store:screenshots`, puis reconstruire et vérifier le site.
+- Les sept captures de `docs/store/captures/` sont copiées dans `assets/screenshots/` : cinq du board
+  (mode package) et deux du Sprint Planning (`06-planning.png`, `07-cloture.png`, story 8.35). Elles
+  montrent des données fictives en PNG RGB opaque, 1280 × 800 ; leur version et leur provenance
+  figurent dans `captures.json`, non publié. Après un changement de marque ou d'interface, régénérer
+  les captures du board avec `npm run store:screenshots` et celles du planning (banc compilé avec
+  Sprint Planning actif) avec `npm run store:screenshots:planning`, puis reconstruire et vérifier le
+  site. Le guide « Préparer le sprint » ne doit être publié qu'avec la version qui active Sprint
+  Planning dans le paquet (story 8.11).
 - Les icônes publiques de `public/icons/` sont copiées dans `assets/icons/`.
   Elles sont dérivées de `site/assets/brand-mark.svg` avec `node scripts/generate-icons.mjs`.
   La même marque est ainsi utilisée dans le site, l’extension et les captures du Store.
@@ -75,7 +79,7 @@ Les sorties n'incluent aucune dépendance Node : Marked sert uniquement à la g�
 
 La [fiche de publication Store](store/fiche.md) décrit le kit
 `release/chrome-store-multilingual-<version>/`, produit par `npm run store:kit` après construction
-du paquet : cinq captures inchangées, l'icône, les promotions communes 440 × 280 et 1400 × 560,
+du paquet : sept captures, l'icône, les promotions communes 440 × 280 et 1400 × 560,
 les textes FR/EN/ES et le ZIP de l'extension. Les images de partage du site sont séparées :
 `site/assets/social-card.png`, `site/assets/social-card-en.png` et `site/assets/social-card-es.png`.
 
@@ -99,7 +103,7 @@ deux tâches refusent toute branche autre que `main`.
 6. Attendre la réussite de la construction et du déploiement ; ouvrir l'adresse affichée par
    la tâche de déploiement. Pour ce dépôt :
    `https://2nis6mon.github.io/jira-scrum-board-chrome/`.
-7. Vérifier les trois accueils, le sélecteur, les trois guides, les cinq captures communes et le
+7. Vérifier les trois accueils, le sélecteur, les trois guides, les sept captures communes et le
    retour depuis les trois pages de confidentialité. Les accueils traduits sont accessibles
    directement à `https://2nis6mon.github.io/jira-scrum-board-chrome/en/index.html` et
    `https://2nis6mon.github.io/jira-scrum-board-chrome/es/index.html`.

@@ -166,5 +166,63 @@
     "sha256": "8617b875c37cddfe2fca75a65c52359660431cf9d42c1f503a12a721dbb9adbe",
     "generatedAt": "2026-10-15T19:30:28.241Z",
     "source": "Composition HTML/CSS : marque SVG, police Manrope et capture 01-board.png inchangée"
+  },
+  "planning": {
+    "version": "0.53.0",
+    "generatedAt": "2026-11-24T14:56:55.090Z",
+    "referenceDate": "2026-09-18T10:00:00.000Z",
+    "source": "Interface réelle sur données fictives dans le banc d'essai local, contexte Jira simulé, Sprint Planning actif",
+    "build": {
+      "mode": "development",
+      "production": false,
+      "sprintPlanningEnabled": true,
+      "distributionZipLoaded": false
+    },
+    "browser": "Chrome/158.0.8127.36",
+    "note": "Captures du planning, ajoutées sans régénérer les cinq captures du board (mode package, Sprint Planning désactivé).",
+    "captures": [
+      {
+        "file": "06-planning.png",
+        "width": 1280,
+        "height": 800,
+        "format": "PNG RGB 24 bits, opaque",
+        "bytes": 97249,
+        "sha256": "2ad7ce93bd25fef62d4643ea229a5b629b82ffdc8a8cf0bf709930c5fc28ee23",
+        "scenario": "Sprint Planning : sprint en préparation, objectifs, Sans objectif par swimlane et tickets du backlog",
+        "proof": {
+          "version": "0.53.0",
+          "planningEnabled": true,
+          "view": "planning",
+          "referenceDate": "2026-09-18T10:00:00.000Z",
+          "planningScreen": true,
+          "versionDisplayed": "0.53.0",
+          "viewport": {
+            "width": 1280,
+            "height": 800
+          }
+        }
+      },
+      {
+        "file": "07-cloture.png",
+        "width": 1280,
+        "height": 800,
+        "format": "PNG RGB 24 bits, opaque",
+        "bytes": 103482,
+        "sha256": "3dd0b8bf17d2161df9e7a9de82e19815cea5ad3b46b8876e472600de45efcfaf",
+        "scenario": "Sprint Planning : plusieurs sprints actifs, « Clôturer un sprint » ouvre la liste de leurs noms",
+        "proof": {
+          "version": "0.53.0",
+          "planningEnabled": true,
+          "view": "planning",
+          "referenceDate": "2026-09-18T10:00:00.000Z",
+          "planningScreen": true,
+          "versionDisplayed": "0.53.0",
+          "viewport": {
+            "width": 1280,
+            "height": 800
+          }
+        }
+      }
+    ]
   }
 }

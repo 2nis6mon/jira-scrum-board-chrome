@@ -3,6 +3,19 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.53.1 — Sprint Planning documenté avant son activation
+
+- Demandé par Denis le 24/11/2026 (story 8.35) : toute la documentation de la vue Sprint Planning est
+  prête avant l'activation (8.11). Aucun code de l'extension n'est modifié ; rien n'est publié.
+- Manuel en français, anglais et espagnol : section « Préparer le sprint », et neuvième fiche du guide du
+  site (« 9 fiches »), avec deux captures du planning sur données fictives
+  (`npm run store:screenshots:planning`).
+- Chrome Web Store : descriptions FR/EN/ES, notes de version du planning, section « Activation de Sprint
+  Planning » de `docs/store/fiche.md` (résumés `_locales` proposés, permissions inchangées, captures à
+  retenir sous la limite de cinq, instructions de revue), kit de publication complété.
+- Politique de confidentialité FR/EN/ES mise à jour : plus de brouillons, écritures de Sprint Planning
+  listées. Le site, la politique et le Store ne se publient qu'avec la version qui active Sprint Planning.
+
 ## 0.53.0 — Planning : plein écran, Clôturer et Démarrer en alternance
 
 - Demandé par Denis : l'en-tête du Sprint Planning reprend le bouton plein écran du board.

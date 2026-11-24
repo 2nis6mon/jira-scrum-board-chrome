@@ -92,6 +92,9 @@ for (const file of [
   "release-notes-fr.txt",
   "release-notes-en.txt",
   "release-notes-es.txt",
+  "release-notes-planning-fr.txt",
+  "release-notes-planning-en.txt",
+  "release-notes-planning-es.txt",
   "icon-128.png",
   "promo-440x280.png",
   "promo-1400x560.png",
@@ -115,6 +118,13 @@ for (const capture of captures.captures) {
   assert.equal(sha256(data), capture.sha256, "Capture différente de son manifeste");
   files.set(`captures/${capture.file}`, data);
 }
+// Captures du Sprint Planning (story 8.35) : prises avec Sprint Planning actif, jointes au kit.
+for (const capture of captures.planning?.captures ?? []) {
+  assert.match(capture.file, /^\d{2}-[a-z]+\.png$/);
+  const data = read(`docs/store/captures/${capture.file}`);
+  assert.equal(sha256(data), capture.sha256, "Capture du planning différente de son manifeste");
+  files.set(`captures/${capture.file}`, data);
+}
 for (const promotion of promotions.promotions) {
   assert.equal(
     sha256(files.get(promotion.file)),
@@ -136,7 +146,8 @@ Ce dossier complet n’est pas une archive d’extension à téléverser.
 2. Dans l’article Store existant, importer le nouveau paquet ci-dessus.
 3. Dans Store listing, vérifier les langues français, anglais et espagnol et remplir chaque description
    depuis listing-fr.txt / listing-en.txt / listing-es.txt. Noms et résumés : listing-metadata.json.
-4. Conserver les cinq captures françaises de captures/ pour les trois langues.
+4. Conserver les captures françaises de captures/ pour les trois langues. Le Store en accepte cinq au plus :
+   voir la fiche pour le choix proposé entre les cinq du board et les deux du Sprint Planning.
    Les promotions et l’icône sont communes ; téléverser les PNG dans leurs champs dédiés.
 5. Vérifier les liens publics, Privacy practices et les instructions de revue de fiche.md.
 6. Relire les trois fiches avant de soumettre la mise à jour à Google.

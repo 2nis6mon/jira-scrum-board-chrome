@@ -762,7 +762,7 @@ So that je planifie mes sprints sans build local.
 
 **Given** les stories 8.1 à 8.10 et 8.12 à 8.35 terminées (dont 8.35, la documentation) et le constat de 8.10 favorable
 **When** le paquet est construit (`npm run package`)
-**Then** `SPRINT_PLANNING_ENABLED` vaut vrai dans le paquet, `npm run verify:planning:package` le vérifie, et AGENTS.md, le CHANGELOG, la version et les notes de publication sont à jour ; le manuel, le site et la fiche du Store écrits en 8.35 sont publiés avec cette version
+**Then** `SPRINT_PLANNING_ENABLED` vaut vrai dans le paquet, `npm run verify:planning:package` le vérifie, et AGENTS.md, le CHANGELOG, la version et les notes de publication sont à jour ; les résumés `_locales` et le tableau de `fiche.md` reprennent ceux de la section « Activation de Sprint Planning », `fiche.md` ne dit plus que Sprint Planning est désactivé, et le manuel, le site, la politique de confidentialité et la fiche du Store écrits en 8.35 sont publiés avec cette version
 
 ### Story 8.12: La carte du planning montre le type et le statut du ticket
 
@@ -1405,7 +1405,7 @@ So that je sais à quoi elle sert, ce qu'elle écrit dans Jira et comment l'util
 
 **Given** les données du Chrome Web Store (`docs/store/`)
 **When** le paquet qui active Sprint Planning est préparé
-**Then** les descriptions détaillées et les notes de version FR/EN/ES, la fiche de publication (`fiche.md`, qui dit aujourd'hui « Sprint Planning est désactivé ») et le résumé `_locales` décrivent la fonction sans promettre ce qu'elle ne fait pas (aucune création de sprint ni de Goal) ; la justification des permissions et la politique de confidentialité sont relues (aucun nouvel hôte, droit ni endpoint : seules les écritures déjà autorisées par la décision du 01/11/2026 sont citées)
+**Then** les descriptions détaillées FR/EN/ES, des notes de version dédiées (`release-notes-planning-*`), la fiche de publication (`fiche.md`, section « Activation de Sprint Planning » : tableau des éléments, résumés `_locales` proposés, objectif unique, captures à retenir sous la limite de cinq du Store, instructions de revue) et la politique de confidentialité FR/EN/ES (fin des brouillons, écritures de Sprint Planning listées) décrivent la fonction sans promettre ce qu'elle ne fait pas (aucune création de sprint ni de Goal) ; la justification des permissions est relue (aucun nouvel hôte, droit ni endpoint : seules les écritures autorisées par la décision du 01/11/2026 sont citées) ; ces textes ne se publient qu'avec le paquet qui active la fonction : les résumés `_locales` et les passages « désactivé » de `fiche.md` sont changés par la 8.11, avec le drapeau
 
 **Given** les captures du Store (`npm run store:screenshots`)
 **When** elles sont renouvelées

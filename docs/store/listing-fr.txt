@@ -17,6 +17,12 @@ TRAVAILLEZ AVEC VOTRE ÉQUIPE
 • Animez la Daily en plein écran, une swimlane à la fois, avec minuteur réglable et cartes déplaçables.
 • Partagez les réglages du board dans Jira. Leur modification exige le droit de modifier le board ; les préférences personnelles restent locales.
 
+PRÉPAREZ LE SPRINT SUIVANT (SCRUM)
+• Sprint Planning prépare le prochain sprint dans une vue dédiée : choisissez le sprint futur, écrivez ou épinglez ses objectifs, puis placez-y des tickets du backlog ou d'un autre sprint futur du board, par glisser-déposer, menu de carte ou sélection multiple.
+• Chaque geste est écrit aussitôt dans Jira, qui reste la seule source : une seule tentative par écriture, puis relecture, sans réussite annoncée avant confirmation.
+• Comparez la charge du sprint à la vélocité de l'équipe, estimez un ticket depuis sa carte et suivez l'avancement de chaque objectif et de chaque swimlane par type.
+• Clôturez le sprint actif puis démarrez le suivant depuis les fenêtres natives de Jira : vous les remplissez et les validez, les objectifs non atteints sont reportés dans le sprint préparé.
+
 FRANÇAIS, ANGLAIS ET ESPAGNOL
 L'interface suit la langue de Jira : français si Jira est en français, espagnol si Jira est en espagnol, anglais pour les autres langues. Choisissez aussi Auto, Français, English ou Español dans les préférences personnelles, accessibles depuis le menu Site Jira ou l'administration. Le changement est immédiat. Votre choix reste dans ce navigateur et ne change pas la langue de votre équipe.
 Les contenus de Jira (tickets, objectifs, statuts et noms de boards) restent dans leur langue d'origine. Les fenêtres natives suivent la langue de Jira.

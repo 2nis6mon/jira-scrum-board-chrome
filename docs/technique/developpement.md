@@ -14,7 +14,7 @@ format dans chaque clone.
 Le site de présentation possède son propre dossier `site/` et ses commandes `site:build`,
 `site:check`, `site:preview` et `site:verify`. Sa sortie `.vite/site-dist/` et son archive
 `release/sprint-goals-site.zip` sont indépendantes du paquet Chrome. Le guide est un mini-site de
-huit fiches par langue générées avec Marked depuis les manuels Markdown FR/EN/ES, avec recherche
+neuf fiches par langue générées avec Marked depuis les manuels Markdown FR/EN/ES, avec recherche
 locale. Les pages anglaises sont sous `en/`, les espagnoles sous `es/` et toutes partagent les captures françaises. Marked reste
 une dépendance de développement ; aucune bibliothèque n'est embarquée dans le site.
 `node scripts/generate-icons.mjs` dérive les PNG Chrome de la marque SVG, via le navigateur isolé.
