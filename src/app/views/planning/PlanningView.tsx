@@ -393,27 +393,35 @@ function PlanningHeader({
       </button>
       <div class="sprint-title">
         <div class="sprint-name">
-          <h2>{sprint?.name ?? "Sprint Planning"}</h2>
+          {/* Le titre est aussi le sélecteur : le menu natif le recouvre, sans doublon du nom. */}
+          <div class={`sprint-picker${sprints.length > 0 ? " sprint-picker-active" : ""}`}>
+            <h2>{sprint?.name ?? "Sprint Planning"}</h2>
+            {sprints.length > 0 && (
+              <>
+                <Icon name="chevronDown" size={16} />
+                <select
+                  class="planning-sprint-select"
+                  aria-label={t("Sprint à préparer")}
+                  title={t("Sprint à préparer")}
+                  value={planning.selectedSprintId.value ?? ""}
+                  disabled={busy}
+                  onChange={(event) =>
+                    void planning.selectSprint(Number(event.currentTarget.value))
+                  }
+                >
+                  {sprints.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+          </div>
           {sprint?.state === "future" && <span class="sprint-future">{t("futur")}</span>}
         </div>
         <SprintDates sprint={sprint} />
       </div>
-      {sprints.length > 0 && (
-        <select
-          class="planning-sprint-select"
-          aria-label={t("Sprint à préparer")}
-          title={t("Sprint à préparer")}
-          value={planning.selectedSprintId.value ?? ""}
-          disabled={busy}
-          onChange={(event) => void planning.selectSprint(Number(event.currentTarget.value))}
-        >
-          {sprints.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-      )}
 
       {snapshot && (
         <div class="sprint-metrics">

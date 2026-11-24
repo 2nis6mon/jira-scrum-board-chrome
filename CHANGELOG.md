@@ -3,6 +3,13 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.52.1 — Le titre du sprint est le sélecteur du planning
+
+- Retour de Denis : le planning écrivait le nom du sprint deux fois, dans le titre et dans la liste
+  « Sprint à préparer ». La liste devient le titre lui-même : même taille, une petite flèche vers le
+  bas, et le menu natif transparent par-dessus pour choisir un autre sprint. Nom accessible
+  inchangé, aucun nouveau texte, aucune lecture ni écriture Jira.
+
 ## 0.52.0 — Avancement des swimlanes par type, sur le board et dans le planning
 
 - Retour de Denis sur la story 8.34 : Build et les swimlanes par type affichent, comme un objectif,

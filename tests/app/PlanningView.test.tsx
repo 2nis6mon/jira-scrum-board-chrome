@@ -406,6 +406,11 @@ describe("Sprint Planning en direct : écran", () => {
     expect(find(".sprint-future").textContent).toBe("futur");
     expect(find(".sprint-dates").textContent).toContain("→");
     const select = field<HTMLSelectElement>("Sprint à préparer");
+    // Le titre est le sélecteur : même bloc, une flèche, et le nom n'est affiché qu'une fois.
+    const picker = find(".sprint-picker");
+    expect(picker.querySelector("h2")?.textContent).toBe("Sprint 43");
+    expect(picker.querySelector("svg")).not.toBeNull();
+    expect(picker.contains(select)).toBe(true);
     expect([...select.options].map((option) => option.textContent)).toEqual([
       "Sprint 43",
       "Sprint 44",
