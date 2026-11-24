@@ -16,6 +16,7 @@ import type {
   PlanningLane,
   PlanningLoad,
   PlanningSection,
+  PlanningTypeLane,
   PlanningViewModel,
 } from "../../model/PlanningTypes";
 import { ActionMenu, type MenuEntry } from "../ActionMenu";
@@ -1017,27 +1018,15 @@ function LaneCards({
   issues,
   goalId,
   empty,
-  heading,
 }: {
   planning: PlanningViewModel;
   images: ImageCache;
   issues: readonly PlanningIssue[];
   goalId: string | null;
   empty: ComponentChildren;
-  /** Sous-section de « Sans objectif » (story 8.34) : nom de la swimlane par type, avant ses cartes. */
-  heading?: { readonly id: string | null; readonly name: string };
 }) {
   return (
-    <div
-      class="lane-cell planning-lane-cell"
-      data-planning-type-lane={heading ? (heading.id ?? "build") : undefined}
-    >
-      {heading && (
-        <h4 class="planning-type-lane-title">
-          <span>{heading.name}</span>
-          <span class="lane-count">{plural(issues.length, "ticket")}</span>
-        </h4>
-      )}
+    <div class="lane-cell planning-lane-cell">
       {issues.map((item) => (
         <PlanningCard
           key={item.issue.key}
@@ -1049,6 +1038,66 @@ function LaneCards({
         />
       ))}
       {issues.length === 0 && <p class="planning-lane-hint">{empty}</p>}
+    </div>
+  );
+}
+
+/**
+ * Sous-section de « Sans objectif » (story 8.34) : une swimlane par type, avec le même en-tête que
+ * sur le board (chevron pour replier ou déplier ses tickets, nom, nombre, « Par défaut »).
+ */
+function TypeLane({
+  planning,
+  images,
+  lane,
+}: {
+  planning: PlanningViewModel;
+  images: ImageCache;
+  lane: PlanningTypeLane;
+}) {
+  const id = lane.swimlaneId ?? "build";
+  const collapsed = planning.collapsedTypeLanes.value.has(id);
+  return (
+    <div
+      class={`lane planning-type-lane${lane.swimlaneId === null ? "" : " lane-swimlane"}`}
+      data-planning-type-lane={id}
+    >
+      <LaneHeader
+        leading={
+          <button
+            type="button"
+            class="lane-toggle"
+            aria-expanded={!collapsed}
+            aria-label={t(collapsed ? "Déplier {name}" : "Replier {name}", { name: lane.name })}
+            title={collapsed ? t("Déplier") : t("Replier")}
+            onClick={() => planning.toggleTypeLane(id)}
+          >
+            <span class="chevron" aria-hidden="true" />
+          </button>
+        }
+        title={<span class="lane-title">{lane.name}</span>}
+        count={plural(lane.items.length, "ticket")}
+      >
+        {lane.swimlaneId !== null && (
+          <span
+            class="lane-default-label"
+            title={t(
+              "Les tickets de ces types rejoignent leur objectif en priorité. Sans objectif visible, ils reviennent ici.",
+            )}
+          >
+            {t("Par défaut")}
+          </span>
+        )}
+      </LaneHeader>
+      {!collapsed && (
+        <LaneCards
+          planning={planning}
+          images={images}
+          issues={lane.items}
+          goalId={null}
+          empty={null}
+        />
+      )}
     </div>
   );
 }
@@ -1343,9 +1392,8 @@ function PinGoal({ planning }: { planning: PlanningViewModel }) {
 
 function UnassignedLane({ planning, images }: { planning: PlanningViewModel; images: ImageCache }) {
   const issues = planning.unassigned.value;
-  // Sous-sections par swimlane de type (story 8.34) ; Build seule : rendu plat d'avant.
+  // Sous-sections par swimlane de type (story 8.34), comme les swimlanes du board.
   const typeLanes = planning.unassignedLanes.value;
-  const onlyBuild = typeLanes.length === 1 && typeLanes[0]?.swimlaneId === null;
   const drop = useDrop({
     type: PLANNING_DRAG_TYPE,
     disabled: planning.gesturesDisabled.value,
@@ -1363,7 +1411,7 @@ function UnassignedLane({ planning, images }: { planning: PlanningViewModel; ima
         <span class="lane-count">{plural(issues.length, "ticket")}</span>
         <span class="planning-lane-sub">{t("Dans le sprint, rattachés à aucun objectif")}</span>
       </header>
-      {typeLanes.length === 0 || onlyBuild ? (
+      {typeLanes.length === 0 ? (
         <LaneCards
           planning={planning}
           images={images}
@@ -1377,14 +1425,11 @@ function UnassignedLane({ planning, images }: { planning: PlanningViewModel; ima
         />
       ) : (
         typeLanes.map((lane) => (
-          <LaneCards
+          <TypeLane
             key={lane.swimlaneId ?? "build"}
             planning={planning}
             images={images}
-            issues={lane.items}
-            goalId={null}
-            empty={null}
-            heading={{ id: lane.swimlaneId, name: lane.name }}
+            lane={lane}
           />
         ))
       )}

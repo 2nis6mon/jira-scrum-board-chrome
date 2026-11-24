@@ -29,6 +29,10 @@ context:
 - Docs : `invariants.md`, `CHANGELOG.md`, version 0.51.0. Manuel et guides EN/ES non touchés : Sprint Planning n'y figure pas (expérimental, hors paquet). `verify:planning` : le banc n'a que des tickets Story, il constate la cohérence sous-sections / cartes (rendu plat) ; le multi-swimlanes est couvert par `PlanningModel.test.ts`, `PlanningView.test.tsx` et `planningLanes.test.ts`.
 - Vérifications : `npm run check` (2048 tests), `verify:planning`, `verify:jira` verts.
 
+## Retour du 24/11/2026 (0.51.1)
+
+Denis : les sous-sections doivent être le même composant de swimlane que sur le board, avec pliage. Fait : `TypeLane` (`PlanningView.tsx`) réutilise `LaneHeader`, le chevron `lane-toggle` et « Par défaut » du board, y compris pour Build seule (le rendu plat disparaît). Repli : `PlanningModel.collapsedTypeLanes` / `toggleTypeLane`, le temps de la séance (choix fait seul : pas de lien avec `collapsedBlockIds` du board, ni préférence persistée). Une carte sélectionnée dans une sous-section repliée reste sélectionnée. `verify:planning` plie et déplie la sous-section du banc. `npm run check` (2050 tests), `verify:planning`, `verify:jira` verts.
+
 ## Review Triage Log
 
 Relecture faite sans sous-agent (rythme de l'Epic 8).

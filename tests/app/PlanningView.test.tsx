@@ -143,6 +143,7 @@ function setup(
   } satisfies PlanningSnapshot;
   const gesturesDisabled = signal(false);
   const unassigned = signal<readonly PlanningIssue[]>([UNASSIGNED]);
+  const collapsedTypeLanes = signal<ReadonlySet<string>>(new Set());
   const planning = {
     sprints: signal<readonly JiraSprint[]>([SPRINT_43, SPRINT_44]),
     selectedSprintId: signal<number | null>(43),
@@ -170,6 +171,12 @@ function setup(
     goalMode: signal<"text" | "atlassian">(options.goalMode ?? "text"),
     lanes: signal<readonly PlanningLane[]>([lane(0, [IN_G1]), lane(1, [ARRIVED])]),
     unassigned,
+    collapsedTypeLanes,
+    toggleTypeLane: vi.fn((id: string) => {
+      const next = new Set(collapsedTypeLanes.value);
+      if (!next.delete(id)) next.add(id);
+      collapsedTypeLanes.value = next;
+    }),
     // Swimlane par type : le type 10004 est la swimlane « Anomalie Prod », les autres vont dans Build.
     unassignedLanes: computed((): readonly PlanningTypeLane[] => {
       const run = unassigned.value.filter((entry) => entry.issue.fields.issuetype.id === "10004");
@@ -1639,45 +1646,73 @@ describe("Sprint Planning en direct : estimation sur la carte (8.17)", () => {
 });
 
 describe("Sprint Planning : swimlanes par type dans « Sans objectif » (story 8.34)", () => {
-  it("Build seule : rendu plat, sans titre de sous-section", async () => {
+  const anomalies = [
+    item("ABC-13", "Panne de paiement", 3, null, { typeId: "10004", typeName: "Anomalie Prod" }),
+    item("ABC-14", "Lenteur du panier", 2, null, { typeId: "10004", typeName: "Anomalie Prod" }),
+  ];
+  const typeLane = (id: string) => find(`[data-planning-type-lane="${id}"]`);
+
+  it("Build seule : une sous-section Build, au même en-tête que les swimlanes du board", async () => {
     setup();
     await tick();
-    const lane = find('[data-planning-goal="unassigned"]');
-    expect(lane.querySelector(".planning-type-lane-title")).toBeNull();
-    expect(lane.querySelector('[data-planning-issue="ABC-12"]')).not.toBeNull();
+    const build = typeLane("build");
+    expect(build.querySelector("header.lane-header .lane-title")?.textContent).toBe("Build");
+    expect(build.querySelector(".lane-default-label")).toBeNull();
+    expect(build.querySelector('[data-planning-issue="ABC-12"]')).not.toBeNull();
   });
 
   it("une swimlane par type : sous-sections nommées, comptées et dans l'ordre", async () => {
     const { planning } = setup();
-    planning.unassigned.value = [
-      UNASSIGNED,
-      item("ABC-13", "Panne de paiement", 3, null, { typeId: "10004", typeName: "Anomalie Prod" }),
-      item("ABC-14", "Lenteur du panier", 2, null, { typeId: "10004", typeName: "Anomalie Prod" }),
-    ];
+    planning.unassigned.value = [UNASSIGNED, ...anomalies];
     await tick();
-    const lane = find('[data-planning-goal="unassigned"]');
-    const groups = [...lane.querySelectorAll("[data-planning-type-lane]")];
+    const groups = [
+      ...find('[data-planning-goal="unassigned"]').querySelectorAll("[data-planning-type-lane]"),
+    ];
     expect(groups.map((group) => group.getAttribute("data-planning-type-lane"))).toEqual([
       "build",
       "1",
     ]);
     expect(
-      groups.map((group) => group.querySelector(".planning-type-lane-title")?.textContent),
-    ).toEqual(["Build1 ticket", "Anomalie Prod2 tickets"]);
+      groups.map((group) => group.querySelector(".lane-header")?.textContent?.replace(/\s+/g, " ")),
+    ).toEqual([
+      expect.stringContaining("Build1 ticket"),
+      expect.stringContaining("Anomalie Prod2 tickets"),
+    ]);
+    expect(typeLane("1").classList.contains("lane-swimlane")).toBe(true);
+    expect(typeLane("1").querySelector(".lane-default-label")?.textContent).toBe("Par défaut");
     expect(
-      [...(groups[1]?.querySelectorAll("[data-planning-issue]") ?? [])].map((card) =>
+      [...typeLane("1").querySelectorAll("[data-planning-issue]")].map((card) =>
         card.getAttribute("data-planning-issue"),
       ),
     ).toEqual(["ABC-13", "ABC-14"]);
   });
 
-  it("déposer sur « Sans objectif » reste un dépôt sur toute la section", async () => {
+  it("le chevron plie et déplie les tickets d'une sous-section, les autres restent", async () => {
     const { planning } = setup();
-    planning.unassigned.value = [
-      item("ABC-13", "Panne de paiement", 3, null, { typeId: "10004", typeName: "Anomalie Prod" }),
-    ];
+    planning.unassigned.value = [UNASSIGNED, ...anomalies];
     await tick();
-    drop(find('[data-planning-type-lane="1"]'), "ABC-15", [PLANNING_DRAG_TYPE]);
+    const toggle = () => typeLane("1").querySelector<HTMLButtonElement>("button.lane-toggle");
+    expect(toggle()?.getAttribute("aria-expanded")).toBe("true");
+    expect(toggle()?.getAttribute("aria-label")).toBe("Replier Anomalie Prod");
+    toggle()?.click();
+    await tick();
+    expect(planning.toggleTypeLane).toHaveBeenCalledWith("1");
+    expect(toggle()?.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle()?.getAttribute("aria-label")).toBe("Déplier Anomalie Prod");
+    expect(typeLane("1").querySelector("[data-planning-issue]")).toBeNull();
+    // Le nombre reste affiché, et Build garde ses cartes.
+    expect(typeLane("1").querySelector(".lane-count")?.textContent).toBe("2 tickets");
+    expect(typeLane("build").querySelector('[data-planning-issue="ABC-12"]')).not.toBeNull();
+    toggle()?.click();
+    await tick();
+    expect(typeLane("1").querySelectorAll("[data-planning-issue]")).toHaveLength(2);
+  });
+
+  it("déposer sur une sous-section reste un dépôt sur toute la section « Sans objectif »", async () => {
+    const { planning } = setup();
+    planning.unassigned.value = anomalies;
+    await tick();
+    drop(typeLane("1"), "ABC-15", [PLANNING_DRAG_TYPE]);
     await tick();
     expect(planning.placeIssue.mock.calls).toEqual([["ABC-15", null]]);
   });

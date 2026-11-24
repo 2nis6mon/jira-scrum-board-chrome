@@ -464,18 +464,14 @@ details.planning-close-menu > summary[aria-disabled="true"] {
   background: var(--sidebar);
 }
 
-.planning-type-lane-title {
-  margin: 8px 0 4px;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  color: var(--ink-2);
-  font-size: 12px;
-  font-weight: 600;
+.planning-type-lane {
+  margin-top: 8px;
 }
 
-.planning-type-lane-title:first-child {
-  margin-top: 0;
+/* Comme sur le board, la swimlane par type de « Sans objectif » a son teint propre. */
+.planning-unassigned .lane-swimlane .lane-header {
+  border-color: #f0d9bd;
+  background: #fbf3e8;
 }
 
 .planning-lane-sub {

@@ -3,6 +3,14 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.51.1 — « Sans objectif » du planning : même swimlane que sur le board
+
+- Retour de Denis sur la story 8.34 : les sous-sections de « Sans objectif » reprennent l'en-tête
+  d'une swimlane du board (chevron, nom, nombre de tickets, « Par défaut » pour une swimlane de type,
+  teinte de la swimlane) et se plient ou se déplient pour laisser les tickets à la vue ou non. Build
+  seule a aussi son en-tête. Le repli est celui de la séance : vidé au changement de board, sans lien
+  avec le repli du board. Aucun nouveau texte, aucune lecture ni écriture Jira.
+
 ## 0.51.0 — Swimlanes par type dans « Sans objectif » du planning
 
 - Demandé par Denis le 24/11/2026 (story 8.34) : dans le Sprint Planning, les tickets du sprint en

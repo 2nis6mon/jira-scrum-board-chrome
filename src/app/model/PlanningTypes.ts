@@ -164,6 +164,9 @@ export interface PlanningViewModel {
   readonly unassigned: ReadonlySignal<readonly PlanningIssue[]>;
   /** Les mêmes tickets rangés dans les swimlanes par type du board, sous-sections vides omises. */
   readonly unassignedLanes: ReadonlySignal<readonly PlanningTypeLane[]>;
+  /** Sous-sections de « Sans objectif » repliées (identifiant de swimlane, `build` pour Build). */
+  readonly collapsedTypeLanes: ReadonlySignal<ReadonlySet<string>>;
+  toggleTypeLane(id: string): void;
   readonly sections: ReadonlySignal<readonly PlanningSection[]>;
   readonly sprintLoad: ReadonlySignal<PlanningLoad | null>;
   /**

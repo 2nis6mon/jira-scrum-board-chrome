@@ -373,6 +373,16 @@ export class PlanningModel implements PlanningViewModel {
     return splitByTypeLane(configuration, issues, (item) => item.issue.fields.issuetype.id);
   });
 
+  /** Sous-sections de « Sans objectif » repliées (identifiant de swimlane, `build` pour Build) ; le temps de la séance. */
+  readonly collapsedTypeLanes = signal<ReadonlySet<string>>(new Set());
+
+  /** Replie ou déplie une sous-section de « Sans objectif », comme une swimlane du board. */
+  toggleTypeLane(id: string): void {
+    const next = new Set(this.collapsedTypeLanes.value);
+    if (!next.delete(id)) next.add(id);
+    this.collapsedTypeLanes.value = next;
+  }
+
   readonly sections = computed((): readonly PlanningSection[] => {
     const snapshot = this.snapshot.value;
     if (!SPRINT_PLANNING_ENABLED || !snapshot) return [];
@@ -1599,6 +1609,7 @@ export class PlanningModel implements PlanningViewModel {
     this.#anchor = null;
     batch(() => {
       this.selection.value = new Set();
+      this.collapsedTypeLanes.value = new Set();
       this.goalHistory.value = null;
       this.noEditableSprint.value = false;
       this.snapshot.value = null;

@@ -1814,4 +1814,17 @@ describe("Sprint Planning : swimlanes par type dans « Sans objectif » (story 8
     planning.setSearch("ABC-204");
     expect(planning.unassignedLanes.value.map((group) => group.name)).toEqual(["Anomalie Prod"]);
   });
+
+  it("replie et déplie une sous-section le temps de la séance, vidée au changement de board", async () => {
+    const { planning } = context();
+    await planning.load();
+    expect([...planning.collapsedTypeLanes.value]).toEqual([]);
+    planning.toggleTypeLane("1");
+    planning.toggleTypeLane("build");
+    expect([...planning.collapsedTypeLanes.value].sort()).toEqual(["1", "build"]);
+    planning.toggleTypeLane("1");
+    expect([...planning.collapsedTypeLanes.value]).toEqual(["build"]);
+    planning.reset();
+    expect([...planning.collapsedTypeLanes.value]).toEqual([]);
+  });
 });

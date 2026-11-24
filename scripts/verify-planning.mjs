@@ -275,18 +275,33 @@ try {
         && !document.querySelector('.planning-sources').textContent.includes('Sprint 42')`),
       "Sprint préparé, autre sprint futur, backlog paginé, ticket déjà planifié incorrect, ou sprint actif dans « Où sont les tickets »",
     );
-    // 8.34 : « Sans objectif » est rangée par swimlane de type (Build seule : rendu plat, sans titre) ;
-    // chaque carte reste dans la section, avec ou sans sous-sections.
+    // 8.34 : « Sans objectif » est rangée par swimlane de type, avec l'en-tête du board (chevron) ;
+    // plier une sous-section masque ses cartes, la déplier les rend, sans écriture.
     assert(
       await run(`(() => {
         const lane = document.querySelector('[data-planning-goal="unassigned"]');
         const groups = [...lane.querySelectorAll('[data-planning-type-lane]')];
-        const titles = lane.querySelectorAll('.planning-type-lane-title');
         const cards = lane.querySelectorAll('[data-planning-issue]').length;
         const grouped = groups.reduce((sum, group) => sum + group.querySelectorAll('[data-planning-issue]').length, 0);
-        return cards > 0 && titles.length === groups.length && (groups.length === 0 || grouped === cards);
+        return groups.length > 0 && cards > 0 && grouped === cards
+          && groups.every(group => group.querySelector('header.lane-header button.lane-toggle[aria-expanded="true"]'));
       })()`),
       "« Sans objectif » : sous-sections par type incohérentes avec les cartes",
+    );
+    await click(
+      `document.querySelector('[data-planning-goal="unassigned"] [data-planning-type-lane] button.lane-toggle')`,
+    );
+    await wait(
+      `document.querySelector('[data-planning-goal="unassigned"] [data-planning-type-lane] button.lane-toggle[aria-expanded="false"]')
+        && !document.querySelector('[data-planning-goal="unassigned"] [data-planning-type-lane] [data-planning-issue]')`,
+      "Le chevron n'a pas replié la sous-section de « Sans objectif »",
+    );
+    await click(
+      `document.querySelector('[data-planning-goal="unassigned"] [data-planning-type-lane] button.lane-toggle')`,
+    );
+    await wait(
+      `Boolean(document.querySelector('[data-planning-goal="unassigned"] [data-planning-type-lane] [data-planning-issue="ABC-210"]'))`,
+      "Le chevron n'a pas déplié la sous-section de « Sans objectif »",
     );
     assert((await inspect()).writes.length === 0, "La lecture du planning a écrit dans Jira");
     await wait(
