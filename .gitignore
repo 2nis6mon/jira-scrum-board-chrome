@@ -21,3 +21,6 @@ artifacts/demo-sprint-goals/
 
 # BMAD : mémoire personnelle des discussions ; le reste de _bmad-output/ est versionné.
 _bmad-output/party-mode/
+
+# Rapports d'objectifs de sprints (skill rapport-sprintgoals) : données réelles de Jira, gardées en local.
+rapport-objectifs-*.md
