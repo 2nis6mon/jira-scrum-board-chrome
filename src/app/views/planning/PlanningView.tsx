@@ -1056,6 +1056,7 @@ function TypeLane({
   lane: PlanningTypeLane;
 }) {
   const id = lane.swimlaneId ?? "build";
+  const points = planning.sprintLoad.value?.unit === "pts";
   const collapsed = planning.collapsedTypeLanes.value.has(id);
   return (
     <div
@@ -1076,7 +1077,8 @@ function TypeLane({
           </button>
         }
         title={<span class="lane-title">{lane.name}</span>}
-        count={plural(lane.items.length, "ticket")}
+        count={plural(lane.issueCount, "ticket")}
+        progress={{ name: lane.name, tallies: lane.progress, points }}
       >
         {lane.swimlaneId !== null && (
           <span

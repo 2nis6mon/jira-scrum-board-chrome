@@ -89,6 +89,22 @@ describe("buildBoardLayout", () => {
     expect(layout.totalCount).toBe(5);
   });
 
+  it("Build et une swimlane par type ont un avancement par état, filtres ignorés ; un objectif n'en a pas", () => {
+    const all = buildBoardLayout(board, config, NO_FILTERS);
+    const tally = (id: string) => all.lanes.find((lane) => lane.id === id)?.tally;
+    // Build : ABC-4 en cours. Swimlane RUN : RUN-1 en cours.
+    expect(tally("build")?.byState.inProgress.count).toBe(1);
+    expect(tally("build")?.byState.todo.count).toBe(0);
+    expect(tally("swimlane:1")?.byState.inProgress.count).toBe(1);
+    expect(tally("build")?.points).toBe(false);
+    expect(all.lanes.find((lane) => lane.id === "goal:g1")?.tally).toBeNull();
+    // Un filtre qui retient un autre ticket de Build n'en change pas l'avancement.
+    const filtered = buildBoardLayout(board, config, { ...NO_FILTERS, searchText: "ABC-4" });
+    const build = filtered.lanes.find((lane) => lane.id === "build");
+    expect(build?.visibleCount).toBe(1);
+    expect(build?.tally?.byState.inProgress.count).toBe(1);
+  });
+
   it("filtre actif : les swimlanes sans ticket retenu disparaissent", () => {
     const layout = buildBoardLayout(board, config, focusGoal(NO_FILTERS, "g2"));
     expect(layout.lanes.map((lane) => lane.id)).toEqual(["goal:g2"]);

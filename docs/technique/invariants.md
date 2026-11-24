@@ -168,7 +168,7 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
 - « Sans objectif » du planning (story 8.34) : rangée par swimlane de type des réglages du board
   ([`splitByTypeLane`](../../src/core/planningLanes.ts), `PlanningModel.unassignedLanes`), dans l'ordre
   de `settingsLaneOrder`. Un type ignoré ou sans swimlane rejoint Build, une swimlane masquée sur le
-  board reste affichée : aucun ticket du sprint ne disparaît. Sous-sections vides omises ; la section n'a plus d'en-tête propre (0.51.2). Chaque
+  board reste affichée : aucun ticket du sprint ne disparaît. Sous-sections vides omises ; la section n'a plus d'en-tête propre (0.51.2). Chaque sous-section, comme Build et les swimlanes par type du Sprint Board (`Lane.tally`), montre l'avancement d'un objectif (`GoalProgressSummary`), sur tous ses tickets, filtres ignorés (0.52.0). Chaque
   sous-section a l'en-tête du board ([`LaneHeader`](../../src/app/views/LaneHeader.tsx), chevron, nom,
   nombre, « Par défaut » pour une swimlane de type) et se plie ou se déplie (`collapsedTypeLanes`,
   le temps de la séance, vidé au changement de board, sans lien avec le repli du board). Dépôt, lot, menu, rang, filtres et totaux inchangés (`unassigned` reste la liste

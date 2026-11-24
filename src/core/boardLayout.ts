@@ -19,7 +19,7 @@ import {
   isForeignSprint,
   isMapped,
 } from "./boardIssue";
-import { columnStates } from "./columnState";
+import { type ColumnStates, columnStates, type StateTallies, tallyByState } from "./columnState";
 import { applyFilters, areFiltersActive, type BoardFilters } from "./filters";
 import type { SprintGoal } from "./sprintGoals";
 
@@ -27,6 +27,12 @@ import type { SprintGoal } from "./sprintGoals";
 export interface LaneCell {
   readonly column: ColumnConfiguration;
   readonly issues: readonly BoardIssue[];
+}
+
+/** Tickets de Build ou d'une swimlane par type, comptés par état ; `points` : au moins une estimation. */
+export interface LaneTally {
+  readonly byState: StateTallies;
+  readonly points: boolean;
 }
 
 /** Une swimlane affichée : un objectif, Build ou une swimlane par type. */
@@ -39,6 +45,11 @@ export interface Lane {
   readonly sprintName: string | null;
   /** Avancement de l'objectif, calculé sur TOUS ses tickets, filtres ignorés. */
   readonly progress: GoalProgress | null;
+  /**
+   * Avancement de Build ou d'une swimlane par type, dans la même grammaire que celui d'un objectif,
+   * sur TOUS ses tickets affichables, filtres ignorés ; `null` pour un objectif.
+   */
+  readonly tally: LaneTally | null;
   readonly cells: readonly LaneCell[];
   /** Tickets retenus par les filtres, toutes colonnes confondues. */
   readonly visibleCount: number;
@@ -144,6 +155,7 @@ export function buildBoardLayout(
             states,
           )
         : null,
+      tally: goal ? null : laneTally(allIssuesOf(block), states),
       cells,
       visibleCount: placed,
       // Un ticket sans colonne visible n'est pas compté : il n'est pas affiché.
@@ -160,6 +172,19 @@ export function buildBoardLayout(
     visibleCount: lanes.reduce((sum, lane) => sum + lane.visibleCount, 0),
     totalCount: everything.length,
     unmappedCount,
+  };
+}
+
+/** Avancement par état de tickets sans objectif ; un ticket sans colonne visible n'est pas compté. */
+function laneTally(issues: readonly BoardIssue[], states: ColumnStates): LaneTally {
+  const mapped = issues.filter((issue) => isMapped(issue, states));
+  return {
+    byState: tallyByState(
+      mapped,
+      (issue) => states.ofColumn(issue.columnId),
+      (issue) => issue.estimate,
+    ),
+    points: mapped.some((issue) => issue.estimate !== null),
   };
 }
 

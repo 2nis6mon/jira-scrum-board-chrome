@@ -1,5 +1,6 @@
 import type { ReadonlySignal } from "@preact/signals";
 import type { IssueFilterOptions } from "../../core/boardLayout";
+import type { StateTallies } from "../../core/columnState";
 import type { PlanningFilters } from "../../core/filters";
 import type { TypeLaneGroup } from "../../core/planningLanes";
 import type { SprintGoal } from "../../core/sprintGoals";
@@ -57,7 +58,12 @@ export interface PlanningLane {
 }
 
 /** Sous-section de « Sans objectif » : la swimlane par type, ou Build (`swimlaneId` nul). */
-export type PlanningTypeLane = TypeLaneGroup<PlanningIssue>;
+export interface PlanningTypeLane extends TypeLaneGroup<PlanningIssue> {
+  /** Nombre de tickets de la sous-section, recherche et filtres ignorés. */
+  readonly issueCount: number;
+  /** Avancement par état (colonne du board), recherche et filtres ignorés, comme un objectif. */
+  readonly progress: StateTallies;
+}
 
 /**
  * Top et basse priorité d'une carte du sprint en préparation : raison de l'action désactivée

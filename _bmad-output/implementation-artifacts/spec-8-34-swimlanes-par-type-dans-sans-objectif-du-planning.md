@@ -33,6 +33,10 @@ context:
 
 Denis : les sous-sections doivent être le même composant de swimlane que sur le board, avec pliage. Fait : `TypeLane` (`PlanningView.tsx`) réutilise `LaneHeader`, le chevron `lane-toggle` et « Par défaut » du board, y compris pour Build seule (le rendu plat disparaît). Repli : `PlanningModel.collapsedTypeLanes` / `toggleTypeLane`, le temps de la séance (choix fait seul : pas de lien avec `collapsedBlockIds` du board, ni préférence persistée). Une carte sélectionnée dans une sous-section repliée reste sélectionnée. `verify:planning` plie et déplie la sous-section du banc. `npm run check` (2050 tests), `verify:planning`, `verify:jira` verts.
 
+## Retour du 24/11/2026 (0.52.0)
+
+Denis : ajouter aux swimlanes par type l'avancement d'un objectif (« n/N terminés · x/y pts », barre, légende), sur le Sprint Board et dans le Sprint Planning. Fait : `Lane.tally` (`boardLayout.ts`, Build et swimlanes par type du board), `PlanningTypeLane.issueCount` / `progress` (`PlanningModel.unassignedLanes`, recherche et filtres ignorés) ; les deux en-têtes passent `progress` à `LaneHeader`. Tests : `boardLayout.test.ts`, `Workspace.test.tsx`, `PlanningModel.test.ts`, `PlanningView.test.tsx`. Cela étend la story 8.34 hors Sprint Planning (board) : choix fait sur demande explicite.
+
 ## Review Triage Log
 
 Relecture faite sans sous-agent (rythme de l'Epic 8).

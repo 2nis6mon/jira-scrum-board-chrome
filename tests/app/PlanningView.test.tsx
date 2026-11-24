@@ -90,6 +90,26 @@ const GOALS = [
   makeSprintGoal({ id: "g2", title: "Sécuriser le paiement", color: "goal3", position: 1 }),
 ];
 
+/** Sous-section de « Sans objectif » : tout à faire, points des estimations connues. */
+function typeLane(
+  swimlaneId: string | null,
+  name: string,
+  items: readonly PlanningIssue[],
+): PlanningTypeLane {
+  const points = items.reduce((sum, entry) => sum + (entry.estimate ?? 0), 0);
+  return {
+    swimlaneId,
+    name,
+    items,
+    issueCount: items.length,
+    progress: {
+      todo: { count: items.length, points },
+      inProgress: { count: 0, points: 0 },
+      done: { count: 0, points: 0 },
+    },
+  };
+}
+
 function lane(index: 0 | 1, issues: readonly PlanningIssue[]): PlanningLane {
   const goal = GOALS[index];
   if (!goal) throw new Error("objectif attendu");
@@ -182,8 +202,8 @@ function setup(
       const run = unassigned.value.filter((entry) => entry.issue.fields.issuetype.id === "10004");
       const build = unassigned.value.filter((entry) => !run.includes(entry));
       return [
-        ...(build.length > 0 ? [{ swimlaneId: null, name: "Build", items: build }] : []),
-        ...(run.length > 0 ? [{ swimlaneId: "1", name: "Anomalie Prod", items: run }] : []),
+        ...(build.length > 0 ? [typeLane(null, "Build", build)] : []),
+        ...(run.length > 0 ? [typeLane("1", "Anomalie Prod", run)] : []),
       ];
     }),
     sections: signal<readonly PlanningSection[]>([
@@ -1694,6 +1714,28 @@ describe("Sprint Planning : swimlanes par type dans « Sans objectif » (story 8
         card.getAttribute("data-planning-issue"),
       ),
     ).toEqual(["ABC-13", "ABC-14"]);
+  });
+
+  it("chaque sous-section montre son avancement comme un objectif : n/N terminés, barre, légende", async () => {
+    const { planning } = setup();
+    planning.unassigned.value = [UNASSIGNED, ...anomalies];
+    await tick();
+    const header = typeLane("1").querySelector(".lane-header");
+    expect(header?.querySelector(".lane-progress")).not.toBeNull();
+    expect(header?.textContent).toContain("0/2 terminés");
+    expect(header?.querySelectorAll(".state-bar i")).toHaveLength(1);
+    expect(
+      [...(header?.querySelectorAll(".state-chip .visually-hidden") ?? [])].map(
+        (part) => part.textContent,
+      ),
+    ).toEqual([
+      "À faire : 2 tickets · 5 pts",
+      "En cours : 0 ticket · 0 pts",
+      "Terminé : 0 ticket · 0 pts",
+    ]);
+    expect(find('[data-planning-type-lane="build"] .lane-header').textContent).toContain(
+      "0/1 terminés",
+    );
   });
 
   it("le chevron plie et déplie les tickets d'une sous-section, les autres restent", async () => {

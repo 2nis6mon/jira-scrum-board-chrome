@@ -1372,11 +1372,13 @@ function LaneView(props: {
             : plural(lane.totalCount, t("ticket"))
         }
         progress={
-          progress && {
-            name: lane.title,
-            tallies: progress.byState,
-            points: progress.totalPoints !== null,
-          }
+          progress
+            ? { name: lane.title, tallies: progress.byState, points: progress.totalPoints !== null }
+            : lane.tally && {
+                name: lane.title,
+                tallies: lane.tally.byState,
+                points: lane.tally.points,
+              }
         }
       >
         {lane.block.kind === "swimlane" && (

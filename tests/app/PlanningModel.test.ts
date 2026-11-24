@@ -1803,6 +1803,29 @@ describe("Sprint Planning : swimlanes par type dans « Sans objectif » (story 8
     expect(planning.unassigned.value.map((item) => item.issue.key)).toEqual(["ABC-210", "ABC-204"]);
   });
 
+  it("avancement et nombre d'une sous-section : tous les tickets du type, recherche ignorée", async () => {
+    const { planning } = context({
+      issueFields: {
+        "ABC-204": { issuetype: { id: "10004", name: "Anomalie Prod", subtask: false } },
+      },
+    });
+    await planning.load();
+    await planning.placeIssue("ABC-204", null);
+    planning.setSearch("ABC-210");
+    expect(planning.unassignedLanes.value.map((group) => group.name)).toEqual(["Build"]);
+    const [build] = planning.unassignedLanes.value;
+    expect(build?.items.map((item) => item.issue.key)).toEqual(["ABC-210"]);
+    expect(build?.issueCount).toBe(1);
+    const counted = Object.values(build?.progress ?? {}).reduce(
+      (sum, tally) => sum + tally.count,
+      0,
+    );
+    expect(counted).toBe(1);
+    planning.setSearch("");
+    const anomalies = planning.unassignedLanes.value.find((group) => group.swimlaneId === "1");
+    expect(anomalies?.issueCount).toBe(1);
+  });
+
   it("applique les filtres aux sous-sections et omet celles qui se vident", async () => {
     const { planning } = context({
       issueFields: {

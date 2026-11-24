@@ -3,6 +3,16 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.52.0 — Avancement des swimlanes par type, sur le board et dans le planning
+
+- Retour de Denis sur la story 8.34 : Build et les swimlanes par type affichent, comme un objectif,
+  « n/N terminés · x/y pts », la barre par état (gris, bleu, vert) et sa légende (à faire, en cours,
+  terminé), sur le Sprint Board et dans les sous-sections de « Sans objectif » du Sprint Planning.
+- Le compte porte sur tous les tickets de la swimlane, recherche et filtres ignorés, comme pour un
+  objectif ; un ticket sans colonne visible n'est pas compté, les tickets terminés du sprint en
+  préparation non plus (8.23). Les points apparaissent dès qu'une estimation existe (board) ou si le
+  board a un champ d'estimation (planning). Aucun nouveau texte, aucune lecture ni écriture Jira.
+
 ## 0.51.2 — « Sans objectif » du planning sans en-tête propre
 
 - Retour de Denis sur la story 8.34 : l'en-tête de la section (« Sans objectif », nombre de tickets,

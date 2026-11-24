@@ -353,24 +353,50 @@ export class PlanningModel implements PlanningViewModel {
     });
   });
 
-  readonly unassigned = computed((): readonly PlanningIssue[] => {
+  /** Tickets du sprint sans objectif, recherche et filtres ignorés. */
+  readonly #unassignedAll = computed((): readonly PlanningIssue[] => {
     const { goals, links } = this.#goalView.value;
     const ids = new Set(goals.map((goal) => goal.id));
-    const matches = this.#matches.value;
     return this.#sprintItems.value.filter((item) => {
       const goalId = links[item.issue.key];
-      return (goalId === undefined || !ids.has(goalId)) && matches(item.issue);
+      return goalId === undefined || !ids.has(goalId);
     });
+  });
+
+  readonly unassigned = computed((): readonly PlanningIssue[] => {
+    const matches = this.#matches.value;
+    return this.#unassignedAll.value.filter((item) => matches(item.issue));
   });
 
   /** « Sans objectif » rangé dans les swimlanes par type du board, dans son ordre (story 8.34). */
   readonly unassignedLanes = computed((): readonly PlanningTypeLane[] => {
     const configuration = this.context.configuration();
-    const issues = this.unassigned.value;
-    if (!configuration) {
-      return issues.length > 0 ? [{ swimlaneId: null, name: "Build", items: issues }] : [];
-    }
-    return splitByTypeLane(configuration, issues, (item) => item.issue.fields.issuetype.id);
+    const all = this.#unassignedAll.value;
+    const shown = new Set(this.unassigned.value);
+    const states = this.#states.value;
+    const groups = configuration
+      ? splitByTypeLane(configuration, all, (item) => item.issue.fields.issuetype.id)
+      : all.length > 0
+        ? [{ swimlaneId: null, name: "Build", items: all }]
+        : [];
+    // L'avancement et le nombre ignorent la recherche et les filtres, comme ceux d'un objectif ;
+    // une sous-section dont aucun ticket n'est retenu n'est pas affichée.
+    return groups.flatMap((group): PlanningTypeLane[] => {
+      const items = group.items.filter((item) => shown.has(item));
+      if (items.length === 0) return [];
+      return [
+        {
+          ...group,
+          items,
+          issueCount: group.items.length,
+          progress: tallyByState(
+            group.items,
+            (item) => states.ofStatus(item.issue.fields.status?.id),
+            (item) => item.estimate,
+          ),
+        },
+      ];
+    });
   });
 
   /** Sous-sections de « Sans objectif » repliées (identifiant de swimlane, `build` pour Build) ; le temps de la séance. */
