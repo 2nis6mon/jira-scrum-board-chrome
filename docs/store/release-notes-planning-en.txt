@@ -1,4 +1,4 @@
-Sprint Planning: prepare the next sprint without leaving Jira
+Version 0.54.0 — Sprint Planning: prepare the next sprint without leaving Jira
 
 • New Sprint Planning view for Scrum boards: choose the future sprint, write its goals (sprint text) or pin Atlassian Goals, then place issues from the backlog or from another future sprint of the board.
 • Drag and drop, card menu, multiple selection, search and filters as on the sprint page; "No goal" is arranged by issue-type swimlane, with the progress of each row.

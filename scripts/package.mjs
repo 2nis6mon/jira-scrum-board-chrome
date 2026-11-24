@@ -1,7 +1,7 @@
 // Paquet Chrome Web Store de l'extension intégrée à Jira. La construction utilise un dossier
 // temporaire sous release/ : dist/ et les livraisons précédentes restent disponibles.
 // Le Store attribue son identifiant : seul le champ public `key` est retiré du manifest.
-// Le mode package désactive les fonctions expérimentales, notamment Sprint Planning.
+// Le mode package active Sprint Planning (story 8.11) ; santé du sprint masquée, diagnostic actif.
 // Usage : npm run package → release/sprint-goals-board-<version>.zip
 
 import { execFileSync } from "node:child_process";

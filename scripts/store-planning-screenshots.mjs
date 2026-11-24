@@ -1,6 +1,6 @@
 // Captures Web Store de Sprint Planning (story 8.35) : interface réelle, données FICTIVES, banc
-// compilé avec Sprint Planning ACTIF. Les cinq captures du board (`npm run store:screenshots`, mode
-// package) ne sont ni régénérées ni modifiées : seules 06-planning.png et 07-cloture.png s'ajoutent,
+// compilé en mode package, Sprint Planning ACTIF depuis la story 8.11. Les cinq captures du board
+// (`npm run store:screenshots`) ne sont ni régénérées ni modifiées : seules 06-planning.png et 07-cloture.png s'ajoutent,
 // avec leur preuve dans captures.json (clé `planning`). Aucun accès à une session Jira réelle.
 // Usage : npm run store:screenshots:planning ; CHROME_PATH permet de choisir le navigateur isolé.
 import assert from "node:assert/strict";
@@ -23,15 +23,15 @@ const buildDirectory = resolve(root, ".vite/store-captures/harness-planning");
 assert.equal(dirname(buildDirectory), resolve(root, ".vite/store-captures"));
 const configFile = join(root, "vite.harness.config.ts");
 
-// Le mode `development` active Sprint Planning dans le banc, comme `dist/` ; jamais le paquet.
+// Le mode `package` donne au banc la même valeur du drapeau que le paquet distribué.
 await build({
   configFile,
-  mode: "development",
+  mode: "package",
   build: { outDir: buildDirectory, emptyOutDir: true, target: "es2023" },
 });
 const server = await preview({
   configFile,
-  mode: "development",
+  mode: "package",
   build: { outDir: buildDirectory },
   preview: { host: "127.0.0.1", port: PORT, strictPort: true },
 });
@@ -199,15 +199,15 @@ try {
     generatedAt: new Date().toISOString(),
     referenceDate,
     source:
-      "Interface réelle sur données fictives dans le banc d'essai local, contexte Jira simulé, Sprint Planning actif",
+      "Interface réelle sur données fictives dans le banc d'essai local, contexte Jira simulé, mode package (Sprint Planning actif)",
     build: {
-      mode: "development",
-      production: false,
+      mode: "package",
+      production: true,
       sprintPlanningEnabled: true,
       distributionZipLoaded: false,
     },
     browser: browserVersion.product,
-    note: "Captures du planning, ajoutées sans régénérer les cinq captures du board (mode package, Sprint Planning désactivé).",
+    note: "Captures du planning, ajoutées sans régénérer les cinq captures du board (prises en 0.34.9, Sprint Planning désactivé).",
     captures: captures.map(({ file, scenario, proof, png }) => ({
       file,
       width: WIDTH,

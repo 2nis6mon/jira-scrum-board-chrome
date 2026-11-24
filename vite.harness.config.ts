@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => ({
   // Les icônes de l'extension, comme dans dist/.
   publicDir: fileURLToPath(new URL("./public", import.meta.url)),
   define: {
-    __SPRINT_PLANNING_ENABLED__: ["dist", "development", "test"].includes(mode),
+    __SPRINT_PLANNING_ENABLED__: ["dist", "package", "development", "test"].includes(mode),
     __SPRINT_HEALTH_ENABLED__: false,
     __DIAGNOSTIC_ENABLED__: true,
   },

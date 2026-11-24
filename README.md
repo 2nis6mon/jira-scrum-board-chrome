@@ -25,8 +25,9 @@ pour garder l'identité de l'installation.
 ## Utiliser
 
 - Scrum : tickets de tous les sprints actifs ; objectifs du texte du sprint ou Goals Atlassian.
-- Sprint Planning (expérimental, `dist/` local uniquement) : préparer un sprint futur par objectifs texte, répartir le backlog, consulter
-  le reste à faire et publier le plan après revue. Brouillon personnel conservé dans Chrome.
+- Sprint Planning (Scrum) : préparer le sprint futur par objectifs (texte ou Goals Atlassian), y placer des tickets du backlog
+  ou d'un autre sprint futur, puis clôturer le sprint actif et démarrer le suivant par les fenêtres natives de Jira.
+  Chaque geste est écrit aussitôt dans Jira ; voir le [manuel](docs/manuel-utilisateur.md#préparer-le-sprint).
 - Kanban : tickets du board et de son sous-filtre ; Goals Atlassian uniquement.
 - Déplacement des tickets, fiche et formulaires natifs Jira, filtres, sous-tâches, Daily et présentation.
 - Réglages du board partagés dans Jira ; préférences d'interface personnelles dans Chrome.
@@ -55,8 +56,8 @@ automatiquement. Les limites et les réglages sont décrits dans le manuel.
 La [politique de confidentialité](docs/privacy/index.html) reste séparée pour sa publication.
 Pour développer : `npm run check` vérifie et compile ; `npm run watch` reconstruit en continu.
 Les configurations IntelliJ sont dans `.run/` ; les autres commandes sont dans le guide développeur.
-`npm run package` construit séparément le ZIP de distribution avec Sprint Planning désactivé,
-sans modifier votre `dist/` local. Ce choix est fixé à la compilation, sans option dans Chrome.
+`npm run package` construit séparément le ZIP de distribution (Sprint Planning actif, comme `dist/`),
+sans modifier votre `dist/` local. Les interrupteurs de fonction sont fixés à la compilation, sans option dans Chrome.
 Pour préparer une publication Chrome Web Store, suivre la [fiche de publication](docs/store/fiche.md) :
 elle réunit les textes, permissions, captures et étapes de soumission. `npm run store:screenshots`
 renouvelle les cinq captures avec les fonctions du mode `package`, sur des données fictives.

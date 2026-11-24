@@ -168,34 +168,34 @@
     "source": "Composition HTML/CSS : marque SVG, police Manrope et capture 01-board.png inchangée"
   },
   "planning": {
-    "version": "0.53.0",
-    "generatedAt": "2026-11-24T14:56:55.090Z",
+    "version": "0.54.0",
+    "generatedAt": "2026-11-24T15:09:47.624Z",
     "referenceDate": "2026-09-18T10:00:00.000Z",
-    "source": "Interface réelle sur données fictives dans le banc d'essai local, contexte Jira simulé, Sprint Planning actif",
+    "source": "Interface réelle sur données fictives dans le banc d'essai local, contexte Jira simulé, mode package (Sprint Planning actif)",
     "build": {
-      "mode": "development",
-      "production": false,
+      "mode": "package",
+      "production": true,
       "sprintPlanningEnabled": true,
       "distributionZipLoaded": false
     },
     "browser": "Chrome/158.0.8127.36",
-    "note": "Captures du planning, ajoutées sans régénérer les cinq captures du board (mode package, Sprint Planning désactivé).",
+    "note": "Captures du planning, ajoutées sans régénérer les cinq captures du board (prises en 0.34.9, Sprint Planning désactivé).",
     "captures": [
       {
         "file": "06-planning.png",
         "width": 1280,
         "height": 800,
         "format": "PNG RGB 24 bits, opaque",
-        "bytes": 97249,
-        "sha256": "2ad7ce93bd25fef62d4643ea229a5b629b82ffdc8a8cf0bf709930c5fc28ee23",
+        "bytes": 97240,
+        "sha256": "207f14551359c996d2a071e9eea7ba889c601af220178bfb3e7df71ac0839933",
         "scenario": "Sprint Planning : sprint en préparation, objectifs, Sans objectif par swimlane et tickets du backlog",
         "proof": {
-          "version": "0.53.0",
+          "version": "0.54.0",
           "planningEnabled": true,
           "view": "planning",
           "referenceDate": "2026-09-18T10:00:00.000Z",
           "planningScreen": true,
-          "versionDisplayed": "0.53.0",
+          "versionDisplayed": "0.54.0",
           "viewport": {
             "width": 1280,
             "height": 800
@@ -207,16 +207,16 @@
         "width": 1280,
         "height": 800,
         "format": "PNG RGB 24 bits, opaque",
-        "bytes": 103482,
-        "sha256": "3dd0b8bf17d2161df9e7a9de82e19815cea5ad3b46b8876e472600de45efcfaf",
+        "bytes": 103483,
+        "sha256": "28d43c3977ecdf20ed1569382bae03f8f14bb90c0becde8f122ef7ac8c0a20bb",
         "scenario": "Sprint Planning : plusieurs sprints actifs, « Clôturer un sprint » ouvre la liste de leurs noms",
         "proof": {
-          "version": "0.53.0",
+          "version": "0.54.0",
           "planningEnabled": true,
           "view": "planning",
           "referenceDate": "2026-09-18T10:00:00.000Z",
           "planningScreen": true,
-          "versionDisplayed": "0.53.0",
+          "versionDisplayed": "0.54.0",
           "viewport": {
             "width": 1280,
             "height": 800

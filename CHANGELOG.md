@@ -3,6 +3,22 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.54.0 — Sprint Planning activé dans le paquet
+
+- Story 8.11 : Sprint Planning, jusque-là réservé à `dist/` et aux tests, est actif dans le paquet de
+  distribution (`npm run package`). L'interrupteur reste fixé à la compilation (`vite.config.ts`), sans
+  réglage ni option Chrome ; un mode de compilation inconnu le laisse désactivé et le garde-fou du code
+  (entrée masquée, ouverture, lectures, gestes et fenêtres natives bloqués) reste testé.
+- `npm run verify:planning:package` vérifie maintenant l'activation : interrupteur vrai, entrée présente,
+  puis le même parcours que `verify:planning` sur le banc compilé en mode package.
+- Résumés du Store (`_locales` FR/EN/ES) : « … Daily et préparation du sprint ». La fiche de publication
+  (`docs/store/fiche.md`), les notes de version du planning, les descriptions et la politique de
+  confidentialité, écrits en 8.35, se publient avec ce paquet, après le site (guide « Préparer le sprint »).
+- Captures du planning renouvelées en mode package (`npm run store:screenshots:planning`) ; le script des
+  captures du board attend maintenant l'entrée Sprint Planning sur un board Scrum.
+- Aucun nouvel hôte, droit Chrome, endpoint d'écriture ni assouplissement de CSP. Droits du planning :
+  ceux de Jira ; la décision « lecture seule annoncée ou découverte au premier refus » reste au backlog.
+
 ## 0.53.1 — Sprint Planning documenté avant son activation
 
 - Demandé par Denis le 24/11/2026 (story 8.35) : toute la documentation de la vue Sprint Planning est

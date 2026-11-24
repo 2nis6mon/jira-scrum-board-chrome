@@ -1,30 +1,29 @@
-# Publication Chrome Web Store — version 0.41.1
+# Publication Chrome Web Store — version 0.54.0 (activation de Sprint Planning)
 
 Dossier préparé le **1er novembre 2026** pour mettre à jour l'article existant, publié en **0.35.2**,
 [Sprint Goals Board](https://chromewebstore.google.com/detail/sprint-goals-board-pour-j/pepbknjnielcbfcoefcdmadmomapicgp?hl=fr),
 identifiant `pepbknjnielcbfcoefcdmadmomapicgp`. Rien n'est soumis au Store par la préparation de ce dossier.
 
 Un seul paquet contient le français, l'anglais et l'espagnol. Les fiches traduites appartiennent au **même article**.
-Sprint Planning est désactivé dans le paquet 0.41.1. Les textes de ce dossier ont été complétés
-(story 8.35) pour la **publication qui l'active** : voir la section suivante, à lire avant de copier quoi que ce soit.
+Sprint Planning est **actif** dans le paquet 0.54.0 (story 8.11). Les textes de ce dossier le décrivent :
+voir la section suivante avant de copier quoi que ce soit.
 
-## Activation de Sprint Planning (story 8.35, à publier avec la story 8.11)
+## Sprint Planning dans ce paquet (stories 8.35 et 8.11)
 
-Tant que le paquet distribué a Sprint Planning désactivé, **ne pas publier** les textes ci-dessous : ils décrivent
-une fonction absente du Store. Ils se publient ensemble, avec le paquet qui l'active (story 8.11), après la
-publication du site (guide « Préparer le sprint » et politique de confidentialité mise à jour).
+Le paquet 0.54.0 active Sprint Planning (`npm run verify:planning:package` rejoue son parcours sur le banc compilé en
+mode package). Ses textes se publient **ensemble**, avec ce paquet et après la publication du site (guide « Préparer
+le sprint » et politique de confidentialité mise à jour). Ne pas publier l'un sans l'autre.
 
 | Élément | Où | État |
 | --- | --- | --- |
-| Descriptions détaillées FR/EN/ES | [listing-fr.txt](listing-fr.txt), [listing-en.txt](listing-en.txt), [listing-es.txt](listing-es.txt) | Section « Préparez le sprint suivant (Scrum) » ajoutée ; décrit une fonction active seulement avec 8.11 |
-| Notes de version de l'activation FR/EN/ES | [release-notes-planning-fr.txt](release-notes-planning-fr.txt), [-en](release-notes-planning-en.txt), [-es](release-notes-planning-es.txt) | Prêtes ; à faire précéder de la ligne « Version x.y.z — » du paquet publié |
+| Descriptions détaillées FR/EN/ES | [listing-fr.txt](listing-fr.txt), [listing-en.txt](listing-en.txt), [listing-es.txt](listing-es.txt) | Section « Préparez le sprint suivant (Scrum) » ajoutée ; la fonction est active dans ce paquet |
+| Notes de version de l'activation FR/EN/ES | [release-notes-planning-fr.txt](release-notes-planning-fr.txt), [-en](release-notes-planning-en.txt), [-es](release-notes-planning-es.txt) | Prêtes, avec la ligne « Version 0.54.0 — » |
 | Manuel et guide du site | [manuel](../manuel-utilisateur.md), [EN](../user-guide.en.md), [ES](../user-guide.es.md) : section « Préparer le sprint » | Écrits ; la fiche du guide se publie avec le site de l'activation |
 | Politique de confidentialité | [docs/privacy/index.html](../privacy/index.html), trois langues | À jour du 24/11/2026 : plus de brouillons, écritures de Sprint Planning listées |
 | Captures du planning | [06-planning.png](captures/06-planning.png), [07-cloture.png](captures/07-cloture.png) | Prises sur banc fictif avec Sprint Planning actif ; preuve dans `captures.json` (clé `planning`) |
 
-**Résumés du Store à appliquer par la story 8.11** (`public/_locales/*/messages.json`, `extensionDescription`,
-puis le tableau ci-dessous, 132 caractères au plus ; ils ne sont pas appliqués avant l'activation, pour ne pas promettre
-Sprint Planning dans un paquet qui l'a désactivé) :
+**Résumés du Store appliqués par la story 8.11** (`public/_locales/*/messages.json`, `extensionDescription`,
+et le tableau ci-dessous ; 132 caractères au plus, contrôlés par `tests/manifest.test.ts`) :
 
 | Langue | Résumé proposé |
 | --- | --- |
@@ -46,7 +45,7 @@ dans cet ordre : `01-board.png`, `06-planning.png`, `07-cloture.png`, `03-swimla
 (les cinq du board restent toutes sur le site). Le choix final revient à l'éditeur. Les captures du board datent de
 la version 0.34.9 ; le planning est montré dans les deux nouvelles.
 
-**Instructions de revue (Test instructions)** — texte anglais à ajouter à celui de la section dédiée pour le paquet
+**Instructions de revue (Test instructions)** — le texte anglais figure dans le bloc de la section dédiée (étapes 11 et suivantes) ; la phrase « no new kind of Jira write » en a été retirée, elle serait fausse :
 qui active la fonction. Retirer alors la phrase « no new kind of Jira write » du texte existant : elle devient fausse.
 
 ```text
@@ -65,7 +64,7 @@ du paquet. Chaque nom reste sous 75 caractères et chaque résumé sous 132 cara
 | Champ | Français | English | Español |
 | --- | --- | --- | --- |
 | Nom | Sprint Goals Board pour Jira | Sprint Goals Board for Jira | Sprint Goals Board para Jira |
-| Résumé | Boards Scrum et Kanban Jira Cloud : swimlanes par objectif, Build et RUN configurables, glisser-déposer et Daily. | Jira Cloud Scrum and Kanban boards: goal swimlanes, configurable Build and RUN lanes, drag and drop, and Daily mode. | Tableros Scrum y Kanban de Jira Cloud: carriles por objetivo, Build y RUN configurables, arrastrar y soltar y Daily. |
+| Résumé | Boards Scrum et Kanban Jira Cloud : swimlanes par objectif, glisser-déposer, Daily et préparation du sprint. | Jira Cloud Scrum and Kanban boards: goal swimlanes, drag and drop, Daily mode and sprint planning. | Tableros Scrum y Kanban de Jira Cloud: carriles por objetivo, arrastrar y soltar, Daily y preparación del sprint. |
 | Description détaillée | [listing-fr.txt](listing-fr.txt) | [listing-en.txt](listing-en.txt) | [listing-es.txt](listing-es.txt) |
 | Note de version | [release-notes-fr.txt](release-notes-fr.txt) | [release-notes-en.txt](release-notes-en.txt) | [release-notes-es.txt](release-notes-es.txt) |
 
@@ -174,7 +173,7 @@ jamais dans la description publique. Les coordonnées réelles sont à compléte
 Texte anglais à copier dans cet onglet après avoir complété l'environnement :
 
 ```text
-This update (0.35.2 to 0.41.1) shows several active sprints together, adds a "Carried over" quick filter and a right-click menu on cards. It uses the same Jira integration and Chrome permissions, and no new kind of Jira write.
+This update (0.35.2 to 0.54.0) shows several active sprints together, adds a "Carried over" quick filter, a right-click menu on cards and Sprint Planning for Scrum boards. It uses the same Jira integration and Chrome permissions. Sprint Planning writes only what the privacy policy lists for it.
 
 Test site, Scrum board, Kanban board and test account access: provided separately in this private field by the publisher.
 
@@ -188,7 +187,7 @@ Test site, Scrum board, Kanban board and test account access: provided separatel
 8. Open Personal preferences from the Jira site menu. Select English, then Français, then Español. Labels change immediately, while Jira issue content, names and native dialogs keep their original language. The preference is personal and does not change shared settings.
 9. Select Auto. With Jira in French the extension is French; with Jira in Spanish it is Spanish; with Jira in English or another language it is English. Reload the Jira page after changing Jira's own language. An unavailable Jira language falls back to English.
 10. Run Daily, move between swimlanes, then finish the Daily. Open the provided Kanban board and check its goals and issues without a sprint.
-11. Sprint Planning is disabled in the 0.41.1 package and cannot be enabled through the interface (the activation package is covered by the activation section above). Back to Jira returns to the native board; it is hidden while the extension sidebar is collapsed.
+11. On a Scrum board, open Sprint Planning from the extension sidebar. Pick the future sprint by clicking its title, add a goal, move a backlog issue onto it (drag and drop or the card menu), then use "Complete" or "Start": Jira's own dialog opens and you fill it in and confirm it; the extension never fills it. Each action is written to Jira once, then read again. Sprint Planning creates neither sprints nor Goals. Back to Jira returns to the native board; it is hidden while the extension sidebar is collapsed.
 ```
 
 ## Mettre à jour l'article existant, pas à pas
@@ -196,7 +195,7 @@ Test site, Scrum board, Kanban board and test account access: provided separatel
 1. Publier le site multilingue et vérifier les liens publics du site, du manuel et de la confidentialité dans les trois langues.
 2. Dans le [Developer Dashboard](https://chrome.google.com/webstore/devconsole), ouvrir l'article
    `pepbknjnielcbfcoefcdmadmomapicgp` avec le compte éditeur habituel.
-3. Dans **Package → Upload New Package**, envoyer **`release/sprint-goals-board-0.41.1.zip`**.
+3. Dans **Package → Upload New Package**, envoyer **`release/sprint-goals-board-0.54.0.zip`**.
    La version doit être supérieure à celle déjà publiée. Utiliser ce paquet produit par
    `npm run package`, jamais un ZIP manuel de `dist/` qui active Sprint Planning.
 4. Dans **Store listing**, sélectionner **Français** puis coller [listing-fr.txt](listing-fr.txt).
@@ -210,9 +209,9 @@ Test site, Scrum board, Kanban board and test account access: provided separatel
 7. Enregistrer et choisir **Submit for Review**. Choisir la publication automatique après validation
    ou la publication différée. La version installable ne change qu'après publication.
 
-Le dossier **`release/chrome-store-multilingual-0.41.1/`** regroupe le paquet de l'extension,
+Le dossier **`release/chrome-store-multilingual-0.54.0/`** regroupe le paquet de l'extension,
 les textes et les images. Choisir chaque ressource dans son champ : seul le ZIP
-`sprint-goals-board-0.41.1.zip` est destiné au champ **Package**.
+`sprint-goals-board-0.54.0.zip` est destiné au champ **Package**.
 
 Procédures officielles vérifiées le 15 octobre 2026 :
 [localiser la fiche](https://developer.chrome.com/docs/webstore/cws-dashboard-listing#localize-your-listing),
@@ -221,8 +220,8 @@ Procédures officielles vérifiées le 15 octobre 2026 :
 ## Produire les ressources
 
 Livrer exclusivement `release/sprint-goals-board-<version>.zip`, produit par `npm run package` :
-ne jamais zipper `dist/`, qui conserve le Sprint Planning expérimental. `npm run verify:planning:package`
-contrôle le mode désactivé : entrée absente, ouverture forcée neutralisée, aucune lecture ni publication Planning.
+ne jamais zipper `dist/`, qui garde le diagnostic de développement et le dossier de construction local. `npm run verify:planning:package`
+rejoue le parcours de Sprint Planning (écritures exactes, fenêtres natives simulées, petit écran) sur le banc compilé en mode package.
 
 `npm run store:screenshots` utilise l'interface réelle du banc avec des données fictives et le mode
 `package`, dans un navigateur temporaire vierge (`CHROME_PATH` facultatif). Les cinq PNG RGB opaques

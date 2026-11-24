@@ -1,4 +1,4 @@
-Sprint Planning: prepara el próximo sprint sin salir de Jira
+Version 0.54.0 — Sprint Planning: prepara el próximo sprint sin salir de Jira
 
 • Nueva vista Sprint Planning para los tableros Scrum: elige el sprint futuro, escribe sus objetivos (texto del sprint) o fija Goals de Atlassian y coloca incidencias del backlog o de otro sprint futuro del tablero.
 • Arrastrar y soltar, menú de la tarjeta, selección múltiple, búsqueda y filtros como en la página del sprint; «Sin objetivo» se ordena por carril de tipo, con el avance de cada fila.

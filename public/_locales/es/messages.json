@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Sprint Goals Board para Jira" },
   "extensionDescription": {
-    "message": "Tableros Scrum y Kanban de Jira Cloud: carriles por objetivo, Build y RUN configurables, arrastrar y soltar y Daily."
+    "message": "Tableros Scrum y Kanban de Jira Cloud: carriles por objetivo, arrastrar y soltar, Daily y preparación del sprint."
   },
   "extensionAction": { "message": "Abrir Sprint Goals Board" }
 }

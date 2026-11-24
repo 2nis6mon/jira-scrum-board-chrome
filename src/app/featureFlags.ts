@@ -8,7 +8,7 @@ declare const __SPRINT_PLANNING_ENABLED__: boolean;
 declare const __SPRINT_HEALTH_ENABLED__: boolean;
 declare const __DIAGNOSTIC_ENABLED__: boolean;
 
-/** Sprint Planning, expérimental : builds locaux et tests seulement, jamais dans le paquet. */
+/** Sprint Planning : actif dans dist/, le paquet et les tests ; un mode de compilation inconnu le coupe. */
 export const SPRINT_PLANNING_ENABLED = __SPRINT_PLANNING_ENABLED__;
 
 /**

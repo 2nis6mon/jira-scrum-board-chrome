@@ -13,7 +13,7 @@ describe.each([
     ["dist", true],
     ["development", true],
     ["test", true],
-    ["package", false],
+    ["package", true],
     ["production", false],
     ["autre-mode", false],
   ])("mode %s : Sprint Planning actif = %s", async (mode, enabled) => {

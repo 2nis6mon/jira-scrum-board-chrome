@@ -1,7 +1,8 @@
 // Sprint Planning en direct, dans un vrai Chrome sur un profil vierge et un Jira FICTIF en mémoire.
 // Chaque geste écrit aussitôt dans le faux Jira : on vérifie les écritures exactes et leur ordre,
 // le conflit sans écriture, l'absence du sprint actif à gauche, les fenêtres natives simulées et le
-// petit écran. `--package` : la compilation du paquet n'a ni entrée, ni lecture, ni écriture.
+// petit écran. `--package` : la compilation du paquet (mode `package`) a Sprint Planning actif et
+// rejoue le même parcours que dist/.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -226,40 +227,22 @@ try {
   const drafts = await run("window.__planning.storedDrafts()");
   assert(drafts.length === 1, "L'ancien brouillon n'a pas été placé dans le stockage du banc");
 
-  if (packageCheck) {
-    const requestsBefore = await run("window.__planning.requestCount()");
-    const absentPlanning = `!(${buttonNamed("Sprint Planning")}) && !document.querySelector('.planning-screen') && Boolean(document.querySelector('.board-screen'))`;
-    assert(await run(absentPlanning), "Le paquet présente encore Sprint Planning");
-    assert(
-      JSON.stringify(await run("window.__planning.storedDrafts()")) === JSON.stringify(drafts),
-      "Le paquet a altéré l'ancien brouillon au chargement",
-    );
-    const result = await run("window.__planning.exerciseEntrypoints()");
-    await run(
-      "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
-    );
-    assert(await run(absentPlanning), "Un appel direct a ouvert Sprint Planning dans le paquet");
-    assert(
-      result.snapshot === null &&
-        result.sprints === 0 &&
-        result.gesturesEnabled === false &&
-        result.sprintDialogs === 0,
-      `Le paquet a lu le planning, activé un geste ou ouvert une fenêtre native : ${JSON.stringify(result)}`,
-    );
-    const extra = await run(`window.__planning.requestsSince(${requestsBefore})`);
-    assert(
-      extra.length === 0,
-      `Un appel direct au planning a émis des requêtes dans le paquet : ${extra.join(", ")}`,
-    );
-    assert((await inspect()).writes.length === 0, "Le planning du paquet a écrit dans Jira");
-    assert(
-      JSON.stringify(await run("window.__planning.storedDrafts()")) === JSON.stringify(drafts),
-      "Un appel direct du paquet a lu ou effacé l'ancien brouillon",
-    );
-    console.log(
-      "✓ Mode package réel : aucune entrée ni vue Planning ; appels directs sans requête, écriture ni fenêtre native ; ancien brouillon intact",
-    );
-  } else {
+  {
+    if (packageCheck) {
+      // Le paquet a la même fonction que dist/ : l'interrupteur compilé est vrai, l'entrée est
+      // présente, et le parcours ci-dessous est celui de dist/.
+      assert(
+        (await run("window.__storeCapture.inspect().planningEnabled")) === true,
+        "Le paquet doit être compilé avec Sprint Planning actif",
+      );
+      assert(
+        await run(buttonNamed("Sprint Planning")),
+        "Le paquet doit proposer l'entrée Sprint Planning",
+      );
+      console.log(
+        "✓ Mode package réel : Sprint Planning actif, entrée présente, même parcours que dist/",
+      );
+    }
     await click(buttonNamed("Sprint Planning"));
     await wait(
       `Boolean(document.querySelector('main.planning-screen')) && ${idle}

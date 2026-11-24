@@ -13,10 +13,11 @@ export default defineConfig(({ mode }) => {
     root,
     base: "",
     publicDir: "public",
-    // Fonction expérimentale réservée aux builds locaux et aux tests. Aucun réglage
-    // utilisateur ni fichier .env ne peut l'activer dans le mode package.
+    // Sprint Planning est actif dans dist/, le paquet et les tests (story 8.11). Aucun réglage
+    // utilisateur ni fichier .env ne peut l'activer ou le couper : seul le mode de compilation
+    // décide, et un mode inconnu le laisse désactivé.
     define: {
-      __SPRINT_PLANNING_ENABLED__: ["dist", "development", "test"].includes(mode),
+      __SPRINT_PLANNING_ENABLED__: ["dist", "package", "development", "test"].includes(mode),
       // Santé du sprint masquée et diagnostic actif, identiques dans dist/ et dans le paquet.
       __SPRINT_HEALTH_ENABLED__: false,
       __DIAGNOSTIC_ENABLED__: true,

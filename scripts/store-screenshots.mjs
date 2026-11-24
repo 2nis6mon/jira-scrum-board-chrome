@@ -1,4 +1,5 @@
-// Captures Web Store : interface réelle, données FICTIVES, build du banc en mode package.
+// Captures Web Store : interface réelle, données FICTIVES, build du banc en mode package
+// (Sprint Planning actif depuis la story 8.11).
 // Le ZIP de distribution n'est pas chargé ici. Aucun accès à une session Jira ou Chrome réelle.
 // Usage : npm run store:screenshots ; CHROME_PATH permet de choisir le navigateur isolé.
 import assert from "node:assert/strict";
@@ -121,14 +122,13 @@ try {
       sessionId,
       `(() => {
         const state = window.__storeCapture.inspect();
-        const canOpenPlanning = window.__storeCapture.canOpenPlanning();
         const after = window.__storeCapture.inspect();
         const back = document.querySelector('.sidebar-return button');
         const rect = back?.getBoundingClientRect();
         return {
-          ...state, canOpenPlanning, viewUnchanged: state.view === after.view,
+          ...state, viewUnchanged: state.view === after.view,
           referenceDate: new Date().toISOString(),
-          planningNavigationAbsent: ![...document.querySelectorAll('button, a')]
+          planningNavigationPresent: [...document.querySelectorAll('button, a')]
             .some(element => /sprint planning/i.test(element.textContent)),
           planningViewAbsent: !document.querySelector('.planning-screen'),
           versionDisplayed: document.querySelector('.app-version')?.textContent ?? null,
@@ -143,11 +143,11 @@ try {
     assert.equal(proof.version, version);
     assert.equal(proof.referenceDate, referenceDate);
     assert.equal(proof.versionDisplayed, proof.dailyImmersive ? null : version);
-    assert.equal(proof.planningEnabled, false, "Sprint Planning doit être compilé désactivé");
-    assert.equal(proof.canOpenPlanning, false, "Le modèle ne doit pas ouvrir Sprint Planning");
+    assert.equal(proof.planningEnabled, true, "Sprint Planning doit être compilé actif");
     assert.equal(proof.viewUnchanged, true);
-    assert.equal(proof.planningNavigationAbsent, true);
-    assert.equal(proof.planningViewAbsent, true);
+    // L'entrée Sprint Planning n'existe que sur un board Scrum, hors Daily immersive.
+    if (/kanban/i.test(scenario)) assert.equal(proof.planningNavigationPresent, false);
+    assert.equal(proof.planningViewAbsent, true, "Ces captures montrent le board, pas le planning");
     assert.equal(
       proof.returnJiraVisible,
       !proof.dailyImmersive,
@@ -162,7 +162,7 @@ try {
     );
     const png = opaquePng(Buffer.from(data, "base64"), WIDTH, HEIGHT);
     captures.push({ file, scenario, proof, png });
-    console.log(`✓ ${file} : mode package, Planning inaccessible, contexte Jira, PNG RGB`);
+    console.log(`✓ ${file} : mode package, Sprint Planning actif, contexte Jira, PNG RGB`);
   };
 
   await open("board-soustaches");
@@ -279,7 +279,7 @@ try {
     build: {
       mode: "package",
       production: true,
-      sprintPlanningEnabled: false,
+      sprintPlanningEnabled: true,
       distributionZipLoaded: false,
     },
     browser: browserVersion.product,
