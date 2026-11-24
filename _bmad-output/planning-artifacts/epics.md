@@ -760,9 +760,9 @@ So that je planifie mes sprints sans build local.
 
 **Acceptance Criteria:**
 
-**Given** les stories 8.1 à 8.10 et 8.12 à 8.28 terminées et le constat de 8.10 favorable
+**Given** les stories 8.1 à 8.10 et 8.12 à 8.35 terminées (dont 8.35, la documentation) et le constat de 8.10 favorable
 **When** le paquet est construit (`npm run package`)
-**Then** `SPRINT_PLANNING_ENABLED` vaut vrai dans le paquet, `npm run verify:planning:package` le vérifie, et AGENTS.md, le manuel, le CHANGELOG et les captures Store sont à jour
+**Then** `SPRINT_PLANNING_ENABLED` vaut vrai dans le paquet, `npm run verify:planning:package` le vérifie, et AGENTS.md, le CHANGELOG, la version et les notes de publication sont à jour ; le manuel, le site et la fiche du Store écrits en 8.35 sont publiés avec cette version
 
 ### Story 8.12: La carte du planning montre le type et le statut du ticket
 
@@ -1380,6 +1380,42 @@ So that je retrouve dans le planning le même classement que sur le Sprint Board
 **Then** aucune lecture ni écriture Jira n'est ajoutée, aucune écriture des réglages (préférences et réglages partagés en lecture seule ici) ; tests de `PlanningModel` (découpage, ordre, sous-sections vides, filtre) et de vue ; `verify:planning` constate les sous-sections sur le banc avec au moins deux swimlanes de type ; manuel et guides EN/ES mis à jour ; nouveaux textes dans les trois langues
 
 *Notes :* lecture à confirmer avec Denis avant le build : « swimlanes définies dans le sprint par rapport au type de tickets » est comprise comme les swimlanes par type des réglages du board (`normalizeSwimlanes`, `swimlaneId` conserve la destination par défaut du ticket, voir `docs/technique/invariants.md`), et non les swimlanes JQL de Jira (aucune API de swimlanes Jira n'est lue ; ne pas en inventer). `PlanningModel.unassigned` renvoie aujourd'hui une liste plate ; le découpage se fait dans le modèle (pur, testable), la vue ne fait que le rendre. Ce découpage ne s'applique qu'à « Sans objectif » : les swimlanes d'objectif restent par objectif. À trancher au build : sous-sections repliables ou non ; nom affiché quand la swimlane Default est vide de nom ; rôle des types `IGNORED` dans le planning. Réutiliser le composant d'en-tête de `LaneHeader` si cela suffit, sans barre d'avancement (hors objectif).
+
+### Story 8.35: Documenter Sprint Planning avant son activation
+
+*Type : documentation et données de publication, demandée par Denis le 24/11/2026 ; se joue avant l'activation (8.11), qui en dépend.*
+
+As a équipe qui découvrira Sprint Planning dans le paquet distribué,
+I want le manuel, le site public et la fiche du Chrome Web Store qui décrivent cette vue,
+So that je sais à quoi elle sert, ce qu'elle écrit dans Jira et comment l'utiliser dès l'activation.
+
+**Acceptance Criteria:**
+
+**Given** le manuel utilisateur et ses versions anglaise et espagnole
+**When** je cherche à préparer un sprint
+**Then** une section « Préparer le sprint » décrit, dans les trois langues, Sprint Planning de bout en bout : ouvrir la vue depuis la barre latérale, choisir le sprint futur (le titre est le sélecteur), objectifs selon la source du board (texte, ou Goals Atlassian épinglés, jamais créés), colonne « Où sont les tickets » (backlog et sprints futurs du board), poser un ticket sur un objectif ou sur « Sans objectif » par swimlane de type, retirer du sprint en préparation, sélection multiple et menu de carte, filtres et recherche, vélocité partagée, estimation sur la carte, avancement par objectif et par swimlane, clôture du sprint actif et report des objectifs non atteints, démarrage du sprint préparé, plein écran ; chaque geste est dit écrit aussitôt dans Jira, Jira restant la seule source
+
+**Given** les fenêtres natives de Jira
+**When** je clôture ou je démarre
+**Then** le manuel dit que ces fenêtres sont celles de Jira, que l'extension ne les remplit ni ne les valide, que « Clôturer » et « Démarrer » s'alternent selon la présence d'un sprint actif, et ce qui se passe sans droit ou en cas de résultat incertain (une seule tentative, relecture de Jira, pas de réussite annoncée avant confirmation)
+
+**Given** le site public (`site/`, `docs/site-web.md`)
+**When** je consulte son guide
+**Then** une fiche « Préparer le sprint » est ajoutée dans les trois langues, avec le même slug, ses titres courts et résumés (`site/guide-content.mjs`, `sourceHeading` aligné sur le H2 du Markdown), l'accueil et la recherche du guide la trouvent, et `npm run site:check` et `npm run site:verify` sont verts ; rien n'est publié avant l'activation
+
+**Given** les données du Chrome Web Store (`docs/store/`)
+**When** le paquet qui active Sprint Planning est préparé
+**Then** les descriptions détaillées et les notes de version FR/EN/ES, la fiche de publication (`fiche.md`, qui dit aujourd'hui « Sprint Planning est désactivé ») et le résumé `_locales` décrivent la fonction sans promettre ce qu'elle ne fait pas (aucune création de sprint ni de Goal) ; la justification des permissions et la politique de confidentialité sont relues (aucun nouvel hôte, droit ni endpoint : seules les écritures déjà autorisées par la décision du 01/11/2026 sont citées)
+
+**Given** les captures du Store (`npm run store:screenshots`)
+**When** elles sont renouvelées
+**Then** au moins deux captures montrent Sprint Planning sur données fictives (un sprint en préparation avec ses objectifs et « Sans objectif » par swimlane, un sprint actif prêt à clôturer), le script construit pour cela le banc avec la fonction activée et sa preuve (`captures.json`) distingue les captures du board, prises sans Sprint Planning, de celles du planning, les cinq captures actuelles restent valides si elles sont inchangées, et `site:check` retrouve les nouvelles images
+
+**Given** la documentation produite
+**When** je relis le dépôt
+**Then** aucune donnée fictive n'entre dans `src/`, `public/` ou le paquet, le manuel, le site et la fiche ne se contredisent pas (mêmes noms de boutons, mêmes limites), `npm run check`, `verify:i18n` et `site:check` sont verts, et le CHANGELOG indique que la documentation est prête pour l'activation
+
+*Notes :* le manuel est la source du site (`render-guide.mjs`) : écrire d'abord `docs/manuel-utilisateur.md`, puis `docs/user-guide.en.md` et `docs/user-guide.es.md`, avec les boutons et libellés réels des catalogues `src/i18n/`. Le manuel et le site sont publiés avec la version qui active la fonction (8.11), pas avant : tant que le paquet l'a désactivée, le texte décrirait une fonction absente du Store. `store-screenshots.mjs` construit aujourd'hui en mode `package` et affirme l'absence du planning (`planningViewAbsent`) : ajouter un second jeu de captures, sans modifier la preuve des cinq premières. Le constat de l'essai réel 8.10, la décision sur les droits du planning (lecture seule annoncée ou découverte au premier refus) et la 8.27, close sans code, sont à citer fidèlement dans le manuel.
 
 ## Epic 9: Retrouver ses tickets plus vite
 

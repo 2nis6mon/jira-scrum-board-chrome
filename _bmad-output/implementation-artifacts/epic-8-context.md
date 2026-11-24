@@ -40,6 +40,7 @@ Permettre à l'équipe de clôturer son sprint, de construire le suivant par obj
 - Story 8.32: Changer d'objectif sur le board sans changer d'état
 - Story 8.33: Déplacer plusieurs cartes du board vers un objectif
 - Story 8.34: Voir les swimlanes par type dans « Sans objectif » du planning
+- Story 8.35: Documenter Sprint Planning avant son activation
 - Story 8.10: Valider le Sprint Planning sur un vrai Jira
 - Story 8.11: Activer le Sprint Planning dans le paquet
 
