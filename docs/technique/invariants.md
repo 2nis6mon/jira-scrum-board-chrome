@@ -152,7 +152,10 @@ couleurs sur les identifiants déjà chargés (lots de 50 tickets / 10 JQL, 3 ap
   relu, puis lien ; sous-tâche, ticket terminé ou du sprint actif refusés. Retrait seulement depuis le
   sprint en préparation : E10 vers le backlog ou E9 vers un autre sprint futur ; le lien reste dans la
   propriété. Clôture et démarrage par les fenêtres natives Jira, que l'utilisateur seul remplit ;
-  « Démarrer » est désactivé avec sa raison tant qu'un sprint est actif. Plusieurs sprints actifs :
+  « Clôturer » et « Démarrer » s'alternent (0.53.0) : avec un sprint actif, seul « Clôturer » est proposé
+  (rien si l'utilisateur ne peut pas le modifier) ; sans sprint actif, seul « Démarrer », désactivé avec
+  sa raison en infobulle. Les deux ont le style du bouton Daily du board ; l'en-tête a le bouton plein
+  écran du board et plus de bouton de retour. Plusieurs sprints actifs :
   « Clôturer un sprint » propose chacun par son nom, et le report lit les objectifs du sprint choisi.
   Après la fermeture de la fenêtre de clôture, l'état du sprint est relu à 0, 1, 3, 6 et 10 s
   (« Clôture en cours dans Jira… » ; pendant ces 10 s environ, les gestes, le retour au board, le

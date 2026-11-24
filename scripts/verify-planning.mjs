@@ -321,10 +321,9 @@ try {
       "La sous-tâche du backlog doit rester en consultation",
     );
     assert(
-      await run(`document.querySelector('.planning-start-sprint').disabled
-        && document.querySelector('.planning-start-sprint').title.includes('Un sprint est actif')
-        && !document.querySelector('#planning-start-reason, .host-return[aria-label="Retour au board"]')`),
-      "« Démarrer » doit être désactivé, avec sa raison en infobulle seulement, tant qu'un sprint est actif",
+      await run(`Boolean(document.querySelector('.planning-close-sprint.primary.planning-sprint-action'))
+        && !document.querySelector('.planning-start-sprint, #planning-start-reason, .host-return[aria-label="Retour au board"]')`),
+      "Avec un sprint actif, seul « Clôturer » est proposé (style du bouton Daily) : « Démarrer », son texte et le retour au board sont absents",
     );
     await setValue('[aria-label="Rechercher un ticket à planifier"]', "ABC-203");
     assert(
@@ -794,7 +793,6 @@ try {
         ".planning-filter-bar details.filter-menu:last-of-type > summary",
         ".planning-velocity input",
         ".planning-close-sprint",
-        ".planning-start-sprint",
         "form.planning-add-goal input",
         '[data-planning-section="backlog"] .planning-source-head',
       ]) {

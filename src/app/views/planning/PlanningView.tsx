@@ -24,6 +24,7 @@ import { FilterMenu } from "../board/FilterMenu";
 import { type Point, placeFloatingMenu } from "../board/floatingMenu";
 import { JiraIcon } from "../board/JiraIcon";
 import { formatDay, formatPoints, initials, plural, pluralWord, toggled } from "../format";
+import { FullscreenButton, useFullscreen } from "../fullscreen";
 import { GoalMarker } from "../GoalMarker";
 import { Icon } from "../Icon";
 import { LaneHeader, StackedBar } from "../LaneHeader";
@@ -363,6 +364,9 @@ function PlanningHeader({
   const actives = planning.closableSprints.value;
   const single = actives.length === 1 ? actives[0] : undefined;
   const startReason = planning.startDisabledReason.value;
+  // Clôturer et Démarrer s'alternent : un sprint actif se clôture, sans sprint actif on démarre.
+  const hasActiveSprint = planning.activeSprints.value.length > 0;
+  const fullscreen = useFullscreen();
   // Clôture demandée : jusqu'à la fin de sa vérification, même pendant le report qui écrit.
   const status = planning.loading.value
     ? t("Lecture de Jira…")
@@ -442,25 +446,27 @@ function PlanningHeader({
         >
           <Icon name="refresh" size={17} />
         </button>
+        <FullscreenButton fullscreen={fullscreen} />
         {single && (
           <button
             type="button"
-            class="planning-close-sprint"
+            class="primary planning-sprint-action planning-close-sprint"
             disabled={disabled}
             title={t("Ouvre la fenêtre de Jira ; vous seul la remplissez et la validez.")}
             onClick={() => planning.closeActiveSprint(single.id)}
           >
+            <Icon name="check" size={15} />
             {t("Clôturer {name}", { name: single.name })}
           </button>
         )}
         {actives.length > 1 && (
           <CloseSprintMenu planning={planning} sprints={actives} disabled={disabled} />
         )}
-        {snapshot && (
+        {snapshot && !hasActiveSprint && (
           <span class="planning-start">
             <button
               type="button"
-              class="primary planning-start-sprint"
+              class="primary planning-sprint-action planning-start-sprint"
               disabled={disabled || startReason !== null}
               title={
                 startReason
@@ -512,7 +518,7 @@ function CloseSprintMenu({
       }}
     >
       <summary
-        class="planning-close-sprint"
+        class="planning-sprint-action planning-close-sprint"
         aria-disabled={disabled ? "true" : undefined}
         title={t("Ouvre la fenêtre de Jira ; vous seul la remplissez et la validez.")}
       >

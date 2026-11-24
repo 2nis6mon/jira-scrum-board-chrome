@@ -3,6 +3,16 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.53.0 — Planning : plein écran, Clôturer et Démarrer en alternance
+
+- Demandé par Denis : l'en-tête du Sprint Planning reprend le bouton plein écran du board.
+- « Clôturer » et « Démarrer » s'alternent. Avec un sprint actif du board, seul « Clôturer » est
+  montré (plusieurs sprints actifs : le menu « Clôturer un sprint ») et « Démarrer » est caché ; sans
+  sprint actif, « Clôturer » est caché et seul « Démarrer » est montré, désactivé avec sa raison en
+  infobulle si le sprint n'est plus un sprint futur.
+- Les deux boutons ont le style du bouton Daily du board : plein, bleu, icône et texte. Aucun
+  nouveau texte, aucune lecture ni écriture Jira.
+
 ## 0.52.2 — En-tête du planning allégé
 
 - Retour de Denis : dans le Sprint Planning, le bouton « Retour au board » de l'en-tête et le texte

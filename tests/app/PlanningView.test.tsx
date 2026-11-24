@@ -462,16 +462,17 @@ describe("Sprint Planning en direct : écran", () => {
     expect(dragStart(remaining).prevented).toBe(true);
   });
 
-  it("Démarrer reste désactivé avec sa raison ; Clôturer ouvre la fenêtre de Jira", async () => {
+  it("Clôturer et Démarrer s'alternent : un sprint actif se clôture, sans sprint actif on démarre", async () => {
     const { planning } = setup();
     await tick();
-    const start = button("Démarrer Sprint 43");
-    expect(start.disabled).toBe(true);
-    // La raison n'est plus écrite sous le bouton : elle reste dans son infobulle.
-    expect(start.title).toBe("Un sprint est actif : clôturez-le avant de démarrer celui-ci.");
+    // Sprint actif : « Clôturer » seul, dans le style du bouton Daily ; « Démarrer » est caché.
+    expect(() => button("Démarrer Sprint 43")).toThrow();
     expect(document.querySelector(".planning-start-reason")).toBeNull();
-    expect(document.querySelector("#planning-start-reason")).toBeNull();
-    button("Clôturer Sprint 42").click();
+    const close = button("Clôturer Sprint 42");
+    expect(close.classList.contains("primary")).toBe(true);
+    expect(close.classList.contains("planning-sprint-action")).toBe(true);
+    expect(close.querySelector("svg")).not.toBeNull();
+    close.click();
     expect(planning.closeActiveSprint).toHaveBeenCalledExactlyOnceWith(42);
     expect(document.querySelector(".planning-close-menu")).toBeNull();
 
@@ -480,9 +481,41 @@ describe("Sprint Planning en direct : écran", () => {
     planning.startDisabledReason.value = null;
     await tick();
     expect(() => button("Clôturer Sprint 42")).toThrow();
-    expect(document.querySelector("#planning-start-reason")).toBeNull();
-    button("Démarrer Sprint 43").click();
+    // Sans sprint actif : « Démarrer » seul, même style.
+    const start = button("Démarrer Sprint 43");
+    expect(start.classList.contains("primary")).toBe(true);
+    expect(start.classList.contains("planning-sprint-action")).toBe(true);
+    expect(start.disabled).toBe(false);
+    start.click();
     expect(planning.startSprint).toHaveBeenCalledTimes(1);
+  });
+
+  it("sans sprint actif, « Démarrer » reste désactivé avec sa raison en infobulle", async () => {
+    const { planning } = setup();
+    planning.activeSprints.value = [];
+    planning.closableSprints.value = [];
+    planning.startDisabledReason.value = message("Ce sprint n'est plus un sprint futur.");
+    await tick();
+    const start = button("Démarrer Sprint 43");
+    expect(start.disabled).toBe(true);
+    expect(start.title).toBe("Ce sprint n'est plus un sprint futur.");
+    expect(document.querySelector(".planning-start-reason")).toBeNull();
+  });
+
+  it("bouton plein écran dans l'en-tête, comme sur le board", async () => {
+    const original = Object.getOwnPropertyDescriptor(document, "fullscreenEnabled");
+    Object.defineProperty(document, "fullscreenEnabled", { value: true, configurable: true });
+    const request = vi.fn(async () => {});
+    document.documentElement.requestFullscreen = request;
+    try {
+      setup();
+      await tick();
+      button("Plein écran").click();
+      expect(request).toHaveBeenCalledTimes(1);
+    } finally {
+      if (original) Object.defineProperty(document, "fullscreenEnabled", original);
+      else Reflect.deleteProperty(document, "fullscreenEnabled");
+    }
   });
 
   it("vélocité : Entrée ou sortie écrivent une fois, Échap rend la valeur de Jira", async () => {
@@ -1031,8 +1064,9 @@ describe("Sprint Planning en direct : écran", () => {
     const { planning } = setup();
     planning.closableSprints.value = [];
     await tick();
+    // Ni « Clôturer » (pas de droit) ni « Démarrer » (un sprint est actif) : rien à proposer.
     expect(() => button("Clôturer Sprint 42")).toThrow();
-    expect(button("Démarrer Sprint 43").title).toContain("Un sprint est actif");
+    expect(() => button("Démarrer Sprint 43")).toThrow();
   });
 });
 

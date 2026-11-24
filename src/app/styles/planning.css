@@ -139,10 +139,13 @@
   gap: 2px;
 }
 
-.planning-start-sprint {
+/* Clôturer et Démarrer : le style du bouton Daily du board (plein, icône et texte). */
+.planning-sprint-action {
+  height: 30px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding: 0 12px 0 10px;
   --icon-color: currentColor;
 }
 
@@ -392,21 +395,26 @@ details.planning-close-menu {
   margin-left: 0;
 }
 
-details.planning-close-menu > summary.planning-close-sprint {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+/* Plus spécifique que le menu de swimlane (« lane-menu »), y compris ouvert ou survolé. */
+details.lane-menu.planning-close-menu > summary.planning-close-sprint,
+details.lane-menu.planning-close-menu[open] > summary.planning-close-sprint {
   width: auto;
-  height: 28px;
-  padding: 0 12px;
-  border-color: var(--line);
-  background: var(--surface);
-  color: var(--ink);
+  height: 30px;
+  border-color: var(--in-progress);
+  background: var(--in-progress);
+  color: #fff;
+  font-weight: 600;
   white-space: nowrap;
-  --icon-color: currentColor;
 }
 
-details.planning-close-menu > summary[aria-disabled="true"] {
+details.lane-menu.planning-close-menu > summary.planning-close-sprint:hover,
+details.lane-menu.planning-close-menu[open] > summary.planning-close-sprint {
+  background: #1d4ed8;
+}
+
+details.lane-menu.planning-close-menu > summary.planning-close-sprint[aria-disabled="true"] {
+  border-color: var(--line);
+  background: var(--column);
   color: var(--ink-4);
   cursor: default;
 }
