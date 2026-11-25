@@ -1915,14 +1915,14 @@ Le code de l'extension quitte GitHub pour le GitLab de l'entreprise. Constat du 
 
 Principe retenu en table ronde : séparer le code et le site. Le code part en privé sur GitLab ; le site se publie depuis un dépôt public dédié qui ne contient que le site construit (`release/sprint-goals-site.zip`, déjà prévu par `docs/site-web.md`) ; le domaine `sprintgoals.soneira.es` ne change pas sans décision. Aucun miroir du code vers un dépôt public.
 
-Ordre : 11.1 (décisions), 11.2 (site dédié), 11.3 (code GitHub non public), puis, une fois le dépôt GitLab identifié, 11.4 (import), 11.5 (CI), 11.6 (poste de travail et agents), 11.7 (bascule et documentation) ; 11.8 (adresse du site) seulement si un changement de domaine est décidé.
+Ordre : 11.1 (décisions), 11.2 (site dédié), 11.3 (code GitHub non public), puis, une fois le dépôt GitLab identifié, 11.9 (identité des commits, ajoutée le 25/11/2026 et numérotée sans renumérotation), 11.4 (import), 11.5 (CI), 11.6 (poste de travail et agents), 11.7 (bascule et documentation) ; 11.8 (adresse du site) seulement si un changement de domaine est décidé.
 
 *Questions ouvertes (Denis) :*
 - Passer le dépôt GitHub en privé tout de suite, quitte à interrompre le site tant que la story 11.2 n'est pas faite (GitHub Pages sur dépôt privé exige une offre payante) ?
 - GitLab hébergé par GitLab ou installé dans l'entreprise ; groupe, visibilité, droits ?
 - Runners Windows disponibles ? Accès sortant à `registry.npmjs.org` (ou proxy npm interne) et à `storage.googleapis.com` (Chrome for Testing) ?
 - Règles de push : adresse de l'auteur (historique en adresse personnelle), format des messages (clé Jira imposée ?), format des branches (`agent/...`, `codex/...`), commits signés ?
-- Identité des commits (demande de Denis, 25/11/2026) : les commits doivent passer de l'adresse personnelle à l'adresse professionnelle de Denis (domaine de l'entreprise). Pour l'historique, trois options :
+- Identité des commits (demande de Denis, 25/11/2026, story 11.9) : les commits doivent passer de l'adresse personnelle à l'adresse professionnelle de Denis (domaine de l'entreprise). Pour l'historique, trois options :
   - **A. Garder l'historique tel quel** et ne changer que l'identité des nouveaux commits, avec un fichier `.mailmap` qui affiche l'adresse professionnelle dans `git log` et `git blame` sans rien réécrire. Possible seulement si les règles de push acceptent les anciens auteurs (ou si l'import passe par l'importateur GitLab, à vérifier).
   - **B. Réécrire l'auteur de tout l'historique** (`git filter-repo --mailmap`, sur un clone neuf, au moment de l'import) : historique, dates et messages conservés, mais toutes les empreintes changent. Les références de commit écrites dans AGENTS.md, le CHANGELOG et `_bmad-output/` (par exemple `4510319`) deviennent fausses : la table de correspondance produite par `filter-repo` est gardée et ces références sont mises à jour ou annotées.
   - **C. Un seul commit initial sans historique** : écarté par la table ronde. Le projet s'appuie sur son historique (AGENTS.md : « l'historique détaillé reste dans Git » ; rétrospectives BMAD sur diffs et commits ; `git blame`) ; on perdrait la trace de toutes les décisions.
@@ -1943,7 +1943,7 @@ So that l'import et la CI ne butent pas sur une règle de l'entreprise découver
 **When** Denis les tranche, avec l'IT pour les runners, les règles de push et le domaine
 **Then** les décisions sont consignées dans `docs/technique/developpement.md` (dépôt, runners, accès réseau, règles de push, devenir de GitHub, domaine) et dans cet epic
 **And** les règles de push sont vérifiées sur l'historique réel (plus de 330 commits, adresse de l'auteur, messages en français, branches `agent/...`) avant l'import, par un essai sur un dépôt GitLab de test ou la lecture des règles du groupe
-**And** l'option d'identité des commits (A, B ou C de l'epic) est choisie d'après ce résultat, et l'adresse professionnelle est vérifiée sur le compte GitLab de Denis
+**And** ce résultat dit si les anciens commits, signés de l'adresse personnelle, sont acceptés : il décide l'option d'identité de la story 11.9
 
 ### Story 11.2: Publier le site depuis un dépôt public dédié
 
@@ -1991,8 +1991,7 @@ So that le code y vit avec son historique.
 **Given** le dépôt GitLab identifié et les règles de push de 11.1
 **When** l'historique est poussé (branches utiles ; au 25/11/2026, ni issue, ni PR, ni release, ni tag à reprendre)
 **Then** `main` est protégée (pas de push forcé, fusion selon la règle d'AGENTS.md) et les branches `agent/**` sont autorisées
-**And** option A : l'empreinte de `main` est identique des deux côtés et `.mailmap` associe l'adresse personnelle à l'adresse professionnelle ; option B : l'arbre de chaque commit est identique à celui de son original (seul l'auteur change), la table de correspondance des empreintes est conservée hors de Git et les références de commit de la documentation sont mises à jour ou annotées
-**And** tout nouveau commit porte l'adresse professionnelle
+**And** l'historique poussé est celui préparé par la story 11.9 : inchangé avec `.mailmap` (option A, empreinte de `main` identique des deux côtés) ou réécrit et contrôlé (option B)
 **And** aucun secret n'est poussé : `.secrets/extension-key.pem` reste hors de Git et est rangé dans le coffre retenu en 11.1 ; `dist/`, `release/` et `_bmad-output/party-mode/` restent ignorés
 
 ### Story 11.5: Une CI GitLab équivalente à la CI GitHub
@@ -2043,7 +2042,7 @@ So that personne ne pousse au mauvais endroit.
 
 **Given** les stories 11.4 à 11.6 terminées
 **When** la bascule a lieu
-**Then** AGENTS.md (fichier de CI cité, branches surveillées, ligne « Identité » passée à l'adresse professionnelle, suivi de la CI), `README.md`, `docs/technique/developpement.md` et `docs/site-web.md` décrivent GitLab ; `.github/workflows/` est retiré
+**Then** AGENTS.md (fichier de CI cité, branches surveillées, suivi de la CI ; la ligne « Identité » est changée par la story 11.9), `README.md`, `docs/technique/developpement.md` et `docs/site-web.md` décrivent GitLab ; `.github/workflows/` est retiré
 **And** les garde-fous contre les fuites (`scripts/build-site.mjs`, `scripts/verify-site.mjs`, `tests/site-guide.test.ts`, qui refusent aujourd'hui `github.com/2nis6mon`) refusent aussi l'adresse du dépôt GitLab interne dans le site public
 **And** le dépôt GitHub est archivé ou supprimé selon 11.1, et `2nis6mon/sprint-goals-privacy` suit la même décision
 **And** les documents de travail terminés (`_bmad-output/`) gardent leurs anciennes adresses (historique)
@@ -2063,3 +2062,35 @@ So that la fiche Store et les anciens liens continuent de marcher.
 **Then** sont alignés : `site/*.html`, `scripts/build-site.mjs`, `scripts/render-guide.mjs`, `scripts/prepare-store-kit.mjs`, `tests/site-guide.test.ts`, `docs/store/fiche.md`, `docs/store/listing-*.txt`, `docs/privacy/index.html` et le manuel
 **And** l'ancienne adresse redirige vers la nouvelle ou reste servie, et le site est de nouveau vérifié dans Google Search Console pour la fiche Store
 **And** la fiche Store est mise à jour par Denis (URL du site et de la politique), sachant qu'un changement d'URL de la politique peut déclencher une nouvelle revue
+
+### Story 11.9: Passer les commits à l'adresse professionnelle
+
+*Ajoutée le 25/11/2026 à la demande de Denis.* Se joue **après 11.1 et 11.3, avant 11.4** : l'import pousse l'historique qu'elle prépare.
+
+As a Denis qui déplace le code sur le GitLab de l'entreprise,
+I want que mes commits portent mon adresse professionnelle,
+So that les règles du GitLab les acceptent et que l'historique est attribué à mon compte de l'entreprise.
+
+**Acceptance Criteria:**
+
+**Given** le résultat de l'essai des règles de push (11.1) et la confirmation de l'entreprise sur la propriété du code (Epic 5)
+**When** l'option est choisie
+**Then** A (historique gardé avec `.mailmap`) ou B (auteur réécrit) est consignée dans `docs/technique/developpement.md` avec sa raison ; C (un seul commit sans historique) reste écartée
+**And** B n'est choisie qu'après cette confirmation, puisqu'elle attribue à l'adresse de l'entreprise des commits faits avec l'adresse personnelle
+
+**Given** l'option A
+**When** l'import se prépare
+**Then** un fichier `.mailmap` associe l'adresse personnelle à l'adresse professionnelle ; `git log` et `git blame` affichent l'adresse professionnelle ; aucune empreinte ne change
+
+**Given** l'option B
+**When** `git filter-repo --mailmap` est joué sur un clone neuf, jamais sur le clone de travail
+**Then** auteur et committer sont réécrits, le nombre de commits est inchangé et chaque commit garde l'arbre, la date et le message de son original (vérifié commit par commit grâce à la table de correspondance produite par `filter-repo`)
+**And** cette table est conservée hors de Git ; les références de commit des documents vivants (AGENTS.md, `docs/`, CHANGELOG) sont mises à jour, celles des documents de travail terminés (`_bmad-output/`) sont laissées et la table indique où les retrouver
+**And** le dépôt GitHub n'est pas réécrit : il garde les anciennes empreintes jusqu'à son archivage (11.7)
+
+**Given** les commits suivants
+**When** le code vit sur GitLab
+**Then** la ligne « Identité » d'AGENTS.md porte l'adresse professionnelle (auteur et committer), vérifiée sur le compte GitLab de Denis, et la signature des commits suit la règle de 11.1 si elle est imposée
+**And** ce changement n'est pas fait tant que le dépôt GitHub est public, pour ne pas y publier l'adresse professionnelle
+
+*Notes :* aucune modification de l'extension. La mémoire des agents qui cite l'identité de commit (règle « Mode autonome et commits ») est mise à jour en même temps qu'AGENTS.md.
