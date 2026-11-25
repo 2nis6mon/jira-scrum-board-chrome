@@ -159,8 +159,9 @@ Guide ES : https://sprintgoals.soneira.es/es/guide.html
 Confidentialité : https://sprintgoals.soneira.es/confidentialite.html
 
 L’interface suit Jira (français pour fr, espagnol pour es, anglais sinon), avec choix personnel.
-Sprint Planning est désactivé dans ce paquet de distribution.
-Les captures sont celles de ${captures.version}, conservées sans traduction comme demandé.
+Sprint Planning est actif dans ce paquet de distribution (depuis 0.54.0).
+Les captures du board sont celles de ${captures.version}, conservées sans traduction comme demandé ;
+celles du Sprint Planning (06-planning.png, 07-cloture.png) viennent du paquet qui l'active.
 Les notes FR/EN/ES peuvent servir aux communications de version ; pas de champ Store obligatoire.
 La langue principale existante du Store est conservée. Aucun nouveau produit n’est créé.
 Rien n’a été soumis ni publié automatiquement par ce script.

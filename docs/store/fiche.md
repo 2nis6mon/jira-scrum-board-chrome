@@ -1,6 +1,7 @@
-# Publication Chrome Web Store — version 0.54.0 (activation de Sprint Planning)
+# Publication Chrome Web Store — version 0.55.1 (activation de Sprint Planning)
 
-Dossier préparé le **1er novembre 2026** pour mettre à jour l'article existant, publié en **0.35.2**,
+Dossier préparé le **1er novembre 2026** pour la 0.54.0, actualisé le **25 novembre 2026** pour la 0.55.1
+(les 0.53 et 0.54 n'ont pas été soumises). Il met à jour l'article existant, publié en **0.41.1**,
 [Sprint Goals Board](https://chromewebstore.google.com/detail/sprint-goals-board-pour-j/pepbknjnielcbfcoefcdmadmomapicgp?hl=fr),
 identifiant `pepbknjnielcbfcoefcdmadmomapicgp`. Rien n'est soumis au Store par la préparation de ce dossier.
 
@@ -17,7 +18,7 @@ le sprint » et politique de confidentialité mise à jour). Ne pas publier l'un
 | Élément | Où | État |
 | --- | --- | --- |
 | Descriptions détaillées FR/EN/ES | [listing-fr.txt](listing-fr.txt), [listing-en.txt](listing-en.txt), [listing-es.txt](listing-es.txt) | Section « Préparez le sprint suivant (Scrum) » ajoutée ; la fonction est active dans ce paquet |
-| Notes de version de l'activation FR/EN/ES | [release-notes-planning-fr.txt](release-notes-planning-fr.txt), [-en](release-notes-planning-en.txt), [-es](release-notes-planning-es.txt) | Prêtes, avec la ligne « Version 0.54.0 — » |
+| Notes de version de l'activation FR/EN/ES | [release-notes-planning-fr.txt](release-notes-planning-fr.txt), [-en](release-notes-planning-en.txt), [-es](release-notes-planning-es.txt) | Prêtes, avec la ligne « Version 0.55.1 — » et la recherche du filtre Parent (0.55.0) |
 | Manuel et guide du site | [manuel](../manuel-utilisateur.md), [EN](../user-guide.en.md), [ES](../user-guide.es.md) : section « Préparer le sprint » | Écrits ; la fiche du guide se publie avec le site de l'activation |
 | Politique de confidentialité | [docs/privacy/index.html](../privacy/index.html), trois langues | À jour du 24/11/2026 : plus de brouillons, écritures de Sprint Planning listées |
 | Captures du planning | [06-planning.png](captures/06-planning.png), [07-cloture.png](captures/07-cloture.png) | Prises sur banc fictif avec Sprint Planning actif ; preuve dans `captures.json` (clé `planning`) |
@@ -45,8 +46,8 @@ dans cet ordre : `01-board.png`, `06-planning.png`, `07-cloture.png`, `03-swimla
 (les cinq du board restent toutes sur le site). Le choix final revient à l'éditeur. Les captures du board datent de
 la version 0.34.9 ; le planning est montré dans les deux nouvelles.
 
-**Instructions de revue (Test instructions)** — le texte anglais figure dans le bloc de la section dédiée (étapes 11 et suivantes) ; la phrase « no new kind of Jira write » en a été retirée, elle serait fausse :
-qui active la fonction. Retirer alors la phrase « no new kind of Jira write » du texte existant : elle devient fausse.
+**Instructions de revue (Test instructions)** — le texte anglais complet figure dans la section dédiée
+(étapes 11 et 12) ; la phrase « no new kind of Jira write » en a été retirée, elle serait fausse. Version courte :
 
 ```text
 This update adds Sprint Planning for Scrum boards. In the extension sidebar, open Sprint Planning, pick the future sprint
@@ -173,7 +174,7 @@ jamais dans la description publique. Les coordonnées réelles sont à compléte
 Texte anglais à copier dans cet onglet après avoir complété l'environnement :
 
 ```text
-This update (0.35.2 to 0.54.0) shows several active sprints together, adds a "Carried over" quick filter, a right-click menu on cards and Sprint Planning for Scrum boards. It uses the same Jira integration and Chrome permissions. Sprint Planning writes only what the privacy policy lists for it.
+This update (0.41.1 to 0.55.1) adds Sprint Planning for Scrum boards and a search field in the Parent filter. It uses the same Jira integration and Chrome permissions. Sprint Planning writes only what the privacy policy lists for it.
 
 Test site, Scrum board, Kanban board and test account access: provided separately in this private field by the publisher.
 
@@ -188,6 +189,7 @@ Test site, Scrum board, Kanban board and test account access: provided separatel
 9. Select Auto. With Jira in French the extension is French; with Jira in Spanish it is Spanish; with Jira in English or another language it is English. Reload the Jira page after changing Jira's own language. An unavailable Jira language falls back to English.
 10. Run Daily, move between swimlanes, then finish the Daily. Open the provided Kanban board and check its goals and issues without a sprint.
 11. On a Scrum board, open Sprint Planning from the extension sidebar. Pick the future sprint by clicking its title, add a goal, move a backlog issue onto it (drag and drop or the card menu), then use "Complete" or "Start": Jira's own dialog opens and you fill it in and confirm it; the extension never fills it. Each action is written to Jira once, then read again. Sprint Planning creates neither sprints nor Goals. Back to Jira returns to the native board; it is hidden while the extension sidebar is collapsed.
+12. On the board or in Sprint Planning, open the Parent filter and type part of a parent's key or summary: the list narrows, "No parent" stays listed. Escape clears the text, then closes the menu.
 ```
 
 ## Mettre à jour l'article existant, pas à pas
@@ -195,9 +197,9 @@ Test site, Scrum board, Kanban board and test account access: provided separatel
 1. Publier le site multilingue et vérifier les liens publics du site, du manuel et de la confidentialité dans les trois langues.
 2. Dans le [Developer Dashboard](https://chrome.google.com/webstore/devconsole), ouvrir l'article
    `pepbknjnielcbfcoefcdmadmomapicgp` avec le compte éditeur habituel.
-3. Dans **Package → Upload New Package**, envoyer **`release/sprint-goals-board-0.54.0.zip`**.
+3. Dans **Package → Upload New Package**, envoyer **`release/sprint-goals-board-0.55.1.zip`**.
    La version doit être supérieure à celle déjà publiée. Utiliser ce paquet produit par
-   `npm run package`, jamais un ZIP manuel de `dist/` qui active Sprint Planning.
+   `npm run package`, jamais un ZIP manuel de `dist/`, qui garde le diagnostic de développement.
 4. Dans **Store listing**, sélectionner **Français** puis coller [listing-fr.txt](listing-fr.txt).
    Sélectionner **English** et coller [listing-en.txt](listing-en.txt), puis **Español** et coller
    [listing-es.txt](listing-es.txt). Les trois langues sont proposées grâce aux répertoires
@@ -209,9 +211,9 @@ Test site, Scrum board, Kanban board and test account access: provided separatel
 7. Enregistrer et choisir **Submit for Review**. Choisir la publication automatique après validation
    ou la publication différée. La version installable ne change qu'après publication.
 
-Le dossier **`release/chrome-store-multilingual-0.54.0/`** regroupe le paquet de l'extension,
+Le dossier **`release/chrome-store-multilingual-0.55.1/`** regroupe le paquet de l'extension,
 les textes et les images. Choisir chaque ressource dans son champ : seul le ZIP
-`sprint-goals-board-0.54.0.zip` est destiné au champ **Package**.
+`sprint-goals-board-0.55.1.zip` est destiné au champ **Package**.
 
 Procédures officielles vérifiées le 15 octobre 2026 :
 [localiser la fiche](https://developer.chrome.com/docs/webstore/cws-dashboard-listing#localize-your-listing),
@@ -227,8 +229,8 @@ rejoue le parcours de Sprint Planning (écritures exactes, fenêtres natives sim
 `package`, dans un navigateur temporaire vierge (`CHROME_PATH` facultatif). Les cinq PNG RGB opaques
 sont générés directement par Chrome dans `docs/store/captures/`, à 1280 × 800 ; leur version,
 les contrôles et leurs empreintes sont consignés dans [captures.json](captures/captures.json).
-Le script vérifie l'absence du planning avant de capturer ; aucun masquage graphique ne remplace le
-feature flag. Vérifier visuellement chaque image après génération, puis joindre les cinq PNG au champ
+Le script vérifie que l'entrée Sprint Planning est présente sur un board Scrum et que la vue du planning
+n'est pas ouverte avant de capturer ; aucun masquage graphique n'est appliqué. Vérifier visuellement chaque image après génération, puis joindre les cinq PNG au champ
 des captures du Store. Ces images illustrent les composants du produit sur le banc, sans utiliser de
 session Jira réelle ; elles ne constituent pas un essai sur un workflow client.
 Les promotions `docs/store/promo-440x280.png` et `docs/store/promo-1400x560.png` sont des PNG opaques

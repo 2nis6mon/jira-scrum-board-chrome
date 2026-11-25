@@ -1,9 +1,10 @@
-Version 0.54.0 — Sprint Planning: prepare the next sprint without leaving Jira
+Version 0.55.1 — Sprint Planning: prepare the next sprint without leaving Jira
 
 • New Sprint Planning view for Scrum boards: choose the future sprint, write its goals (sprint text) or pin Atlassian Goals, then place issues from the backlog or from another future sprint of the board.
 • Drag and drop, card menu, multiple selection, search and filters as on the sprint page; "No goal" is arranged by issue-type swimlane, with the progress of each row.
 • Team velocity shared in Jira, sprint load compared with it, and issue estimation from its card.
 • Complete the active sprint and start the next one from Jira's native dialogs, with unreached goals carried over.
 • Every action is written to Jira immediately, once, then read again. The extension creates neither sprints nor Atlassian Goals.
+• The Parent filter, on the board and in Sprint Planning, starts with a search field by key or summary.
 
 No new Chrome permission.
