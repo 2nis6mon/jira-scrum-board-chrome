@@ -20,6 +20,7 @@ decisions:
   - "Sprint Planning, fonction cachée du paquet, a son propre epic (Epic 8) pour être retravaillé puis activé ; FR17 quitte l'Epic 4 et la question de concurrence de la publication (action 5 de la rétrospective de l'Epic 1) y est reprise (Denis, 31/10/2026)."
   - "Sprint Planning en direct (Denis, 01/11/2026) : remplace la décision produit du 14/10/2026 ; Epic 8 redéfinie depuis _bmad-output/forge/sprint-planning-complet/forged-idea.md (proposition sprint-change-proposal-2026-11-01.md)."
   - "Bilan des Sprint Goals d'un sprint fermé (Denis, 06/11/2026) : Epic 9, en lecture seule, mode texte du sprint d'abord ; issue d'un bilan manuel du board 3013 (sprints Accueil-26T3.5 à Accueil-26T4.1)."
+  - "Epic 11, migration du code de GitHub vers le GitLab de l'entreprise (Denis, 25/11/2026, table ronde) : le dépôt GitHub s'est révélé public avec des données de l'entreprise ; code et site sont séparés, le domaine ne change pas sans décision ; la propriété du code reste dans l'Epic 5."
   - "Epic 9 complétée (Denis, 25/11/2026, table ronde) : terminé = dernière colonne comme le report 8.7, objectif sans ticket = Pas de données, sous-tâches comptées sous le Goal du parent, objectifs masqués retirés, objectif du texte natif absent de la propriété = Pas de données, bilan proposé en fin de clôture, report des objectifs sans ticket ; stories 9.7 à 9.9 ajoutées."
 ---
 
@@ -81,6 +82,11 @@ FR27: L'utilisateur choisit un ou plusieurs sprints fermés du board et obtient 
 FR28: Le bilan affiché peut être gardé ou partagé hors de l'extension (copie ou export, format à décider), sans rien écrire dans Jira.
 FR29: Le menu de filtre Parent permet de chercher un parent par texte (clé ou résumé) parmi ceux du sprint, car un sprint peut en compter beaucoup (Sprint Board et Sprint Planning).
 FR30: Le report des objectifs non atteints et le bilan appliquent une seule règle d'atteinte (atteint, non atteint, pas de données) ; à la clôture, le report reporte aussi un objectif sans ticket, et le Sprint Planning propose le bilan du sprint qui vient d'être clôturé (Denis, 25/11/2026).
+FR31: Le code de l'extension n'est plus exposé publiquement : le dépôt GitHub devient privé ou est archivé, et le site public (vitrine, guides, politique de confidentialité) se publie depuis un dépôt dédié qui ne contient que le site construit, sans lien cassé pour les utilisateurs du Store.
+FR32: Le dépôt est hébergé sur le GitLab de l'entreprise, devenu `origin`, avec son historique complet, une branche `main` protégée et des règles de push respectées.
+FR33: GitLab CI exécute les mêmes contrôles que `.github/workflows/validation.yml` (tous les bancs Chrome, `check`, site, paquet, kit Store), sur les mêmes déclencheurs, sans pipeline en double.
+FR34: Le poste de travail, les agents et la documentation suivent GitLab : clone, `glab` et jeton de lecture de la CI, règles d'AGENTS.md, README et `docs/technique/`, garde-fous contre les fuites d'adresses du dépôt.
+FR35: Si l'adresse publique du site change, toutes les références suivent (site, scripts, tests, textes Store, politique de confidentialité, vérification du site par le Store), et l'ancienne adresse redirige ou reste servie.
 
 ### NonFunctional Requirements
 
@@ -151,6 +157,11 @@ FR27: Epic 9 - Bilan de plusieurs sprints fermés, « Pas de données » si aucu
 FR28: Epic 9 - Copier ou exporter le bilan
 FR29: Epic 10 - Rechercher un parent dans le filtre Parent
 FR30: Epic 9 - Une règle d'atteinte commune au report et au bilan ; bilan en fin de clôture
+FR31: Epic 11 - Code privé, site public dans un dépôt dédié
+FR32: Epic 11 - Dépôt importé sur le GitLab de l'entreprise
+FR33: Epic 11 - CI GitLab équivalente à la CI GitHub
+FR34: Epic 11 - Poste de travail, agents et documentation sur GitLab
+FR35: Epic 11 - Changement d'adresse du site, si décidé
 ## Epic List
 
 Ordre : l'Epic 1 précède les Epics 2, 3 et 6, qui écrivent dans Jira ; les Epics 4, 5 et 7 peuvent démarrer indépendamment.
@@ -204,6 +215,11 @@ Après la clôture, l'équipe voit pour chaque sprint fermé choisi si ses objec
 L'équipe trouve vite ce qu'elle cherche sur le board, même quand un sprint compte beaucoup de tickets, de parents ou de valeurs de filtre ; aucune écriture dans Jira.
 **FRs covered:** FR29
 *Notes :* créé le 24/11/2026 (Denis), hors Sprint Planning : les améliorations de filtres et de recherche du board. Indépendant des autres epics. Le menu de filtre est un composant partagé avec le Sprint Planning, qui en bénéficie sans story propre.
+
+### Epic 11: Le code sur le GitLab de l'entreprise
+Le code de l'extension quitte GitHub pour le GitLab de l'entreprise, sans être exposé publiquement ; la CI, le poste de travail et les agents suivent, et le site public reste en ligne pour les utilisateurs du Store.
+**FRs covered:** FR31, FR32, FR33, FR34, FR35
+*Notes :* créé le 25/11/2026 (Denis, table ronde). Aucun changement de l'extension. Les stories 11.1 à 11.3 peuvent démarrer tout de suite ; 11.4 et suivantes attendent l'identification du dépôt GitLab. La propriété du code (éditeur Store, contact, licence) relève de l'Epic 5, pas de cette epic.
 
 ## Epic 1: Des écritures Jira sûres et cohérentes
 
@@ -1892,3 +1908,150 @@ So that je n'ai pas à parcourir une longue liste quand le sprint compte beaucou
 **Then** aucune lecture ni écriture Jira n'est ajoutée, le Sprint Board et le Sprint Planning proposent la même recherche dans leur menu Parent, les tests de `FilterMenu` couvrent recherche, parents cochés cachés par le texte et réouverture, `verify:i18n` est vert, le manuel et ses guides EN/ES le disent
 
 *Notes :* `FilterMenu` (`src/app/views/board/FilterMenu.tsx`) est un composant partagé, utilisé par le board (`BoardView.tsx`) et par le planning (`PlanningView.tsx`, filtres de la story 8.14) : la recherche s'ajoute au composant, activée pour Parent par une propriété (`searchable`), sans nouvelle logique de filtrage dans `core/filters.ts` (la sélection reste `parentKeys`). Les parents viennent de `issueFilterOptions` (`parents`, `withoutParentCount`) : leur libellé porte déjà clé et résumé (`CLE · résumé`, `src/core/boardLayout.ts`), la recherche porte donc sur le libellé. Le menu est un `<details>` qui n'est pas démonté à la fermeture : vider le champ à l'événement `toggle`. Étendre la recherche aux menus Personne et Label : écarté (Denis, 24/11/2026). Mettre à jour `docs/manuel-utilisateur.md` et ses guides EN/ES (ligne « Utilisez **Rechercher**, puis les filtres… »).
+
+## Epic 11: Le code sur le GitLab de l'entreprise
+
+Le code de l'extension quitte GitHub pour le GitLab de l'entreprise. Constat du 25/11/2026 : le dépôt GitHub est **public** (l'API répond sans jeton), alors que `docs/site-web.md` le dit privé, et il contient des données internes (adresse du site Jira de l'entreprise et de son sandbox, numéros de board et de sprint, clés et intitulés de tickets dans les specs, l'epic 9 et quelques tests), sans fichier LICENSE. Le site public (vitrine, guides, politique de confidentialité) doit rester en ligne : le Store exige une politique accessible à tous.
+
+Principe retenu en table ronde : séparer le code et le site. Le code part en privé sur GitLab ; le site se publie depuis un dépôt public dédié qui ne contient que le site construit (`release/sprint-goals-site.zip`, déjà prévu par `docs/site-web.md`) ; le domaine `sprintgoals.soneira.es` ne change pas sans décision. Aucun miroir du code vers un dépôt public.
+
+Ordre : 11.1 (décisions), 11.2 (site dédié), 11.3 (code GitHub non public), puis, une fois le dépôt GitLab identifié, 11.4 (import), 11.5 (CI), 11.6 (poste de travail et agents), 11.7 (bascule et documentation) ; 11.8 (adresse du site) seulement si un changement de domaine est décidé.
+
+*Questions ouvertes (Denis) :*
+- Passer le dépôt GitHub en privé tout de suite, quitte à interrompre le site tant que la story 11.2 n'est pas faite (GitHub Pages sur dépôt privé exige une offre payante) ?
+- GitLab hébergé par GitLab ou installé dans l'entreprise ; groupe, visibilité, droits ?
+- Runners Windows disponibles ? Accès sortant à `registry.npmjs.org` (ou proxy npm interne) et à `storage.googleapis.com` (Chrome for Testing) ?
+- Règles de push : adresse de l'auteur (historique en adresse personnelle), format des messages (clé Jira imposée ?), format des branches (`agent/...`, `codex/...`), commits signés ?
+- Devenir de GitHub après la bascule : privé, archivé ou supprimé ; et du dépôt de la politique historique `sprint-goals-privacy` ?
+- Domaine : rester sur `soneira.es` ou passer sur un domaine de l'entreprise (DNS et certificat gérés par l'IT, hébergement public obligatoire) ?
+- Propriété du code (éditeur Store, contact, licence) : Epic 5, à trancher à part.
+
+### Story 11.1: Décider le cadre de la migration
+
+As a mainteneur qui déplace le code,
+I want les réponses aux questions ouvertes de l'epic avant tout geste,
+So that l'import et la CI ne butent pas sur une règle de l'entreprise découverte trop tard.
+
+**Acceptance Criteria:**
+
+**Given** les questions ouvertes de l'epic
+**When** Denis les tranche, avec l'IT pour les runners, les règles de push et le domaine
+**Then** les décisions sont consignées dans `docs/technique/developpement.md` (dépôt, runners, accès réseau, règles de push, devenir de GitHub, domaine) et dans cet epic
+**And** les règles de push sont vérifiées sur l'historique réel (plus de 330 commits, adresse de l'auteur, messages en français, branches `agent/...`) avant l'import, par un essai sur un dépôt GitLab de test ou la lecture des règles du groupe
+
+### Story 11.2: Publier le site depuis un dépôt public dédié
+
+As a utilisateur du Store qui ouvre le site, le guide ou la politique de confidentialité,
+I want que ces pages restent en ligne quand le code devient privé,
+So that aucun lien de la fiche Store ne casse.
+
+**Acceptance Criteria:**
+
+**Given** `npm run site:build`, qui produit `release/sprint-goals-site.zip`
+**When** son contenu est publié dans un dépôt public dédié au site (GitHub Pages ou autre hébergement statique retenu en 11.1)
+**Then** le dépôt dédié ne contient que le site construit : aucune source de l'extension, aucun document de travail, aucune donnée interne
+**And** `sprintgoals.soneira.es` sert ce nouveau dépôt, et les URL publiques citées par `docs/store/fiche.md` répondent toutes (accueils, guides et politiques en trois langues)
+
+**Given** les URL écrites en dur pour l'ancienne adresse (`https://2nis6mon.github.io/jira-scrum-board-chrome/` dans `site/*.html`, `scripts/build-site.mjs`, `scripts/render-guide.mjs`, `tests/site-guide.test.ts`)
+**When** le site est construit
+**Then** canonical, `og:url`, `og:image` et `hreflang` désignent l'adresse publique réelle, sans sous-chemin de dépôt ; `npm run site:preview` reproduit le chemin servi ; `site:check` et `site:verify` sont verts
+
+**Given** la publication du site
+**When** elle est relancée après une modification
+**Then** la procédure est décrite dans `docs/site-web.md` (construction dans le dépôt de code, copie du ZIP dans le dépôt dédié), et `.github/workflows/pages.yml` est retiré ou adapté
+
+### Story 11.3: Ne plus exposer le code sur GitHub
+
+As a mainteneur d'un code qui contient des données internes de l'entreprise,
+I want que le dépôt GitHub cesse d'être public,
+So that ces données ne sont plus lisibles par n'importe qui.
+
+**Acceptance Criteria:**
+
+**Given** le site publié depuis son dépôt dédié (11.2), ou la décision de Denis d'accepter une interruption du site
+**When** le dépôt GitHub passe en privé
+**Then** l'API GitHub sans jeton ne le voit plus, et `docs/site-web.md` ne dit plus rien de faux sur sa visibilité
+**And** le suivi de la CI par les agents, qui passait par l'API publique sans jeton, utilise un jeton en lecture seule rangé hors du dépôt (jamais dans Git ni dans les journaux)
+**And** les copies faites pendant la période publique (forks, caches) sont recherchées et signalées à Denis ; rien n'est réécrit dans l'historique sans sa décision
+
+### Story 11.4: Importer le dépôt sur le GitLab de l'entreprise
+
+As a mainteneur,
+I want le dépôt complet sur le GitLab de l'entreprise,
+So that le code y vit avec son historique.
+
+**Acceptance Criteria:**
+
+**Given** le dépôt GitLab identifié et les règles de push de 11.1
+**When** l'historique est poussé (branches utiles ; au 25/11/2026, ni issue, ni PR, ni release, ni tag à reprendre)
+**Then** l'empreinte de `main` est identique des deux côtés, `main` est protégée (pas de push forcé, fusion selon la règle d'AGENTS.md) et les branches `agent/**` sont autorisées
+**And** aucun secret n'est poussé : `.secrets/extension-key.pem` reste hors de Git et est rangé dans le coffre retenu en 11.1 ; `dist/`, `release/` et `_bmad-output/party-mode/` restent ignorés
+
+### Story 11.5: Une CI GitLab équivalente à la CI GitHub
+
+As a mainteneur qui pousse une branche,
+I want que GitLab CI joue tous les contrôles de `validation.yml`,
+So that rien ne régresse sans être vu après la bascule.
+
+**Acceptance Criteria:**
+
+**Given** `.github/workflows/validation.yml`
+**When** `.gitlab-ci.yml` est écrit
+**Then** il joue, dans le même ordre, la préparation de Chrome for Testing, `verify:jira`, `verify:drag`, `verify:settings`, `verify:i18n`, `verify:planning`, `verify:planning:package`, `verify:loading`, `check`, `site:check`, `site:verify`, `package` et `store:kit`, sur `main`, `agent/**`, `codex/**` et les merge requests
+**And** `workflow:rules` évite les pipelines en double (branche + merge request) et `interruptible: true` remplace `cancel-in-progress`
+**And** `CHROME_PATH` est transmis sans `GITHUB_ENV` (même script ou `dotenv`), et les droits du sandbox Chrome (`icacls`) sont revus pour le runner retenu, Windows ou Linux
+
+**Given** le réseau de l'entreprise
+**When** le pipeline installe ses dépendances et Chrome for Testing
+**Then** `npm ci` passe par le registre retenu en 11.1 (URL `resolved` du `package-lock.json` réécrites par `replace-registry-host`), `.npmrc` (`ignore-scripts=true`, `save-exact=true`) reste en vigueur, et Chrome for Testing vient d'une source autorisée, à version fixe
+**And** les images de runner sont épinglées par digest, comme les actions GitHub le sont par SHA
+
+**Given** un même commit
+**When** il passe sur GitHub et sur GitLab pendant la transition
+**Then** les deux pipelines sont verts ; le paquet et le kit Store peuvent être gardés comme artefacts du pipeline (option, durée de conservation à fixer)
+
+### Story 11.6: Le poste de travail et les agents sur GitLab
+
+As a Denis qui travaille avec des agents,
+I want que mon poste et mes agents lisent le nouveau dépôt et sa CI,
+So that je ne perds ni mémoire, ni réglages, ni suivi de la CI.
+
+**Acceptance Criteria:**
+
+**Given** le clone actuel `C:\ClaudeCode\jira-scrum-board-chrome`
+**When** `origin` passe sur GitLab
+**Then** le clone reste au même chemin (`git remote set-url`), ou la mémoire de Claude Code et `.claude/settings.local.json`, rangés par chemin, sont recopiés vers le nouveau
+**And** `glab` est installé et authentifié par un jeton en lecture seule, et les agents savent lire l'état d'un pipeline
+**And** les intégrations branchées sur GitHub (agents cloud des branches `codex/**`, revue de PR) sont recensées, avec pour chacune : conservée sur GitLab, remplacée ou abandonnée
+**And** les configurations IntelliJ partagées (`.run/`) fonctionnent toujours
+
+### Story 11.7: Basculer `origin` et réécrire la documentation
+
+As a toute personne qui reprend le projet,
+I want une documentation qui décrit GitLab, et un GitHub qui ne fait plus foi,
+So that personne ne pousse au mauvais endroit.
+
+**Acceptance Criteria:**
+
+**Given** les stories 11.4 à 11.6 terminées
+**When** la bascule a lieu
+**Then** AGENTS.md (fichier de CI cité, branches surveillées, identité de commit si elle change, suivi de la CI), `README.md`, `docs/technique/developpement.md` et `docs/site-web.md` décrivent GitLab ; `.github/workflows/` est retiré
+**And** les garde-fous contre les fuites (`scripts/build-site.mjs`, `scripts/verify-site.mjs`, `tests/site-guide.test.ts`, qui refusent aujourd'hui `github.com/2nis6mon`) refusent aussi l'adresse du dépôt GitLab interne dans le site public
+**And** le dépôt GitHub est archivé ou supprimé selon 11.1, et `2nis6mon/sprint-goals-privacy` suit la même décision
+**And** les documents de travail terminés (`_bmad-output/`) gardent leurs anciennes adresses (historique)
+
+### Story 11.8: Changer l'adresse publique du site
+
+**En attente :** seulement si 11.1 décide de quitter `sprintgoals.soneira.es`.
+
+As a utilisateur du Store,
+I want que le site, les guides et la politique de confidentialité restent accessibles à la nouvelle adresse,
+So that la fiche Store et les anciens liens continuent de marcher.
+
+**Acceptance Criteria:**
+
+**Given** la nouvelle adresse publique (DNS et certificat gérés par l'IT, hébergement accessible hors du réseau de l'entreprise)
+**When** les références sont mises à jour
+**Then** sont alignés : `site/*.html`, `scripts/build-site.mjs`, `scripts/render-guide.mjs`, `scripts/prepare-store-kit.mjs`, `tests/site-guide.test.ts`, `docs/store/fiche.md`, `docs/store/listing-*.txt`, `docs/privacy/index.html` et le manuel
+**And** l'ancienne adresse redirige vers la nouvelle ou reste servie, et le site est de nouveau vérifié dans Google Search Console pour la fiche Store
+**And** la fiche Store est mise à jour par Denis (URL du site et de la politique), sachant qu'un changement d'URL de la politique peut déclencher une nouvelle revue

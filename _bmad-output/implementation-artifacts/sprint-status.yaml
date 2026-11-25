@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-31-2026 09:00
-last_updated: 11-25-2026 15:00
+last_updated: 11-25-2026 16:00
 project: Sprint Goals Board pour Jira
 project_key: NOKEY
 tracking_system: file-system
@@ -135,6 +135,17 @@ development_status:
   epic-10: done
   10-1-chercher-un-parent-dans-le-filtre-parent: done
   epic-10-retrospective: done
+
+  epic-11: backlog
+  11-1-decider-le-cadre-de-la-migration: backlog
+  11-2-publier-le-site-depuis-un-depot-public-dedie: backlog
+  11-3-ne-plus-exposer-le-code-sur-github: backlog
+  11-4-importer-le-depot-sur-le-gitlab-de-l-entreprise: backlog
+  11-5-une-ci-gitlab-equivalente-a-la-ci-github: backlog
+  11-6-le-poste-de-travail-et-les-agents-sur-gitlab: backlog
+  11-7-basculer-origin-et-reecrire-la-documentation: backlog
+  11-8-changer-l-adresse-publique-du-site: backlog
+  epic-11-retrospective: optional
 action_items:
   - id: "epic-1-retro-item-1-faire-attendre-la-porte-d-écriture-et-la"
     epic: 1
