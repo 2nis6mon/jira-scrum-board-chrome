@@ -109,6 +109,7 @@ development_status:
   8-33-deplacer-plusieurs-cartes-du-board-vers-un-objectif: done
   8-40-voir-les-swimlanes-par-type-dans-sans-objectif-du-planning: done
   8-41-documenter-sprint-planning-avant-son-activation: done
+  8-42-ranger-l-ecran-du-planning-par-zone: backlog
   8-10-valider-le-sprint-planning-sur-un-vrai-jira: done
   8-34-valider-le-sprint-planning-en-goals-atlassian-sur-le-sandbox: done
   8-35-relire-chaque-ticket-d-un-lot-renvoye-au-backlog: done

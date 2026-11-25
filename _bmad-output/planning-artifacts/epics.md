@@ -1580,6 +1580,38 @@ So that je sais à quoi elle sert, ce qu'elle écrit dans Jira et comment l'util
 
 *Notes :* le manuel est la source du site (`render-guide.mjs`) : écrire d'abord `docs/manuel-utilisateur.md`, puis `docs/user-guide.en.md` et `docs/user-guide.es.md`, avec les boutons et libellés réels des catalogues `src/i18n/`. Le manuel et le site sont publiés avec la version qui active la fonction (8.11), pas avant : tant que le paquet l'a désactivée, le texte décrirait une fonction absente du Store. `store-screenshots.mjs` construit aujourd'hui en mode `package` et affirme l'absence du planning (`planningViewAbsent`) : ajouter un second jeu de captures, sans modifier la preuve des cinq premières. Le constat de l'essai réel 8.10, la décision sur les droits du planning (lecture seule annoncée ou découverte au premier refus) et la 8.27, close sans code, sont à citer fidèlement dans le manuel.
 
+### Story 8.42: Ranger l'écran du planning par zone avant les stories de droits
+
+*Type : technique, sans changement visible, décidée par Denis le 25/11/2026 sur le constat A1 de la
+[rétrospective de l'Epic 8](../implementation-artifacts/epic-8-retro-2026-11-24.md) ; se joue avant 8.38.*
+
+As a développeur des stories de droits (8.36 à 8.39),
+I want que l'écran du planning soit rangé en fichiers par zone (en-tête, filtres, colonne de gauche, objectifs, carte),
+So that chaque story ne relit que la zone qu'elle change et que deux sessions se gênent moins.
+
+**Acceptance Criteria:**
+
+**Given** `src/app/views/planning/PlanningView.tsx` (environ 1 940 lignes, 38 composants et fonctions)
+**When** il est rangé
+**Then** l'écran principal, les filtres, l'en-tête (clôture, dates, vélocité, charge, messages), la colonne « Où sont les tickets », les objectifs (swimlanes, ajout et épinglage, compte rendu de report), la carte (estimation, menu) et l'aide au glisser vivent chacun dans leur fichier du même dossier, aucun ne dépassant environ 600 lignes
+
+**Given** le diff
+**When** il est relu
+**Then** il ne fait que déplacer du code et ajuster imports et exports : aucune logique, aucun texte, aucune classe CSS ni aucun attribut ne change ; `PLANNING_DRAG_TYPE` et `PLANNING_SPRINT_DRAG_TYPE` restent importables depuis `PlanningView.tsx`
+
+**Given** `src/app/model/BoardModel.ts`
+**When** la story est livrée
+**Then** ses copies de `sameOrder` et `sameIdOrder` sont remplacées par `sameOrder` de `src/core/reorder.ts`, et `sameIds`, présent à l'identique dans `BoardModel.ts` et `PlanningModel.ts`, n'existe plus qu'une fois
+
+**Given** les vérifications
+**When** elles tournent
+**Then** `npm run check`, `verify:planning`, `verify:drag` et `verify:jira` sont verts sans qu'aucune assertion de test change ; la carte du code de la spec 8.38 cite les nouveaux fichiers ; version de correctif et CHANGELOG sans changement visible
+
+*Notes :* `PlanningModel.ts` n'est pas découpé ici (une classe à état privé partagé : génération de lecture,
+compteur d'occupation, journal, `#gesture`) ; règle pour 8.36 à 8.39 : la logique des droits va dans
+`src/core/sprintPermissions.ts`, le modèle ne fait que la brancher ; à réévaluer après 8.39 (première
+candidate : clôture, démarrage et report). Point d'action 3 de la rétrospective de l'Epic 8.
+
 ## Epic 9: Bilan des Sprint Goals d'un sprint fermé
 
 Après la clôture, l'équipe veut savoir, sprint par sprint, si ses objectifs ont été atteints, sans reconstituer le bilan à la main. L'extension n'enregistre aucun état à la fermeture et n'écrit rien de nouveau : le bilan est recalculé à chaque demande depuis ce que Jira garde déjà. En mode « texte du sprint », la propriété `sprintgoals.v1` d'un sprint fermé n'est plus modifiée par l'extension (le board ne charge que les sprints `active`, `src/core/boardSync.ts`, et le planning n'écrit que dans un sprint futur) : ses objectifs (`goals`) et rattachements (`links`) sont ceux de la fermeture. L'état des tickets à la fermeture se lit dans leur historique.
