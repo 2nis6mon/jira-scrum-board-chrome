@@ -73,6 +73,9 @@ projet : [README](README.md). Éviter les copies entre documents. L'historique d
 - Répondre, commenter le code et écrire les commits en français.
 - Branche `agent/...` (surveillée par la CI), commit cohérent poussé sur sa branche.
   Fusion dans `main` sur demande explicite.
+- Nouvelle story : réserver d'abord son numéro sur `main` (`epics.md` et `sprint-status.yaml`, commit
+  poussé), puis construire sur sa branche. Deux sessions en parallèle ne prennent jamais le même numéro
+  (fusion `4510319` : 8.34 et 8.35 devenues 8.40 et 8.41, commits restés sous l'ancien numéro).
 - Identité : `git -c user.name="2nis6mon" -c user.email="denis.simon@gmail.com" commit …`.
   Aucun trailer `Co-Authored-By`, même si l'outil en ajoute un par défaut.
 - Avant livraison : examiner le diff, les fichiers non suivis, les documents concernés et le

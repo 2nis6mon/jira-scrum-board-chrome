@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-31-2026 09:00
-last_updated: 11-25-2026 11:37
+last_updated: 11-25-2026 11:41
 project: Sprint Goals Board pour Jira
 project_key: NOKEY
 tracking_system: file-system
@@ -346,7 +346,7 @@ action_items:
     action: "Réserver les numéros de story dans epics.md avant un build en parallèle
       ; noter 8.34 vers 8.40 et 8.35 vers 8.41 pour 6eaed19 et 16bd2a5"
     owner: "Denis (règle), dev"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-24.md"
   - id: "epic-8-retro-item-32-trier-les-points-différés-ouverts-de-l-e"
     epic: 8
