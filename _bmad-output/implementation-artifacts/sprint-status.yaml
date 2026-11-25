@@ -75,7 +75,7 @@ development_status:
   epic-7: backlog
   epic-7-retrospective: optional
 
-  epic-8: in-progress
+  epic-8: done
   8-1-verifier-les-contrats-atlassian-du-planning-en-direct: done
   8-2-l-ecran-du-planning-parle-comme-la-page-du-sprint: done
   8-3-ecrire-les-objectifs-texte-au-fil-de-la-seance: done
@@ -113,10 +113,6 @@ development_status:
   8-10-valider-le-sprint-planning-sur-un-vrai-jira: done
   8-34-valider-le-sprint-planning-en-goals-atlassian-sur-le-sandbox: done
   8-35-relire-chaque-ticket-d-un-lot-renvoye-au-backlog: done
-  8-36-planifier-les-tickets-d-un-sprint-futur-non-modifiable: backlog
-  8-37-pas-de-sprint-planning-sans-le-droit-de-gerer-les-sprints: backlog
-  8-38-gestes-d-un-ticket-desactives-sans-droit-sur-son-projet: ready-for-dev
-  8-39-rattachement-a-un-goal-desactive-sur-le-sprint-board-sans-droit: backlog
   8-11-activer-le-sprint-planning-dans-le-paquet: done
   epic-8-retrospective: done
 
@@ -148,6 +144,14 @@ development_status:
   11-9-passer-les-commits-a-l-adresse-professionnelle: backlog
   11-10-faire-arriver-main-sur-la-branche-develop-du-gitlab: backlog
   epic-11-retrospective: optional
+
+  # Ex-8.36 à 8.39, déplacées à la clôture de l'Epic 8 (Denis, 25/11/2026).
+  epic-12: backlog
+  12-1-planifier-les-tickets-d-un-sprint-futur-non-modifiable: backlog
+  12-2-pas-de-sprint-planning-sans-le-droit-de-gerer-les-sprints: backlog
+  12-3-gestes-d-un-ticket-desactives-sans-droit-sur-son-projet: ready-for-dev
+  12-4-rattachement-a-un-goal-desactive-sur-le-sprint-board-sans-droit: backlog
+  epic-12-retrospective: optional
 action_items:
   - id: "epic-1-retro-item-1-faire-attendre-la-porte-d-écriture-et-la"
     epic: 1

@@ -22,6 +22,7 @@ decisions:
   - "Bilan des Sprint Goals d'un sprint fermé (Denis, 06/11/2026) : Epic 9, en lecture seule, mode texte du sprint d'abord ; issue d'un bilan manuel du board 3013 (sprints Accueil-26T3.5 à Accueil-26T4.1)."
   - "Epic 11, migration du code de GitHub vers le GitLab de l'entreprise (Denis, 25/11/2026, table ronde) : le dépôt GitHub s'est révélé public avec des données de l'entreprise ; code et site sont séparés, le domaine ne change pas sans décision ; la propriété du code reste dans l'Epic 5."
   - "Epic 9 complétée (Denis, 25/11/2026, table ronde) : terminé = dernière colonne comme le report 8.7, objectif sans ticket = Pas de données, sous-tâches comptées sous le Goal du parent, objectifs masqués retirés, objectif du texte natif absent de la propriété = Pas de données, bilan proposé en fin de clôture, report des objectifs sans ticket ; stories 9.7 à 9.9 ajoutées."
+  - "Epic 8 terminée (Denis, 25/11/2026) : les stories de droits 8.36 à 8.39, non faites, passent dans l'Epic 12, Sprint Planning V2, renumérotées 12.1 à 12.4."
 ---
 
 # Sprint Goals Board pour Jira - Epic Breakdown
@@ -87,6 +88,7 @@ FR32: Le dépôt est hébergé sur le GitLab de l'entreprise, devenu `origin`, a
 FR33: GitLab CI exécute les mêmes contrôles que `.github/workflows/validation.yml` (tous les bancs Chrome, `check`, site, paquet, kit Store), sur les mêmes déclencheurs, sans pipeline en double.
 FR34: Le poste de travail, les agents et la documentation suivent GitLab : clone, `glab` et jeton de lecture de la CI, règles d'AGENTS.md, README et `docs/technique/`, garde-fous contre les fuites d'adresses du dépôt.
 FR35: Si l'adresse publique du site change, toutes les références suivent (site, scripts, tests, textes Store, politique de confidentialité, vérification du site par le Store), et l'ancienne adresse redirige ou reste servie.
+FR36: Le Sprint Planning et le Sprint Board tiennent compte des droits Jira de l'utilisateur (décision du 06/11/2026) : un sprint futur non modifiable reste une source de tickets sans être préparé, l'entrée « Sprint Planning » est fermée, avec sa raison, sans le droit de gérer les sprints du board, et les gestes qu'un projet refuserait (*Schedule issues*, *Edit issues*) sont désactivés sur la carte avec leur raison ; droits indécidables : le geste part, une seule tentative.
 
 ### NonFunctional Requirements
 
@@ -162,6 +164,7 @@ FR32: Epic 11 - Dépôt importé sur le GitLab de l'entreprise
 FR33: Epic 11 - CI GitLab équivalente à la CI GitHub
 FR34: Epic 11 - Poste de travail, agents et documentation sur GitLab
 FR35: Epic 11 - Changement d'adresse du site, si décidé
+FR36: Epic 12 - Sprint Planning et Sprint Board à la mesure des droits Jira
 ## Epic List
 
 Ordre : l'Epic 1 précède les Epics 2, 3 et 6, qui écrivent dans Jira ; les Epics 4, 5 et 7 peuvent démarrer indépendamment.
@@ -204,7 +207,7 @@ L'équipe règle ses limites WIP en points et des minimums par colonne, et voit 
 ### Epic 8: Sprint Planning en direct dans Jira
 L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre, sans quitter l'extension ; chaque geste est aussitôt dans Jira, et la fonction, validée sur un vrai Jira, est activée dans le paquet distribué.
 **FRs covered:** FR17
-*Notes :* créé le 31/10/2026, redéfini le 01/11/2026 (Denis) depuis [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md), qui remplace la décision du 14/10/2026. Création de sprint et de Goals hors périmètre. Droits (lecture seule annoncée ou découverte au premier refus) : décision en attente. Écran de référence : maquette v2. Complété le 02/11/2026 (Denis, retours d'essai) par les stories 8.12 à 8.18 ; décision produit du même jour : l'estimation d'un ticket s'écrit depuis le planning (E11, story 8.17), sous réserve de la vérification du contrat Atlassian.
+*Notes :* créé le 31/10/2026, redéfini le 01/11/2026 (Denis) depuis [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md), qui remplace la décision du 14/10/2026. Création de sprint et de Goals hors périmètre. Droits (lecture seule annoncée ou découverte au premier refus) : décision en attente. Écran de référence : maquette v2. Complété le 02/11/2026 (Denis, retours d'essai) par les stories 8.12 à 8.18 ; décision produit du même jour : l'estimation d'un ticket s'écrit depuis le planning (E11, story 8.17), sous réserve de la vérification du contrat Atlassian. Terminée le 25/11/2026 (Denis) : Sprint Planning actif depuis 0.54.0 ; les stories de droits 8.36 à 8.39, non faites, passent dans l'Epic 12 (12.1 à 12.4).
 
 ### Epic 9: Bilan des Sprint Goals d'un sprint fermé
 Après la clôture, l'équipe voit pour chaque sprint fermé choisi si ses objectifs ont été atteints (OK / KO) à la date de fermeture, avec les tickets qui l'expliquent, et peut garder ou partager ce bilan.
@@ -220,6 +223,11 @@ L'équipe trouve vite ce qu'elle cherche sur le board, même quand un sprint com
 Le code de l'extension quitte GitHub pour le GitLab de l'entreprise, sans être exposé publiquement ; la CI, le poste de travail et les agents suivent, et le site public reste en ligne pour les utilisateurs du Store.
 **FRs covered:** FR31, FR32, FR33, FR34, FR35
 *Notes :* créé le 25/11/2026 (Denis, table ronde). Aucun changement de l'extension. Les stories 11.1 à 11.3 peuvent démarrer tout de suite. Le dépôt GitLab existe (constat du 25/11/2026) : sa seule branche est `develop`, il n'a pas de `main` (story 11.10). La propriété du code (éditeur Store, contact, licence) relève de l'Epic 5, pas de cette epic.
+
+### Epic 12: Sprint Planning V2, à la mesure des droits Jira
+Le Sprint Planning et le Sprint Board ne proposent plus un geste que Jira refuserait : chaque geste désactivé dit pourquoi, l'entrée du planning se ferme sans le droit de gérer les sprints, et un sprint futur non modifiable reste une source de tickets.
+**FRs covered:** FR36
+*Notes :* créé le 25/11/2026 (Denis) à la clôture de l'Epic 8, avec ses stories non faites : 8.36 à 8.39, devenues 12.1 à 12.4 (spec de la 12.3 prête). Lectures seules (`mypermissions`, `board/{id}/project`), aucune nouvelle route ni écriture ; textes en fr/en/es.
 
 ## Epic 1: Des écritures Jira sûres et cohérentes
 
@@ -621,6 +629,8 @@ So that leur origine est lisible.
 L'équipe clôture son sprint, construit le suivant par objectifs avec des tickets trouvés partout sur le board, puis le démarre. Chaque geste écrit aussitôt dans Jira, qui reste la seule source : la page se reconstruit à l'entrée depuis le texte de l'objectif du sprint, la propriété `sprintgoals.v1` et les tickets du sprint. Aujourd'hui, Sprint Planning n'existe que dans les builds locaux `dist/` et les tests (`SPRINT_PLANNING_ENABLED`) ; il le reste jusqu'à la story 8.11. Décisions : [forged-idea.md](../forge/sprint-planning-complet/forged-idea.md) ; écran : maquette v2.
 
 Ordre : contrats d'abord, écran et objectifs ensuite, clôture et démarrage, puis les compléments et correctifs issus des premiers essais (8.12 à 8.25), et enfin essai réel et activation. Les numéros 8.12 à 8.24 se jouent avant 8.10 ; 8.25 se joue avant 8.11, avec l'essai séparé des Goals Atlassian ; 8.26 à 8.28, défauts du constat de 8.10, 8.29, même défaut côté board, 8.30, mêmes gestes à la souris sur les deux écrans, 8.31, sprint actif retiré de « Où sont les tickets », puis 8.32 (changer d'objectif sur le board sans changer d'état) et 8.33 (déplacer une sélection du board vers un objectif, après 8.32) se jouent avant 8.11.
+
+**Terminée le 25/11/2026 (Denis).** Les stories de droits 8.36 à 8.39, non faites, passent dans l'Epic 12 (Sprint Planning V2), renumérotées 12.1 à 12.4.
 
 ### Story 8.1: Vérifier les contrats Atlassian du planning en direct
 
@@ -1426,103 +1436,8 @@ So that la page ne montre jamais un ticket à une place qu'il n'occupe plus sans
 
 *Notes :* essai 8.34 : CLIENT-7121, -5800 et -5294 renvoyés ensemble ; E10 appliquée pour les trois, CLIENT-5800 resté dans « Goal 2 » sans avis jusqu'à l'actualisation. Voir `removePlanningIssues` (`src/core/sprintPlanning.ts`) et `unseenKeys` (8.26).
 
-### Story 8.36: Planifier les tickets d'un sprint futur que je ne peux pas modifier
+*Stories 8.36 à 8.39 (droits) : déplacées le 25/11/2026 dans l'Epic 12 (Sprint Planning V2), où elles deviennent 12.1 à 12.4 (décision de Denis : Epic 8 terminée).*
 
-*Type : évolution, décision de Denis du 06/11/2026 (droits du planning, point 1).*
-
-As a membre de l'équipe qui prépare son sprint,
-I want voir dans « Où sont les tickets » un sprint futur que je n'ai pas le droit de modifier, s'il contient des tickets du board, et en tirer ces tickets,
-So that aucun ticket du board ne m'échappe, sans pour autant préparer un sprint qui ne m'appartient pas.
-
-**Acceptance Criteria:**
-
-**Given** un sprint futur non modifiable par l'utilisateur (règle de 0.43.1 : ni administrateur, ni « Gérer les sprints » sur les projets de son board d'origine) qui contient des tickets restants du board
-**When** le planning s'ouvre
-**Then** il apparaît dans « Où sont les tickets » avec ses tickets, marqué en consultation ; il n'apparaît ni dans le menu des sprints à préparer, ni comme destination « Vers… », ni à la clôture
-
-**Given** un ticket de ce sprint
-**When** je le pose sur un objectif ou dans le sprint préparé (glisser, menu, lot)
-**Then** il rejoint le sprint préparé comme depuis un autre sprint futur (E9, puis E5 ou E3/E4), si les droits sur son projet le permettent (story 8.38)
-
-**Given** un tel sprint sans ticket restant du board
-**When** le planning s'ouvre
-**Then** il n'est pas affiché (règle de 0.48.1 et 0.48.2 inchangée)
-
-**Given** le changement
-**When** il est vérifié
-**Then** aucune nouvelle route ; le sprint non modifiable est lu par la route des tickets déjà utilisée ; l'essai sur le sandbox confirme que Jira accepte de sortir un ticket d'un sprint que l'utilisateur ne peut pas modifier (contrat à constater, refus 403 affiché sinon)
-
-*Notes :* aujourd'hui `loadSprintPlanning` (`src/core/sprintPlanning.ts`) ne lit que les sprints futurs `proposable` (`proposableSprintIds`, `src/core/sprintPermissions.ts`) ; il faut distinguer « lisible comme source » et « proposable à la préparation ».
-
-### Story 8.37: Pas de Sprint Planning sans le droit de gérer les sprints du board
-
-*Type : évolution, décision de Denis du 06/11/2026 (droits du planning, point 3), à confirmer par l'essai sans droit.*
-
-As a membre de l'équipe sans droit sur les sprints du board,
-I want que l'entrée « Sprint Planning » me dise pourquoi elle m'est fermée,
-So that je n'ouvre pas une page vide ou des gestes qui échoueront.
-
-**Acceptance Criteria:**
-
-**Given** un utilisateur ni administrateur Jira, ni titulaire de « Gérer les sprints » sur les projets du board, ou sans *Schedule issues* sur aucun de ces projets
-**When** il affiche le board
-**Then** l'entrée « Sprint Planning » est désactivée avec sa raison ; le Sprint Board reste entier ; aucune lecture du planning n'est faite
-
-**Given** des droits indécidables (lecture refusée, board sans projet)
-**When** le board s'affiche
-**Then** l'entrée reste ouverte et le refus de Jira s'affiche au premier geste, sans nouvelle tentative (règle actuelle)
-
-**Given** le changement
-**When** il est vérifié
-**Then** lectures seules (`mypermissions`, `board/{id}/project`), textes en fr/en/es ; essai sur le sandbox avec un compte sans ces droits, avec l'accord de Denis
-
-### Story 8.38: Gestes d'un ticket désactivés sans droit sur son projet
-
-*Type : évolution, décision de Denis du 06/11/2026 (droits du planning, point 4).*
-
-As a membre de l'équipe sur un board qui mélange plusieurs projets,
-I want que les gestes que Jira me refuserait soient désactivés sur la carte, avec leur raison,
-So that je ne découvre pas un refus en pleine séance.
-
-**Acceptance Criteria:**
-
-**Given** les droits lus une fois par projet du board (`GET /rest/api/3/mypermissions`, déjà au contrat, en cache jusqu'à l'actualisation)
-**When** un ticket appartient à un projet sans *Schedule issues* (`SCHEDULE_ISSUES`)
-**Then** sa carte ne se glisse pas, et l'ajout au sprint, le retrait vers le backlog ou un autre sprint (E9, E10) sont désactivés dans son menu, avec la raison
-
-**Given** un ticket d'un projet sans *Edit issues* (`EDIT_ISSUES`)
-**When** j'affiche sa carte
-**Then** l'estimation sur la carte (E11) et le lien à un Goal Atlassian (E3/E4) sont désactivés, avec la raison ; la fiche native reste le recours
-
-**Given** une sélection qui mêle des tickets permis et refusés
-**When** je la déplace
-**Then** le geste est refusé avant toute écriture en nommant les tickets en cause
-
-**Given** des droits indécidables
-**When** le geste est tenté
-**Then** il part comme aujourd'hui, une seule tentative, refus de Jira affiché
-
-*Notes :* mêmes gestes sur le Sprint Board quand ils écrivent les mêmes routes (rattachement à un objectif en Goals : E3/E4). Aucune nouvelle route ; textes en fr/en/es.
-
-### Story 8.39: Rattachement à un Goal désactivé sur le Sprint Board sans droit sur le projet
-
-*Type : évolution, séparée de la 8.38 par décision de Denis du 06/11/2026 (le Sprint Board est dans le paquet distribué).*
-
-As a membre de l'équipe sur un board en Goals Atlassian,
-I want que le rattachement d'une carte à un Goal soit désactivé quand je n'ai pas *Edit issues* sur son projet,
-So that je ne découvre pas le refus de Jira en déplaçant la carte.
-
-**Acceptance Criteria:**
-
-**Given** un board en Goals Atlassian et une carte d'un projet sans *Edit issues* (lecture de la 8.38, en cache)
-**When** je la glisse vers une autre swimlane d'objectif ou ouvre son menu
-**Then** le dépôt et les entrées d'objectif sont refusés avec la raison, sans écriture (E3, E4) ; les autres gestes ne changent pas
-
-**Given** des droits indécidables
-**When** le geste est tenté
-**Then** il part comme aujourd'hui, une seule tentative, refus de Jira affiché
-
-*Notes :* réutilise la lecture des droits de ticket de la 8.38 ; coût au chargement du board (une requête par projet) à mesurer, le board étant livré.
 ### Story 8.40: Voir les swimlanes par type dans « Sans objectif » du planning
 
 *Type : amélioration, demandée par Denis le 24/11/2026.*
@@ -2136,3 +2051,109 @@ So that l'historique, la CI et la règle de fusion visent la bonne branche dès 
 **And** le CHANGELOG et les documents de travail terminés (`_bmad-output/`) gardent `main` (historique)
 
 *Notes :* aucune modification de l'extension. Références à `main` recensées le 25/11/2026 : `.github/workflows/validation.yml` (déclencheurs), `.github/workflows/pages.yml` (retiré ou adapté par 11.2), AGENTS.md (fusion, réservation des numéros), `README.md`, `docs/site-web.md`, `docs/technique/developpement.md`, `scripts/prepare-store-kit.mjs`. La mémoire des agents qui cite `main` est mise à jour en même temps qu'AGENTS.md. L'adresse du dépôt GitLab n'est pas écrite ici tant que le dépôt GitHub est public.
+
+## Epic 12: Sprint Planning V2, à la mesure des droits Jira
+
+Suite du Sprint Planning livré par l'Epic 8 (terminée le 25/11/2026, décision de Denis). Le planning et le Sprint Board tiennent compte des droits Jira de l'utilisateur : ils ne proposent plus un geste que Jira refuserait, et un sprint futur non modifiable reste une source de tickets. Décision produit des droits : Denis, 06/11/2026 ([backlog](backlog.md)). Aujourd'hui, un refus 403 s'affiche au premier geste, sans nouvelle tentative.
+
+Reprises de l'Epic 8, numéros changés le 25/11/2026 : 8.36 → 12.1, 8.37 → 12.2, 8.38 → 12.3 (spec prête, renommée `spec-12-3-…`), 8.39 → 12.4. Les commits, la rétrospective et le contexte de l'Epic 8 gardent les anciens numéros.
+
+Ordre : 12.3 (droits d'un ticket, lecture commune), 12.4 (même lecture sur le Sprint Board), 12.1 (sprint futur non modifiable, s'appuie sur 12.3), 12.2 (entrée fermée sans droit, essai avec un compte sans droit). Règle reprise de la story 8.42 : la logique des droits va dans `src/core/sprintPermissions.ts`, le modèle ne fait que la brancher ; l'écran du planning est déjà rangé par zone (8.42).
+
+### Story 12.1: Planifier les tickets d'un sprint futur que je ne peux pas modifier
+
+*Ex-8.36.* *Type : évolution, décision de Denis du 06/11/2026 (droits du planning, point 1).*
+
+As a membre de l'équipe qui prépare son sprint,
+I want voir dans « Où sont les tickets » un sprint futur que je n'ai pas le droit de modifier, s'il contient des tickets du board, et en tirer ces tickets,
+So that aucun ticket du board ne m'échappe, sans pour autant préparer un sprint qui ne m'appartient pas.
+
+**Acceptance Criteria:**
+
+**Given** un sprint futur non modifiable par l'utilisateur (règle de 0.43.1 : ni administrateur, ni « Gérer les sprints » sur les projets de son board d'origine) qui contient des tickets restants du board
+**When** le planning s'ouvre
+**Then** il apparaît dans « Où sont les tickets » avec ses tickets, marqué en consultation ; il n'apparaît ni dans le menu des sprints à préparer, ni comme destination « Vers… », ni à la clôture
+
+**Given** un ticket de ce sprint
+**When** je le pose sur un objectif ou dans le sprint préparé (glisser, menu, lot)
+**Then** il rejoint le sprint préparé comme depuis un autre sprint futur (E9, puis E5 ou E3/E4), si les droits sur son projet le permettent (story 12.3)
+
+**Given** un tel sprint sans ticket restant du board
+**When** le planning s'ouvre
+**Then** il n'est pas affiché (règle de 0.48.1 et 0.48.2 inchangée)
+
+**Given** le changement
+**When** il est vérifié
+**Then** aucune nouvelle route ; le sprint non modifiable est lu par la route des tickets déjà utilisée ; l'essai sur le sandbox confirme que Jira accepte de sortir un ticket d'un sprint que l'utilisateur ne peut pas modifier (contrat à constater, refus 403 affiché sinon)
+
+*Notes :* aujourd'hui `loadSprintPlanning` (`src/core/sprintPlanning.ts`) ne lit que les sprints futurs `proposable` (`proposableSprintIds`, `src/core/sprintPermissions.ts`) ; il faut distinguer « lisible comme source » et « proposable à la préparation ».
+
+### Story 12.2: Pas de Sprint Planning sans le droit de gérer les sprints du board
+
+*Ex-8.37.* *Type : évolution, décision de Denis du 06/11/2026 (droits du planning, point 3), à confirmer par l'essai sans droit.*
+
+As a membre de l'équipe sans droit sur les sprints du board,
+I want que l'entrée « Sprint Planning » me dise pourquoi elle m'est fermée,
+So that je n'ouvre pas une page vide ou des gestes qui échoueront.
+
+**Acceptance Criteria:**
+
+**Given** un utilisateur ni administrateur Jira, ni titulaire de « Gérer les sprints » sur les projets du board, ou sans *Schedule issues* sur aucun de ces projets
+**When** il affiche le board
+**Then** l'entrée « Sprint Planning » est désactivée avec sa raison ; le Sprint Board reste entier ; aucune lecture du planning n'est faite
+
+**Given** des droits indécidables (lecture refusée, board sans projet)
+**When** le board s'affiche
+**Then** l'entrée reste ouverte et le refus de Jira s'affiche au premier geste, sans nouvelle tentative (règle actuelle)
+
+**Given** le changement
+**When** il est vérifié
+**Then** lectures seules (`mypermissions`, `board/{id}/project`), textes en fr/en/es ; essai sur le sandbox avec un compte sans ces droits, avec l'accord de Denis
+
+### Story 12.3: Gestes d'un ticket désactivés sans droit sur son projet
+
+*Ex-8.38.* *Type : évolution, décision de Denis du 06/11/2026 (droits du planning, point 4).*
+
+As a membre de l'équipe sur un board qui mélange plusieurs projets,
+I want que les gestes que Jira me refuserait soient désactivés sur la carte, avec leur raison,
+So that je ne découvre pas un refus en pleine séance.
+
+**Acceptance Criteria:**
+
+**Given** les droits lus une fois par projet du board (`GET /rest/api/3/mypermissions`, déjà au contrat, en cache jusqu'à l'actualisation)
+**When** un ticket appartient à un projet sans *Schedule issues* (`SCHEDULE_ISSUES`)
+**Then** sa carte ne se glisse pas, et l'ajout au sprint, le retrait vers le backlog ou un autre sprint (E9, E10) sont désactivés dans son menu, avec la raison
+
+**Given** un ticket d'un projet sans *Edit issues* (`EDIT_ISSUES`)
+**When** j'affiche sa carte
+**Then** l'estimation sur la carte (E11) et le lien à un Goal Atlassian (E3/E4) sont désactivés, avec la raison ; la fiche native reste le recours
+
+**Given** une sélection qui mêle des tickets permis et refusés
+**When** je la déplace
+**Then** le geste est refusé avant toute écriture en nommant les tickets en cause
+
+**Given** des droits indécidables
+**When** le geste est tenté
+**Then** il part comme aujourd'hui, une seule tentative, refus de Jira affiché
+
+*Notes :* mêmes gestes sur le Sprint Board quand ils écrivent les mêmes routes (rattachement à un objectif en Goals : E3/E4). Aucune nouvelle route ; textes en fr/en/es.
+
+### Story 12.4: Rattachement à un Goal désactivé sur le Sprint Board sans droit sur le projet
+
+*Ex-8.39.* *Type : évolution, séparée de la 8.38 (devenue 12.3) par décision de Denis du 06/11/2026 (le Sprint Board est dans le paquet distribué).*
+
+As a membre de l'équipe sur un board en Goals Atlassian,
+I want que le rattachement d'une carte à un Goal soit désactivé quand je n'ai pas *Edit issues* sur son projet,
+So that je ne découvre pas le refus de Jira en déplaçant la carte.
+
+**Acceptance Criteria:**
+
+**Given** un board en Goals Atlassian et une carte d'un projet sans *Edit issues* (lecture de la 12.3, en cache)
+**When** je la glisse vers une autre swimlane d'objectif ou ouvre son menu
+**Then** le dépôt et les entrées d'objectif sont refusés avec la raison, sans écriture (E3, E4) ; les autres gestes ne changent pas
+
+**Given** des droits indécidables
+**When** le geste est tenté
+**Then** il part comme aujourd'hui, une seule tentative, refus de Jira affiché
+
+*Notes :* réutilise la lecture des droits de ticket de la 12.3 ; coût au chargement du board (une requête par projet) à mesurer, le board étant livré.

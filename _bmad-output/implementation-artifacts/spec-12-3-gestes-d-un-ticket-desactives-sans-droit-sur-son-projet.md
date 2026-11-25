@@ -1,5 +1,5 @@
 ---
-title: 'Story 8.38 — Gestes d''un ticket désactivés sans droit sur son projet'
+title: 'Story 12.3 (ex-8.38) — Gestes d''un ticket désactivés sans droit sur son projet'
 type: 'feature'
 created: '2026-11-06'
 status: 'ready-for-dev'
@@ -8,6 +8,8 @@ review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-8-context.md'
 ---
+
+*Renumérotée le 25/11/2026 (Denis) : l'Epic 8 est terminée et ses stories de droits passent dans l'Epic 12, Sprint Planning V2. Dans le texte ci-dessous, 8.38 = 12.3 et 8.39 = 12.4.*
 
 <frozen-after-approval reason="human-owned intent — do not modify unless human renegotiates">
 
