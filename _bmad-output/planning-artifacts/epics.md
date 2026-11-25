@@ -1508,6 +1508,8 @@ So that je ne découvre pas le refus de Jira en déplaçant la carte.
 
 *Type : amélioration, demandée par Denis le 24/11/2026.*
 
+*Traçabilité :* livrée sous l'ancien numéro 8.34, avant la fusion `4510319` : commits `b14f1cb`, `8532351`, `f6c692a`, `eee9bae`, `aa5885f`, `b15044e` et `d46bdfd` (« Story 8.34 : … »). Les autres commits « 8.34 », du 06/11/2026, sont ceux de la story 8.34 actuelle.
+
 As a membre de l'équipe qui prépare le sprint,
 I want que la partie « Sans objectif » du sprint en préparation montre les tickets rangés dans les swimlanes définies pour leur type (Build, RUN, etc.),
 So that je retrouve dans le planning le même classement que sur le Sprint Board, et que je vois d'un coup d'œil ce qui reste à rattacher à un objectif, type par type.
@@ -1543,6 +1545,8 @@ So that je retrouve dans le planning le même classement que sur le Sprint Board
 ### Story 8.41: Documenter Sprint Planning avant son activation
 
 *Type : documentation et données de publication, demandée par Denis le 24/11/2026 ; se joue avant l'activation (8.11), qui en dépend.*
+
+*Traçabilité :* livrée sous l'ancien numéro 8.35, avant la fusion `4510319` : commits `16bd2a5`, `6eaed19` et `7ebfb75` (« Story 8.35 : documenter… »). Les autres commits « 8.35 », du 06/11/2026, sont ceux de la story 8.35 actuelle.
 
 As a équipe qui découvrira Sprint Planning dans le paquet distribué,
 I want le manuel, le site public et la fiche du Chrome Web Store qui décrivent cette vue,

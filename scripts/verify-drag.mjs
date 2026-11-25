@@ -625,7 +625,11 @@ try {
     await mouse("mousePressed", x, y, { button, buttons, clickCount: 1, modifiers });
     await mouse("mouseReleased", x, y, { button, buttons: 0, clickCount: 1, modifiers });
   };
-  const targetsBefore = (await send("Target.getTargets", {})).targetInfos.length;
+  // Seuls un nouvel onglet ou une nouvelle fenêtre comptent : les autres cibles Chrome (service
+  // worker, cadres) peuvent naître pendant l'étape sans lien avec la sélection (retro Epic 8).
+  const pageTargets = async () =>
+    (await send("Target.getTargets", {})).targetInfos.filter((target) => target.type === "page");
+  const pagesBefore = new Set((await pageTargets()).map((target) => target.targetId));
   // Ctrl+clic hors macOS ; sous macOS, Ctrl+clic ouvre le menu de la carte : Cmd+clic deux fois.
   await clickAt(picked[0], SELECT_MODIFIER);
   await clickAt(picked[1], 4);
@@ -642,14 +646,20 @@ try {
       && [...document.querySelectorAll('a.card.card-selected')].map((card) => card.dataset.issueKey).sort().join() === ${selectedKeys}`,
     "Ctrl+clic, Cmd+clic et Maj+clic ne sélectionnent pas les trois cartes",
   );
+  const selectionClicks = await evaluate(sessionId, "window.__cardClicks");
   assert(
-    JSON.stringify(await evaluate(sessionId, "window.__cardClicks")) ===
+    JSON.stringify(selectionClicks) ===
       JSON.stringify([
         ["click", true],
         ["click", true],
         ["click", true],
-      ]) && (await send("Target.getTargets", {})).targetInfos.length === targetsBefore,
-    "Une sélection au Ctrl+clic ou Maj+clic a ouvert un onglet ou une fenêtre",
+      ]),
+    `Un Ctrl+clic, Cmd+clic ou Maj+clic n'a pas été retenu par la carte : ${JSON.stringify(selectionClicks)}`,
+  );
+  const newPages = (await pageTargets()).filter((target) => !pagesBefore.has(target.targetId));
+  assert(
+    newPages.length === 0,
+    `Une sélection au Ctrl+clic ou Maj+clic a ouvert un onglet ou une fenêtre : ${JSON.stringify(newPages.map((target) => target.url))}`,
   );
   for (const type of ["keyDown", "keyUp"])
     await send(
