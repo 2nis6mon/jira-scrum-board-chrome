@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-31-2026 09:00
-last_updated: 11-24-2026 17:40
+last_updated: 11-25-2026 11:37
 project: Sprint Goals Board pour Jira
 project_key: NOKEY
 tracking_system: file-system
@@ -109,7 +109,7 @@ development_status:
   8-33-deplacer-plusieurs-cartes-du-board-vers-un-objectif: done
   8-40-voir-les-swimlanes-par-type-dans-sans-objectif-du-planning: done
   8-41-documenter-sprint-planning-avant-son-activation: done
-  8-42-ranger-l-ecran-du-planning-par-zone: review
+  8-42-ranger-l-ecran-du-planning-par-zone: done
   8-10-valider-le-sprint-planning-sur-un-vrai-jira: done
   8-34-valider-le-sprint-planning-en-goals-atlassian-sur-le-sandbox: done
   8-35-relire-chaque-ticket-d-un-lot-renvoye-au-backlog: done
@@ -339,14 +339,14 @@ action_items:
     action: "Fiabiliser verify:drag (compter les seuls nouveaux onglets ou fenêtres)
       et statuer sur les bancs intermittents"
     owner: "dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-24.md"
   - id: "epic-8-retro-item-31-réserver-les-numéros-de-story-dans-epics"
     epic: 8
     action: "Réserver les numéros de story dans epics.md avant un build en parallèle
       ; noter 8.34 vers 8.40 et 8.35 vers 8.41 pour 6eaed19 et 16bd2a5"
     owner: "Denis (règle), dev"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-24.md"
   - id: "epic-8-retro-item-32-trier-les-points-différés-ouverts-de-l-e"
     epic: 8
