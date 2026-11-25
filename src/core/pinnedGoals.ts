@@ -1,6 +1,7 @@
 import type { BoardConfiguration } from "./boardConfiguration";
 import type { BoardSnapshot } from "./boardIssue";
 import type { JiraWriter } from "./boardWrites";
+import { sameOrder } from "./reorder";
 import {
   saveTeamSettings,
   type TeamDocument,
@@ -221,8 +222,4 @@ export async function saveBoardPinnedGoals(
     default:
       return outcome;
   }
-}
-
-function sameOrder(a: readonly string[], b: readonly string[]): boolean {
-  return a.length === b.length && a.every((id, index) => id === b[index]);
 }

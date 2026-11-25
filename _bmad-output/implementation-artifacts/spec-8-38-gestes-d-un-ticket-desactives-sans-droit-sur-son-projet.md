@@ -43,7 +43,7 @@ context:
 - `src/core/sprintPermissions.ts` -- `proposableSprintIds`, `SprintPermissionCache` (`projects` : `MANAGE_SPRINTS` par projet). Ajouter une lecture `issueRights(reader, projectKeys, cache)` → `Map<projet, { schedule: boolean|null; edit: boolean|null }>`, même `orNull`, cache à part dans `SprintPermissionCache`.
 - `src/jira/client.ts:494` -- `myPermissions(permissions, projectKey)` : réutilisé tel quel (`SCHEDULE_ISSUES,EDIT_ISSUES`).
 - `src/app/model/PlanningModel.ts` -- `#permissions` (l. 184, vidé l. 510 et 1634) ; `#read` (l. 515) : lire les droits des projets des tickets du snapshot ; nouveau signal `issueRights` et méthode `gestureRefusal(keys, gesture)` ; `placeIssue(s)`, `removeIssue(s)`, `estimate` : refus avant écriture (lot mêlé, avis nommant les tickets) ; `selectable` (l. 1719) inchangé (la sélection reste possible, le geste est refusé).
-- `src/app/views/planning/PlanningView.tsx` -- `PlanningCard` (l. 1402) : `draggable` (l. 1424), estimation (l. 1609) ; menu de carte (l. ~1780-1860) : `reason` des sous-menus « Ajouter au sprint / Envoyer vers un goal » et « Retirer du sprint ».
+- `src/app/views/planning/PlanningCard.tsx` (rangé par la story 8.42) -- `PlanningCard` (l. 58) : `draggable` (l. 109), estimation (`CardEstimate`, l. 308) ; menu de carte (`PlanningCardMenu`, l. 408) : `reason` des sous-menus « Ajouter au sprint / Envoyer vers un goal » et « Retirer du sprint ».
 - `src/i18n/board.ts` et `src/i18n/es/board.ts` (ou `messages.ts` pour les avis) -- nouvelles clés.
 - `tests/support/planningFixture.ts:104-110, 362-395` -- option `permissions` : ajouter les droits par projet et par clé (`schedule`, `edit`), la route `mypermissions` répondant selon la clé demandée.
 - Docs : `docs/technique/integration-jira.md` (ligne « Droits de l'utilisateur »), `invariants.md`, `CHANGELOG.md`, version.
@@ -54,7 +54,7 @@ context:
 - [ ] `src/core/sprintPermissions.ts` -- lecture des droits de ticket par projet, cache, indécidable à `null` -- règle unique.
 - [ ] `tests/core/sprintPermissions.test.ts` -- accordé, refusé, 403, une requête par projet.
 - [ ] `src/app/model/PlanningModel.ts` -- droits lus avec le snapshot, refus avant écriture des gestes concernés, avis.
-- [ ] `src/app/views/planning/PlanningView.tsx` -- glisser, menu et estimation désactivés avec leur raison.
+- [ ] `src/app/views/planning/PlanningCard.tsx` -- glisser, menu et estimation désactivés avec leur raison.
 - [ ] `src/i18n/` (fr, en, es) -- raisons et avis.
 - [ ] `tests/support/planningFixture.ts`, `tests/app/PlanningModel.test.ts` -- matrice ci-dessus, aucune écriture refusée.
 - [ ] `scripts/verify-planning.mjs` -- carte d'un projet sans *Schedule issues* dans le banc.

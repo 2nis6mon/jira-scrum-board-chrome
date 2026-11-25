@@ -14,6 +14,7 @@ import {
   NO_PLANNING_FILTERS,
   type PlanningFilters,
   planningFilterCount,
+  sameIds,
   searchNeedle,
 } from "../../core/filters";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
@@ -1700,10 +1701,6 @@ function planningIssues(snapshot: PlanningSnapshot, states: ColumnStates): JiraI
     ...snapshot.futureSprints.flatMap(({ issues }) => issues),
     ...snapshot.backlogIssues,
   ];
-}
-
-function sameIds(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
-  return a.size === b.size && [...a].every((id) => b.has(id));
 }
 
 /** Nombre de tickets et somme des estimations connues. */

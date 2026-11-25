@@ -16,6 +16,7 @@ import {
   type PlanningFilters,
   planningFilterCount,
   QUICK_FILTERS,
+  sameIds,
   searchNeedle,
 } from "../../src/core/filters";
 import type { AtlassianGoal, JiraIssue } from "../../src/jira/models";
@@ -367,5 +368,20 @@ describe("matchesIssueSearch (règle de recherche du board sur le ticket Jira)",
 
   it("le board garde la même règle", () => {
     expect(keys({ searchText: "Elodie" }, assemble([issue]))).toEqual(["ABC-7"]);
+  });
+});
+
+describe("sameIds : filtres rapides Jira du board et du planning (story 8.42)", () => {
+  it("mêmes identifiants dans un autre ordre", () => {
+    expect(sameIds(new Set([3, 1, 2]), new Set([1, 2, 3]))).toBe(true);
+  });
+
+  it("tailles ou éléments différents", () => {
+    expect(sameIds(new Set([1, 2]), new Set([1, 2, 3]))).toBe(false);
+    expect(sameIds(new Set([1, 4]), new Set([1, 2]))).toBe(false);
+  });
+
+  it("deux ensembles vides", () => {
+    expect(sameIds(new Set(), new Set())).toBe(true);
   });
 });

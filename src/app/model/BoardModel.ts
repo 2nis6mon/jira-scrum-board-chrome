@@ -44,6 +44,7 @@ import {
   isSprintQuickFilter,
   NO_FILTERS,
   type QuickFilter,
+  sameIds,
 } from "../../core/filters";
 import { quickFilterKeys } from "../../core/jiraQuickFilters";
 import { parentColors } from "../../core/parentColors";
@@ -54,6 +55,7 @@ import {
   pinnedGoalIdsIn,
   pinnedGoalsStorage,
 } from "../../core/pinnedGoals";
+import { sameOrder } from "../../core/reorder";
 import { goalColorName, type SprintGoal } from "../../core/sprintGoals";
 import { sprintHealth } from "../../core/sprintHealth";
 import { JiraClient, type JiraField, type JiraQuickFilter } from "../../jira/client";
@@ -294,7 +296,7 @@ export class BoardModel {
     const opening = editor.fromLocal
       ? (localPinnedGoalIdsIn(editor.storage, this.snapshot.value) ?? editor.base)
       : editor.base;
-    return !sameIdOrder(editor.selection, opening);
+    return !sameOrder(editor.selection, opening);
   });
 
   /** L'épinglage exige des Goals Atlassian et une propriété Jira relue. */
@@ -1887,18 +1889,6 @@ export class BoardModel {
 
 function isSessionLost(error: unknown): boolean {
   return error instanceof JiraError && error.isAuthenticationFailure;
-}
-
-function sameOrder(a: readonly string[], b: readonly string[]): boolean {
-  return a.length === b.length && a.every((id, index) => id === b[index]);
-}
-
-function sameIds(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
-  return a.size === b.size && [...a].every((id) => b.has(id));
-}
-
-function sameIdOrder(a: readonly string[], b: readonly string[]): boolean {
-  return a.length === b.length && a.every((id, index) => id === b[index]);
 }
 
 /** Route où confirmer un rang : celle que le board relit (story 8.29). */

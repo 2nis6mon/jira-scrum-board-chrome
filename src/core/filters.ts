@@ -103,6 +103,11 @@ export function activeFilterCount(filters: BoardFilters): number {
   return count + filters.quickFilters.size + filters.jiraQuickFilterIds.size;
 }
 
+/** Mêmes identifiants, dans n'importe quel ordre (filtres rapides Jira du board et du planning). */
+export function sameIds(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
+  return a.size === b.size && [...a].every((id) => b.has(id));
+}
+
 export function areFiltersActive(filters: BoardFilters): boolean {
   return activeFilterCount(filters) > 0;
 }

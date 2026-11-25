@@ -3,6 +3,16 @@
 Les détails des anciennes versions et les validations restent dans Git. Les procédures actuelles
 sont dans la [documentation technique](docs/technique/index.md).
 
+## 0.55.1 — Écran du planning rangé par zone
+
+- Story 8.42 (rétrospective de l'Epic 8, constat A1) : `src/app/views/planning/PlanningView.tsx`
+  (1 940 lignes) est rangé en fichiers par zone : `PlanningFilters`, `PlanningHeader`, `SourcesColumn`,
+  `PlanningLanes`, `PlanningCard`, avec `planningDrag` et `planningText` pour ce qu'ils partagent. Déplacement
+  pur, vérifié ligne à ligne ; `PlanningView.tsx` garde l'écran principal et réexporte les types de glisser.
+- Une seule copie de `sameOrder` (`core/reorder.ts`, au lieu de trois copies dans `BoardModel` et
+  `pinnedGoals`) et de `sameIds` (`core/filters.ts`, au lieu de deux dans les modèles).
+- Aucun changement visible, aucune écriture ni lecture Jira ; `PlanningModel.ts` n'est pas découpé.
+
 ## 0.55.0 — Chercher un parent dans le filtre Parent
 
 - Story 10.1 : le menu **Parent** du Sprint Board et du Sprint Planning commence par un champ de
