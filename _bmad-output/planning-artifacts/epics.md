@@ -83,7 +83,7 @@ FR28: Le bilan affiché peut être gardé ou partagé hors de l'extension (copie
 FR29: Le menu de filtre Parent permet de chercher un parent par texte (clé ou résumé) parmi ceux du sprint, car un sprint peut en compter beaucoup (Sprint Board et Sprint Planning).
 FR30: Le report des objectifs non atteints et le bilan appliquent une seule règle d'atteinte (atteint, non atteint, pas de données) ; à la clôture, le report reporte aussi un objectif sans ticket, et le Sprint Planning propose le bilan du sprint qui vient d'être clôturé (Denis, 25/11/2026).
 FR31: Le code de l'extension n'est plus exposé publiquement : le dépôt GitHub devient privé ou est archivé, et le site public (vitrine, guides, politique de confidentialité) se publie depuis un dépôt dédié qui ne contient que le site construit, sans lien cassé pour les utilisateurs du Store.
-FR32: Le dépôt est hébergé sur le GitLab de l'entreprise, devenu `origin`, avec son historique complet, une branche `main` protégée et des règles de push respectées.
+FR32: Le dépôt est hébergé sur le GitLab de l'entreprise, devenu `origin`, avec son historique complet, une branche d'intégration protégée (`develop`, seule branche du dépôt GitLab, qui prend le rôle de notre `main`) et des règles de push respectées.
 FR33: GitLab CI exécute les mêmes contrôles que `.github/workflows/validation.yml` (tous les bancs Chrome, `check`, site, paquet, kit Store), sur les mêmes déclencheurs, sans pipeline en double.
 FR34: Le poste de travail, les agents et la documentation suivent GitLab : clone, `glab` et jeton de lecture de la CI, règles d'AGENTS.md, README et `docs/technique/`, garde-fous contre les fuites d'adresses du dépôt.
 FR35: Si l'adresse publique du site change, toutes les références suivent (site, scripts, tests, textes Store, politique de confidentialité, vérification du site par le Store), et l'ancienne adresse redirige ou reste servie.
@@ -219,7 +219,7 @@ L'équipe trouve vite ce qu'elle cherche sur le board, même quand un sprint com
 ### Epic 11: Le code sur le GitLab de l'entreprise
 Le code de l'extension quitte GitHub pour le GitLab de l'entreprise, sans être exposé publiquement ; la CI, le poste de travail et les agents suivent, et le site public reste en ligne pour les utilisateurs du Store.
 **FRs covered:** FR31, FR32, FR33, FR34, FR35
-*Notes :* créé le 25/11/2026 (Denis, table ronde). Aucun changement de l'extension. Les stories 11.1 à 11.3 peuvent démarrer tout de suite ; 11.4 et suivantes attendent l'identification du dépôt GitLab. La propriété du code (éditeur Store, contact, licence) relève de l'Epic 5, pas de cette epic.
+*Notes :* créé le 25/11/2026 (Denis, table ronde). Aucun changement de l'extension. Les stories 11.1 à 11.3 peuvent démarrer tout de suite. Le dépôt GitLab existe (constat du 25/11/2026) : sa seule branche est `develop`, il n'a pas de `main` (story 11.10). La propriété du code (éditeur Store, contact, licence) relève de l'Epic 5, pas de cette epic.
 
 ## Epic 1: Des écritures Jira sûres et cohérentes
 
@@ -1915,7 +1915,7 @@ Le code de l'extension quitte GitHub pour le GitLab de l'entreprise. Constat du 
 
 Principe retenu en table ronde : séparer le code et le site. Le code part en privé sur GitLab ; le site se publie depuis un dépôt public dédié qui ne contient que le site construit (`release/sprint-goals-site.zip`, déjà prévu par `docs/site-web.md`) ; le domaine `sprintgoals.soneira.es` ne change pas sans décision. Aucun miroir du code vers un dépôt public.
 
-Ordre : 11.1 (décisions), 11.2 (site dédié), 11.3 (code GitHub non public), puis, une fois le dépôt GitLab identifié, 11.9 (identité des commits, ajoutée le 25/11/2026 et numérotée sans renumérotation), 11.4 (import), 11.5 (CI), 11.6 (poste de travail et agents), 11.7 (bascule et documentation) ; 11.8 (adresse du site) seulement si un changement de domaine est décidé.
+Ordre : 11.1 (décisions), 11.2 (site dédié), 11.3 (code GitHub non public), puis 11.9 (identité des commits) et 11.10 (branche `develop`), ajoutées le 25/11/2026 et numérotées sans renumérotation, 11.4 (import), 11.5 (CI), 11.6 (poste de travail et agents), 11.7 (bascule et documentation) ; 11.8 (adresse du site) seulement si un changement de domaine est décidé.
 
 *Questions ouvertes (Denis) :*
 - Passer le dépôt GitHub en privé tout de suite, quitte à interrompre le site tant que la story 11.2 n'est pas faite (GitHub Pages sur dépôt privé exige une offre payante) ?
@@ -1927,6 +1927,7 @@ Ordre : 11.1 (décisions), 11.2 (site dédié), 11.3 (code GitHub non public), p
   - **B. Réécrire l'auteur de tout l'historique** (`git filter-repo --mailmap`, sur un clone neuf, au moment de l'import) : historique, dates et messages conservés, mais toutes les empreintes changent. Les références de commit écrites dans AGENTS.md, le CHANGELOG et `_bmad-output/` (par exemple `4510319`) deviennent fausses : la table de correspondance produite par `filter-repo` est gardée et ces références sont mises à jour ou annotées.
   - **C. Un seul commit initial sans historique** : écarté par la table ronde. Le projet s'appuie sur son historique (AGENTS.md : « l'historique détaillé reste dans Git » ; rétrospectives BMAD sur diffs et commits ; `git blame`) ; on perdrait la trace de toutes les décisions.
   - Recommandation : **A si les règles de push le permettent, sinon B ; jamais C.** Attribuer à l'adresse de l'entreprise des commits faits avec l'adresse personnelle engage aussi la question de la propriété du code (Epic 5) : à confirmer avec l'entreprise avant de choisir B.
+- Branches (constat de Denis, 25/11/2026, story 11.10) : le dépôt GitLab existe et sa seule branche est `develop`, il n'a pas de `main`. Convention de l'entreprise (GitFlow : `develop` pour l'intégration, `main` ou `master` pour la production ?), contenu actuel de `develop` (vide, fichiers d'amorce ou vrais commits ?), protection (push direct permis ou merge request obligatoire ?), préfixes de branches de travail (`agent/...` acceptés ?). Recommandation : `develop` prend le rôle de notre `main` ; pas de `main` créée sur GitLab sauf si la convention en impose une pour la production.
 - Devenir de GitHub après la bascule : privé, archivé ou supprimé ; et du dépôt de la politique historique `sprint-goals-privacy` ?
 - Domaine : rester sur `soneira.es` ou passer sur un domaine de l'entreprise (DNS et certificat gérés par l'IT, hébergement public obligatoire) ?
 - Propriété du code (éditeur Store, contact, licence) : Epic 5, à trancher à part.
@@ -1941,7 +1942,7 @@ So that l'import et la CI ne butent pas sur une règle de l'entreprise découver
 
 **Given** les questions ouvertes de l'epic
 **When** Denis les tranche, avec l'IT pour les runners, les règles de push et le domaine
-**Then** les décisions sont consignées dans `docs/technique/developpement.md` (dépôt, runners, accès réseau, règles de push, devenir de GitHub, domaine) et dans cet epic
+**Then** les décisions sont consignées dans `docs/technique/developpement.md` (dépôt, branches, runners, accès réseau, règles de push, devenir de GitHub, domaine) et dans cet epic
 **And** les règles de push sont vérifiées sur l'historique réel (plus de 330 commits, adresse de l'auteur, messages en français, branches `agent/...`) avant l'import, par un essai sur un dépôt GitLab de test ou la lecture des règles du groupe
 **And** ce résultat dit si les anciens commits, signés de l'adresse personnelle, sont acceptés : il décide l'option d'identité de la story 11.9
 
@@ -1988,10 +1989,10 @@ So that le code y vit avec son historique.
 
 **Acceptance Criteria:**
 
-**Given** le dépôt GitLab identifié et les règles de push de 11.1
+**Given** le dépôt GitLab (seule branche : `develop`), les règles de push de 11.1 et le modèle de branches de 11.10
 **When** l'historique est poussé (branches utiles ; au 25/11/2026, ni issue, ni PR, ni release, ni tag à reprendre)
-**Then** `main` est protégée (pas de push forcé, fusion selon la règle d'AGENTS.md) et les branches `agent/**` sont autorisées
-**And** l'historique poussé est celui préparé par la story 11.9 : inchangé avec `.mailmap` (option A, empreinte de `main` identique des deux côtés) ou réécrit et contrôlé (option B)
+**Then** notre `main` arrive sur `develop` selon la story 11.10 ; `develop` est protégée (pas de push forcé, fusion selon la règle d'AGENTS.md adaptée en 11.10) et les branches `agent/**` sont autorisées
+**And** l'historique poussé est celui préparé par la story 11.9 : inchangé avec `.mailmap` (option A, empreinte de `develop` sur GitLab identique à celle de notre `main`) ou réécrit et contrôlé (option B)
 **And** aucun secret n'est poussé : `.secrets/extension-key.pem` reste hors de Git et est rangé dans le coffre retenu en 11.1 ; `dist/`, `release/` et `_bmad-output/party-mode/` restent ignorés
 
 ### Story 11.5: Une CI GitLab équivalente à la CI GitHub
@@ -2004,7 +2005,7 @@ So that rien ne régresse sans être vu après la bascule.
 
 **Given** `.github/workflows/validation.yml`
 **When** `.gitlab-ci.yml` est écrit
-**Then** il joue, dans le même ordre, la préparation de Chrome for Testing, `verify:jira`, `verify:drag`, `verify:settings`, `verify:i18n`, `verify:planning`, `verify:planning:package`, `verify:loading`, `check`, `site:check`, `site:verify`, `package` et `store:kit`, sur `main`, `agent/**`, `codex/**` et les merge requests
+**Then** il joue, dans le même ordre, la préparation de Chrome for Testing, `verify:jira`, `verify:drag`, `verify:settings`, `verify:i18n`, `verify:planning`, `verify:planning:package`, `verify:loading`, `check`, `site:check`, `site:verify`, `package` et `store:kit`, sur `develop` (branche d'intégration, story 11.10), `agent/**`, `codex/**` et les merge requests qui visent `develop`
 **And** `workflow:rules` évite les pipelines en double (branche + merge request) et `interruptible: true` remplace `cancel-in-progress`
 **And** `CHROME_PATH` est transmis sans `GITHUB_ENV` (même script ou `dotenv`), et les droits du sandbox Chrome (`icacls`) sont revus pour le runner retenu, Windows ou Linux
 
@@ -2042,7 +2043,7 @@ So that personne ne pousse au mauvais endroit.
 
 **Given** les stories 11.4 à 11.6 terminées
 **When** la bascule a lieu
-**Then** AGENTS.md (fichier de CI cité, branches surveillées, suivi de la CI ; la ligne « Identité » est changée par la story 11.9), `README.md`, `docs/technique/developpement.md` et `docs/site-web.md` décrivent GitLab ; `.github/workflows/` est retiré
+**Then** AGENTS.md (fichier de CI cité, branches surveillées, suivi de la CI ; la ligne « Identité » est changée par la story 11.9, les règles de fusion et de réservation des numéros par la story 11.10), `README.md`, `docs/technique/developpement.md` et `docs/site-web.md` décrivent GitLab ; `.github/workflows/` est retiré
 **And** les garde-fous contre les fuites (`scripts/build-site.mjs`, `scripts/verify-site.mjs`, `tests/site-guide.test.ts`, qui refusent aujourd'hui `github.com/2nis6mon`) refusent aussi l'adresse du dépôt GitLab interne dans le site public
 **And** le dépôt GitHub est archivé ou supprimé selon 11.1, et `2nis6mon/sprint-goals-privacy` suit la même décision
 **And** les documents de travail terminés (`_bmad-output/`) gardent leurs anciennes adresses (historique)
@@ -2094,3 +2095,44 @@ So that les règles du GitLab les acceptent et que l'historique est attribué à
 **And** ce changement n'est pas fait tant que le dépôt GitHub est public, pour ne pas y publier l'adresse professionnelle
 
 *Notes :* aucune modification de l'extension. La mémoire des agents qui cite l'identité de commit (règle « Mode autonome et commits ») est mise à jour en même temps qu'AGENTS.md.
+
+### Story 11.10: Faire arriver notre `main` sur la branche `develop` du GitLab
+
+*Ajoutée le 25/11/2026 à la demande de Denis.* Constat : le dépôt GitLab existe, sa seule branche est `develop`, il n'a pas de `main`. Se joue **après 11.9, avant 11.4** : l'import pousse vers la branche qu'elle fixe. Son premier critère se tranche dès 11.1.
+
+As a mainteneur qui importe le code sur le GitLab de l'entreprise,
+I want que notre `main` arrive sur `develop` sans rien écraser et selon la convention de l'entreprise,
+So that l'historique, la CI et la règle de fusion visent la bonne branche dès le premier jour.
+
+**Acceptance Criteria:**
+
+**Given** le dépôt GitLab, dont la seule branche est `develop`
+**When** Denis vérifie la convention de branches de l'entreprise (avec l'IT, en 11.1)
+**Then** le modèle retenu est consigné dans `docs/technique/developpement.md` : `develop` prend le rôle de notre `main` (branche d'intégration, branche par défaut du dépôt)
+**And** si la convention impose une branche de production (`main` ou `master`, branches `release/*`, tags), le moment où le code y passe est fixé, par exemple à chaque version soumise au Chrome Web Store ; sinon aucune `main` n'est créée sur GitLab
+**And** les préfixes des branches de travail sont confirmés : `agent/...` accepté, ou remplacé par celui de la convention (par exemple `feature/...`), avec la règle d'AGENTS.md et le filtre de la CI mis à jour en conséquence
+
+**Given** le contenu actuel de `develop`
+**When** il est inspecté avant l'import (`git ls-remote`, puis `git log` et la liste des fichiers sur un clone)
+**Then** si `develop` est vide, notre `main` y est poussée telle quelle (`git push <gitlab> main:develop`), en avance rapide, sans commit de fusion
+**And** si `develop` ne contient que des fichiers d'amorce créés par GitLab (README, `.gitignore`, modèle de licence), leur contenu est relevé, puis `develop` est remplacée une seule fois par notre historique, protection levée le temps du push par un mainteneur du dépôt, avec l'accord explicite de Denis
+**And** si `develop` contient de vrais commits, rien n'est remplacé : Denis choisit entre une fusion des deux historiques (`--allow-unrelated-histories`, un commit de fusion) et une autre organisation décidée avec l'IT
+**And** après l'import, l'empreinte de `develop` est celle de notre `main` (ou de son historique préparé par 11.9, option B), ou celle du commit de fusion retenu
+
+**Given** `develop` protégée sur GitLab
+**When** un agent livre une story ou réserve un numéro de story
+**Then** les règles d'AGENTS.md « Fusion dans `main` sur demande explicite » et « réserver d'abord son numéro sur `main` » visent `develop` et suivent les droits réels : push direct en avance rapide s'il est permis, sinon merge request ouverte par `glab` vers `develop` et fusionnée par Denis
+**And** les branches de travail partent de `develop`, et leurs merge requests la visent par défaut
+
+**Given** le clone de travail
+**When** `origin` passe sur GitLab (11.6)
+**Then** la branche locale `main` devient `develop` et suit `origin/develop` (`git branch -m main develop`, `git branch -u origin/develop`, `git remote set-head origin -a`)
+**And** les branches de travail en cours sont rebasées ou fusionnées sur `develop`, sans push forcé sur une branche partagée
+**And** pendant la transition (11.5), le même commit est poussé sur la `main` de GitHub (`git push github develop:main`) jusqu'à l'archivage de GitHub (11.7) ; aucun miroir automatique
+
+**Given** les références à `main` en tant que branche
+**When** la bascule a lieu (11.7)
+**Then** elles désignent `develop` : `.gitlab-ci.yml` (11.5), AGENTS.md (fusion, réservation des numéros), `README.md`, `docs/technique/developpement.md`, `docs/site-web.md` si la publication du site dépend encore d'une branche, et le LIRE-MOI du kit Store (`scripts/prepare-store-kit.mjs`, étape 1)
+**And** le CHANGELOG et les documents de travail terminés (`_bmad-output/`) gardent `main` (historique)
+
+*Notes :* aucune modification de l'extension. Références à `main` recensées le 25/11/2026 : `.github/workflows/validation.yml` (déclencheurs), `.github/workflows/pages.yml` (retiré ou adapté par 11.2), AGENTS.md (fusion, réservation des numéros), `README.md`, `docs/site-web.md`, `docs/technique/developpement.md`, `scripts/prepare-store-kit.mjs`. La mémoire des agents qui cite `main` est mise à jour en même temps qu'AGENTS.md. L'adresse du dépôt GitLab n'est pas écrite ici tant que le dépôt GitHub est public.
