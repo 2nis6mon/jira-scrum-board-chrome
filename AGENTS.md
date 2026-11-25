@@ -60,6 +60,10 @@ projet : [README](README.md). Éviter les copies entre documents. L'historique d
 - Avant commit : `npm run check` et `npm run verify:jira`. Si `dist/` est en cours d'essai,
   construire ailleurs et utiliser `EXTENSION_DIR` comme décrit dans `docs/technique/developpement.md`.
 - Après un changement de texte visible ou de langue : `npm run verify:i18n` (banc fictif, profil Chrome temporaire).
+- Après un changement d'interface (vue, style, texte, geste) : tous les bancs Chrome de la CI
+  (`.github/workflows/validation.yml`) — `verify:jira`, `verify:drag`, `verify:settings`, `verify:i18n`,
+  `verify:planning`, `verify:planning:package`, `verify:loading` —, pas seulement ceux de la story :
+  ils partagent l'écran (0.55.0 a cassé `verify:loading` sans que le build le voie).
 - Scripts Python de BMAD (`_bmad/scripts/`, skills) : `uv run …`, jamais `python` directement.
 - Ne pas lire les identifiants ou la session Jira de l'utilisateur. Contrôles sur profils Chrome
   temporaires et Jira fictif ; un essai réel nécessite l'autorisation de l'utilisateur.
