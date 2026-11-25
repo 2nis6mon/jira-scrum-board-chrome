@@ -12,6 +12,9 @@ sont dans la [documentation technique](docs/technique/index.md).
 - Une seule copie de `sameOrder` (`core/reorder.ts`, au lieu de trois copies dans `BoardModel` et
   `pinnedGoals`) et de `sameIds` (`core/filters.ts`, au lieu de deux dans les modèles).
 - Aucun changement visible, aucune écriture ni lecture Jira ; `PlanningModel.ts` n'est pas découpé.
+- CI rouge depuis 0.55.0 corrigée : `verify:loading` lisait la première zone `role="status"` de la page,
+  devenue celle du menu Parent (story 10.1), au lieu de la confirmation « Rapport copié » ; le banc
+  cherche maintenant parmi toutes les zones d'annonce.
 
 ## 0.55.0 — Chercher un parent dans le filtre Parent
 

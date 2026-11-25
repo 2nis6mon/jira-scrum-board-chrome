@@ -77,7 +77,8 @@ try {
   );
   await waitFor(
     session,
-    "document.querySelector('[role=status]')?.textContent.includes('Rapport copié')",
+    // Plusieurs zones d'annonce coexistent (dont celle du menu Parent, story 10.1) : chercher la bonne.
+    "[...document.querySelectorAll('[role=status]')].some((zone) => zone.textContent.includes('Rapport copié'))",
     "La copie n'est pas confirmée",
   );
   const report = await evaluate(session, "window.__chargement.rapports.at(-1)");
