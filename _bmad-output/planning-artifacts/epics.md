@@ -89,6 +89,7 @@ FR33: GitLab CI exécute les mêmes contrôles que `.github/workflows/validation
 FR34: Le poste de travail, les agents et la documentation suivent GitLab : clone, `glab` et jeton de lecture de la CI, règles d'AGENTS.md, README et `docs/technique/`, garde-fous contre les fuites d'adresses du dépôt.
 FR35: Si l'adresse publique du site change, toutes les références suivent (site, scripts, tests, textes Store, politique de confidentialité, vérification du site par le Store), et l'ancienne adresse redirige ou reste servie.
 FR36: Le Sprint Planning et le Sprint Board tiennent compte des droits Jira de l'utilisateur (décision du 06/11/2026) : un sprint futur non modifiable reste une source de tickets sans être préparé, l'entrée « Sprint Planning » est fermée, avec sa raison, sans le droit de gérer les sprints du board, et les gestes qu'un projet refuserait (*Schedule issues*, *Edit issues*) sont désactivés sur la carte avec leur raison ; droits indécidables : le geste part, une seule tentative.
+FR37: En mode « texte du sprint », un objectif du sprint en cours se renomme depuis le Sprint Board : il garde son identifiant et ses tickets, le texte `goal` du sprint (E8) puis sa propriété (E5) sont écrits une fois chacun, comme au renommage du Sprint Planning (Denis, 26/11/2026).
 
 ### NonFunctional Requirements
 
@@ -165,6 +166,7 @@ FR33: Epic 11 - CI GitLab équivalente à la CI GitHub
 FR34: Epic 11 - Poste de travail, agents et documentation sur GitLab
 FR35: Epic 11 - Changement d'adresse du site, si décidé
 FR36: Epic 12 - Sprint Planning et Sprint Board à la mesure des droits Jira
+FR37: Epic 12 - Renommer un objectif du sprint en cours sans perdre ses tickets
 ## Epic List
 
 Ordre : l'Epic 1 précède les Epics 2, 3 et 6, qui écrivent dans Jira ; les Epics 4, 5 et 7 peuvent démarrer indépendamment.
@@ -224,10 +226,10 @@ Le code de l'extension quitte GitHub pour le GitLab de l'entreprise, sans être 
 **FRs covered:** FR31, FR32, FR33, FR34, FR35
 *Notes :* créé le 25/11/2026 (Denis, table ronde). Aucun changement de l'extension. Les stories 11.1 à 11.3 peuvent démarrer tout de suite. Le dépôt GitLab existe (constat du 25/11/2026) : sa seule branche est `develop`, il n'a pas de `main` (story 11.10). La propriété du code (éditeur Store, contact, licence) relève de l'Epic 5, pas de cette epic.
 
-### Epic 12: Sprint Planning V2, à la mesure des droits Jira
-Le Sprint Planning et le Sprint Board ne proposent plus un geste que Jira refuserait : chaque geste désactivé dit pourquoi, l'entrée du planning se ferme sans le droit de gérer les sprints, et un sprint futur non modifiable reste une source de tickets.
-**FRs covered:** FR36
-*Notes :* créé le 25/11/2026 (Denis) à la clôture de l'Epic 8, avec ses stories non faites : 8.36 à 8.39, devenues 12.1 à 12.4 (spec de la 12.3 prête). Lectures seules (`mypermissions`, `board/{id}/project`), aucune nouvelle route ni écriture ; textes en fr/en/es.
+### Epic 12: Sprint Planning V2
+Le Sprint Planning et le Sprint Board ne proposent plus un geste que Jira refuserait : chaque geste désactivé dit pourquoi, l'entrée du planning se ferme sans le droit de gérer les sprints, et un sprint futur non modifiable reste une source de tickets. L'équipe renomme un objectif du sprint en cours sans que ses tickets le perdent.
+**FRs covered:** FR36, FR37
+*Notes :* créé le 25/11/2026 (Denis) à la clôture de l'Epic 8, avec ses stories non faites : 8.36 à 8.39, devenues 12.1 à 12.4 (spec de la 12.3 prête). Droits : lectures seules (`mypermissions`, `board/{id}/project`), aucune nouvelle route ni écriture ; textes en fr/en/es. Complété le 26/11/2026 (Denis) par la story 12.5, renommer un objectif du sprint en cours, qui étend E8 (texte `goal`, déjà à l'inventaire) au sprint actif sur décision produit.
 
 ## Epic 1: Des écritures Jira sûres et cohérentes
 
@@ -2052,13 +2054,13 @@ So that l'historique, la CI et la règle de fusion visent la bonne branche dès 
 
 *Notes :* aucune modification de l'extension. Références à `main` recensées le 25/11/2026 : `.github/workflows/validation.yml` (déclencheurs), `.github/workflows/pages.yml` (retiré ou adapté par 11.2), AGENTS.md (fusion, réservation des numéros), `README.md`, `docs/site-web.md`, `docs/technique/developpement.md`, `scripts/prepare-store-kit.mjs`. La mémoire des agents qui cite `main` est mise à jour en même temps qu'AGENTS.md. L'adresse du dépôt GitLab n'est pas écrite ici tant que le dépôt GitHub est public.
 
-## Epic 12: Sprint Planning V2, à la mesure des droits Jira
+## Epic 12: Sprint Planning V2
 
 Suite du Sprint Planning livré par l'Epic 8 (terminée le 25/11/2026, décision de Denis). Le planning et le Sprint Board tiennent compte des droits Jira de l'utilisateur : ils ne proposent plus un geste que Jira refuserait, et un sprint futur non modifiable reste une source de tickets. Décision produit des droits : Denis, 06/11/2026 ([backlog](backlog.md)). Aujourd'hui, un refus 403 s'affiche au premier geste, sans nouvelle tentative.
 
 Reprises de l'Epic 8, numéros changés le 25/11/2026 : 8.36 → 12.1, 8.37 → 12.2, 8.38 → 12.3 (spec prête, renommée `spec-12-3-…`), 8.39 → 12.4. Les commits, la rétrospective et le contexte de l'Epic 8 gardent les anciens numéros.
 
-Ordre : 12.3 (droits d'un ticket, lecture commune), 12.4 (même lecture sur le Sprint Board), 12.1 (sprint futur non modifiable, s'appuie sur 12.3), 12.2 (entrée fermée sans droit, essai avec un compte sans droit). Règle reprise de la story 8.42 : la logique des droits va dans `src/core/sprintPermissions.ts`, le modèle ne fait que la brancher ; l'écran du planning est déjà rangé par zone (8.42).
+Ordre : 12.3 (droits d'un ticket, lecture commune), 12.4 (même lecture sur le Sprint Board), 12.1 (sprint futur non modifiable, s'appuie sur 12.3), 12.2 (entrée fermée sans droit, essai avec un compte sans droit). La 12.5 (renommer un objectif du sprint en cours, ajoutée le 26/11/2026) ne dépend d'aucune autre et peut se jouer à tout moment, après la décision produit qu'elle demande. Règle reprise de la story 8.42 : la logique des droits va dans `src/core/sprintPermissions.ts`, le modèle ne fait que la brancher ; l'écran du planning est déjà rangé par zone (8.42).
 
 ### Story 12.1: Planifier les tickets d'un sprint futur que je ne peux pas modifier
 
@@ -2157,3 +2159,48 @@ So that je ne découvre pas le refus de Jira en déplaçant la carte.
 **Then** il part comme aujourd'hui, une seule tentative, refus de Jira affiché
 
 *Notes :* réutilise la lecture des droits de ticket de la 12.3 ; coût au chargement du board (une requête par projet) à mesurer, le board étant livré.
+
+### Story 12.5: Renommer un objectif du sprint en cours
+
+*Type : évolution, demandée par Denis le 26/11/2026. Mode « texte du sprint » seulement.*
+
+*Constat (code au 26/11/2026) :* sur le Sprint Board, un objectif texte se renomme seulement dans Jira (manuel : « Pour renommer ou ajouter un objectif, modifiez ce texte dans Jira »). Or la réconciliation (`reconcileSprintGoals`, `src/core/sprintGoals.ts`) retrouve un objectif par son titre exact : un titre changé dans Jira devient un objectif nouveau, l'ancien disparaît, ses tickets s'affichent sans objectif et leur lien est retiré de la propriété au geste suivant. Le Sprint Planning sait déjà renommer en gardant l'identifiant (`writeTextGoals`, `src/core/sprintPlanning.ts` : E8 puis E5), mais seulement pour le sprint en préparation (`futureSprint`).
+
+As a membre de l'équipe pendant le sprint,
+I want renommer un objectif du sprint en cours depuis le board,
+So that son nouveau titre est dans Jira et ses tickets restent rattachés.
+
+**Acceptance Criteria:**
+
+**Given** la décision produit de Denis d'autoriser E8 (texte `goal`, déjà à l'inventaire de `src/jira/writes.ts`) sur le sprint actif depuis le Sprint Board, et le contrat vérifié (`POST /rest/agile/1.0/sprint/{id}`, mise à jour partielle d'un sprint actif)
+**When** la story démarre
+**Then** la règle « Écritures métier » d'AGENTS.md, `docs/technique/securite.md` et le commentaire d'inventaire de `writes.ts` disent que le texte `goal` s'écrit aussi sur le sprint actif, pour le renommage depuis le board ; aucune nouvelle route
+
+**Given** un board Scrum en mode « texte du sprint » et un objectif d'un sprint actif du board
+**When** je choisis « Renommer » sur l'en-tête de sa swimlane et valide un nouveau titre (Entrée ou sortie du champ ; Échap annule), comme dans le Sprint Planning
+**Then** le texte `goal` du sprint est réécrit (E8, la ligne d'origine gardée pour les autres objectifs : puces, emoji, numéros), puis la propriété `sprintgoals.v1` (E5), une fois chacun, avec relecture ; l'objectif garde son identifiant, sa couleur, sa position et tous ses tickets
+**And** le texte relu doit être celui affiché avant E8, et la zone des objectifs de la propriété inchangée avant E5 : sinon rien n'est écrit, le board est relu et l'avis demande de refaire (règles du planning)
+**And** un titre vide, ou identique à celui d'un autre objectif du même sprint, est refusé avant toute écriture
+
+**Given** plusieurs sprints actifs sur le board
+**When** je renomme un objectif
+**Then** seul le texte de son sprint est écrit ; les objectifs d'un sprint étranger au board ne proposent pas « Renommer »
+
+**Given** un utilisateur sans droit de modifier le sprint (règle de 0.43.1 : ni administrateur, ni « Gérer les sprints » sur les projets du board ; `canEdit` ne conditionne que E6 et n'entre pas en jeu)
+**When** il ouvre l'en-tête de l'objectif
+**Then** « Renommer » est désactivé avec sa raison ; droits indécidables : le geste part, une seule tentative, refus de Jira affiché
+
+**Given** un board en Goals Atlassian
+**When** l'objectif est un Goal
+**Then** rien ne change : un Goal se renomme dans Atlassian, l'extension n'en crée ni n'en modifie aucun
+
+**Given** le changement
+**When** il est vérifié
+**Then** tests de `core` (renommage sur sprint actif, conflit de texte, titre en double, plusieurs sprints), banc Chrome (`verify:jira` et les autres bancs de la CI, l'en-tête de swimlane étant partagé), textes en fr/en/es, manuel et guides EN/ES mis à jour (la phrase « modifiez ce texte dans Jira » renvoie d'abord au renommage depuis le board) ; essai sur le sandbox avec l'accord de Denis
+
+*Questions ouvertes (Denis) :*
+- Décision produit : autoriser E8 sur le sprint actif depuis le board (aujourd'hui réservé au sprint en préparation du Sprint Planning) ?
+- Renommage fait directement dans Jira : aujourd'hui les tickets perdent leur objectif sans avertissement. Le traiter aussi (par exemple, quand un seul titre disparaît et un seul apparaît dans le même sprint, proposer « Objectif renommé ? Garder ses tickets », écrit seulement sur ce geste) ou se limiter à le dire dans le manuel ? Recommandation : le dire dans le manuel dans cette story, et en faire une story à part si le besoin se confirme.
+- Le bilan de l'Epic 9 montrera le titre actuel de l'objectif renommé, pas celui de la fermeture : à confirmer.
+
+*Notes :* réutiliser `writeTextGoals` en lui faisant accepter le sprint actif (aujourd'hui `futureSprint`), sans dupliquer la séquence E8 puis E5 (AD-2 : une seule fonction par intention) ; l'écriture passe par la porte du board (AD-6). Ajout et suppression d'un objectif du sprint en cours restent hors de cette story.
